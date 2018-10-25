@@ -1,0 +1,7 @@
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+lib/
+.vs
+*.user
