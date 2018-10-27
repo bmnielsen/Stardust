@@ -19,11 +19,20 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Locutus\BuildingPlacer.cpp" />
     <ClCompile Include="..\..\Locutus\Dll.cpp" />
     <ClCompile Include="..\..\Locutus\LocutusAIModule.cpp" />
+    <ClCompile Include="..\..\Locutus\Log.cpp" />
+    <ClCompile Include="..\..\Locutus\Map.cpp" />
+    <ClCompile Include="..\..\Locutus\Opponent.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Locutus\BuildingPlacer.h" />
+    <ClInclude Include="..\..\Locutus\Common.h" />
     <ClInclude Include="..\..\Locutus\LocutusAIModule.h" />
+    <ClInclude Include="..\..\Locutus\Log.h" />
+    <ClInclude Include="..\..\Locutus\Map.h" />
+    <ClInclude Include="..\..\Locutus\Opponent.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -102,6 +111,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;LOCUTUS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
