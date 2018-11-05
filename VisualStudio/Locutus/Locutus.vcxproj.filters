@@ -13,6 +13,24 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\Map">
+      <UniqueIdentifier>{5912076b-7da2-421c-a588-8f00039528d5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Map">
+      <UniqueIdentifier>{a6333551-d9b2-4681-b031-73d5abc17a10}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Util">
+      <UniqueIdentifier>{e93c8b0e-9338-40f7-9369-b329b25760cb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Map\MapSpecificOverrides">
+      <UniqueIdentifier>{7757f118-4e28-4b97-ac4b-e5855b6dad7d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Map\MapSpecificOverrides">
+      <UniqueIdentifier>{aa79f781-6594-4e43-bc39-357358308c00}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Util">
+      <UniqueIdentifier>{2b725ecf-8bac-434c-b4d3-db59a4b6e4fb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Locutus\LocutusAIModule.cpp">
@@ -24,21 +42,36 @@
     <ClCompile Include="..\..\Locutus\Log.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Locutus\Map.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Locutus\Opponent.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Locutus\BuildingPlacer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Locutus\Map.cpp">
+      <Filter>Source Files\Map</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\Base.cpp">
+      <Filter>Source Files\Map</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\Geo.cpp">
+      <Filter>Source Files\Util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\Choke.cpp">
+      <Filter>Source Files\Map</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\Plasma.cpp">
+      <Filter>Source Files\Map\MapSpecificOverrides</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\Fortress.cpp">
+      <Filter>Source Files\Map\MapSpecificOverrides</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\PathFinding.cpp">
+      <Filter>Source Files\Map</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Locutus\LocutusAIModule.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Locutus\Map.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Locutus\Log.h">
@@ -52,6 +85,30 @@
     </ClInclude>
     <ClInclude Include="..\..\Locutus\BuildingPlacer.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Map.h">
+      <Filter>Header Files\Map</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Base.h">
+      <Filter>Header Files\Map</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Geo.h">
+      <Filter>Header Files\Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Choke.h">
+      <Filter>Header Files\Map</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\MapSpecificOverride.h">
+      <Filter>Header Files\Map</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Plasma.h">
+      <Filter>Header Files\Map\MapSpecificOverrides</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Fortress.h">
+      <Filter>Header Files\Map\MapSpecificOverrides</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\PathFinding.h">
+      <Filter>Header Files\Map</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
