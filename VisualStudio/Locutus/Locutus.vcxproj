@@ -28,9 +28,13 @@
     <ClCompile Include="..\..\Locutus\LocutusAIModule.cpp" />
     <ClCompile Include="..\..\Locutus\Log.cpp" />
     <ClCompile Include="..\..\Locutus\Map.cpp" />
+    <ClCompile Include="..\..\Locutus\MyUnit.cpp" />
     <ClCompile Include="..\..\Locutus\Opponent.cpp" />
     <ClCompile Include="..\..\Locutus\PathFinding.cpp" />
     <ClCompile Include="..\..\Locutus\Plasma.cpp" />
+    <ClCompile Include="..\..\Locutus\EnemyUnit.cpp" />
+    <ClCompile Include="..\..\Locutus\Units.cpp" />
+    <ClCompile Include="..\..\Locutus\UnitUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Locutus\Base.h" />
@@ -39,6 +43,10 @@
     <ClInclude Include="..\..\Locutus\Common.h" />
     <ClInclude Include="..\..\Locutus\Fortress.h" />
     <ClInclude Include="..\..\Locutus\Geo.h" />
+    <ClInclude Include="..\..\Locutus\EnemyUnit.h" />
+    <ClInclude Include="..\..\Locutus\MyUnit.h" />
+    <ClInclude Include="..\..\Locutus\Units.h" />
+    <ClInclude Include="..\..\Locutus\UnitUtil.h" />
     <ClInclude Include="..\..\Locutus\LocutusAIModule.h" />
     <ClInclude Include="..\..\Locutus\Log.h" />
     <ClInclude Include="..\..\Locutus\Map.h" />

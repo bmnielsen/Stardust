@@ -2,6 +2,7 @@
 #include "Map.h"
 #include "BuildingPlacer.h"
 #include "Opponent.h"
+#include "Units.h"
 
 void LocutusAIModule::onStart()
 {
@@ -22,6 +23,7 @@ void LocutusAIModule::onEnd(bool isWinner)
 
 void LocutusAIModule::onFrame()
 {
+    Units::update();
 }
 
 void LocutusAIModule::onSendText(std::string text)
@@ -66,6 +68,7 @@ void LocutusAIModule::onUnitDestroy(BWAPI::Unit unit)
 {
     Map::onUnitDestroy(unit);
     BuildingPlacer::onUnitDestroy(unit);
+    Units::onUnitDestroy(unit);
 }
 
 void LocutusAIModule::onUnitMorph(BWAPI::Unit unit)
@@ -75,6 +78,7 @@ void LocutusAIModule::onUnitMorph(BWAPI::Unit unit)
 
 void LocutusAIModule::onUnitRenegade(BWAPI::Unit unit)
 {
+    Units::onUnitRenegade(unit);
 }
 
 void LocutusAIModule::onSaveGame(std::string gameName)

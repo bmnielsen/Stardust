@@ -31,6 +31,12 @@
     <Filter Include="Header Files\Util">
       <UniqueIdentifier>{2b725ecf-8bac-434c-b4d3-db59a4b6e4fb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Units">
+      <UniqueIdentifier>{02b4b817-b408-4dde-bfe5-7cdfc831c8dc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Units">
+      <UniqueIdentifier>{df511c0d-261e-4a83-9759-1ef5da1590cb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Locutus\LocutusAIModule.cpp">
@@ -68,6 +74,18 @@
     </ClCompile>
     <ClCompile Include="..\..\Locutus\PathFinding.cpp">
       <Filter>Source Files\Map</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\UnitUtil.cpp">
+      <Filter>Source Files\Util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\Units.cpp">
+      <Filter>Source Files\Units</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\EnemyUnit.cpp">
+      <Filter>Source Files\Units</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\MyUnit.cpp">
+      <Filter>Source Files\Units</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -109,6 +127,18 @@
     </ClInclude>
     <ClInclude Include="..\..\Locutus\PathFinding.h">
       <Filter>Header Files\Map</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Units.h">
+      <Filter>Header Files\Units</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\UnitUtil.h">
+      <Filter>Header Files\Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\EnemyUnit.h">
+      <Filter>Header Files\Units</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\MyUnit.h">
+      <Filter>Header Files\Units</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
