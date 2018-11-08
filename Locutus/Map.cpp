@@ -51,12 +51,70 @@ namespace Map
                 _minChokeWidth = pair.second.width;
     }
 
+    void onUnitCreate(BWAPI::Unit unit)
+    {
+        // Resource depots near bases imply base ownership
+        if (unit->getType().isResourceDepot())
+        {
+            auto * base = baseNear(unit->getTilePosition());
+            if (base)
+            {
+                // Determine the owner of the created building
+                Base::Owner unitOwner = Base::Owner::None;
+                if (unit->getPlayer() == BWAPI::Broodwar->self())
+                    unitOwner = Base::Owner::Me;
+                else if (unit->getPlayer()->isEnemy(BWAPI::Broodwar->self()))
+                    unitOwner = Base::Owner::Enemy;
+                else if (unit->getPlayer()->isAlly(BWAPI::Broodwar->self()))
+                    unitOwner = Base::Owner::Ally;
+                else
+                    return; // Neutral unit?
+
+                // If the base was previously unowned, set the owner
+                if (base->owner == Base::Owner::None)
+                {
+                    base->owner = unitOwner;
+                    base->ownedSince = BWAPI::Broodwar->getFrameCount();
+                }
+
+                // Set the resource depot when appropriate
+                if (base->owner == unitOwner)
+                {
+                    // If we already have a registered resource depot for this base, replace it if the new one is
+                    // closer to where we expect it should be
+                    if (base->resourceDepot && base->resourceDepot->exists())
+                    {
+                        int existingDist = base->resourceDepot->getPosition().getDistance(base->getPosition());
+                        int newDist = unit->getPosition().getDistance(base->getPosition());
+                        if (newDist < existingDist) base->resourceDepot = unit;
+                    }
+                    else
+                        base->resourceDepot = unit;
+                }
+            }
+        }
+    }
+
     void onUnitDestroy(BWAPI::Unit unit)
     {
         if (unit->getType().isMineralField())
             bwemMap.OnMineralDestroyed(unit);
         else if (unit->getType().isSpecialBuilding())
             bwemMap.OnStaticBuildingDestroyed(unit);
+
+        // If the lost unit was the resource depot of a base, update the base ownership
+        if (unit->getType().isResourceDepot())
+        {
+            for (auto & base : bases)
+            {
+                if (base.resourceDepot == unit)
+                {
+                    base.owner = Base::Owner::None;
+                    base.resourceDepot = nullptr;
+                    base.ownedSince = -1;
+                }
+            }
+        }
     }
 
     MapSpecificOverride * mapSpecificOverride()
@@ -71,13 +129,20 @@ namespace Map
 
     Base * baseNear(BWAPI::TilePosition tile)
     {
+        int closestDist = INT_MAX;
+        Base * result = nullptr;
+
         for (auto & base : bases)
         {
             int dist = base.getTilePosition().getApproxDistance(tile);
-            if (dist < 10) return &base;
+            if (dist < 10 && dist < closestDist)
+            {
+                closestDist = dist;
+                result = &base;
+            }
         }
 
-        return nullptr;
+        return result;
     }
 
     Choke * choke(const BWEM::ChokePoint * bwemChoke)

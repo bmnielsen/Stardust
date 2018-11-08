@@ -8,7 +8,10 @@ class Base
 {
 public:
 
-    BWAPI::Player owner;                                      // Owning player, may be neutral
+    enum class Owner { None, Me, Enemy, Ally };
+
+    Owner         owner;                                      // Who owns the base
+    BWAPI::Unit   resourceDepot;                              // The resource depot for the base, may be null
     int           ownedSince;                                 // Frame the base last changed ownership
     int           lastScouted;                                // When we have last seen this base
     bool          spiderMined;                                // Do we suspect this base to have a spider mine blocking it

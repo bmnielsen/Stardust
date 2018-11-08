@@ -11,6 +11,7 @@
 namespace Map
 {
     void initialize();
+    void onUnitCreate(BWAPI::Unit unit);
     void onUnitDestroy(BWAPI::Unit unit);
 
     MapSpecificOverride * mapSpecificOverride();

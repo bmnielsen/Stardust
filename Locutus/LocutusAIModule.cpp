@@ -63,6 +63,7 @@ void LocutusAIModule::onUnitHide(BWAPI::Unit unit)
 
 void LocutusAIModule::onUnitCreate(BWAPI::Unit unit)
 {
+    Map::onUnitCreate(unit);
     BuildingPlacer::onUnitCreate(unit);
 }
 
