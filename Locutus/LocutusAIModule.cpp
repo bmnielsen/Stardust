@@ -14,6 +14,8 @@ void LocutusAIModule::onStart()
     BWAPI::Broodwar->setLocalSpeed(0);
     BWAPI::Broodwar->setFrameSkip(0);
 
+    // FIXME: Choose opening
+
     Log::Get() << "I am Locutus of Borg, you are " << Opponent::getName() << ", we're in " << BWAPI::Broodwar->mapFileName();
 }
 

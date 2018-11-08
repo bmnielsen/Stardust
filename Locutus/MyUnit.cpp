@@ -35,7 +35,7 @@ void MyUnit::update()
 
     if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon) updateGoon();
 
-    // TODO: This seems fishy, we're updating this early in the frame so it is actually the current position
+    // FIXME: This seems fishy, we're updating this early in the frame so it is actually the current position
     lastPosition = unit->getPosition();
 
     // If a worker is stuck, order it to move again
@@ -406,7 +406,7 @@ void MyUnit::fleeFrom(BWAPI::Position position)
         if (!BWAPI::Broodwar->isWalkable(walk)) return false;
 
         // Not blocked by one of our own units
-        // TODO: Enable again when we can detect collisions
+        // FIXME: Enable again when we can detect collisions
         /*
         if (InformationManager::Instance().getMyUnitGrid().getCollision(walk) > 0)
             return false;

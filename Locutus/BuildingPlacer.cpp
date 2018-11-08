@@ -10,8 +10,8 @@ namespace BuildingPlacer
     {
         bwebMap.onStart();
 
-        // TODO: Create wall
-        // TODO: Create proxy blocks
+        // FIXME: Create wall
+        // FIXME: Create proxy blocks
 
         bwebMap.findBlocks();
     }
