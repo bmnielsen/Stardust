@@ -122,7 +122,7 @@ namespace Map
         return _mapSpecificOverride;
     }
 
-    const std::vector<Base>& allBases()
+    std::vector<Base>& allBases()
     {
         return bases;
     }

@@ -75,6 +75,9 @@
     <ClCompile Include="..\..\Locutus\PathFinding.cpp">
       <Filter>Source Files\Map</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Locutus\Workers.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Locutus\UnitUtil.cpp">
       <Filter>Source Files\Util</Filter>
     </ClCompile>
@@ -127,6 +130,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Locutus\PathFinding.h">
       <Filter>Header Files\Map</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Workers.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Locutus\Units.h">
       <Filter>Header Files\Units</Filter>

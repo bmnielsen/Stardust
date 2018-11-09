@@ -11,3 +11,14 @@ Base::Base(BWAPI::TilePosition _tile, const BWEM::Base * _bwemBase)
     , requiresMineralWalkFromEnemyStartLocations(false)
 {
 }
+
+std::vector<BWAPI::Unit> Base::mineralPatches() const
+{
+    std::vector<BWAPI::Unit> result;
+    for (auto mineral : bwemBase->Minerals())
+    {
+        result.push_back(mineral->Unit());
+    }
+
+    return result;
+}
