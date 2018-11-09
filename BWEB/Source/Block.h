@@ -23,13 +23,13 @@ namespace BWEB
 		TilePosition Location() const { return t; }
 
 		// Returns the const set of tilepositions that belong to 2x2 (small) buildings
-		set<TilePosition> SmallTiles() const { return small; }
+		const set<TilePosition> & SmallTiles() const { return small; }
 
 		// Returns the const set of tilepositions that belong to 3x2 (medium) buildings
-		set<TilePosition> MediumTiles() const { return medium; }
+        const set<TilePosition> & MediumTiles() const { return medium; }
 
 		// Returns the const set of tilepositions that belong to 4x3 (large) buildings
-		set<TilePosition> LargeTiles() const { return large; }
+        const set<TilePosition> & LargeTiles() const { return large; }
 
 		void insertSmall(const TilePosition here) { small.insert(here); }
 		void insertMedium(const TilePosition here) { medium.insert(here); }
