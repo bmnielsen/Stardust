@@ -1,6 +1,7 @@
 #include "LocutusAIModule.h"
 #include "Map.h"
-#include "BuildingPlacer.h"
+#include "Builder.h"
+#include "BuildingPlacement.h"
 #include "Opponent.h"
 #include "Units.h"
 #include "Workers.h"
@@ -10,7 +11,7 @@ void LocutusAIModule::onStart()
     Log::SetDebug(true);
 
     Map::initialize();
-    BuildingPlacer::initialize();
+    BuildingPlacement::initialize();
 
     BWAPI::Broodwar->setLocalSpeed(0);
     BWAPI::Broodwar->setFrameSkip(0);
@@ -26,10 +27,12 @@ void LocutusAIModule::onEnd(bool isWinner)
 
 void LocutusAIModule::onFrame()
 {
+    // Update general information things
     Units::update();
 
-    // Called last as workers may be taken or released for building, combat, etc. earlier
-    Workers::update();
+    // Update stuff that issues orders
+    Builder::update();
+    Workers::update(); // Called last to allow workers to be taken or released for building, combat, etc. earlier
 }
 
 void LocutusAIModule::onSendText(std::string text)
@@ -50,7 +53,7 @@ void LocutusAIModule::onNukeDetect(BWAPI::Position target)
 
 void LocutusAIModule::onUnitDiscover(BWAPI::Unit unit)
 {
-    BuildingPlacer::onUnitDiscover(unit);
+    BuildingPlacement::onUnitDiscover(unit);
 }
 
 void LocutusAIModule::onUnitEvade(BWAPI::Unit unit)
@@ -68,20 +71,20 @@ void LocutusAIModule::onUnitHide(BWAPI::Unit unit)
 void LocutusAIModule::onUnitCreate(BWAPI::Unit unit)
 {
     Map::onUnitCreate(unit);
-    BuildingPlacer::onUnitCreate(unit);
+    BuildingPlacement::onUnitCreate(unit);
 }
 
 void LocutusAIModule::onUnitDestroy(BWAPI::Unit unit)
 {
     Map::onUnitDestroy(unit);
-    BuildingPlacer::onUnitDestroy(unit);
+    BuildingPlacement::onUnitDestroy(unit);
     Units::onUnitDestroy(unit);
     Workers::onUnitDestroy(unit);
 }
 
 void LocutusAIModule::onUnitMorph(BWAPI::Unit unit)
 {
-    BuildingPlacer::onUnitMorph(unit);
+    BuildingPlacement::onUnitMorph(unit);
 }
 
 void LocutusAIModule::onUnitRenegade(BWAPI::Unit unit)

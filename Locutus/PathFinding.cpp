@@ -179,6 +179,15 @@ namespace PathFinding
         return CustomChokePointPath(start, end, useNearestBWEMArea, unitType, pathLength);
     }
 
+    int ExpectedTravelTime(BWAPI::Position start, BWAPI::Position end, BWAPI::UnitType unitType, PathFindingOptions options)
+    {
+        int dist = unitType.isFlyer()
+            ? start.getApproxDistance(end)
+            : GetGroundDistance(start, end, unitType, options);
+        if (dist <= 0) return 0;
+        return (int)((double)dist / unitType.topSpeed());
+    }
+
     BWAPI::TilePosition NearbyPathfindingTile(BWAPI::TilePosition start)
     {
         for (int radius = 0; radius < 4; radius++)

@@ -52,8 +52,7 @@ namespace Workers
 
                 if (baseWorkers[&base].size() >= base.mineralPatchCount() * 2) continue;
 
-                int dist = PathFinding::GetGroundDistance(unit->getPosition(), base.getPosition(), unit->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea);
-                int frames = (int)((double)dist / unit->getType().topSpeed());
+                int frames = PathFinding::ExpectedTravelTime(unit->getPosition(), base.getPosition(), unit->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea);
 
                 if (!base.resourceDepot->isCompleted())
                     frames = std::max(frames, base.resourceDepot->getRemainingBuildTime());
@@ -201,5 +200,36 @@ namespace Workers
                 break;
             }
         }
+    }
+
+    bool isAvailableBuilder(BWAPI::Unit unit)
+    {
+        if (!unit || !unit->exists() || !unit->isCompleted() || !unit->getType().isWorker()) return false;
+
+        auto job = workerJob[unit];
+        if (job == Job::None) return true;
+        if (job == Job::Minerals)
+        {
+            if (unit->isCarryingMinerals()) return false;
+            return (unit->getOrder() == BWAPI::Orders::Move 
+                || unit->getOrder() == BWAPI::Orders::MoveToMinerals
+                || unit->getOrder() == BWAPI::Orders::WaitForMinerals);
+        }
+
+        return false;
+    }
+
+    void setBuilder(BWAPI::Unit unit)
+    {
+        if (!unit || !unit->exists() || !unit->getType().isWorker() || !unit->isCompleted()) return;
+
+        workerJob[unit] = Job::Build;
+    }
+
+    void releaseWorker(BWAPI::Unit unit)
+    {
+        if (!unit || !unit->exists() || !unit->getType().isWorker() || !unit->isCompleted()) return;
+
+        workerJob[unit] = Job::None;
     }
 }

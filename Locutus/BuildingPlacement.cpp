@@ -1,4 +1,4 @@
-#include "BuildingPlacer.h"
+#include "BuildingPlacement.h"
 
 #include <BWEB.h>
 
@@ -7,7 +7,7 @@
 namespace { auto & bwemMap = BWEM::Map::Instance(); }
 namespace { auto & bwebMap = BWEB::Map::Instance(); }
 
-namespace BuildingPlacer
+namespace BuildingPlacement
 {
     namespace
     {

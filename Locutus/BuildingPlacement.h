@@ -2,7 +2,7 @@
 
 #include "Common.h"
 
-namespace BuildingPlacer
+namespace BuildingPlacement
 {
     void initialize();
 

@@ -20,7 +20,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Locutus\Base.cpp" />
-    <ClCompile Include="..\..\Locutus\BuildingPlacer.cpp" />
+    <ClCompile Include="..\..\Locutus\Builder.cpp" />
+    <ClCompile Include="..\..\Locutus\Building.cpp" />
+    <ClCompile Include="..\..\Locutus\BuildingPlacement.cpp" />
     <ClCompile Include="..\..\Locutus\Choke.cpp" />
     <ClCompile Include="..\..\Locutus\Dll.cpp" />
     <ClCompile Include="..\..\Locutus\Fortress.cpp" />
@@ -39,7 +41,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Locutus\Base.h" />
-    <ClInclude Include="..\..\Locutus\BuildingPlacer.h" />
+    <ClInclude Include="..\..\Locutus\Builder.h" />
+    <ClInclude Include="..\..\Locutus\Building.h" />
+    <ClInclude Include="..\..\Locutus\BuildingPlacement.h" />
     <ClInclude Include="..\..\Locutus\Choke.h" />
     <ClInclude Include="..\..\Locutus\Common.h" />
     <ClInclude Include="..\..\Locutus\Fortress.h" />
