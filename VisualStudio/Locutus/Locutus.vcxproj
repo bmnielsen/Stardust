@@ -35,6 +35,8 @@
     <ClCompile Include="..\..\Locutus\PathFinding.cpp" />
     <ClCompile Include="..\..\Locutus\Plasma.cpp" />
     <ClCompile Include="..\..\Locutus\EnemyUnit.cpp" />
+    <ClCompile Include="..\..\Locutus\ProductionGoal.cpp" />
+    <ClCompile Include="..\..\Locutus\Strategist.cpp" />
     <ClCompile Include="..\..\Locutus\Units.cpp" />
     <ClCompile Include="..\..\Locutus\UnitUtil.cpp" />
     <ClCompile Include="..\..\Locutus\Workers.cpp" />
@@ -50,6 +52,9 @@
     <ClInclude Include="..\..\Locutus\Geo.h" />
     <ClInclude Include="..\..\Locutus\EnemyUnit.h" />
     <ClInclude Include="..\..\Locutus\MyUnit.h" />
+    <ClInclude Include="..\..\Locutus\Opening.h" />
+    <ClInclude Include="..\..\Locutus\ProductionGoal.h" />
+    <ClInclude Include="..\..\Locutus\Strategist.h" />
     <ClInclude Include="..\..\Locutus\Units.h" />
     <ClInclude Include="..\..\Locutus\UnitUtil.h" />
     <ClInclude Include="..\..\Locutus\Workers.h" />
@@ -60,6 +65,7 @@
     <ClInclude Include="..\..\Locutus\Opponent.h" />
     <ClInclude Include="..\..\Locutus\PathFinding.h" />
     <ClInclude Include="..\..\Locutus\Plasma.h" />
+    <ClInclude Include="..\..\Locutus\Zealots.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

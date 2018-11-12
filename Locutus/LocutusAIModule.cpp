@@ -3,6 +3,7 @@
 #include "Builder.h"
 #include "BuildingPlacement.h"
 #include "Opponent.h"
+#include "Strategist.h"
 #include "Units.h"
 #include "Workers.h"
 
@@ -16,7 +17,7 @@ void LocutusAIModule::onStart()
     BWAPI::Broodwar->setLocalSpeed(0);
     BWAPI::Broodwar->setFrameSkip(0);
 
-    // FIXME: Choose opening
+    Strategist::chooseOpening();
 
     Log::Get() << "I am Locutus of Borg, you are " << Opponent::getName() << ", we're in " << BWAPI::Broodwar->mapFileName();
 }
