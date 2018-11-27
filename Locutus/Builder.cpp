@@ -9,23 +9,23 @@ namespace Builder
 {
     namespace
     {
-        std::vector<Building> pendingBuildings;
-        std::map<BWAPI::Unit, std::vector<Building*>> builderQueues;
+        std::vector<std::shared_ptr<Building>> pendingBuildings;
+        std::map<BWAPI::Unit, std::vector<std::shared_ptr<Building>>> builderQueues;
 
         // Ensures the worker is being ordered to build this building
-        void build(Building * building)
+        void build(Building & building)
         {
-            if (building->unit || !building->builder || !building->builder->exists()) return;
+            if (building.unit || !building.builder || !building.builder->exists()) return;
 
             // If the builder is constructing, we have already given it the build command and are waiting
             // for the building to appear
-            if (building->builder->isConstructing()) return;
+            if (building.builder->isConstructing()) return;
 
             // Move if we aren't close to the build position
-            int dist = building->builder->getDistance(building->getPosition());
+            int dist = building.builder->getDistance(building.getPosition());
             if (dist < 64)
             {
-                Units::getMine(building->builder).moveTo(building->getPosition());
+                Units::getMine(building.builder)->moveTo(building.getPosition());
                 return;
             }
 
@@ -33,29 +33,31 @@ namespace Builder
             // (e.g. spider mine blocking)
 
             // Issue the build command
-            bool result = building->builder->build(building->type, building->tile);
+            bool result = building.builder->build(building.type, building.tile);
 
             // Build command failed
             if (!result)
             {
                 // TODO: Look for blocking units
 
-                Units::getMine(building->builder).moveTo(building->getPosition());
+                Units::getMine(building.builder)->moveTo(building.getPosition());
             }
         }
 
         // Releases the builder from constructing the given building
         // The builder may still have more buildings in its queue
-        void releaseBuilder(Building * building)
+        void releaseBuilder(Building & building)
         {
-            auto builder = building->builder;
-            building->builder = nullptr;
+            if (!building.builder) return;
+
+            auto builder = building.builder;
+            building.builder = nullptr;
 
             // Remove the building from the builder's queue
             auto & builderQueue = builderQueues[builder];
             for (auto it = builderQueue.begin(); it != builderQueue.end(); )
             {
-                it = *it == building ? builderQueue.erase(it) : it + 1;
+                it = it->get() == &building ? builderQueue.erase(it) : it + 1;
             }
 
             // When the builder has no more buildings in its queue, release it back to Workers
@@ -67,7 +69,7 @@ namespace Builder
             }
 
             // Tell the worker to build the new start of its queue
-            build(*builderQueue.begin());
+            build(**builderQueue.begin());
         }
     }
 
@@ -76,14 +78,17 @@ namespace Builder
         // Prune the list of pending buildings
         for (auto it = pendingBuildings.begin(); it != pendingBuildings.end(); )
         {
+            auto & building = **it;
+
             // Remove the building if:
             // - The building has completed
             // - The building has died while under construction
             // - The builder has died before starting construction
             // TODO: Cancel dying buildings
-            if ((it->unit && (!it->unit->exists() || it->unit->isCompleted()))
-                || (!it->unit && (!it->builder->exists() || it->builder->getPlayer() != BWAPI::Broodwar->self())))
+            if ((building.unit && (!building.unit->exists() || building.unit->isCompleted()))
+                || (!building.unit && (!building.builder->exists() || building.builder->getPlayer() != BWAPI::Broodwar->self())))
             {
+                releaseBuilder(building);
                 it = pendingBuildings.erase(it);
             }
             else
@@ -99,12 +104,12 @@ namespace Builder
                 if (!unit->getType().isBuilding() || unit->isCompleted()) continue;
                 for (auto & pendingBuilding : pendingBuildings)
                 {
-                    if (pendingBuilding.unit) continue;
-                    if (pendingBuilding.type != unit->getType()) continue;
-                    if (pendingBuilding.tile != unit->getTilePosition()) continue;
+                    if (pendingBuilding->unit) continue;
+                    if (pendingBuilding->type != unit->getType()) continue;
+                    if (pendingBuilding->tile != unit->getTilePosition()) continue;
 
-                    pendingBuilding.unit = unit;
-                    releaseBuilder(&pendingBuilding);
+                    pendingBuilding->unit = unit;
+                    releaseBuilder(*pendingBuilding);
                 }
             }
         }
@@ -120,8 +125,16 @@ namespace Builder
                 continue;
             }
 
-            build(*it->second.begin());
+            build(**it->second.begin());
+            it++;
         }
+    }
+
+    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder)
+    {
+        auto building = std::make_shared<Building>(type, tile, builder);
+        pendingBuildings.push_back(building);
+        builderQueues[builder].push_back(building);
     }
 
     BWAPI::Unit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int * expectedArrivalFrame)
@@ -133,7 +146,7 @@ namespace Builder
         BWAPI::Unit bestWorker = nullptr;
         for (auto & unit : BWAPI::Broodwar->self()->getUnits())
         {
-            if (!Workers::isAvailableBuilder(unit)) continue;
+            if (!Workers::isAvailableForReassignment(unit)) continue;
 
             int travelTime = 
                 PathFinding::ExpectedTravelTime(unit->getPosition(), buildPosition, unit->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea);
@@ -175,5 +188,31 @@ namespace Builder
         if (expectedArrivalFrame)
             *expectedArrivalFrame = bestWorker ? BWAPI::Broodwar->getFrameCount() + bestTravelTime : -1;
         return bestWorker;
+    }
+
+    std::vector<std::shared_ptr<Building>> allPendingBuildings()
+    {
+        return pendingBuildings;
+    }
+
+    std::vector<std::shared_ptr<Building>> pendingBuildingsOfType(BWAPI::UnitType type)
+    {
+        std::vector<std::shared_ptr<Building>> result;
+        for (auto building : pendingBuildings)
+        {
+            if (building->type == type) result.push_back(building);
+        }
+
+        return result;
+    }
+
+    bool isPendingHere(BWAPI::TilePosition tile)
+    {
+        for (auto building : pendingBuildings)
+        {
+            if (building->tile == tile) return true;
+        }
+
+        return false;
     }
 }

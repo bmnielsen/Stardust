@@ -2,6 +2,7 @@
 
 #include "Opening.h"
 #include "Zealots.h"
+#include "Dragoons.h"
 
 namespace Strategist
 {
@@ -12,10 +13,10 @@ namespace Strategist
 
     void chooseOpening()
     {
-        opening = new Zealots();
+        opening = new Dragoons();
     }
 
-    std::vector<ProductionGoal>& currentProductionGoals()
+    std::vector<ProductionGoal *> & currentProductionGoals()
     {
         return opening->goals();
     }

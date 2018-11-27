@@ -117,6 +117,10 @@ Choke::Choke(const BWEM::ChokePoint * _choke)
     // If there is a map with a narrow blocked choke it will break
     if (choke->Blocked() && width == 15) width = 32;
 
+#ifdef _DEBUG
+    return;
+#endif
+
     // Check if the choke is a ramp
     int firstAreaElevation = BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(choke->GetAreas().first->Top()));
     int secondAreaElevation = BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(choke->GetAreas().second->Top()));
@@ -154,122 +158,6 @@ Choke::Choke(const BWEM::ChokePoint * _choke)
 
         computeScoutBlockingPositions(centerPoint, BWAPI::UnitTypes::Protoss_Probe, probeBlockScoutPositions);
         computeScoutBlockingPositions(centerPoint, BWAPI::UnitTypes::Protoss_Zealot, zealotBlockScoutPositions);
-    }
-
-    // Add mineral walking data for Plasma
-    if (BWAPI::Broodwar->mapHash() == "6f5295624a7e3887470f3f2e14727b1411321a67")
-    {
-        BWAPI::Position chokeCenter = Center();
-
-        // Determine if the choke is blocked by eggs, and grab the close mineral patches
-        bool blockedByEggs = false;
-        BWAPI::Unit closestMineralPatch = nullptr;
-        BWAPI::Unit secondClosestMineralPatch = nullptr;
-        int closestMineralPatchDist = INT_MAX;
-        int secondClosestMineralPatchDist = INT_MAX;
-        for (const auto staticNeutral : BWAPI::Broodwar->getStaticNeutralUnits())
-        {
-            if (!blockedByEggs && staticNeutral->getType() == BWAPI::UnitTypes::Zerg_Egg &&
-                staticNeutral->getDistance(chokeCenter) < 100)
-            {
-                blockedByEggs = true;
-            }
-
-            if (staticNeutral->getType() == BWAPI::UnitTypes::Resource_Mineral_Field &&
-                staticNeutral->getResources() == 32)
-            {
-                int dist = staticNeutral->getDistance(chokeCenter);
-                if (dist <= closestMineralPatchDist)
-                {
-                    secondClosestMineralPatchDist = closestMineralPatchDist;
-                    closestMineralPatchDist = dist;
-                    secondClosestMineralPatch = closestMineralPatch;
-                    closestMineralPatch = staticNeutral;
-                }
-                else if (dist < secondClosestMineralPatchDist)
-                {
-                    secondClosestMineralPatchDist = dist;
-                    secondClosestMineralPatch = staticNeutral;
-                }
-            }
-        }
-
-        if (blockedByEggs)
-        {
-            requiresMineralWalk = true;
-
-            auto closestArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(closestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
-            auto secondClosestArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(secondClosestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
-            if (closestArea == choke->GetAreas().second &&
-                secondClosestArea == choke->GetAreas().first)
-            {
-                secondAreaMineralPatch = closestMineralPatch;
-                firstAreaMineralPatch = secondClosestMineralPatch;
-            }
-            else
-            {
-                // Note: Two of the chokes don't have the mineral patches show up in expected areas because of
-                // suboptimal BWEM choke placement, but luckily they both follow this pattern
-                firstAreaMineralPatch = closestMineralPatch;
-                secondAreaMineralPatch = secondClosestMineralPatch;
-            }
-        }
-    }
-
-    // Add mineral walking data for Fortress
-    if (BWAPI::Broodwar->mapHash() == "83320e505f35c65324e93510ce2eafbaa71c9aa1")
-    {
-        // On Fortress the mineral walking chokes are all considered blocked by BWEM
-        if (choke->Blocked())
-        {
-            requiresMineralWalk = true;
-
-            // Find the two closest mineral patches to the choke
-            BWAPI::Position chokeCenter = Center();
-            BWAPI::Unit closestMineralPatch = nullptr;
-            BWAPI::Unit secondClosestMineralPatch = nullptr;
-            int closestMineralPatchDist = INT_MAX;
-            int secondClosestMineralPatchDist = INT_MAX;
-            for (const auto staticNeutral : BWAPI::Broodwar->getStaticNeutralUnits())
-            {
-                if (staticNeutral->getType().isMineralField())
-                {
-                    int dist = staticNeutral->getDistance(chokeCenter);
-                    if (dist <= closestMineralPatchDist)
-                    {
-                        secondClosestMineralPatchDist = closestMineralPatchDist;
-                        closestMineralPatchDist = dist;
-                        secondClosestMineralPatch = closestMineralPatch;
-                        closestMineralPatch = staticNeutral;
-                    }
-                    else if (dist < secondClosestMineralPatchDist)
-                    {
-                        secondClosestMineralPatchDist = dist;
-                        secondClosestMineralPatch = staticNeutral;
-                    }
-                }
-            }
-
-            // Each entrance to a mineral walking base has two doors with a mineral patch behind each
-            // So the choke closest to the base will have a mineral patch on both sides we can use
-            // The other choke has a mineral patch on the way in, but not on the way out, so one will be null
-            // We will use a random visible mineral patch on the map to handle getting out
-            auto closestArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(closestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
-            auto secondClosestArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(secondClosestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
-
-            if (closestArea == choke->GetAreas().first)
-                firstAreaMineralPatch = closestMineralPatch;
-            if (closestArea == choke->GetAreas().second)
-                secondAreaMineralPatch = closestMineralPatch;
-            if (secondClosestArea == choke->GetAreas().first)
-                firstAreaMineralPatch = secondClosestMineralPatch;
-            if (secondClosestArea == choke->GetAreas().second)
-                secondAreaMineralPatch = secondClosestMineralPatch;
-
-            // We use the door as the starting point regardless of which side is which
-            firstAreaStartPosition = choke->BlockingNeutral()->Unit()->getInitialPosition();
-            secondAreaStartPosition = choke->BlockingNeutral()->Unit()->getInitialPosition();
-        }
     }
 }
 

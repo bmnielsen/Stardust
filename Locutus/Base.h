@@ -22,8 +22,10 @@ public:
     const BWAPI::TilePosition & getTilePosition() const { return tile; }
     const BWAPI::Position & getPosition() const { return BWAPI::Position(tile) + BWAPI::Position(64,48); }
 
-    int mineralPatchCount() const { return bwemBase->Minerals().size(); }
+    size_t mineralPatchCount() const { return bwemBase->Minerals().size(); }
     std::vector<BWAPI::Unit> mineralPatches() const;
+    std::vector<BWAPI::Unit> geysers() const;
+    std::vector<BWAPI::Unit> refineries() const;
 
 private:
 

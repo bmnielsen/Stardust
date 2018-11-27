@@ -19,6 +19,8 @@ public:
     Building(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder);
     
     BWAPI::Position getPosition() const;
+    bool constructionStarted() const;
+    int expectedFramesUntilCompletion() const;
 
     // TODO: Stuff like handling things blocking construction, picking a new location, cancelling, etc.
 };

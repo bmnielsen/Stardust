@@ -2,12 +2,12 @@
 
 namespace { auto & bwemMap = BWEM::Map::Instance(); }
 
-void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke> & chokes)
+void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> & chokes)
 {
     for (auto & pair : chokes)
     {
         const BWEM::ChokePoint * choke = pair.first;
-        Choke & chokeData = pair.second;
+        Choke & chokeData = *pair.second;
 
         BWAPI::Position chokeCenter(choke->Center());
 

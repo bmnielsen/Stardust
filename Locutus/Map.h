@@ -16,7 +16,7 @@ namespace Map
 
     MapSpecificOverride * mapSpecificOverride();
     
-    std::vector<Base> & allBases();
+    std::vector<Base *> & allBases();
     Base * baseNear(BWAPI::TilePosition tile);
     
     Choke * choke(const BWEM::ChokePoint * bwemChoke);

@@ -60,7 +60,7 @@ namespace Log
         if (!log)
         {
             log = new std::ofstream();
-            log->open("bwapi-data/write/Locutus_log.txt", std::ofstream::app);
+            log->open("bwapi-data/write/Locutus_log.txt", std::ofstream::trunc);
         }
 
         return LogWrapper(log);
@@ -73,7 +73,7 @@ namespace Log
         if (!debugLog)
         {
             debugLog = new std::ofstream();
-            debugLog->open("bwapi-data/write/Locutus_log_debug.txt", std::ofstream::app);
+            debugLog->open("bwapi-data/write/Locutus_log_debug.txt", std::ofstream::trunc);
         }
 
         return LogWrapper(debugLog);

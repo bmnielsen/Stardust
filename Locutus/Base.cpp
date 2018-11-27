@@ -22,3 +22,27 @@ std::vector<BWAPI::Unit> Base::mineralPatches() const
 
     return result;
 }
+
+std::vector<BWAPI::Unit> Base::geysers() const
+{
+    std::vector<BWAPI::Unit> result;
+    for (auto geyser : bwemBase->Geysers())
+    {
+        if (geyser->Unit()->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser) continue;
+        result.push_back(geyser->Unit());
+    }
+
+    return result;
+}
+
+std::vector<BWAPI::Unit> Base::refineries() const
+{
+    std::vector<BWAPI::Unit> result;
+    for (auto geyser : bwemBase->Geysers())
+    {
+        if (geyser->Unit()->getPlayer() != BWAPI::Broodwar->self()) continue;
+        result.push_back(geyser->Unit());
+    }
+
+    return result;
+}

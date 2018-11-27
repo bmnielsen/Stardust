@@ -7,5 +7,5 @@ class Opening
 {
 public:
     // The prioritized goals of the opening
-    virtual std::vector<ProductionGoal> & goals() = 0;
+    virtual std::vector<ProductionGoal *> & goals() = 0;
 };

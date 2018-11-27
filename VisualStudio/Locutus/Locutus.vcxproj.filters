@@ -34,9 +34,6 @@
     <Filter Include="Header Files\Units">
       <UniqueIdentifier>{02b4b817-b408-4dde-bfe5-7cdfc831c8dc}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Units">
-      <UniqueIdentifier>{df511c0d-261e-4a83-9759-1ef5da1590cb}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\Builder">
       <UniqueIdentifier>{10fe2e23-520c-4ace-ae0a-1390cae5d78d}</UniqueIdentifier>
     </Filter>
@@ -51,6 +48,15 @@
     </Filter>
     <Filter Include="Header Files\Strategist\Openings">
       <UniqueIdentifier>{c45bb9f1-c282-4699-a261-2146d85fc9d8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Strategist\ProductionGoals">
+      <UniqueIdentifier>{6d41d206-02ed-4915-b2c9-02c62ceaaab1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Strategist\ProductionGoals">
+      <UniqueIdentifier>{3220f13d-2628-4b5b-8692-59e54bb4b2fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Units">
+      <UniqueIdentifier>{df511c0d-261e-4a83-9759-1ef5da1590cb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -114,8 +120,11 @@
     <ClCompile Include="..\..\Locutus\Strategist.cpp">
       <Filter>Source Files\Strategist</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Locutus\ProductionGoal.cpp">
-      <Filter>Source Files\Strategist</Filter>
+    <ClCompile Include="..\..\Locutus\Producer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\ContinuousWorkerProduction.cpp">
+      <Filter>Source Files\Strategist\ProductionGoals</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -189,6 +198,18 @@
       <Filter>Header Files\Strategist</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Locutus\Zealots.h">
+      <Filter>Header Files\Strategist\Openings</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Producer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\ContinuousProduction.h">
+      <Filter>Header Files\Strategist\ProductionGoals</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\ContinuousWorkerProduction.h">
+      <Filter>Header Files\Strategist\ProductionGoals</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Dragoons.h">
       <Filter>Header Files\Strategist\Openings</Filter>
     </ClInclude>
   </ItemGroup>

@@ -10,8 +10,8 @@ namespace Map
     namespace
     {
         MapSpecificOverride * _mapSpecificOverride;
-        std::vector<Base> bases;
-        std::map<const BWEM::ChokePoint *, Choke> chokes;
+        std::vector<Base *> bases;
+        std::map<const BWEM::ChokePoint *, Choke *> chokes;
         int _minChokeWidth;
     }
 
@@ -34,21 +34,21 @@ namespace Map
         // Initialize bases
         for (const auto & area : bwemMap.Areas())
             for (const auto & base : area.Bases())
-                bases.emplace_back(base.Location(), &base);
+                bases.push_back(new Base(base.Location(), &base));
         Log::Debug() << "Found " << bases.size() << " bases";
 
         // Analyze chokepoints
         for (const auto & area : bwemMap.Areas())
             for (const BWEM::ChokePoint * choke : area.ChokePoints())
                 if (chokes.find(choke) == chokes.end())
-                    chokes.emplace(choke, Choke{ choke });
+                    chokes.emplace(choke, new Choke(choke));
         _mapSpecificOverride->initializeChokes(chokes);
 
         // Compute the minimum choke width
         _minChokeWidth = INT_MAX;
         for (const auto & pair : chokes)
-            if (pair.second.width < _minChokeWidth)
-                _minChokeWidth = pair.second.width;
+            if (pair.second->width < _minChokeWidth)
+                _minChokeWidth = pair.second->width;
     }
 
     void onUnitCreate(BWAPI::Unit unit)
@@ -56,7 +56,7 @@ namespace Map
         // Resource depots near bases imply base ownership
         if (unit->getType().isResourceDepot())
         {
-            auto * base = baseNear(unit->getTilePosition());
+            auto base = baseNear(unit->getTilePosition());
             if (base)
             {
                 // Determine the owner of the created building
@@ -84,8 +84,8 @@ namespace Map
                     // closer to where we expect it should be
                     if (base->resourceDepot && base->resourceDepot->exists())
                     {
-                        int existingDist = base->resourceDepot->getPosition().getDistance(base->getPosition());
-                        int newDist = unit->getPosition().getDistance(base->getPosition());
+                        int existingDist = base->resourceDepot->getPosition().getApproxDistance(base->getPosition());
+                        int newDist = unit->getPosition().getApproxDistance(base->getPosition());
                         if (newDist < existingDist) base->resourceDepot = unit;
                     }
                     else
@@ -107,11 +107,11 @@ namespace Map
         {
             for (auto & base : bases)
             {
-                if (base.resourceDepot == unit)
+                if (base->resourceDepot == unit)
                 {
-                    base.owner = Base::Owner::None;
-                    base.resourceDepot = nullptr;
-                    base.ownedSince = -1;
+                    base->owner = Base::Owner::None;
+                    base->resourceDepot = nullptr;
+                    base->ownedSince = -1;
                 }
             }
         }
@@ -122,7 +122,7 @@ namespace Map
         return _mapSpecificOverride;
     }
 
-    std::vector<Base>& allBases()
+    std::vector<Base *>& allBases()
     {
         return bases;
     }
@@ -134,11 +134,11 @@ namespace Map
 
         for (auto & base : bases)
         {
-            int dist = base.getTilePosition().getApproxDistance(tile);
+            int dist = base->getTilePosition().getApproxDistance(tile);
             if (dist < 10 && dist < closestDist)
             {
                 closestDist = dist;
-                result = &base;
+                result = base;
             }
         }
 
@@ -151,7 +151,7 @@ namespace Map
         auto it = chokes.find(bwemChoke);
         return it == chokes.end()
             ? nullptr
-            : &it->second;
+            : it->second;
     }
 
     int minChokeWidth()

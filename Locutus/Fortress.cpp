@@ -2,12 +2,12 @@
 
 namespace { auto & bwemMap = BWEM::Map::Instance(); }
 
-void Fortress::initializeChokes(std::map<const BWEM::ChokePoint *, Choke> & chokes)
+void Fortress::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> & chokes)
 {
     for (auto & pair : chokes)
     {
         const BWEM::ChokePoint * choke = pair.first;
-        Choke & chokeData = pair.second;
+        Choke & chokeData = *pair.second;
 
         // On Fortress the mineral walking chokes are all considered blocked by BWEM
         if (!choke->Blocked()) continue;
