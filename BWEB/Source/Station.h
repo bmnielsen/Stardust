@@ -1,27 +1,40 @@
 #pragma once
-#include "BWEB.h"
+#include <set>
+#include <BWAPI.h>
+#include <bwem.h>
 
-namespace BWEB
-{
-	using namespace BWAPI;
-	using namespace std;
-
+namespace BWEB::Stations
+{	
 	class Station
 	{
 		const BWEM::Base * base;
-		set<TilePosition> defenses;
-		Position resourceCentroid;
+		std::set<BWAPI::TilePosition> defenses;
+		BWAPI::Position resourceCentroid;
+		int defenseCount = 0;
 
 	public:
-		Station(Position, const set<TilePosition>&, const BWEM::Base*);
+		Station(BWAPI::Position, const std::set<BWAPI::TilePosition>&, const BWEM::Base*);
 
 		// Returns the central position of the resources associated with this base including geysers
-		Position ResourceCentroid() const { return resourceCentroid; }
+		BWAPI::Position ResourceCentroid() const { return resourceCentroid; }
 
 		// Returns the set of defense locations associated with this base
-		const set<TilePosition>& DefenseLocations() const { return defenses; }
+		const std::set<BWAPI::TilePosition>& DefenseLocations() const { return defenses; }
 
 		// Returns the BWEM base associated with this BWEB base
 		const BWEM::Base * BWEMBase() const { return base; }
+
+		// Returns the number of defenses associated with this station
+		const int getDefenseCount() const { return defenseCount; }
+		void setDefenseCount(int newValue) { defenseCount = newValue; }
 	};
+
+	/// <summary> Initializes the building of every BWEB::Station on the map, call it only once per game. </summary>
+	void findStations();
+
+	/// <summary> Returns a vector containing every BWEB::Station </summary>
+	std::vector<Station> & getStations();
+
+	/// <summary> Returns the closest BWEB::Station to the given TilePosition. </summary>
+	const Station * getClosestStation(BWAPI::TilePosition);
 }

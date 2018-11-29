@@ -47,5 +47,8 @@
     <ClInclude Include="..\..\BWEB\Source\BWEB.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\BWEB\Source\PathFind.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

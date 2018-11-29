@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\BWEB\Source\Block.h" />
     <ClInclude Include="..\..\BWEB\Source\BWEB.h" />
+    <ClInclude Include="..\..\BWEB\Source\PathFind.h" />
     <ClInclude Include="..\..\BWEB\Source\Station.h" />
     <ClInclude Include="..\..\BWEB\Source\Wall.h" />
   </ItemGroup>

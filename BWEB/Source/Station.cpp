@@ -1,7 +1,15 @@
 #include "Station.h"
+#include "BWEB.h"
 
-namespace BWEB
+using namespace std;
+using namespace BWAPI;
+
+namespace BWEB::Stations
 {
+	namespace {
+		std::vector<Station> stations;
+
+	}
 	Station::Station(const Position newResourceCenter, const set<TilePosition>& newDefenses, const BWEM::Base* newBase)
 	{
 		resourceCentroid = newResourceCenter;
@@ -9,70 +17,7 @@ namespace BWEB
 		base = newBase;
 	}
 
-	void Map::findStations()
-	{
-		const auto addResourceOverlap = [&](Position genCenter) {
-			TilePosition start(genCenter);
-			for (int x = start.x - 4; x < start.x + 4; x++) {
-				for (int y = start.y - 4; y < start.y + 4; y++) {
-					TilePosition t(x, y);
-					if (!t.isValid())
-						continue;
-					if (t.getDistance(start) <= 4)
-						addOverlap(t, 1, 1);
-				}
-			}
-		};
-
-		for (auto &area : mapBWEM.Areas()) {
-			for (auto &base : area.Bases()) {
-				auto h = false, v = false;
-				Position genCenter, sCenter;
-				auto cnt = 0;
-
-				for (auto &mineral : base.Minerals()) {
-					genCenter += mineral->Pos();
-					cnt++;
-				}
-
-				if (cnt > 0)
-					sCenter = genCenter / cnt;
-
-				for (auto &gas : base.Geysers()) {
-					sCenter = (sCenter + gas->Pos()) / 2;
-					genCenter += gas->Pos();
-					cnt++;
-				}
-
-				if (cnt > 0)
-					genCenter = genCenter / cnt;
-
-				h = base.Center().x < sCenter.x;
-				v = base.Center().y < sCenter.y;
-
-				for (auto &m : base.Minerals())
-					addOverlap(m->TopLeft(), 2, 1);
-
-				for (auto &g : base.Geysers())
-					addOverlap(g->TopLeft(), 4, 2);
-
-				const Station newStation(genCenter, stationDefenses(base.Location(), h, v), &base);
-				stations.push_back(newStation);
-				addOverlap(base.Location(), 4, 3);
-				addResourceOverlap(genCenter);
-			}
-		}
-	}
-
-	set<TilePosition> Map::stationDefenses(const TilePosition here, const bool mirrorHorizontal, const bool mirrorVertical)
-	{
-		return stationDefenses(Broodwar->self(), here, mirrorHorizontal, mirrorVertical);
-	}
-	set<TilePosition> Map::stationDefenses(BWAPI::Player player, const TilePosition here, const bool mirrorHorizontal, const bool mirrorVertical)
-	{
-		return stationDefenses(player->getRace(), here, mirrorHorizontal, mirrorVertical);
-	}
-	set<TilePosition> Map::stationDefenses(BWAPI::Race race, const TilePosition here, const bool mirrorHorizontal, const bool mirrorVertical)
+	set<TilePosition> stationDefenses(BWAPI::Race race, const TilePosition here, const bool mirrorHorizontal, const bool mirrorVertical)
 	{
 		set<TilePosition> defenses;
 
@@ -85,7 +30,7 @@ namespace BWEB
 				offset(-2, -2),
 				offset(2, -2),
 				offset(-2, 1) });
-			if (here != mainTile && here != naturalTile)
+			if (here != Map::getMainTile() && here != Map::getNaturalTile())
 				defenses.insert({
 				offset(4, -1),
 				offset(4, 1),
@@ -105,7 +50,7 @@ namespace BWEB
 				offset(0, -2),
 				offset(4, 1) });
 
-				if (here != mainTile && here != naturalTile)
+				if (here != Map::getMainTile() && here != Map::getNaturalTile())
 					defenses.insert({
 					offset(-2, -1),
 					offset(-2, 1),
@@ -121,7 +66,7 @@ namespace BWEB
 				offset(-2, 0),
 				offset(2, 3) });
 
-			if (here != mainTile && here != naturalTile)
+			if (here != Map::getMainTile() && here != Map::getNaturalTile())
 				defenses.insert({
 				offset(0, -2),
 				offset(2, -2),
@@ -141,7 +86,7 @@ namespace BWEB
 				offset(0, 3),
 				offset(4, 3) });
 
-				if (here != mainTile && here != naturalTile)
+				if (here != Map::getMainTile() && here != Map::getNaturalTile())
 					defenses.insert({
 					offset(-2, 2),
 					offset(-2, 0),
@@ -168,7 +113,7 @@ namespace BWEB
 		set<TilePosition>::iterator itr = defenses.begin();
 		while (itr != defenses.end()) {
 			auto tile = *itr;
-			if (!isPlaceable(UnitTypes::Protoss_Photon_Cannon, tile))
+			if (!Map::isPlaceable(UnitTypes::Protoss_Photon_Cannon, tile))
 				itr = defenses.erase(itr);
 			else
 				++itr;
@@ -180,12 +125,75 @@ namespace BWEB
 
 		// Add overlap
 		for (auto &tile : defenses)
-			addOverlap(tile, 2, 2);
+			Map::addOverlap(tile, 2, 2);
 
 		return defenses;
 	}
+	set<TilePosition> stationDefenses(BWAPI::Player player, const TilePosition here, const bool mirrorHorizontal, const bool mirrorVertical)
+	{
+		return stationDefenses(player->getRace(), here, mirrorHorizontal, mirrorVertical);
+	}
+	set<TilePosition> stationDefenses(const TilePosition here, const bool mirrorHorizontal, const bool mirrorVertical)
+	{
+		return stationDefenses(Broodwar->self(), here, mirrorHorizontal, mirrorVertical);
+	}
 
-	const Station* Map::getClosestStation(TilePosition here) const
+	void findStations()
+	{
+		const auto addResourceOverlap = [&](Position genCenter) {
+			TilePosition start(genCenter);
+			for (int x = start.x - 4; x < start.x + 4; x++) {
+				for (int y = start.y - 4; y < start.y + 4; y++) {
+					TilePosition t(x, y);
+					if (!t.isValid())
+						continue;
+					if (t.getDistance(start) <= 4)
+						Map::addOverlap(t, 1, 1);
+				}
+			}
+		};
+
+		for (auto &area : Map::mapBWEM.Areas()) {
+			for (auto &base : area.Bases()) {
+				auto h = false, v = false;
+				Position genCenter, sCenter;
+				auto cnt = 0;
+
+				for (auto &mineral : base.Minerals()) {
+					genCenter += mineral->Pos();
+					cnt++;
+				}
+
+				if (cnt > 0)
+					sCenter = genCenter / cnt;
+
+				for (auto &gas : base.Geysers()) {
+					sCenter = (sCenter + gas->Pos()) / 2;
+					genCenter += gas->Pos();
+					cnt++;
+				}
+
+				if (cnt > 0)
+					genCenter = genCenter / cnt;
+
+				h = base.Center().x < sCenter.x;
+				v = base.Center().y < sCenter.y;
+
+				for (auto &m : base.Minerals())
+					Map::addOverlap(m->TopLeft(), 2, 1);
+
+				for (auto &g : base.Geysers())
+					Map::addOverlap(g->TopLeft(), 4, 2);
+
+				const Station newStation(genCenter, stationDefenses(base.Location(), h, v), &base);
+				stations.push_back(newStation);
+				Map::addOverlap(base.Location(), 4, 3);
+				addResourceOverlap(genCenter);
+			}
+		}
+	}
+
+	const Station * getClosestStation(TilePosition here)
 	{
 		auto distBest = DBL_MAX;
 		const Station* bestStation = nullptr;
@@ -198,5 +206,9 @@ namespace BWEB
 			}
 		}
 		return bestStation;
+	}
+
+	vector<Station> & getStations() {
+		return stations;
 	}
 }
