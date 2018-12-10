@@ -2,21 +2,44 @@
 
 #include <BWAPI.h>
 #include <fstream>
+#include <chrono>
+#include <ctime>
+#include <iomanip>
 
 namespace Log
 {
     namespace {
         bool isDebugLogging = false;
+        auto startTime = std::chrono::system_clock::now();
         std::ofstream* log;
         std::ofstream* debugLog;
+        std::map<std::string, std::ofstream*> csvFiles;
+
+        std::string logFileName(std::string base, bool csv = false)
+        {
+            std::ostringstream filename;
+            filename << "bwapi-data/write/" << base;
+            auto tt = std::chrono::system_clock::to_time_t(startTime);
+#pragma warning(disable : 4996)
+            auto tm = std::localtime(&tt);
+            filename << "_" << std::put_time(tm, "%Y%m%d_%H%M%S");
+            if (csv)
+                filename << ".csv";
+            else
+                filename << ".txt";
+            return filename.str();
+        }
     }
 
-    LogWrapper::LogWrapper(std::ofstream* _logFile)
+    LogWrapper::LogWrapper(std::ofstream* logFile, bool csv)
         : os(new std::ostringstream)
         , refCount(new int(1))
-        , logFile(_logFile)
+        , logFile(logFile)
+        , csv(csv)
+        , first(true)
     {
         if (!logFile) return;
+        if (csv) return;
 
         int seconds = BWAPI::Broodwar->getFrameCount() / 24;
         int minutes = seconds / 60;
@@ -28,6 +51,8 @@ namespace Log
         : os(other.os)
         , refCount(other.refCount)
         , logFile(other.logFile)
+        , csv(other.csv)
+        , first(other.first)
     {
         ++*refCount;
     }
@@ -60,7 +85,7 @@ namespace Log
         if (!log)
         {
             log = new std::ofstream();
-            log->open("bwapi-data/write/Locutus_log.txt", std::ofstream::trunc);
+            log->open(logFileName("Locutus_log"), std::ofstream::trunc);
         }
 
         return LogWrapper(log);
@@ -73,9 +98,20 @@ namespace Log
         if (!debugLog)
         {
             debugLog = new std::ofstream();
-            debugLog->open("bwapi-data/write/Locutus_log_debug.txt", std::ofstream::trunc);
+            debugLog->open(logFileName("Locutus_log_debug"), std::ofstream::trunc);
         }
 
         return LogWrapper(debugLog);
+    }
+
+    LogWrapper Csv(std::string name)
+    {
+        if (!csvFiles[name])
+        {
+            csvFiles[name] = new std::ofstream();
+            csvFiles[name]->open(logFileName(name, true), std::ofstream::trunc);
+        }
+
+        return LogWrapper(csvFiles[name], true);
     }
 }

@@ -7,13 +7,17 @@ namespace { auto & bwemMap = BWEM::Map::Instance(); }
 
 namespace Map
 {
+#ifndef _DEBUG
     namespace
     {
+#endif
         MapSpecificOverride * _mapSpecificOverride;
         std::vector<Base *> bases;
         std::map<const BWEM::ChokePoint *, Choke *> chokes;
         int _minChokeWidth;
+#ifndef _DEBUG
     }
+#endif
 
     void initialize()
     {

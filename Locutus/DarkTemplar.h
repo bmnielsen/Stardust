@@ -5,7 +5,7 @@
 #include "ContinuousWorkerProduction.h"
 #include "ContinuousProduction.h"
 
-class Dragoons : public Opening
+class DarkTemplar : public Opening
 {
 public:
     std::vector<ProductionGoal *> & goals() { return _goals; };
@@ -13,7 +13,7 @@ public:
 private:
     std::vector<ProductionGoal *> _goals = {
         new ContinuousWorkerProduction(),
-        new ContinuousProduction(BWAPI::UnitTypes::Protoss_Dragoon),
+        new ContinuousProduction(BWAPI::UnitTypes::Protoss_Dark_Templar),
         new ContinuousProduction(BWAPI::UnitTypes::Protoss_Zealot)
     };
 };

@@ -17,7 +17,6 @@ namespace Workers
 
     // How many mineral patches are currently available for assignment
     int availableMineralAssignments();
-    int availableGeysers();
     int availableGasAssignments();
 
     void setDesiredGasWorkers(int gasWorkers);

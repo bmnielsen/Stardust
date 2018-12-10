@@ -10,7 +10,6 @@ const double pi = 3.14159265358979323846;
 const int DRAGOON_ATTACK_FRAMES = 6;
 
 namespace { auto & bwemMap = BWEM::Map::Instance(); }
-namespace { auto & bwebMap = BWEB::Map::Instance(); }
 
 MyUnit::MyUnit(BWAPI::Unit unit)
     : unit(unit)
@@ -397,7 +396,7 @@ void MyUnit::fleeFrom(BWAPI::Position position)
         if (!position.isValid()) return false;
 
         // Not blocked by a building
-        if (bwebMap.getUsedTiles().find(BWAPI::TilePosition(position)) != bwebMap.getUsedTiles().end())
+        if (BWEB::Map::getUsedTiles().find(BWAPI::TilePosition(position)) != BWEB::Map::getUsedTiles().end())
             return false;
 
         // Walkable
@@ -553,6 +552,14 @@ void MyUnit::rightClick(BWAPI::Unit target)
     }
 
     issuedOrderThisFrame = unit->rightClick(target);
+}
+
+bool MyUnit::build(BWAPI::UnitType type, BWAPI::TilePosition tile)
+{
+    if (issuedOrderThisFrame) return false;
+    if (!tile.isValid()) return false;
+
+    return issuedOrderThisFrame = unit->build(type, tile);
 }
 
 void MyUnit::updateGoon()

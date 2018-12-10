@@ -8,8 +8,10 @@
 
 namespace Workers
 {
+#ifndef _DEBUG
     namespace
     {
+#endif
         enum Job { None, Minerals, Gas, Build, Combat, Scout, ReturnCargo };
 
         int _desiredGasWorkers;
@@ -23,8 +25,8 @@ namespace Workers
 
         // Removes a worker's base and mineral patch or gas assignments
         void removeFromResource(
-            BWAPI::Unit unit, std::map<BWAPI::Unit,
-            BWAPI::Unit> & workerAssignment,
+            BWAPI::Unit unit, 
+            std::map<BWAPI::Unit, BWAPI::Unit> & workerAssignment,
             std::map<BWAPI::Unit, std::set<BWAPI::Unit>> & resourceAssignment)
         {
             auto baseIt = workerBase.find(unit);
@@ -149,8 +151,8 @@ namespace Workers
             }
 
             return bestMineralPatch;
-        }        
-        
+        }
+
         // Assign a worker to a refinery in its current base
         // We only call this when the worker is close to the base depot, so we can assume minimal pathing issues
         BWAPI::Unit assignRefinery(BWAPI::Unit unit)
@@ -159,7 +161,7 @@ namespace Workers
 
             int bestDist = INT_MAX;
             BWAPI::Unit bestRefinery = nullptr;
-            for (auto refinery : workerBase[unit]->geysers())
+            for (auto refinery : workerBase[unit]->refineries())
             {
                 if (refinery->getPlayer() != BWAPI::Broodwar->self()) continue;
                 if (!refinery->isCompleted()) continue;
@@ -215,7 +217,7 @@ namespace Workers
                 workerJob[bestWorker] = Gas;
                 removeFromResource(bestWorker, workerMineralPatch, mineralPatchWorkers);
                 assignBase(bestWorker, Gas);
-                if (bestDist <= 200) assignRefinery(bestWorker);
+                assignRefinery(bestWorker);
             }
         }
 
@@ -232,7 +234,9 @@ namespace Workers
                 }
             }
         }
+#ifndef _DEBUG
     }
+#endif
 
     void onUnitDestroy(BWAPI::Unit unit)
     {
@@ -306,7 +310,13 @@ namespace Workers
                     if (!base || !base->resourceDepot || !base->resourceDepot->exists())
                     {
                         base = assignBase(worker, Minerals);
-                        if (!base) continue; // Maybe we have no more bases
+
+                        // Maybe we have no more with available patches
+                        if (!base)
+                        {
+                            workerJob[worker] = Job::None;
+                            continue;
+                        }
                     }
 
                     // Assign a mineral patch if:
@@ -332,7 +342,13 @@ namespace Workers
                     if (!base || !base->resourceDepot || !base->resourceDepot->exists())
                     {
                         base = assignBase(worker, Gas);
-                        if (!base) continue; // Maybe we have no more bases
+
+                        // Maybe we have no more with available gas
+                        if (!base)
+                        {
+                            workerJob[worker] = Job::None;
+                            continue;
+                        }
                     }
 
                     // Assign a refinery if:
@@ -384,20 +400,20 @@ namespace Workers
                     {
                         if (worker->getOrderTarget() != mineralPatch)
                         {
-                            Units::getMine(worker)->rightClick(mineralPatch);
+                            Units::getMine(worker).rightClick(mineralPatch);
                         }
 
                         continue;
                     }
 
                     // Otherwise for all other orders click on the mineral patch
-                    Units::getMine(worker)->rightClick(mineralPatch);
+                    Units::getMine(worker).rightClick(mineralPatch);
                     continue;
                 }
 
                 // Handle gathering from an assigned refinery
                 auto refinery = workerRefinery[worker];
-                if (refinery && refinery->exists())
+                if (refinery && refinery->exists() && worker->getDistance(refinery) < 500)
                 {
                     // If the unit is currently gathering, leave it alone
                     if (worker->getOrder() == BWAPI::Orders::MoveToGas ||
@@ -409,7 +425,7 @@ namespace Workers
                     }
 
                     // Otherwise click on the refinery
-                    Units::getMine(worker)->rightClick(refinery);
+                    Units::getMine(worker).rightClick(refinery);
                     continue;
                 }
 
@@ -423,19 +439,19 @@ namespace Workers
                 // If the worker is a long way from its base, move towards it
                 if (worker->getDistance(base->getPosition()) > 200)
                 {
-                    Units::getMine(worker)->moveTo(base->getPosition());
+                    Units::getMine(worker).moveTo(base->getPosition());
                     continue;
                 }
 
                 // If the worker has cargo, return it
                 if (worker->isCarryingMinerals() || worker->isCarryingGas())
                 {
-                    Units::getMine(worker)->rightClick(base->resourceDepot);
+                    Units::getMine(worker).rightClick(base->resourceDepot);
                     continue;
                 }
 
                 // For some reason the worker doesn't have anything good to do, so let's just move towards the base
-                Units::getMine(worker)->moveTo(base->getPosition());
+                Units::getMine(worker).moveTo(base->getPosition());
                 break;
             }
         }
@@ -496,26 +512,6 @@ namespace Workers
         return count;
     }
 
-    int availableGeysers()
-    {
-        int count = 0;
-
-        for (auto & base : Map::allBases())
-        {
-            if (base->owner != Base::Owner::Me) continue;
-            if (!base->resourceDepot || !base->resourceDepot->exists() || !base->resourceDepot->isCompleted()) continue;
-
-            for (auto geyser : base->geysers())
-            {
-                if (Builder::isPendingHere(geyser->getInitialTilePosition())) continue;
-
-                count++;
-            }
-        }
-
-        return count;
-    }
-
     int availableGasAssignments()
     {
         return 0;
@@ -536,7 +532,7 @@ namespace Workers
         int mineralWorkers = 0;
         for (auto & workerAndAssignedPatch : workerMineralPatch)
         {
-            if (workerAndAssignedPatch.first->exists() && workerAndAssignedPatch.second->exists() &&
+            if (workerAndAssignedPatch.first->exists() && workerAndAssignedPatch.second && workerAndAssignedPatch.second->exists() &&
                 workerAndAssignedPatch.first->getDistance(workerAndAssignedPatch.second) < 200) // Don't count workers that are on a long journey towards the patch
             {
                 mineralWorkers++;
@@ -551,7 +547,7 @@ namespace Workers
         int gasWorkers = 0;
         for (auto & workerAndAssignedRefinery : workerRefinery)
         {
-            if (workerAndAssignedRefinery.first->exists() && workerAndAssignedRefinery.second->exists() &&
+            if (workerAndAssignedRefinery.first->exists() && workerAndAssignedRefinery.second && workerAndAssignedRefinery.second->exists() &&
                 workerAndAssignedRefinery.first->getDistance(workerAndAssignedRefinery.second) < 200) // Don't count workers that are on a long journey towards the refinery
             {
                 gasWorkers++;

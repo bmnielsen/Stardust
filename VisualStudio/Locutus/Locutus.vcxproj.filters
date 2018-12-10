@@ -126,6 +126,9 @@
     <ClCompile Include="..\..\Locutus\ContinuousWorkerProduction.cpp">
       <Filter>Source Files\Strategist\ProductionGoals</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Locutus\Timer.cpp">
+      <Filter>Source Files\Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Locutus\LocutusAIModule.h">
@@ -210,6 +213,12 @@
       <Filter>Header Files\Strategist\ProductionGoals</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Locutus\Dragoons.h">
+      <Filter>Header Files\Strategist\Openings</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Timer.h">
+      <Filter>Header Files\Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\DarkTemplar.h">
       <Filter>Header Files\Strategist\Openings</Filter>
     </ClInclude>
   </ItemGroup>

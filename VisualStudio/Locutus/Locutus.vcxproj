@@ -34,6 +34,7 @@
     <ClCompile Include="..\..\Locutus\EnemyUnit.cpp" />
     <ClCompile Include="..\..\Locutus\Producer.cpp" />
     <ClCompile Include="..\..\Locutus\Strategist.cpp" />
+    <ClCompile Include="..\..\Locutus\Timer.cpp" />
     <ClCompile Include="..\..\Locutus\Units.cpp" />
     <ClCompile Include="..\..\Locutus\UnitUtil.cpp" />
     <ClCompile Include="..\..\Locutus\Workers.cpp" />
@@ -47,6 +48,7 @@
     <ClInclude Include="..\..\Locutus\Common.h" />
     <ClInclude Include="..\..\Locutus\ContinuousProduction.h" />
     <ClInclude Include="..\..\Locutus\ContinuousWorkerProduction.h" />
+    <ClInclude Include="..\..\Locutus\DarkTemplar.h" />
     <ClInclude Include="..\..\Locutus\Dragoons.h" />
     <ClInclude Include="..\..\Locutus\Fortress.h" />
     <ClInclude Include="..\..\Locutus\Geo.h" />
@@ -56,6 +58,7 @@
     <ClInclude Include="..\..\Locutus\Producer.h" />
     <ClInclude Include="..\..\Locutus\ProductionGoal.h" />
     <ClInclude Include="..\..\Locutus\Strategist.h" />
+    <ClInclude Include="..\..\Locutus\Timer.h" />
     <ClInclude Include="..\..\Locutus\Units.h" />
     <ClInclude Include="..\..\Locutus\UnitUtil.h" />
     <ClInclude Include="..\..\Locutus\Workers.h" />
@@ -111,10 +114,10 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LinkIncremental>false</LinkIncremental>
+    <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LinkIncremental>false</LinkIncremental>
+    <LinkIncremental>true</LinkIncremental>
     <TargetName>$(ProjectName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Lib|Win32'">

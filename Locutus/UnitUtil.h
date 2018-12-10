@@ -9,4 +9,6 @@ namespace UnitUtil
     BWAPI::Position PredictPosition(BWAPI::Unit unit, int frames);
 
     bool Powers(BWAPI::TilePosition pylonTile, BWAPI::TilePosition buildingTile, BWAPI::UnitType buildingType);
+
+    int BuildTime(BWAPI::UnitType type);
 }

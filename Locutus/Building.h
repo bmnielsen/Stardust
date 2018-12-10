@@ -17,10 +17,22 @@ public:
     // We always decide on the position and builder unit before storing the building
     // If something happens to invalidate them before the building is started, we will create a new building
     Building(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder);
+
+    void constructionStarted(BWAPI::Unit unit);
     
     BWAPI::Position getPosition() const;
-    bool constructionStarted() const;
+    bool isConstructionStarted() const;
+    int expectedFramesUntilStarted() const;
     int expectedFramesUntilCompletion() const;
 
     // TODO: Stuff like handling things blocking construction, picking a new location, cancelling, etc.
+
+    friend std::ostream& operator << (std::ostream& out, const Building& b)
+    {
+        out << b.type << " @ " << b.tile;
+        return out;
+    };
+
+private:
+    int startFrame;
 };

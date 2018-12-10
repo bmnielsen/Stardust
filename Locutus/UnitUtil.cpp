@@ -2,6 +2,10 @@
 
 namespace UnitUtil
 {
+    namespace {
+        const int WARP_IN_FRAMES = 71;
+    }
+
     bool IsUndetected(BWAPI::Unit unit)
     {
         return (unit->isCloaked() || unit->getType().hasPermanentCloak()) && !unit->isDetected();
@@ -33,5 +37,16 @@ namespace UnitUtil
         if ((offsetY == -4 || offsetY == 3) && (offsetX < -6 || offsetX > 5)) return false;
         if ((offsetY == -3 || offsetY == 2) && (offsetX < -7 || offsetX > 6)) return false;
         return (offsetX >= -7 && offsetX <= 7);
+    }
+
+    int BuildTime(BWAPI::UnitType type)
+    {
+        // TODO: Technically zerg and terran also have an animation that needs to play after finished construction
+        if (type.getRace() == BWAPI::Races::Protoss && type.isBuilding())
+        {
+            return type.buildTime() + WARP_IN_FRAMES;
+        }
+
+        return type.buildTime();
     }
 }

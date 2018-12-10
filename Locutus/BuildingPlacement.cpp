@@ -2,16 +2,30 @@
 
 #include <BWEB.h>
 
+#include "Map.h"
+#include "Builder.h"
 #include "PathFinding.h"
+#include "UnitUtil.h"
 
 namespace { auto & bwemMap = BWEM::Map::Instance(); }
-namespace { auto & bwebMap = BWEB::Map::Instance(); }
 
 namespace BuildingPlacement
 {
+#ifndef _DEBUG
     namespace
     {
-        // Checks if a building with the given type can be build at the given position.
+#endif
+        // We assume it will take a builder a couple of seconds to get out of the mineral line
+        const int BUILDER_FRAME_BASE = 48;
+
+        std::vector<Neighbourhood> ALL_NEIGHBOURHOODS = { Neighbourhood::MainBase };
+
+        std::map<Neighbourhood, BWAPI::Position> neighbourhoodOrigins;
+        std::map<Neighbourhood, std::map<int, BuildLocationSet>> availableBuildLocations;
+
+        BuildLocationSet _availableGeysers;
+
+        // Checks if a building with the given type can be built at the given position.
         // If the building requires psi, this method will verify the position has power, unless skipPsiCheck is true.
         bool canBuildHere(
             BWAPI::UnitType type,
@@ -29,256 +43,276 @@ namespace BuildingPlacement
                     if (!tile.isValid()) return false;
                     if (reservedPositions && reservedPositions->find(tile) != reservedPositions->end()) return false;
                     if (!BWAPI::Broodwar->isBuildable(tile)) return false;
-                    if (bwebMap.usedGrid[x][y]) return false;
+                    if (BWEB::Map::isUsed(tile)) return false;
                     if (BWAPI::Broodwar->hasCreep(tile)) return false;
                 }
+
+            return true;
         }
         bool canBuildHere(BWAPI::UnitType type, BWAPI::TilePosition tile, std::set<BWAPI::TilePosition> * reservedPositions)
         {
             return canBuildHere(type, tile, false, reservedPositions);
         }
 
-
-        BWAPI::TilePosition getPylonLocation(
-            BWAPI::UnitType type,
-            BWAPI::TilePosition nearTile,
-            std::set<BWAPI::TilePosition> * reservedPositions)
+        // At how many frames from now will the build position given by the tile and type be powered
+        // If the position is already powered, returns 0
+        // If the position will be powered by a pending pylon, returns the number of frames until the pylon is complete
+        // Otherwise returns -1
+        int poweredAfter(BWAPI::TilePosition tile, BWAPI::UnitType type, std::vector<Building *> & pendingPylons)
         {
-            // FIXME: Migrate start block logic
+            if (BWAPI::Broodwar->hasPower(tile, type)) return 0;
 
-            // Collect data about all of the blocks we have
-            struct BlockData
+            int result = -1;
+            for (auto & pendingPylon : pendingPylons)
             {
-                int dist;
-                int poweredMedium = 0;
-                int poweredLarge = 0;
-                BWAPI::TilePosition pylon = BWAPI::TilePositions::Invalid;
-            };
-            std::vector<BlockData> blocks;
+                if (UnitUtil::Powers(pendingPylon->tile, tile, type) &&
+                    (result == -1 || pendingPylon->expectedFramesUntilCompletion() < result))
+                {
+                    result = pendingPylon->expectedFramesUntilCompletion();
+                }
+            }
 
-            // Also keep track of how many powered building locations we currently have
-            int poweredLarge = 0;
-            int poweredMedium = 0;
+            return result;
+        }
 
-            for (auto &block : bwebMap.Blocks())
+        // Approximately how many frames it will take a builder to reach the given build position
+        // TODO: Update location origins depending on whether there are workers at a base
+        int builderFrames(Neighbourhood location, BWAPI::TilePosition tile, BWAPI::UnitType type)
+        {
+            if (neighbourhoodOrigins.find(location) == neighbourhoodOrigins.end()) return 0;
+
+            return BUILDER_FRAME_BASE + PathFinding::ExpectedTravelTime(
+                neighbourhoodOrigins[location],
+                BWAPI::Position(tile) + (BWAPI::Position(type.tileSize()) / 2),
+                BWAPI::Broodwar->self()->getRace().getWorker(),
+                PathFinding::PathFindingOptions::UseNearestBWEMArea);
+        }
+
+        // Rebuilds the map of available build locations
+        void updateAvailableBuildLocations()
+        {
+            std::map<Neighbourhood, std::map<int, BuildLocationSet>> result;
+
+            // Examine our pending buildings to get:
+            // - build locations that are about to be used
+            // - incomplete pylons
+            std::set<BWAPI::TilePosition> reservedTiles;
+            std::vector<Building *> pendingPylons;
+            for (auto building : Builder::allPendingBuildings())
             {
-                BlockData blockData;
+                if (!building->isConstructionStarted())
+                {
+                    reservedTiles.insert(building->tile);
+                }
 
-                // Count powered large building positions
-                for (auto tile : block.LargeTiles())
-                    if (canBuildHere(BWAPI::UnitTypes::Protoss_Gateway, tile, true))
-                        if (BWAPI::Broodwar->hasPower(tile, BWAPI::UnitTypes::Protoss_Gateway))
-                            poweredLarge++;
-                        else
-                            blockData.poweredLarge++;
+                if (building->type == BWAPI::UnitTypes::Protoss_Pylon)
+                {
+                    pendingPylons.push_back(building);
+                }
+            }
 
-                // Count powered medium building positions
+            // Scan blocks to:
+            // - Collect the powered (or soon-to-be-powered) medium and large build locations we already have available
+            // - Collect the next pylon to be built in each block
+            for (auto &block : BWEB::Blocks::getBlocks())
+            {
+                // Consider medium building positions
+                std::vector<std::tuple<BWAPI::TilePosition, int>> poweredMedium;
+                std::vector<BWAPI::TilePosition> unpoweredMedium;
                 for (auto tile : block.MediumTiles())
-                    if (canBuildHere(BWAPI::UnitTypes::Protoss_Forge, tile, true))
-                        if (BWAPI::Broodwar->hasPower(tile, BWAPI::UnitTypes::Protoss_Forge))
-                            poweredMedium++;
+                    if (canBuildHere(BWAPI::UnitTypes::Protoss_Forge, tile, true, &reservedTiles))
+                    {
+                        int framesToPower = poweredAfter(tile, BWAPI::UnitTypes::Protoss_Forge, pendingPylons);
+                        if (framesToPower == -1)
+                        {
+                            unpoweredMedium.push_back(tile);
+                        }
                         else
-                            blockData.poweredMedium++;
+                        {
+                            poweredMedium.push_back(std::make_pair(tile, framesToPower));
+                        }
+                    }
+
+                // Consider large building positions
+                std::vector<std::tuple<BWAPI::TilePosition, int>> poweredLarge;
+                std::vector<BWAPI::TilePosition> unpoweredLarge;
+                for (auto tile : block.LargeTiles())
+                    if (canBuildHere(BWAPI::UnitTypes::Protoss_Gateway, tile, true, &reservedTiles))
+                    {
+                        int framesToPower = poweredAfter(tile, BWAPI::UnitTypes::Protoss_Gateway, pendingPylons);
+                        if (framesToPower == -1)
+                        {
+                            unpoweredLarge.push_back(tile);
+                        }
+                        else
+                        {
+                            poweredLarge.push_back(std::make_pair(tile, framesToPower));
+                        }
+                    }
 
                 // Find the next pylon to build in this block
                 // It is the available small tile location closest to the center of the block
                 BWAPI::TilePosition blockCenter = block.Location() + BWAPI::TilePosition(block.width() / 2, block.height() / 2);
                 int distBestToBlockCenter = INT_MAX;
+                BWAPI::TilePosition pylonTile = BWAPI::TilePositions::Invalid;
                 for (auto tile : block.SmallTiles())
                 {
-                    if (!canBuildHere(BWAPI::UnitTypes::Protoss_Pylon, tile, reservedPositions)) continue;
+                    if (!canBuildHere(BWAPI::UnitTypes::Protoss_Pylon, tile, &reservedTiles)) continue;
 
                     int distToBlockCenter = tile.getApproxDistance(blockCenter);
                     if (distToBlockCenter < distBestToBlockCenter)
-                        distBestToBlockCenter = distToBlockCenter, blockData.pylon = tile;
+                        distBestToBlockCenter = distToBlockCenter, pylonTile = tile;
                 }
 
-                // If all the pylons are already built, don't consider this block
-                if (!blockData.pylon.isValid()) continue;
-
-                // Now compute the distance
-                blockData.dist = PathFinding::GetGroundDistance(
-                    BWAPI::Position(nearTile) + BWAPI::Position(16, 16),
-                    BWAPI::Position(blockData.pylon) + BWAPI::Position(32, 32),
-                    BWAPI::UnitTypes::Protoss_Probe,
-                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
-
-                // If this block isn't ground-connected to the desired position, don't consider it
-                if (blockData.dist == -1) continue;
-
-                // Add the block
-                blocks.push_back(blockData);
-            }
-
-            // FIXME: When we have a new production system, implement this again
-            // Check the production queue to find what type of locations we most need right now
-            // Break when we reach the next pylon, we assume it will give power to later buildings
-            int availableLarge = poweredLarge;
-            int availableMedium = poweredMedium;
-            std::vector<bool> priority; // true for large, false for medium
-
-            /*
-            const auto & queue = ProductionManager::Instance().getQueue();
-            for (int i = queue.size() - 1; i >= 0; i--)
-            {
-                const auto & macroAct = queue[i].macroAct;
-
-                // Only care about buildings
-                if (!macroAct.isBuilding()) continue;
-
-                // Break when we hit the next pylon
-                if (macroAct.getUnitType() == BWAPI::UnitTypes::Protoss_Pylon && i < (queue.size() - 1))
-                    break;
-
-                // Don't count buildings like nexuses and assimilators
-                if (!macroAct.getUnitType().requiresPsi()) continue;
-
-                if (macroAct.getUnitType().tileWidth() == 4)
+                // If the block is full, continue now
+                if (!pylonTile.isValid() && poweredMedium.empty() && poweredLarge.empty())
                 {
-                    if (availableLarge > 0)
-                        availableLarge--;
-                    else
-                        priority.push_back(true);
+                    continue;
                 }
-                else if (macroAct.getUnitType().tileWidth() == 3)
+
+                // Add data from the block to appropriate neighbourhoods
+                for (auto & neighbourhood : ALL_NEIGHBOURHOODS)
                 {
-                    if (availableMedium > 0)
-                        availableMedium--;
-                    else
-                        priority.push_back(false);
-                }
-            }
-            */
+                    // Make sure we don't die if we for some reason have an unconfigured neighbourhood
+                    if (neighbourhoodOrigins.find(neighbourhood) == neighbourhoodOrigins.end()) continue;
 
-            // If we have no priority buildings in the queue, but have few available building locations, make them a priority
-            // We don't want to queue a building and not have space for it
-            if (priority.empty())
-            {
-                if (availableLarge == 0) priority.push_back(true);
-                if (availableMedium == 0) priority.push_back(false);
-                if (availableLarge == 1) priority.push_back(true);
-            }
+                    // Get distance to the block
+                    int dist = PathFinding::GetGroundDistance(
+                        neighbourhoodOrigins[neighbourhood], 
+                        BWAPI::Position(blockCenter) + BWAPI::Position(16, 16), 
+                        BWAPI::Broodwar->self()->getRace().getWorker(), 
+                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
 
-            // Score the blocks and pick the best one
-            // The general idea is:
-            // - Prefer a block in the same area and close to the desired position
-            // - Give a bonus to blocks that provide powered locations we currently need
+                    // If the block is not connected or is too far away from the neighbourhood, skip it
+                    if (dist == -1 || dist > 2000) continue;
 
-            double bestScore = DBL_MAX;
-            BlockData * bestBlock = nullptr;
-            for (auto & block : blocks)
-            {
-                // Base score is based on the distance
-                double score = log(block.dist);
-
-                // Penalize the block if it is in a different BWEM area from the desired position
-                if (bwemMap.GetNearestArea(nearTile) != bwemMap.GetNearestArea(block.pylon)) score *= 2;
-
-                // Give the score a bonus based on the locations it powers
-                int poweredLocationBonus = 0;
-                int blockAvailableLarge = block.poweredLarge;
-                int blockAvailableMedium = block.poweredMedium;
-                for (bool isLarge : priority)
-                {
-                    if (isLarge && blockAvailableLarge > 0)
+                    if (pylonTile.isValid())
                     {
-                        poweredLocationBonus += 2;
-                        blockAvailableLarge--;
+                        BuildLocation pylon(pylonTile, builderFrames(neighbourhood, pylonTile, BWAPI::UnitTypes::Protoss_Pylon), 0);
+                        for (auto & tile : unpoweredMedium)
+                        {
+                            pylon.powersMedium.emplace(tile, builderFrames(neighbourhood, tile, BWAPI::UnitTypes::Protoss_Forge), 0);
+                        }
+                        for (auto & tile : unpoweredLarge)
+                        {
+                            pylon.powersLarge.emplace(tile, builderFrames(neighbourhood, tile, BWAPI::UnitTypes::Protoss_Gateway), 0);
+                        }
+                        result[neighbourhood][2].insert(pylon);
                     }
-                    else if (!isLarge && blockAvailableMedium > 0)
+
+                    for (auto & tileAndPoweredAt : poweredMedium)
                     {
-                        poweredLocationBonus += 2;
-                        blockAvailableMedium--;
+                        result[neighbourhood][3].emplace(
+                            std::get<0>(tileAndPoweredAt), 
+                            builderFrames(neighbourhood, std::get<0>(tileAndPoweredAt), BWAPI::UnitTypes::Protoss_Forge),
+                            std::get<1>(tileAndPoweredAt));
                     }
-                    else
-                        break;
-                }
 
-                // Reduce the score based on the location bonus
-                score /= (double)(poweredLocationBonus + 1);
-
-                if (score < bestScore)
-                {
-                    bestScore = score;
-                    bestBlock = &block;
+                    for (auto & tileAndPoweredAt : poweredLarge)
+                    {
+                        result[neighbourhood][4].emplace(
+                            std::get<0>(tileAndPoweredAt), 
+                            builderFrames(neighbourhood, std::get<0>(tileAndPoweredAt), BWAPI::UnitTypes::Protoss_Gateway),
+                            std::get<1>(tileAndPoweredAt));
+                    }
                 }
             }
 
-            if (bestBlock)
-            {
-                return bestBlock->pylon;
-            }
-
-            return BWAPI::TilePositions::Invalid;
+            availableBuildLocations = result;
         }
+
+        void updateAvailableGeysers()
+        {
+            _availableGeysers.clear();
+
+            for (auto & base : Map::allBases())
+            {
+                if (base->owner != Base::Owner::Me) continue;
+                if (!base->resourceDepot || !base->resourceDepot->exists() || !base->resourceDepot->isCompleted()) continue;
+
+                for (auto geyser : base->geysers())
+                {
+                    if (Builder::isPendingHere(geyser->getInitialTilePosition())) continue;
+
+                    // TODO: Order in some logical way
+                    _availableGeysers.emplace(geyser->getInitialTilePosition(), 0, 0);
+                }
+            }
+        }
+
+        BWAPI::Position getOrigin(Base * base)
+        {
+            if (!base) return BWAPI::Positions::Invalid;
+
+            int x = 0;
+            int y = 0;
+            for (auto mineralPatch : base->mineralPatches())
+            {
+                x += mineralPatch->getPosition().x;
+                y += mineralPatch->getPosition().y;
+            }
+
+            return BWAPI::Position(x / base->mineralPatchCount(), y / base->mineralPatchCount());
+        }
+#ifndef _DEBUG
     }
+#endif
 
     void initialize()
     {
-        bwebMap.onStart();
+        BWEB::Map::onStart();
 
         // FIXME: Create wall
         // FIXME: Create proxy blocks
         // FIXME: Look into other BWEB changes that may affect us, like start blocks
 
-        bwebMap.findBlocks();
+        BWEB::Blocks::findBlocks();
+
+        neighbourhoodOrigins[Neighbourhood::MainBase] = getOrigin(Map::baseNear(BWAPI::Broodwar->self()->getStartLocation()));
     }
 
     void onUnitDestroy(BWAPI::Unit unit)
     {
-        bwebMap.onUnitDestroy(unit);
+        BWEB::Map::onUnitDestroy(unit);
     }
 
     void onUnitMorph(BWAPI::Unit unit)
     {
-        bwebMap.onUnitMorph(unit);
+        BWEB::Map::onUnitMorph(unit);
     }
 
     void onUnitCreate(BWAPI::Unit unit)
     {
-        bwebMap.onUnitDiscover(unit);
+        BWEB::Map::onUnitDiscover(unit);
     }
 
     void onUnitDiscover(BWAPI::Unit unit)
     {
-        bwebMap.onUnitDiscover(unit);
+        BWEB::Map::onUnitDiscover(unit);
     }
 
-    BWAPI::TilePosition getBuildingLocation(
-        BWAPI::UnitType type,
-        BWAPI::TilePosition nearTile,
-        std::set<BWAPI::TilePosition> * reservedPositions)
+    void update()
     {
-        // Cannons are placed at station defense locations
-        // Generally we will place them specifically without calling this method
-        if (type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
-        {
-            const BWEB::Station* station = bwebMap.getClosestStation(nearTile);
-            for (auto tile : station->DefenseLocations())
-                if (canBuildHere(type, tile, reservedPositions))
-                    return tile;
+        // TODO: Only update locations when it is needed
+        updateAvailableBuildLocations();
 
-            return BWAPI::TilePositions::Invalid;
-        }
+        updateAvailableGeysers();
+    }
 
-        // Pylons are special; we want to make sure we give powered build locations for buildings we need later
-        if (type == BWAPI::UnitTypes::Protoss_Pylon)
-            return getPylonLocation(type, nearTile, reservedPositions);
+    std::map<Neighbourhood, std::map<int, BuildLocationSet>> & getBuildLocations()
+    {
+        return availableBuildLocations;
+    }
 
-        // Everything else is placed at the nearest available location
-        int bestDist = INT_MAX;
-        BWAPI::TilePosition bestTile = BWAPI::TilePositions::Invalid;
-        for (auto & block : bwebMap.Blocks())
-            for (auto tile : type.tileWidth() == 4 ? block.LargeTiles() : block.MediumTiles())
-            {
-                int dist = tile.getApproxDistance(nearTile);
-                if (dist < bestDist)
-                {
-                    bestDist = dist;
-                    bestTile = tile;
-                }
-            }
+    BuildLocationSet & availableGeysers()
+    {
+        return _availableGeysers;
+    }
 
-        return bestTile;
+    bool BuildLocationCmp::operator()(const BuildLocation & a, const BuildLocation & b) const
+    {
+        return a.framesUntilPowered < b.framesUntilPowered
+            || (!(b.framesUntilPowered < a.framesUntilPowered) && a.builderFrames < b.builderFrames)
+            || (!(b.framesUntilPowered < a.framesUntilPowered) && !(b.builderFrames < a.builderFrames) && a.tile < b.tile);
     }
 }

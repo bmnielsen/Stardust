@@ -4,11 +4,14 @@
 #include "Workers.h"
 #include "Units.h"
 #include "PathFinding.h"
+#include "Geo.h"
 
 namespace Builder
 {
+#ifndef _DEBUG
     namespace
     {
+#endif
         std::vector<std::shared_ptr<Building>> pendingBuildings;
         std::map<BWAPI::Unit, std::vector<std::shared_ptr<Building>>> builderQueues;
 
@@ -22,10 +25,10 @@ namespace Builder
             if (building.builder->isConstructing()) return;
 
             // Move if we aren't close to the build position
-            int dist = building.builder->getDistance(building.getPosition());
-            if (dist < 64)
+            int dist = Geo::EdgeToEdgeDistance(building.builder->getType(), building.builder->getPosition(), building.type, building.getPosition());
+            if (dist > 64)
             {
-                Units::getMine(building.builder)->moveTo(building.getPosition());
+                Units::getMine(building.builder).moveTo(building.getPosition());
                 return;
             }
 
@@ -33,14 +36,14 @@ namespace Builder
             // (e.g. spider mine blocking)
 
             // Issue the build command
-            bool result = building.builder->build(building.type, building.tile);
+            bool result = Units::getMine(building.builder).build(building.type, building.tile);
 
             // Build command failed
             if (!result)
             {
                 // TODO: Look for blocking units
 
-                Units::getMine(building.builder)->moveTo(building.getPosition());
+                Units::getMine(building.builder).moveTo(building.getPosition());
             }
         }
 
@@ -71,7 +74,9 @@ namespace Builder
             // Tell the worker to build the new start of its queue
             build(**builderQueue.begin());
         }
+#ifndef _DEBUG
     }
+#endif
 
     void update()
     {
@@ -108,25 +113,31 @@ namespace Builder
                     if (pendingBuilding->type != unit->getType()) continue;
                     if (pendingBuilding->tile != unit->getTilePosition()) continue;
 
-                    pendingBuilding->unit = unit;
+                    pendingBuilding->constructionStarted(unit);
                     releaseBuilder(*pendingBuilding);
                 }
             }
         }
 
-        // Update the builders
+        // Remove dead builders
+        // The buildings themselves are pruned earlier
         for (auto it = builderQueues.begin(); it != builderQueues.end(); )
         {
-            // Dead builders
-            // The building itself is pruned earlier
             if (!it->first->exists() || it->first->getPlayer() != BWAPI::Broodwar->self())
             {
                 it = builderQueues.erase(it);
                 continue;
             }
 
-            build(**it->second.begin());
             it++;
+        }
+    }
+
+    void issueOrders()
+    {
+        for (auto it = builderQueues.begin(); it != builderQueues.end(); it++)
+        {
+            build(**it->second.begin());
         }
     }
 
@@ -135,6 +146,10 @@ namespace Builder
         auto building = std::make_shared<Building>(type, tile, builder);
         pendingBuildings.push_back(building);
         builderQueues[builder].push_back(building);
+
+        Workers::setBuilder(builder);
+
+        Log::Debug() << "Queued " << **pendingBuildings.rbegin();
     }
 
     BWAPI::Unit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int * expectedArrivalFrame)
@@ -190,17 +205,24 @@ namespace Builder
         return bestWorker;
     }
 
-    std::vector<std::shared_ptr<Building>> allPendingBuildings()
+    std::vector<Building*> allPendingBuildings()
     {
-        return pendingBuildings;
-    }
+        std::vector<Building*> result;
 
-    std::vector<std::shared_ptr<Building>> pendingBuildingsOfType(BWAPI::UnitType type)
-    {
-        std::vector<std::shared_ptr<Building>> result;
         for (auto building : pendingBuildings)
         {
-            if (building->type == type) result.push_back(building);
+            result.push_back(building.get());
+        }
+
+        return result;
+    }
+
+    std::vector<Building*> pendingBuildingsOfType(BWAPI::UnitType type)
+    {
+        std::vector<Building*> result;
+        for (auto building : pendingBuildings)
+        {
+            if (building->type == type) result.push_back(building.get());
         }
 
         return result;

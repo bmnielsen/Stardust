@@ -4,7 +4,6 @@
 #include "Map.h"
 
 namespace { auto & bwemMap = BWEM::Map::Instance(); }
-namespace { auto & bwebMap = BWEB::Map::Instance(); }
 
 namespace PathFinding
 {
@@ -181,11 +180,13 @@ namespace PathFinding
 
     int ExpectedTravelTime(BWAPI::Position start, BWAPI::Position end, BWAPI::UnitType unitType, PathFindingOptions options)
     {
+        if (unitType.topSpeed() < 0.0001) return 0;
+
         int dist = unitType.isFlyer()
             ? start.getApproxDistance(end)
             : GetGroundDistance(start, end, unitType, options);
         if (dist <= 0) return 0;
-        return (int)((double)dist / unitType.topSpeed());
+        return (int)((double)dist * 1.4 / unitType.topSpeed());
     }
 
     BWAPI::TilePosition NearbyPathfindingTile(BWAPI::TilePosition start)
@@ -198,8 +199,8 @@ namespace PathFinding
 
                     BWAPI::TilePosition tile = start + BWAPI::TilePosition(x, y);
                     if (!tile.isValid()) continue;
-                    if (bwebMap.usedGrid[tile.x][tile.y]) continue;
-                    if (!bwebMap.isWalkable(tile)) continue;
+                    if (BWEB::Map::isUsed(tile)) continue;
+                    if (!BWEB::Map::isWalkable(tile)) continue;
                     return tile;
                 }
         return BWAPI::TilePositions::Invalid;

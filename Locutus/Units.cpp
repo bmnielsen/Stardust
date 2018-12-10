@@ -2,24 +2,31 @@
 
 namespace Units
 {
-    namespace 
+#ifndef _DEBUG
+    namespace
     {
-        std::map<BWAPI::Unit, std::shared_ptr<MyUnit>> myUnits;
-        std::map<BWAPI::Unit, std::shared_ptr<EnemyUnit>> enemyUnits;
+#endif
+        std::map<BWAPI::Unit, std::unique_ptr<MyUnit>> myUnits;
+        std::map<BWAPI::Unit, std::unique_ptr<EnemyUnit>> enemyUnits;
 
         std::map<BWAPI::UnitType, std::set<BWAPI::Unit>> myCompletedUnitsByType;
         std::map<BWAPI::UnitType, std::set<BWAPI::Unit>> myIncompleteUnitsByType;
+#ifndef _DEBUG
     }
+#endif
 
     void update()
     {
         // Update all my units
         for (auto & unit : BWAPI::Broodwar->self()->getUnits())
         {
-            getMine(unit)->update();
+            getMine(unit).update();
 
             if (unit->isCompleted())
+            {
                 myCompletedUnitsByType[unit->getType()].insert(unit);
+                myIncompleteUnitsByType[unit->getType()].erase(unit);
+            }
             else
                 myIncompleteUnitsByType[unit->getType()].insert(unit);
         }
@@ -36,9 +43,49 @@ namespace Units
             // Now update all the units we can see
             for (auto unit : player->getUnits())
             {
-                getEnemy(unit)->update(unit);
+                getEnemy(unit).update(unit);
             }
         }
+
+        return;
+
+        std::ostringstream debug;
+        bool anyDebugUnits = false;
+
+        for (auto unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (unit->getType().isWorker())
+            {
+                anyDebugUnits = true;
+
+                debug << "\n" << unit->getType() << " " << unit->getID() << " @ " << unit->getPosition() << "^" << BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(unit->getPosition())) << ": ";
+
+                debug << "command: " << unit->getLastCommand().getType() << ",frame=" << (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame());
+                if (unit->getLastCommand().getTarget())
+                    debug << ",target=" << unit->getLastCommand().getTarget()->getType() << " " << unit->getLastCommand().getTarget()->getID() << " @ " << unit->getLastCommand().getTarget()->getPosition() << ",dist=" << unit->getLastCommand().getTarget()->getDistance(unit);
+                else if (unit->getLastCommand().getTargetPosition())
+                    debug << ",targetpos " << unit->getLastCommand().getTargetPosition();
+
+                debug << ". order: " << unit->getOrder();
+                if (unit->getOrderTarget())
+                    debug << ",target=" << unit->getOrderTarget()->getType() << " " << unit->getOrderTarget()->getID() << " @ " << unit->getOrderTarget()->getPosition() << ",dist=" << unit->getOrderTarget()->getDistance(unit);
+                else if (unit->getOrderTargetPosition())
+                    debug << ",targetpos " << unit->getOrderTargetPosition();
+
+                debug << ". isMoving=" << unit->isMoving();
+            }
+
+            if (unit->getType().isBuilding())
+            {
+                anyDebugUnits = true;
+
+                debug << "\n" << unit->getType() << " " << unit->getID() << " @ " << unit->getPosition() << "^" << BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(unit->getPosition())) << ": ";
+
+                debug << "completed=" << unit->isCompleted() << ",remainingBuildTime=" << unit->getRemainingBuildTime();
+            }
+        }
+
+        if (anyDebugUnits) Log::Debug() << debug.str();
     }
 
     void onUnitDestroy(BWAPI::Unit unit)
@@ -62,32 +109,22 @@ namespace Units
             getEnemy(unit);
     }
 
-    const std::map<BWAPI::Unit, std::shared_ptr<MyUnit>> & allMine()
-    {
-        return myUnits;
-    }
-
-    std::shared_ptr<MyUnit> getMine(BWAPI::Unit unit)
+    MyUnit& getMine(BWAPI::Unit unit)
     {
         auto it = myUnits.find(unit);
         if (it != myUnits.end())
-            return it->second;
+            return *it->second;
 
-        return myUnits.emplace(unit, std::make_shared<MyUnit>(unit)).first->second;
+        return *myUnits.emplace(unit, std::make_unique<MyUnit>(unit)).first->second;
     }
 
-    const std::map<BWAPI::Unit, std::shared_ptr<EnemyUnit>> & allEnemy()
-    {
-        return enemyUnits;
-    }
-
-    std::shared_ptr<EnemyUnit> getEnemy(BWAPI::Unit unit)
+    EnemyUnit& getEnemy(BWAPI::Unit unit)
     {
         auto it = enemyUnits.find(unit);
         if (it != enemyUnits.end())
-            return it->second;
+            return *it->second;
 
-        return enemyUnits.emplace(unit, std::make_shared<EnemyUnit>(unit)).first->second;
+        return *enemyUnits.emplace(unit, std::make_unique<EnemyUnit>(unit)).first->second;
     }
 
     int countAll(BWAPI::UnitType type)

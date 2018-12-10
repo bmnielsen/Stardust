@@ -1,7 +1,6 @@
 #include "LocutusAIModule.h"
 
-#include <chrono>
-
+#include "Timer.h"
 #include "Map.h"
 #include "Producer.h"
 #include "Builder.h"
@@ -15,7 +14,7 @@ void LocutusAIModule::onStart()
 {
     Log::SetDebug(true);
 
-    auto start = std::chrono::high_resolution_clock::now();
+    Timer::start("Startup");
 
     Map::initialize();
     BuildingPlacement::initialize();
@@ -25,9 +24,10 @@ void LocutusAIModule::onStart()
 
     Strategist::chooseOpening();
 
-    Log::Debug() << "Startup time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
+    Timer::stop();
 
     Log::Get() << "I am Locutus of Borg, you are " << Opponent::getName() << ", we're in " << BWAPI::Broodwar->mapFileName();
+    //Log::Debug() << "Seed: " << BWAPI::Broodwar->getRandomSeed();
 }
 
 void LocutusAIModule::onEnd(bool isWinner)
@@ -42,24 +42,32 @@ void LocutusAIModule::onFrame()
         return;
     }
 
-    auto start = std::chrono::high_resolution_clock::now();
+    Timer::start("Frame");
 
     // Update general information things
     Units::update();
-    Log::Debug() << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << ": Units::update";
+    Timer::checkpoint("Units::update");
 
     Workers::updateAssignments();
-    Log::Debug() << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << ": Workers::updateAssignments";
+    Timer::checkpoint("Workers::updateAssignments");
+
+    BuildingPlacement::update();
+    Timer::checkpoint("BuildingPlacement::update");
+
+    Builder::update();
+    Timer::checkpoint("Builder::update");
 
     // Update stuff that issues orders
     Producer::update();
-    Log::Debug() << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << ": Producer::update";
+    Timer::checkpoint("Producer::update");
 
-    Builder::update();
-    Log::Debug() << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << ": Builder::update";
+    Builder::issueOrders();
+    Timer::checkpoint("Builder::issueOrders");
 
     Workers::issueOrders(); // Called last to allow workers to be taken or released for building, combat, etc. earlier
-    Log::Debug() << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << ": Workers::issueOrders";
+    Timer::checkpoint("Workers::issueOrders");
+
+    Timer::stop();
 }
 
 void LocutusAIModule::onSendText(std::string text)
@@ -99,6 +107,11 @@ void LocutusAIModule::onUnitCreate(BWAPI::Unit unit)
 {
     Map::onUnitCreate(unit);
     BuildingPlacement::onUnitCreate(unit);
+
+    if (unit->getPlayer() == BWAPI::Broodwar->self())
+    {
+        Log::Get() << "Unit created: " << unit->getType() << " @ " << unit->getTilePosition();
+    }
 }
 
 void LocutusAIModule::onUnitDestroy(BWAPI::Unit unit)
@@ -107,6 +120,11 @@ void LocutusAIModule::onUnitDestroy(BWAPI::Unit unit)
     BuildingPlacement::onUnitDestroy(unit);
     Units::onUnitDestroy(unit);
     Workers::onUnitDestroy(unit);
+
+    if (unit->getPlayer() == BWAPI::Broodwar->self())
+    {
+        Log::Get() << "Unit lost: " << unit->getType() << " @ " << unit->getTilePosition();
+    }
 }
 
 void LocutusAIModule::onUnitMorph(BWAPI::Unit unit)

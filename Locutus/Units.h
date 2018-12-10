@@ -11,11 +11,8 @@ namespace Units
     void onUnitDestroy(BWAPI::Unit unit);
     void onUnitRenegade(BWAPI::Unit unit);
 
-    const std::map<BWAPI::Unit, std::shared_ptr<MyUnit>> & allMine();
-    std::shared_ptr<MyUnit> getMine(BWAPI::Unit unit);
-
-    const std::map<BWAPI::Unit, std::shared_ptr<EnemyUnit>> & allEnemy();
-    std::shared_ptr<EnemyUnit> getEnemy(BWAPI::Unit unit);
+    MyUnit& getMine(BWAPI::Unit unit);
+    EnemyUnit& getEnemy(BWAPI::Unit unit);
 
     int countAll(BWAPI::UnitType type);
     int countCompleted(BWAPI::UnitType type);

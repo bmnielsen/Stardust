@@ -22,6 +22,7 @@ public:
 
     void move(BWAPI::Position position);
     void rightClick(BWAPI::Unit target);
+    bool build(BWAPI::UnitType type, BWAPI::TilePosition tile);
 
 private:
     BWAPI::Unit     unit;

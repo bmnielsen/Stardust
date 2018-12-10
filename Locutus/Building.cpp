@@ -1,13 +1,21 @@
 #include "Building.h"
 
 #include "PathFinding.h"
+#include "UnitUtil.h"
 
 Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder)
     : type(type)
     , tile(tile)
     , unit(nullptr)
     , builder(builder)
+    , startFrame(-1)
 {
+}
+
+void Building::constructionStarted(BWAPI::Unit _unit)
+{
+    unit = _unit;
+    startFrame = BWAPI::Broodwar->getFrameCount();
 }
 
 BWAPI::Position Building::getPosition() const
@@ -15,17 +23,26 @@ BWAPI::Position Building::getPosition() const
     return BWAPI::Position(tile) + BWAPI::Position(type.tileWidth() * 16, type.tileHeight() * 16);
 }
 
-bool Building::constructionStarted() const
+bool Building::isConstructionStarted() const
 {
     return unit && unit->exists();
 }
 
-int Building::expectedFramesUntilCompletion() const
+int Building::expectedFramesUntilStarted() const
 {
-    if (unit && unit->exists()) return unit->getRemainingBuildTime();
-    
+    if (unit && unit->exists()) return 0;
+
     // This can be inaccurate if this isn't the next building in the builder's queue
     // TODO: Verify this doesn't cause problems
-    return PathFinding::ExpectedTravelTime(builder->getPosition(), getPosition(), builder->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea)
-        + type.buildTime();
+    return PathFinding::ExpectedTravelTime(builder->getPosition(), getPosition(), builder->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea);
+}
+
+int Building::expectedFramesUntilCompletion() const
+{
+    if (startFrame != -1)
+    {
+        return UnitUtil::BuildTime(type) - (BWAPI::Broodwar->getFrameCount() - startFrame);
+    }
+
+    return UnitUtil::BuildTime(type) + expectedFramesUntilStarted();
 }
