@@ -20,6 +20,22 @@ namespace Geo
         return BWAPI::Positions::Origin.getApproxDistance(BWAPI::Position(xDist, yDist));
     }
 
+    int EdgeToEdgeSquaredDistance(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter)
+    {
+        // Compute bounding boxes
+        BWAPI::Position firstTopLeft = firstCenter + BWAPI::Position(-firstType.dimensionLeft(), -firstType.dimensionUp());
+        BWAPI::Position firstBottomRight = firstCenter + BWAPI::Position(firstType.dimensionRight(), firstType.dimensionDown());
+        BWAPI::Position secondTopLeft = secondCenter + BWAPI::Position(-secondType.dimensionLeft(), -secondType.dimensionUp());
+        BWAPI::Position secondBottomRight = secondCenter + BWAPI::Position(secondType.dimensionRight(), secondType.dimensionDown());
+
+        // Compute offsets
+        int xDist = (std::max)({ firstTopLeft.x - secondBottomRight.x - 1, secondTopLeft.x - firstBottomRight.x - 1, 0 });
+        int yDist = (std::max)({ firstTopLeft.y - secondBottomRight.y - 1, secondTopLeft.y - firstBottomRight.y - 1, 0 });
+
+        // Compute distance
+        return xDist * xDist + yDist * yDist;
+    }
+
     int EdgeToPointDistance(BWAPI::UnitType type, BWAPI::Position center, BWAPI::Position point)
     {
         // Compute bounding box
@@ -32,6 +48,20 @@ namespace Geo
 
         // Compute distance
         return BWAPI::Positions::Origin.getApproxDistance(BWAPI::Position(xDist, yDist));
+    }
+
+    BWAPI::Position NearestPointOnEdge(BWAPI::Position point, BWAPI::UnitType type, BWAPI::Position center)
+    {
+        // Compute bounding box
+        BWAPI::Position topLeft = center + BWAPI::Position(-type.dimensionLeft(), -type.dimensionUp());
+        BWAPI::Position bottomRight = center + BWAPI::Position(type.dimensionRight(), type.dimensionDown());
+
+        int x = center.x < topLeft.x ? topLeft.x : (center.x > bottomRight.x ? bottomRight.x : center.x);
+        int y = center.y < topLeft.y ? topLeft.y : (center.y > bottomRight.y ? bottomRight.y : center.y);
+
+        return BWAPI::Position(
+            center.x < topLeft.x ? topLeft.x : (center.x > bottomRight.x ? bottomRight.x : center.x),
+            center.y < topLeft.y ? topLeft.y : (center.y > bottomRight.y ? bottomRight.y : center.y));
     }
 
     bool Overlaps(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter)

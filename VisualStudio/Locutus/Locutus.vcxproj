@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug Lib|Win32">
@@ -20,7 +20,6 @@
     <ClCompile Include="..\..\Locutus\Building.cpp" />
     <ClCompile Include="..\..\Locutus\BuildingPlacement.cpp" />
     <ClCompile Include="..\..\Locutus\Choke.cpp" />
-    <ClCompile Include="..\..\Locutus\ContinuousWorkerProduction.cpp" />
     <ClCompile Include="..\..\Locutus\Dll.cpp" />
     <ClCompile Include="..\..\Locutus\Fortress.cpp" />
     <ClCompile Include="..\..\Locutus\Geo.cpp" />
@@ -33,6 +32,8 @@
     <ClCompile Include="..\..\Locutus\Plasma.cpp" />
     <ClCompile Include="..\..\Locutus\EnemyUnit.cpp" />
     <ClCompile Include="..\..\Locutus\Producer.cpp" />
+    <ClCompile Include="..\..\Locutus\UnitProductionGoal.cpp" />
+    <ClCompile Include="..\..\Locutus\UpgradeProductionGoal.cpp" />
     <ClCompile Include="..\..\Locutus\Strategist.cpp" />
     <ClCompile Include="..\..\Locutus\Timer.cpp" />
     <ClCompile Include="..\..\Locutus\Units.cpp" />
@@ -46,8 +47,6 @@
     <ClInclude Include="..\..\Locutus\BuildingPlacement.h" />
     <ClInclude Include="..\..\Locutus\Choke.h" />
     <ClInclude Include="..\..\Locutus\Common.h" />
-    <ClInclude Include="..\..\Locutus\ContinuousProduction.h" />
-    <ClInclude Include="..\..\Locutus\ContinuousWorkerProduction.h" />
     <ClInclude Include="..\..\Locutus\DarkTemplar.h" />
     <ClInclude Include="..\..\Locutus\Dragoons.h" />
     <ClInclude Include="..\..\Locutus\Fortress.h" />
@@ -59,8 +58,10 @@
     <ClInclude Include="..\..\Locutus\ProductionGoal.h" />
     <ClInclude Include="..\..\Locutus\Strategist.h" />
     <ClInclude Include="..\..\Locutus\Timer.h" />
+    <ClInclude Include="..\..\Locutus\UnitProductionGoal.h" />
     <ClInclude Include="..\..\Locutus\Units.h" />
     <ClInclude Include="..\..\Locutus\UnitUtil.h" />
+    <ClInclude Include="..\..\Locutus\UpgradeProductionGoal.h" />
     <ClInclude Include="..\..\Locutus\Workers.h" />
     <ClInclude Include="..\..\Locutus\LocutusAIModule.h" />
     <ClInclude Include="..\..\Locutus\Log.h" />

@@ -2,7 +2,7 @@
 
 #include "ProductionGoal.h"
 
-class ContinuousProduction : public ProductionGoal
+class ContinuousProduction : public UnitProductionGoal
 {
 public:
     ContinuousProduction(BWAPI::UnitType type) : type(type) {}

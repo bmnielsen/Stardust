@@ -7,5 +7,5 @@
 namespace Strategist
 {
     void chooseOpening();
-    std::vector<ProductionGoal *> & currentProductionGoals();
+    std::vector<ProductionGoal> & currentProductionGoals();
 }

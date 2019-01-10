@@ -21,8 +21,12 @@ public:
     int getLastAttackStartedAt() const { return lastAttackStartedAt; };
 
     void move(BWAPI::Position position);
+    void attack(BWAPI::Unit target);
     void rightClick(BWAPI::Unit target);
+    void gather(BWAPI::Unit target);
+    void returnCargo();
     bool build(BWAPI::UnitType type, BWAPI::TilePosition tile);
+    void stop();
 
 private:
     BWAPI::Unit     unit;

@@ -123,11 +123,14 @@
     <ClCompile Include="..\..\Locutus\Producer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Locutus\ContinuousWorkerProduction.cpp">
-      <Filter>Source Files\Strategist\ProductionGoals</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Locutus\Timer.cpp">
       <Filter>Source Files\Util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\UpgradeProductionGoal.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\UnitProductionGoal.cpp">
+      <Filter>Source Files\Strategist\ProductionGoals</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -206,12 +209,6 @@
     <ClInclude Include="..\..\Locutus\Producer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Locutus\ContinuousProduction.h">
-      <Filter>Header Files\Strategist\ProductionGoals</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Locutus\ContinuousWorkerProduction.h">
-      <Filter>Header Files\Strategist\ProductionGoals</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Locutus\Dragoons.h">
       <Filter>Header Files\Strategist\Openings</Filter>
     </ClInclude>
@@ -220,6 +217,12 @@
     </ClInclude>
     <ClInclude Include="..\..\Locutus\DarkTemplar.h">
       <Filter>Header Files\Strategist\Openings</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\UnitProductionGoal.h">
+      <Filter>Header Files\Strategist\ProductionGoals</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\UpgradeProductionGoal.h">
+      <Filter>Header Files\Strategist\ProductionGoals</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,4 +1,5 @@
 #include "Units.h"
+#include "Geo.h"
 
 namespace Units
 {
@@ -54,28 +55,33 @@ namespace Units
 
         for (auto unit : BWAPI::Broodwar->self()->getUnits())
         {
-            if (unit->getType().isWorker())
+            if (unit->getType().isWorker() && true)
             {
                 anyDebugUnits = true;
 
-                debug << "\n" << unit->getType() << " " << unit->getID() << " @ " << unit->getPosition() << "^" << BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(unit->getPosition())) << ": ";
+                debug << "\n" << unit->getType() << " " << unit->getID() << " @ " << unit->getPosition() << "^" << BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(unit->getPosition()));
+                debug << ",speed=" << (unit->getVelocityX() * unit->getVelocityX() + unit->getVelocityY() * unit->getVelocityY()) << ": ";
 
                 debug << "command: " << unit->getLastCommand().getType() << ",frame=" << (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame());
                 if (unit->getLastCommand().getTarget())
-                    debug << ",target=" << unit->getLastCommand().getTarget()->getType() << " " << unit->getLastCommand().getTarget()->getID() << " @ " << unit->getLastCommand().getTarget()->getPosition() << ",dist=" << unit->getLastCommand().getTarget()->getDistance(unit);
+                    debug << ",target=" << unit->getLastCommand().getTarget()->getType() << " " << unit->getLastCommand().getTarget()->getID() << " @ " << unit->getLastCommand().getTarget()->getPosition() << ",dist=" << unit->getLastCommand().getTarget()->getDistance(unit) << ",sqdist=" << Geo::EdgeToEdgeSquaredDistance(unit->getType(), unit->getPosition(), unit->getLastCommand().getTarget()->getType(), unit->getLastCommand().getTarget()->getPosition());
                 else if (unit->getLastCommand().getTargetPosition())
                     debug << ",targetpos " << unit->getLastCommand().getTargetPosition();
 
-                debug << ". order: " << unit->getOrder();
+                debug << ". order: " << unit->getOrder() << ",timer=" << unit->getOrderTimer();
                 if (unit->getOrderTarget())
-                    debug << ",target=" << unit->getOrderTarget()->getType() << " " << unit->getOrderTarget()->getID() << " @ " << unit->getOrderTarget()->getPosition() << ",dist=" << unit->getOrderTarget()->getDistance(unit);
+                    debug << ",target=" << unit->getOrderTarget()->getType() << " " << unit->getOrderTarget()->getID() << " @ " << unit->getOrderTarget()->getPosition() << ",dist=" << unit->getOrderTarget()->getDistance(unit) << ",sqdist=" << Geo::EdgeToEdgeSquaredDistance(unit->getType(), unit->getPosition(), unit->getOrderTarget()->getType(), unit->getOrderTarget()->getPosition());
                 else if (unit->getOrderTargetPosition())
                     debug << ",targetpos " << unit->getOrderTargetPosition();
-
+                
                 debug << ". isMoving=" << unit->isMoving();
+                if (unit->isCarryingMinerals())
+                    debug << ",carrying minerals";
+                if (unit->isCarryingGas())
+                    debug << ",carrying gas";
             }
 
-            if (unit->getType().isBuilding())
+            if (unit->getType().isBuilding() && false)
             {
                 anyDebugUnits = true;
 

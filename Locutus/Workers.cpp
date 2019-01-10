@@ -6,6 +6,29 @@
 #include "Map.h"
 #include "Builder.h"
 
+/*
+
+Does this thing work?
+if (u->order_process_timer) {
+            --u->order_process_timer;
+            return;
+}
+u->order_process_timer = 8;
+switch (u->order_type->id) {
+case Orders::MoveToGas:
+            order_MoveToGas(u);
+            break;
+case Orders::WaitForGas:
+            order_WaitForGas(u);
+            break;
+}
+
+https://www.teamliquid.net/forum/brood-war/484849-improving-mineral-gathering-rate-in-brood-war
+
+order_process_timer
+order_timer_counter
+*/
+
 namespace Workers
 {
 #ifndef _DEBUG
@@ -22,6 +45,11 @@ namespace Workers
         std::map<BWAPI::Unit, std::set<BWAPI::Unit>>            mineralPatchWorkers;
         std::map<BWAPI::Unit, BWAPI::Unit>                      workerRefinery;
         std::map<BWAPI::Unit, std::set<BWAPI::Unit>>            refineryWorkers;
+
+        // These are used for optimization of order_timer_counter
+        // i.e. it is most efficient to send a gather order exactly 8+LF frames before the worker reaches the resource
+        std::map<BWAPI::Unit, std::set<BWAPI::Position>>                                resourceOptimalOrderPositions;
+        std::map<BWAPI::Unit, std::map<BWAPI::Unit, std::vector<BWAPI::Position>>>      resourceWorkerPositionHistory;
 
         // Removes a worker's base and mineral patch or gas assignments
         void removeFromResource(
@@ -234,6 +262,48 @@ namespace Workers
                 }
             }
         }
+
+        bool handleOrderTimerCounterOptimization(BWAPI::Unit worker, BWAPI::Unit resource)
+        {
+            // Verify the current order
+            if (worker->getOrder() != BWAPI::Orders::MoveToMinerals && worker->getOrder() != BWAPI::Orders::MoveToGas) return false;
+
+            // Break out early if the distance is larger than we need to worry about
+            auto dist = worker->getDistance(resource);
+            if (dist > 100) return false;
+
+            auto & optimalPositions = resourceOptimalOrderPositions[resource];
+            auto & positionHistory = resourceWorkerPositionHistory[resource][worker];
+
+            // If the worker is at a position we know to be optimal, resend the order
+            if (optimalPositions.find(worker->getPosition()) != optimalPositions.end())
+            {
+                Units::getMine(worker).gather(resource);
+                positionHistory.push_back(worker->getPosition());
+                return true;
+            }
+
+            // If the worker isn't at the resource yet, record its position
+            if (dist > 0)
+            {
+                positionHistory.push_back(worker->getPosition());
+                return false;
+            }
+
+            // The worker is at the resource, so if we have enough position history recorded,
+            // record the optimal position
+            size_t framesAgo = BWAPI::Broodwar->getLatencyFrames() + 11;
+            if (positionHistory.size() >= framesAgo)
+            {
+                auto result = optimalPositions.insert(positionHistory[positionHistory.size() - framesAgo]);
+                if (result.second)
+                    Log::Debug() << worker->getType() << " " << worker->getID() << " : Inserted optimal position " << positionHistory[positionHistory.size() - framesAgo] << " for resource " << resource->getPosition();
+            }
+
+            positionHistory.clear();
+
+            return false;
+        }
 #ifndef _DEBUG
     }
 #endif
@@ -382,32 +452,64 @@ namespace Workers
             {
             case Minerals:
             case Gas:
+                // Skip if the worker doesn't have a valid base
+                auto base = workerBase[worker];
+                if (!base || !base->resourceDepot || !base->resourceDepot->exists())
+                {
+                    continue;
+                }
+
                 // Handle mining from an assigned mineral patch
                 auto mineralPatch = workerMineralPatch[worker];
                 if (mineralPatch && mineralPatch->exists())
                 {
-                    // If the unit is currently mining or returning minerals, leave it alone
+                    // If the unit is currently mining, leave it alone
                     if (worker->getOrder() == BWAPI::Orders::MiningMinerals ||
-                        worker->getOrder() == BWAPI::Orders::ResetCollision ||
-                        worker->getOrder() == BWAPI::Orders::ReturnMinerals)
+                        worker->getOrder() == BWAPI::Orders::ResetCollision)
                     {
                         continue;
                     }
 
-                    // If the unit is moving to or waiting for minerals, just make sure it doesn't switch targets
+                    // TODO: Look into the same for gas
+                    // It doesn't really help though unless we only put two workers on gas
+                    if (handleOrderTimerCounterOptimization(worker, mineralPatch)) continue;
+
+                    // If the unit is returning cargo, leave it alone
+                    if (worker->getOrder() == BWAPI::Orders::ReturnMinerals) continue;
+
+                    // Check if another worker is currently mining this patch
+                    BWAPI::Unit otherWorker = nullptr;
+                    for (auto unit : mineralPatchWorkers[mineralPatch])
+                    {
+                        if (unit != worker)
+                        {
+                            otherWorker = unit;
+                            break;
+                        }
+                    }
+                                        
+                    // Resend the gather command when we expect the other worker to be finished mining in 11+LF frames
+                    if (otherWorker && otherWorker->getOrder() == BWAPI::Orders::MiningMinerals &&
+                        (otherWorker->getOrderTimer() + 7) == (11 + BWAPI::Broodwar->getLatencyFrames()))
+                    {
+                        Units::getMine(worker).gather(mineralPatch);
+                        continue;
+                    }
+
+                    // Mineral locking: if the unit is moving to or waiting for minerals, make sure it doesn't switch targets
                     if (worker->getOrder() == BWAPI::Orders::MoveToMinerals ||
                         worker->getOrder() == BWAPI::Orders::WaitForMinerals)
                     {
                         if (worker->getOrderTarget() != mineralPatch)
                         {
-                            Units::getMine(worker).rightClick(mineralPatch);
+                            Units::getMine(worker).gather(mineralPatch);
                         }
 
                         continue;
                     }
 
                     // Otherwise for all other orders click on the mineral patch
-                    Units::getMine(worker).rightClick(mineralPatch);
+                    Units::getMine(worker).gather(mineralPatch);
                     continue;
                 }
 
@@ -419,20 +521,14 @@ namespace Workers
                     if (worker->getOrder() == BWAPI::Orders::MoveToGas ||
                         worker->getOrder() == BWAPI::Orders::WaitForGas ||
                         worker->getOrder() == BWAPI::Orders::HarvestGas ||
+                        worker->getOrder() == BWAPI::Orders::Harvest1 ||
                         worker->getOrder() == BWAPI::Orders::ReturnGas)
                     {
                         continue;
                     }
 
                     // Otherwise click on the refinery
-                    Units::getMine(worker).rightClick(refinery);
-                    continue;
-                }
-
-                // Skip if the worker doesn't have a valid base
-                auto base = workerBase[worker];
-                if (!base || !base->resourceDepot || !base->resourceDepot->exists())
-                {
+                    Units::getMine(worker).gather(refinery);
                     continue;
                 }
 
@@ -446,7 +542,7 @@ namespace Workers
                 // If the worker has cargo, return it
                 if (worker->isCarryingMinerals() || worker->isCarryingGas())
                 {
-                    Units::getMine(worker).rightClick(base->resourceDepot);
+                    Units::getMine(worker).returnCargo();
                     continue;
                 }
 

@@ -2,7 +2,7 @@
 
 #include "ProductionGoal.h"
 
-class ContinuousWorkerProduction : public ProductionGoal
+class ContinuousWorkerProduction : public UnitProductionGoal
 {
 public:
     BWAPI::UnitType unitType() { return BWAPI::Broodwar->self()->getRace().getWorker(); }

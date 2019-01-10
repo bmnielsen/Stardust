@@ -2,8 +2,7 @@
 
 #include "Opening.h"
 
-#include "ContinuousWorkerProduction.h"
-#include "ContinuousProduction.h"
+#include "ProductionGoal.h"
 
 class Zealots : public Opening
 {
@@ -12,7 +11,7 @@ public:
 
 private:
     std::vector<ProductionGoal *> _goals = {
-        new ContinuousWorkerProduction(),
-        new ContinuousProduction(BWAPI::UnitTypes::Protoss_Zealot)
+        (ProductionGoal*)new UnitProductionGoal(BWAPI::UnitTypes::Protoss_Probe),
+        (ProductionGoal*)new UnitProductionGoal(BWAPI::UnitTypes::Protoss_Zealot)
     };
 };
