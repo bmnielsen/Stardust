@@ -7,6 +7,7 @@
 #include "BuildingPlacement.h"
 #include "Opponent.h"
 #include "Strategist.h"
+#include "General.h"
 #include "Units.h"
 #include "Workers.h"
 
@@ -63,6 +64,9 @@ void LocutusAIModule::onFrame()
 
     Builder::issueOrders();
     Timer::checkpoint("Builder::issueOrders");
+
+    General::issueOrders();
+    Timer::checkpoint("General::issueOrders");
 
     Workers::issueOrders(); // Called last to allow workers to be taken or released for building, combat, etc. earlier
     Timer::checkpoint("Workers::issueOrders");
@@ -130,6 +134,11 @@ void LocutusAIModule::onUnitDestroy(BWAPI::Unit unit)
 void LocutusAIModule::onUnitMorph(BWAPI::Unit unit)
 {
     BuildingPlacement::onUnitMorph(unit);
+
+    if (unit->getPlayer() == BWAPI::Broodwar->self() && unit->getType().isRefinery())
+    {
+        Log::Get() << "Unit created: " << unit->getType() << " @ " << unit->getTilePosition();
+    }
 }
 
 void LocutusAIModule::onUnitRenegade(BWAPI::Unit unit)

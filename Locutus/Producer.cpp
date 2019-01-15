@@ -11,6 +11,7 @@
 
 /*
 Overall TODOs:
+- Do something about making sure we don't build pylons too early to get building locations (pylon is not shifted back) - perhaps handle it in resolveResourceBlocks instead
 - LF
 - Support building a specific number of units as quickly as possible
   - Update workers so they can be queued if they recoup their cost before this becomes a problem
@@ -64,33 +65,33 @@ namespace Producer
             // Type, can be a unit or upgrade
             Type type;
 
-            int mineralPrice()
+            int mineralPrice() const
             {
                 // Buildings require a worker to be taken off minerals for a while, so we estimate the impact
                 // In some cases this will be too pessimistic, as we can re-use the same worker for multiple jobs
                 return (int)(2.0 * estimatedWorkerMovementTime * MINERALS_PER_WORKER_FRAME) + std::visit([](auto&& arg) {return arg.mineralPrice(); }, type);
             }
 
-            int gasPrice()
+            int gasPrice() const
             {
                 return std::visit([](auto&& arg) {return arg.gasPrice(); }, type);
             }
 
-            int supplyProvided()
+            int supplyProvided() const
             {
                 if (auto unitType = std::get_if<BWAPI::UnitType>(&type))
                     return unitType->supplyProvided();
                 return 0;
             }
 
-            int supplyRequired()
+            int supplyRequired() const
             {
                 if (auto unitType = std::get_if<BWAPI::UnitType>(&type))
                     return unitType->supplyRequired();
                 return 0;
             }
 
-            bool is(BWAPI::UnitType unitType)
+            bool is(BWAPI::UnitType unitType) const
             {
                 auto _unitType = std::get_if<BWAPI::UnitType>(&type);
                 return _unitType && *_unitType == unitType;
@@ -341,36 +342,29 @@ namespace Producer
         {
             if (delta < 1 || it == items.end()) return;
 
-            int startFrame = (*it)->startFrame;
-
             for (; it != items.end(); it++)
             {
                 auto & item = **it;
 
                 item.startFrame += delta;
                 item.completionFrame += delta;
-
-                // If the producer was queued as part of this goal, and this item is the first item it is producing, then shift it too
-                if (item.producer && item.producer->queued && !item.producer->queued->isPrerequisite && items.find(item.producer->queued) != items.end()
-                    && !item.producer->items.empty() && *item.producer->items.begin() == *it)
-                {
-                    shiftOne(items, item.producer->queued, delta);
-                }
             }
         }
 
         // Remove duplicate items from this goal's set and resolve conflicts with already-committed items
-        void resolveDuplicates(ProductionItemSet & items, ProductionItemSet & committedItems)
+        // Returns the max frame an item in goalItems will finish
+        int resolveDuplicates(ProductionItemSet & goalItems, ProductionItemSet & committedItems)
         {
+            int maxFrame = 0;
             std::set<Type> seen;
-            for (auto it = items.begin(); it != items.end(); )
+            for (auto it = goalItems.begin(); it != goalItems.end(); )
             {
                 auto & item = **it;
 
                 // There's already an item of this type in this goal's queue
                 if (seen.find(item.type) != seen.end())
                 {
-                    it = items.erase(it);
+                    it = goalItems.erase(it);
                     continue;
                 }
 
@@ -386,13 +380,14 @@ namespace Producer
                     int delta = committedItem->completionFrame - item.completionFrame;
 
                     // Remove the item
-                    it = items.erase(it);
+                    it = goalItems.erase(it);
 
                     // If the committed item completes later, shift all the later items in this goal's queue
                     // The rationale for this is that the committed item set is already optimized to produce everything
                     // as early as possible, so we know we can't move it earlier
-                    shiftAll(items, it, delta);
+                    shiftAll(goalItems, it, delta);
 
+                    maxFrame = std::max(maxFrame, committedItem->completionFrame);
                     handled = true;
                     break;
                 }
@@ -400,10 +395,13 @@ namespace Producer
                 // We didn't find a match, so just register this type and continue
                 if (!handled)
                 {
+                    maxFrame = std::max(maxFrame, (*it)->completionFrame);
                     seen.insert(item.type);
                     it++;
                 }
             }
+
+            return maxFrame;
         }
 
         void choosePylonBuildLocation(BuildingPlacement::Neighbourhood neighbourhood, const ProductionItem & pylon, bool tentative = false, int requiredWidth = 0)
@@ -580,7 +578,7 @@ namespace Producer
             }
         }
 
-        void insertProduction(ProductionItemSet & items, Type type, int frame, const std::shared_ptr<Producer> producer)
+        void insertProduction(ProductionItemSet & items, Type type, int frame, const std::shared_ptr<Producer> & producer)
         {
             int build = buildTime(type);
             auto it = producer->items.begin();
@@ -590,10 +588,13 @@ namespace Producer
                 if (it != producer->items.end() && frame >= ((*it)->startFrame - build))
                 {
                     frame = (*it)->completionFrame;
+                    it++;
                     continue;
                 }
 
-                items.emplace(std::make_shared<ProductionItem>(type, frame, producer));
+                auto item = std::make_shared<ProductionItem>(type, frame, producer);
+                items.insert(item);
+                producer->items.insert(item);
                 frame += build;
             }
         }
@@ -637,17 +638,64 @@ namespace Producer
             }
         }
 
-        bool shiftForMinerals(ProductionItemSet & goalItems, ProductionItemSet::iterator it)
+        // Finds the frame where we have enough of a resource for the item and its prerequisites
+        int frameWhenResourcesMet(const ProductionItem & item, ProductionItemSet & prerequisiteItems, bool isMinerals)
+        {
+            auto resource = isMinerals ? minerals : gas;
+            int itemCost = isMinerals ? item.mineralPrice() : item.gasPrice();
+
+            int f;
+
+            // Simple case: no prerequisites
+            if (prerequisiteItems.empty())
+            {
+                // Find the first frame scanning backwards where we don't have enough of the resource, then advance one
+                for (f = PREDICT_FRAMES - 1; f >= item.startFrame; f--)
+                {
+                    if (resource[f] < itemCost) break;
+                }
+
+                return f + 1;
+            }
+
+            // Get the total resource cost of the prerequisites
+            int prerequisiteCost = 0;
+            for (auto & item : prerequisiteItems)
+            {
+                prerequisiteCost += isMinerals ? item->mineralPrice() : item->gasPrice();
+            }
+
+            // Precompute the frame stops and how much of the resource we need at each one
+            std::vector<std::pair<int, int>> frameStopsAndResourceNeeded;
+            frameStopsAndResourceNeeded.push_back(std::make_pair(0, prerequisiteCost + itemCost));
+            for (auto prerequisiteIt = prerequisiteItems.rbegin(); prerequisiteIt != prerequisiteItems.rend(); prerequisiteIt++)
+            {
+                int cost = isMinerals ? (*prerequisiteIt)->mineralPrice() : (*prerequisiteIt)->gasPrice();
+                if (cost > 0)
+                {
+                    frameStopsAndResourceNeeded.push_back(std::make_pair(item.startFrame - (*prerequisiteIt)->startFrame, prerequisiteCost));
+                    prerequisiteCost -= isMinerals ? (*prerequisiteIt)->mineralPrice() : (*prerequisiteIt)->gasPrice();
+                }
+            }
+
+            // Scan backwards, breaking whenever we don't have enough minerals at any of the stops
+            for (f = PREDICT_FRAMES - 1; f >= item.startFrame; f--)
+            {
+                for (auto & frameStopAndMineralsNeeded : frameStopsAndResourceNeeded)
+                {
+                    int frame = f - frameStopAndMineralsNeeded.first;
+                    if (frame < 0 || resource[frame] < frameStopAndMineralsNeeded.second) return f + 1;
+                }
+            }
+
+            return f + 1;
+        }
+
+        bool shiftForMinerals(ProductionItemSet & goalItems, ProductionItemSet & prerequisiteItems, ProductionItemSet::iterator it)
         {
             // Find the frame where we have enough minerals from that point forward
-            // We do this by finding the first frame scanning backwards where we don't have enough minerals
             int mineralCost = (*it)->mineralPrice();
-            int f;
-            for (f = PREDICT_FRAMES - 1; f >= (*it)->startFrame; f--)
-            {
-                if (minerals[f] < mineralCost) break;
-            }
-            f++;
+            int f = frameWhenResourcesMet(**it, prerequisiteItems, true);
 
             // Workers are a special case, as they start producing income after they are completed
             // So for them we just need enough minerals to cover the period until they have recovered their investment
@@ -674,35 +722,86 @@ namespace Producer
 
             // If we can't produce the item immediately, shift the start frame for this and all remaining items
             // Since we are preserving the relative order, we don't need to reinsert anything into the set
-            shiftAll(goalItems, it, f - (*it)->startFrame);
+            int delta = f - (*it)->startFrame;
+            shiftAll(goalItems, it, delta);
+            shiftAll(prerequisiteItems, prerequisiteItems.begin(), delta);
 
             return true;
         }
 
-        bool shiftForGas(ProductionItemSet & goalItems, ProductionItemSet & committedItems, ProductionItemSet::iterator it)
+        bool shiftForGas(ProductionItemSet & goalItems, ProductionItemSet & prerequisiteItems, ProductionItemSet & committedItems, ProductionItemSet::iterator it)
         {
-            if ((*it)->gasPrice() == 0) return true;
-
-            // Find how much gas we are missing to produce the item now
+            // Determine the frame where we need 3 additional gas workers to resolve a gas deficit
             int gasCost = (*it)->gasPrice();
             int gasDeficit = 0;
-            for (int f = PREDICT_FRAMES - 1; f >= (*it)->startFrame; f--)
+            int gasDeficitFrame = PREDICT_FRAMES;
+
+            // Get the total gas cost of the prerequisites
+            int prerequisiteCost = 0;
+            for (auto & item : prerequisiteItems)
             {
-                gasDeficit = std::max(gasDeficit, gasCost - gas[f]);
+                prerequisiteCost += item->gasPrice();
+            }
+
+            // Simple case: no prerequisites, or the prerequisites require no gas
+            if (prerequisiteCost == 0)
+            {
+                if (gasCost == 0) return true;
+                for (int f = PREDICT_FRAMES - 1; f >= (*it)->startFrame; f--)
+                {
+                    int deficit = gasCost - gas[f];
+                    if (deficit > 0)
+                    {
+                        int deficitFrame = f - ((deficit * 75) >> 4); // Approximation avoiding floating-point division
+                        if (deficitFrame < gasDeficitFrame)
+                        {
+                            gasDeficitFrame = deficitFrame;
+                            gasDeficit = deficit;
+                        }
+                    }
+                }
+            }
+
+            // There are prerequisites that require gas
+            {
+                // Get the gas deficit if we produce the item and prerequisites on schedule
+                int gasNeeded = prerequisiteCost + gasCost;
+                auto prerequisiteIt = prerequisiteItems.rbegin();
+                for (int f = PREDICT_FRAMES - 1; f >= 0; f--)
+                {
+                    int deficit = gasNeeded - gas[f];
+                    if (deficit > 0)
+                    {
+                        int deficitFrame = f - ((deficit * 75) >> 4); // Approximation avoiding floating-point division
+                        if (deficitFrame < gasDeficitFrame)
+                        {
+                            gasDeficitFrame = deficitFrame;
+                            gasDeficit = deficit;
+                        }
+                    }
+
+                    if (f == (*it)->startFrame) gasNeeded -= gasCost;
+                    while (prerequisiteIt != prerequisiteItems.rend() && f == (*prerequisiteIt)->startFrame)
+                    {
+                        gasNeeded -= (*prerequisiteIt)->gasPrice();
+                        prerequisiteIt++;
+                    }
+
+                    if (gasNeeded == 0) break;
+                }
             }
 
             // If we have enough gas now, just return
-            if (gasDeficit == 0) return true;
+            if (gasDeficit == 0 || gasDeficitFrame == PREDICT_FRAMES) return true;
 
             // We are gas blocked, so there are three options:
             // - Shift one or more queued refineries earlier
             // - Add a refinery
-            // - Shift the start frame of this item to where we have gas
+            // - Shift the start frame of this item and the prerequisites to where we have gas
             // TODO: Also adjust number of gas workers
-
             auto refineryType = BWAPI::Broodwar->self()->getRace().getRefinery();
 
-            // Compute how many frames of 3 workers collecting gas is needed to produce the item
+            // Compute how many frames of 3 workers collecting gas is needed to resolve the deficit
             int gasFramesNeeded = (int)((double)gasDeficit / (GAS_PER_WORKER_FRAME * 3));
 
             // Look for refineries we can move earlier
@@ -713,9 +812,9 @@ namespace Producer
                     refineryIt++;
                     continue;
                 }
-                
+
                 // What frame do we want to move this refinery back to?
-                int desiredStartFrame = std::max(0, (*it)->startFrame - gasFramesNeeded - UnitUtil::BuildTime(refineryType));
+                int desiredStartFrame = std::max(0, gasDeficitFrame - UnitUtil::BuildTime(refineryType));
 
                 // Find the actual frame we can move it to
                 // We check two things:
@@ -748,11 +847,11 @@ namespace Producer
                 {
                     int completionFrame = actualStartFrame + UnitUtil::BuildTime(refineryType);
 
-                    // Reduce the needed gas frames if it helps the current item
-                    if ((*refineryIt)->completionFrame < (*it)->startFrame)
+                    // Reduce the needed gas frames if the move helped
+                    if ((*refineryIt)->completionFrame < (gasDeficitFrame + gasFramesNeeded))
                         gasFramesNeeded -= delta;
-                    else if (completionFrame < (*it)->startFrame)
-                        gasFramesNeeded -= (*it)->startFrame - completionFrame;
+                    else if (completionFrame < (gasDeficitFrame + gasFramesNeeded))
+                        gasFramesNeeded -= gasDeficitFrame + gasFramesNeeded - completionFrame;
 
                     shiftOne(committedItems, *refineryIt, -delta);
 
@@ -764,13 +863,13 @@ namespace Producer
             }
 
             // If we've resolved the gas block, return
-            if (gasFramesNeeded == 0) return true;
+            if (gasFramesNeeded <= 0) return true;
 
             // Add a refinery if possible
             if (!availableGeysers.empty())
             {
                 // Ideal timing makes enough gas available to build the current item
-                int desiredStartFrame = std::max(0, (*it)->startFrame - gasFramesNeeded - UnitUtil::BuildTime(refineryType));
+                int desiredStartFrame = std::max(0, gasDeficitFrame - UnitUtil::BuildTime(refineryType));
 
                 // Find the actual frame we can start it at
                 // We check two things:
@@ -803,17 +902,85 @@ namespace Producer
                     spendResource(minerals, actualStartFrame, refineryType.mineralPrice());
 
                     // Update mineral and gas collection
-                    updateResourceCollection(minerals, actualStartFrame + UnitUtil::BuildTime(refineryType), -3, MINERALS_PER_WORKER_FRAME);
-                    updateResourceCollection(gas, actualStartFrame + UnitUtil::BuildTime(refineryType), 3, GAS_PER_WORKER_FRAME);
+                    int completionFrame = actualStartFrame + UnitUtil::BuildTime(refineryType);
+                    updateResourceCollection(minerals, completionFrame, -3, MINERALS_PER_WORKER_FRAME);
+                    updateResourceCollection(gas, completionFrame, 3, GAS_PER_WORKER_FRAME);
 
                     // Commit
-                    // TODO: Consider / determine the queue time
+                    auto geyser = *committedItems.emplace(std::make_shared<ProductionItem>(refineryType, actualStartFrame));
+                    geyser->buildLocation = *availableGeysers.begin();
+                    availableGeysers.erase(availableGeysers.begin());
+
+                    // Reduce the needed gas frames as appropriate
+                    if (completionFrame < (gasDeficitFrame + gasFramesNeeded))
+                        gasFramesNeeded -= gasDeficitFrame + gasFramesNeeded - completionFrame;
+                }
+            }
+
+            // If we've resolved the gas block, return
+            if (gasFramesNeeded <= 0) return true;
+
+            // Find the frame where we have enough gas
+            int f = frameWhenResourcesMet(**it, prerequisiteItems, false);
+            if (f == PREDICT_FRAMES)
+            {
+                return false;
+            }
+
+            int delta = f - (*it)->startFrame;
+            shiftAll(goalItems, it, delta);
+            shiftAll(prerequisiteItems, prerequisiteItems.begin(), delta);
+
+            return true;
+
+            /*
+            // We are gas blocked
+            // There is some commented-out code below that times the refinery to complete as late as possible to produce this item
+            // However, in practice it is usually better to just take gas as early as possible so we don't run out later in the game
+            // So we take the simple solution of always taking gas as early as we can afford the minerals and mining drop
+
+            auto refineryType = BWAPI::Broodwar->self()->getRace().getRefinery();
+            auto refineryBuildTime = UnitUtil::BuildTime(refineryType);
+
+            // Add a refinery if possible
+            if (!availableGeysers.empty())
+            {
+                // Find the frame we can start it at
+                // We check two things:
+                // - We have enough minerals to start the refinery
+                // - We have enough minerals after the refinery completes and workers are reassigned
+                int actualStartFrame = 0;
+                for (int f = 0; f < PREDICT_FRAMES - refineryBuildTime; f++)
+                {
+                    // We always need enough minerals to cover the cost of the refinery, and after its completion
+                    // we also need enough minerals to cover the deficit caused by reassigning workers to gas
+                    int framesCompleted = std::max(0, f - actualStartFrame - refineryBuildTime);
+                    int mineralsNeeded = refineryType.mineralPrice() + 
+                        (int)(3.0 * framesCompleted * MINERALS_PER_WORKER_FRAME);
+                    if (minerals[f] < mineralsNeeded)
+                    {
+                        actualStartFrame = f + 1;
+                        continue;
+                    }
+                }
+
+                // Queue it if it was possible to build
+                if (actualStartFrame < PREDICT_FRAMES)
+                {
+                    // Spend minerals
+                    spendResource(minerals, actualStartFrame, refineryType.mineralPrice());
+
+                    // Update mineral and gas collection
+                    updateResourceCollection(minerals, actualStartFrame + refineryBuildTime, -3, MINERALS_PER_WORKER_FRAME);
+                    updateResourceCollection(gas, actualStartFrame + refineryBuildTime, 3, GAS_PER_WORKER_FRAME);
+
+                    // Commit
                     auto geyser = *committedItems.emplace(std::make_shared<ProductionItem>(refineryType, actualStartFrame));
                     geyser->buildLocation = *availableGeysers.begin();
                     availableGeysers.erase(availableGeysers.begin());
                 }
             }
-                       
+
             // Shift the item to when we have the gas for it
             int f;
             for (f = PREDICT_FRAMES - 1; f >= (*it)->startFrame; f--)
@@ -830,14 +997,13 @@ namespace Producer
             shiftAll(goalItems, it, f - (*it)->startFrame);
 
             return true;
+
+            */
         }
 
-        bool shiftForSupply(ProductionItemSet & goalItems, ProductionItemSet & committedItems, ProductionItemSet::iterator it)
+        bool shiftForSupply(ProductionItemSet & goalItems, ProductionItemSet & prerequisiteItems, ProductionItemSet & committedItems, ProductionItemSet::iterator it)
         {
             if ((*it)->supplyRequired() == 0) return true;
-
-            // TODO: Consider keeping a changelog so we can roll back if an unresolvable block appears after we
-            // have already moved something
 
             for (int f = (*it)->startFrame; f < PREDICT_FRAMES; f++)
             {
@@ -898,6 +1064,7 @@ namespace Producer
                     }
                     if (f == PREDICT_FRAMES) return false;
                     shiftAll(goalItems, it, f - (*it)->startFrame);
+                    shiftAll(prerequisiteItems, it, f - (*it)->startFrame);
                     
                     // Continue and see if we created another supply block later
                     continue;
@@ -969,13 +1136,42 @@ namespace Producer
                 }
                 if (f == PREDICT_FRAMES) return false;
                 shiftAll(goalItems, it, f - (*it)->startFrame);
+                shiftAll(prerequisiteItems, it, f - (*it)->startFrame);
             }
 
             return true;
         }
 
-        void resolveResourceBlocksAndCommit(ProductionItemSet & goalItems, ProductionItemSet & committedItems)
+        void commitItem(const std::shared_ptr<ProductionItem> & item, ProductionItemSet & committedItems)
         {
+            // Spend the resources
+            spendResource(minerals, item->startFrame, item->mineralPrice());
+            if (item->gasPrice() > 0) spendResource(gas, item->startFrame, item->gasPrice());
+            if (item->supplyRequired() > 0) spendResource(supply, item->startFrame, item->supplyRequired());
+
+            // If the item is a worker, assume it will go on minerals when complete
+            if (item->is(BWAPI::Broodwar->self()->getRace().getWorker()))
+                updateResourceCollection(minerals, item->completionFrame, 1, MINERALS_PER_WORKER_FRAME);
+
+            // If the item is a refinery, move three workers to it when it finishes
+            // TODO: allow more fine-grained selection of gas workers
+            if (item->is(BWAPI::Broodwar->self()->getRace().getRefinery()))
+            {
+                updateResourceCollection(minerals, item->completionFrame, -3, MINERALS_PER_WORKER_FRAME);
+                updateResourceCollection(gas, item->completionFrame, 3, GAS_PER_WORKER_FRAME);
+            }
+
+            // If the item provides supply, add it
+            if (item->supplyProvided() > 0)
+                spendResource(supply, item->startFrame, -item->supplyProvided());
+
+            // Commit
+            committedItems.insert(item);
+        }
+
+        bool resolveResourceBlocksAndCommit(ProductionItemSet & goalItems, ProductionItemSet & prerequisiteItems, ProductionItemSet & committedItems)
+        {
+            bool committedSomething = false;
             bool cancelAll = false;
             for (auto it = goalItems.begin(); it != goalItems.end(); )
             {
@@ -990,65 +1186,54 @@ namespace Producer
                 }
 
                 // Shift for each resource type or cancel if it can't be produced
-                if (!shiftForMinerals(goalItems, it) ||
-                    !shiftForGas(goalItems, committedItems, it) ||
-                    !shiftForSupply(goalItems, committedItems, it))
+                if (!shiftForMinerals(goalItems, prerequisiteItems, it) ||
+                    !shiftForGas(goalItems, prerequisiteItems, committedItems, it) ||
+                    !shiftForSupply(goalItems, prerequisiteItems, committedItems, it))
                 {
+                    // Special case: if we have prerequisites left, try to build them
+                    // The motivation for this is to handle cases where it takes us so long to produce the prerequisites that
+                    // the actual goal item goes out of our prediction window
+                    // TODO: Check if this fails for cases like a DT rush
+                    if (!prerequisiteItems.empty())
+                    {
+                        // Remove anything from the prerequisite items set that isn't a prerequisite
+                        // (this will be a producer that is no longer relevant, as it has nothing to produce)
+                        for (auto prerequisitesIt = prerequisiteItems.begin(); prerequisitesIt != prerequisiteItems.end(); )
+                        {
+                            if (!(*prerequisitesIt)->isPrerequisite)
+                                prerequisitesIt = prerequisiteItems.erase(prerequisitesIt);
+                            else
+                                prerequisitesIt++;
+                        }
+
+                        if (!prerequisiteItems.empty()) 
+                        {
+                            ProductionItemSet empty;
+                            resolveResourceBlocksAndCommit(prerequisiteItems, empty, committedItems);
+                        }
+                    }
+
                     cancelAll = true;
                     continue;
                 }
 
-                // Spend the resources
-                spendResource(minerals, item.startFrame, item.mineralPrice());
-                if (item.gasPrice() > 0) spendResource(gas, item.startFrame, item.gasPrice());
-                if (item.supplyRequired() > 0) spendResource(supply, item.startFrame, item.supplyRequired());
-
-                // If the item is a worker, assume it will go on minerals when complete
-                if (item.is(BWAPI::Broodwar->self()->getRace().getWorker()))
-                    updateResourceCollection(minerals, item.completionFrame, 1, MINERALS_PER_WORKER_FRAME);
-
-                // If the item is a refinery, move three workers to it when it finishes
-                // TODO: allow more fine-grained selection of gas workers
-                if (item.is(BWAPI::Broodwar->self()->getRace().getRefinery()))
+                // If there are prerequisites, commit them now and clear them
+                for (auto prerequisitesIt = prerequisiteItems.begin(); 
+                    prerequisitesIt != prerequisiteItems.end(); 
+                    prerequisitesIt = prerequisiteItems.erase(prerequisitesIt))
                 {
-                    updateResourceCollection(minerals, item.completionFrame, -3, MINERALS_PER_WORKER_FRAME);
-                    updateResourceCollection(gas, item.completionFrame, 3, GAS_PER_WORKER_FRAME);
+                    commitItem(*prerequisitesIt, committedItems);
                 }
 
-                // If the item provides supply, add it
-                if (item.supplyProvided() > 0)
-                    spendResource(supply, item.startFrame, -item.supplyProvided());
-
-                // We commit refineries and supply providers immediately
-                // This helps to simplify the reordering logic in shiftForGas and shiftForSupply
-                if (item.is(BWAPI::Broodwar->self()->getRace().getRefinery()) || item.supplyProvided() > 0)
-                {
-                    committedItems.insert(*it);
-                    it = goalItems.erase(it);
-                }
-                else
-                    it++;
+                // Commit this item
+                commitItem(*it, committedItems);
+                it = goalItems.erase(it);
+                committedSomething = true;
             }
 
-            // Commit remaining goal items
-            for (auto it = goalItems.begin(); it != goalItems.end(); )
-            {
-                // Remove producers that have no items to produce
-                if (!(*it)->isPrerequisite && queuedProducers[*it] && queuedProducers[*it]->items.empty())
-                {
-                    spendResource(minerals, (*it)->startFrame, -(*it)->mineralPrice());
-                    spendResource(gas, (*it)->startFrame, -(*it)->gasPrice());
-                    it = goalItems.erase(it);
-                    continue;
-                }
-
-                // Otherwise commit
-                committedItems.insert(*it);
-                it++;
-            }
+            return committedSomething;
         }
 
-        // Goal handler for unit production
         void handleGoal(ProductionItemSet & committedItems, Type type, int countToProduce, int producerLimit, BWAPI::UnitType prerequisite = BWAPI::UnitTypes::None)
         {
             int producerCount = 0;
@@ -1063,33 +1248,36 @@ namespace Producer
             else if (upgradeType)
                 producerType = upgradeType->whatUpgrades();
 
-            ProductionItemSet goalItems;
+            ProductionItemSet prerequisiteItems;
 
             // Step 1: Ensure we have all buildings we need to build this type
 
             // Add missing prerequisites for the type
-            if (unitType) addMissingPrerequisites(goalItems, *unitType);
-            if (prerequisite != BWAPI::UnitTypes::None) addBuildingIfIncomplete(goalItems, prerequisite, 0, true);
+            if (unitType) addMissingPrerequisites(prerequisiteItems, *unitType);
+            if (prerequisite != BWAPI::UnitTypes::None) addBuildingIfIncomplete(prerequisiteItems, prerequisite, 0, true);
 
             // Unless this item is a building, ensure we have something that can produce it
-            if (!unitType || !unitType->isBuilding()) addBuildingIfIncomplete(goalItems, producerType);
+            if (!unitType || !unitType->isBuilding()) addBuildingIfIncomplete(prerequisiteItems, producerType);
 
             // Shift the buildings so the frames start at 0
-            normalizeStartFrame(goalItems);
+            normalizeStartFrame(prerequisiteItems);
 
             // Resolve duplicates, keeping the earliest one of each type
-            resolveDuplicates(goalItems, committedItems);
+            // Also record when the last prerequisite will finish
+            int prerequisitesAvailable = resolveDuplicates(prerequisiteItems, committedItems);
 
             // Reserve positions for all buildings
-            reserveBuildPositions(goalItems, committedItems);
+            reserveBuildPositions(prerequisiteItems, committedItems);
 
-            // Record the frame when prerequisites are available
-            int prerequisitesAvailable = goalItems.empty() ? 0 : (*goalItems.rbegin())->completionFrame;
+            // If the last goal item has been pushed back, update the prerequisitesAvailable frame
+            if (!prerequisiteItems.empty()) prerequisitesAvailable = std::max(prerequisitesAvailable, (*prerequisiteItems.rbegin())->completionFrame);
 
             // Step 2: Insert production from all existing or planned producers
 
+            ProductionItemSet goalItems;
+
             // Insert production for planned producers for this goal
-            for (auto & item : goalItems)
+            for (auto & item : prerequisiteItems)
                 if (item->is(producerType))
                 {
                     if (!queuedProducers[item]) queuedProducers[item] = std::make_shared<Producer>(item);
@@ -1143,23 +1331,25 @@ namespace Producer
             // Step 3: Turn our idealized timings into real timings by resolving any resource blocks
             // This will either push or cancel items that we don't have minerals, gas, or supply for,
             // if those problems cannot be resolved
-            resolveResourceBlocksAndCommit(goalItems, committedItems);
+            bool committedSomething = resolveResourceBlocksAndCommit(goalItems, prerequisiteItems, committedItems);
 
             // Step 4: If the goal wants to add producers, add as many as possible
             // We break when the previous iteration could not commit anything
-            while ((countToProduce == -1 || countToProduce > 0) && (producerLimit == -1 || producerCount < producerLimit) && !goalItems.empty())
+            while ((countToProduce == -1 || countToProduce > 0) && (producerLimit == -1 || producerCount < producerLimit) && committedSomething)
             {
+                prerequisiteItems.clear();
                 goalItems.clear();
 
                 // This just repeats most of the above steps but only considering adding one producer
                 int startFrame = std::max(0, prerequisitesAvailable - UnitUtil::BuildTime(producerType));
-                auto producer = *goalItems.emplace(std::make_shared<ProductionItem>(producerType, startFrame));
+                auto producer = *prerequisiteItems.emplace(std::make_shared<ProductionItem>(producerType, startFrame));
+                queuedProducers[producer] = std::make_shared<Producer>(producer);
                 producerCount++;
 
-                reserveBuildPositions(goalItems, committedItems);
-                insertProduction(goalItems, type, producer->completionFrame, std::make_shared<Producer>(producer));
+                reserveBuildPositions(prerequisiteItems, committedItems);
+                insertProduction(goalItems, type, producer->completionFrame, queuedProducers[producer]);
                 removeExcessProduction(goalItems, type, countToProduce);
-                resolveResourceBlocksAndCommit(goalItems, committedItems);
+                committedSomething = resolveResourceBlocksAndCommit(goalItems, prerequisiteItems, committedItems);
             }
         }
 #ifndef _DEBUG
@@ -1202,7 +1392,7 @@ namespace Producer
             if (auto unitType = std::get_if<BWAPI::UnitType>(&item->type))
             {
                 // Produce units desired at frame 0
-                if (item->producer && item->producer->existing && item->startFrame == 0)
+                if (item->producer && item->producer->existing && item->startFrame <= BWAPI::Broodwar->getRemainingLatencyFrames())
                 {
                     item->producer->existing->train(*unitType);
                 }
@@ -1218,7 +1408,7 @@ namespace Producer
 
                 // Queue buildings when we expect the builder will arrive at the desired start frame or later
                 if (unitType->isBuilding() && !item->queuedBuilding &&
-                    (item->startFrame - item->buildLocation.builderFrames) <= 0)
+                    (item->startFrame - item->buildLocation.builderFrames) <= BWAPI::Broodwar->getRemainingLatencyFrames())
                 {
                     // TODO: Should be resolved earlier
                     if (!item->buildLocation.tile.isValid()) continue;
@@ -1242,7 +1432,7 @@ namespace Producer
             else if (auto upgradeType = std::get_if<BWAPI::UpgradeType>(&item->type))
             {
                 // Upgrade if start frame is now
-                if (item->producer && item->producer->existing && item->startFrame == 0)
+                if (item->producer && item->producer->existing && item->startFrame <= BWAPI::Broodwar->getRemainingLatencyFrames())
                 {
                     item->producer->existing->upgrade(*upgradeType);
                 }

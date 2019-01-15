@@ -22,6 +22,7 @@
     <ClCompile Include="..\..\Locutus\Choke.cpp" />
     <ClCompile Include="..\..\Locutus\Dll.cpp" />
     <ClCompile Include="..\..\Locutus\Fortress.cpp" />
+    <ClCompile Include="..\..\Locutus\General.cpp" />
     <ClCompile Include="..\..\Locutus\Geo.cpp" />
     <ClCompile Include="..\..\Locutus\LocutusAIModule.cpp" />
     <ClCompile Include="..\..\Locutus\Log.cpp" />
@@ -50,6 +51,7 @@
     <ClInclude Include="..\..\Locutus\DarkTemplar.h" />
     <ClInclude Include="..\..\Locutus\Dragoons.h" />
     <ClInclude Include="..\..\Locutus\Fortress.h" />
+    <ClInclude Include="..\..\Locutus\General.h" />
     <ClInclude Include="..\..\Locutus\Geo.h" />
     <ClInclude Include="..\..\Locutus\EnemyUnit.h" />
     <ClInclude Include="..\..\Locutus\MyUnit.h" />

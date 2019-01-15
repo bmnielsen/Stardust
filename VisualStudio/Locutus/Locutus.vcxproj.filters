@@ -132,6 +132,9 @@
     <ClCompile Include="..\..\Locutus\UnitProductionGoal.cpp">
       <Filter>Source Files\Strategist\ProductionGoals</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Locutus\General.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Locutus\LocutusAIModule.h">
@@ -223,6 +226,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Locutus\UpgradeProductionGoal.h">
       <Filter>Header Files\Strategist\ProductionGoals</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\General.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

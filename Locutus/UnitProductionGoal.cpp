@@ -12,7 +12,7 @@ int UnitProductionGoal::countToProduce()
 
         // Currently just produces until there are no available resources at owned bases
         // TODO: decide whether this goal or something else should make expansion decisions
-        return Workers::availableMineralAssignments() - Units::countIncomplete(type);
+        return std::max(0, Workers::availableMineralAssignments() - Units::countIncomplete(type));
     }
 
     if (count == -1) return -1;
