@@ -24,27 +24,22 @@ namespace Builder
             // for the building to appear
             if (building.builder->isConstructing()) return;
 
-            // Move if we aren't close to the build position
-            int dist = Geo::EdgeToEdgeDistance(building.builder->getType(), building.builder->getPosition(), building.type, building.getPosition());
-            if (dist > 64)
-            {
-                Units::getMine(building.builder).moveTo(building.getPosition());
-                return;
-            }
-
             // TODO: Detect cases where we have already issued a build command that succeeded
             // (e.g. spider mine blocking)
 
-            // Issue the build command
-            bool result = Units::getMine(building.builder).build(building.type, building.tile);
-
-            // Build command failed
-            if (!result)
+            // If we are close to the build position and want to build now, issue the build command
+            int dist = Geo::EdgeToEdgeDistance(building.builder->getType(), building.builder->getPosition(), building.type, building.getPosition());
+            if (dist <= 64 && building.desiredStartFrame - BWAPI::Broodwar->getFrameCount() <= BWAPI::Broodwar->getRemainingLatencyFrames())
             {
-                // TODO: Look for blocking units
+                // Return immediately if issuing the build command succeeded
+                if (Units::getMine(building.builder).build(building.type, building.tile)) return;
 
-                Units::getMine(building.builder).moveTo(building.getPosition());
+                // The build command failed
+                // TODO: Look for blocking units
             }
+
+            // Move towards the build position
+            Units::getMine(building.builder).moveTo(building.getPosition());
         }
 
         // Releases the builder from constructing the given building
@@ -141,15 +136,15 @@ namespace Builder
         }
     }
 
-    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder)
+    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder, int startFrame)
     {
-        auto building = std::make_shared<Building>(type, tile, builder);
+        auto building = std::make_shared<Building>(type, tile, builder, startFrame);
         pendingBuildings.push_back(building);
         builderQueues[builder].push_back(building);
 
         Workers::setBuilder(builder);
 
-        Log::Debug() << "Queued " << **pendingBuildings.rbegin();
+        Log::Debug() << "Queued " << **pendingBuildings.rbegin() << " to start at " << startFrame << " for builder " << builder->getID() << "; builder queue length: " << builderQueues[builder].size();
     }
 
     BWAPI::Unit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int * expectedArrivalFrame)
@@ -193,7 +188,8 @@ namespace Builder
             totalTravelTime += 
                 PathFinding::ExpectedTravelTime(lastPosition, buildPosition, builderAndQueue.first->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea);
 
-            if (totalTravelTime < bestTravelTime)
+            // Give a bonus to already-building workers, as we don't want to take a lot of workers off minerals
+            if ((totalTravelTime / 2) < bestTravelTime)
             {
                 bestTravelTime = totalTravelTime;
                 bestWorker = builderAndQueue.first;

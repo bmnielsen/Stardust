@@ -15,9 +15,6 @@ namespace BuildingPlacement
     namespace
     {
 #endif
-        // We assume it will take a builder a couple of seconds to get out of the mineral line
-        const int BUILDER_FRAME_BASE = 48;
-
         std::vector<Neighbourhood> ALL_NEIGHBOURHOODS = { Neighbourhood::MainBase };
 
         std::map<Neighbourhood, BWAPI::Position> neighbourhoodOrigins;
@@ -81,7 +78,7 @@ namespace BuildingPlacement
         {
             if (neighbourhoodOrigins.find(location) == neighbourhoodOrigins.end()) return 0;
 
-            return BUILDER_FRAME_BASE + PathFinding::ExpectedTravelTime(
+            return PathFinding::ExpectedTravelTime(
                 neighbourhoodOrigins[location],
                 BWAPI::Position(tile) + (BWAPI::Position(type.tileSize()) / 2),
                 BWAPI::Broodwar->self()->getRace().getWorker(),

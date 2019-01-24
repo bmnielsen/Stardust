@@ -3,11 +3,12 @@
 #include "PathFinding.h"
 #include "UnitUtil.h"
 
-Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder)
+Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder, int desiredStartFrame)
     : type(type)
     , tile(tile)
     , unit(nullptr)
     , builder(builder)
+    , desiredStartFrame(desiredStartFrame)
     , startFrame(-1)
 {
 }
@@ -34,7 +35,10 @@ int Building::expectedFramesUntilStarted() const
 
     // This can be inaccurate if this isn't the next building in the builder's queue
     // TODO: Verify this doesn't cause problems
-    return PathFinding::ExpectedTravelTime(builder->getPosition(), getPosition(), builder->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea);
+    int workerFrames =
+        PathFinding::ExpectedTravelTime(builder->getPosition(), getPosition(), builder->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea);
+
+    return std::max(workerFrames, desiredStartFrame - BWAPI::Broodwar->getFrameCount());
 }
 
 int Building::expectedFramesUntilCompletion() const
@@ -45,4 +49,11 @@ int Building::expectedFramesUntilCompletion() const
     }
 
     return UnitUtil::BuildTime(type) + expectedFramesUntilStarted();
+}
+
+bool Building::builderReady() const
+{
+    if (isConstructionStarted() || !builder || !builder->exists()) return false;
+
+    return builder->getDistance(getPosition()) < 32;
 }

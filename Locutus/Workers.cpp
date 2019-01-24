@@ -295,9 +295,7 @@ namespace Workers
             size_t framesAgo = BWAPI::Broodwar->getLatencyFrames() + 11;
             if (positionHistory.size() >= framesAgo)
             {
-                auto result = optimalPositions.insert(positionHistory[positionHistory.size() - framesAgo]);
-                if (result.second)
-                    Log::Debug() << worker->getType() << " " << worker->getID() << " : Inserted optimal position " << positionHistory[positionHistory.size() - framesAgo] << " for resource " << resource->getPosition();
+                optimalPositions.insert(positionHistory[positionHistory.size() - framesAgo]);
             }
 
             positionHistory.clear();
@@ -542,6 +540,13 @@ namespace Workers
                 // If the worker has cargo, return it
                 if (worker->isCarryingMinerals() || worker->isCarryingGas())
                 {
+                    // Leave it alone if it already has the return order
+                    if (worker->getOrder() == BWAPI::Orders::ReturnMinerals ||
+                        worker->getOrder() == BWAPI::Orders::ReturnGas)
+                    {
+                        continue;
+                    }
+
                     Units::getMine(worker).returnCargo();
                     continue;
                 }
@@ -561,11 +566,10 @@ namespace Workers
         if (job == Job::None) return true;
         if (job == Job::Minerals)
         {
-            if (unit->isCarryingMinerals()) return false;
             if (unit->isCarryingGas()) return false;
             return (unit->getOrder() == BWAPI::Orders::Move 
                 || unit->getOrder() == BWAPI::Orders::MoveToMinerals
-                || unit->getOrder() == BWAPI::Orders::WaitForMinerals);
+                || unit->getOrder() == BWAPI::Orders::ReturnMinerals);
         }
 
         return false;
@@ -577,7 +581,7 @@ namespace Workers
 
         workerJob[unit] = Job::Build;
         removeFromResource(unit, workerMineralPatch, mineralPatchWorkers);
-
+        Log::Debug() << "Set job for " << unit->getID() << " to builder";
     }
 
     void releaseWorker(BWAPI::Unit unit)
@@ -585,6 +589,7 @@ namespace Workers
         if (!unit || !unit->exists() || !unit->getType().isWorker() || !unit->isCompleted()) return;
 
         workerJob[unit] = Job::None;
+        Log::Debug() << "Cleared job for " << unit->getID();
     }
 
     int availableMineralAssignments()
