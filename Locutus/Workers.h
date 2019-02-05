@@ -11,7 +11,7 @@ namespace Workers
 
     // Whether the given worker unit can currently be reassigned to build something
     bool isAvailableForReassignment(BWAPI::Unit unit);
-    void setBuilder(BWAPI::Unit unit);
+    void reserveWorker(BWAPI::Unit unit);
     
     void releaseWorker(BWAPI::Unit unit);
 

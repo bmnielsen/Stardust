@@ -40,6 +40,7 @@ Tasks:
 #include "General.h"
 #include "Units.h"
 #include "Workers.h"
+#include "Scout.h"
 
 void LocutusAIModule::onStart()
 {
@@ -91,6 +92,10 @@ void LocutusAIModule::onFrame()
     Builder::update();
     Timer::checkpoint("Builder::update");
 
+    // Strategist is what makes all of the decisions
+    Strategist::update();
+    Timer::checkpoint("Strategist::update");
+
     // Update stuff that issues orders
     Producer::update();
     Timer::checkpoint("Producer::update");
@@ -100,6 +105,9 @@ void LocutusAIModule::onFrame()
 
     General::issueOrders();
     Timer::checkpoint("General::issueOrders");
+
+    Scout::update();
+    Timer::checkpoint("Scout::update");
 
     Workers::issueOrders(); // Called last to allow workers to be taken or released for building, combat, etc. earlier
     Timer::checkpoint("Workers::issueOrders");

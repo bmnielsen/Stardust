@@ -31,7 +31,7 @@
     <ClCompile Include="..\..\Locutus\Opponent.cpp" />
     <ClCompile Include="..\..\Locutus\PathFinding.cpp" />
     <ClCompile Include="..\..\Locutus\Plasma.cpp" />
-    <ClCompile Include="..\..\Locutus\EnemyUnit.cpp" />
+    <ClCompile Include="..\..\Locutus\Unit.cpp" />
     <ClCompile Include="..\..\Locutus\Producer.cpp" />
     <ClCompile Include="..\..\Locutus\Scout.cpp" />
     <ClCompile Include="..\..\Locutus\UnitProductionGoal.cpp" />
@@ -54,7 +54,7 @@
     <ClInclude Include="..\..\Locutus\Fortress.h" />
     <ClInclude Include="..\..\Locutus\General.h" />
     <ClInclude Include="..\..\Locutus\Geo.h" />
-    <ClInclude Include="..\..\Locutus\EnemyUnit.h" />
+    <ClInclude Include="..\..\Locutus\Unit.h" />
     <ClInclude Include="..\..\Locutus\MyUnit.h" />
     <ClInclude Include="..\..\Locutus\Opening.h" />
     <ClInclude Include="..\..\Locutus\Producer.h" />

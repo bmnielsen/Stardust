@@ -6,6 +6,7 @@
 
 namespace Strategist
 {
+    void update();
     void chooseOpening();
     std::vector<ProductionGoal> & currentProductionGoals();
 }

@@ -3,7 +3,7 @@
 #include "Common.h"
 
 #include "MyUnit.h"
-#include "EnemyUnit.h"
+#include "Unit.h"
 
 namespace Units
 {

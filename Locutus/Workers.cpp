@@ -35,7 +35,7 @@ namespace Workers
     namespace
     {
 #endif
-        enum Job { None, Minerals, Gas, Build, Combat, Scout, ReturnCargo };
+        enum Job { None, Minerals, Gas, Reserved };
 
         int _desiredGasWorkers;
         std::map<BWAPI::Unit, Job>                              workerJob;
@@ -575,11 +575,11 @@ namespace Workers
         return false;
     }
 
-    void setBuilder(BWAPI::Unit unit)
+    void reserveWorker(BWAPI::Unit unit)
     {
         if (!unit || !unit->exists() || !unit->getType().isWorker() || !unit->isCompleted()) return;
 
-        workerJob[unit] = Job::Build;
+        workerJob[unit] = Job::Reserved;
         removeFromResource(unit, workerMineralPatch, mineralPatchWorkers);
         Log::Debug() << "Set job for " << unit->getID() << " to builder";
     }

@@ -20,8 +20,10 @@ namespace Map
     std::vector<Base *> & allBases();
     std::set<Base*> & getMyBases(BWAPI::Player player = BWAPI::Broodwar->self());
     std::set<Base*> getEnemyBases(BWAPI::Player player = BWAPI::Broodwar->self());
+    Base* getEnemyMain();
     Base * baseNear(BWAPI::Position position);
-    
+    std::set<Base*> unscoutedStartingLocations();
+
     Choke * choke(const BWEM::ChokePoint * bwemChoke);
 
     int minChokeWidth();

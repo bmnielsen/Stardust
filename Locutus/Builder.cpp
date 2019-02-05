@@ -142,7 +142,7 @@ namespace Builder
         pendingBuildings.push_back(building);
         builderQueues[builder].push_back(building);
 
-        Workers::setBuilder(builder);
+        Workers::reserveWorker(builder);
 
         Log::Debug() << "Queued " << **pendingBuildings.rbegin() << " to start at " << startFrame << " for builder " << builder->getID() << "; builder queue length: " << builderQueues[builder].size();
     }

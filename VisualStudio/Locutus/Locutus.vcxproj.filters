@@ -102,9 +102,6 @@
     <ClCompile Include="..\..\Locutus\Units.cpp">
       <Filter>Source Files\Units</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Locutus\EnemyUnit.cpp">
-      <Filter>Source Files\Units</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Locutus\MyUnit.cpp">
       <Filter>Source Files\Units</Filter>
     </ClCompile>
@@ -137,6 +134,9 @@
     </ClCompile>
     <ClCompile Include="..\..\Locutus\Scout.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\Unit.cpp">
+      <Filter>Source Files\Units</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -185,9 +185,6 @@
     <ClInclude Include="..\..\Locutus\UnitUtil.h">
       <Filter>Header Files\Util</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Locutus\EnemyUnit.h">
-      <Filter>Header Files\Units</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Locutus\MyUnit.h">
       <Filter>Header Files\Units</Filter>
     </ClInclude>
@@ -235,6 +232,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Locutus\Scout.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Unit.h">
+      <Filter>Header Files\Units</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

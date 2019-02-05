@@ -1,5 +1,8 @@
 #include "Strategist.h"
 
+#include "Scout.h"
+#include "Units.h"
+
 #include "Opening.h"
 #include "Zealots.h"
 #include "Dragoons.h"
@@ -11,10 +14,21 @@ namespace Strategist
     namespace
     {
 #endif
+        bool startedScouting = false;
         std::vector<ProductionGoal> productionGoals;
 #ifndef _DEBUG
     }
 #endif
+
+    void update()
+    {
+        // For now always start scouting when our first pylon has been started
+        if (!startedScouting && Units::countIncomplete(BWAPI::UnitTypes::Protoss_Pylon) > 0)
+        {
+            startedScouting = true;
+            Scout::setScoutingMode(Scout::ScoutingMode::Location);
+        }
+    }
 
     void chooseOpening()
     {

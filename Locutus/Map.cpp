@@ -369,8 +369,11 @@ namespace Map
         if (BWAPI::Broodwar->enemies().size() == 1 &&
             !playerToPlayerBases[BWAPI::Broodwar->enemy()].main)
         {
-
-
+            auto unscouted = unscoutedStartingLocations();
+            if (unscouted.size() == 1)
+            {
+                setBaseOwner(*unscouted.begin(), BWAPI::Broodwar->enemy());
+            }
         }
     }
 
@@ -401,6 +404,11 @@ namespace Map
         return result;
     }
 
+    Base * getEnemyMain()
+    {
+        return playerToPlayerBases[BWAPI::Broodwar->enemy()].main;
+    }
+
     Base * baseNear(BWAPI::Position position)
     {
         int closestDist = INT_MAX;
@@ -414,6 +422,20 @@ namespace Map
                 closestDist = dist;
                 result = base;
             }
+        }
+
+        return result;
+    }
+
+    std::set<Base*> unscoutedStartingLocations()
+    {
+        std::set<Base*> result;
+        for (auto base : startingLocationBases)
+        {
+            if (base->owner) continue;
+            if (base->lastScouted >= 0) continue;
+
+            result.insert(base);
         }
 
         return result;
