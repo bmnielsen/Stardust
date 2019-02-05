@@ -1,7 +1,7 @@
 #include "Base.h"
 
 Base::Base(BWAPI::TilePosition _tile, const BWEM::Base * _bwemBase)
-    : owner(Owner::None)
+    : owner(nullptr)
     , resourceDepot(nullptr)
     , tile(_tile)
     , bwemBase(_bwemBase)
@@ -45,4 +45,34 @@ std::vector<BWAPI::Unit> Base::refineries() const
     }
 
     return result;
+}
+
+int Base::minerals() const
+{
+    int sum = 0;
+    for (auto mineral : bwemBase->Minerals())
+    {
+        sum += mineral->Amount();
+    }
+
+    return sum;
+}
+
+int Base::gas() const
+{
+    int sum = 0;
+    for (auto geyser : bwemBase->Geysers())
+    {
+        sum += geyser->Amount();
+    }
+
+    return sum;
+}
+
+bool Base::isStartingBase() const
+{
+    return std::find(
+        BWAPI::Broodwar->getStartLocations().begin(), 
+        BWAPI::Broodwar->getStartLocations().end(), 
+        tile) != BWAPI::Broodwar->getStartLocations().end();
 }

@@ -3,7 +3,7 @@
 #include "UnitUtil.h"
 #include "Geo.h"
 
-EnemyUnit::EnemyUnit(BWAPI::Unit unit)
+Unit::Unit(BWAPI::Unit unit)
     : unit(unit)
     , lastSeen(BWAPI::Broodwar->getFrameCount())
     , player(unit->getPlayer())
@@ -23,7 +23,7 @@ EnemyUnit::EnemyUnit(BWAPI::Unit unit)
     computeCompletionFrame(unit);
 }
 
-void EnemyUnit::update(BWAPI::Unit unit)
+void Unit::update(BWAPI::Unit unit)
 {
     if (!unit || !unit->exists()) return;
 
@@ -56,7 +56,7 @@ void EnemyUnit::update(BWAPI::Unit unit)
     }
 }
 
-void EnemyUnit::updateLastPositionValidity()
+void Unit::updateLastPositionValidity()
 {
     // Skip if not applicable
     if (!lastPositionValid ||
@@ -90,7 +90,7 @@ void EnemyUnit::updateLastPositionValidity()
     }
 }
 
-void EnemyUnit::computeCompletionFrame(BWAPI::Unit unit)
+void Unit::computeCompletionFrame(BWAPI::Unit unit)
 {
     if (!unit->getType().isBuilding() || unit->isCompleted())
         estimatedCompletionFrame = -1;

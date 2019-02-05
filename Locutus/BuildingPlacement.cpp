@@ -224,7 +224,7 @@ namespace BuildingPlacement
 
             for (auto & base : Map::allBases())
             {
-                if (base->owner != Base::Owner::Me) continue;
+                if (base->owner != BWAPI::Broodwar->self()) continue;
                 if (!base->resourceDepot || !base->resourceDepot->exists() || !base->resourceDepot->isCompleted()) continue;
 
                 for (auto geyser : base->geysers())
@@ -265,7 +265,7 @@ namespace BuildingPlacement
 
         BWEB::Blocks::findBlocks();
 
-        neighbourhoodOrigins[Neighbourhood::MainBase] = getOrigin(Map::baseNear(BWAPI::Broodwar->self()->getStartLocation()));
+        neighbourhoodOrigins[Neighbourhood::MainBase] = getOrigin(Map::baseNear(BWAPI::Position(BWAPI::Broodwar->self()->getStartLocation())));
     }
 
     void onUnitDestroy(BWAPI::Unit unit)

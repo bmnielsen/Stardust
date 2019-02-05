@@ -8,9 +8,9 @@ class Base
 {
 public:
 
-    enum class Owner { None, Me, Enemy, Ally };
+    //enum class Owner { None, Me, Enemy, Ally };
 
-    Owner         owner;                                      // Who owns the base
+    BWAPI::Player owner;                                      // Who owns the base
     BWAPI::Unit   resourceDepot;                              // The resource depot for the base, may be null
     int           ownedSince;                                 // Frame the base last changed ownership
     int           lastScouted;                                // When we have last seen this base
@@ -26,6 +26,10 @@ public:
     std::vector<BWAPI::Unit> mineralPatches() const;
     std::vector<BWAPI::Unit> geysers() const;
     std::vector<BWAPI::Unit> refineries() const;
+    int minerals() const;
+    int gas() const;
+
+    bool isStartingBase() const;
 
 private:
 

@@ -79,6 +79,9 @@ void LocutusAIModule::onFrame()
     Units::update();
     Timer::checkpoint("Units::update");
 
+    Map::update();
+    Timer::checkpoint("Map::update");
+
     Workers::updateAssignments();
     Timer::checkpoint("Workers::updateAssignments");
 

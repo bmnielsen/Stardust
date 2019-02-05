@@ -82,7 +82,7 @@ namespace Workers
 
         int availableMineralAssignmentsAtBase(Base * base)
         {
-            if (base->owner != Base::Owner::Me) return 0;
+            if (base->owner != BWAPI::Broodwar->self()) return 0;
             if (!base->resourceDepot || !base->resourceDepot->exists()) return 0;
 
             int count = base->mineralPatchCount() * 2;
@@ -96,7 +96,7 @@ namespace Workers
 
         int availableGasAssignmentsAtBase(Base * base)
         {
-            if (base->owner != Base::Owner::Me) return 0;
+            if (base->owner != BWAPI::Broodwar->self()) return 0;
             if (!base->resourceDepot || !base->resourceDepot->exists()) return 0;
 
             int count = 0;
@@ -598,7 +598,7 @@ namespace Workers
 
         for (auto & base : Map::allBases())
         {
-            if (base->owner != Base::Owner::Me) continue;
+            if (base->owner != BWAPI::Broodwar->self()) continue;
             if (!base->resourceDepot || !base->resourceDepot->exists() || !base->resourceDepot->isCompleted()) continue;
 
             for (auto mineralPatch : base->mineralPatches())

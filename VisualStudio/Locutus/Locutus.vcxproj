@@ -33,6 +33,7 @@
     <ClCompile Include="..\..\Locutus\Plasma.cpp" />
     <ClCompile Include="..\..\Locutus\EnemyUnit.cpp" />
     <ClCompile Include="..\..\Locutus\Producer.cpp" />
+    <ClCompile Include="..\..\Locutus\Scout.cpp" />
     <ClCompile Include="..\..\Locutus\UnitProductionGoal.cpp" />
     <ClCompile Include="..\..\Locutus\UpgradeProductionGoal.cpp" />
     <ClCompile Include="..\..\Locutus\Strategist.cpp" />
@@ -58,6 +59,7 @@
     <ClInclude Include="..\..\Locutus\Opening.h" />
     <ClInclude Include="..\..\Locutus\Producer.h" />
     <ClInclude Include="..\..\Locutus\ProductionGoal.h" />
+    <ClInclude Include="..\..\Locutus\Scout.h" />
     <ClInclude Include="..\..\Locutus\Strategist.h" />
     <ClInclude Include="..\..\Locutus\Timer.h" />
     <ClInclude Include="..\..\Locutus\UnitProductionGoal.h" />

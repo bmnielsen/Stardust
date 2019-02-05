@@ -2,7 +2,7 @@
 
 #include "Common.h"
 
-class EnemyUnit
+class Unit
 {
 public:
     BWAPI::Unit     unit;                       // Reference to the unit
@@ -29,7 +29,7 @@ public:
     
     bool            undetected;                 // Whether the unit is currently cloaked and undetected
 
-    EnemyUnit(BWAPI::Unit unit);
+    Unit(BWAPI::Unit unit);
 
     void update(BWAPI::Unit unit);
     void updateLastPositionValidity();
