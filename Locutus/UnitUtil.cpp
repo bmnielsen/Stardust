@@ -1,5 +1,8 @@
 #include "UnitUtil.h"
 
+#include "Geo.h"
+#include "Players.h"
+
 namespace UnitUtil
 {
     namespace {
@@ -15,7 +18,7 @@ namespace UnitUtil
     {
         if (!unit || !unit->exists() || !unit->isVisible()) return BWAPI::Positions::Invalid;
 
-        return unit->getPosition() + BWAPI::Position(frames * unit->getVelocityX(), frames * unit->getVelocityY());
+        return unit->getPosition() + BWAPI::Position((int)(frames * unit->getVelocityX()), (int)(frames * unit->getVelocityY()));
     }
 
     bool Powers(BWAPI::TilePosition pylonTile, BWAPI::TilePosition buildingTile, BWAPI::UnitType buildingType)
@@ -48,5 +51,33 @@ namespace UnitUtil
         }
 
         return type.buildTime();
+    }
+
+    bool IsInWeaponRange(BWAPI::Unit attacker, BWAPI::Unit target)
+    {
+        int range = Players::weaponRange(attacker->getPlayer(), target->isFlying() ? attacker->getType().airWeapon() : attacker->getType().groundWeapon());
+        int dist = Geo::EdgeToEdgeDistance(attacker->getType(), attacker->getPosition(), target->getType(), target->getPosition());
+
+        return dist <= range;
+    }
+
+    bool CanAttack(BWAPI::Unit attacker, BWAPI::Unit target)
+    {
+        return target->isFlying() ? CanAttackAir(attacker) : CanAttackGround(attacker);
+    }
+
+    bool CanAttackAir(BWAPI::Unit attacker)
+    {
+        return attacker->getType().airWeapon() != BWAPI::WeaponTypes::None ||
+            attacker->getType() == BWAPI::UnitTypes::Protoss_Carrier ||
+            attacker->getType() == BWAPI::UnitTypes::Terran_Bunker; // TODO: Track whether bunkers actually have units in them
+    }
+
+    bool CanAttackGround(BWAPI::Unit attacker)
+    {
+        return attacker->getType().groundWeapon() != BWAPI::WeaponTypes::None ||
+            attacker->getType() == BWAPI::UnitTypes::Protoss_Carrier ||
+            attacker->getType() == BWAPI::UnitTypes::Protoss_Reaver ||
+            attacker->getType() == BWAPI::UnitTypes::Terran_Bunker; // TODO: Track whether bunkers actually have units in them
     }
 }

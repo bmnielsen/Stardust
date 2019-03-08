@@ -13,4 +13,5 @@ namespace Geo
     bool Walkable(BWAPI::UnitType type, BWAPI::Position center);
     BWAPI::Position FindClosestUnwalkablePosition(BWAPI::Position start, BWAPI::Position closeTo, int searchRadius);
     void FindWalkablePositionsBetween(BWAPI::Position start, BWAPI::Position end, std::vector<BWAPI::Position> & result);
+    BWAPI::Position FindInterceptPoint(BWAPI::Unit interceptor, BWAPI::Unit target);
 }

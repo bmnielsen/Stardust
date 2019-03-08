@@ -166,6 +166,8 @@ namespace Producer
 
         void write(ProductionItemSet & items, std::string label)
         {
+            return;
+
             auto itemLabel = [](const std::shared_ptr<ProductionItem> & item)
             {
                 std::ostringstream label;

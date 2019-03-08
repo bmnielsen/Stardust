@@ -145,6 +145,8 @@ namespace Map
             // If the base previously had an owner, remove it from their list of owned bases
             if (base->owner) playerToPlayerBases[base->owner].allOwned.erase(base);
 
+            Log::Debug() << "Changing base " << base->getTilePosition() << " owner from " << base->owner << " to " << owner;
+
             base->owner = owner;
             base->ownedSince = BWAPI::Broodwar->getFrameCount();
             base->resourceDepot = nullptr;
@@ -182,6 +184,8 @@ namespace Map
             // Only consider non-neutral buildings
             if (!unit->getType().isBuilding() && !unit->getType().isAddon()) return;
             if (unit->getPlayer()->isNeutral()) return;
+
+            Log::Debug() << "Created: " << unit->getType() << " @ " << unit->getTilePosition();
             
             // Check if there is a base near the building
             auto nearbyBase = baseNear(unit->getPosition());
@@ -195,7 +199,7 @@ namespace Map
                     {
                         int existingDist = nearbyBase->resourceDepot->getPosition().getApproxDistance(nearbyBase->getPosition());
                         int newDist = unit->getPosition().getApproxDistance(nearbyBase->getPosition());
-                        isCloserDepot = true;
+                        isCloserDepot = newDist < existingDist;
                     }
                     else
                         isCloserDepot = true;
@@ -204,6 +208,7 @@ namespace Map
                 // If the base was previously unowned, or this is a closer depot, change the ownership
                 if (!nearbyBase->owner || isCloserDepot)
                 {
+                    Log::Debug() << unit->getType() << " @ " << unit->getTilePosition() << " close to base @ " << nearbyBase->getTilePosition();
                     setBaseOwner(nearbyBase, unit->getPlayer());
 
                     if (isCloserDepot) nearbyBase->resourceDepot = unit;
@@ -223,8 +228,9 @@ namespace Map
                         startingLocationBase->getPosition(),
                         BWAPI::UnitTypes::Protoss_Probe,
                         PathFinding::PathFindingOptions::UseNearestBWEMArea);
-                    if (dist < 1500)
+                    if (dist != -1 && dist < 1500)
                     {
+                        Log::Debug() << unit->getType() << " @ " << unit->getTilePosition() << " close to starting location @ " << startingLocationBase->getTilePosition() << ": " << dist;
                         setBaseOwner(startingLocationBase, unit->getPlayer());
                         break;
                     }
@@ -324,7 +330,7 @@ namespace Map
                 _minChokeWidth = pair.second->width;
     }
 
-    void onUnitCreate(BWAPI::Unit unit)
+    void onUnitDiscover(BWAPI::Unit unit)
     {
         // Whenever we see a new building, determine if it infers a change in base ownership
         inferBaseOwnershipFromUnitCreated(unit);
@@ -372,6 +378,7 @@ namespace Map
             auto unscouted = unscoutedStartingLocations();
             if (unscouted.size() == 1)
             {
+                Log::Debug() << "Only " << (*unscouted.begin())->getTilePosition() << " unscouted";
                 setBaseOwner(*unscouted.begin(), BWAPI::Broodwar->enemy());
             }
         }

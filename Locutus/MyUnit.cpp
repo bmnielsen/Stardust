@@ -514,7 +514,7 @@ bool MyUnit::isStuck() const
 {
     if (unit->isStuck()) return true;
 
-    return potentiallyStuckSince > 0 &&
+    return unit->isMoving() && potentiallyStuckSince > 0 &&
         potentiallyStuckSince < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 10);
 }
 

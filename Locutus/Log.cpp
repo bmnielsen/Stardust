@@ -106,6 +106,8 @@ namespace Log
 
     LogWrapper Csv(std::string name)
     {
+        if (!isDebugLogging) return LogWrapper(nullptr);
+
         if (!csvFiles[name])
         {
             csvFiles[name] = new std::ofstream();

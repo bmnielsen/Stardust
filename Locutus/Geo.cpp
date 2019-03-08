@@ -105,7 +105,7 @@ namespace Geo
                 BWAPI::Position current(x, y);
                 if (!current.isValid()) continue;
                 if (BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(current))) continue;
-                int dist = current.getDistance(closeTo);
+                int dist = current.getApproxDistance(closeTo);
                 if (dist < bestDist)
                 {
                     bestPos = current;
@@ -119,14 +119,14 @@ namespace Geo
     void Geo::FindWalkablePositionsBetween(BWAPI::Position start, BWAPI::Position end, std::vector<BWAPI::Position> & result)
     {
         std::set<BWAPI::Position> added;
-        int distTotal = std::round(start.getDistance(end));
+        int distTotal = start.getApproxDistance(end);
         int xdiff = end.x - start.x;
         int ydiff = end.y - start.y;
         for (int distStop = 0; distStop <= distTotal; distStop++)
         {
             BWAPI::Position pos(
-                start.x + std::round(((double)distStop / distTotal) * xdiff),
-                start.y + std::round(((double)distStop / distTotal) * ydiff));
+                start.x + (int)std::round(((double)distStop / distTotal) * xdiff),
+                start.y + (int)std::round(((double)distStop / distTotal) * ydiff));
 
             if (!pos.isValid()) continue;
             if (!BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos))) continue;
@@ -135,5 +135,40 @@ namespace Geo
             result.push_back(pos);
             added.insert(pos);
         }
+    }
+
+    // Computes the intercept point of a unit targeting another one, assuming the interceptor
+    // is going at full speed and the target remains on its current trajectory and speed.
+    // Returns invalid if the target cannot be intercepted.
+    BWAPI::Position FindInterceptPoint(BWAPI::Unit interceptor, BWAPI::Unit target)
+    {
+        double speed = interceptor->getType().topSpeed();
+
+        double diffX = (double)target->getPosition().x - interceptor->getPosition().x;
+        double diffY = (double)target->getPosition().y - interceptor->getPosition().y;
+
+        double diffSpeed = target->getVelocityX() * target->getVelocityX() + target->getVelocityY() * target->getVelocityY() - speed * speed;
+        double diffDist = diffX * target->getVelocityX() + diffY * target->getVelocityY();
+
+        double t;
+        if (diffSpeed < 0.0001)
+        {
+            t = -(diffX * diffX + diffY * diffY) / (2 * diffDist);
+        }
+        else
+        {
+            double distSpeedRatio = -diffDist / diffSpeed;
+            double d = distSpeedRatio * distSpeedRatio - (diffX * diffX + diffY * diffY) / diffSpeed;
+            if (d < 0) return BWAPI::Positions::Invalid;
+
+            double r = sqrt(d);
+            t = std::max(distSpeedRatio + r, distSpeedRatio - r);
+        }
+
+        if (t < 0) return BWAPI::Positions::Invalid;
+
+        return BWAPI::Position(
+            target->getPosition().x + t * target->getVelocityX(),
+            target->getPosition().y + t * target->getVelocityY());
     }
 }

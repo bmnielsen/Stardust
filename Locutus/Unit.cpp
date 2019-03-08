@@ -2,11 +2,14 @@
 
 #include "UnitUtil.h"
 #include "Geo.h"
+#include "Players.h"
 
 Unit::Unit(BWAPI::Unit unit)
     : unit(unit)
-    , lastSeen(BWAPI::Broodwar->getFrameCount())
     , player(unit->getPlayer())
+    , tilePositionX(unit->getPosition().x << 3)
+    , tilePositionY(unit->getPosition().y << 3)
+    , lastSeen(BWAPI::Broodwar->getFrameCount())
     , type(unit->getType())
     , id(unit->getID())
     , lastPosition(unit->getPosition())
@@ -19,11 +22,12 @@ Unit::Unit(BWAPI::Unit unit)
     , groundCooldownUntil(BWAPI::Broodwar->getFrameCount() + unit->getGroundWeaponCooldown())
     , airCooldownUntil(BWAPI::Broodwar->getFrameCount() + unit->getAirWeaponCooldown())
     , undetected(UnitUtil::IsUndetected(unit))
+    , doomed(false)
 {
-    computeCompletionFrame(unit);
+    update(unit);
 }
 
-void Unit::update(BWAPI::Unit unit)
+void Unit::update(BWAPI::Unit unit) const
 {
     if (!unit || !unit->exists()) return;
 
@@ -54,9 +58,42 @@ void Unit::update(BWAPI::Unit unit)
         groundCooldownUntil = BWAPI::Broodwar->getFrameCount() + unit->getGroundWeaponCooldown();
         airCooldownUntil = BWAPI::Broodwar->getFrameCount() + unit->getAirWeaponCooldown();
     }
+
+    // Process upcoming attacks
+    int upcomingDamage = 0;
+    for (auto it = upcomingAttacks.begin(); it != upcomingAttacks.end(); )
+    {
+        // Remove bullets when they have hit
+        if (it->bullet && (!it->bullet->exists() || it->bullet->getID() != it->bulletId 
+                || it->bullet->getPosition().getApproxDistance(it->bullet->getTargetPosition()) == 0))
+        {
+            it = upcomingAttacks.erase(it);
+            continue;
+        }
+
+        // Clear if the attacker is dead, no longer visible, or out of range
+        else if (!it->attacker || !it->attacker->exists() || !it->attacker->isVisible() || !UnitUtil::IsInWeaponRange(it->attacker, unit))
+        {
+            it = upcomingAttacks.erase(it);
+            continue;
+        }
+
+        // Clear when the attacker has finished making an attack
+        else if ((isFlying ? it->attacker->getAirWeaponCooldown() : it->attacker->getGroundWeaponCooldown()) > BWAPI::Broodwar->getRemainingLatencyFrames()
+            && !it->attacker->isAttackFrame())
+        {
+            it = upcomingAttacks.erase(it);
+            continue;
+        }
+
+        upcomingDamage += it->damage;
+        it++;
+    }
+
+    doomed = (upcomingDamage >= (lastHealth + lastShields));
 }
 
-void Unit::updateLastPositionValidity()
+void Unit::updateLastPositionValidity() const
 {
     // Skip if not applicable
     if (!lastPositionValid ||
@@ -90,7 +127,21 @@ void Unit::updateLastPositionValidity()
     }
 }
 
-void Unit::computeCompletionFrame(BWAPI::Unit unit)
+void Unit::addUpcomingAttack(BWAPI::Unit attacker, BWAPI::Bullet bullet) const
+{
+    // Remove any existing upcoming attack from this attacker
+    for (auto it = upcomingAttacks.begin(); it != upcomingAttacks.end(); )
+    {
+        if (it->attacker == attacker)
+            it = upcomingAttacks.erase(it);
+        else
+            it++;
+    }
+
+    upcomingAttacks.emplace_back(attacker, bullet, Players::attackDamage(bullet->getSource()->getPlayer(), bullet->getSource()->getType(), player, type));
+}
+
+void Unit::computeCompletionFrame(BWAPI::Unit unit) const
 {
     if (!unit->getType().isBuilding() || unit->isCompleted())
         estimatedCompletionFrame = -1;

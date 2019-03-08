@@ -11,7 +11,7 @@
 namespace Map
 {
     void initialize();
-    void onUnitCreate(BWAPI::Unit unit);
+    void onUnitDiscover(BWAPI::Unit unit);
     void onUnitDestroy(BWAPI::Unit unit);
     void update();
 

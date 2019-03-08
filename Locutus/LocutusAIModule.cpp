@@ -12,7 +12,6 @@ TODOs:
   - brushfire to common destinations, e.g. each base or choke, maybe recalculate for changes
 
 Tasks:
-- Get simple location scouting working
 - Get simple combat management working
   - Including combat sim with customizations
 - Expansions, static defense, walls
@@ -41,6 +40,8 @@ Tasks:
 #include "Units.h"
 #include "Workers.h"
 #include "Scout.h"
+#include "Bullets.h"
+#include "Players.h"
 
 void LocutusAIModule::onStart()
 {
@@ -68,7 +69,7 @@ void LocutusAIModule::onEnd(bool isWinner)
 
 void LocutusAIModule::onFrame()
 {
-    if (BWAPI::Broodwar->getFrameCount() > 10000)
+    if (BWAPI::Broodwar->getFrameCount() > 30000)
     {
         BWAPI::Broodwar->leaveGame();
         return;
@@ -77,14 +78,20 @@ void LocutusAIModule::onFrame()
     Timer::start("Frame");
 
     // Update general information things
+    Players::update();
+    Timer::checkpoint("Players::update");
+
+    Bullets::update();
+    Timer::checkpoint("Bullets::update");
+
     Units::update();
     Timer::checkpoint("Units::update");
 
     Map::update();
     Timer::checkpoint("Map::update");
 
-    Workers::updateAssignments();
-    Timer::checkpoint("Workers::updateAssignments");
+    General::updateAssignments();
+    Timer::checkpoint("General::updateAssignments");
 
     BuildingPlacement::update();
     Timer::checkpoint("BuildingPlacement::update");
@@ -92,22 +99,25 @@ void LocutusAIModule::onFrame()
     Builder::update();
     Timer::checkpoint("Builder::update");
 
+    Workers::updateAssignments();
+    Timer::checkpoint("Workers::updateAssignments");
+
     // Strategist is what makes all of the decisions
     Strategist::update();
     Timer::checkpoint("Strategist::update");
 
     // Update stuff that issues orders
-    Producer::update();
-    Timer::checkpoint("Producer::update");
-
-    Builder::issueOrders();
-    Timer::checkpoint("Builder::issueOrders");
-
     General::issueOrders();
     Timer::checkpoint("General::issueOrders");
 
     Scout::update();
     Timer::checkpoint("Scout::update");
+
+    Producer::update();
+    Timer::checkpoint("Producer::update");
+
+    Builder::issueOrders();
+    Timer::checkpoint("Builder::issueOrders");
 
     Workers::issueOrders(); // Called last to allow workers to be taken or released for building, combat, etc. earlier
     Timer::checkpoint("Workers::issueOrders");
@@ -134,6 +144,7 @@ void LocutusAIModule::onNukeDetect(BWAPI::Position target)
 void LocutusAIModule::onUnitDiscover(BWAPI::Unit unit)
 {
     BuildingPlacement::onUnitDiscover(unit);
+    Map::onUnitDiscover(unit);
 }
 
 void LocutusAIModule::onUnitEvade(BWAPI::Unit unit)
@@ -150,7 +161,6 @@ void LocutusAIModule::onUnitHide(BWAPI::Unit unit)
 
 void LocutusAIModule::onUnitCreate(BWAPI::Unit unit)
 {
-    Map::onUnitCreate(unit);
     BuildingPlacement::onUnitCreate(unit);
 
     if (unit->getPlayer() == BWAPI::Broodwar->self())

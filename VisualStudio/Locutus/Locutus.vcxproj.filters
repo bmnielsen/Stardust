@@ -9,10 +9,6 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
     <Filter Include="Header Files\Map">
       <UniqueIdentifier>{5912076b-7da2-421c-a588-8f00039528d5}</UniqueIdentifier>
     </Filter>
@@ -57,6 +53,22 @@
     </Filter>
     <Filter Include="Source Files\Units">
       <UniqueIdentifier>{df511c0d-261e-4a83-9759-1ef5da1590cb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\General">
+      <UniqueIdentifier>{8f33b397-ac4d-474a-9122-99223c47a25c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\General">
+      <UniqueIdentifier>{c40529c1-8b77-4af4-b536-dd95ec192aec}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\General\Squads">
+      <UniqueIdentifier>{b3a38ea6-8525-48cf-b6d6-8e8ae16a4374}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\General\Squads">
+      <UniqueIdentifier>{682cfbe0-f516-4c93-9d28-6d7922cfb431}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -129,14 +141,29 @@
     <ClCompile Include="..\..\Locutus\UnitProductionGoal.cpp">
       <Filter>Source Files\Strategist\ProductionGoals</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Locutus\General.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Locutus\Scout.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Locutus\Unit.cpp">
       <Filter>Source Files\Units</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\General.cpp">
+      <Filter>Source Files\General</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\AttackBaseSquad.cpp">
+      <Filter>Source Files\General\Squads</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\UnitCluster.cpp">
+      <Filter>Source Files\General</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\Squad.cpp">
+      <Filter>Source Files\General</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\Bullets.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\Players.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -227,14 +254,29 @@
     <ClInclude Include="..\..\Locutus\UpgradeProductionGoal.h">
       <Filter>Header Files\Strategist\ProductionGoals</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Locutus\General.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Locutus\Scout.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Locutus\Unit.h">
       <Filter>Header Files\Units</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\General.h">
+      <Filter>Header Files\General</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Squad.h">
+      <Filter>Header Files\General</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\AttackBaseSquad.h">
+      <Filter>Header Files\General\Squads</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\UnitCluster.h">
+      <Filter>Header Files\General</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Bullets.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Players.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -5,6 +5,10 @@
       <Configuration>Debug Lib</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug Optimized|Win32">
+      <Configuration>Debug Optimized</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
@@ -15,10 +19,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Locutus\AttackBaseSquad.cpp" />
     <ClCompile Include="..\..\Locutus\Base.cpp" />
     <ClCompile Include="..\..\Locutus\Builder.cpp" />
     <ClCompile Include="..\..\Locutus\Building.cpp" />
     <ClCompile Include="..\..\Locutus\BuildingPlacement.cpp" />
+    <ClCompile Include="..\..\Locutus\Bullets.cpp" />
     <ClCompile Include="..\..\Locutus\Choke.cpp" />
     <ClCompile Include="..\..\Locutus\Dll.cpp" />
     <ClCompile Include="..\..\Locutus\Fortress.cpp" />
@@ -31,22 +37,27 @@
     <ClCompile Include="..\..\Locutus\Opponent.cpp" />
     <ClCompile Include="..\..\Locutus\PathFinding.cpp" />
     <ClCompile Include="..\..\Locutus\Plasma.cpp" />
+    <ClCompile Include="..\..\Locutus\Squad.cpp" />
     <ClCompile Include="..\..\Locutus\Unit.cpp" />
     <ClCompile Include="..\..\Locutus\Producer.cpp" />
     <ClCompile Include="..\..\Locutus\Scout.cpp" />
+    <ClCompile Include="..\..\Locutus\UnitCluster.cpp" />
     <ClCompile Include="..\..\Locutus\UnitProductionGoal.cpp" />
     <ClCompile Include="..\..\Locutus\UpgradeProductionGoal.cpp" />
     <ClCompile Include="..\..\Locutus\Strategist.cpp" />
     <ClCompile Include="..\..\Locutus\Timer.cpp" />
     <ClCompile Include="..\..\Locutus\Units.cpp" />
     <ClCompile Include="..\..\Locutus\UnitUtil.cpp" />
+    <ClCompile Include="..\..\Locutus\Players.cpp" />
     <ClCompile Include="..\..\Locutus\Workers.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Locutus\AttackBaseSquad.h" />
     <ClInclude Include="..\..\Locutus\Base.h" />
     <ClInclude Include="..\..\Locutus\Builder.h" />
     <ClInclude Include="..\..\Locutus\Building.h" />
     <ClInclude Include="..\..\Locutus\BuildingPlacement.h" />
+    <ClInclude Include="..\..\Locutus\Bullets.h" />
     <ClInclude Include="..\..\Locutus\Choke.h" />
     <ClInclude Include="..\..\Locutus\Common.h" />
     <ClInclude Include="..\..\Locutus\DarkTemplar.h" />
@@ -54,6 +65,7 @@
     <ClInclude Include="..\..\Locutus\Fortress.h" />
     <ClInclude Include="..\..\Locutus\General.h" />
     <ClInclude Include="..\..\Locutus\Geo.h" />
+    <ClInclude Include="..\..\Locutus\Squad.h" />
     <ClInclude Include="..\..\Locutus\Unit.h" />
     <ClInclude Include="..\..\Locutus\MyUnit.h" />
     <ClInclude Include="..\..\Locutus\Opening.h" />
@@ -62,10 +74,12 @@
     <ClInclude Include="..\..\Locutus\Scout.h" />
     <ClInclude Include="..\..\Locutus\Strategist.h" />
     <ClInclude Include="..\..\Locutus\Timer.h" />
+    <ClInclude Include="..\..\Locutus\UnitCluster.h" />
     <ClInclude Include="..\..\Locutus\UnitProductionGoal.h" />
     <ClInclude Include="..\..\Locutus\Units.h" />
     <ClInclude Include="..\..\Locutus\UnitUtil.h" />
     <ClInclude Include="..\..\Locutus\UpgradeProductionGoal.h" />
+    <ClInclude Include="..\..\Locutus\Players.h" />
     <ClInclude Include="..\..\Locutus\Workers.h" />
     <ClInclude Include="..\..\Locutus\LocutusAIModule.h" />
     <ClInclude Include="..\..\Locutus\Log.h" />
@@ -97,6 +111,12 @@
     <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Optimized|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Lib|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -111,6 +131,9 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug Optimized|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug Lib|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
@@ -122,6 +145,10 @@
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <TargetName>$(ProjectName)</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Optimized|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <TargetName>$(ProjectName)</TargetName>
   </PropertyGroup>
@@ -139,7 +166,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;LOCUTUS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP;..\..\CQL;..\..\3rdparty\nlohmann</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -147,7 +174,7 @@
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalLibraryDirectories>..\..\lib</AdditionalLibraryDirectories>
       <AdditionalDependencies>BWEB.lib;BWEM.lib;BWAPILIB.lib</AdditionalDependencies>
     </Link>
@@ -160,7 +187,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;LOCUTUS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP;..\..\CQL;..\..\3rdparty\nlohmann</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/Zo %(AdditionalOptions)</AdditionalOptions>
@@ -173,6 +200,30 @@
       <AdditionalDependencies>BWEBd.lib;BWEMd.lib;BWAPILIBd.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug Optimized|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;LOCUTUS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP;..\..\CQL;..\..\3rdparty\nlohmann</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/Zo %(AdditionalOptions)</AdditionalOptions>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>..\..\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>BWEBd.lib;BWEMd.lib;BWAPILIBd.lib</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug Lib|Win32'">
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -181,7 +232,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;LOCUTUS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP;..\..\CQL</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
