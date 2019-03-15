@@ -98,7 +98,7 @@ namespace Log
         if (!debugLog)
         {
             debugLog = new std::ofstream();
-            debugLog->open(logFileName("Locutus_log_debug"), std::ofstream::trunc);
+            debugLog->open(logFileName("Locutus_debug"), std::ofstream::trunc);
         }
 
         return LogWrapper(debugLog);

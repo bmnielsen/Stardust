@@ -46,6 +46,7 @@ Tasks:
 void LocutusAIModule::onStart()
 {
     Log::SetDebug(true);
+    CherryVis::initialize();
 
     Timer::start("Startup");
 
@@ -65,6 +66,7 @@ void LocutusAIModule::onStart()
 
 void LocutusAIModule::onEnd(bool isWinner)
 {
+    CherryVis::gameEnd();
 }
 
 void LocutusAIModule::onFrame()
@@ -102,7 +104,7 @@ void LocutusAIModule::onFrame()
     Workers::updateAssignments();
     Timer::checkpoint("Workers::updateAssignments");
 
-    // Strategist is what makes all of the decisions
+    // Strategist is what makes all of the big decisions
     Strategist::update();
     Timer::checkpoint("Strategist::update");
 
@@ -121,6 +123,40 @@ void LocutusAIModule::onFrame()
 
     Workers::issueOrders(); // Called last to allow workers to be taken or released for building, combat, etc. earlier
     Timer::checkpoint("Workers::issueOrders");
+
+    // Instrumentation
+#ifdef COLLISION_HEATMAP_FREQUENCY
+    if (BWAPI::Broodwar->getFrameCount() % COLLISION_HEATMAP_FREQUENCY == 0)
+    {
+        Players::grid(BWAPI::Broodwar->self()).dumpCollisionHeatmapIfChanged("Collision");
+    }
+#endif
+#ifdef GROUND_THREAT_HEATMAP_FREQUENCY
+    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_HEATMAP_FREQUENCY == 0)
+    {
+        Players::grid(BWAPI::Broodwar->enemy()).dumpGroundThreatHeatmapIfChanged("GroundThreat");
+    }
+#endif
+#ifdef AIR_THREAT_HEATMAP_FREQUENCY
+    if (BWAPI::Broodwar->getFrameCount() % AIR_THREAT_HEATMAP_FREQUENCY == 0)
+    {
+        Players::grid(BWAPI::Broodwar->enemy()).dumpAirThreatHeatmapIfChanged("AirThreat");
+    }
+#endif
+#ifdef DETECTION_HEATMAP_FREQUENCY
+    if (BWAPI::Broodwar->getFrameCount() % DETECTION_HEATMAP_FREQUENCY == 0)
+    {
+        Players::grid(BWAPI::Broodwar->enemy()).dumpDetectionHeatmapIfChanged("Detection");
+    }
+#endif
+#ifdef VISIBILITY_HEATMAP_FREQUENCY
+    if (BWAPI::Broodwar->getFrameCount() % VISIBILITY_HEATMAP_FREQUENCY == 0)
+    {
+        Map::dumpVisibilityHeatmap();
+    }
+#endif
+    CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
+    Timer::checkpoint("Instrumentation");
 
     Timer::stop();
 }
@@ -194,7 +230,6 @@ void LocutusAIModule::onUnitMorph(BWAPI::Unit unit)
 
 void LocutusAIModule::onUnitRenegade(BWAPI::Unit unit)
 {
-    Units::onUnitRenegade(unit);
     Workers::onUnitRenegade(unit);
 }
 

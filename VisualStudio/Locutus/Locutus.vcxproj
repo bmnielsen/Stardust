@@ -25,11 +25,13 @@
     <ClCompile Include="..\..\Locutus\Building.cpp" />
     <ClCompile Include="..\..\Locutus\BuildingPlacement.cpp" />
     <ClCompile Include="..\..\Locutus\Bullets.cpp" />
+    <ClCompile Include="..\..\Locutus\CherryVis.cpp" />
     <ClCompile Include="..\..\Locutus\Choke.cpp" />
     <ClCompile Include="..\..\Locutus\Dll.cpp" />
     <ClCompile Include="..\..\Locutus\Fortress.cpp" />
     <ClCompile Include="..\..\Locutus\General.cpp" />
     <ClCompile Include="..\..\Locutus\Geo.cpp" />
+    <ClCompile Include="..\..\Locutus\Grid.cpp" />
     <ClCompile Include="..\..\Locutus\LocutusAIModule.cpp" />
     <ClCompile Include="..\..\Locutus\Log.cpp" />
     <ClCompile Include="..\..\Locutus\Map.cpp" />
@@ -49,6 +51,7 @@
     <ClCompile Include="..\..\Locutus\Units.cpp" />
     <ClCompile Include="..\..\Locutus\UnitUtil.cpp" />
     <ClCompile Include="..\..\Locutus\Players.cpp" />
+    <ClCompile Include="..\..\Locutus\UpgradeTracker.cpp" />
     <ClCompile Include="..\..\Locutus\Workers.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -58,6 +61,7 @@
     <ClInclude Include="..\..\Locutus\Building.h" />
     <ClInclude Include="..\..\Locutus\BuildingPlacement.h" />
     <ClInclude Include="..\..\Locutus\Bullets.h" />
+    <ClInclude Include="..\..\Locutus\CherryVis.h" />
     <ClInclude Include="..\..\Locutus\Choke.h" />
     <ClInclude Include="..\..\Locutus\Common.h" />
     <ClInclude Include="..\..\Locutus\DarkTemplar.h" />
@@ -65,6 +69,7 @@
     <ClInclude Include="..\..\Locutus\Fortress.h" />
     <ClInclude Include="..\..\Locutus\General.h" />
     <ClInclude Include="..\..\Locutus\Geo.h" />
+    <ClInclude Include="..\..\Locutus\Grid.h" />
     <ClInclude Include="..\..\Locutus\Squad.h" />
     <ClInclude Include="..\..\Locutus\Unit.h" />
     <ClInclude Include="..\..\Locutus\MyUnit.h" />
@@ -80,6 +85,7 @@
     <ClInclude Include="..\..\Locutus\UnitUtil.h" />
     <ClInclude Include="..\..\Locutus\UpgradeProductionGoal.h" />
     <ClInclude Include="..\..\Locutus\Players.h" />
+    <ClInclude Include="..\..\Locutus\UpgradeTracker.h" />
     <ClInclude Include="..\..\Locutus\Workers.h" />
     <ClInclude Include="..\..\Locutus\LocutusAIModule.h" />
     <ClInclude Include="..\..\Locutus\Log.h" />
@@ -166,7 +172,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;LOCUTUS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP;..\..\CQL;..\..\3rdparty\nlohmann</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP;..\..\CQL;..\..\3rdparty</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -176,18 +182,18 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalLibraryDirectories>..\..\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>BWEB.lib;BWEM.lib;BWAPILIB.lib</AdditionalDependencies>
+      <AdditionalDependencies>BWEB.lib;BWEM.lib;BWAPILIB.lib;zstd_static.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>Full</Optimization>
+      <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;LOCUTUS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP;..\..\CQL;..\..\3rdparty\nlohmann</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP;..\..\CQL;..\..\3rdparty</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/Zo %(AdditionalOptions)</AdditionalOptions>
@@ -197,7 +203,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>..\..\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>BWEBd.lib;BWEMd.lib;BWAPILIBd.lib</AdditionalDependencies>
+      <AdditionalDependencies>BWEBd.lib;BWEMd.lib;BWAPILIBd.lib;zstd_staticd.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug Optimized|Win32'">
@@ -208,7 +214,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;LOCUTUS_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP;..\..\CQL;..\..\3rdparty\nlohmann</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\BWAPILIB;..\..\BWEM;..\..\BWEB;..\..\FAP;..\..\CQL;..\..\3rdparty</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/Zo %(AdditionalOptions)</AdditionalOptions>

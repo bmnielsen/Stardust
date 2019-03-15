@@ -6,7 +6,12 @@
 class AttackBaseSquad : public Squad
 {
 public:
-    AttackBaseSquad(Base* base) : base(base) { targetPosition = base->getPosition(); };
+    AttackBaseSquad(Base* base)
+        : Squad((std::ostringstream() << "Attack base @ " << base->getTilePosition()).str())
+        , base(base)
+    {
+        targetPosition = base->getPosition();
+    };
 
 private:
     Base* base;

@@ -5,6 +5,8 @@ const int MAX_CLUSTER_RADIUS = 320;
 
 void Squad::addUnit(BWAPI::Unit unit)
 {
+    CherryVis::log(unit) << "Added: " << label;
+
     // Look for a suitable cluster to add this unit to
     std::shared_ptr<UnitCluster> best = nullptr;
     int bestDist = INT_MAX;
@@ -34,6 +36,8 @@ void Squad::removeUnit(BWAPI::Unit unit)
     auto clusterIt = unitToCluster.find(unit);
     if (clusterIt == unitToCluster.end()) return;
     
+    CherryVis::log(unit) << "Removed: " << label;
+
     auto cluster = clusterIt->second;
     unitToCluster.erase(clusterIt);
  
@@ -69,7 +73,7 @@ void Squad::updateClusters()
         for (secondIt++; secondIt != clusters.end(); )
         {
             int dist = PathFinding::GetGroundDistance((*firstIt)->center, (*secondIt)->center, BWAPI::UnitTypes::Protoss_Dragoon);
-            if (dist > 480)
+            if (dist > MAX_CLUSTER_RADIUS)
             {
                 secondIt++;
                 continue;

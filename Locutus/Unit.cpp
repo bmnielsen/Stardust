@@ -25,11 +25,20 @@ Unit::Unit(BWAPI::Unit unit)
     , doomed(false)
 {
     update(unit);
+
+    Players::grid(player).unitCreated(type, lastPosition, completed);
+#ifdef DEBUG_GRID_UPDATES
+    CherryVis::log(unit) << "Grid::unitCreated " << lastPosition;
+#endif
+
+    CherryVis::unitFirstSeen(unit);
 }
 
 void Unit::update(BWAPI::Unit unit) const
 {
     if (!unit || !unit->exists()) return;
+
+    updateGrid(unit);
 
     lastSeen = BWAPI::Broodwar->getFrameCount();
     lastPosition = unit->getPosition();
@@ -51,6 +60,7 @@ void Unit::update(BWAPI::Unit unit) const
     completed = unit->isCompleted();
     computeCompletionFrame(unit);
 
+    // TODO: Track lifted buildings
     isFlying = unit->isFlying();
 
     if (unit->isVisible())
@@ -104,6 +114,8 @@ void Unit::updateLastPositionValidity() const
     if (BWAPI::Broodwar->isVisible(BWAPI::TilePosition(lastPosition)))
     {
         lastPositionValid = false;
+
+        // TODO: Track lifted buildings
     }
 
     // If the unit is a sieged tank, assume it is gone from its last position
@@ -125,6 +137,26 @@ void Unit::updateLastPositionValidity() const
                 break;
             }
     }
+
+    // For the grid, treat units with invalid last position as destroyed
+    if (!lastPositionValid)
+    {
+        Players::grid(player).unitDestroyed(type, lastPosition, completed);
+#ifdef DEBUG_GRID_UPDATES
+        CherryVis::log(id) << "Grid::unitDestroyed " << lastPosition;
+#endif
+    }
+
+    // Mark buildings complete in the grid if we expect them to have completed in the fog
+    if (lastPositionValid && !completed && estimatedCompletionFrame != -1 && estimatedCompletionFrame <= BWAPI::Broodwar->getFrameCount())
+    {
+        completed = true;
+        estimatedCompletionFrame = -1;
+        Players::grid(player).unitCompleted(type, lastPosition);
+#ifdef DEBUG_GRID_UPDATES
+        CherryVis::log(id) << "Grid::unitCompleted " << lastPosition;
+#endif
+    }
 }
 
 void Unit::addUpcomingAttack(BWAPI::Unit attacker, BWAPI::Bullet bullet) const
@@ -139,6 +171,83 @@ void Unit::addUpcomingAttack(BWAPI::Unit attacker, BWAPI::Bullet bullet) const
     }
 
     upcomingAttacks.emplace_back(attacker, bullet, Players::attackDamage(bullet->getSource()->getPlayer(), bullet->getSource()->getType(), player, type));
+}
+
+void Unit::updateGrid(BWAPI::Unit unit) const
+{
+    auto & grid = Players::grid(unit->getPlayer());
+
+    // Units that have renegaded
+    if (unit->getPlayer() != player)
+    {
+        Players::grid(player).unitDestroyed(type, lastPosition, completed);
+        grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted());
+#ifdef DEBUG_GRID_UPDATES
+        CherryVis::log(id) << "Grid::unitDestroyed " << lastPosition;
+        CherryVis::log(id) << "Grid::unitCreated " << unit->getPosition();
+#endif
+        return;
+    }
+
+    // Units that moved while in the fog and have now reappeared
+    if (!lastPositionValid)
+    {
+        grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted());
+#ifdef DEBUG_GRID_UPDATES
+        CherryVis::log(id) << "Grid::unitCreated " << unit->getPosition();
+#endif
+        return;
+    }
+
+    // Moved or morphed units
+    if (lastPosition != unit->getPosition() || type != unit->getType())
+    {
+        grid.unitMoved(unit->getType(), unit->getPosition(), type, lastPosition);
+#ifdef DEBUG_GRID_UPDATES
+        CherryVis::log(id) << "Grid::unitMoved " << lastPosition << " to " << unit->getPosition();
+#endif
+    }
+
+    // Completed units
+    if (!completed && unit->isCompleted())
+    {
+        grid.unitCompleted(unit->getType(), unit->getPosition());
+#ifdef DEBUG_GRID_UPDATES
+        CherryVis::log(id) << "Grid::unitCompleted " << unit->getPosition();
+#endif
+    }
+
+    // Units that have taken off
+    // We can just treat them as destroyed, as nothing that can take off has an attack
+    if (!isFlying && unit->isFlying())
+    {
+        grid.unitDestroyed(type, lastPosition, completed);
+#ifdef DEBUG_GRID_UPDATES
+        CherryVis::log(id) << "Grid::unitDestroyed " << lastPosition;
+#endif
+    }
+
+    // Units that have landed
+    if (isFlying && !unit->isFlying())
+    {
+        grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted());
+#ifdef DEBUG_GRID_UPDATES
+        CherryVis::log(id) << "Grid::unitCreated " << unit->getPosition();
+#endif
+    }
+
+    // Units we thought completed in the fog, but didn't
+    if (completed && !unit->isCompleted())
+    {
+        grid.unitDestroyed(type, lastPosition, true);
+        grid.unitCreated(unit->getType(), unit->getPosition(), false);
+#ifdef DEBUG_GRID_UPDATES
+        CherryVis::log(id) << "Grid::unitDestroyed " << lastPosition;
+        CherryVis::log(id) << "Grid::unitCreated " << unit->getPosition();
+#endif
+    }
+
+    // TODO: Workers in a refinery
 }
 
 void Unit::computeCompletionFrame(BWAPI::Unit unit) const

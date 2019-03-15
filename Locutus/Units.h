@@ -9,7 +9,6 @@ namespace Units
 {
     void update();
     void onUnitDestroy(BWAPI::Unit unit);
-    void onUnitRenegade(BWAPI::Unit unit);
     void onBulletCreate(BWAPI::Bullet bullet);
 
     Unit const& get(BWAPI::Unit unit);

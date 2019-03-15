@@ -48,6 +48,23 @@ namespace Units
             // Now update all the units we can see
             for (auto unit : player->getUnits())
             {
+                // Update our own units
+                // We do this also for incomplete units
+                if (player == BWAPI::Broodwar->self())
+                {
+                    getMine(unit).update();
+
+                    if (unit->isCompleted())
+                    {
+                        myCompletedUnitsByType[unit->getType()].insert(unit);
+                        myIncompleteUnitsByType[unit->getType()].erase(unit);
+                    }
+                    else
+                        myIncompleteUnitsByType[unit->getType()].insert(unit);
+                }
+
+                if (!unit->isCompleted()) continue;
+
                 //auto entry = units.lookup<0>(unit);
                 //if (entry)
                 //{
@@ -64,23 +81,16 @@ namespace Units
                 //    *units.emplace(unit);
                 //}
 
-                auto entry = get(unit);
+                auto & entry = get(unit);
                 entry.update(unit);
                 entry.tilePositionX = unit->getPosition().x << 3;
                 entry.tilePositionY = unit->getPosition().y << 3;
-
-                // Additionally do some updates for our own units
-                if (player == BWAPI::Broodwar->self())
+                if (entry.player != player)
                 {
-                    getMine(unit).update();
-
-                    if (unit->isCompleted())
-                    {
-                        myCompletedUnitsByType[unit->getType()].insert(unit);
-                        myIncompleteUnitsByType[unit->getType()].erase(unit);
-                    }
-                    else
-                        myIncompleteUnitsByType[unit->getType()].insert(unit);
+                    auto ptr = bwapiUnitToUnit[unit];
+                    playerToUnits[entry.player].erase(bwapiUnitToUnit[unit]);
+                    playerToUnits[player].insert(ptr);
+                    entry.player = player;
                 }
             }
         }
@@ -163,6 +173,14 @@ namespace Units
         auto it = bwapiUnitToUnit.find(unit);
         if (it != bwapiUnitToUnit.end())
         {
+            if (it->second->lastPositionValid)
+            {
+                Players::grid(it->second->player).unitDestroyed(it->second->type, it->second->lastPosition, it->second->completed);
+#ifdef DEBUG_GRID_UPDATES
+                CherryVis::log(unit) << "Grid::unitDestroyed " << it->second->lastPosition;
+#endif
+            }
+
             playerToUnits[unit->getPlayer()].erase(it->second);
             bwapiUnitToUnit.erase(it);
         }
@@ -170,13 +188,6 @@ namespace Units
         bwapiUnitToMyUnit.erase(unit);
         myCompletedUnitsByType[unit->getType()].erase(unit);
         myIncompleteUnitsByType[unit->getType()].erase(unit);
-    }
-
-    void onUnitRenegade(BWAPI::Unit unit)
-    {
-        // Clear from any map it is in
-        // The next time we update, we will re-add it with the new owner
-        onUnitDestroy(unit);
     }
 
     void onBulletCreate(BWAPI::Bullet bullet)
@@ -229,6 +240,7 @@ namespace Units
         auto newUnit = std::make_shared<Unit>(unit);
         bwapiUnitToUnit.emplace(unit, newUnit);
         playerToUnits[unit->getPlayer()].emplace(newUnit);
+        
         return *newUnit;
     }
 
@@ -244,6 +256,20 @@ namespace Units
         for (auto unit : playerToUnits[player])
             if (unit->lastPositionValid && unit->lastPosition.getApproxDistance(position) <= radius)
                 result.insert(unit);
+
+        size_t count = 0;
+        for (auto unit : player->getUnits())
+            if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon && unit->getPosition().getApproxDistance(position) <= radius)
+                count++;
+        if (count > result.size())
+        {
+            for (auto unit : player->getUnits())
+                if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon && unit->getPosition().getApproxDistance(position) <= radius)
+                {
+                    auto & unt = get(unit);
+                    Log::Debug() << "Missed " << unit->getType() << " @ " << unit->getPosition() << ": lastPosition=" << unt.lastPosition << "; lastPositionValid=" << unt.lastPositionValid << "; dist=" << unt.lastPosition.getApproxDistance(position);
+                }
+        }
 
         return result;
     }

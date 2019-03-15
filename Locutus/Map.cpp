@@ -28,6 +28,8 @@ namespace Map
         std::map<const BWEM::ChokePoint *, Choke *> chokes;
         int _minChokeWidth;
 
+        std::vector<long> visibility;
+
         struct PlayerBases
         {
             Base * main;
@@ -145,7 +147,8 @@ namespace Map
             // If the base previously had an owner, remove it from their list of owned bases
             if (base->owner) playerToPlayerBases[base->owner].allOwned.erase(base);
 
-            Log::Debug() << "Changing base " << base->getTilePosition() << " owner from " << base->owner << " to " << owner;
+            auto playerLabel = [](BWAPI::Player player) { return player ? player->getName() : "(none)"; };
+            CherryVis::log() << "Changing base " << base->getTilePosition() << " owner from " << playerLabel(base->owner) << " to " << playerLabel(owner);
 
             base->owner = owner;
             base->ownedSince = BWAPI::Broodwar->getFrameCount();
@@ -185,8 +188,6 @@ namespace Map
             if (!unit->getType().isBuilding() && !unit->getType().isAddon()) return;
             if (unit->getPlayer()->isNeutral()) return;
 
-            Log::Debug() << "Created: " << unit->getType() << " @ " << unit->getTilePosition();
-            
             // Check if there is a base near the building
             auto nearbyBase = baseNear(unit->getPosition());
             if (nearbyBase)
@@ -208,7 +209,6 @@ namespace Map
                 // If the base was previously unowned, or this is a closer depot, change the ownership
                 if (!nearbyBase->owner || isCloserDepot)
                 {
-                    Log::Debug() << unit->getType() << " @ " << unit->getTilePosition() << " close to base @ " << nearbyBase->getTilePosition();
                     setBaseOwner(nearbyBase, unit->getPlayer());
 
                     if (isCloserDepot) nearbyBase->resourceDepot = unit;
@@ -230,7 +230,6 @@ namespace Map
                         PathFinding::PathFindingOptions::UseNearestBWEMArea);
                     if (dist != -1 && dist < 1500)
                     {
-                        Log::Debug() << unit->getType() << " @ " << unit->getTilePosition() << " close to starting location @ " << startingLocationBase->getTilePosition() << ": " << dist;
                         setBaseOwner(startingLocationBase, unit->getPlayer());
                         break;
                     }
@@ -286,6 +285,40 @@ namespace Map
             }
         }
 
+        // Dumps heatmaps for static map things like ground height
+        void dumpStaticHeatmaps()
+        {
+            // Ground height is at tile resolution
+            std::vector<long> groundHeight(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                {
+                    groundHeight[x + y * BWAPI::Broodwar->mapWidth()] = BWAPI::Broodwar->getGroundHeight(x, y);
+                }
+
+            CherryVis::addHeatmap("GroundHeight", groundHeight, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+
+            // Buildability is at tile resolution
+            std::vector<long> buildability(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                {
+                    buildability[x + y * BWAPI::Broodwar->mapWidth()] = BWAPI::Broodwar->isBuildable(x, y);
+                }
+
+            CherryVis::addHeatmap("Buildable", buildability, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+
+            // Walkability is at walk tile resolution
+            std::vector<long> walkability(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 16);
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth() * 4; x++)
+                for (int y = 0; y < BWAPI::Broodwar->mapHeight() * 4; y++)
+                {
+                    walkability[x + y * BWAPI::Broodwar->mapWidth() * 4] = BWAPI::Broodwar->isWalkable(x, y);
+                }
+
+            CherryVis::addHeatmap("Walkable", walkability, BWAPI::Broodwar->mapWidth() * 4, BWAPI::Broodwar->mapHeight() * 4);
+        }
+
 #ifndef _DEBUG
     }
 #endif
@@ -328,6 +361,8 @@ namespace Map
         for (const auto & pair : chokes)
             if (pair.second->width < _minChokeWidth)
                 _minChokeWidth = pair.second->width;
+
+        dumpStaticHeatmaps();
     }
 
     void onUnitDiscover(BWAPI::Unit unit)
@@ -378,7 +413,6 @@ namespace Map
             auto unscouted = unscoutedStartingLocations();
             if (unscouted.size() == 1)
             {
-                Log::Debug() << "Only " << (*unscouted.begin())->getTilePosition() << " unscouted";
                 setBaseOwner(*unscouted.begin(), BWAPI::Broodwar->enemy());
             }
         }
@@ -460,5 +494,20 @@ namespace Map
     int minChokeWidth()
     {
         return _minChokeWidth;
+    }
+
+    void dumpVisibilityHeatmap()
+    {
+        std::vector<long> newVisibility(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
+        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                if (BWAPI::Broodwar->isVisible(x, y))
+                    newVisibility[x + y * BWAPI::Broodwar->mapWidth()] = 1;
+
+        if (newVisibility != visibility)
+        {
+            CherryVis::addHeatmap("FogOfWar", newVisibility, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+            visibility = newVisibility;
+        }
     }
 }

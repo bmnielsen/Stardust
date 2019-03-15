@@ -20,11 +20,12 @@ class Unit
 {
 public:
     // These four properties will be used for CQL queries, so they are not marked mutable
+    // (except for now until CQL works)
 
     BWAPI::Unit     unit;               // Reference to the unit
-    BWAPI::Player   player;             // Player owning the unit
-    int             tilePositionX;      // X coordinate of the tile position
-    int             tilePositionY;      // Y coordinate of the tile position
+    mutable BWAPI::Player   player;             // Player owning the unit
+    mutable int             tilePositionX;      // X coordinate of the tile position
+    mutable int             tilePositionY;      // Y coordinate of the tile position
 
     // Remaining properties are marked mutable, as we can update them without violating any CQL orderings
 
@@ -59,6 +60,7 @@ public:
     void addUpcomingAttack(BWAPI::Unit attacker, BWAPI::Bullet bullet) const;
 
 private:
+    void updateGrid(BWAPI::Unit unit) const;
     void computeCompletionFrame(BWAPI::Unit unit) const;
 };
 

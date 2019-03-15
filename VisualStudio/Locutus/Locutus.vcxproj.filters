@@ -70,15 +70,24 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\Players">
+      <UniqueIdentifier>{e1073944-dbfd-4b5c-b5bf-142683f35238}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Players">
+      <UniqueIdentifier>{60a65ddc-d668-4eae-a7aa-640f14e9566e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Instrumentation">
+      <UniqueIdentifier>{3372664a-b8dd-4049-81eb-ee4e4a0242bc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Instrumentation">
+      <UniqueIdentifier>{db850aac-b697-420b-ba7c-d552f2c10f85}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Locutus\LocutusAIModule.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Locutus\Dll.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Locutus\Log.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Locutus\Opponent.cpp">
@@ -163,14 +172,23 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Locutus\Players.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Players</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\UpgradeTracker.cpp">
+      <Filter>Source Files\Players</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\Grid.cpp">
+      <Filter>Source Files\Players</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\Log.cpp">
+      <Filter>Source Files\Instrumentation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Locutus\CherryVis.cpp">
+      <Filter>Source Files\Instrumentation</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Locutus\LocutusAIModule.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Locutus\Log.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Locutus\Common.h">
@@ -276,7 +294,19 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Locutus\Players.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Players</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\UpgradeTracker.h">
+      <Filter>Header Files\Players</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Grid.h">
+      <Filter>Header Files\Players</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\Log.h">
+      <Filter>Header Files\Instrumentation</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Locutus\CherryVis.h">
+      <Filter>Header Files\Instrumentation</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

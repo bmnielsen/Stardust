@@ -2,9 +2,13 @@
 
 #include "Common.h"
 
+#include "Grid.h"
+
 namespace Players
 {
     void update();
+
+    Grid & grid(BWAPI::Player player);
 
     int weaponDamage(BWAPI::Player player, BWAPI::WeaponType wpn);
     int weaponRange(BWAPI::Player player, BWAPI::WeaponType wpn);

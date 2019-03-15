@@ -10,6 +10,8 @@ void AttackBaseSquad::execute(UnitCluster & cluster)
     // Look for enemies near this cluster
     auto enemyUnits = Units::getInRadius(BWAPI::Broodwar->enemy(), cluster.center, 480);
 
+    Log::Debug() << "Cluster " << cluster.center << ": " << enemyUnits.size();
+
     // If there are none, move to the base
     if (enemyUnits.empty())
     {
@@ -90,7 +92,7 @@ void AttackBaseSquad::execute(UnitCluster & cluster)
             // TODO: Port over proper kiting
             if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon)
             {
-                int framesToFiringRange = std::max(0, dist - range) / unit->getType().topSpeed();
+                int framesToFiringRange = (int)((double)std::max(0, dist - range) / unit->getType().topSpeed());
                 if ((cooldown - BWAPI::Broodwar->getRemainingLatencyFrames() - 2) > framesToFiringRange)
                 {
                     myUnit.fleeFrom(bestTarget->getPosition());

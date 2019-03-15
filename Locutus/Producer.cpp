@@ -18,6 +18,8 @@ TODOs:
 Ideas:
 - Support maximizing production or pressure on enemy at a certain frame
   - Can probably just be handled in the strategist, so the producer always just needs to know what its priorities are
+- Schedule something for a specific frame
+  - Might be tricky to get right - in some cases it might be better to produce it earlier (to free up production capacity later)
 */
 namespace Producer
 {
@@ -164,10 +166,10 @@ namespace Producer
         std::map<std::shared_ptr<ProductionItem>, std::shared_ptr<Producer>> queuedProducers;
         std::map<BWAPI::Unit, std::shared_ptr<Producer>> existingProducers;
 
+        ProductionItemSet committedItems;
+
         void write(ProductionItemSet & items, std::string label)
         {
-            return;
-
             auto itemLabel = [](const std::shared_ptr<ProductionItem> & item)
             {
                 std::ostringstream label;
@@ -178,6 +180,17 @@ namespace Producer
                 return label.str();
             };
 
+            std::vector<std::string> values;
+            for (auto & item : items)
+            {
+                std::ostringstream value;
+                value << item->startFrame << ": " << itemLabel(item);
+                values.push_back(value.str());
+            }
+
+            CherryVis::setBoardListValue("producer", values);
+
+            return;
             Log::LogWrapper csv = Log::Csv(label);
 
             int seconds = BWAPI::Broodwar->getFrameCount() / 24;
@@ -230,7 +243,7 @@ namespace Producer
             }
         }
 
-        void initializeResources(ProductionItemSet & committedItems)
+        void initializeResources()
         {
             // Fill mineral and gas with current rates
             int currentMinerals = BWAPI::Broodwar->self()->minerals();
@@ -385,7 +398,7 @@ namespace Producer
 
         // Remove duplicate items from this goal's set and resolve conflicts with already-committed items
         // Returns the max frame an item in goalItems will finish
-        int resolveDuplicates(ProductionItemSet & goalItems, ProductionItemSet & committedItems)
+        int resolveDuplicates(ProductionItemSet & goalItems)
         {
             int maxFrame = 0;
             std::set<Type> seen;
@@ -495,7 +508,7 @@ namespace Producer
             }
         }
 
-        void reserveBuildPositions(ProductionItemSet & items, ProductionItemSet & committedItems)
+        void reserveBuildPositions(ProductionItemSet & items)
         {
             for (auto it = items.begin(); it != items.end(); it++)
             {
@@ -787,7 +800,7 @@ namespace Producer
             return true;
         }
 
-        bool shiftForGas(ProductionItem & item, ProductionItemSet & prerequisiteItems, ProductionItemSet & committedItems, bool commit)
+        bool shiftForGas(ProductionItem & item, ProductionItemSet & prerequisiteItems, bool commit)
         {
             // Before resolving a gas block, check if we have a cybernetics core as a prerequisite
             // If so, insert an assimilator immediately at the same time unless we already have one
@@ -1032,7 +1045,7 @@ namespace Producer
             return true;
         }
 
-        bool shiftForSupply(ProductionItem & item, ProductionItemSet & prerequisiteItems, ProductionItemSet & committedItems, bool commit)
+        bool shiftForSupply(ProductionItem & item, ProductionItemSet & prerequisiteItems, bool commit)
         {
             if (item.supplyRequired() == 0) return true;
 
@@ -1206,7 +1219,7 @@ namespace Producer
             return true;
         }
 
-        void commitItem(const std::shared_ptr<ProductionItem> & item, ProductionItemSet & committedItems)
+        void commitItem(const std::shared_ptr<ProductionItem> & item)
         {
             // Spend the resources
             spendResource(minerals, item->startFrame, item->mineralPrice());
@@ -1233,11 +1246,11 @@ namespace Producer
             committedItems.insert(item);
         }
 
-        bool resolveResourceBlocks(std::shared_ptr<ProductionItem> item, ProductionItemSet & prerequisiteItems, ProductionItemSet & committedItems, bool commit)
+        bool resolveResourceBlocks(std::shared_ptr<ProductionItem> item, ProductionItemSet & prerequisiteItems, bool commit)
         {
             if (!shiftForMinerals(*item, prerequisiteItems) ||
-                !shiftForGas(*item, prerequisiteItems, committedItems, commit) ||
-                !shiftForSupply(*item, prerequisiteItems, committedItems, commit))
+                !shiftForGas(*item, prerequisiteItems, commit) ||
+                !shiftForSupply(*item, prerequisiteItems, commit))
             {
                 return false;
             }
@@ -1249,16 +1262,16 @@ namespace Producer
                 prerequisitesIt != prerequisiteItems.end();
                 prerequisitesIt++)
             {
-                commitItem(*prerequisitesIt, committedItems);
+                commitItem(*prerequisitesIt);
             }
 
             // Commit this item
-            commitItem(item, committedItems);
+            commitItem(item);
             return true;
         }
 
         // Pulls refineries earlier if there are minerals available to do so
-        void pullRefineries(ProductionItemSet & committedItems)
+        void pullRefineries()
         {
             auto refineryType = BWAPI::Broodwar->self()->getRace().getRefinery();
             for (auto it = committedItems.begin(); it != committedItems.end(); it++)
@@ -1295,13 +1308,13 @@ namespace Producer
                     shiftOne(committedItems, *it, startFrame - item.startFrame);
 
                     // Restart the iteration as we may have changed the ordering
-                    pullRefineries(committedItems);
+                    pullRefineries();
                     return;
                 }
             }
         }
 
-        void handleGoal(ProductionItemSet & committedItems, Type type, int countToProduce, int producerLimit, BWAPI::UnitType prerequisite = BWAPI::UnitTypes::None)
+        void handleGoal(Type type, int countToProduce, int producerLimit, BWAPI::UnitType prerequisite = BWAPI::UnitTypes::None)
         {
             int producerCount = 0;
             int toProduce = countToProduce;
@@ -1343,10 +1356,10 @@ namespace Producer
 
             // Resolve duplicates, keeping the earliest one of each type
             // Also record when the last prerequisite will finish
-            int prerequisitesAvailable = resolveDuplicates(prerequisiteItems, committedItems);
+            int prerequisitesAvailable = resolveDuplicates(prerequisiteItems);
 
             // Reserve positions for all buildings
-            reserveBuildPositions(prerequisiteItems, committedItems);
+            reserveBuildPositions(prerequisiteItems);
 
             // If the last goal item has been pushed back, update the prerequisitesAvailable frame
             if (!prerequisiteItems.empty()) prerequisitesAvailable = std::max(prerequisitesAvailable, (*prerequisiteItems.rbegin())->completionFrame);
@@ -1415,7 +1428,7 @@ namespace Producer
 
                     // Create the item and resolve resource blocks
                     bestProducerItem = std::make_shared<ProductionItem>(type, bestFrame, bestProducer);
-                    bool result = resolveResourceBlocks(bestProducerItem, prerequisiteItems, committedItems, commitImmediately);
+                    bool result = resolveResourceBlocks(bestProducerItem, prerequisiteItems, commitImmediately);
 
                     // If the item was created and committed, continue the loop now
                     if (commitImmediately && result)
@@ -1454,7 +1467,7 @@ namespace Producer
 
                 // Create an item from the producer
                 auto newProducerItem = std::make_shared<ProductionItem>(type, producerItem->completionFrame, newProducer);
-                bool result = resolveResourceBlocks(newProducerItem, newProducerPrerequisites, committedItems, false);
+                bool result = resolveResourceBlocks(newProducerItem, newProducerPrerequisites, false);
                 if (!result) newProducerItem = nullptr;
 
                 // If we couldn't produce an item, break now
@@ -1463,28 +1476,19 @@ namespace Producer
                 // Commit the one that could be produced earliest
                 if (bestProducerItem && (!newProducerItem || bestProducerItem->startFrame <= newProducerItem->startFrame))
                 {
-                    if (!resolveResourceBlocks(bestProducerItem, prerequisiteItems, committedItems, true)) break;
+                    if (!resolveResourceBlocks(bestProducerItem, prerequisiteItems, true)) break;
                     bestProducer->items.insert(bestProducerItem);
                 }
                 else
                 {
-                    reserveBuildPositions(newProducerPrerequisites, committedItems);
-                    if (!resolveResourceBlocks(newProducerItem, newProducerPrerequisites, committedItems, true)) break;
+                    reserveBuildPositions(newProducerPrerequisites);
+                    if (!resolveResourceBlocks(newProducerItem, newProducerPrerequisites, true)) break;
                     producers.push_back(newProducer);
                     newProducer->items.insert(newProducerItem);
                 }
 
                 if (toProduce > 0) toProduce--;
             }
-
-            /*
-            std::ostringstream label;
-            label << "goal";
-            if (unitType) label << "-" << (*unitType);
-            if (upgradeType) label << "-" << (*upgradeType);
-            label << "-" << ((unitType && (*unitType) == BWAPI::UnitTypes::Protoss_Probe) ? -1 : countToProduce);
-            write(committedItems, label.str());
-            */
         }
 #ifndef _DEBUG
     }
@@ -1495,21 +1499,21 @@ namespace Producer
         // The overall objective is, for each production goal, to determine what should be produced next and
         // do so whenever this does not delay a higher-priority goal.
 
-        ProductionItemSet committedItems;
+        committedItems.clear();
 
-        initializeResources(committedItems);
+        initializeResources();
 
         for (auto goal : Strategist::currentProductionGoals())
         {
             if (auto unitProductionGoal = std::get_if<UnitProductionGoal>(&goal))
             {
                 if (unitProductionGoal->isFulfilled()) continue;
-                handleGoal(committedItems, unitProductionGoal->unitType(), unitProductionGoal->countToProduce(), unitProductionGoal->getProducerLimit());
+                handleGoal(unitProductionGoal->unitType(), unitProductionGoal->countToProduce(), unitProductionGoal->getProducerLimit());
             }
             else if (auto upgradeProductionGoal = std::get_if<UpgradeProductionGoal>(&goal))
             {
                 if (upgradeProductionGoal->isFulfilled()) continue;
-                handleGoal(committedItems, upgradeProductionGoal->upgradeType(), 1, 1, upgradeProductionGoal->prerequisiteForNextLevel());
+                handleGoal(upgradeProductionGoal->upgradeType(), 1, 1, upgradeProductionGoal->prerequisiteForNextLevel());
             }
             else
             {

@@ -7,13 +7,15 @@ class Squad
 {
 public:
     
+    std::string label;
+
     void addUnit(BWAPI::Unit unit);
     void removeUnit(BWAPI::Unit unit);
     
     void updateClusters();
     void execute();
 
-    Squad() : targetPosition(BWAPI::Positions::Invalid) {}
+    Squad(std::string label) : label(label), targetPosition(BWAPI::Positions::Invalid) {}
 
 protected:
     BWAPI::Position targetPosition;

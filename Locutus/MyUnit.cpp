@@ -4,6 +4,7 @@
 #include "Map.h"
 #include "PathFinding.h"
 #include "UnitUtil.h"
+#include "Players.h"
 
 const double pi = 3.14159265358979323846;
 
@@ -405,11 +406,10 @@ void MyUnit::fleeFrom(BWAPI::Position position)
         if (!BWAPI::Broodwar->isWalkable(walk)) return false;
 
         // Not blocked by one of our own units
-        // FIXME: Enable again when we can detect collisions
-        /*
-        if (InformationManager::Instance().getMyUnitGrid().getCollision(walk) > 0)
+        if (Players::grid(BWAPI::Broodwar->self()).collision(walk) > 0)
+        {
             return false;
-            */
+        }
 
         return true;
     };

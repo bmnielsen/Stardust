@@ -168,7 +168,7 @@ namespace Geo
         if (t < 0) return BWAPI::Positions::Invalid;
 
         return BWAPI::Position(
-            target->getPosition().x + t * target->getVelocityX(),
-            target->getPosition().y + t * target->getVelocityY());
+            target->getPosition().x + (int)(t * target->getVelocityX()),
+            target->getPosition().y + (int)(t * target->getVelocityY()));
     }
 }

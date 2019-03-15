@@ -135,5 +135,6 @@ namespace Scout
     void setScoutingMode(ScoutingMode mode)
     {
         scoutingMode = mode;
+        CherryVis::log() << "Set scouting mode to " << mode;
     }
 }

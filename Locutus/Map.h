@@ -27,4 +27,6 @@ namespace Map
     Choke * choke(const BWEM::ChokePoint * bwemChoke);
 
     int minChokeWidth();
+
+    void dumpVisibilityHeatmap();
 }

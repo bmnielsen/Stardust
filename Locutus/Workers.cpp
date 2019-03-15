@@ -246,6 +246,8 @@ namespace Workers
                 removeFromResource(bestWorker, workerMineralPatch, mineralPatchWorkers);
                 assignBase(bestWorker, Gas);
                 assignRefinery(bestWorker);
+
+                CherryVis::log(bestWorker->getID()) << "Assigned to Gas";
             }
         }
 
@@ -364,6 +366,7 @@ namespace Workers
             {
             case None:
                 workerJob[worker] = Job::Minerals;
+                CherryVis::log(worker->getID()) << "Assigned to Minerals";
                 // Fall-through
 
             case Minerals:
@@ -581,7 +584,7 @@ namespace Workers
 
         workerJob[unit] = Job::Reserved;
         removeFromResource(unit, workerMineralPatch, mineralPatchWorkers);
-        Log::Debug() << "Set job for " << unit->getID() << " to builder";
+        CherryVis::log(unit->getID()) << "Reserved for non-mining duties";
     }
 
     void releaseWorker(BWAPI::Unit unit)
@@ -589,7 +592,7 @@ namespace Workers
         if (!unit || !unit->exists() || !unit->getType().isWorker() || !unit->isCompleted()) return;
 
         workerJob[unit] = Job::None;
-        Log::Debug() << "Cleared job for " << unit->getID();
+        CherryVis::log(unit->getID()) << "Released from non-mining duties";
     }
 
     int availableMineralAssignments()

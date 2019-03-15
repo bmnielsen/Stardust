@@ -251,6 +251,40 @@ namespace BuildingPlacement
 
             return BWAPI::Position(x / base->mineralPatchCount(), y / base->mineralPatchCount());
         }
+
+        void dumpHeatmap()
+        {
+            // We dump a heatmap with the following values:
+            // - No building: 0
+            // - Large building: 2
+            // - Medium building: 3
+            // - Pylon: 4
+            // - Defensive location: 5
+
+            std::vector<long> blocks(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
+
+            auto addLocation = [&blocks](BWAPI::TilePosition tile, int width, int height, int value)
+            {
+                for (int x = tile.x; x < tile.x + width; x++)
+                    for (int y = tile.y; y < tile.y + height; y++)
+                        blocks[x + y * BWAPI::Broodwar->mapWidth()] = value;
+            };
+
+            for (auto block : BWEB::Blocks::getBlocks())
+            {
+                for (auto large : block.LargeTiles()) addLocation(large, 4, 3, 2);
+                for (auto medium : block.MediumTiles()) addLocation(medium, 3, 2, 3);
+                for (auto small : block.SmallTiles()) addLocation(small, 2, 2, 4);
+            }
+
+            for (auto station : BWEB::Stations::getStations())
+            {
+                for (auto small : station.DefenseLocations()) addLocation(small, 2, 2, 5);
+            }
+
+            CherryVis::addHeatmap("Blocks", blocks, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+        }
+
 #ifndef _DEBUG
     }
 #endif
@@ -264,6 +298,8 @@ namespace BuildingPlacement
         // FIXME: Look into other BWEB changes that may affect us, like start blocks
 
         BWEB::Blocks::findBlocks();
+
+        dumpHeatmap();
 
         neighbourhoodOrigins[Neighbourhood::MainBase] = getOrigin(Map::baseNear(BWAPI::Position(BWAPI::Broodwar->self()->getStartLocation())));
     }
