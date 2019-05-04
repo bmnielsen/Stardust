@@ -11,10 +11,12 @@
 project('zstd',
   ['c', 'cpp'],
   license: ['BSD', 'GPLv2'],
-  default_options : ['c_std=c99',
+  default_options : [
+    'c_std=gnu99',
     'cpp_std=c++11',
-    'buildtype=release'],
-  version: '1.3.8',
+    'buildtype=release'
+  ],
+  version: 'DUMMY',
   meson_version: '>=0.47.0')
 
 cc = meson.get_compiler('c')
@@ -41,13 +43,10 @@ zstd_h_file = join_paths(meson.current_source_dir(), '../../lib/zstd.h')
 GetZstdLibraryVersion_py = files('GetZstdLibraryVersion.py')
 r = run_command(python3, GetZstdLibraryVersion_py, zstd_h_file)
 if r.returncode() == 0
-  output = r.stdout().strip()
-  if output.version_compare('>@0@'.format(zstd_version))
-    zstd_version = output
-    message('Project version is now: @0@'.format(zstd_version))
-  endif
+  zstd_version = r.stdout().strip()
+  message('Project version is now: @0@'.format(zstd_version))
 else
-  message('Cannot find project version in @0@'.format(zstd_h_file))
+  error('Cannot find project version in @0@'.format(zstd_h_file))
 endif
 
 zstd_libversion = zstd_version

@@ -1,0 +1,42 @@
+<!-- HTML footer for doxygen 1.8.8-->
+<!-- start footer part -->
+<hr class="footer"><address class="footer">
+<div style="float:left;" id="google_translate_element"></div><script>
+  if(window.location.protocol != 'file:') {
+    function googleTranslateElementInit() {
+      new google.translate.TranslateElement({pageLanguage: 'en', layout: google.translate.TranslateElement.InlineLayout.HORIZONTAL}, 'google_translate_element');
+    }
+
+    var js = document.createElement("script");
+
+    js.type = "text/javascript";
+    js.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+
+    document.body.appendChild(js);
+  }
+</script>
+
+<small>
+$generatedby &#160;<a href="http://www.doxygen.org/index.html">
+<img style="width:104px;height:31px;" class="footer" src="$relpath^doxygen.png" alt="doxygen">
+</a> $doxygenversion
+</small></address>
+<!--END !GENERATE_TREEVIEW-->
+
+<script src="$relpath^jquery.js"></script>
+<script src="$relpath^dynsections.js"></script>
+<script>
+  $(document).ready(function() { 
+    searchBox.OnSelectItem(0);
+    
+    $(".memberdecls, .memname, .memproto, .paramname, .fieldname, .entry, .fragment").addClass("notranslate");
+    $("#MSearchResultsWindow").addClass("notranslate");
+    $(".qindex, .qindex + table").addClass("notranslate");
+    $(".contents > ul").addClass("notranslate");
+    $(".contents > h3").addClass("notranslate");
+    $("#navrow4 > .tablist > li > a").addClass("notranslate");
+    $("a.el, a.elRef").addClass("notranslate");
+  });
+</script>
+</body>
+</html>

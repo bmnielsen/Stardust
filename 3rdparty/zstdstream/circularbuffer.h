@@ -10,8 +10,10 @@
 #include <algorithm>
 #include <cstdlib>
 
+#ifdef WITHOUT_POSIX
 #include <BaseTsd.h>
 typedef SSIZE_T ssize_t;
+#endif // WITHOUT_POSIX
 
 template <typename T>
 class CircularBuffer {

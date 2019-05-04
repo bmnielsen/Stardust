@@ -26,17 +26,17 @@ ZSTDDIR = ../../lib
 PRGDIR = ../../programs
 
 FUZZ_CPPFLAGS := -I$(ZSTDDIR) -I$(ZSTDDIR)/common -I$(ZSTDDIR)/compress \
-	-I$(ZSTDDIR)/dictBuilder -I$(ZSTDDIR)/deprecated -I$(PRGDIR) \
-	$(CPPFLAGS)
+	-I$(ZSTDDIR)/dictBuilder -I$(ZSTDDIR)/deprecated -I$(ZSTDDIR)/legacy \
+	-I$(PRGDIR) -DZSTD_MULTITHREAD -DZSTD_LEGACY_SUPPORT=1 $(CPPFLAGS)
 FUZZ_EXTRA_FLAGS := -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
 	-Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
-	-Wstrict-prototypes -Wundef -Wformat-security \
+	-Wstrict-prototypes -Wundef \
 	-Wvla -Wformat=2 -Winit-self -Wfloat-equal -Wwrite-strings \
 	-Wredundant-decls \
 	-g -fno-omit-frame-pointer
 FUZZ_CFLAGS := $(FUZZ_EXTRA_FLAGS) $(CFLAGS)
 FUZZ_CXXFLAGS := $(FUZZ_EXTRA_FLAGS) -std=c++11 $(CXXFLAGS)
-FUZZ_LDFLAGS := $(LDFLAGS)
+FUZZ_LDFLAGS := -pthread $(LDFLAGS)
 FUZZ_ARFLAGS := $(ARFLAGS)
 FUZZ_TARGET_FLAGS = $(FUZZ_CPPFLAGS) $(FUZZ_CXXFLAGS) $(FUZZ_LDFLAGS)
 
@@ -46,11 +46,15 @@ FUZZ_SRC := $(PRGDIR)/util.c zstd_helpers.c
 ZSTDCOMMON_SRC := $(ZSTDDIR)/common/*.c
 ZSTDCOMP_SRC   := $(ZSTDDIR)/compress/*.c
 ZSTDDECOMP_SRC := $(ZSTDDIR)/decompress/*.c
+ZSTDDICT_SRC := $(ZSTDDIR)/dictBuilder/*.c
+ZSTDLEGACY_SRC := $(ZSTDDIR)/legacy/*.c
 FUZZ_SRC       := \
 	$(FUZZ_SRC) \
 	$(ZSTDDECOMP_SRC) \
 	$(ZSTDCOMMON_SRC) \
-	$(ZSTDCOMP_SRC)
+	$(ZSTDCOMP_SRC) \
+	$(ZSTDDICT_SRC) \
+	$(ZSTDLEGACY_SRC)
 
 FUZZ_OBJ := $(patsubst %.c,%.o, $(wildcard $(FUZZ_SRC)))
 
@@ -65,7 +69,10 @@ FUZZ_TARGETS :=       \
 	block_round_trip  \
 	simple_decompress \
 	stream_decompress \
-	block_decompress
+	block_decompress  \
+	dictionary_round_trip \
+	dictionary_decompress \
+	zstd_frame_info
 
 all: $(FUZZ_TARGETS)
 
@@ -90,11 +97,20 @@ stream_decompress: $(FUZZ_HEADERS) $(FUZZ_OBJ) stream_decompress.o
 block_decompress: $(FUZZ_HEADERS) $(FUZZ_OBJ) block_decompress.o
 	$(CXX) $(FUZZ_TARGET_FLAGS) $(FUZZ_OBJ) block_decompress.o $(LIB_FUZZING_ENGINE) -o $@
 
+dictionary_round_trip: $(FUZZ_HEADERS) $(FUZZ_OBJ) dictionary_round_trip.o
+	$(CXX) $(FUZZ_TARGET_FLAGS) $(FUZZ_OBJ) dictionary_round_trip.o $(LIB_FUZZING_ENGINE) -o $@
+
+dictionary_decompress: $(FUZZ_HEADERS) $(FUZZ_OBJ) dictionary_decompress.o
+	$(CXX) $(FUZZ_TARGET_FLAGS) $(FUZZ_OBJ) dictionary_decompress.o $(LIB_FUZZING_ENGINE) -o $@
+
+zstd_frame_info: $(FUZZ_HEADERS) $(FUZZ_OBJ) zstd_frame_info.o
+	$(CXX) $(FUZZ_TARGET_FLAGS) $(FUZZ_OBJ) zstd_frame_info.o $(LIB_FUZZING_ENGINE) -o $@
+
 libregression.a: $(FUZZ_HEADERS) $(PRGDIR)/util.h $(PRGDIR)/util.c regression_driver.o
 	$(AR) $(FUZZ_ARFLAGS) $@ regression_driver.o
 
 # Install libfuzzer (not usable for MSAN testing)
-# Provided for convienence. To use this library run make libFuzzer and
+# Provided for convenience. To use this library run make libFuzzer and
 # set LDFLAGS=-L.
 .PHONY: libFuzzer
 libFuzzer:
@@ -111,6 +127,9 @@ corpora/%: corpora/%_seed_corpus.zip
 
 .PHONY: corpora
 corpora: $(patsubst %,corpora/%,$(FUZZ_TARGETS))
+
+.PHONY: seedcorpora
+seedcorpora: $(patsubst %,corpora/%_seed_corpus.zip,$(FUZZ_TARGETS))
 
 regressiontest: corpora
 	CC="$(CC)" CXX="$(CXX)" CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" LDFLAGS="$(LDFLAGS)" $(PYTHON) ./fuzz.py build all

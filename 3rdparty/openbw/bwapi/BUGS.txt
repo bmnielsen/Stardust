@@ -1,0 +1,9 @@
+for openbw
+
+unimplemented functions:
+  unitCountsDead, allUnitsLost, allBuildingsLost, allFactoriesLost, allUnitsKilled, allBuildingsRazed,
+  allFactoriesRazed, allUnitScore, allKillScore, allBuildingScore, allRazingScore, customScore, killCount
+
+repair costs/refunded resources. probably need to be done through openbw callback
+
+restartGame() doesn't work
