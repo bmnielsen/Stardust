@@ -257,6 +257,13 @@ void ParseUtils::ParseConfigFile(const std::string & filename)
 			}
 		}
 
+		// Special for use as a unit test for Locutus: use the strategy set on the module
+        if (Config::LocutusTestStrategyName != "")
+        {
+            Config::Strategy::StrategyName = Config::LocutusTestStrategyName;
+            openingStrategyDecided = true;
+        }
+
 		// 0.5 TEMPORARY SPECIAL CASE FOR AIST S1
 		// On the map Sparkle, play a Sparkle opening.
 		if (BWAPI::Broodwar->mapFileName().find("Sparkle") != std::string::npos)

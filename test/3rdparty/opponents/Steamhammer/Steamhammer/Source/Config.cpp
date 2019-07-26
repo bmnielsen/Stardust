@@ -8,6 +8,8 @@
 
 namespace Config
 {
+    std::string LocutusTestStrategyName = "";
+
     namespace ConfigFile
     {
         bool ConfigFileFound                = false;
