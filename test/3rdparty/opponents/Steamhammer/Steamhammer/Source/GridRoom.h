@@ -14,7 +14,7 @@ private:
 	The & the;
 
 public:
-	GridRoom();
+	GridRoom(The & the);
 
 	void initialize();
 	

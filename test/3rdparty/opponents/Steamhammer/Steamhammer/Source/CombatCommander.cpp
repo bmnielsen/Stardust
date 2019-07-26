@@ -1498,7 +1498,7 @@ void CombatCommander::pullWorkers(int n)
 		return workerPullScore(left) < workerPullScore(right);
 	};
 
-	std::priority_queue<BWAPI::Unit, std::vector<BWAPI::Unit>, decltype(compare)> workers;
+	std::priority_queue<BWAPI::Unit, std::vector<BWAPI::Unit>, decltype(compare)> workers(compare);
 
 	Squad & groundSquad = _squadData.getSquad("Ground");
 

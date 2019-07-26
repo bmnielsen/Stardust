@@ -8,9 +8,9 @@ using namespace UAlbertaBot;
 
 // Create an empty, unitialized, unusable grid.
 // Necessary if a Grid subclass is created before BWAPI is initialized.
-GridTileRoom::GridTileRoom()
+GridTileRoom::GridTileRoom(The & the)
 	: Grid()
-	, the(The::Root())
+	, the(the)
 {
 }
 

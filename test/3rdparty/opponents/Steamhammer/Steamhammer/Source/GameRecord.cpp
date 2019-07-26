@@ -570,7 +570,7 @@ bool GameRecord::findClosestSnapshot(int t, PlayerSnapshot & snap) const
 
 void GameRecord::debugLog()
 {
-	BWAPI::Broodwar->printf("best %s %s", mapName, openingName);
+//	BWAPI::Broodwar->printf("best %s %s", mapName, openingName);
 
 	std::stringstream msg;
 

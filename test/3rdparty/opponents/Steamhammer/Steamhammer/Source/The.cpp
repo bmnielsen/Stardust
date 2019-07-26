@@ -5,6 +5,12 @@ using namespace UAlbertaBot;
 // NOTE This object is created before BWAPI is initialized,
 //      so initialization is in initialize().
 The::The()
+    : vWalkRoom(GridRoom(*this))
+    , tileRoom(GridTileRoom(*this))
+    , inset(GridInset(*this))
+    , zone(GridZone(*this))
+    , micro(Micro(*this))
+    , ops(OpsBoss(*this))
 {
 }
 

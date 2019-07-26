@@ -57,7 +57,7 @@ namespace UAlbertaBot
 		void clusterUnits(BWAPI::Unitset & units, std::vector<UnitCluster> & clusters);
 
 	public:
-		OpsBoss();
+		OpsBoss(The & the);
 		void initialize();
 
 		void cluster(BWAPI::Player player, std::vector<UnitCluster> & clusters);

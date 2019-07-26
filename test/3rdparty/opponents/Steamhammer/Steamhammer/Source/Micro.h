@@ -56,7 +56,7 @@ class Micro
 	BWAPI::Position GetKiteVector(BWAPI::Unit unit, BWAPI::Unit target) const;
 
 public:
-	Micro();
+	Micro(The & the);
 
 	// Call this at the end of the frame to execute any orders stored in the orders map.
 	void update();

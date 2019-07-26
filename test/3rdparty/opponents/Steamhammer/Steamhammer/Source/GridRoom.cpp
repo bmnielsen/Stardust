@@ -13,9 +13,9 @@ const int actionY[LegalActions] = { 0, 0, 1, -1 };
 
 // Create an empty, unitialized, unusable grid.
 // Necessary if a Grid subclass is created before BWAPI is initialized.
-GridRoom::GridRoom()
+GridRoom::GridRoom(The & the)
 	: GridWalk()
-	, the(The::Root())
+	, the(the)
 {
 }
 

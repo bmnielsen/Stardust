@@ -14,7 +14,7 @@ private:
 	The & the;
 
 public:
-	GridInset();
+	GridInset(The & the);
 
 	void initialize();
 	

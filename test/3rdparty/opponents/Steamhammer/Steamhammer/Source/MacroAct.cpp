@@ -10,7 +10,7 @@
 
 using namespace UAlbertaBot;
 
-MacroLocation MacroAct::getMacroLocationFromString(std::string & s)
+MacroLocation MacroAct::getMacroLocationFromString(const std::string & s)
 {
 	if (s == "macro")
 	{
@@ -397,7 +397,7 @@ int MacroAct::gasPrice() const
 BWAPI::UnitType MacroAct::whatBuilds() const
 {
 	if (isCommand()) {
-		return BWAPI::UnitType::UnitType(BWAPI::UnitTypes::None);
+		return BWAPI::UnitType(BWAPI::UnitTypes::None);
 	}
 	return isUnit() ? _unitType.whatBuilds().first : (isTech() ? _techType.whatResearches() : _upgradeType.whatUpgrades());
 }

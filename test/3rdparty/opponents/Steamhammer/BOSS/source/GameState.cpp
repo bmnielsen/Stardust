@@ -14,7 +14,6 @@ GameState::GameState(const RaceID r)
     
 }
 
-#ifdef _MSC_VER
 GameState::GameState(BWAPI::GameWrapper & game, BWAPI::PlayerInterface * self, const std::vector<BWAPI::UnitType> & buildingsQueued)
     : _race                 (Races::GetRaceID(self->getRace()))
     , _currentFrame         (game->getFrameCount())
@@ -208,7 +207,6 @@ GameState::GameState(BWAPI::GameWrapper & game, BWAPI::PlayerInterface * self, c
 		}
 	}
 }
-#endif
 
 void GameState::setStartingState()
 {

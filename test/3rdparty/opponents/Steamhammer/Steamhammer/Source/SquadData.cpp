@@ -37,7 +37,7 @@ void SquadData::clearSquadData()
 
 void SquadData::removeSquad(const std::string & squadName)
 {
-    auto & squadPtr = _squads.find(squadName);
+    const auto & squadPtr = _squads.find(squadName);
 
     UAB_ASSERT_WARNING(squadPtr != _squads.end(), "Trying to clear a squad that didn't exist: %s", squadName.c_str());
     if (squadPtr == _squads.end())
@@ -195,7 +195,7 @@ bool SquadData::canAssignUnitToSquad(BWAPI::Unit unit, const Squad & squad) cons
 
 Squad & SquadData::getSquad(const std::string & squadName)
 {
-    UAB_ASSERT_WARNING(squadExists(squadName), "Trying to access squad that doesn't exist: %s", squadName);
+    UAB_ASSERT_WARNING(squadExists(squadName), "Trying to access squad that doesn't exist: %s", squadName.c_str());
     if (!squadExists(squadName))
     {
         int a = 10;

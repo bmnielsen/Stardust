@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Grid.h"
+#include <set>
 
 // The zones.
 
@@ -59,7 +60,7 @@ private:
 	void sanityCheck();
 
 public:
-	GridZone();
+	GridZone(The & the);
 
 	void initialize();
 

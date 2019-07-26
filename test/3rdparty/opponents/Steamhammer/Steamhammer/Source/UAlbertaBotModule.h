@@ -3,7 +3,7 @@
 #include <BWAPI.h>
 #include <iostream>
 #include <fstream>
-#include "rapidjson\document.h"
+#include "rapidjson/document.h"
 
 #include "Config.h"
 #include "GameCommander.h"

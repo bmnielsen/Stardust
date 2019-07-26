@@ -180,7 +180,7 @@ bool CanCatchUnit(BWAPI::Unit chaser, BWAPI::Unit runaway)
 		return true;
 	}
 
-	BWAPI::PositionOrUnit predict(PredictMovement(runaway, 8));
+	BWAPI::Position predict(PredictMovement(runaway, 8));
 	int ab = chaser->getDistance(runaway);
 	int ac = chaser->getDistance(predict);
 	int bc = runaway->getDistance(predict);

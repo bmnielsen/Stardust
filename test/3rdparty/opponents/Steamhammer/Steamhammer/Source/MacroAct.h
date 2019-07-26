@@ -35,7 +35,7 @@ class MacroAct
 
 	MacroLocation		_macroLocation;
 
-	MacroLocation		getMacroLocationFromString(std::string & s);
+	MacroLocation		getMacroLocationFromString(const std::string & s);
 
 public:
 

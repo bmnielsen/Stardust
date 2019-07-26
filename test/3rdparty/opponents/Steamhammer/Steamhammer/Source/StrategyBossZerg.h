@@ -23,7 +23,7 @@ enum class TechUnit : int
 
 class StrategyBossZerg
 {
-	StrategyBossZerg::StrategyBossZerg();
+	StrategyBossZerg();
 
 	const int absoluteMaxSupply = 400;     // 200 game supply max = 400 BWAPI supply
 

@@ -253,8 +253,8 @@ BWAPI::Position Micro::GetKiteVector(BWAPI::Unit unit, BWAPI::Unit target) const
 
 // -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
-Micro::Micro()
-	: the(The::Root())
+Micro::Micro(The & the)
+	: the(the)
 {
 }
 

@@ -166,8 +166,8 @@ void OpsBoss::clusterUnits(BWAPI::Unitset & units, std::vector<UnitCluster> & cl
 
 // -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
-OpsBoss::OpsBoss()
-	: the(The::Root())
+OpsBoss::OpsBoss(The & the)
+	: the(the)
 {
 }
 

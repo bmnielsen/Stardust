@@ -250,7 +250,8 @@ void ParseUtils::ParseConfigFile(const std::string & filename)
 				// Only remember the ones that are for our current race.
 				if (strategyRace == BWAPI::Broodwar->self()->getRace())
 				{
-					StrategyManager::Instance().addStrategy(name, Strategy(name, strategyRace, openingGroup, buildOrder));
+				    Strategy strategy(name, strategyRace, openingGroup, buildOrder);
+					StrategyManager::Instance().addStrategy(name, strategy);
 					openingNames.push_back(name);
 				}
 			}

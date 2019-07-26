@@ -22,7 +22,7 @@ void Logger::LogAppendToFile(const std::string & logFile, const char *fmt, ...)
 	va_start(arg, fmt);
 	//vfprintf(log_file, fmt, arg);
 	char buff[256];
-	vsnprintf_s(buff, 256, fmt, arg);
+	vsnprintf(buff, 256, fmt, arg);
 	va_end(arg);
 		
 	std::ofstream logStream;

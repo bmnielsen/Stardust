@@ -930,7 +930,7 @@ void StrategyManager::performBuildOrderSearch()
 		return;
 	}
 
-	BuildOrder & buildOrder = BOSSManager::Instance().getBuildOrder();
+	const BuildOrder & buildOrder = BOSSManager::Instance().getBuildOrder();
 
 	if (buildOrder.size() > 0)
 	{
