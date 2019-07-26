@@ -1176,7 +1176,7 @@ void Game::setReplayRevealAll(bool)
 
 u32 Game::ReplayHead_gameSeed_randSeed() const
 {
-  throw std::runtime_error("ReplayHead_gameSeed_randSeed");
+    return impl->funcs.st.lcg_rand_state;
 }
 
 int Game::mapTileSize_x() const

@@ -506,9 +506,12 @@ struct sync_functions: action_functions {
 		void send_start_game() {
 			writer<5> w;
 			w.put<uint8_t>(sync_messages::id_start_game);
-			uint32_t seed = 0;
-			for (uint32_t v : sync_state::uid_t::generate().vals) {
-				seed ^= v;
+			uint32_t seed = st.lcg_rand_state;
+			if (seed == 0) {
+			    seed = 42;
+                for (uint32_t v : sync_state::uid_t::generate().vals) {
+                    seed ^= v;
+                }
 			}
 			w.put<uint32_t>(seed);
 			send(w);
@@ -684,10 +687,11 @@ struct sync_functions: action_functions {
 
 		void start_game(uint32_t seed) {
 
-			a_string seed_str;
-			for (auto& v : sync_st.clients) seed_str += v.uid.str();
-			uint32_t rand_state = seed ^ data_loading::crc32_t()((const uint8_t*)seed_str.data(), seed_str.size());
-			st.lcg_rand_state = rand_state;
+//			a_string seed_str;
+//			for (auto& v : sync_st.clients) seed_str += v.uid.str();
+//			uint32_t rand_state = seed ^ data_loading::crc32_t()((const uint8_t*)seed_str.data(), seed_str.size());
+//			st.lcg_rand_state = rand_state;
+			st.lcg_rand_state = seed;
 
 			for (int i = 0; i != 12; ++i) {
 				auto& v = st.players[i];
@@ -756,7 +760,7 @@ struct sync_functions: action_functions {
 
 			if (sync_st.save_replay) {
 				auto& r = *sync_st.save_replay;
-				r.random_seed = st.lcg_rand_state;
+				r.random_seed = seed;
 				r.player_name = sync_st.local_client->name;
 				r.map_tile_width = st.game->map_tile_width;
 				r.map_tile_height = st.game->map_tile_height;

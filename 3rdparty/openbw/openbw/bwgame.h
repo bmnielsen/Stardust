@@ -19984,7 +19984,7 @@ struct game_load_functions : state_functions {
 
 		st.random_counts = {};
 		st.total_random_counts = 0;
-		st.lcg_rand_state = 42;
+		st.lcg_rand_state = 0;
 
 		game_st.repulse_field_width = (game_st.map_width + 47) / 48;
 		game_st.repulse_field_height = (game_st.map_height + 47) / 48;
