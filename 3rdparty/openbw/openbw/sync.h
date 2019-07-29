@@ -113,6 +113,12 @@ struct sync_state {
 };
 
 struct sync_server_noop {
+	struct guard_t {
+		~guard_t() {
+			t.timeout_function = nullptr;
+		}
+		sync_server_noop& t;
+	};
 	struct message_t {
 		template<typename T>
 		void put(T v) {}
@@ -128,6 +134,12 @@ struct sync_server_noop {
 	void set_on_message(const void* h, F&& f) {}
 	std::chrono::steady_clock::time_point timeout_time;
 	std::function<void()> timeout_function;
+	template<typename duration_T, typename callback_F>
+	guard_t set_timeout_guarded(duration_T&& duration, callback_F&& callback) {
+		timeout_time = std::chrono::steady_clock::now() + duration;
+		timeout_function = std::forward<callback_F>(callback);
+		return guard_t{*this};
+	}
 	template<typename duration_T, typename callback_F>
 	void set_timeout(duration_T&& duration, callback_F&& callback) {
 		timeout_time = std::chrono::steady_clock::now() + duration;
@@ -159,27 +171,6 @@ struct sync_server_noop {
 		}
 	}
 };
-
-namespace sync_messages {
-	enum {
-		id_client_uid,
-		id_client_frame,
-		id_occupy_slot,
-		id_start_game,
-		id_game_info,
-		id_set_race,
-		id_game_started,
-		id_leave_game,
-		id_insync_check,
-		id_create_unit,
-		id_kill_unit,
-		id_remove_unit,
-		id_custom_action
-	};
-	enum {
-		id_game_started_escape = 0xdc
-	};
-}
 
 struct sync_functions: action_functions {
 	sync_state& sync_st;
@@ -792,9 +783,11 @@ struct sync_functions: action_functions {
 				funcs.execute_scheduled_actions([this](sync_state::client_t* client, auto& r) {
 					if (client->game_started) {
 						if (client->player_slot != -1) {
+							size_t begin_pos = r.tell();
 							int sync_message_id = r.template get<uint8_t>();
 							if (sync_message_id == sync_messages::id_game_started_escape) {
 								int id = r.template get<uint8_t>();
+								bool handled = true;
 								switch (id) {
 								case sync_messages::id_insync_check: {
 									uint8_t index = r.template get<uint8_t>();
@@ -804,38 +797,23 @@ struct sync_functions: action_functions {
 									}
 									break;
 								}
-								case sync_messages::id_create_unit: {
-									const unit_type_t* unit_type = funcs.get_unit_type((UnitTypes)r.template get<uint32_t>());
-									int x = r.template get<int32_t>();
-									int y = r.template get<int32_t>();
-									int owner = r.template get<uint8_t>();
-									funcs.trigger_create_unit(unit_type, {x, y}, owner);
-									break;
-								}
-								case sync_messages::id_kill_unit: {
-									unit_t* u = funcs.get_unit(unit_id_32(r.template get<uint32_t>()));
-									if (u) funcs.state_functions::kill_unit(u);
-									break;
-								}
-								case sync_messages::id_remove_unit: {
-									unit_t* u = funcs.get_unit(unit_id_32(r.template get<uint32_t>()));
-									if (u) {
-										funcs.hide_unit(u);
-										funcs.state_functions::kill_unit(u);
-									}
-									break;
-								}
 								case sync_messages::id_custom_action: {
 									if (funcs.on_custom_action) funcs.on_custom_action(client->player_slot, r);
 									break;
 								}
+								case sync_messages::id_create_unit:
+								case sync_messages::id_kill_unit:
+								case sync_messages::id_remove_unit:
+									handled = false;
+									break;
 								}
-								return true;
-							} else {
-								r.seek(r.tell() - 1);
+								if (handled)
+									return true;
 							}
+							r.seek(begin_pos);
 							if (sync_st.save_replay) {
 								size_t t = r.tell();
+								r.seek(begin_pos);
 								size_t n = r.left();
 								replay_saver_functions(*sync_st.save_replay).add_action(st.current_frame, client->player_slot, r.get_n(n), n);
 								r.seek(t);
@@ -962,7 +940,6 @@ struct sync_functions: action_functions {
 		void sync() {
 			sync_next_frame();
 
-			server.set_timeout(std::chrono::seconds(1), std::bind(&syncer_t::timeout_func, this));
 			server.poll(std::bind(&syncer_t::on_new_client, this, std::placeholders::_1));
 
 			auto pred = [this]() {
@@ -976,18 +953,21 @@ struct sync_functions: action_functions {
 					}
 					return false;
 				};
-				bool timed_out = false;
-				server.set_timeout(std::chrono::milliseconds(50), [&]{
-					timed_out = true;
-				});
-				while (!any_scheduled_actions() && !timed_out) {
-					server.run_one(std::bind(&syncer_t::on_new_client, this, std::placeholders::_1));
+				{
+					bool timed_out = false;
+					auto g = server.set_timeout_guarded(std::chrono::milliseconds(50), [&]{
+						timed_out = true;
+					});
+					while (!any_scheduled_actions() && !timed_out) {
+						server.run_one(std::bind(&syncer_t::on_new_client, this, std::placeholders::_1));
+					}
 				}
 				if (!pred()) {
 					server.set_timeout(std::chrono::seconds(1), std::bind(&syncer_t::timeout_func, this));
 					server.run_until(std::bind(&syncer_t::on_new_client, this, std::placeholders::_1), pred);
 				}
 			} else {
+				server.set_timeout(std::chrono::seconds(1), std::bind(&syncer_t::timeout_func, this));
 				server.run_until(std::bind(&syncer_t::on_new_client, this, std::placeholders::_1), pred);
 			}
 
@@ -1001,7 +981,7 @@ struct sync_functions: action_functions {
 
 		void final_sync() {
 			bool timed_out = false;
-			server.set_timeout(std::chrono::milliseconds(250), [&]{
+			auto g = server.set_timeout_guarded(std::chrono::milliseconds(250), [&]{
 				timed_out = true;
 			});
 			while (!sync_st.local_client->scheduled_actions.empty() && !timed_out) {

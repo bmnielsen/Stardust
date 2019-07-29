@@ -1,15 +1,5 @@
-
-#ifdef EMSCRIPTEN
-#include <emscripten.h>
-#endif
-
-#include "ui.h"
-#include "common.h"
-#include "bwgame.h"
-#include "replay.h"
-
-#include <chrono>
-#include <thread>
+#include "gfxtest.h"
+#include "SDL.h"
 
 using namespace bwgame;
 
@@ -44,114 +34,100 @@ void fatal_error_str(a_string str) {
 
 }
 
-struct saved_state {
-	state st;
-	action_state action_st;
-	std::array<apm_t, 12> apm;
-};
+void main_t::reset() {
+	saved_states.clear();
+	ui.reset();
+	units_matcher = unit_matcher(this);
+}
 
-struct main_t {
-	ui_functions ui;
+void main_t::next_frame() {
+	int save_interval = 10 * 1000 / 42;
+	if (ui.st.current_frame == 0 || ui.st.current_frame % save_interval == 0) {
+		auto i = saved_states.find(ui.st.current_frame);
+		if (i == saved_states.end()) {
+			auto v = std::make_unique<saved_state>();
+			v->st = copy_state(ui.st);
+			v->action_st = copy_state(ui.action_st, ui.st, v->st);
+			v->apm = ui.apm;
 
-	main_t(game_player player) : ui(std::move(player)) {}
+			a_map<int, std::unique_ptr<saved_state>> new_saved_states;
+			new_saved_states[ui.st.current_frame] = std::move(v);
+			while (!saved_states.empty()) {
+				auto i = saved_states.begin();
+				auto v = std::move(*i);
+				saved_states.erase(i);
+				new_saved_states[v.first] = std::move(v.second);
+			}
+			std::swap(saved_states, new_saved_states);
+		}
+	}
+	ui.replay_functions::next_frame();
+	for (auto& v : ui.apm) v.update(ui.st.current_frame);
+	units_matcher.on_frame();
+}
 
-	std::chrono::high_resolution_clock clock;
-	std::chrono::high_resolution_clock::time_point last_tick;
-
-	std::chrono::high_resolution_clock::time_point last_fps;
-	int fps_counter = 0;
-
-	a_map<int, std::unique_ptr<saved_state>> saved_states;
-
-	void reset() {
-		saved_states.clear();
-		ui.reset();
+void main_t::update() {
+	if (!run_main_update_loop) {
+		return;
 	}
 
-	void update() {
-		auto now = clock.now();
+	auto now = clock.now();
 
-		auto tick_speed = std::chrono::milliseconds((fp8::integer(42) / ui.game_speed).integer_part());
+	auto tick_speed = std::chrono::milliseconds((fp8::integer(42) / ui.game_speed).integer_part());
 
-		if (now - last_fps >= std::chrono::seconds(1)) {
-			//log("game fps: %g\n", fps_counter / std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(now - last_fps).count());
-			last_fps = now;
-			fps_counter = 0;
-		}
+	if (now - last_fps >= std::chrono::seconds(1)) {
+		//log("game fps: %g\n", fps_counter / std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1, 1>>>(now - last_fps).count());
+		last_fps = now;
+		fps_counter = 0;
+	}
 
-		auto next = [&]() {
-			int save_interval = 10 * 1000 / 42;
-			if (ui.st.current_frame == 0 || ui.st.current_frame % save_interval == 0) {
-				auto i = saved_states.find(ui.st.current_frame);
-				if (i == saved_states.end()) {
-					auto v = std::make_unique<saved_state>();
-					v->st = copy_state(ui.st);
-					v->action_st = copy_state(ui.action_st, ui.st, v->st);
-					v->apm = ui.apm;
-
-					a_map<int, std::unique_ptr<saved_state>> new_saved_states;
-					new_saved_states[ui.st.current_frame] = std::move(v);
-					while (!saved_states.empty()) {
-						auto i = saved_states.begin();
-						auto v = std::move(*i);
-						saved_states.erase(i);
-						new_saved_states[v.first] = std::move(v.second);
-					}
-					std::swap(saved_states, new_saved_states);
+	if (!ui.is_done() || ui.st.current_frame != ui.replay_frame) {
+		if (ui.st.current_frame != ui.replay_frame) {
+			if (ui.st.current_frame != ui.replay_frame) {
+				auto i = saved_states.lower_bound(ui.replay_frame);
+				if (i != saved_states.begin()) --i;
+				auto& v = i->second;
+				if (ui.st.current_frame > ui.replay_frame || v->st.current_frame > ui.st.current_frame) {
+					ui.st = copy_state(v->st);
+					ui.action_st = copy_state(v->action_st, v->st, ui.st);
+					ui.apm = v->apm;
 				}
 			}
-			ui.replay_functions::next_frame();
-			for (auto& v : ui.apm) v.update(ui.st.current_frame);
-		};
-
-		if (!ui.is_done() || ui.st.current_frame != ui.replay_frame) {
-			if (ui.st.current_frame != ui.replay_frame) {
-				if (ui.st.current_frame != ui.replay_frame) {
-					auto i = saved_states.lower_bound(ui.replay_frame);
-					if (i != saved_states.begin()) --i;
-					auto& v = i->second;
-					if (ui.st.current_frame > ui.replay_frame || v->st.current_frame > ui.st.current_frame) {
-						ui.st = copy_state(v->st);
-						ui.action_st = copy_state(v->action_st, v->st, ui.st);
-						ui.apm = v->apm;
+			if (ui.st.current_frame < ui.replay_frame) {
+				for (size_t i = 0; i != 32 && ui.st.current_frame != ui.replay_frame; ++i) {
+					for (size_t i2 = 0; i2 != 4 && ui.st.current_frame != ui.replay_frame; ++i2) {
+						next_frame();
 					}
+					if (clock.now() - now >= std::chrono::milliseconds(50)) break;
 				}
-				if (ui.st.current_frame < ui.replay_frame) {
-					for (size_t i = 0; i != 32 && ui.st.current_frame != ui.replay_frame; ++i) {
-						for (size_t i2 = 0; i2 != 4 && ui.st.current_frame != ui.replay_frame; ++i2) {
-							next();
-						}
-						if (clock.now() - now >= std::chrono::milliseconds(50)) break;
-					}
-				}
+			}
+			last_tick = now;
+		} else {
+			if (ui.is_paused) {
 				last_tick = now;
 			} else {
-				if (ui.is_paused) {
-					last_tick = now;
-				} else {
-					auto tick_t = now - last_tick;
-					if (tick_t >= tick_speed * 16) {
-						last_tick = now - tick_speed * 16;
-						tick_t = tick_speed * 16;
-					}
-					auto tick_n = tick_speed.count() == 0 ? 128 : tick_t / tick_speed;
-					for (auto i = tick_n; i;) {
-						--i;
-						++fps_counter;
-						last_tick += tick_speed;
-
-						if (!ui.is_done()) next();
-						else break;
-						if (i % 4 == 3 && clock.now() - now >= std::chrono::milliseconds(50)) break;
-					}
-					ui.replay_frame = ui.st.current_frame;
+				auto tick_t = now - last_tick;
+				if (tick_t >= tick_speed * 16) {
+					last_tick = now - tick_speed * 16;
+					tick_t = tick_speed * 16;
 				}
+				auto tick_n = tick_speed.count() == 0 ? 128 : tick_t / tick_speed;
+				for (auto i = tick_n; i;) {
+					--i;
+					++fps_counter;
+					last_tick += tick_speed;
+
+					if (!ui.is_done()) next_frame();
+					else break;
+					if (i % 4 == 3 && clock.now() - now >= std::chrono::milliseconds(50)) break;
+				}
+				ui.replay_frame = ui.st.current_frame;
 			}
 		}
-
-		ui.update();
 	}
-};
+
+	ui.update();
+}
 
 main_t* g_m = nullptr;
 
@@ -175,7 +151,7 @@ size_t bytes_allocated = 0;
 void free_memory() {
 	if (!g_m) out_of_memory();
 	size_t n_states = g_m->saved_states.size();
-	printf("n_states is %d\n", n_states);
+	printf("n_states is %zu\n", n_states);
 	if (n_states <= 2) out_of_memory();
 	size_t n;
 	if (n_states >= 300) n = 1 + freemem_rand() % (n_states - 2);
@@ -229,7 +205,7 @@ size_t max_bytes_allocated = 160 * 1024 * 1024;
 extern "C" void* malloc(size_t n) {
 	void* r = dlmalloc(n);
 	while (!r) {
-		printf("failed to allocate %d bytes\n", n);
+		printf("failed to allocate %zu bytes\n", n);
 		free_memory();
 		r = dlmalloc(n);
 	}
@@ -499,6 +475,19 @@ struct util_functions: state_functions {
 		return r;
 	}
 
+	auto get_all_selected_units() {
+		val r = val::array();
+		size_t i = 0;
+		for (unit_t* u : ptr(st.visible_units)) {
+			if (u_completed(u)) continue;
+			r.set(i++, u);
+		}
+		for (unit_t* u : ptr(st.hidden_units)) {
+			if (u_completed(u)) continue;
+			r.set(i++, u);
+		}
+		return r;
+	}
 };
 
 optional<util_functions> m_util_funcs;
@@ -526,6 +515,300 @@ void set_volume(double percent) {
 
 double get_volume() {
 	return m->ui.global_volume / 100.0;
+}
+
+class Dump {
+public:
+	#define STR(a) #a
+	#define DUMP_VAL(name) o.set(STR(name), to_emscripten(dumping->name))
+	#define DUMP_POS(field) o.set(STR(field), dump_pos(dumping->field))
+
+	template <typename T>
+	static val to_emscripten(T& v) {
+		return val(v);
+	}
+	static val to_emscripten(fp8& v) {
+		double as_double = v.raw_value;
+		as_double /= (1 << v.fractional_bits);
+		return val(as_double);
+	}
+	template<typename T>
+	static val to_emscripten(id_type_for<T>* v) {
+		if (!v) {
+			return val::null();
+		}
+		return val((int)v->id);
+	}
+	static val to_emscripten(unit_t* unit) {
+		util_functions f(m->ui.st);
+		if (!unit) {
+			return val::null();
+		}
+		return val(f.get_unit_id(unit).raw_value);
+	}
+
+	template <typename T>
+	static val dump_pos(T& pos) {
+		val o = val::object();
+		o.set("x", to_emscripten(pos.x));
+		o.set("y", to_emscripten(pos.y));
+		return o;
+	}
+
+	static val dump_sprite(sprite_t* dumping) {
+		val o = val::object();
+		DUMP_VAL(index);
+		DUMP_VAL(owner);
+		DUMP_VAL(selection_index);
+		DUMP_VAL(visibility_flags);
+		DUMP_VAL(elevation_level);
+		DUMP_VAL(flags);
+		DUMP_VAL(selection_timer);
+		DUMP_VAL(width);
+		DUMP_VAL(height);
+		DUMP_POS(position);
+		return o;
+	}
+
+	static val dump_thingy(thingy_t* dumping) {
+		val o = val::object();
+		DUMP_VAL(hp);
+		o.set("sprite", dump_sprite(dumping->sprite));
+		return o;
+	}
+
+	static val dump_target(target_t* dumping) {
+		val o = val::object();
+		DUMP_POS(pos);
+		DUMP_VAL(unit);
+		return o;
+	}
+
+	static val dump_flingy(flingy_t* dumping) {
+		val o = val::object();
+		DUMP_VAL(index);
+		o.set("move_target", dump_target(&dumping->move_target));
+		DUMP_POS(next_movement_waypoint);
+		DUMP_POS(next_target_waypoint);
+		DUMP_VAL(movement_flags);
+		DUMP_POS(position);
+		DUMP_POS(exact_position);
+		DUMP_VAL(flingy_top_speed);
+		DUMP_VAL(current_speed);
+		DUMP_VAL(next_speed);
+		DUMP_POS(velocity);
+		DUMP_VAL(flingy_acceleration);
+		o.set("sprite", dump_sprite(dumping->sprite));
+		o.set("_thingy_t", dump_thingy(dumping));
+		return o;
+	}
+
+	static val dump_unit(unit_t* dumping) {
+		val o = val::object();
+		DUMP_VAL(owner);
+		DUMP_VAL(order_state);
+		DUMP_VAL(main_order_timer);
+		DUMP_VAL(ground_weapon_cooldown);
+		DUMP_VAL(air_weapon_cooldown);
+		DUMP_VAL(spell_cooldown);
+		o.set("order_target", dump_target(&dumping->order_target));
+
+		DUMP_VAL(shield_points);
+		DUMP_VAL(unit_type);
+
+		DUMP_VAL(subunit);
+		DUMP_VAL(auto_target_unit);
+		DUMP_VAL(connected_unit);
+		DUMP_VAL(order_queue_count);
+		DUMP_VAL(order_process_timer);
+		DUMP_VAL(unknown_0x086);
+		DUMP_VAL(attack_notify_timer);
+		DUMP_VAL(previous_unit_type);
+		DUMP_VAL(last_event_timer);
+		DUMP_VAL(last_event_color);
+		DUMP_VAL(rank_increase);
+		DUMP_VAL(kill_count);
+		DUMP_VAL(last_attacking_player);
+		DUMP_VAL(secondary_order_timer);
+		DUMP_VAL(user_action_flags);
+		DUMP_VAL(cloak_counter);
+		DUMP_VAL(movement_state);
+		DUMP_VAL(energy);
+		DUMP_VAL(unit_id_generation);
+		DUMP_VAL(damage_overlay_state);
+		DUMP_VAL(hp_construction_rate);
+		DUMP_VAL(shield_construction_rate);
+		DUMP_VAL(remaining_build_time);
+		DUMP_VAL(previous_hp);
+
+		val loaded = val::object();
+		for (int i = 0; i < dumping->loaded_units.size(); ++i) {
+			loaded.set(i, dumping->loaded_units[i].raw_value);
+		}
+		o.set("loaded_units", loaded);
+		o.set("_flingy_t", dump_flingy(dumping));
+		return o;
+	}
+};
+
+val lookup_unit_extended(int32_t index) {
+	util_functions f(m->ui.st);
+	unit_t* u = f.get_unit(unit_id(index));
+	if (!u) {
+		return val::null();
+	}
+	return Dump::dump_unit(u);
+}
+
+val lookup_unit(int32_t index) {
+	util_functions f(m->ui.st);
+	unit_t* u = f.get_unit(unit_id(index));
+	if (!u) {
+		return val::null();
+	}
+	val o = val::object();
+	o.set("bw_id", f.get_unit_id(u).raw_value);
+	o.set("player_id", u->owner);
+	o.set("x", u->position.x);
+	o.set("y", u->position.y);
+	o.set("type", (int)u->unit_type->id);
+	o.set("hp", Dump::to_emscripten(u->hp));
+	o.set("ground_weapon_cooldown", u->ground_weapon_cooldown);
+	o.set("air_weapon_cooldown", u->air_weapon_cooldown);
+	return o;
+}
+
+auto get_selected_units() {
+	util_functions f(m->ui.st);
+	auto& st = m->ui.st;
+	val r = val::array();
+	size_t i = 0;
+	for (unit_t* u : ptr(st.visible_units)) {
+		if (m->ui.current_selection_is_selected(u)) {
+			val o = val::object();
+			o.set("bw_id", f.get_unit_id(u).raw_value);
+			o.set("player_id", u->owner);
+			o.set("id", - (int)f.get_unit_id(u).raw_value);
+			o.set("x", u->position.x);
+			o.set("y", u->position.y);
+			o.set("type", (int)u->unit_type->id);
+			r.set(i++, o);
+		}
+	}
+	return r;
+}
+
+void select_unit_by_bw_id(size_t index) {
+	util_functions f(m->ui.st);
+	m->ui.current_selection_add(f.get_unit(unit_id(index)));
+}
+
+void set_screen_center_position(int32_t x, int32_t y) {
+	ui_functions& ui = m->ui;
+	ui.screen_pos.x = x - ui.view_width / 2;
+	ui.screen_pos.y = y - ui.view_height / 2;
+}
+
+void clear_selection() {
+	m->ui.current_selection.clear();
+}
+
+unit_matcher* get_units_matcher() {
+	return &g_m->units_matcher;
+}
+
+void enable_main_update_loop() {
+	m->run_main_update_loop = true;
+}
+
+bool any_replay_loaded = false;
+bool has_replay_loaded() {
+	return any_replay_loaded;
+}
+
+bool js_add_draw_command(val command) {
+	auto cmd = std::make_unique<draw_command_t>(command);
+	if (!cmd->is_valid()) {
+		return false;
+	}
+	m->ui.add_draw_command(std::move(cmd));
+	return true;
+}
+
+void js_clear_draw_commands() {
+	m->ui.clear_draw_commands();
+}
+
+extern "C" void js_add_screen_overlay(
+		float* values,
+		size_t x_dim,
+		size_t y_dim,
+		int x_topleft,
+		int y_topleft,
+		float x_scaling,
+		float y_scaling,
+		float original_ratio,
+		float game_saturation,
+		float mean,
+		float stddev,
+		bool render_fast) {
+	m->ui.overlay = ui_functions::overlay_t{
+		std::vector<float>(values, values + (x_dim * y_dim)),
+		{x_dim, y_dim},
+		{x_topleft, y_topleft},
+		{x_scaling, y_scaling},
+		original_ratio,
+		game_saturation,
+		render_fast
+	};
+	for (auto& v: m->ui.overlay->values) {
+		v -= mean;
+		v /= stddev;
+	}
+}
+
+void js_set_highlighted_units(val unit_ids) {
+	auto ids = emscripten::vecFromJSArray<int32_t>(unit_ids);
+	m->ui.highlighted_units_ids.clear();
+	for (auto id: ids) {
+		m->ui.highlighted_units_ids.insert(id);
+	}
+}
+
+void js_set_highlighted_rects(val rectangles_) {
+	auto rectangles = emscripten::vecFromJSArray<val>(rectangles_);
+	m->ui.highlighted_rectangles.clear();
+	for (auto rect: rectangles) {
+		auto from = emscripten::vecFromJSArray<size_t>(rect["from"]);
+		auto to = emscripten::vecFromJSArray<size_t>(rect["to"]);
+		m->ui.highlighted_rectangles.push_back({
+			{from[0], from[1]},
+			{to[0], to[1]},
+		});
+	}
+}
+
+void js_remove_screen_overlay() {
+	m->ui.overlay.reset();
+}
+
+val get_screen_info() {
+	val v = val::object();
+	v.set("screen_x", m->ui.screen_pos.x);
+	v.set("screen_y", m->ui.screen_pos.y);
+	v.set("screen_width", m->ui.screen_width);
+	v.set("screen_height", m->ui.screen_height);
+	v.set("cursor_x", m->ui.cursor_pos.x);
+	v.set("cursor_y", m->ui.cursor_pos.y);
+	return v;
+}
+
+void reset_replay() {
+	m->reset();
+	m->ui.reset();
+	m->ui.set_image_data();
+	m->run_main_update_loop = true;
+	any_replay_loaded = false;
 }
 
 EMSCRIPTEN_BINDINGS(openbw) {
@@ -557,6 +840,30 @@ EMSCRIPTEN_BINDINGS(openbw) {
 		.function("unit_type", &unit_t_unit_type, allow_raw_pointers())
 		.function("build_type", &unit_t_build_type, allow_raw_pointers())
 		;
+
+	function("get_selected_units", &get_selected_units);
+	function("select_unit_by_bw_id", &select_unit_by_bw_id);
+	function("set_screen_center_position", &set_screen_center_position);
+	function("clear_selection", &clear_selection);
+	function("enable_main_update_loop", &enable_main_update_loop);
+	function("lookup_unit", &lookup_unit);
+	function("lookup_unit_extended", &lookup_unit_extended);
+	function("reset_replay", &reset_replay);
+
+	// Draw commands
+	function("add_draw_command", &js_add_draw_command);
+	function("clear_draw_commands", &js_clear_draw_commands);
+	function("remove_screen_overlay", &js_remove_screen_overlay);
+	function("set_highlighted_units", &js_set_highlighted_units);
+	function("set_highlighted_rects", &js_set_highlighted_rects);
+	function("get_screen_info", &get_screen_info);
+
+	function("get_units_matcher", &get_units_matcher, allow_raw_pointers());
+	function("has_replay_loaded", &has_replay_loaded);
+	class_<unit_matcher>("unit_matcher")
+		.function("add_unit", &unit_matcher::add_unit)
+		.function("do_matching", &unit_matcher::do_matching)
+		.function("get_matching", &unit_matcher::get_matching);
 }
 
 extern "C" double player_get_value(int player, int index) {
@@ -597,12 +904,11 @@ extern "C" double player_get_value(int player, int index) {
 	}
 }
 
-bool any_replay_loaded = false;
-
 extern "C" void load_replay(const uint8_t* data, size_t len) {
 	m->reset();
 	m->ui.load_replay_data(data, len);
 	m->ui.set_image_data();
+	m->run_main_update_loop = false;
 	any_replay_loaded = true;
 }
 
@@ -612,7 +918,7 @@ int main() {
 
 	using namespace bwgame;
 
-	log("v25\n");
+	log("v29\n");
 
 	size_t screen_width = 1280;
 	size_t screen_height = 800;
@@ -646,7 +952,6 @@ int main() {
 #ifndef EMSCRIPTEN
 	ui.load_replay_file("maps/p49.rep");
 #endif
-
 	auto& wnd = ui.wnd;
 	wnd.create("test", 0, 0, screen_width, screen_height);
 
@@ -658,7 +963,6 @@ int main() {
 	log("loaded in %dms\n", std::chrono::duration_cast<std::chrono::milliseconds>(clock.now() - start).count());
 
 	//set_malloc_fail_handler(malloc_fail_handler);
-
 #ifdef EMSCRIPTEN
 	::m = &m;
 	::g_m = &m;
@@ -680,4 +984,3 @@ int main() {
 
 	return 0;
 }
-

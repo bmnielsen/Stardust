@@ -1,3 +1,10 @@
+#pragma once
+#ifdef EMSCRIPTEN
+#include <emscripten.h>
+#include <emscripten/val.h>
+#endif
+
+
 #include "common.h"
 #include "../bwgame.h"
 #include "../replay.h"
@@ -5,6 +12,9 @@
 #include "native_window.h"
 #include "native_window_drawing.h"
 #include "native_sound.h"
+#ifdef EMSCRIPTEN
+#include "Bitmap.h"
+#endif
 
 namespace bwgame {
 
@@ -439,6 +449,8 @@ struct ui_util_functions: replay_functions {
 
 	explicit ui_util_functions(state& st, action_state& action_st, replay_state& replay_st) : replay_functions(st, action_st, replay_st) {}
 
+	std::unordered_set<size_t> highlighted_sprites_ids;
+
 	rect sprite_clickable_bounds(const sprite_t* sprite) const {
 		rect r{{(int)game_st.map_width - 1, (int)game_st.map_height - 1}, {0, 0}};
 		for (const image_t* image : ptr(sprite->images)) {
@@ -539,6 +551,9 @@ struct ui_util_functions: replay_functions {
 	}
 
 	uint32_t sprite_depth_order(const sprite_t* sprite) const {
+		if (highlighted_sprites_ids.count(sprite->index)) {
+			return 0xFFFFFFFF;
+		}
 		uint32_t score = 0;
 		score |= sprite->elevation_level;
 		score <<= 13;
@@ -549,6 +564,33 @@ struct ui_util_functions: replay_functions {
 	}
 
 };
+
+#ifdef EMSCRIPTEN
+struct ui_functions;
+struct draw_command_t {
+	enum DrawCommands {
+		DrawLine = 20, //	x1, y1, x2, y2, color index
+		DrawUnitLine = 21, // uid1, uid2, color index
+		DrawUnitPosLine = 22, // uid, x2, y2, color index
+		DrawCircle = 23, //	x, y, radius, color index
+		DrawUnitCircle = 24, // uid, radius, color index
+		DrawText = 25, // x, y plus text arg
+		DrawTextScreen = 26, // x, y plus text arg
+	};
+
+	int code = -1;
+	std::vector<int> args;
+	std::string str;
+	draw_command_t(emscripten::val const& cmd) {
+		code = cmd["code"].as<int>();
+		args = emscripten::vecFromJSArray<int>(cmd["args"]);
+		str = cmd["str"].as<std::string>();
+	}
+	inline bool get_unit_pos(ui_functions& ui, int32_t uid, int32_t& x, int32_t& y);
+	inline void draw(uint8_t* data, size_t data_pitch, ui_functions& ui);
+	inline bool is_valid();
+};
+#endif
 
 struct ui_functions: ui_util_functions {
 	image_data img;
@@ -564,6 +606,7 @@ struct ui_functions: ui_util_functions {
 
 	size_t screen_width;
 	size_t screen_height;
+	xy cursor_pos;
 
 	game_player player;
 	replay_state current_replay_state;
@@ -574,6 +617,198 @@ struct ui_functions: ui_util_functions {
 
 	std::function<void(a_vector<uint8_t>&, a_string)> load_data_file;
 
+	std::unordered_set<int32_t> highlighted_units_ids;
+	std::vector<rect_t<xy_t<size_t>>> highlighted_rectangles;
+	#ifdef EMSCRIPTEN
+	// Screen drawing commands
+	std::vector<std::unique_ptr<draw_command_t> > draw_commands_list;
+	struct overlay_t {
+		std::vector<float> values;
+		std::array<size_t, 2> dimension; // {dimX, dimY}
+		std::array<int, 2> topleft_pos;
+		std::array<float, 2> scaling;
+		float original_ratio;
+		float game_saturation;
+		bool render_fast;
+	};
+	optional<overlay_t> overlay;
+
+	void add_draw_command(std::unique_ptr<draw_command_t> cmd) {
+		draw_commands_list.push_back(std::move(cmd));
+	}
+
+	void clear_draw_commands() {
+		draw_commands_list.clear();
+	}
+
+	void draw_commands(uint8_t* data, size_t data_pitch) {
+		for (auto& cmd: draw_commands_list) {
+			cmd->draw(data, data_pitch, *this);
+		}
+	}
+
+	void draw_overlay_rgba(uint32_t* data, size_t data_pitch) {
+		if (!overlay) {
+			return;
+		}
+
+		auto minimap_area = get_minimap_area();
+		size_t minimap_width = minimap_area.to.x - minimap_area.from.x;
+		size_t minimap_height = minimap_area.to.y - minimap_area.from.y;
+		bool has_minimap = minimap_width == game_st.map_tile_width
+				&& minimap_height == game_st.map_tile_height;
+
+
+		auto merge_colors = [&](int c1, int c2, float c1_ratio) -> uint8_t {
+			if (overlay->render_fast) {
+				return (c1 >> 1) + (c2 >> 1);
+			}
+			else {
+				return std::min(int(std::sqrt(c1 * c1 * c1_ratio + c2 * c2 * (1.0f - c1_ratio))), 0xFF);
+			}
+		};
+
+		auto draw_overlay_at = [&](float overlay_x, float overlay_y, uint32_t& v) {
+			if (overlay_x >= 0 && overlay_x < overlay->dimension[0] &&
+				overlay_y >= 0 && overlay_y < overlay->dimension[1]) {
+				float normalized_value = overlay->values[int(overlay_x) + overlay->dimension[0] * int(overlay_y)];
+				normalized_value = std::max(-1.0f, std::min(normalized_value, 1.0f));
+
+				uint8_t r = v & 0xFF;
+				uint8_t g = (v >> 8) & 0xFF;
+				uint8_t b = (v >> 16) & 0xFF;
+				uint8_t gray = (r >> 2) + (g >> 1) + (b >> 2);
+				r = merge_colors(r, gray, overlay->game_saturation);
+				g = merge_colors(g, gray, overlay->game_saturation);
+				b = merge_colors(b, gray, overlay->game_saturation);
+
+				r = merge_colors(r, std::max<int>(-normalized_value * 0xFF, 0), overlay->original_ratio);
+				g = merge_colors(g, std::max<int>(normalized_value * 0xFF, 0), overlay->original_ratio);
+				b = merge_colors(b, 0, overlay->original_ratio);
+				v = r + (g << 8) + (b << 16);
+			}
+		};
+
+		// Draw on map
+		for (auto y = 0; y < view_height; ++y) {
+			float overlay_y = (y + screen_pos.y - overlay->topleft_pos[1]) / overlay->scaling[1];
+			for (auto x = 0; x < view_width; ++x) {
+				if (has_minimap && (minimap_area.from.x - 1) <= x && x <= (minimap_area.to.x + 1)
+						&& (minimap_area.from.y - 1) <= y && y <= (minimap_area.to.y + 1)) {
+					continue;
+				}
+				float overlay_x = (x + screen_pos.x - overlay->topleft_pos[0]) / overlay->scaling[0];
+				draw_overlay_at(overlay_x, overlay_y, data[y * data_pitch + x]);
+			}
+		}
+
+		// Draw on minimap
+		if (has_minimap) {
+			for (auto y = 0; y < minimap_height; ++y) {
+				float overlay_y = (y * 32 - overlay->topleft_pos[1]) / overlay->scaling[1];
+				for (auto x = 0; x < minimap_width; ++x) {
+					float overlay_x = (x * 32 - overlay->topleft_pos[0]) / overlay->scaling[0];
+					auto idx = (minimap_area.from.y + y) * data_pitch + minimap_area.from.x + x;
+					draw_overlay_at(overlay_x, overlay_y, data[idx]);
+				}
+			}
+		}
+	}
+	#else
+	void draw_commands(uint8_t* data, size_t data_pitch) {}
+	void draw_overlay_rgba(uint32_t* data, size_t data_pitch) {}
+	#endif
+	void draw_highlights_on_units(uint32_t* data, size_t data_pitch) {
+		uint64_t total_surface = 0;
+		for (auto uid: highlighted_units_ids) {
+			if (auto* u = get_unit(unit_id(uid))) {
+				// Find unit bounding box
+				int minX = screen_width;
+				int maxX = 0;
+				int minY = screen_height;
+				int maxY = 0;
+				for (auto* image : ptr(reverse(u->sprite->images))) {
+					if (i_flag(image, image_t::flag_hidden)) continue;
+
+					xy map_pos = get_image_map_position(image);
+					int screen_x = map_pos.x - screen_pos.x;
+					int screen_y = map_pos.y - screen_pos.y;
+					if (screen_x >= (int)screen_width || screen_y >= (int)screen_height) continue;
+
+					auto& frame = image->grp->frames.at(image->frame_index);
+					size_t width = frame.size.x;
+					size_t height = frame.size.y;
+					if (screen_x + (int)width <= 0 || screen_y + (int)height <= 0) continue;
+					minX = std::min(minX, screen_x);
+					maxX = std::max<int>(maxX, screen_x + width);
+					minY = std::min(minY, screen_y);
+					maxY = std::max<int>(maxY, screen_y + height);
+				}
+
+				// Mark pixels inside this bounding box
+				minX = std::max(minX, 0);
+				maxX = std::min<int>(maxX, screen_width);
+				minY = std::max(minY, 0);
+				maxY = std::min<int>(maxY, screen_height);
+				total_surface += (maxX - minX) * (maxY - minY);
+				for (auto x = minX; x < maxX; ++x) {
+					for (auto y = minY; y < maxY; ++y) {
+						data[y * data_pitch + x] |= 0x01000000;
+					}
+				}
+			}
+		}
+		for (auto rect: highlighted_rectangles) {
+			int minX = std::max<int>(rect.from.x - screen_pos.x, 0);
+			int maxX = std::min<int>(rect.to.x - screen_pos.x, screen_width);
+			int minY = std::max<int>(rect.from.y - screen_pos.y, 0);
+			int maxY = std::min<int>(rect.to.y - screen_pos.y, screen_height);
+			total_surface += (maxX - minX) * (maxY - minY);
+			for (auto x = minX; x < maxX; ++x) {
+				for (auto y = minY; y < maxY; ++y) {
+					data[y * data_pitch + x] |= 0x01000000;
+				}
+			}
+		}
+		if (!total_surface) {
+			return;
+		}
+
+		uint8_t shift_count = 1;
+		// For very small area, need to darken the outside more
+		if (total_surface <= (16 * 16)) {
+			shift_count = 2;
+		}
+
+		auto minimap_area = get_minimap_area();
+		size_t minimap_width = minimap_area.to.x - minimap_area.from.x;
+		size_t minimap_height = minimap_area.to.y - minimap_area.from.y;
+		bool has_minimap = minimap_width == game_st.map_tile_width
+				&& minimap_height == game_st.map_tile_height;
+
+		// Darken everything outside
+		for (auto x = 0; x < screen_width; ++x) {
+			for (auto y = 0; y < screen_height; ++y) {
+				if (has_minimap && (minimap_area.from.x - 1) <= x && x <= (minimap_area.to.x + 1)
+						&& (minimap_area.from.y - 1) <= y && y <= (minimap_area.to.y + 1)) {
+					// Don't overlay on the minimap
+					continue;
+				}
+				uint32_t& v = data[y * data_pitch + x];
+				if ((v & 0xFF000000) == 0) {
+					uint8_t r = v & 0xFF;
+					uint8_t g = (v >> 8) & 0xFF;
+					uint8_t b = (v >> 16) & 0xFF;
+					r = (r >> shift_count);
+					g = (g >> shift_count);
+					b = (b >> shift_count);
+					v = r + (g << 8) + (b << 16);
+				}
+			}
+		}
+	}
+
+	// Sound related stuff
 	sound_types_t sound_types;
 	a_vector<a_string> sound_filenames;
 
@@ -767,6 +1002,11 @@ struct ui_functions: ui_util_functions {
 		if (to_tile_x > game_st.map_tile_width) to_tile_x = game_st.map_tile_width;
 
 		return {{from_tile_x, from_tile_y}, {to_tile_x, to_tile_y}};
+	}
+
+	void map_pixel_to_screen_pixel(int32_t& x, int32_t& y) {
+		x -= screen_pos.x;
+		y -= screen_pos.y;
 	}
 
 
@@ -1221,8 +1461,13 @@ struct ui_functions: ui_util_functions {
 	void draw_sprites(uint8_t* data, size_t data_pitch) {
 
 		image_draw_queue.clear();
-
 		sorted_sprites.clear();
+		highlighted_sprites_ids.clear();
+		for (auto uid: highlighted_units_ids) {
+			if (auto* u = get_unit(unit_id(uid))) {
+				highlighted_sprites_ids.insert(u->sprite->index);
+			}
+		}
 
 		auto screen_tile = screen_tile_bounds();
 
@@ -1308,6 +1553,44 @@ struct ui_functions: ui_util_functions {
 		for (size_t y = 0; y != height; ++y) {
 			p[data_pitch * y] = color;
 			p[data_pitch * y + width - 1] = color;
+		}
+	}
+
+	void draw_line(uint8_t* data, size_t data_pitch,
+			int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+			uint8_t color_index) {
+		map_pixel_to_screen_pixel(x1, y1);
+		map_pixel_to_screen_pixel(x2, y2);
+		float dist = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+		dist = sqrt(dist);
+		int32_t x, y;
+		for (float d = 0; d < dist; ++d) {
+			x = x1 + d * float(x2 - x1) / dist;
+			y = y1 + d * float(y2 - y1) / dist;
+			if (y < 0 || y >= view_height ||
+					x < 0 || x >= view_width) {
+				continue;
+			}
+			data[y * data_pitch + x] = color_index;
+		}
+	}
+
+	void draw_circle(uint8_t* data, size_t data_pitch,
+			int32_t centerX, int32_t centerY, int32_t radius,
+			uint8_t color_index) {
+		map_pixel_to_screen_pixel(centerX, centerY);
+		float dist = 2.0f * M_PI * float(radius);
+		int32_t x, y;
+		float angle;
+		for (float d = 0; d < dist; ++d) {
+			angle = 2.0f * M_PI * d / dist;
+			x = centerX + float(radius) * cos(angle);
+			y = centerY + float(radius) * sin(angle);
+			if (y < 0 || y >= view_height ||
+					x < 0 || x >= view_width) {
+				continue;
+			}
+			data[y * data_pitch + x] = color_index;
 		}
 	}
 
@@ -1842,6 +2125,8 @@ struct ui_functions: ui_util_functions {
 					}
 
 					if (is_drag_selecting && ~e.button_state & 1) end_drag_select(false);
+					cursor_pos.x = e.mouse_x;
+					cursor_pos.y = e.mouse_y;
 					break;
 				case native_window::event_t::type_mouse_button_up:
 					if (e.button == 1) {
@@ -1946,7 +2231,7 @@ struct ui_functions: ui_util_functions {
 		uint8_t* data = (uint8_t*)indexed_surface->lock();
 		draw_tiles(data, indexed_surface->pitch);
 		draw_sprites(data, indexed_surface->pitch);
-
+		draw_commands(data, indexed_surface->pitch);
 		draw_callback(data, indexed_surface->pitch);
 
 		if (draw_ui_elements) {
@@ -1971,6 +2256,11 @@ struct ui_functions: ui_util_functions {
 			}
 			rgba_surface->unlock();
 		}
+
+		draw_overlay_rgba((uint32_t*)rgba_surface->lock(), rgba_surface->pitch / 4);
+		rgba_surface->unlock();
+		draw_highlights_on_units((uint32_t*)rgba_surface->lock(), rgba_surface->pitch / 4);
+		rgba_surface->unlock();
 
 		if (wnd) {
 			rgba_surface->blit(&*window_surface, 0, 0);
@@ -2051,8 +2341,83 @@ struct ui_functions: ui_util_functions {
 
 		st.global = &global_st;
 		st.game = &game;
+		highlighted_units_ids.clear();
+		highlighted_rectangles.clear();
+#ifdef EMSCRIPTEN
+		overlay.reset();
+#endif
 	}
 };
 
+#ifdef EMSCRIPTEN
+bool draw_command_t::get_unit_pos(
+		ui_functions& ui, int32_t uid, int32_t& x, int32_t& y) {
+	if (unit_t* u = ui.get_unit(unit_id(uid))) {
+		x = u->position.x;
+		y = u->position.y;
+		return true;
+	}
+	return false;
 }
 
+void draw_command_t::draw(uint8_t* data, size_t data_pitch, ui_functions& ui) {
+	int32_t tmp[4];
+	switch (code) {
+		case DrawCommands::DrawLine:
+			ui.draw_line(data, data_pitch, args[0], args[1], args[2], args[3],
+					args[4]);
+			break;
+		case DrawCommands::DrawUnitLine:
+			if (get_unit_pos(ui, args[0], tmp[0], tmp[1]) &&
+					get_unit_pos(ui, args[1], tmp[2], tmp[3])) {
+				ui.draw_line(data, data_pitch,
+					tmp[0], tmp[1], tmp[2], tmp[3], args[2]);
+			}
+			break;
+		case DrawCommands::DrawUnitPosLine:
+			if (get_unit_pos(ui, args[0], tmp[0], tmp[1])) {
+				ui.draw_line(data, data_pitch,
+					tmp[0], tmp[1], args[1], args[2], args[3]);
+			}
+			break;
+		case DrawCommands::DrawCircle:
+			ui.draw_circle(data, data_pitch, args[0], args[1], args[2], args[3]);
+			break;
+		case DrawCommands::DrawUnitCircle:
+			if (get_unit_pos(ui, args[0], tmp[0], tmp[1])) {
+				ui.draw_circle(data, data_pitch,
+					tmp[0], tmp[1], args[1], args[2]);
+			}
+			break;
+		case DrawCommands::DrawText:
+		{
+			tmp[0] = args[0];
+			tmp[1] = args[1];
+			ui.map_pixel_to_screen_pixel(tmp[0], tmp[1]);
+			auto bm = BW::Bitmap(data_pitch, ui.screen_height, data);
+			bm.blitString(str.c_str(), tmp[0], tmp[1]);
+			break;
+		}
+		case DrawCommands::DrawTextScreen:
+		{
+			auto bm = BW::Bitmap(data_pitch, ui.screen_height, data);
+			bm.blitString(str.c_str(), args[0], args[1]);
+			break;
+		}
+	}
+}
+
+bool draw_command_t::is_valid() {
+	switch (code) {
+		case DrawCommands::DrawLine: return args.size() == 5;
+		case DrawCommands::DrawUnitLine: return args.size() == 3;
+		case DrawCommands::DrawUnitPosLine: return args.size() == 4;
+		case DrawCommands::DrawCircle: return args.size() == 4;
+		case DrawCommands::DrawUnitCircle: return args.size() == 3;
+		case DrawCommands::DrawText: return args.size() == 2;
+		case DrawCommands::DrawTextScreen: return args.size() == 2;
+	}
+	return false;
+}
+#endif
+}

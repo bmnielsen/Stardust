@@ -5,6 +5,27 @@
 
 namespace bwgame {
 
+namespace sync_messages {
+	enum {
+		id_client_uid = 0,
+		id_client_frame = 1,
+		id_occupy_slot = 2,
+		id_start_game = 3,
+		id_game_info = 4,
+		id_set_race = 5,
+		id_game_started = 6,
+		id_leave_game = 7,
+		id_insync_check = 8,
+		id_create_unit = 9,
+		id_kill_unit = 10,
+		id_remove_unit = 11,
+		id_custom_action = 12
+	};
+	enum {
+		id_game_started_escape = 0xdc
+	};
+}
+
 struct action_state {
 	action_state() = default;
 	action_state(const action_state&) = delete;
@@ -1321,7 +1342,7 @@ struct action_functions: state_functions {
 			} else if (subtype == 1) {
 				const tech_type_t* tech = get_tech_type((TechTypes)r.template get<uint8_t>());
 				int researched = r.template get<int8_t>();
-				st.tech_researched.at(player)[tech->id] = researched;
+				st.tech_researched.at(player)[tech->id] = true;
 			} else if (subtype == 2) {
 				int value = r.template get<int32_t>();
 				st.current_minerals.at(player) = value;
@@ -1330,6 +1351,38 @@ struct action_functions: state_functions {
 				st.current_gas.at(player) = value;
 			} else error("unknown ext cheat player subtype %d", subtype);
 		} else error("unknown ext cheat type %d", type);
+		return true;
+	}
+
+	template<typename reader_T>
+	bool read_action_custom(int owner, reader_T&& r) {
+		int id = r.template get<uint8_t>();
+		switch (id) {
+			case sync_messages::id_create_unit: {
+				const unit_type_t* unit_type = get_unit_type((UnitTypes)r.template get<uint32_t>());
+				int x = r.template get<int32_t>();
+				int y = r.template get<int32_t>();
+				int owner = r.template get<uint8_t>();
+				trigger_create_unit(unit_type, {x, y}, owner);
+				break;
+			}
+			case sync_messages::id_kill_unit: {
+				unit_t* u = get_unit(unit_id_32(r.template get<uint32_t>()));
+				if (u) state_functions::kill_unit(u);
+				break;
+			}
+			case sync_messages::id_remove_unit: {
+				unit_t* u = get_unit(unit_id_32(r.template get<uint32_t>()));
+				if (u) {
+					hide_unit(u);
+					state_functions::kill_unit(u);
+				}
+				break;
+			}
+			default:
+				error("Unsupported custom action (sync_message = %d)", id);
+				return false;
+		}
 		return true;
 	}
 
@@ -1437,6 +1490,8 @@ struct action_functions: state_functions {
 			return read_action_chat(owner, r);
 		case 210:
 			return read_action_ext_cheat(owner, r);
+		case sync_messages::id_game_started_escape:
+			return read_action_custom(owner, r);
 		default:
 			error("execute_action: unknown action %d", action_id);
 		}
