@@ -11,18 +11,19 @@ public:
 
     int frameLimit = 25000;
     int timeLimit = 600;
+    int randomSeed = 42;
 
     BWAPI::AIModule *opponentModule = nullptr;
     BWAPI::Race opponentRace = BWAPI::Races::Protoss;
 
-    std::function<void(BWAPI::BroodwarImpl_handle)> onStartMine = nullptr;
-    std::function<void(BWAPI::BroodwarImpl_handle)> onStartOpponent = nullptr;
+    std::function<void()> onStartMine = nullptr;
+    std::function<void()> onStartOpponent = nullptr;
 
-    std::function<void(BWAPI::BroodwarImpl_handle)> onFrameMine = nullptr;
-    std::function<void(BWAPI::BroodwarImpl_handle)> onFrameOpponent = nullptr;
+    std::function<void()> onFrameMine = nullptr;
+    std::function<void()> onFrameOpponent = nullptr;
 
-    std::function<void(BWAPI::BroodwarImpl_handle)> onEndMine = nullptr;
-    std::function<void(BWAPI::BroodwarImpl_handle)> onEndOpponent = nullptr;
+    std::function<void()> onEndMine = nullptr;
+    std::function<void()> onEndOpponent = nullptr;
 
     void run();
 

@@ -8,6 +8,15 @@ TEST(Steamhammer, FourPool)
     test.opponentModule = new UAlbertaBot::UAlbertaBotModule();
     Config::LocutusTestStrategyName = "4PoolHard";
     test.run();
-
-    EXPECT_EQ(1, 1);
 }
+
+TEST(Steamhammer, OverpoolSpeed)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = new UAlbertaBot::UAlbertaBotModule();
+    Config::LocutusTestStrategyName = "OverpoolSpeed";
+
+    test.run();
+}
+

@@ -4,6 +4,25 @@
 #include "LocutusAIModule.h"
 #include <chrono>
 #include <thread>
+#include <signal.h>
+#include <execinfo.h>
+#include <filesystem>
+
+void sigsegvHandler(int sig)
+{
+    std::cout << "Segfault" << std::endl;
+
+    void *array[20];
+    size_t size;
+
+    // get void*'s for all entries on the stack
+    size = backtrace(array, 20);
+
+    // print out all the frames to stderr
+    fprintf(stderr, "Error: signal %d:\n", sig);
+    backtrace_symbols_fd(array, size, STDERR_FILENO);
+    exit(1);
+}
 
 void BWTest::run()
 {
@@ -14,6 +33,8 @@ void BWTest::run()
         runGame(true);
         _exit(EXIT_SUCCESS);
     }
+
+    signal(SIGSEGV, sigsegvHandler);
 
     runGame(false);
     waitpid(pid, nullptr, 0);
@@ -49,7 +70,7 @@ void BWTest::runGame(bool opponent)
                                  }
                                  if (playerCount >= 2)
                                  {
-                                     h->setRandomSeed(5);
+                                     h->setRandomSeed(randomSeed);
                                      h->startGame();
                                  }
                              });
@@ -59,13 +80,13 @@ void BWTest::runGame(bool opponent)
     if (opponent)
     {
         if (opponentModule) h->setAIModule(opponentModule);
-        if (onStartOpponent) onStartOpponent(h);
+        if (onStartOpponent) onStartOpponent();
     }
     else
     {
         h->setAIModule(new LocutusAIModule());
         Log::SetOutputToConsole(true);
-        if (onStartMine) onStartMine(h);
+        if (onStartMine) onStartMine();
     }
     h->update();
     h->setLocalSpeed(0);
@@ -81,11 +102,11 @@ void BWTest::runGame(bool opponent)
         {
             if (opponent)
             {
-                if (onFrameOpponent) onFrameOpponent(h);
+                if (onFrameOpponent) onFrameOpponent();
             }
             else
             {
-                if (onFrameMine) onFrameMine(h);
+                if (onFrameMine) onFrameMine();
             }
         }
 
@@ -109,25 +130,62 @@ void BWTest::runGame(bool opponent)
 
         gameOwner.getGame().nextFrame();
     }
+    h->onGameEnd();
     if (opponent)
     {
-        if (onEndOpponent) onEndOpponent(h);
+        if (onEndOpponent) onEndOpponent();
     }
     else
     {
-        if (onEndMine) onEndMine(h);
+        if (onEndMine) onEndMine();
 
-        std::ostringstream filename;
-        filename << "replays/";
-        filename << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
-        filename << "_" << ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        EXPECT_TRUE(gameOwner.getGame().won());
+
+        // Create an ID for this game based on the test case and timestamp
+        std::ostringstream gameId;
+        gameId << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
+        gameId << "_" << ::testing::UnitTest::GetInstance()->current_test_info()->name();
         auto tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 #pragma warning(disable : 4996)
         auto tm = std::localtime(&tt);
-        filename << "_" << std::put_time(tm, "%Y%m%d_%H%M%S");
-        filename << ".rep";
-        BWAPI::BroodwarImpl.bwgame.saveReplay(filename.str());
+        gameId << "_" << std::put_time(tm, "%Y%m%d_%H%M%S");
+        if (::testing::UnitTest::GetInstance()->current_test_info()->result()->Failed())
+        {
+            gameId << "_FAIL";
+        }
+        else
+        {
+            gameId << "_PASS";
+        }
+
+        // Write the replay file
+        std::ostringstream replayFilename;
+        replayFilename << "replays/" << gameId.str() << ".rep";
+        std::filesystem::create_directories("replays");
+        BWAPI::BroodwarImpl.bwgame.saveReplay(replayFilename.str());
+
+        // Move the cvis directory
+        if (std::filesystem::exists("bwapi-data/write/cvis"))
+        {
+            std::ostringstream cvisFilename;
+            cvisFilename << "replays/" << gameId.str() << ".rep.cvis";
+            std::filesystem::rename("bwapi-data/write/cvis", cvisFilename.str());
+        }
+
+        // Move log files
+        if (!Log::LogFiles().empty())
+        {
+            std::ostringstream logDirectory;
+            logDirectory << "replays/" << gameId.str() << ".rep.log";
+            std::filesystem::create_directories(logDirectory.str());
+
+            for (auto logFilename : Log::LogFiles())
+            {
+                std::ostringstream newLogFilename;
+                newLogFilename << logDirectory.str() << "/" << logFilename.substr(logFilename.rfind("/") + 1);
+                std::filesystem::rename(logFilename, newLogFilename.str());
+            }
+        }
     }
-    h->onGameEnd();
     h->bwgame.leaveGame();
 }
