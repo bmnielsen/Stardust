@@ -185,6 +185,7 @@ struct Game {
   int getInstanceNumber() const;
   bool getScenarioChk(std::vector<char>& data) const;
   bool gameOver() const;
+  bool won() const;
   void printText(const char* str) const;
   void nextFrame();
   void setGUI(bool enabled);

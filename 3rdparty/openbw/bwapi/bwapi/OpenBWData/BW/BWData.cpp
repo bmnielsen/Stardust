@@ -1473,6 +1473,12 @@ bool Game::gameOver() const
   return impl->vars.left_game || done();
 }
 
+bool Game::won() const
+{
+  int n = impl->sync_funcs.sync_st.local_client->player_slot;
+  return n != -1 && impl->funcs.player_won(n);
+}
+
 void Game::printText(const char* str) const
 {
   if (impl->print_text_callback) impl->print_text_callback(str);
