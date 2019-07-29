@@ -36,7 +36,11 @@ namespace Log
 
     void SetDebug(bool debug);
     void SetOutputToConsole(bool outputToConsole);
+
     LogWrapper Get();
     LogWrapper Debug();
     LogWrapper Csv(std::string name);
+
+    // Returns a list of the paths of all the log files we have written in this game
+    std::vector<std::string> & LogFiles();
 }

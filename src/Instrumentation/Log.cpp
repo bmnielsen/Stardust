@@ -15,6 +15,7 @@ namespace Log
         std::ofstream* log;
         std::ofstream* debugLog;
         std::map<std::string, std::ofstream*> csvFiles;
+        std::vector<std::string> logFiles;
 
         std::string logFileName(std::string base, bool csv = false)
         {
@@ -28,6 +29,9 @@ namespace Log
                 filename << ".csv";
             else
                 filename << ".txt";
+
+            logFiles.push_back(filename.str());
+
             return filename.str();
         }
     }
@@ -128,5 +132,10 @@ namespace Log
         }
 
         return LogWrapper(csvFiles[name], false, true);
+    }
+
+    std::vector<std::string> & LogFiles()
+    {
+        return logFiles;
     }
 }
