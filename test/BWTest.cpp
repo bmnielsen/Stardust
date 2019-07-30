@@ -8,9 +8,9 @@
 #include <execinfo.h>
 #include <filesystem>
 
-void sigsegvHandler(int sig)
+void signalHandler(int sig)
 {
-    std::cout << "Segfault" << std::endl;
+    std::cout << "Crashed with signal " << sig << std::endl;
 
     void *array[20];
     size_t size;
@@ -34,7 +34,8 @@ void BWTest::run()
         _exit(EXIT_SUCCESS);
     }
 
-    signal(SIGSEGV, sigsegvHandler);
+    signal(SIGFPE, signalHandler);
+    signal(SIGSEGV, signalHandler);
 
     runGame(false);
     waitpid(pid, nullptr, 0);
