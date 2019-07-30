@@ -15,7 +15,9 @@ public:
     void updateClusters();
     void execute();
 
-    Squad(std::string label) : label(label), targetPosition(BWAPI::Positions::Invalid) {}
+    std::vector<BWAPI::Unit> getUnits();
+
+    Squad(std::string label) : label(std::move(label)), targetPosition(BWAPI::Positions::Invalid) {}
 
 protected:
     BWAPI::Position targetPosition;

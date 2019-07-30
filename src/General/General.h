@@ -2,6 +2,8 @@
 
 #include "Common.h"
 
+#include "Squad.h"
+
 /*
 General approach to combat:
 1. Strategist provides the General with a prioritized list of combat goals, e.g. attack this base, defend that base, scout expansions, etc.
@@ -48,6 +50,8 @@ Technical stuff we need:
 
 namespace General
 {
-    void updateAssignments();
+    void updateClusters();
     void issueOrders();
+    void addSquad(std::shared_ptr<Squad> squad);
+    void removeSquad(std::shared_ptr<Squad> squad);
 }

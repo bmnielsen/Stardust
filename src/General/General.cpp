@@ -1,8 +1,5 @@
 #include "General.h"
 #include "Squad.h"
-#include "Units.h"
-#include "Map.h"
-#include "AttackBaseSquad.h"
 
 /*
 Things we want to be able to do:
@@ -38,45 +35,35 @@ namespace General
     {
 #endif
 
-        std::map<BWAPI::Unit, std::shared_ptr<Squad>> unitToSquad;
-
-        // TODO: This will eventually map goal types instead
-        std::map<std::string, std::shared_ptr<Squad>> squads;
+        std::unordered_set<std::shared_ptr<Squad>> squads;
 
 #ifndef _DEBUG
     }
 #endif
 
-    void updateAssignments()
+    void updateClusters()
     {
-        if (squads.find("attack") == squads.end())
+        for (auto & squad : squads)
         {
-            auto enemyMain = Map::getEnemyMain();
-            if (!enemyMain) return;
-
-            squads["attack"] = std::make_shared<AttackBaseSquad>(enemyMain);
-        }
-
-        auto attackSquad = squads["attack"];
-
-        attackSquad->updateClusters();
-
-        for (auto unit : BWAPI::Broodwar->self()->getUnits())
-        {
-            if (!unit->isCompleted()) continue;
-            if (unit->getType().isBuilding()) continue;
-            if (unit->getType().isWorker()) continue;
-            if (unitToSquad.find(unit) != unitToSquad.end()) continue;
-
-            attackSquad->addUnit(unit);
-            unitToSquad[unit] = attackSquad;
+            squad->updateClusters();
         }
     }
 
     void issueOrders()
     {
-        if (squads.find("attack") == squads.end()) return;
+        for (auto & squad : squads)
+        {
+            squad->execute();
+        }
+    }
 
-        squads["attack"]->execute();
+    void addSquad(std::shared_ptr<Squad> squad)
+    {
+        squads.insert(squad);
+    }
+
+    void removeSquad(std::shared_ptr<Squad> squad)
+    {
+        squads.erase(squad);
     }
 }

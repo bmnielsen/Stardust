@@ -1,7 +1,7 @@
 #include "Map.h"
 
-#include "Fortress.h"
-#include "Plasma.h"
+#include "MapSpecificOverrides/Fortress.h"
+#include "MapSpecificOverrides/Plasma.h"
 
 #include "Units.h"
 #include "PathFinding.h"
@@ -339,16 +339,6 @@ namespace Map
         else
             _mapSpecificOverride = new MapSpecificOverride();
 
-        // Initialize bases
-        for (const auto & area : bwemMap.Areas())
-            for (const auto & base : area.Bases())
-            {
-                auto newBase = new Base(base.Location(), &base);
-                bases.push_back(newBase);
-                if (newBase->isStartingBase()) startingLocationBases.push_back(newBase);
-            }
-        Log::Debug() << "Found " << bases.size() << " bases";
-
         // Analyze chokepoints
         for (const auto & area : bwemMap.Areas())
             for (const BWEM::ChokePoint * choke : area.ChokePoints())
@@ -362,7 +352,26 @@ namespace Map
             if (pair.second->width < _minChokeWidth)
                 _minChokeWidth = pair.second->width;
 
+        // Initialize bases
+        for (const auto & area : bwemMap.Areas())
+            for (const auto & base : area.Bases())
+            {
+                auto newBase = new Base(base.Location(), &base);
+                bases.push_back(newBase);
+                if (newBase->isStartingBase())
+                {
+                    startingLocationBases.push_back(newBase);
+                    if (newBase->getTilePosition() == BWAPI::Broodwar->self()->getStartLocation())
+                    {
+                        setBaseOwner(newBase, BWAPI::Broodwar->self());
+                    }
+                }
+            }
+        Log::Debug() << "Found " << bases.size() << " bases";
+
         dumpStaticHeatmaps();
+
+        update();
     }
 
     void onUnitDiscover(BWAPI::Unit unit)
@@ -443,6 +452,11 @@ namespace Map
         }
 
         return result;
+    }
+
+    Base * getMyMain()
+    {
+        return playerToPlayerBases[BWAPI::Broodwar->self()].main;
     }
 
     Base * getEnemyMain()

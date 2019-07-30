@@ -5,7 +5,7 @@ const int MAX_CLUSTER_RADIUS = 320;
 
 void Squad::addUnit(BWAPI::Unit unit)
 {
-    CherryVis::log(unit) << "Added: " << label;
+    CherryVis::log(unit) << "Added to squad: " << label;
 
     // Look for a suitable cluster to add this unit to
     std::shared_ptr<UnitCluster> best = nullptr;
@@ -36,7 +36,7 @@ void Squad::removeUnit(BWAPI::Unit unit)
     auto clusterIt = unitToCluster.find(unit);
     if (clusterIt == unitToCluster.end()) return;
     
-    CherryVis::log(unit) << "Removed: " << label;
+    CherryVis::log(unit) << "Removed from squad: " << label;
 
     auto cluster = clusterIt->second;
     unitToCluster.erase(clusterIt);
@@ -92,4 +92,16 @@ void Squad::execute()
     {
         execute(*cluster);
     }
+}
+
+std::vector<BWAPI::Unit> Squad::getUnits()
+{
+    std::vector<BWAPI::Unit> result;
+
+    for (auto & unitAndCluster : unitToCluster)
+    {
+        result.push_back(unitAndCluster.first);
+    }
+
+    return result;
 }

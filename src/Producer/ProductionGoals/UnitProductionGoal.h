@@ -17,12 +17,9 @@ public:
     // May be -1 if we do not want to limit it
     int getProducerLimit() { return producerLimit; }
 
-    // Whether or not the production goal is currently fulfilled
-    bool isFulfilled() { return countToProduce() == 0; }
-
     // The number of items that should be produced
     // May be -1 if we want constant production
-    int countToProduce();
+    int countToProduce() { return count; };
 
 private:
     BWAPI::UnitType type;

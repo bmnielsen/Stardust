@@ -92,8 +92,8 @@ void LocutusAIModule::onFrame()
     Map::update();
     Timer::checkpoint("Map::update");
 
-    General::updateAssignments();
-    Timer::checkpoint("General::updateAssignments");
+    General::updateClusters();
+    Timer::checkpoint("General::updateClusters");
 
     BuildingPlacement::update();
     Timer::checkpoint("BuildingPlacement::update");

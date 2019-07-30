@@ -1507,7 +1507,6 @@ namespace Producer
         {
             if (auto unitProductionGoal = std::get_if<UnitProductionGoal>(&goal))
             {
-                if (unitProductionGoal->isFulfilled()) continue;
                 handleGoal(unitProductionGoal->unitType(), unitProductionGoal->countToProduce(), unitProductionGoal->getProducerLimit());
             }
             else if (auto upgradeProductionGoal = std::get_if<UpgradeProductionGoal>(&goal))
