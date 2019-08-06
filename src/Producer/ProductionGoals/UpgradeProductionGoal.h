@@ -16,6 +16,12 @@ public:
     // Prerequisite for the next upgrade level
     BWAPI::UnitType prerequisiteForNextLevel();
 
+    friend std::ostream& operator<<(std::ostream& os, const UpgradeProductionGoal& goal)
+    {
+        os << goal.type << "@" << goal.level;
+        return os;
+    }
+
 private:
     BWAPI::UpgradeType type;
     int                level;

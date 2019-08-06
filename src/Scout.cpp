@@ -120,6 +120,7 @@ namespace Scout
 
         // Ensure a worker scout is assigned
         assignWorkerScout();
+        if (!workerScout) return;
 
         if (enemyMain)
         {

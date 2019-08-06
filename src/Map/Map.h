@@ -21,11 +21,13 @@ namespace Map
     std::set<Base*> & getMyBases(BWAPI::Player player = BWAPI::Broodwar->self());
     std::set<Base*> getEnemyBases(BWAPI::Player player = BWAPI::Broodwar->self());
     Base* getMyMain();
+    Base* getMyNatural();
     Base* getEnemyMain();
     Base * baseNear(BWAPI::Position position);
     std::set<Base*> unscoutedStartingLocations();
 
     Choke * choke(const BWEM::ChokePoint * bwemChoke);
+    bool nearNarrowChokepoint(BWAPI::Position position);
 
     int minChokeWidth();
 

@@ -2,6 +2,7 @@
 
 #include "Squad.h"
 #include "Base.h"
+#include "Map.h"
 
 class DefendBaseSquad : public Squad
 {
@@ -10,11 +11,12 @@ public:
             : Squad((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
               , base(base)
     {
-        targetPosition = base->getPosition();
-    };
+        setTargetPosition();
+    }
 
 private:
     Base* base;
 
+    void setTargetPosition();
     void execute(UnitCluster & cluster);
 };

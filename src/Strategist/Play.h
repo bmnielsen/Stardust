@@ -11,6 +11,8 @@ struct PlayUnitRequirement
     int count;
     BWAPI::UnitType type;
     BWAPI::Position position;
+
+    PlayUnitRequirement(int count, BWAPI::UnitType type, BWAPI::Position position) : count(count), type(type), position(position) {}
 };
 
 struct PlayStatus

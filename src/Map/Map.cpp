@@ -459,6 +459,11 @@ namespace Map
         return playerToPlayerBases[BWAPI::Broodwar->self()].main;
     }
 
+    Base *getMyNatural()
+    {
+        return playerToPlayerBases[BWAPI::Broodwar->self()].natural;
+    }
+
     Base * getEnemyMain()
     {
         return playerToPlayerBases[BWAPI::Broodwar->enemy()].main;
@@ -503,6 +508,19 @@ namespace Map
         return it == chokes.end()
             ? nullptr
             : it->second;
+    }
+
+    bool nearNarrowChokepoint(BWAPI::Position position)
+    {
+        for (auto choke : chokes)
+        {
+            if (choke.second->width < 64 && choke.second->Center().getApproxDistance(position) < 64)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     int minChokeWidth()

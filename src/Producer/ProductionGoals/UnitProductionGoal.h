@@ -21,6 +21,12 @@ public:
     // May be -1 if we want constant production
     int countToProduce() { return count; };
 
+    friend std::ostream& operator<<(std::ostream& os, const UnitProductionGoal& goal)
+    {
+        os << goal.count << "x" << goal.type;
+        return os;
+    }
+
 private:
     BWAPI::UnitType type;
     int             count;

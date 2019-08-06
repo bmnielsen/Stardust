@@ -63,7 +63,10 @@ namespace UnitUtil
 
     bool CanAttack(BWAPI::Unit attacker, BWAPI::Unit target)
     {
-        return target->isFlying() ? CanAttackAir(attacker) : CanAttackGround(attacker);
+        return target->isVisible() &&
+            target->isDetected() &&
+            !target->isStasised() &&
+            (target->isFlying() ? CanAttackAir(attacker) : CanAttackGround(attacker));
     }
 
     bool CanAttackAir(BWAPI::Unit attacker)
@@ -79,5 +82,47 @@ namespace UnitUtil
             attacker->getType() == BWAPI::UnitTypes::Protoss_Carrier ||
             attacker->getType() == BWAPI::UnitTypes::Protoss_Reaver ||
             attacker->getType() == BWAPI::UnitTypes::Terran_Bunker; // TODO: Track whether bunkers actually have units in them
+    }
+
+    bool IsRangedUnit(BWAPI::UnitType type)
+    {
+        return
+            type.groundWeapon().maxRange() > 32 ||
+            type.isFlyer() ||
+            type == BWAPI::UnitTypes::Protoss_Reaver;
+    }
+
+    bool IsCombatUnit(BWAPI::UnitType type)
+    {
+        if (type.isWorker() || type.isBuilding()) return false;
+
+        return
+                type.canAttack() ||
+                type.isDetector() ||
+                type == BWAPI::UnitTypes::Zerg_Queen ||
+                type == BWAPI::UnitTypes::Zerg_Defiler ||
+                type == BWAPI::UnitTypes::Terran_Medic ||
+                type == BWAPI::UnitTypes::Protoss_High_Templar ||
+                type == BWAPI::UnitTypes::Protoss_Dark_Archon ||
+                (type.isFlyer() && type.spaceProvided() > 0);
+    }
+
+    BWAPI::WeaponType GetWeapon(BWAPI::UnitType attacker, BWAPI::Unit target)
+    {
+        // We pretend that a bunker has marines in it. It's only a guess.
+        if (attacker == BWAPI::UnitTypes::Terran_Bunker)
+        {
+            return GetWeapon(BWAPI::UnitTypes::Terran_Marine, target);
+        }
+        if (attacker == BWAPI::UnitTypes::Protoss_Carrier)
+        {
+            return GetWeapon(BWAPI::UnitTypes::Protoss_Interceptor, target);
+        }
+        if (attacker == BWAPI::UnitTypes::Protoss_Reaver)
+        {
+            return GetWeapon(BWAPI::UnitTypes::Protoss_Scarab, target);
+        }
+        return target->isFlying() ? attacker.airWeapon() : attacker.groundWeapon();
+
     }
 }

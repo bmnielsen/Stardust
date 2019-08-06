@@ -12,7 +12,7 @@ namespace Players
         std::map<BWAPI::Player, std::shared_ptr<UpgradeTracker>> playerToUpgradeTracker;
         std::map<BWAPI::Player, Grid> playerToGrid;
 
-        std::shared_ptr<UpgradeTracker> getUpgradeTracker(BWAPI::Player player)
+        std::shared_ptr<UpgradeTracker> &getUpgradeTracker(BWAPI::Player player)
         {
             auto it = playerToUpgradeTracker.find(player);
             if (it != playerToUpgradeTracker.end())
@@ -20,9 +20,8 @@ namespace Players
                 return it->second;
             }
 
-            auto upgradeTracker = std::make_shared<UpgradeTracker>(player);
-            playerToUpgradeTracker.try_emplace(player, upgradeTracker);
-            return upgradeTracker;
+            auto result = playerToUpgradeTracker.try_emplace(player, std::make_shared<UpgradeTracker>(player));
+            return result.first->second;
         }
 
 #ifndef _DEBUG
@@ -48,27 +47,27 @@ namespace Players
 
     int weaponDamage(BWAPI::Player player, BWAPI::WeaponType wpn)
     {
-        return playerToUpgradeTracker[player]->weaponDamage(wpn);
+        return getUpgradeTracker(player)->weaponDamage(wpn);
     }
 
     int weaponRange(BWAPI::Player player, BWAPI::WeaponType wpn)
     {
-        return playerToUpgradeTracker[player]->weaponRange(wpn);
+        return getUpgradeTracker(player)->weaponRange(wpn);
     }
 
     int unitCooldown(BWAPI::Player player, BWAPI::UnitType type)
     {
-        return playerToUpgradeTracker[player]->unitCooldown(type);
+        return getUpgradeTracker(player)->unitCooldown(type);
     }
     
     double unitTopSpeed(BWAPI::Player player, BWAPI::UnitType type)
     {
-        return playerToUpgradeTracker[player]->unitCooldown(type);
+        return getUpgradeTracker(player)->unitCooldown(type);
     }
     
     int unitArmor(BWAPI::Player player, BWAPI::UnitType type)
     {
-        return playerToUpgradeTracker[player]->unitArmor(type);
+        return getUpgradeTracker(player)->unitArmor(type);
     }
 
     int attackDamage(BWAPI::Player attackingPlayer, BWAPI::UnitType attackingUnit, BWAPI::Player targetPlayer, BWAPI::UnitType targetUnit)

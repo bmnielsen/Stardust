@@ -1,5 +1,9 @@
 #include "UnitCluster.h"
 #include "PathFinding.h"
+#include "Units.h"
+#include "UnitUtil.h"
+#include "Players.h"
+#include "Geo.h"
 
 void UnitCluster::addUnit(BWAPI::Unit unit)
 {
@@ -57,4 +61,36 @@ void UnitCluster::update(BWAPI::Position targetPosition)
 
     center = BWAPI::Position(sumX / units.size(), sumY / units.size());
     vanguard = closestToTarget;
+}
+
+void UnitCluster::execute(std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition)
+{
+    // Micro each unit
+    for (auto unit : units)
+    {
+        auto & myUnit = Units::getMine(unit);
+
+        // If the unit is stuck, unstick it
+        if (myUnit.isStuck())
+        {
+            myUnit.stop();
+            continue;
+        }
+
+        // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
+        if (!myUnit.isReady()) continue;
+
+        // Pick a target
+        auto target = UnitUtil::IsRangedUnit(unit->getType())
+                ? ChooseRangedTarget(unit, targets, targetPosition)
+                : ChooseMeleeTarget(unit, targets, targetPosition);
+        if (target)
+        {
+            myUnit.attackUnit(target->unit);
+        }
+        else
+        {
+            myUnit.moveTo(targetPosition);
+        }
+    }
 }

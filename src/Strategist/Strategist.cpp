@@ -93,6 +93,9 @@ namespace Strategist
                 }
             }
 
+            // Grab a count of incomplete units
+            auto typeToIncompleteUnits = Units::countIncompleteByType();
+
             // Process each play
             // They greedily take the reassignable units closest to where they want them
             std::shared_ptr<Play> playReceivingUnassignedUnits = nullptr;
@@ -103,7 +106,18 @@ namespace Strategist
                 for (auto &unitRequirement : play->status.unitRequirements)
                 {
                     if (unitRequirement.count < 1) continue;
-                    if (typeToReassignableUnits.find(unitRequirement.type) == typeToReassignableUnits.end()) continue;
+                    if (typeToReassignableUnits.find(unitRequirement.type) == typeToReassignableUnits.end())
+                    {
+                        // "Reserve" incomplete units if possible
+                        auto incompleteUnits = typeToIncompleteUnits.find(unitRequirement.type);
+                        while (incompleteUnits->second > 0 && unitRequirement.count > 0)
+                        {
+                            unitRequirement.count--;
+                            incompleteUnits->second--;
+                        }
+
+                        continue;
+                    }
 
                     auto &reassignableUnits = typeToReassignableUnits[unitRequirement.type];
 
@@ -192,11 +206,30 @@ namespace Strategist
 
             int currentZealotRatio = (100 * currentZealots) / std::max(1, currentZealots + currentDragoons);
 
-            if (currentZealotRatio > percentZealots)
+            if (currentZealotRatio >= percentZealots)
             {
                 productionGoals.emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Dragoon, -1, -1);
             }
             productionGoals.emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Zealot, -1, -1);
+        }
+
+        void writeInstrumentation()
+        {
+            std::vector<std::string> values;
+            values.reserve(plays.size());
+            for (auto & play : plays)
+            {
+                values.emplace_back(play->label());
+            }
+            CherryVis::setBoardListValue("play", values);
+
+            values.clear();
+            values.reserve(productionGoals.size());
+            for (auto & productionGoal : productionGoals)
+            {
+                values.emplace_back((std::ostringstream() << productionGoal).str());
+            }
+            CherryVis::setBoardListValue("prodgoal", values);
         }
 
 #ifndef _DEBUG
@@ -223,14 +256,17 @@ namespace Strategist
         // They signal interesting changes to the Strategist through their PlayStatus object.
         for (auto it = plays.begin(); it != plays.end();)
         {
+            (*it)->status.unitRequirements.clear();
+            (*it)->status.removedUnits.clear();
+
             (*it)->update();
 
             // Update our unit map for units released from the play
-            for (auto &unit : (*it)->status.removedUnits)
+            for (auto unit : (*it)->status.removedUnits)
             {
+                (*it)->removeUnit(unit);
                 unitToPlay.erase(unit);
             }
-            (*it)->status.removedUnits.clear();
 
             // Handle play transition
             // This replaces the current play with a new one, moving all units
@@ -268,13 +304,7 @@ namespace Strategist
 
         updateScouting();
 
-        std::vector<std::string> values;
-        values.reserve(plays.size());
-        for (auto & play : plays)
-        {
-            values.emplace_back(play->label());
-        }
-        CherryVis::setBoardListValue("strategist", values);
+        writeInstrumentation();
     }
 
     void chooseOpening()

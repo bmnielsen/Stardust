@@ -14,6 +14,8 @@ public:
 
     std::shared_ptr<Squad> getSquad() { return squad; }
 
+    void update();
+
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
 private:

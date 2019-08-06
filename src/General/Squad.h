@@ -15,6 +15,7 @@ public:
     void updateClusters();
     void execute();
 
+    BWAPI::Position getTargetPosition() { return targetPosition; }
     std::vector<BWAPI::Unit> getUnits();
 
     Squad(std::string label) : label(std::move(label)), targetPosition(BWAPI::Positions::Invalid) {}
@@ -25,5 +26,6 @@ protected:
     std::set<std::shared_ptr<UnitCluster>>              clusters;
     std::map<BWAPI::Unit, std::shared_ptr<UnitCluster>> unitToCluster;
 
+    virtual std::shared_ptr<UnitCluster> createCluster(BWAPI::Unit unit) { return std::make_shared<UnitCluster>(unit); }
     virtual void execute(UnitCluster & cluster) = 0;
 };

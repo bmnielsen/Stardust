@@ -6,6 +6,8 @@
 #include "MyDragoon.h"
 #include "MyWorker.h"
 
+namespace { auto & bwemMap = BWEM::Map::Instance(); }
+
 namespace Units
 {
 #ifndef _DEBUG
@@ -262,19 +264,18 @@ namespace Units
         return playerToUnits[player];
     }
 
-    std::set<std::shared_ptr<Unit>> getInRadius(BWAPI::Player player, BWAPI::Position position, int radius)
+    void getInRadius(std::set<std::shared_ptr<Unit>> &units, BWAPI::Player player, BWAPI::Position position, int radius)
     {
-        std::set<std::shared_ptr<Unit>> result;
-
-        for (auto unit : playerToUnits[player])
+        for (auto &unit : playerToUnits[player])
             if (unit->lastPositionValid && unit->lastPosition.getApproxDistance(position) <= radius)
-                result.insert(unit);
+                units.insert(unit);
 
+        // For debugging
         size_t count = 0;
         for (auto unit : player->getUnits())
             if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon && unit->getPosition().getApproxDistance(position) <= radius)
                 count++;
-        if (count > result.size())
+        if (count > units.size())
         {
             for (auto unit : player->getUnits())
                 if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon && unit->getPosition().getApproxDistance(position) <= radius)
@@ -283,8 +284,16 @@ namespace Units
                     Log::Debug() << "Missed " << unit->getType() << " @ " << unit->getPosition() << ": lastPosition=" << unt.lastPosition << "; lastPositionValid=" << unt.lastPositionValid << "; dist=" << unt.lastPosition.getApproxDistance(position);
                 }
         }
+    }
 
-        return result;
+    void getInArea(std::set<std::shared_ptr<Unit>> &units, BWAPI::Player player, const BWEM::Area *area, std::function<bool(const std::shared_ptr<Unit>&)> predicate)
+    {
+        for (auto &unit : playerToUnits[player])
+        {
+            if (predicate && !predicate(unit)) continue;
+            if (unit->lastPositionValid && bwemMap.GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)
+                units.insert(unit);
+        }
     }
 
     int countAll(BWAPI::UnitType type)
@@ -300,5 +309,15 @@ namespace Units
     int countIncomplete(BWAPI::UnitType type)
     {
         return myIncompleteUnitsByType[type].size();
+    }
+
+    std::map<BWAPI::UnitType, int> countIncompleteByType()
+    {
+        std::map<BWAPI::UnitType, int> result;
+        for (auto & typeAndUnits : myIncompleteUnitsByType)
+        {
+            result[typeAndUnits.first] = typeAndUnits.second.size();
+        }
+        return result;
     }
 }

@@ -26,7 +26,7 @@ void Squad::addUnit(BWAPI::Unit unit)
         return;
     }
 
-    auto newCluster = std::make_shared<UnitCluster>(unit);
+    auto newCluster = createCluster(unit);
     clusters.insert(newCluster);
     unitToCluster[unit] = newCluster;
 }
