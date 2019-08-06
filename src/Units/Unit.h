@@ -22,7 +22,7 @@ public:
     // These four properties will be used for CQL queries, so they are not marked mutable
     // (except for now until CQL works)
 
-    BWAPI::Unit     unit;               // Reference to the unit
+    BWAPI::Unit             unit;               // Reference to the unit
     mutable BWAPI::Player   player;             // Player owning the unit
     mutable int             tilePositionX;      // X coordinate of the tile position
     mutable int             tilePositionY;      // Y coordinate of the tile position

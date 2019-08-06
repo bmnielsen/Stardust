@@ -3,6 +3,7 @@
 #include "Common.h"
 
 #include <bwem.h>
+#include "Choke.h"
 
 class MyUnit
 {
@@ -12,13 +13,12 @@ public:
     void update();
 
     bool moveTo(BWAPI::Position position, bool avoidNarrowChokes = false);
-    void fleeFrom(BWAPI::Position position);
     int  distanceToMoveTarget() const;
 
-    bool isReady() const;
-    bool isStuck() const;
+    virtual void attackUnit(BWAPI::Unit target);
 
-    int getLastAttackStartedAt() const { return lastAttackStartedAt; };
+    virtual bool isReady() const { return true; };
+    virtual bool isStuck() const { return unit->isStuck(); };
 
     void move(BWAPI::Position position);
     void attack(BWAPI::Unit target);
@@ -28,30 +28,20 @@ public:
     bool build(BWAPI::UnitType type, BWAPI::TilePosition tile);
     void stop();
 
-private:
+protected:
     BWAPI::Unit     unit;
 
     bool issuedOrderThisFrame;
 
-    // Used for pathing
     BWAPI::Position                     targetPosition;
     BWAPI::Position                     currentlyMovingTowards;
     std::deque<const BWEM::ChokePoint*> waypoints;
-    BWAPI::Unit                         mineralWalkingPatch;
-    const BWEM::Area*                   mineralWalkingTargetArea;
-    BWAPI::Position                     mineralWalkingStartPosition;
     int                                 lastMoveFrame;
 
-    // Used for various things, like detecting stuck goons and updating our collision matrix
-    BWAPI::Position lastPosition;
+    virtual void typeSpecificUpdate() {}
 
-    // Used for goon micro
-    int lastAttackStartedAt;
-    int potentiallyStuckSince;  // frame the unit might have been stuck since, or 0 if it isn't stuck
-
+    virtual void resetMoveData();
     void updateMoveWaypoints();
-    void moveToNextWaypoint();
-    void mineralWalk();
-
-    void updateGoon();
+    virtual void moveToNextWaypoint();
+    virtual bool mineralWalk(const Choke * choke = nullptr) { return false; }
 };

@@ -3,6 +3,8 @@
 #include "Units.h"
 #include "Geo.h"
 #include "Players.h"
+#include "MyDragoon.h"
+#include "MyWorker.h"
 
 namespace Units
 {
@@ -140,6 +142,7 @@ namespace Units
             if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon && false)
             {
                 auto & myUnit = getMine(unit);
+                auto & myDragoon = dynamic_cast<MyDragoon&>(myUnit);
 
                 anyDebugUnits = true;
 
@@ -160,7 +163,7 @@ namespace Units
                 debug << ". isMoving=" << unit->isMoving() << ";isattackframe=" << unit->isAttackFrame() << ";isstartingattack=" << unit->isStartingAttack() << ";cooldown=" << unit->getGroundWeaponCooldown();
 
                 if (myUnit.isStuck()) debug << ";is stuck";
-                if (myUnit.getLastAttackStartedAt() > 0) debug << ";lastAttackStartedAt=" << (BWAPI::Broodwar->getFrameCount() - myUnit.getLastAttackStartedAt());
+                if (myDragoon.getLastAttackStartedAt() > 0) debug << ";lastAttackStartedAt=" << (BWAPI::Broodwar->getFrameCount() - myDragoon.getLastAttackStartedAt());
                 debug << ";isReady=" << myUnit.isReady();
             }
         }
@@ -220,6 +223,16 @@ namespace Units
         auto it = bwapiUnitToMyUnit.find(unit);
         if (it != bwapiUnitToMyUnit.end())
             return *it->second;
+
+        if (unit->getType().isWorker())
+        {
+            return *bwapiUnitToMyUnit.emplace(unit, std::make_unique<MyWorker>(unit)).first->second;
+        }
+
+        if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon)
+        {
+            return *bwapiUnitToMyUnit.emplace(unit, std::make_unique<MyDragoon>(unit)).first->second;
+        }
 
         return *bwapiUnitToMyUnit.emplace(unit, std::make_unique<MyUnit>(unit)).first->second;
     }
