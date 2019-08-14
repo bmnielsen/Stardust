@@ -39,6 +39,7 @@ Tasks:
 #include "General.h"
 #include "Units.h"
 #include "Workers.h"
+#include "WorkerOrderTimer.h"
 #include "Scout.h"
 #include "Bullets.h"
 #include "Players.h"
@@ -52,6 +53,7 @@ void LocutusAIModule::onStart()
 
     Map::initialize();
     BuildingPlacement::initialize();
+    WorkerOrderTimer::initialize();
 
     BWAPI::Broodwar->setLocalSpeed(0);
     BWAPI::Broodwar->setFrameSkip(0);
@@ -66,6 +68,7 @@ void LocutusAIModule::onStart()
 
 void LocutusAIModule::onEnd(bool isWinner)
 {
+    WorkerOrderTimer::write();
     CherryVis::gameEnd();
 }
 
@@ -88,6 +91,9 @@ void LocutusAIModule::onFrame()
 
     Units::update();
     Timer::checkpoint("Units::update");
+
+    WorkerOrderTimer::update();
+    Timer::checkpoint("WorkerOrderTimer::update");
 
     Map::update();
     Timer::checkpoint("Map::update");

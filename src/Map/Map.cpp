@@ -211,7 +211,14 @@ namespace Map
                 {
                     setBaseOwner(nearbyBase, unit->getPlayer());
 
-                    if (isCloserDepot) nearbyBase->resourceDepot = unit;
+                    if (isCloserDepot)
+                    {
+                        nearbyBase->resourceDepot = unit;
+                        if (unit->getPlayer() == BWAPI::Broodwar->self())
+                        {
+                            unit->setRallyPoint(nearbyBase->mineralLineCenter);
+                        }
+                    }
                 }
             }
 

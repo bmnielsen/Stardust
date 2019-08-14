@@ -117,10 +117,6 @@ Choke::Choke(const BWEM::ChokePoint * _choke)
     // If there is a map with a narrow blocked choke it will break
     if (choke->Blocked() && width == 15) width = 32;
 
-#ifdef _DEBUG
-    return;
-#endif
-
     // Check if the choke is a ramp
     int firstAreaElevation = BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(choke->GetAreas().first->Top()));
     int secondAreaElevation = BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(choke->GetAreas().second->Top()));

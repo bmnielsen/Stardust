@@ -237,21 +237,6 @@ namespace BuildingPlacement
             }
         }
 
-        BWAPI::Position getOrigin(Base * base)
-        {
-            if (!base) return BWAPI::Positions::Invalid;
-
-            int x = 0;
-            int y = 0;
-            for (auto mineralPatch : base->mineralPatches())
-            {
-                x += mineralPatch->getPosition().x;
-                y += mineralPatch->getPosition().y;
-            }
-
-            return BWAPI::Position(x / base->mineralPatchCount(), y / base->mineralPatchCount());
-        }
-
         void dumpHeatmap()
         {
             // We dump a heatmap with the following values:
@@ -301,7 +286,7 @@ namespace BuildingPlacement
 
         dumpHeatmap();
 
-        neighbourhoodOrigins[Neighbourhood::MainBase] = getOrigin(Map::baseNear(BWAPI::Position(BWAPI::Broodwar->self()->getStartLocation())));
+        neighbourhoodOrigins[Neighbourhood::MainBase] = Map::getMyMain()->mineralLineCenter;
     }
 
     void onUnitDestroy(BWAPI::Unit unit)

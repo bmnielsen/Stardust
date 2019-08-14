@@ -21,6 +21,7 @@ set(LOCUTUS_INCLUDES
         ${PROJECT_SOURCE_DIR}/Strategist
         ${PROJECT_SOURCE_DIR}/Units
         ${PROJECT_SOURCE_DIR}/Util
+        ${PROJECT_SOURCE_DIR}/Workers
         )
 include_directories(${LOCUTUS_INCLUDES})
 

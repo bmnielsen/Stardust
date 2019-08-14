@@ -16,6 +16,7 @@ public:
     int           lastScouted;                                // When we have last seen this base
     bool          spiderMined;                                // Do we suspect this base to have a spider mine blocking it
     bool          requiresMineralWalkFromEnemyStartLocations; // Does this base require mineral walking for the enemy to reach it
+    BWAPI::Position mineralLineCenter; // Approximate center of the mineral line
 
     Base(BWAPI::TilePosition _tile, const BWEM::Base * _bwemBase);
 

@@ -10,6 +10,15 @@ Base::Base(BWAPI::TilePosition _tile, const BWEM::Base * _bwemBase)
     , spiderMined(false)
     , requiresMineralWalkFromEnemyStartLocations(false)
 {
+    int x = 0;
+    int y = 0;
+    for (auto mineral : bwemBase->Minerals())
+    {
+        x += mineral->Unit()->getPosition().x;
+        y += mineral->Unit()->getPosition().y;
+    }
+
+    mineralLineCenter = (getPosition() + BWAPI::Position(x / mineralPatchCount(), y / mineralPatchCount()) * 2) / 3;
 }
 
 std::vector<BWAPI::Unit> Base::mineralPatches() const
