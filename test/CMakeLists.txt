@@ -27,7 +27,8 @@ add_executable(tests
         ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/OpenBWData/BW/BWData.cpp
         BWTest.cpp
         SelfPlay.cpp
-        Steamhammer.cpp )
+        Steamhammer.cpp
+        AiideMapAnalysis.cpp)
 
 target_link_libraries(tests gtest gtest_main BWAPILIB Locutus Steamhammer)
 
