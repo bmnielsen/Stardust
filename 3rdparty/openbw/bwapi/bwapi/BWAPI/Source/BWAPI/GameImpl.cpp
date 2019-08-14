@@ -1211,9 +1211,6 @@ namespace BWAPI
     frameCount = s.frameCount;
     flags = s.flags;
 
-    for(unsigned int j = 0; j < this->commandBuffer.size(); ++j)
-      for (unsigned int i = 0; i < this->commandBuffer[j].size(); ++i)
-        delete this->commandBuffer[j][i];
     this->commandBuffer.clear();
     this->commandBuffer.reserve(16);
 
