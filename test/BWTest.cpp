@@ -78,6 +78,8 @@ void BWTest::runGame(bool opponent)
 
     std::cout << "Game started!" << std::endl;
 
+    auto start = std::chrono::high_resolution_clock::now();
+
     if (opponent)
     {
         if (opponentModule) h->setAIModule(opponentModule);
@@ -139,6 +141,9 @@ void BWTest::runGame(bool opponent)
     else
     {
         if (onEndMine) onEndMine();
+
+        auto result = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count();
+        std::cout << "Total game time: " << result << "s" << std::endl;
 
         EXPECT_TRUE(gameOwner.getGame().won());
 
