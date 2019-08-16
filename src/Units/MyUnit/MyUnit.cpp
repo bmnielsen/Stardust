@@ -23,6 +23,20 @@ void MyUnit::update()
     typeSpecificUpdate();
 
     updateMoveWaypoints();
+
+    // Guard against buildings having a deep training queue
+    if (unit->getTrainingQueue().size() > 1 && unit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))
+    {
+        Log::Get() << "WARNING: Training queue for " << unit->getType() << " @ " << unit->getTilePosition() << " is too deep! Cancelling later units.";
+        std::ostringstream units;
+        for (int i = 0; i < unit->getTrainingQueue().size(); i++)
+        {
+            if (i > 0) units << ",";
+            units << unit->getTrainingQueue()[i];
+        }
+        Log::Get() << "Queue: " << units.str();
+        unit->cancelTrain(1);
+    }
 }
 
 

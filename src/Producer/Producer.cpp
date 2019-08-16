@@ -1316,19 +1316,7 @@ namespace Producer
 
         void handleGoal(Type type, int countToProduce, int producerLimit, BWAPI::UnitType prerequisite = BWAPI::UnitTypes::None)
         {
-            int producerCount = 0;
             int toProduce = countToProduce;
-
-            // Reduce the number to produce by items already in the committed items set
-            if (toProduce != -1)
-            {
-                for (auto & item : committedItems)
-                {
-                    if (item->type == type) toProduce--;
-                }
-
-                if (toProduce <= 0) return;
-            }
 
             // For some logic we need to know which variant type we are producing, so reference them here
             auto unitType = std::get_if<BWAPI::UnitType>(&type);
@@ -1383,6 +1371,25 @@ namespace Producer
                 if (!unit->exists() || !unit->isCompleted()) continue;
                 if (unit->getType() != producerType) continue;
 
+                // If we have sent the train command to a producer, but the unit isn't created yet, then reduce the number we need to build
+                // This is not perfect, as it will reduce the count of all production goals targeting this unit type, but it's probably
+                // rare that we have multiple goals with limited numbers of the same unit type anyway.
+                if (unitType && toProduce != -1 && unit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
+                    (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame() - 1) < BWAPI::Broodwar->getLatencyFrames() &&
+                    unit->getLastCommand().getUnitType() == *unitType)
+                {
+                    toProduce--;
+                    if (toProduce == 0) return;
+                }
+
+                // If this producer is already created when handling a previous production goal, reference the existing object
+                auto existingProducerIt = existingProducers.find(unit);
+                if (existingProducerIt != existingProducers.end())
+                {
+                    producers.push_back(existingProducerIt->second);
+                    continue;
+                }
+
                 int remainingTrainTime = -1;
                 if (unitType)
                 {
@@ -1393,7 +1400,9 @@ namespace Producer
                     remainingTrainTime = getRemainingBuildTime(unit, unit->getRemainingUpgradeTime(), BWAPI::UnitCommandTypes::Upgrade, type);
                 }
 
-                producers.push_back(std::make_shared<Producer>(unit, std::max(prerequisitesAvailable, remainingTrainTime + 1)));
+                auto producer = std::make_shared<Producer>(unit, std::max(prerequisitesAvailable, remainingTrainTime + 1));
+                producers.push_back(producer);
+                existingProducers[unit] = producer;
             }
 
             // Step 3: Repeatedly commit a unit from the earliest producer available, or a new one if applicable, until we have built enough
@@ -1535,7 +1544,8 @@ namespace Producer
                 // Produce units desired at frame 0
                 if (item->producer && item->producer->existing && item->startFrame <= BWAPI::Broodwar->getRemainingLatencyFrames())
                 {
-                    item->producer->existing->train(*unitType);
+                    auto result = item->producer->existing->train(*unitType);
+                    if (result) Log::Debug() << "Sent command to train " << (*unitType) << " from " << item->producer->existing->getType() << " @ " << item->producer->existing->getTilePosition();
                 }
 
                 // Pylons may not already have a build location
