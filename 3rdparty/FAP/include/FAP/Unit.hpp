@@ -283,17 +283,12 @@ namespace FAP {
 
     auto constexpr setGroundWeapon(BWAPI::WeaponType groundWeapon, int groundHits) && {
       return std::move(*this)
-        .setGroundDamage(groundWeapon.damageAmount())
-        .setGroundCooldown(groundWeapon.damageCooldown()
-          / std::max(groundHits * groundWeapon.damageFactor(), 1))
         .setGroundDamageType(groundWeapon.damageType())
-        .setGroundMinRange(groundWeapon.minRange())
-        .setGroundMaxRange(groundWeapon.maxRange());
+        .setGroundMinRange(groundWeapon.minRange());
     }
 
     auto constexpr setAirWeapon(BWAPI::WeaponType airWeapon, int airHits) && {
       return std::move(*this)
-        .setAirDamage(airWeapon.damageAmount())
         .setAirCooldown(airWeapon.damageCooldown()
           / std::max(airHits * airWeapon.damageFactor(), 1))
         .setAirDamageType(airWeapon.damageType())
@@ -317,8 +312,6 @@ namespace FAP {
         .setMaxHealth(type.maxHitPoints())
         .setMaxShields(type.maxShields())
         .setOrganic(type.isOrganic())
-        .setSpeed(static_cast<float>(type.topSpeed()))
-        .setArmor(type.armor())
         .setGroundWeapon(type.groundWeapon(), type.maxGroundHits())
         .setAirWeapon(type.airWeapon(), type.maxAirHits())
         .setUnitSize(type.size());
@@ -357,11 +350,14 @@ namespace FAP {
         }
       };
 
-      int const groundRange[] = { unit.groundMaxRangeSquared, unit.groundMaxRangeSquared + extraRange(unit.unitType.groundWeapon()), 5 * 32, 6 * 32, 32 * 8, 32 * 8 };
-      unit.groundMaxRangeSquared = groundRange[rangeUpgraded + (unit.unitType == BWAPI::UnitTypes::Terran_Bunker) * 2 + (unit.unitType == BWAPI::UnitTypes::Protoss_Carrier) * 4];
-
-      int const airRange[] = { unit.airMaxRangeSquared, unit.airMaxRangeSquared + extraRange(unit.unitType.airWeapon()), 5 * 32, 6 * 32, 32 * 8, 32 * 8 };
-      unit.airMaxRangeSquared = airRange[rangeUpgraded + (unit.unitType == BWAPI::UnitTypes::Terran_Bunker) * 2 + (unit.unitType == BWAPI::UnitTypes::Protoss_Carrier) * 4];
+      if (unit.unitType == BWAPI::UnitTypes::Terran_Bunker)
+      {
+          unit.groundMaxRangeSquared = unit.airMaxRangeSquared = unit.groundMaxRangeSquared + 32;
+      }
+      else if (unit.unitType == BWAPI::UnitTypes::Protoss_Carrier)
+      {
+          unit.groundMaxRangeSquared = unit.airMaxRangeSquared = 8 * 32;
+      }
 
       // Store squares of ranges
       unit.groundMinRangeSquared *= unit.groundMinRangeSquared;
