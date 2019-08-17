@@ -126,6 +126,7 @@ namespace FAP {
     static_assert(Unit<uv>::hasFlag(UnitValues::stimmed));
     static_assert(Unit<uv>::hasFlag(UnitValues::rangeUpgrade));
     static_assert(Unit<uv>::hasFlag(UnitValues::attackerCount));
+    static_assert(Unit<uv>::hasFlag(UnitValues::undetected));
     static_assert(Unit<uv>::hasFlag(UnitValues::data));
     return true;
   }
@@ -257,6 +258,7 @@ namespace FAP {
     int closestDistSquared;
 
     for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
+      if (enemyIt->undetected) continue;
       if (enemyIt->flying) {
         if (fu.airDamage) {
           auto const d = distSquared(fu, *enemyIt);

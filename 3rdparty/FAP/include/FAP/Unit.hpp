@@ -41,6 +41,7 @@ namespace FAP {
     rangeUpgrade            = 1ull << 30,
     attackerCount           = 1ull << 31,
     data                    = 1ull << 32,
+    undetected              = 1ull << 33,
   };
 
   template<typename UnitExtension = std::tuple<>>
@@ -79,6 +80,8 @@ namespace FAP {
 
     int numAttackers;
     int attackCooldownRemaining;
+
+    bool undetected;
 
     UnitExtension data;
   };
@@ -320,6 +323,11 @@ namespace FAP {
     auto constexpr setAttackCooldownRemaining(int attackCooldownRemaining = 0) && {
       unit.attackCooldownRemaining = attackCooldownRemaining;
       return std::move(*this).template addFlag<UnitValues::attackCooldownRemaining>();
+    }
+
+    auto constexpr setUndetected(bool undetected) && {
+      unit.undetected = undetected;
+      return std::move(*this).template addFlag<UnitValues::undetected>();
     }
 
     template<typename T = UnitExtension>
