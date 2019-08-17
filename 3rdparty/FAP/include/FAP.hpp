@@ -234,9 +234,19 @@ namespace FAP {
   template<typename UnitExtension>
   template<bool tankSplash>
   void FastAPproximation<UnitExtension>::unitsim(FAPUnit<UnitExtension> &fu, std::vector<FAPUnit<UnitExtension>> &enemyUnits) {
+    bool kite = false;
     if (fu.attackCooldownRemaining) {
-      didSomething = true;
-      return;
+      if (fu.unitType == BWAPI::UnitTypes::Terran_Vulture ||
+          (fu.unitType == BWAPI::UnitTypes::Protoss_Dragoon &&
+          fu.attackCooldownRemaining <= BWAPI::UnitTypes::Protoss_Dragoon.groundWeapon().damageCooldown() - 6))
+      {
+        kite = true;
+      }
+      else
+      {
+        didSomething = true;
+        return;
+      }
     }
 
     if(!(fu.groundDamage || fu.airDamage)) {
@@ -267,6 +277,23 @@ namespace FAP {
           }
         }
       }
+    }
+
+    if (kite)
+    {
+      if (closestEnemy != enemyUnits.end() &&
+          closestEnemy->groundMaxRangeSquared < fu.groundMaxRangeSquared &&
+          closestDistSquared <= (fu.groundMaxRangeSquared + fu.speedSquared))
+      {
+        auto const dx = closestEnemy->x - fu.x;
+        auto const dy = closestEnemy->y - fu.y;
+
+        fu.x -= static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy)));
+        fu.y -= static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy)));
+      }
+
+      didSomething = true;
+      return;
     }
 
     if (closestEnemy != enemyUnits.end() && closestDistSquared <= fu.speedSquared &&
