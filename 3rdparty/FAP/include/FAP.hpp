@@ -60,6 +60,12 @@ namespace FAP {
   private:
     std::vector<FAPUnit<UnitExtension>> player1, player2;
 
+    // Current approach to collisions: allow two units to share the same grid cell, using half-tile resolution
+    // This seems to strike a reasonable balance between improving how large melee armies are simmed and avoiding
+    // expensive collision-based pathing calculations
+    unsigned char collision[262144] = {};
+    void updatePosition(FAPUnit<UnitExtension> &fu, int x, int y);
+
     bool didSomething = false;
     static void dealDamage(FAPUnit<UnitExtension> &fu, int damage, BWAPI::DamageType damageType);
     static int distSquared(FAPUnit<UnitExtension> const &u1, const FAPUnit<UnitExtension> &u2);
@@ -135,6 +141,10 @@ namespace FAP {
   template<UnitValues uv>
   void FastAPproximation<UnitExtension>::addUnitPlayer1(Unit<uv, UnitExtension> &&fu) {
     static_assert(AssertValidUnit<uv>());
+    if (!fu.unit.flying && fu.unit.unitType != BWAPI::UnitTypes::Terran_Medic) {
+      fu.unit.cell = (fu.unit.x >> 4) + ((fu.unit.y >> 4) << 9);
+      collision[fu.unit.cell]++;
+    }
     player1.emplace_back(fu.unit);
   }
 
@@ -149,6 +159,10 @@ namespace FAP {
   template<UnitValues uv>
   void FastAPproximation<UnitExtension>::addUnitPlayer2(Unit<uv, UnitExtension> &&fu) {
     static_assert(AssertValidUnit<uv>());
+    if (!fu.unit.flying && fu.unit.unitType != BWAPI::UnitTypes::Terran_Medic) {
+      fu.unit.cell = (fu.unit.x >> 4) + ((fu.unit.y >> 4) << 9);
+      collision[fu.unit.cell]++;
+    }
     player2.emplace_back(fu.unit);
   }
 
@@ -183,6 +197,7 @@ namespace FAP {
   template<typename UnitExtension>
   void FastAPproximation<UnitExtension>::clear() {
     player1.clear(), player2.clear();
+    memset(&collision[0], 0, sizeof(unsigned char) * 262144);
   }
 
   template<typename UnitExtension>
@@ -230,6 +245,36 @@ namespace FAP {
       ut == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine ||
       ut == BWAPI::UnitTypes::Zerg_Infested_Terran ||
       ut == BWAPI::UnitTypes::Protoss_Scarab);
+  }
+
+  template<typename UnitExtension>
+  void FastAPproximation<UnitExtension>::updatePosition(FAPUnit<UnitExtension> &fu, int x, int y)
+  {
+    if (fu.flying) {
+      fu.x = x;
+      fu.y = y;
+      return;
+    }
+
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x > 8191) x = 8191;
+    if (y > 8191) y = 8191;
+
+    int cell = (x >> 4) + ((y >> 4) << 9);
+    if (cell == fu.cell) {
+      fu.x = x;
+      fu.y = y;
+      return;
+    }
+
+    if (collision[cell] > 1) return;
+
+    collision[fu.cell]--;
+    collision[cell]++;
+    fu.x = x;
+    fu.y = y;
+    fu.cell = cell;
   }
 
   template<typename UnitExtension>
@@ -289,9 +334,10 @@ namespace FAP {
       {
         auto const dx = closestEnemy->x - fu.x;
         auto const dy = closestEnemy->y - fu.y;
-
-        fu.x -= static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy)));
-        fu.y -= static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy)));
+        updatePosition(
+          fu,
+          fu.x - static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
+          fu.y - static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
       }
 
       didSomething = true;
@@ -300,8 +346,7 @@ namespace FAP {
 
     if (closestEnemy != enemyUnits.end() && closestDistSquared <= fu.speedSquared &&
       !(fu.x == closestEnemy->x && fu.y == closestEnemy->y)) {
-      fu.x = closestEnemy->x;
-      fu.y = closestEnemy->y;
+      updatePosition(fu, closestEnemy->x, closestEnemy->y);
       closestDistSquared = 0;
 
       didSomething = true;
@@ -375,9 +420,10 @@ namespace FAP {
     else if (closestEnemy != enemyUnits.end() && closestDistSquared > fu.speedSquared && fu.speed >= 1.0f) {
       auto const dx = closestEnemy->x - fu.x;
       auto const dy = closestEnemy->y - fu.y;
-
-      fu.x += static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy)));
-      fu.y += static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy)));
+      updatePosition(
+        fu,
+        fu.x + static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
+        fu.y + static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
 
       didSomething = true;
     }

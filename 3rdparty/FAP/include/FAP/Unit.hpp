@@ -47,6 +47,7 @@ namespace FAP {
   template<typename UnitExtension = std::tuple<>>
   struct FAPUnit {
     int x, y;
+    int cell = 0; // current cell in collision grid
 
     int health;
     int maxHealth;
