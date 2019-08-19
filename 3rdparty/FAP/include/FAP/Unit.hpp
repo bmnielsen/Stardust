@@ -64,12 +64,14 @@ namespace FAP {
 
     int groundDamage;
     int groundCooldown;
+    int groundMaxRange;
     int groundMaxRangeSquared;
     int groundMinRangeSquared;
     BWAPI::DamageType groundDamageType;
 
     int airDamage;
     int airCooldown;
+    int airMaxRange;
     int airMaxRangeSquared;
     int airMinRangeSquared;
     BWAPI::DamageType airDamageType;
@@ -203,7 +205,7 @@ namespace FAP {
     }
 
     auto constexpr setGroundMaxRange(int groundMaxRange) && {
-      unit.groundMaxRangeSquared = groundMaxRange;
+      unit.groundMaxRangeSquared = unit.groundMaxRange = groundMaxRange;
       return std::move(*this).template addFlag<UnitValues::groundMaxRange>();
     }
 
@@ -228,7 +230,7 @@ namespace FAP {
     }
 
     auto constexpr setAirMaxRange(int airMaxRange) && {
-      unit.airMaxRangeSquared = airMaxRange;
+      unit.airMaxRangeSquared = unit.airMaxRange = airMaxRange;
       return std::move(*this).template addFlag<UnitValues::airMaxRange>();
     }
 

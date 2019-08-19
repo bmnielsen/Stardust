@@ -69,6 +69,7 @@ namespace FAP {
     bool didSomething = false;
     static void dealDamage(FAPUnit<UnitExtension> &fu, int damage, BWAPI::DamageType damageType);
     static int distSquared(FAPUnit<UnitExtension> const &u1, const FAPUnit<UnitExtension> &u2);
+    static int isInRange(FAPUnit<UnitExtension> const &attacker, const FAPUnit<UnitExtension> &target, int range);
     static bool isSuicideUnit(BWAPI::UnitType ut);
 
     template<bool tankSplash>
@@ -240,6 +241,37 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
+  int FastAPproximation<UnitExtension>::isInRange(FAPUnit<UnitExtension> const &attacker, const FAPUnit<UnitExtension> &target, int range) {
+    // Compute edge-to-edge x and y offsets
+    int xDist =
+      attacker.x > target.x
+      ? ((attacker.x - attacker.unitType.dimensionLeft()) - (target.x + target.unitType.dimensionRight()) - 1)
+      : ((target.x - target.unitType.dimensionLeft()) - (attacker.x + attacker.unitType.dimensionRight()) - 1);
+    int yDist =
+      attacker.y > target.y
+      ? ((attacker.y - attacker.unitType.dimensionUp()) - (target.y + target.unitType.dimensionDown()) - 1)
+      : ((target.y - target.unitType.dimensionUp()) - (attacker.y + attacker.unitType.dimensionDown()) - 1);
+    if (xDist < 0) xDist = 0;
+    if (yDist < 0) yDist = 0;
+
+    // Do the BW approximate distance calculation
+    if (xDist < yDist)
+    {
+      if (xDist < (yDist >> 2))
+        return yDist <= range;
+
+      unsigned int minCalc = (3 * xDist) >> 3;
+      return ((minCalc >> 5) + minCalc + yDist - (yDist >> 4) - (yDist >> 6)) <= range;
+    }
+
+    if (yDist < (xDist >> 2))
+      return xDist <= range;
+
+    unsigned int minCalc = (3 * yDist) >> 3;
+    return ((minCalc >> 5) + minCalc + xDist - (xDist >> 4) - (xDist >> 6)) <= range;
+  }
+
+  template<typename UnitExtension>
   bool FastAPproximation<UnitExtension>::isSuicideUnit(BWAPI::UnitType const ut) {
     return (ut == BWAPI::UnitTypes::Zerg_Scourge ||
       ut == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine ||
@@ -326,18 +358,27 @@ namespace FAP {
       }
     }
 
-    if (kite)
-    {
-      if (closestEnemy != enemyUnits.end() &&
-          closestEnemy->groundMaxRangeSquared < fu.groundMaxRangeSquared &&
-          closestDistSquared <= (fu.groundMaxRangeSquared + fu.speedSquared))
-      {
-        auto const dx = closestEnemy->x - fu.x;
-        auto const dy = closestEnemy->y - fu.y;
-        updatePosition(
-          fu,
-          fu.x - static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
-          fu.y - static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
+    // Kite is true for dragoons and vultures that are on their attack cooldown.
+    // - If the enemy is not in our attack range, move towards it (usual behaviour for units not on their attack cooldown).
+    // - If the enemy is in our attack range, move away from it unless its range is equivalent or larger than ours
+    //   or our attack cooldown is about to expire.
+    if (kite) {
+      if (closestEnemy != enemyUnits.end()) {
+        if (!isInRange(fu, *closestEnemy, (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange))) {
+          auto const dx = closestEnemy->x - fu.x;
+          auto const dy = closestEnemy->y - fu.y;
+          updatePosition(
+            fu,
+            fu.x + static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
+            fu.y + static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
+        } else if (fu.attackCooldownRemaining > 1 && closestEnemy->groundMaxRangeSquared < fu.groundMaxRangeSquared) {
+          auto const dx = closestEnemy->x - fu.x;
+          auto const dy = closestEnemy->y - fu.y;
+          updatePosition(
+            fu,
+            fu.x - static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
+            fu.y - static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
+        }
       }
 
       didSomething = true;
@@ -352,8 +393,7 @@ namespace FAP {
       didSomething = true;
     }
 
-    if (closestEnemy != enemyUnits.end() &&
-      closestDistSquared <= (closestEnemy->flying ? fu.airMaxRangeSquared : fu.groundMaxRangeSquared)) {
+    if (closestEnemy != enemyUnits.end() && isInRange(fu, *closestEnemy, (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange))) {
       if (closestEnemy->flying) {
         dealDamage(*closestEnemy, fu.airDamage, fu.airDamageType);
         fu.attackCooldownRemaining = fu.airCooldown;
