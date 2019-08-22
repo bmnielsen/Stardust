@@ -288,10 +288,16 @@ namespace Strategist
                 *it = (*it)->status.transitionTo;
                 it++;
             }
+
+            // Erase the play if it is marked complete
+            else if ((*it)->status.complete)
+            {
+                General::removeSquad((*it)->getSquad());
+                it = plays.erase(it);
+            }
             else
             {
-                // Erase the play if it is marked complete
-                it = (*it)->status.complete ? plays.erase(it) : it + 1;
+                it++;
             }
         }
 

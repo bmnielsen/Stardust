@@ -4,9 +4,9 @@
 
 namespace Timer
 {
-    void start(std::string label);
+    void start(const std::string &label);
 
-    void checkpoint(std::string label);
+    void checkpoint(const std::string &label);
 
     void stop();
 }

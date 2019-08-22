@@ -18,17 +18,27 @@ void UnitCluster::addUnit(BWAPI::Unit unit)
 
 void UnitCluster::removeUnit(BWAPI::Unit unit)
 {
-    if (units.find(unit) == units.end()) return;
+    auto unitIt = units.find(unit);
+    if (unitIt == units.end()) return;
 
-    units.erase(unit);
-    if (units.empty()) return;
-
-    center = BWAPI::Position(
-        ((center.x * (units.size() + 1)) - unit->getPosition().x) / units.size(),
-        ((center.y * (units.size() + 1)) - unit->getPosition().y) / units.size());
+    removeUnit(unitIt);
 }
 
-void UnitCluster::update(BWAPI::Position targetPosition)
+std::set<BWAPI::Unit>::iterator UnitCluster::removeUnit(std::set<BWAPI::Unit>::iterator unitIt)
+{
+    auto unit = *unitIt;
+
+    auto newUnitIt = units.erase(unitIt);
+    if (units.empty()) return newUnitIt;
+
+    center = BWAPI::Position(
+            ((center.x * (units.size() + 1)) - unit->getPosition().x) / units.size(),
+            ((center.y * (units.size() + 1)) - unit->getPosition().y) / units.size());
+
+    return newUnitIt;
+}
+
+void UnitCluster::updatePositions(BWAPI::Position targetPosition)
 {
     int sumX = 0;
     int sumY = 0;

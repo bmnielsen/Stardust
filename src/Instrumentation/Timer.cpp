@@ -7,8 +7,8 @@ namespace Timer
 {
     namespace 
     {
-        const int LOG_CUTOFF = 3500;
-        const int DEBUG_CUTOFF = 1000;
+        const int LOG_CUTOFF = 35;
+        const int DEBUG_CUTOFF = 10;
 
         std::string                                    overallLabel;
         std::chrono::steady_clock::time_point          startPoint;
@@ -21,17 +21,17 @@ namespace Timer
         }
     }
 
-    void start(std::string label)
+    void start(const std::string &label)
     {
         overallLabel = label;
         checkpoints.clear();
         startPoint = lastCheckpoint = std::chrono::high_resolution_clock::now();
     }
 
-    void checkpoint(std::string label)
+    void checkpoint(const std::string &label)
     {
         auto now = std::chrono::high_resolution_clock::now();
-        checkpoints.push_back(std::make_pair(label, std::chrono::duration_cast<std::chrono::microseconds>(now - lastCheckpoint).count()));
+        checkpoints.emplace_back(label, std::chrono::duration_cast<std::chrono::microseconds>(now - lastCheckpoint).count());
         lastCheckpoint = now;
     }
 

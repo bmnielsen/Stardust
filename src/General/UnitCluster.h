@@ -19,7 +19,8 @@ public:
 
     void addUnit(BWAPI::Unit unit);
     void removeUnit(BWAPI::Unit unit);
-    void update(BWAPI::Position targetPosition);
+    std::set<BWAPI::Unit>::iterator removeUnit(std::set<BWAPI::Unit>::iterator unitIt);
+    void updatePositions(BWAPI::Position targetPosition);
     virtual void execute(std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition);
 
 protected:

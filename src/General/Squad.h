@@ -26,6 +26,8 @@ protected:
     std::set<std::shared_ptr<UnitCluster>>              clusters;
     std::map<BWAPI::Unit, std::shared_ptr<UnitCluster>> unitToCluster;
 
+    void addUnitToBestCluster(BWAPI::Unit unit);
+
     virtual std::shared_ptr<UnitCluster> createCluster(BWAPI::Unit unit) { return std::make_shared<UnitCluster>(unit); }
     virtual void execute(UnitCluster & cluster) = 0;
 };
