@@ -1363,7 +1363,25 @@ namespace Producer
             // Committed producers
             for (auto & item : committedItems)
                 if (item->is(producerType))
-                    producers.push_back(std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame)));
+                {
+                    if (item->queuedBuilding && item->queuedBuilding->unit)
+                    {
+                        auto existingProducerIt = existingProducers.find(item->queuedBuilding->unit);
+                        if (existingProducerIt != existingProducers.end())
+                        {
+                            producers.push_back(existingProducerIt->second);
+                            continue;
+                        }
+
+                        auto producer = std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame));
+                        producers.push_back(producer);
+                        existingProducers[item->queuedBuilding->unit] = producer;
+                    }
+                    else
+                    {
+                        producers.push_back(std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame)));
+                    }
+                }
 
             // Completed producers
             for (auto unit : BWAPI::Broodwar->self()->getUnits())
