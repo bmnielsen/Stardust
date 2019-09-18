@@ -42,6 +42,8 @@ namespace FAP {
     attackerCount           = 1ull << 31,
     data                    = 1ull << 32,
     undetected              = 1ull << 33,
+    id                      = 1ull << 34,
+    target                  = 1ull << 35,
   };
 
   template<typename UnitExtension = std::tuple<>>
@@ -87,6 +89,9 @@ namespace FAP {
     bool undetected;
 
     UnitExtension data;
+
+    int id;
+    int target = 0; // ID of current target
   };
 
   template<UnitValues values = UnitValues{}, typename UnitExtension = std::tuple<>>
@@ -331,6 +336,16 @@ namespace FAP {
     auto constexpr setUndetected(bool undetected) && {
       unit.undetected = undetected;
       return std::move(*this).template addFlag<UnitValues::undetected>();
+    }
+
+    auto constexpr setID(int id) && {
+      unit.id = id;
+      return std::move(*this).template addFlag<UnitValues::id>();
+    }
+
+    auto setTarget(int target) && {
+      unit.target = target;
+      return std::move(*this);
     }
 
     template<typename T = UnitExtension>

@@ -73,15 +73,24 @@ namespace FAP {
     static bool isSuicideUnit(BWAPI::UnitType ut);
 
     template<bool tankSplash>
-    void unitsim(FAPUnit<UnitExtension> &fu, std::vector<FAPUnit<UnitExtension>> &enemyUnits);
+    void unitsim(
+            FAPUnit<UnitExtension> &fu,
+            std::vector<FAPUnit<UnitExtension>> &friendlyUnits,
+            std::vector<FAPUnit<UnitExtension>> &enemyUnits);
 
     static void medicsim(FAPUnit<UnitExtension> &fu, std::vector<FAPUnit<UnitExtension>> &friendlyUnits);
-    bool suicideSim(FAPUnit<UnitExtension> &fu, std::vector<FAPUnit<UnitExtension>> &enemyUnits);
+    bool suicideSim(
+            FAPUnit<UnitExtension> &fu,
+            std::vector<FAPUnit<UnitExtension>> &friendlyUnits,
+            std::vector<FAPUnit<UnitExtension>> &enemyUnits);
     
     template<bool tankSplash>
     void isimulate();
 
-    static void unitDeath(FAPUnit<UnitExtension> &&fu, std::vector<FAPUnit<UnitExtension>> &itsFriendlies);
+    static void unitDeath(
+            FAPUnit<UnitExtension> &&fu,
+            std::vector<FAPUnit<UnitExtension>> &itsFriendlies,
+            std::vector<FAPUnit<UnitExtension>> &itsEnemies);
   
     static auto max(int a, int b) {
       int vars[2] = { a, b };
@@ -134,6 +143,7 @@ namespace FAP {
     static_assert(Unit<uv>::hasFlag(UnitValues::rangeUpgrade));
     static_assert(Unit<uv>::hasFlag(UnitValues::attackerCount));
     static_assert(Unit<uv>::hasFlag(UnitValues::undetected));
+    static_assert(Unit<uv>::hasFlag(UnitValues::id));
     static_assert(Unit<uv>::hasFlag(UnitValues::data));
     return true;
   }
@@ -311,7 +321,10 @@ namespace FAP {
 
   template<typename UnitExtension>
   template<bool tankSplash>
-  void FastAPproximation<UnitExtension>::unitsim(FAPUnit<UnitExtension> &fu, std::vector<FAPUnit<UnitExtension>> &enemyUnits) {
+  void FastAPproximation<UnitExtension>::unitsim(
+          FAPUnit<UnitExtension> &fu,
+          std::vector<FAPUnit<UnitExtension>> &friendlyUnits,
+          std::vector<FAPUnit<UnitExtension>> &enemyUnits) {
     bool kite = false;
     if (fu.attackCooldownRemaining) {
       if (fu.unitType == BWAPI::UnitTypes::Terran_Vulture ||
@@ -331,31 +344,46 @@ namespace FAP {
       return;
     }
 
+    // If the unit already has a target, find it
     auto closestEnemy = enemyUnits.end();
     int closestDistSquared;
+    if (fu.target) {
+      for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
+        if (enemyIt->id == fu.target) {
+          closestEnemy = enemyIt;
+          closestDistSquared = distSquared(fu, *enemyIt);
+          break;
+        }
+      }
+    }
 
-    for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
-      if (enemyIt->undetected) continue;
-      if (enemyIt->flying) {
-        if (fu.airDamage) {
-          auto const d = distSquared(fu, *enemyIt);
-          if ((closestEnemy == enemyUnits.end() || d < closestDistSquared) &&
-            d >= fu.airMinRangeSquared) {
-            closestDistSquared = d;
-            closestEnemy = enemyIt;
+    // Otherwise select the target
+    if (closestEnemy == enemyUnits.end()) {
+      for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
+        if (enemyIt->undetected) continue;
+        if (enemyIt->flying) {
+          if (fu.airDamage) {
+            auto const d = distSquared(fu, *enemyIt);
+            if ((closestEnemy == enemyUnits.end() || d < closestDistSquared) &&
+              d >= fu.airMinRangeSquared) {
+              closestDistSquared = d;
+              closestEnemy = enemyIt;
+            }
+          }
+        }
+        else {
+          if (fu.groundDamage) {
+            auto const d = distSquared(fu, *enemyIt);
+            if ((closestEnemy == enemyUnits.end() || d < closestDistSquared) &&
+              d >= fu.groundMinRangeSquared) {
+              closestDistSquared = d;
+              closestEnemy = enemyIt;
+            }
           }
         }
       }
-      else {
-        if (fu.groundDamage) {
-          auto const d = distSquared(fu, *enemyIt);
-          if ((closestEnemy == enemyUnits.end() || d < closestDistSquared) &&
-            d >= fu.groundMinRangeSquared) {
-            closestDistSquared = d;
-            closestEnemy = enemyIt;
-          }
-        }
-      }
+
+      if (closestEnemy != enemyUnits.end()) fu.target = closestEnemy->id;
     }
 
     // Kite is true for dragoons and vultures that are on their attack cooldown.
@@ -420,7 +448,7 @@ namespace FAP {
                     auto temp = *enemyIt;
                     *enemyIt = enemyUnits.back();
                     enemyUnits.pop_back();
-                    unitDeath(std::move(temp), enemyUnits);
+                    unitDeath(std::move(temp), enemyUnits, friendlyUnits);
                   }
                   return;
                 };
@@ -452,7 +480,7 @@ namespace FAP {
         auto temp = *closestEnemy;
         *closestEnemy = enemyUnits.back();
         enemyUnits.pop_back();
-        unitDeath(std::move(temp), enemyUnits);
+        unitDeath(std::move(temp), enemyUnits, friendlyUnits);
       }
 
       didSomething = true;
@@ -498,7 +526,10 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
-  bool FastAPproximation<UnitExtension>::suicideSim(FAPUnit<UnitExtension> &fu, std::vector<FAPUnit<UnitExtension>> &enemyUnits) {
+  bool FastAPproximation<UnitExtension>::suicideSim(
+          FAPUnit<UnitExtension> &fu,
+          std::vector<FAPUnit<UnitExtension>> &friendlyUnits,
+          std::vector<FAPUnit<UnitExtension>> &enemyUnits) {
     auto closestEnemy = enemyUnits.end();
     int closestDistSquared;
 
@@ -535,7 +566,7 @@ namespace FAP {
         auto temp = *closestEnemy;
         *closestEnemy = enemyUnits.back();
         enemyUnits.pop_back();
-        unitDeath(std::move(temp), enemyUnits);
+        unitDeath(std::move(temp), enemyUnits, friendlyUnits);
       }
 
       didSomething = true;
@@ -559,16 +590,19 @@ namespace FAP {
   void FastAPproximation<UnitExtension>::isimulate() {
     const auto simUnit = [this](auto &unit, auto &friendly, auto &enemy) {
       if (isSuicideUnit(unit->unitType)) {
-        auto const unitDied = suicideSim(*unit, enemy);
-        if (unitDied)
+        auto const unitDied = suicideSim(*unit, friendly, enemy);
+        if (unitDied) {
+          auto temp = *unit;
           unit = friendly.erase(unit);
+          unitDeath(std::move(temp), friendly, enemy);
+        }
         else ++unit;
       }
       else {
         if (unit->unitType == BWAPI::UnitTypes::Terran_Medic)
           medicsim(*unit, friendly);
         else
-          unitsim<tankSplash>(*unit, enemy);
+          unitsim<tankSplash>(*unit, friendly, enemy);
         ++unit;
       }
     };
@@ -619,7 +653,13 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
-  void FastAPproximation<UnitExtension>::unitDeath(FAPUnit<UnitExtension> &&fu, std::vector<FAPUnit<UnitExtension>> &itsFriendlies) {
+  void FastAPproximation<UnitExtension>::unitDeath(
+          FAPUnit<UnitExtension> &&fu,
+          std::vector<FAPUnit<UnitExtension>> &itsFriendlies,
+          std::vector<FAPUnit<UnitExtension>> &itsEnemies) {
+    for (auto & enemy : itsEnemies) {
+      if (enemy.target == fu.id) enemy.target = 0;
+    }
     if (fu.unitType == BWAPI::UnitTypes::Terran_Bunker && fu.numAttackers) {
       fu.unitType = BWAPI::UnitTypes::Terran_Marine;
 
