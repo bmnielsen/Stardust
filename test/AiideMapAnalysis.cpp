@@ -2,6 +2,7 @@
 
 #include "LocutusAIModule.h"
 
+/*
 TEST(AiideMapAnalysis, Benzene)
 {
     BWTest test;
@@ -92,3 +93,4 @@ TEST(AiideMapAnalysis, Python)
     test.run();
 }
 
+*/

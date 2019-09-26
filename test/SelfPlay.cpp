@@ -5,8 +5,10 @@
 TEST(SelfPlay, ATest)
 {
     BWTest test;
-    test.opponentModule = new LocutusAIModule();
-    test.run();
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []() {
+        return new LocutusAIModule();
+    };
 
-    EXPECT_EQ(1, 1);
+    test.run();
 }

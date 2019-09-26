@@ -10,6 +10,7 @@
 
 void signalHandler(int sig)
 {
+    EXPECT_FALSE(true);
     std::cout << "Crashed with signal " << sig << std::endl;
 
     void *array[20];
@@ -26,19 +27,37 @@ void signalHandler(int sig)
 
 void BWTest::run()
 {
-    auto pid = fork();
-    if (pid == 0)
+    auto opponentPid = fork();
+    if (opponentPid == 0)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(1500));
         runGame(true);
         _exit(EXIT_SUCCESS);
     }
 
+    // Unless we are debugging, we run our bot in a separate process to ensure we
+    // get all of our globals reset if multiple tests are being run
+#ifdef DEBUG
     signal(SIGFPE, signalHandler);
     signal(SIGSEGV, signalHandler);
+    signal(SIGABRT, signalHandler);
 
     runGame(false);
-    waitpid(pid, nullptr, 0);
+#else
+    auto selfPid = fork();
+    if (selfPid == 0)
+    {
+        signal(SIGFPE, signalHandler);
+        signal(SIGSEGV, signalHandler);
+        signal(SIGABRT, signalHandler);
+
+        runGame(false);
+        _exit(EXIT_SUCCESS);
+    }
+    waitpid(selfPid, nullptr, 0);
+
+#endif
+    waitpid(opponentPid, nullptr, 0);
 }
 
 void BWTest::runGame(bool opponent)
@@ -82,58 +101,79 @@ void BWTest::runGame(bool opponent)
 
     if (opponent)
     {
-        if (opponentModule) h->setAIModule(opponentModule);
-        if (onStartOpponent) onStartOpponent();
+        if (opponentModule) h->setAIModule(opponentModule());
     }
     else
     {
         h->setAIModule(new LocutusAIModule());
         Log::SetOutputToConsole(true);
-        if (onStartMine) onStartMine();
     }
     h->update();
     h->setLocalSpeed(0);
+    if (opponent && onStartOpponent) onStartOpponent();
+    if (!opponent && onStartMine) onStartMine();
     gameOwner.getGame().nextFrame();
 
     bool leftGame = false;
     auto startTime = std::chrono::high_resolution_clock::now();
     while (!gameOwner.getGame().gameOver())
     {
-        h->update();
-
-        if (!leftGame)
+        try
         {
-            if (opponent)
+            h->update();
+
+            if (!leftGame)
             {
-                if (onFrameOpponent) onFrameOpponent();
+                if (opponent)
+                {
+                    if (onFrameOpponent) onFrameOpponent();
+                }
+                else
+                {
+                    if (onFrameMine) onFrameMine();
+                }
             }
-            else
+
+            if (!leftGame && h->getFrameCount() == frameLimit)
             {
-                if (onFrameMine) onFrameMine();
+                std::cout << "Frame limit reached; leaving game" << std::endl;
+                leftGame = true;
+                h->leaveGame();
             }
-        }
 
-        if (!leftGame && h->getFrameCount() == frameLimit)
-        {
-            std::cout << "Frame limit reached; leaving game" << std::endl;
-            leftGame = true;
-            h->leaveGame();
-        }
-
-        if (!leftGame)
-        {
-            auto now = std::chrono::high_resolution_clock::now();
-            if (std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count() > timeLimit)
+            if (!leftGame)
             {
-                std::cout << "Time limit reached; leaving game" << std::endl;
+                auto now = std::chrono::high_resolution_clock::now();
+                if (std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count() > timeLimit)
+                {
+                    std::cout << "Time limit reached; leaving game" << std::endl;
+                    leftGame = true;
+                    h->leaveGame();
+                }
+            }
+
+            gameOwner.getGame().nextFrame();
+        }
+        catch (std::exception &ex)
+        {
+            std::cout << "Exception caught in frame (" << (opponent ? "opponent" : "mine") << "): " << ex.what() << std::endl;
+            if (!leftGame)
+            {
                 leftGame = true;
                 h->leaveGame();
             }
         }
-
-        gameOwner.getGame().nextFrame();
     }
-    h->onGameEnd();
+
+    try
+    {
+        h->onGameEnd();
+    }
+    catch (std::exception &ex)
+    {
+        std::cout << "Exception caught in game end (" << (opponent ? "opponent" : "mine") << "): " << ex.what() << std::endl;
+    }
+
     if (opponent)
     {
         if (onEndOpponent) onEndOpponent();

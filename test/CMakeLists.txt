@@ -30,6 +30,10 @@ add_executable(tests
         Steamhammer.cpp
         AiideMapAnalysis.cpp)
 
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    target_compile_definitions(tests PUBLIC DEBUG=1)
+endif()
+
 target_link_libraries(tests gtest gtest_main BWAPILIB Locutus Steamhammer)
 
 file(COPY ${CMAKE_SOURCE_DIR}/test/maps DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
