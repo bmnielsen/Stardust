@@ -55,3 +55,8 @@ namespace General
     void addSquad(std::shared_ptr<Squad> squad);
     void removeSquad(std::shared_ptr<Squad> squad);
 }
+
+namespace CombatSim
+{
+    void initialize();
+}

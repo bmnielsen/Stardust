@@ -71,5 +71,7 @@ void DefendBaseSquad::execute(UnitCluster & cluster)
     // Get enemy combat units very close to the target position
     Units::getInRadius(enemyUnits, BWAPI::Broodwar->enemy(), targetPosition, 64);
 
-    cluster.execute(enemyUnits, targetPosition);
+    // Execute
+    auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
+    cluster.execute(unitsAndTargets, targetPosition);
 }

@@ -19,9 +19,10 @@ Unit::Unit(BWAPI::Unit unit)
     , completed(unit->isCompleted())
     , estimatedCompletionFrame(-1)
     , isFlying(unit->isFlying())
-    , groundCooldownUntil(BWAPI::Broodwar->getFrameCount() + unit->getGroundWeaponCooldown())
-    , airCooldownUntil(BWAPI::Broodwar->getFrameCount() + unit->getAirWeaponCooldown())
+    , cooldownUntil(BWAPI::Broodwar->getFrameCount() + std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown()))
+    , stimmedUntil(BWAPI::Broodwar->getFrameCount() + unit->getStimTimer())
     , undetected(UnitUtil::IsUndetected(unit))
+    , burrowed(unit->isBurrowed())
     , doomed(false)
 {
     update(unit);
@@ -57,6 +58,8 @@ void Unit::update(BWAPI::Unit unit) const
         lastShields = unit->getType().maxShields();
     }
 
+    burrowed = unit->isBurrowed();
+
     completed = unit->isCompleted();
     computeCompletionFrame(unit);
 
@@ -65,8 +68,8 @@ void Unit::update(BWAPI::Unit unit) const
 
     if (unit->isVisible())
     {
-        groundCooldownUntil = BWAPI::Broodwar->getFrameCount() + unit->getGroundWeaponCooldown();
-        airCooldownUntil = BWAPI::Broodwar->getFrameCount() + unit->getAirWeaponCooldown();
+        cooldownUntil = BWAPI::Broodwar->getFrameCount() + std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown());
+        stimmedUntil = BWAPI::Broodwar->getFrameCount() + unit->getStimTimer();
     }
 
     // Process upcoming attacks

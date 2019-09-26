@@ -2,6 +2,7 @@
 
 #include "Common.h"
 #include "Unit.h"
+#include "CombatSimResult.h"
 
 class UnitCluster
 {
@@ -21,7 +22,9 @@ public:
     void removeUnit(BWAPI::Unit unit);
     std::set<BWAPI::Unit>::iterator removeUnit(std::set<BWAPI::Unit>::iterator unitIt);
     void updatePositions(BWAPI::Position targetPosition);
-    virtual void execute(std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition);
+    std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> selectTargets(std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition);
+    virtual void execute(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> & unitsAndTargets, BWAPI::Position targetPosition);
+    CombatSimResult runCombatSim(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> & unitsAndTargets, std::set<std::shared_ptr<Unit>> &targets);
 
 protected:
     static std::shared_ptr<Unit> ChooseMeleeTarget(BWAPI::Unit attacker, std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition);

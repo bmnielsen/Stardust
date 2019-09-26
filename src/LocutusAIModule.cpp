@@ -53,6 +53,7 @@ void LocutusAIModule::onStart()
 
     Map::initialize();
     BuildingPlacement::initialize();
+    CombatSim::initialize();
     WorkerOrderTimer::initialize();
 
     BWAPI::Broodwar->setLocalSpeed(0);

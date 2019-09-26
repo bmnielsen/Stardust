@@ -45,10 +45,11 @@ public:
                              
     mutable bool             isFlying;                   // Whether the unit is flying
                              
-    mutable int              groundCooldownUntil;        // The frame when the unit can use its ground weapon again
-    mutable int              airCooldownUntil;           // The frame when the unit can use its air weapon again
+    mutable int              cooldownUntil;              // The frame when the unit can use its ground weapon again
+    mutable int              stimmedUntil;               // If stimmed, when the stim will wear off
                              
     mutable bool             undetected;                 // Whether the unit is currently cloaked and undetected
+    mutable bool             burrowed;                   // WHether the unit is currently burrowed
 
     mutable std::vector<UpcomingAttack> upcomingAttacks; // List of attacks of this unit that are expected soon
     mutable bool             doomed;                     // Whether this unit is likely to be dead after the upcoming attacks are finished

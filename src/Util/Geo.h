@@ -5,7 +5,9 @@
 namespace Geo
 {
     int EdgeToEdgeDistance(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter);
+    int EdgeToEdgeDistance(BWAPI::UnitType firstType, int x1, int y1, BWAPI::UnitType secondType, int x2, int y2);
     int EdgeToEdgeSquaredDistance(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter);
+    int EdgeToEdgeSquaredDistance(BWAPI::UnitType firstType, int x1, int y1, BWAPI::UnitType secondType, int x2, int y2);
     int EdgeToPointDistance(BWAPI::UnitType type, BWAPI::Position center, BWAPI::Position point);
     BWAPI::Position NearestPointOnEdge(BWAPI::Position point, BWAPI::UnitType type, BWAPI::Position center);
     bool Overlaps(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter);
