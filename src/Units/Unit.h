@@ -49,7 +49,8 @@ public:
     mutable int              stimmedUntil;               // If stimmed, when the stim will wear off
                              
     mutable bool             undetected;                 // Whether the unit is currently cloaked and undetected
-    mutable bool             burrowed;                   // WHether the unit is currently burrowed
+    mutable bool             burrowed;                   // Whether the unit is currently burrowed
+    mutable int              lastBurrowing;              // Frame we last observed the unit burrowing
 
     mutable std::vector<UpcomingAttack> upcomingAttacks; // List of attacks of this unit that are expected soon
     mutable bool             doomed;                     // Whether this unit is likely to be dead after the upcoming attacks are finished

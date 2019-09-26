@@ -26,7 +26,7 @@ public:
 
         long operator[](BWAPI::Position pos) const
         {
-            return data[(pos.x << 3) + (pos.y << 3) * maxX];
+            return data[(pos.x >> 3) + (pos.y >> 3) * maxX];
         }
 
         long operator[](BWAPI::WalkPosition pos) const
