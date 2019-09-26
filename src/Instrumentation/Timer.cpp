@@ -7,8 +7,13 @@ namespace Timer
 {
     namespace 
     {
+#ifdef DEBUG
+        const int LOG_CUTOFF = 10000;
+        const int DEBUG_CUTOFF = 10000;
+#else
         const int LOG_CUTOFF = 35;
         const int DEBUG_CUTOFF = 10;
+#endif
 
         std::string                                    overallLabel;
         std::chrono::steady_clock::time_point          startPoint;

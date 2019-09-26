@@ -184,7 +184,7 @@ namespace Producer
             for (auto & item : items)
             {
                 std::ostringstream value;
-                value << item->startFrame << ": " << itemLabel(item);
+                value << item->startFrame << ": " << itemLabel(item) << " (" << item->completionFrame << ")";
                 values.push_back(value.str());
             }
 
