@@ -19,7 +19,10 @@ include_directories(
         ${CMAKE_SOURCE_DIR}/3rdparty/openbw/openbw
 )
 
-#add_library(BWData ALIAS OpenBWData)
+set(LOCUTUS_TEST_INCLUDES
+        ${PROJECT_SOURCE_DIR}
+        )
+include_directories(${LOCUTUS_TEST_INCLUDES})
 
 add_executable(tests
         $<TARGET_OBJECTS:BWAPIObj>
@@ -28,7 +31,7 @@ add_executable(tests
         BWTest.cpp
         SelfPlay.cpp
         Steamhammer.cpp
-        AiideMapAnalysis.cpp)
+        AiideMapAnalysis.cpp macro/TakeNaturalExpansionTests.cpp)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(tests PUBLIC DEBUG=1)
