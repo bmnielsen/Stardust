@@ -30,6 +30,8 @@ namespace BWAPI
       AIModule();
       virtual ~AIModule();
 
+      std::function<void()> afterOnStart = nullptr;
+
       /// <summary>Called only once at the beginning of a game.</summary> It is intended that the
       /// AI module do any data initialization in this function.
       ///

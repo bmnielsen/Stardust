@@ -435,6 +435,7 @@ namespace BWAPI
     {
     case EventType::MatchStart:
       module->onStart();
+      if (module->afterOnStart) module->afterOnStart();
       break;
     case EventType::MatchEnd:
       module->onEnd(e.isWinner());
