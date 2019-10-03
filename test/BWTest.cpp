@@ -101,17 +101,22 @@ void BWTest::runGame(bool opponent)
 
     if (opponent)
     {
-        if (opponentModule) h->setAIModule(opponentModule());
+        if (opponentModule)
+        {
+            auto module = opponentModule();
+            module->afterOnStart = onStartOpponent;
+            h->setAIModule(module);
+        }
     }
     else
     {
-        h->setAIModule(new LocutusAIModule());
+        auto module = new LocutusAIModule();
+        module->afterOnStart = onStartMine;
+        h->setAIModule(module);
         Log::SetOutputToConsole(true);
     }
     h->update();
     h->setLocalSpeed(0);
-    if (opponent && onStartOpponent) onStartOpponent();
-    if (!opponent && onStartMine) onStartMine();
     gameOwner.getGame().nextFrame();
 
     bool leftGame = false;
