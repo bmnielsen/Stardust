@@ -72,19 +72,6 @@ namespace BuildingPlacement
             return result;
         }
 
-        // Approximately how many frames it will take a builder to reach the given build position
-        // TODO: Update location origins depending on whether there are workers at a base
-        int builderFrames(Neighbourhood location, BWAPI::TilePosition tile, BWAPI::UnitType type)
-        {
-            if (neighbourhoodOrigins.find(location) == neighbourhoodOrigins.end()) return 0;
-
-            return PathFinding::ExpectedTravelTime(
-                neighbourhoodOrigins[location],
-                BWAPI::Position(tile) + (BWAPI::Position(type.tileSize()) / 2),
-                BWAPI::Broodwar->self()->getRace().getWorker(),
-                PathFinding::PathFindingOptions::UseNearestBWEMArea);
-        }
-
         // Rebuilds the map of available build locations
         void updateAvailableBuildLocations()
         {
@@ -332,5 +319,18 @@ namespace BuildingPlacement
         return a.framesUntilPowered < b.framesUntilPowered
             || (!(b.framesUntilPowered < a.framesUntilPowered) && a.builderFrames < b.builderFrames)
             || (!(b.framesUntilPowered < a.framesUntilPowered) && !(b.builderFrames < a.builderFrames) && a.tile < b.tile);
+    }
+
+    // Approximately how many frames it will take a builder to reach the given build position
+    // TODO: Update location origins depending on whether there are workers at a base
+    int builderFrames(Neighbourhood location, BWAPI::TilePosition tile, BWAPI::UnitType type)
+    {
+        if (neighbourhoodOrigins.find(location) == neighbourhoodOrigins.end()) return 0;
+
+        return PathFinding::ExpectedTravelTime(
+                neighbourhoodOrigins[location],
+                BWAPI::Position(tile) + (BWAPI::Position(type.tileSize()) / 2),
+                BWAPI::Broodwar->self()->getRace().getWorker(),
+                PathFinding::PathFindingOptions::UseNearestBWEMArea);
     }
 }

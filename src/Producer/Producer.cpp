@@ -54,36 +54,42 @@ namespace Producer
         }
 
         struct Producer;
+
         struct ProductionItem
         {
             struct cmp
             {
-                bool operator()(const std::shared_ptr<ProductionItem> & a, const std::shared_ptr<ProductionItem> & b) const
+                bool operator()(const std::shared_ptr<ProductionItem> &a, const std::shared_ptr<ProductionItem> &b) const
                 {
-                    return a->startFrame < b->startFrame 
-                        || (!(b->startFrame < a->startFrame) && a->completionFrame < b->completionFrame)
-                        || (!(b->startFrame < a->startFrame) && !(b->completionFrame < a->completionFrame) && a < b);
+                    return a->startFrame < b->startFrame
+                           || (!(b->startFrame < a->startFrame) && a->completionFrame < b->completionFrame)
+                           || (!(b->startFrame < a->startFrame) && !(b->completionFrame < a->completionFrame) && a < b);
                 }
             };
 
             // Type, can be a unit or upgrade
             Type type;
 
+            // Location, can be empty, a neighbourhood, or, optionally for buildings, a specific tile position
+            ProductionLocation location;
+
             int mineralPrice() const
             {
                 return
 
                     // Mineral price of the type being produced
-                    std::visit([](auto&& arg) {return arg.mineralPrice(); }, type)
+                        std::visit([](auto &&arg)
+                                   { return arg.mineralPrice(); }, type)
 
-                    // Buildings require a worker to be taken off minerals for a while, so we estimate the impact
-                    // In some cases this will be too pessimistic, as we can re-use the same worker for multiple jobs
-                    + (int)(2.0 * estimatedWorkerMovementTime * MINERALS_PER_WORKER_FRAME);
+                        // Buildings require a worker to be taken off minerals for a while, so we estimate the impact
+                        // In some cases this will be too pessimistic, as we can re-use the same worker for multiple jobs
+                        + (int) (2.0 * estimatedWorkerMovementTime * MINERALS_PER_WORKER_FRAME);
             }
 
             int gasPrice() const
             {
-                return std::visit([](auto&& arg) {return arg.gasPrice(); }, type);
+                return std::visit([](auto &&arg)
+                                  { return arg.gasPrice(); }, type);
             }
 
             int supplyProvided() const
@@ -106,61 +112,64 @@ namespace Producer
                 return _unitType && *_unitType == unitType;
             }
 
-            mutable int                              startFrame;
-            mutable int                              completionFrame;
+            mutable int startFrame;
+            mutable int completionFrame;
 
             // Fields applicable to non-buildings
-            const std::shared_ptr<Producer>          producer;
+            const std::shared_ptr<Producer> producer;
 
             // Fields applicable to buildings
-            bool                                     isPrerequisite;
-            Building *                               queuedBuilding;
+            bool isPrerequisite;
+            Building *queuedBuilding;
             mutable BuildingPlacement::BuildLocation buildLocation;
-            mutable int                              estimatedWorkerMovementTime;
+            mutable int estimatedWorkerMovementTime;
 
-            ProductionItem(Type type, int startFrame, const std::shared_ptr<Producer> producer = nullptr, bool isPrerequisite = false)
-                : type(type)
-                , startFrame(startFrame)
-                , completionFrame(startFrame + buildTime(type))
-                , producer(producer)
-                , isPrerequisite(isPrerequisite)
-                , queuedBuilding(nullptr)
-                , buildLocation(InvalidBuildLocation)
-                , estimatedWorkerMovementTime(0)
-            {}
+            ProductionItem(Type type,
+                           int startFrame,
+                           ProductionLocation location = std::monostate(),
+                           const std::shared_ptr<Producer> producer = nullptr,
+                           bool isPrerequisite = false)
+                    : type(type)
+                    , location(location)
+                    , startFrame(startFrame)
+                    , completionFrame(startFrame + buildTime(type))
+                    , producer(producer)
+                    , isPrerequisite(isPrerequisite)
+                    , queuedBuilding(nullptr)
+                    , buildLocation(InvalidBuildLocation)
+                    , estimatedWorkerMovementTime(0) {}
 
             // Constructor for pending buildings
-            ProductionItem(Building* queuedBuilding)
-                : type(queuedBuilding->type)
-                , startFrame(queuedBuilding->expectedFramesUntilStarted())
-                , completionFrame(queuedBuilding->expectedFramesUntilCompletion())
-                , producer(nullptr)
-                , isPrerequisite(false)
-                , queuedBuilding(queuedBuilding)
-                , buildLocation(InvalidBuildLocation)
-                , estimatedWorkerMovementTime(0)
-            {}
+            ProductionItem(Building *queuedBuilding)
+                    : type(queuedBuilding->type)
+                    , location(std::monostate())
+                    , startFrame(queuedBuilding->expectedFramesUntilStarted())
+                    , completionFrame(queuedBuilding->expectedFramesUntilCompletion())
+                    , producer(nullptr)
+                    , isPrerequisite(false)
+                    , queuedBuilding(queuedBuilding)
+                    , buildLocation(InvalidBuildLocation)
+                    , estimatedWorkerMovementTime(0) {}
         };
+
         typedef std::multiset<std::shared_ptr<ProductionItem>, ProductionItem::cmp> ProductionItemSet;
 
         struct Producer
         {
-            int                             availableFrom;
+            int availableFrom;
             std::shared_ptr<ProductionItem> queued;
-            BWAPI::Unit                     existing;
-            ProductionItemSet               items;
+            BWAPI::Unit existing;
+            ProductionItemSet items;
 
             Producer(const std::shared_ptr<ProductionItem> queued, int availableFrom)
-                : availableFrom(availableFrom)
-                , queued(queued)
-                , existing(nullptr)
-            {}
+                    : availableFrom(availableFrom)
+                    , queued(queued)
+                    , existing(nullptr) {}
 
             Producer(BWAPI::Unit existing, int availableFrom)
-                : availableFrom(availableFrom)
-                , queued(nullptr)
-                , existing(existing)
-            {}
+                    : availableFrom(availableFrom)
+                    , queued(nullptr)
+                    , existing(existing) {}
         };
 
         std::map<std::shared_ptr<ProductionItem>, std::shared_ptr<Producer>> queuedProducers;
@@ -168,12 +177,13 @@ namespace Producer
 
         ProductionItemSet committedItems;
 
-        void write(ProductionItemSet & items, std::string label)
+        void write(ProductionItemSet &items, std::string label)
         {
-            auto itemLabel = [](const std::shared_ptr<ProductionItem> & item)
+            auto itemLabel = [](const std::shared_ptr<ProductionItem> &item)
             {
                 std::ostringstream label;
-                std::visit([&label](auto&& arg) { label << arg; }, item->type);
+                std::visit([&label](auto &&arg)
+                           { label << arg; }, item->type);
                 if (item->queuedBuilding && item->queuedBuilding->isConstructionStarted()) label << "^";
                 if (item->queuedBuilding && !item->queuedBuilding->isConstructionStarted()) label << "*";
                 if (item->buildLocation.tile.isValid()) label << "(" << item->buildLocation.tile.x << ":" << item->buildLocation.tile.y << ")";
@@ -181,7 +191,7 @@ namespace Producer
             };
 
             std::vector<std::string> values;
-            for (auto & item : items)
+            for (auto &item : items)
             {
                 std::ostringstream value;
                 value << item->startFrame << ": " << itemLabel(item) << " (" << item->completionFrame << ")";
@@ -203,7 +213,7 @@ namespace Producer
 
             if (BWAPI::Broodwar->getFrameCount() < 2) Log::Debug() << label << ":";
 
-            for (auto & item : items)
+            for (auto &item : items)
             {
                 if (item->startFrame >= PREDICT_FRAMES) continue;
                 csv << itemLabel(item) << item->startFrame << item->completionFrame;
@@ -226,16 +236,16 @@ namespace Producer
             return baseRemainingTrainTime;
         }
 
-        void updateResourceCollection(std::array<int, PREDICT_FRAMES> & resource, int fromFrame, int workerChange, double baseRate)
+        void updateResourceCollection(std::array<int, PREDICT_FRAMES> &resource, int fromFrame, int workerChange, double baseRate)
         {
-            double delta = (double)workerChange * baseRate;
+            double delta = (double) workerChange * baseRate;
             for (int f = fromFrame + 1; f < PREDICT_FRAMES; f++)
             {
-                resource[f] += (int)(delta * (f - fromFrame));
+                resource[f] += (int) (delta * (f - fromFrame));
             }
         }
 
-        void spendResource(std::array<int, PREDICT_FRAMES> & resource, int fromFrame, int amount)
+        void spendResource(std::array<int, PREDICT_FRAMES> &resource, int fromFrame, int amount)
         {
             for (int f = fromFrame; f < PREDICT_FRAMES; f++)
             {
@@ -248,12 +258,12 @@ namespace Producer
             // Fill mineral and gas with current rates
             int currentMinerals = BWAPI::Broodwar->self()->minerals();
             int currentGas = BWAPI::Broodwar->self()->gas();
-            double mineralRate = (double)Workers::mineralWorkers() * MINERALS_PER_WORKER_FRAME;
-            double gasRate = (double)Workers::gasWorkers() * GAS_PER_WORKER_FRAME;
+            double mineralRate = (double) Workers::mineralWorkers() * MINERALS_PER_WORKER_FRAME;
+            double gasRate = (double) Workers::gasWorkers() * GAS_PER_WORKER_FRAME;
             for (int f = 0; f < PREDICT_FRAMES; f++)
             {
-                minerals[f] = currentMinerals + (int)(mineralRate * f);
-                gas[f] = currentGas + (int)(gasRate * f);
+                minerals[f] = currentMinerals + (int) (mineralRate * f);
+                gas[f] = currentGas + (int) (gasRate * f);
             }
 
             // Fill supply with current supply count
@@ -265,7 +275,10 @@ namespace Producer
                 if (!unit->isCompleted()) continue;
                 if (!unit->getType().isResourceDepot()) continue;
 
-                int remainingTrainTime = getRemainingBuildTime(unit, unit->getRemainingTrainTime(), BWAPI::UnitCommandTypes::Train, BWAPI::Broodwar->self()->getRace().getWorker());
+                int remainingTrainTime = getRemainingBuildTime(unit,
+                                                               unit->getRemainingTrainTime(),
+                                                               BWAPI::UnitCommandTypes::Train,
+                                                               BWAPI::Broodwar->self()->getRace().getWorker());
                 if (remainingTrainTime >= 0) updateResourceCollection(minerals, remainingTrainTime + 1, 1, MINERALS_PER_WORKER_FRAME);
             }
 
@@ -304,9 +317,18 @@ namespace Producer
         }
 
         // Need a forward reference since the next two methods do mutual recursion
-        void addMissingPrerequisites(ProductionItemSet & items, BWAPI::UnitType unitType, int startFrame = 0);
+        void addMissingPrerequisites(ProductionItemSet &items,
+                                     BWAPI::UnitType unitType,
+                                     ProductionLocation location,
+                                     BWAPI::UnitType producerType,
+                                     int startFrame = 0);
 
-        void addBuildingIfIncomplete(ProductionItemSet & items, BWAPI::UnitType unitType, int baseFrame = 0, bool isPrerequisite = false)
+        void addBuildingIfIncomplete(ProductionItemSet &items,
+                                     BWAPI::UnitType unitType,
+                                     ProductionLocation location,
+                                     BWAPI::UnitType producerType,
+                                     int baseFrame = 0,
+                                     bool isPrerequisite = false)
         {
             if (Units::countCompleted(unitType) > 0) return;
 
@@ -317,35 +339,43 @@ namespace Producer
             if (!pendingBuildings.empty())
             {
                 int timeToCompletion = INT_MAX;
-                for (auto & pendingBuilding : pendingBuildings)
+                for (auto &pendingBuilding : pendingBuildings)
                 {
                     timeToCompletion = std::min(timeToCompletion, pendingBuilding->expectedFramesUntilCompletion());
                 }
 
-                items.emplace(std::make_shared<ProductionItem>(unitType, baseFrame - timeToCompletion, nullptr, isPrerequisite));
+                items.emplace(std::make_shared<ProductionItem>(unitType, baseFrame - timeToCompletion, std::monostate(), nullptr, isPrerequisite));
                 return;
             }
 
+            // If this item is the producer of our target unit, make sure it is in the correct location
+            // Otherwise it doesn't matter
+            ProductionLocation itemLocation = unitType == producerType ? location : std::monostate();
+
             int startFrame = baseFrame - UnitUtil::BuildTime(unitType);
-            items.emplace(std::make_shared<ProductionItem>(unitType, startFrame, nullptr, isPrerequisite));
-            addMissingPrerequisites(items, unitType, startFrame);
+            items.emplace(std::make_shared<ProductionItem>(unitType, startFrame, itemLocation, nullptr, isPrerequisite));
+            addMissingPrerequisites(items, unitType, location, producerType, startFrame);
         }
 
         // For the specified unit type, recursively checks what prerequisites are missing and adds them to the set
         // The frames are relative to the time when the first unit of the desired type can be produced
-        void addMissingPrerequisites(ProductionItemSet & items, BWAPI::UnitType unitType, int startFrame)
+        void addMissingPrerequisites(ProductionItemSet &items,
+                                     BWAPI::UnitType unitType,
+                                     ProductionLocation location,
+                                     BWAPI::UnitType producerType,
+                                     int startFrame)
         {
             for (auto typeAndCount : unitType.requiredUnits())
             {
                 // Don't include workers
                 if (typeAndCount.first.isWorker()) continue;
 
-                addBuildingIfIncomplete(items, typeAndCount.first, startFrame, true);
+                addBuildingIfIncomplete(items, typeAndCount.first, location, producerType, startFrame, true);
             }
         }
 
         // Shifts one item in the given set by the given amount
-        void shiftOne(ProductionItemSet & items, const std::shared_ptr<ProductionItem> item, int delta)
+        void shiftOne(ProductionItemSet &items, const std::shared_ptr<ProductionItem> item, int delta)
         {
             if (delta == 0) return;
 
@@ -383,13 +413,13 @@ namespace Producer
         }
 
         // Shifts the item pointed to by the iterator and all future items by the given number of frames
-        void shiftAll(ProductionItemSet & items, ProductionItemSet::iterator it, int delta)
+        void shiftAll(ProductionItemSet &items, ProductionItemSet::iterator it, int delta)
         {
             if (delta < 1 || it == items.end()) return;
 
             for (; it != items.end(); it++)
             {
-                auto & item = **it;
+                auto &item = **it;
 
                 item.startFrame += delta;
                 item.completionFrame += delta;
@@ -398,13 +428,13 @@ namespace Producer
 
         // Remove duplicate items from this goal's set and resolve conflicts with already-committed items
         // Returns the max frame an item in goalItems will finish
-        int resolveDuplicates(ProductionItemSet & goalItems)
+        int resolveDuplicates(ProductionItemSet &goalItems)
         {
             int maxFrame = 0;
             std::set<Type> seen;
-            for (auto it = goalItems.begin(); it != goalItems.end(); )
+            for (auto it = goalItems.begin(); it != goalItems.end();)
             {
-                auto & item = **it;
+                auto &item = **it;
 
                 // There's already an item of this type in this goal's queue
                 if (seen.find(item.type) != seen.end())
@@ -415,7 +445,7 @@ namespace Producer
 
                 // Check if there is a matching item in the committed item set
                 bool handled = false;
-                for (auto & committedItem : committedItems)
+                for (auto &committedItem : committedItems)
                 {
                     if (committedItem->type != item.type) continue;
 
@@ -449,18 +479,23 @@ namespace Producer
             return maxFrame;
         }
 
-        void choosePylonBuildLocation(BuildingPlacement::Neighbourhood neighbourhood, const ProductionItem & pylon, bool tentative = false, int requiredWidth = 0)
+        void choosePylonBuildLocation(const ProductionItem &pylon, bool tentative = false, int requiredWidth = 0)
         {
-            auto & pylons = buildLocations[neighbourhood][2];
+            if (pylon.buildLocation.tile.isValid()) return;
+
+            auto fixedNeighbourhood = std::get_if<BuildingPlacement::Neighbourhood>(&pylon.location);
+            auto neighbourhood = fixedNeighbourhood ? *fixedNeighbourhood : BuildingPlacement::Neighbourhood::MainBase;
+
+            auto &pylons = buildLocations[neighbourhood][2];
             if (pylons.empty()) return;
 
             // All else being equal, try to keep two of each location type powered
-            int desiredMedium = std::max(0, 2 - (int)buildLocations[neighbourhood][3].size());
-            int desiredLarge = std::max(0, 2 - (int)buildLocations[neighbourhood][4].size());
+            int desiredMedium = std::max(0, 2 - (int) buildLocations[neighbourhood][3].size());
+            int desiredLarge = std::max(0, 2 - (int) buildLocations[neighbourhood][4].size());
 
             // Score the locations based on distance and what they will power
             int bestScore = INT_MAX;
-            const BuildingPlacement::BuildLocation * best = nullptr;
+            const BuildingPlacement::BuildLocation *best = nullptr;
             for (auto it = pylons.begin(); it != pylons.end(); it++)
             {
                 // If we have a hard requirement, don't consider anything that doesn't satisfy it
@@ -474,8 +509,8 @@ namespace Producer
                 int score = it->builderFrames;
 
                 // Penalize locations that don't power locations we need
-                score *= (int)std::pow(2, std::max(0, desiredMedium - (int)it->powersMedium.size()));
-                score *= (int)std::pow(2, std::max(0, desiredLarge - (int)it->powersLarge.size()));
+                score *= (int) std::pow(2, std::max(0, desiredMedium - (int) it->powersMedium.size()));
+                score *= (int) std::pow(2, std::max(0, desiredLarge - (int) it->powersLarge.size()));
 
                 // Set if better than current
                 if (score < bestScore)
@@ -508,11 +543,11 @@ namespace Producer
             }
         }
 
-        void reserveBuildPositions(ProductionItemSet & items)
+        void reserveBuildPositions(ProductionItemSet &items)
         {
             for (auto it = items.begin(); it != items.end(); it++)
             {
-                auto & item = **it;
+                auto &item = **it;
 
                 if (item.queuedBuilding) continue;
                 if (item.buildLocation.tile.isValid()) continue;
@@ -521,18 +556,18 @@ namespace Producer
                 // It may be made concrete later to account for psi requirements
                 if (item.is(BWAPI::UnitTypes::Protoss_Pylon))
                 {
-                    choosePylonBuildLocation(BuildingPlacement::Neighbourhood::MainBase, item, true);
+                    choosePylonBuildLocation(item, true);
                     continue;
                 }
 
                 auto unitType = std::get_if<BWAPI::UnitType>(&item.type);
-
+                if (!unitType) continue;
                 if (!unitType->isBuilding()) continue;
                 if (!unitType->requiresPsi()) continue;
 
-                // TODO: Allow items to define their own neighbourhood
-                auto neighbourhood = BuildingPlacement::Neighbourhood::MainBase;
-                auto & locations = buildLocations[neighbourhood][unitType->tileWidth()];
+                auto locationNeighbourhood = std::get_if<BuildingPlacement::Neighbourhood>(&item.location);
+                auto neighbourhood = locationNeighbourhood ? *locationNeighbourhood : BuildingPlacement::Neighbourhood::MainBase;
+                auto &locations = buildLocations[neighbourhood][unitType->tileWidth()];
 
                 // Get the frame when the next available build location will be powered
                 int availableAt = locations.empty() ? INT_MAX : locations.begin()->framesUntilPowered;
@@ -548,7 +583,7 @@ namespace Producer
 
                 // Find a committed pylon that has no assigned build location
                 std::shared_ptr<ProductionItem> pylon = nullptr;
-                for (auto & committedItem : committedItems)
+                for (auto &committedItem : committedItems)
                 {
                     if (!committedItem->is(BWAPI::UnitTypes::Protoss_Pylon)) continue;
                     if (committedItem->queuedBuilding) continue;
@@ -562,7 +597,7 @@ namespace Producer
                 if (!pylon && availableAt >= UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon))
                 {
                     int startFrame = std::max(0, item.startFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon));
-                    pylon = *items.emplace(std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Pylon, startFrame));
+                    pylon = *items.emplace(std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Pylon, startFrame, item.location));
                 }
 
                 // If the pylon will complete later than we need it, try to move it earlier
@@ -585,7 +620,7 @@ namespace Producer
                         pylon = nullptr;
                     }
 
-                    // Otherwise, if we could move it back, make the relevant adjustments
+                        // Otherwise, if we could move it back, make the relevant adjustments
                     else
                     {
                         shiftOne(committedItems, pylon, mineralFrame - pylon->startFrame);
@@ -595,18 +630,22 @@ namespace Producer
                 // If we are creating or moving a pylon, pick a location and add the new build locations
                 if (pylon)
                 {
-                    choosePylonBuildLocation(neighbourhood, *pylon, false, unitType->tileWidth());
+                    choosePylonBuildLocation(*pylon, false, unitType->tileWidth());
 
                     // TODO: The powered after times are wrong here, as the pylon may get moved later
                     // Should perhaps look for available build locations within the committed pylon set instead
                     // Might make sense to move the build location stuff after minerals, etc. too
-                    for (auto & buildLocation : pylon->buildLocation.powersMedium)
+                    for (auto &poweredBuildLocation : pylon->buildLocation.powersMedium)
                     {
-                        buildLocations[neighbourhood][3].emplace(buildLocation.tile, buildLocation.builderFrames, pylon->completionFrame);
+                        buildLocations[neighbourhood][3].emplace(poweredBuildLocation.tile,
+                                                                 poweredBuildLocation.builderFrames,
+                                                                 pylon->completionFrame);
                     }
-                    for (auto & buildLocation : pylon->buildLocation.powersLarge)
+                    for (auto &poweredBuildLocation : pylon->buildLocation.powersLarge)
                     {
-                        buildLocations[neighbourhood][4].emplace(buildLocation.tile, buildLocation.builderFrames, pylon->completionFrame);
+                        buildLocations[neighbourhood][4].emplace(poweredBuildLocation.tile,
+                                                                 poweredBuildLocation.builderFrames,
+                                                                 pylon->completionFrame);
                     }
                 }
 
@@ -623,7 +662,7 @@ namespace Producer
             }
         }
 
-        int availableAt(Type type, int startFrame, const std::shared_ptr<Producer> & producer)
+        int availableAt(Type type, int startFrame, const std::shared_ptr<Producer> &producer)
         {
             int build = buildTime(type);
             auto it = producer->items.begin();
@@ -649,11 +688,11 @@ namespace Producer
 
         // When prerequisites are involved, the start frames will initially be negative
         // This shifts all of the frames in the set forward so they start at 0
-        void normalizeStartFrame(ProductionItemSet & items)
+        void normalizeStartFrame(ProductionItemSet &items)
         {
             int offset = 0;
             bool first = true;
-            for (auto & item : items)
+            for (auto &item : items)
             {
                 if (first) offset = -item->startFrame, first = false;
                 item->startFrame += offset;
@@ -662,7 +701,7 @@ namespace Producer
         }
 
         // Finds the frame where we have enough of a resource for the item and its prerequisites
-        int frameWhenResourcesMet(const ProductionItem & item, ProductionItemSet & prerequisiteItems, bool isMinerals)
+        int frameWhenResourcesMet(const ProductionItem &item, ProductionItemSet &prerequisiteItems, bool isMinerals)
         {
             auto resource = isMinerals ? minerals : gas;
             int itemCost = isMinerals ? item.mineralPrice() : item.gasPrice();
@@ -686,7 +725,7 @@ namespace Producer
             bool includeGasCostInMinerals = false;
             if (isMinerals && !availableGeysers.empty() && Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0)
             {
-                for (auto & prerequisite : prerequisiteItems)
+                for (auto &prerequisite : prerequisiteItems)
                 {
                     if (prerequisite->isPrerequisite && prerequisite->is(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
                     {
@@ -696,26 +735,18 @@ namespace Producer
                 }
             }
 
-            // Special case: If considering minerals for a prerequisite cybernetics core, include
-            // the cost of an assimilator if we don't already have one
-            int prerequisiteCyberneticsCoreBonusCost = 0;
-            if (isMinerals && !availableGeysers.empty() && Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0)
-            {
-                prerequisiteCyberneticsCoreBonusCost += BWAPI::UnitTypes::Protoss_Assimilator.mineralPrice();
-            }
-
             // Get the total resource cost of the prerequisites
             int prerequisiteCost = 0;
-            for (auto & item : prerequisiteItems)
+            for (auto &prerequisiteItem : prerequisiteItems)
             {
-                prerequisiteCost += isMinerals ? item->mineralPrice() : item->gasPrice();
+                prerequisiteCost += isMinerals ? prerequisiteItem->mineralPrice() : prerequisiteItem->gasPrice();
 
                 if (includeGasCostInMinerals)
                 {
-                    prerequisiteCost += (int)(MINERALS_PER_GAS_UNIT * (double)item->gasPrice());
+                    prerequisiteCost += (int) (MINERALS_PER_GAS_UNIT * (double) prerequisiteItem->gasPrice());
 
                     // Include the price of the assimilator with the cybernetics core
-                    if (item->isPrerequisite && item->is(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
+                    if (prerequisiteItem->isPrerequisite && prerequisiteItem->is(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
                     {
                         prerequisiteCost += BWAPI::UnitTypes::Protoss_Assimilator.mineralPrice();
                     }
@@ -735,7 +766,7 @@ namespace Producer
 
                     if (includeGasCostInMinerals)
                     {
-                        prerequisiteCost -= (int)(MINERALS_PER_GAS_UNIT * (double)(*prerequisiteIt)->gasPrice());
+                        prerequisiteCost -= (int) (MINERALS_PER_GAS_UNIT * (double) (*prerequisiteIt)->gasPrice());
 
                         // Include the price of the assimilator with the cybernetics core
                         if ((*prerequisiteIt)->isPrerequisite && (*prerequisiteIt)->is(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
@@ -749,7 +780,7 @@ namespace Producer
             // Scan backwards, breaking whenever we don't have enough minerals at any of the stops
             for (f = PREDICT_FRAMES - 1; f >= item.startFrame; f--)
             {
-                for (auto & frameStopAndMineralsNeeded : frameStopsAndResourceNeeded)
+                for (auto &frameStopAndMineralsNeeded : frameStopsAndResourceNeeded)
                 {
                     int frame = f - frameStopAndMineralsNeeded.first;
                     if (frame < 0 || resource[frame] < frameStopAndMineralsNeeded.second) return f + 1;
@@ -759,7 +790,7 @@ namespace Producer
             return f + 1;
         }
 
-        bool shiftForMinerals(ProductionItem & item, ProductionItemSet & prerequisiteItems)
+        bool shiftForMinerals(ProductionItem &item, ProductionItemSet &prerequisiteItems)
         {
             int mineralCost = item.mineralPrice();
 
@@ -776,7 +807,7 @@ namespace Producer
                 {
                     int requiredMinerals = mineralCost;
                     int miningTime = i - f - timeToBuild;
-                    if (miningTime > 0) requiredMinerals -= (int)((double)miningTime * MINERALS_PER_WORKER_FRAME);
+                    if (miningTime > 0) requiredMinerals -= (int) ((double) miningTime * MINERALS_PER_WORKER_FRAME);
                     if (requiredMinerals <= 0) break;
                     if (minerals[i] < requiredMinerals) f = i;
                 }
@@ -800,26 +831,27 @@ namespace Producer
             return true;
         }
 
-        bool shiftForGas(ProductionItem & item, ProductionItemSet & prerequisiteItems, bool commit)
+        bool shiftForGas(ProductionItem &item, ProductionItemSet &prerequisiteItems, bool commit)
         {
             // Before resolving a gas block, check if we have a cybernetics core as a prerequisite
             // If so, insert an assimilator immediately at the same time unless we already have one
             if (!availableGeysers.empty() && Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0)
             {
-                for (auto & item : prerequisiteItems)
+                for (auto &prerequisiteItem : prerequisiteItems)
                 {
-                    if (item->isPrerequisite && item->is(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
+                    if (prerequisiteItem->isPrerequisite && prerequisiteItem->is(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
                     {
                         // Spend minerals
-                        spendResource(minerals, item->startFrame, BWAPI::UnitTypes::Protoss_Assimilator.mineralPrice());
+                        spendResource(minerals, prerequisiteItem->startFrame, BWAPI::UnitTypes::Protoss_Assimilator.mineralPrice());
 
                         // Update mineral and gas collection
-                        int completionFrame = item->startFrame + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator);
+                        int completionFrame = prerequisiteItem->startFrame + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator);
                         updateResourceCollection(minerals, completionFrame, -3, MINERALS_PER_WORKER_FRAME);
                         updateResourceCollection(gas, completionFrame, 3, GAS_PER_WORKER_FRAME);
 
                         // Commit
-                        auto geyser = *committedItems.emplace(std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Assimilator, item->startFrame));
+                        auto geyser = *committedItems.emplace(std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Assimilator,
+                                                                                               prerequisiteItem->startFrame));
                         geyser->buildLocation = *availableGeysers.begin();
                         availableGeysers.erase(availableGeysers.begin());
 
@@ -836,9 +868,9 @@ namespace Producer
 
             // Get the total gas cost of the prerequisites
             int prerequisiteCost = 0;
-            for (auto & item : prerequisiteItems)
+            for (auto &prerequisiteItem : prerequisiteItems)
             {
-                prerequisiteCost += item->gasPrice();
+                prerequisiteCost += prerequisiteItem->gasPrice();
             }
 
             // Simple case: no prerequisites, or the prerequisites require no gas
@@ -900,7 +932,7 @@ namespace Producer
             auto refineryType = BWAPI::Broodwar->self()->getRace().getRefinery();
 
             // Compute how many frames of 3 workers collecting gas is needed to resolve the deficit
-            int gasFramesNeeded = (int)((double)gasDeficit / (GAS_PER_WORKER_FRAME * 3));
+            int gasFramesNeeded = (int) ((double) gasDeficit / (GAS_PER_WORKER_FRAME * 3));
 
             // Look for refineries we can move earlier
             for (auto refineryIt = committedItems.begin(); gasFramesNeeded > 0 && refineryIt != committedItems.end();)
@@ -914,7 +946,9 @@ namespace Producer
                 // What frame do we want to move this refinery back to?
                 // Will either be gasFramesNeeded frames before the current start frame (if it is already completing before the block),
                 // or the build time of a refinery before the frame where we have the gas deficit
-                int desiredStartFrame = std::max(0, std::min((*refineryIt)->startFrame - gasFramesNeeded, gasDeficitFrame - UnitUtil::BuildTime(refineryType)));
+                int desiredStartFrame = std::max(0,
+                                                 std::min((*refineryIt)->startFrame - gasFramesNeeded,
+                                                          gasDeficitFrame - UnitUtil::BuildTime(refineryType)));
 
                 // Find the actual frame we can move it to
                 // We check two things:
@@ -932,7 +966,7 @@ namespace Producer
 
                     // Completion frame
                     int completionFrame = f + UnitUtil::BuildTime(refineryType);
-                    int mineralsNeeded = (int)(3.0 * (f - actualStartFrame) * MINERALS_PER_WORKER_FRAME);
+                    int mineralsNeeded = (int) (3.0 * (f - actualStartFrame) * MINERALS_PER_WORKER_FRAME);
                     if (completionFrame < (*refineryIt)->startFrame) mineralsNeeded += refineryType.mineralPrice();
                     if (minerals[completionFrame] < mineralsNeeded)
                     {
@@ -990,7 +1024,7 @@ namespace Producer
 
                     // Completion frame
                     int completionFrame = f + UnitUtil::BuildTime(refineryType);
-                    int mineralsNeeded = refineryType.mineralPrice() + (int)(3.0 * (f - actualStartFrame) * MINERALS_PER_WORKER_FRAME);
+                    int mineralsNeeded = refineryType.mineralPrice() + (int) (3.0 * (f - actualStartFrame) * MINERALS_PER_WORKER_FRAME);
                     if (minerals[completionFrame] < mineralsNeeded)
                     {
                         actualStartFrame = f + 1;
@@ -1045,7 +1079,7 @@ namespace Producer
             return true;
         }
 
-        bool shiftForSupply(ProductionItem & item, ProductionItemSet & prerequisiteItems, bool commit)
+        bool shiftForSupply(ProductionItem &item, ProductionItemSet &prerequisiteItems, bool commit)
         {
             if (item.supplyRequired() == 0) return true;
 
@@ -1073,7 +1107,7 @@ namespace Producer
                 // Look for an existing supply provider active at this time
                 std::shared_ptr<ProductionItem> supplyProvider = nullptr;
                 bool supplyProviderQueued = false;
-                for (auto & potentialSupplyProvider : committedItems)
+                for (auto &potentialSupplyProvider : committedItems)
                 {
                     // Ignore anything that doesn't provide supply or completes before the block
                     if (potentialSupplyProvider->supplyProvided() <= 0) continue;
@@ -1219,7 +1253,7 @@ namespace Producer
             return true;
         }
 
-        void commitItem(const std::shared_ptr<ProductionItem> & item)
+        void commitItem(const std::shared_ptr<ProductionItem> &item)
         {
             // Spend the resources
             spendResource(minerals, item->startFrame, item->mineralPrice());
@@ -1246,7 +1280,7 @@ namespace Producer
             committedItems.insert(item);
         }
 
-        bool resolveResourceBlocks(std::shared_ptr<ProductionItem> item, ProductionItemSet & prerequisiteItems, bool commit)
+        bool resolveResourceBlocks(std::shared_ptr<ProductionItem> item, ProductionItemSet &prerequisiteItems, bool commit)
         {
             if (!shiftForMinerals(*item, prerequisiteItems) ||
                 !shiftForGas(*item, prerequisiteItems, commit) ||
@@ -1259,8 +1293,8 @@ namespace Producer
 
             // If there are prerequisites, commit them now
             for (auto prerequisitesIt = prerequisiteItems.begin();
-                prerequisitesIt != prerequisiteItems.end();
-                prerequisitesIt++)
+                 prerequisitesIt != prerequisiteItems.end();
+                 prerequisitesIt++)
             {
                 commitItem(*prerequisitesIt);
             }
@@ -1276,7 +1310,7 @@ namespace Producer
             auto refineryType = BWAPI::Broodwar->self()->getRace().getRefinery();
             for (auto it = committedItems.begin(); it != committedItems.end(); it++)
             {
-                auto & item = **it;
+                auto &item = **it;
 
                 if (!item.is(refineryType)) continue;
                 if (item.queuedBuilding) continue;
@@ -1292,7 +1326,7 @@ namespace Producer
                 if (lowestMinerals <= 0) continue;
 
                 // Use this to deduce how many frames of 3 workers mining we can afford to lose
-                int availableFrames = (int)((double)lowestMinerals / (3.0 * MINERALS_PER_WORKER_FRAME));
+                int availableFrames = (int) ((double) lowestMinerals / (3.0 * MINERALS_PER_WORKER_FRAME));
 
                 // Find a frame earlier than the current start frame within this constraint where we have enough minerals
                 int startFrame = item.startFrame;
@@ -1314,7 +1348,11 @@ namespace Producer
             }
         }
 
-        void handleGoal(Type type, int countToProduce, int producerLimit, BWAPI::UnitType prerequisite = BWAPI::UnitTypes::None)
+        void handleGoal(Type type,
+                        ProductionLocation location,
+                        int countToProduce,
+                        int producerLimit,
+                        BWAPI::UnitType prerequisite = BWAPI::UnitTypes::None)
         {
             int toProduce = countToProduce;
 
@@ -1333,11 +1371,19 @@ namespace Producer
             // Step 1: Ensure we have all buildings we need to build this type
 
             // Add missing prerequisites for the type
-            if (unitType) addMissingPrerequisites(prerequisiteItems, *unitType);
-            if (prerequisite != BWAPI::UnitTypes::None) addBuildingIfIncomplete(prerequisiteItems, prerequisite, 0, true);
+            if (unitType) addMissingPrerequisites(prerequisiteItems, *unitType, location, producerType);
+            if (prerequisite != BWAPI::UnitTypes::None)
+            {
+                addBuildingIfIncomplete(prerequisiteItems,
+                                        prerequisite,
+                                        std::monostate(),
+                                        producerType,
+                                        0,
+                                        true);
+            }
 
             // Unless this item is a building, ensure we have something that can produce it
-            if (!unitType || !unitType->isBuilding()) addBuildingIfIncomplete(prerequisiteItems, producerType);
+            if (!unitType || !unitType->isBuilding()) addBuildingIfIncomplete(prerequisiteItems, producerType, location, producerType);
 
             // Shift the buildings so the frames start at 0
             normalizeStartFrame(prerequisiteItems);
@@ -1352,16 +1398,36 @@ namespace Producer
             // If the last goal item has been pushed back, update the prerequisitesAvailable frame
             if (!prerequisiteItems.empty()) prerequisitesAvailable = std::max(prerequisitesAvailable, (*prerequisiteItems.rbegin())->completionFrame);
 
+            // Buildings can now be handled immediately - we only ever produce one at a time and require a specific location
+            if (unitType && unitType->isBuilding())
+            {
+                auto buildLocation = std::get_if<BuildingPlacement::BuildLocation>(&location);
+                if (!buildLocation)
+                {
+                    Log::Get() << "ERROR: Trying to produce building without specifying a location";
+                    return;
+                }
+
+                auto buildingItem = std::make_shared<ProductionItem>(type, prerequisitesAvailable, location);
+                buildingItem->estimatedWorkerMovementTime = buildLocation->builderFrames;
+                buildingItem->buildLocation = *buildLocation;
+                resolveResourceBlocks(buildingItem, prerequisiteItems, true);
+                return;
+            }
+
             // Step 2: Collect producers
             std::vector<std::shared_ptr<Producer>> producers;
 
             // Planned producers
-            for (auto & item : prerequisiteItems)
+            for (auto &item : prerequisiteItems)
+            {
                 if (item->is(producerType))
                     producers.push_back(std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame)));
+            }
 
             // Committed producers
-            for (auto & item : committedItems)
+            for (auto &item : committedItems)
+            {
                 if (item->is(producerType))
                 {
                     if (item->queuedBuilding && item->queuedBuilding->unit)
@@ -1382,6 +1448,7 @@ namespace Producer
                         producers.push_back(std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame)));
                     }
                 }
+            }
 
             // Completed producers
             for (auto unit : BWAPI::Broodwar->self()->getUnits())
@@ -1431,7 +1498,7 @@ namespace Producer
                 // Find the earliest available producer
                 std::shared_ptr<Producer> bestProducer = nullptr;
                 int bestFrame = PREDICT_FRAMES;
-                for (auto producer : producers)
+                for (auto &producer : producers)
                 {
                     int available = availableAt(type, prerequisitesAvailable, producer);
                     if (available < bestFrame)
@@ -1454,7 +1521,7 @@ namespace Producer
                     bool commitImmediately = !prerequisiteItems.empty() || producers.size() == producerLimit || toProduce == -1;
 
                     // Create the item and resolve resource blocks
-                    bestProducerItem = std::make_shared<ProductionItem>(type, bestFrame, bestProducer);
+                    bestProducerItem = std::make_shared<ProductionItem>(type, bestFrame, location, bestProducer);
                     bool result = resolveResourceBlocks(bestProducerItem, prerequisiteItems, commitImmediately);
 
                     // If the item was created and committed, continue the loop now
@@ -1467,9 +1534,9 @@ namespace Producer
                         // they may have shifted
                         if (!prerequisiteItems.empty())
                         {
-                            for (auto & prerequisite : prerequisiteItems)
+                            for (auto &prerequisiteItem : prerequisiteItems)
                             {
-                                prerequisitesAvailable = std::max(prerequisitesAvailable, prerequisite->completionFrame);
+                                prerequisitesAvailable = std::max(prerequisitesAvailable, prerequisiteItem->completionFrame);
                             }
 
                             // Clear the prerequisites, as they have now been committed
@@ -1489,11 +1556,15 @@ namespace Producer
 
                 // Create a new producer
                 ProductionItemSet newProducerPrerequisites;
-                auto producerItem = *newProducerPrerequisites.emplace(std::make_shared<ProductionItem>(producerType, std::max(0, prerequisitesAvailable - UnitUtil::BuildTime(producerType))));
+                auto producerItem = *newProducerPrerequisites.emplace(std::make_shared<ProductionItem>(producerType,
+                                                                                                       std::max(0,
+                                                                                                                prerequisitesAvailable
+                                                                                                                - UnitUtil::BuildTime(producerType)),
+                                                                                                       location));
                 auto newProducer = std::make_shared<Producer>(producerItem, producerItem->completionFrame);
 
                 // Create an item from the producer
-                auto newProducerItem = std::make_shared<ProductionItem>(type, producerItem->completionFrame, newProducer);
+                auto newProducerItem = std::make_shared<ProductionItem>(type, producerItem->completionFrame, location, newProducer);
                 bool result = resolveResourceBlocks(newProducerItem, newProducerPrerequisites, false);
                 if (!result) newProducerItem = nullptr;
 
@@ -1517,6 +1588,7 @@ namespace Producer
                 if (toProduce > 0) toProduce--;
             }
         }
+
 #ifndef _DEBUG
     }
 #endif
@@ -1534,12 +1606,15 @@ namespace Producer
         {
             if (auto unitProductionGoal = std::get_if<UnitProductionGoal>(&goal))
             {
-                handleGoal(unitProductionGoal->unitType(), unitProductionGoal->countToProduce(), unitProductionGoal->getProducerLimit());
+                handleGoal(unitProductionGoal->unitType(),
+                           unitProductionGoal->getLocation(),
+                           unitProductionGoal->countToProduce(),
+                           unitProductionGoal->getProducerLimit());
             }
             else if (auto upgradeProductionGoal = std::get_if<UpgradeProductionGoal>(&goal))
             {
                 if (upgradeProductionGoal->isFulfilled()) continue;
-                handleGoal(upgradeProductionGoal->upgradeType(), 1, 1, upgradeProductionGoal->prerequisiteForNextLevel());
+                handleGoal(upgradeProductionGoal->upgradeType(), std::monostate(), 1, 1, upgradeProductionGoal->prerequisiteForNextLevel());
             }
             else
             {
@@ -1554,7 +1629,7 @@ namespace Producer
 
         // Issue build commands
         bool firstUnbuiltItem = true;
-        for (auto & item : committedItems)
+        for (auto &item : committedItems)
         {
             // Units
             if (auto unitType = std::get_if<BWAPI::UnitType>(&item->type))
@@ -1563,16 +1638,15 @@ namespace Producer
                 if (item->producer && item->producer->existing && item->startFrame <= BWAPI::Broodwar->getRemainingLatencyFrames())
                 {
                     auto result = item->producer->existing->train(*unitType);
-                    if (result) Log::Debug() << "Sent command to train " << (*unitType) << " from " << item->producer->existing->getType() << " @ " << item->producer->existing->getTilePosition();
+                    if (result)
+                        Log::Debug() << "Sent command to train " << (*unitType) << " from " << item->producer->existing->getType() << " @ "
+                                     << item->producer->existing->getTilePosition();
                 }
 
                 // Pylons may not already have a build location
-                if (item->is(BWAPI::UnitTypes::Protoss_Pylon) && !item->buildLocation.tile.isValid())
+                if (item->is(BWAPI::UnitTypes::Protoss_Pylon))
                 {
-                    // TODO: Allow items to specify their neighbourhood
-                    auto neighbourhood = BuildingPlacement::Neighbourhood::MainBase;
-
-                    choosePylonBuildLocation(neighbourhood, *item);
+                    choosePylonBuildLocation(*item);
                 }
 
                 // Queue buildings when we expect the builder will arrive at the desired start frame or later
@@ -1621,7 +1695,7 @@ namespace Producer
                 }
             }
 
-            // Upgrades
+                // Upgrades
             else if (auto upgradeType = std::get_if<BWAPI::UpgradeType>(&item->type))
             {
                 // Upgrade if start frame is now

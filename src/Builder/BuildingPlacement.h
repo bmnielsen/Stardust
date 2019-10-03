@@ -39,4 +39,6 @@ namespace BuildingPlacement
     std::map<Neighbourhood, std::map<int, BuildLocationSet>> & getBuildLocations();
 
     BuildLocationSet & availableGeysers();
+
+    int builderFrames(Neighbourhood location, BWAPI::TilePosition tile, BWAPI::UnitType type);
 }

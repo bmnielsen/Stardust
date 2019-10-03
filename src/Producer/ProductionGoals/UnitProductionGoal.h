@@ -1,14 +1,28 @@
 #pragma once
 
 #include "Common.h"
+#include "BuildingPlacement.h"
+#include "ProductionLocation.h"
 
 class UnitProductionGoal
 {
 public:
-    UnitProductionGoal(BWAPI::UnitType type, int count = -1, int producerLimit = -1)
-        : type(type)
-        , count(count)
-        , producerLimit(producerLimit) {}
+    // Constructor for normal units or buildings
+    UnitProductionGoal(BWAPI::UnitType type,
+                       int count = -1,
+                       int producerLimit = -1,
+                       ProductionLocation location = std::monostate())
+            : type(type)
+            , count(count)
+            , producerLimit(producerLimit)
+            , location(location) {}
+
+    // Constructor for buildings at a specific build location
+    UnitProductionGoal(BWAPI::UnitType type, BuildingPlacement::BuildLocation location)
+            : type(type)
+            , count(1)
+            , producerLimit(1)
+            , location(location) {}
 
     // The unit type
     BWAPI::UnitType unitType() { return type; }
@@ -21,7 +35,11 @@ public:
     // May be -1 if we want constant production
     int countToProduce() { return count; };
 
-    friend std::ostream& operator<<(std::ostream& os, const UnitProductionGoal& goal)
+    // The location to produce the item
+    // Will either be a neighbourhood for the building placer, or, if the item is a building, potentially a specific tile position
+    ProductionLocation getLocation() { return location; };
+
+    friend std::ostream &operator<<(std::ostream &os, const UnitProductionGoal &goal)
     {
         os << goal.count << "x" << goal.type;
         return os;
@@ -29,6 +47,7 @@ public:
 
 private:
     BWAPI::UnitType type;
-    int             count;
-    int             producerLimit;
+    int count;
+    int producerLimit;
+    ProductionLocation location;
 };

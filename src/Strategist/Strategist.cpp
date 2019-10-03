@@ -8,6 +8,7 @@
 #include "Play.h"
 #include "Plays/Defensive/EarlyGameProtection.h"
 #include "Plays/Macro/SaturateBases.h"
+#include "Plays/Macro/TakeNaturalExpansion.h"
 #include "Plays/Offensive/RallyArmy.h"
 
 /*
@@ -301,6 +302,11 @@ namespace Strategist
             }
         }
 
+        if (BWAPI::Broodwar->getFrameCount() == 7000)
+        {
+            plays.emplace(plays.begin(), std::make_shared<TakeNaturalExpansion>());
+        }
+
         // TODO: Logic engine to add and remove plays based on scouting information, etc.
 
         updateUnitAssignments();
@@ -315,9 +321,9 @@ namespace Strategist
 
     void chooseOpening()
     {
-        plays.emplace_back(std::make_unique<EarlyGameProtection>());
-        plays.emplace_back(std::make_unique<SaturateBases>());
-        plays.emplace_back(std::make_unique<RallyArmy>());
+        plays.emplace_back(std::make_shared<EarlyGameProtection>());
+        plays.emplace_back(std::make_shared<SaturateBases>());
+        plays.emplace_back(std::make_shared<RallyArmy>());
 
         /*
         if (BWAPI::Broodwar->self()->getName() == "Opponent") {
@@ -379,6 +385,11 @@ namespace Strategist
         productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Corsair, 8, 2));
         productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Zealot));
         */
+    }
+
+    void setOpening(std::vector<std::shared_ptr<Play>> openingPlays)
+    {
+        plays = openingPlays;
     }
 
     std::vector<ProductionGoal> &currentProductionGoals()
