@@ -20,4 +20,5 @@ add_library(BWEM
         src/mapPrinter.cpp
         src/neutral.cpp
         src/tiles.cpp
-        src/utils.cpp)
+        src/utils.cpp
+        src/BaseFinder.cpp)

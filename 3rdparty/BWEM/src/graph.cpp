@@ -11,6 +11,7 @@
 #include "graph.h"
 #include "mapImpl.h"
 #include "neutral.h"
+#include "BaseFinder.h"
 #include <map>
 #include <deque>
 
@@ -536,6 +537,8 @@ void Graph::CollectInformation()
 
 void Graph::CreateBases()
 {
+    BaseFinder::Init();
+
 	m_baseCount = 0;
 	for (Area & area : m_Areas)
 	{

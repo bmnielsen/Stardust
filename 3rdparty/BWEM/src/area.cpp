@@ -12,6 +12,7 @@
 #include "graph.h"
 #include "neutral.h"
 #include "base.h"
+#include "BaseFinder.h"
 #include <map>
 
 using namespace BWAPI;
@@ -314,6 +315,38 @@ bool Area::ValidateBaseLocation(TilePosition location, vector<Mineral *> & Block
 // To efficiently compute the distances to the ressources, with use Potiential Fields in the InternalData() value of the Tiles.
 void Area::CreateBases()
 {
+    // Replace built-in BWEM base finding with jajplacer
+    const Map * pMap = GetMap();
+    m_Bases.reserve(BaseFinder::GetBases().size());
+    for (auto & base : BaseFinder::GetBases())
+    {
+        // Only consider bases in this area
+        if (pMap->GetArea(base.tpos) != this) continue;
+
+        // Gather the BWEM resource objects that correspond to the units found by BaseFinder
+
+        // Start by collecting the IDs
+        std::set<int> resourceIds;
+        for (auto mineral : base.minerals) resourceIds.insert(mineral->getID());
+        for (auto geyser : base.geysers) resourceIds.insert(geyser->getID());
+
+        // Now match them to BWEM resource objects
+        vector<Ressource *> resources;
+        for (Mineral * m : Minerals()) if (resourceIds.find(m->Unit()->getID()) != resourceIds.end()) resources.push_back(m);
+        for (Geyser * g : Geysers()) if (resourceIds.find(g->Unit()->getID()) != resourceIds.end()) resources.push_back(g);
+
+        // Use BWEM's method to detect the blocking minerals
+        vector<Mineral *> BlockingMinerals;
+        auto validated = ValidateBaseLocation(base.tpos, BlockingMinerals);
+
+        // Add the base if everything checks out
+        if (!resources.empty() && validated)
+        {
+            m_Bases.emplace_back(this, base.tpos, resources, BlockingMinerals);
+        }
+    }
+
+    /*
 	const TilePosition dimCC = UnitType(Terran_Command_Center).tileSize();
 	const Map * pMap = GetMap();
 
@@ -412,6 +445,7 @@ void Area::CreateBases()
 
 		m_Bases.emplace_back(this, bestLocation, AssignedRessources, BlockingMinerals);
 	}
+    */
 }
 
 	
