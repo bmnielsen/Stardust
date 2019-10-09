@@ -20,6 +20,7 @@ include_directories(
 
 set(LOCUTUS_TEST_INCLUDES
         ${PROJECT_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/3rdparty/BWEM
         )
 include_directories(${LOCUTUS_TEST_INCLUDES})
 
@@ -31,7 +32,8 @@ add_executable(tests
         SelfPlay.cpp
         Steamhammer.cpp
         AiideMapAnalysis.cpp
-        plays/macro/TakeNaturalExpansionTests.cpp)
+        plays/macro/TakeNaturalExpansionTests.cpp
+        map/NaturalLocations.cpp)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(tests PUBLIC DEBUG=1)
