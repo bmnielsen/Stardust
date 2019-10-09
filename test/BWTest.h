@@ -12,6 +12,7 @@ public:
     int frameLimit = 25000;
     int timeLimit = 600;
     int randomSeed = 42;
+    bool expectWin = true;
 
     std::function<BWAPI::AIModule*()> opponentModule = nullptr;
     BWAPI::Race opponentRace = BWAPI::Races::Protoss;

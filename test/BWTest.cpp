@@ -52,9 +52,13 @@ void BWTest::run()
         signal(SIGABRT, signalHandler);
 
         runGame(false);
-        _exit(EXIT_SUCCESS);
+
+        _exit(::testing::Test::HasFailure() ? EXIT_FAILURE : EXIT_SUCCESS);
     }
-    waitpid(selfPid, nullptr, 0);
+
+    int result;
+    waitpid(selfPid, &result, 0);
+    EXPECT_EQ(result, 0);
 
 #endif
     waitpid(opponentPid, nullptr, 0);
@@ -170,6 +174,15 @@ void BWTest::runGame(bool opponent)
         }
     }
 
+    if (opponent)
+    {
+        if (onEndOpponent) onEndOpponent();
+    }
+    else
+    {
+        if (onEndMine) onEndMine();
+    }
+
     try
     {
         h->onGameEnd();
@@ -179,18 +192,12 @@ void BWTest::runGame(bool opponent)
         std::cout << "Exception caught in game end (" << (opponent ? "opponent" : "mine") << "): " << ex.what() << std::endl;
     }
 
-    if (opponent)
+    if (!opponent)
     {
-        if (onEndOpponent) onEndOpponent();
-    }
-    else
-    {
-        if (onEndMine) onEndMine();
-
         auto result = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start).count();
         std::cout << "Total game time: " << result << "s" << std::endl;
 
-        EXPECT_TRUE(gameOwner.getGame().won());
+        if (expectWin) EXPECT_TRUE(gameOwner.getGame().won());
 
         // Create an ID for this game based on the test case and timestamp
         std::ostringstream gameId;
@@ -230,10 +237,10 @@ void BWTest::runGame(bool opponent)
             logDirectory << "replays/" << gameId.str() << ".rep.log";
             std::filesystem::create_directories(logDirectory.str());
 
-            for (auto logFilename : Log::LogFiles())
+            for (auto & logFilename : Log::LogFiles())
             {
                 std::ostringstream newLogFilename;
-                newLogFilename << logDirectory.str() << "/" << logFilename.substr(logFilename.rfind("/") + 1);
+                newLogFilename << logDirectory.str() << "/" << logFilename.substr(logFilename.rfind('/') + 1);
                 std::filesystem::rename(logFilename, newLogFilename.str());
             }
         }
