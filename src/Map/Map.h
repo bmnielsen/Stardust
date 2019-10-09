@@ -26,6 +26,8 @@ namespace Map
     Base * baseNear(BWAPI::Position position);
     std::set<Base*> unscoutedStartingLocations();
 
+    Base* getNaturalForStartLocation(BWAPI::TilePosition startLocation);
+
     Choke * choke(const BWEM::ChokePoint * bwemChoke);
     bool nearNarrowChokepoint(BWAPI::Position position);
 

@@ -6,7 +6,10 @@
 #include "Units.h"
 #include "PathFinding.h"
 
-namespace { auto & bwemMap = BWEM::Map::Instance(); }
+namespace
+{
+    auto &bwemMap = BWEM::Map::Instance();
+}
 
 /*
 Base ownership:
@@ -22,7 +25,7 @@ namespace Map
     namespace
     {
 #endif
-        MapSpecificOverride * _mapSpecificOverride;
+        MapSpecificOverride *_mapSpecificOverride;
         std::vector<Base *> bases;
         std::vector<Base *> startingLocationBases;
         std::map<const BWEM::ChokePoint *, Choke *> chokes;
@@ -32,24 +35,24 @@ namespace Map
 
         struct PlayerBases
         {
-            Base * main;
-            Base * natural;
+            Base *main;
+            Base *natural;
             std::set<Base *> allOwned;
             std::vector<Base *> probableExpansions;
         };
 
         std::map<BWAPI::Player, PlayerBases> playerToPlayerBases;
 
-        int closestBaseDistance(Base * base, std::set<Base*> otherBases)
+        int closestBaseDistance(Base *base, std::set<Base *> otherBases)
         {
             int closestDistance = -1;
             for (auto otherBase : otherBases)
             {
                 int dist = PathFinding::GetGroundDistance(
-                    base->getPosition(),
-                    otherBase->getPosition(),
-                    BWAPI::UnitTypes::Protoss_Probe,
-                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                        base->getPosition(),
+                        otherBase->getPosition(),
+                        BWAPI::UnitTypes::Protoss_Probe,
+                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
                 if (dist >= 0 && (dist < closestDistance || closestDistance == -1))
                     closestDistance = dist;
             }
@@ -57,7 +60,7 @@ namespace Map
             return closestDistance;
         }
 
-        void computeProbableExpansions(BWAPI::Player player, PlayerBases & playerBases)
+        void computeProbableExpansions(BWAPI::Player player, PlayerBases &playerBases)
         {
             playerBases.probableExpansions.clear();
 
@@ -67,7 +70,7 @@ namespace Map
             auto myBases = getMyBases(player);
             auto enemyBases = getEnemyBases(player);
 
-            std::vector<std::pair<int, Base*>> scoredBases;
+            std::vector<std::pair<int, Base *>> scoredBases;
             for (auto base : bases)
             {
                 if (base->owner) continue;
@@ -87,68 +90,35 @@ namespace Map
                 score += base->minerals() / 100;
                 score += base->gas() / 50;
 
-                scoredBases.push_back(std::make_pair(score, base));
+                scoredBases.emplace_back(std::make_pair(score, base));
             }
 
             if (scoredBases.empty()) return;
 
             std::sort(scoredBases.begin(), scoredBases.end());
-            for (auto & pair : scoredBases)
+            for (auto &pair : scoredBases)
             {
                 playerBases.probableExpansions.push_back(pair.second);
             }
         }
 
-        void setMainBase(Base * mainBase, PlayerBases & playerBases)
+        void setMainBase(Base *mainBase, PlayerBases &playerBases)
         {
             playerBases.main = mainBase;
-
-            // Pick a natural base
-            Base * bestNatural = nullptr;
-            double bestScore = 0.0;
-
-            for (auto base : bases)
-            {
-                if (base == mainBase) continue;
-                if (base->gas() == 0) continue;
-
-                int dist = PathFinding::GetGroundDistance(
-                    mainBase->getPosition(),
-                    base->getPosition(),
-                    BWAPI::UnitTypes::Protoss_Zealot,
-                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
-                
-                // Skip if the base is not connected by ground or requires mineral walking
-                if (dist == -1) continue;
-
-                // Score the base
-                double score = -dist;
-
-                // More resources -> better.
-                score += 0.01 * base->minerals() + 0.02 * base->gas();
-
-                if (!bestNatural || score > bestScore)
-                {
-                    bestNatural = base;
-                    bestScore = score;
-                }
-            }
-
-            if (bestNatural)
-            {
-                playerBases.natural = bestNatural;
-            }
+            playerBases.natural = getNaturalForStartLocation(mainBase->getTilePosition());
         }
 
-        void setBaseOwner(Base * base, BWAPI::Player owner)
+        void setBaseOwner(Base *base, BWAPI::Player owner)
         {
             if (base->owner == owner) return;
 
             // If the base previously had an owner, remove it from their list of owned bases
             if (base->owner) playerToPlayerBases[base->owner].allOwned.erase(base);
 
-            auto playerLabel = [](BWAPI::Player player) { return player ? player->getName() : "(none)"; };
-            CherryVis::log() << "Changing base " << base->getTilePosition() << " owner from " << playerLabel(base->owner) << " to " << playerLabel(owner);
+            auto playerLabel = [](BWAPI::Player player)
+            { return player ? player->getName() : "(none)"; };
+            CherryVis::log() << "Changing base " << base->getTilePosition() << " owner from " << playerLabel(base->owner) << " to "
+                             << playerLabel(owner);
 
             base->owner = owner;
             base->ownedSince = BWAPI::Broodwar->getFrameCount();
@@ -158,7 +128,7 @@ namespace Map
             if (owner)
             {
                 // Add to new owner's bases
-                auto & ownerBases = playerToPlayerBases[owner];
+                auto &ownerBases = playerToPlayerBases[owner];
                 ownerBases.allOwned.insert(base);
 
                 // If this base is at a start position and we haven't registered a main base for the new owner, do so now
@@ -169,7 +139,7 @@ namespace Map
             }
 
             // Location of bases affects where all players might expand, so recompute the probable expansions for all players
-            for (auto & playerAndBases : playerToPlayerBases)
+            for (auto &playerAndBases : playerToPlayerBases)
             {
                 computeProbableExpansions(playerAndBases.first, playerAndBases.second);
             }
@@ -223,7 +193,7 @@ namespace Map
             }
 
             // If we haven't found the player's main base yet, determine if this building infers the start location
-            auto & playerBases = playerToPlayerBases[unit->getPlayer()];
+            auto &playerBases = playerToPlayerBases[unit->getPlayer()];
             if (!playerBases.main)
             {
                 for (auto startingLocationBase : startingLocationBases)
@@ -231,10 +201,10 @@ namespace Map
                     if (startingLocationBase->owner) continue;
 
                     int dist = PathFinding::GetGroundDistance(
-                        unit->getPosition(),
-                        startingLocationBase->getPosition(),
-                        BWAPI::UnitTypes::Protoss_Probe,
-                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                            unit->getPosition(),
+                            startingLocationBase->getPosition(),
+                            BWAPI::UnitTypes::Protoss_Probe,
+                            PathFinding::PathFindingOptions::UseNearestBWEMArea);
                     if (dist != -1 && dist < 1500)
                     {
                         setBaseOwner(startingLocationBase, unit->getPlayer());
@@ -260,7 +230,7 @@ namespace Map
             if (nearbyBase->owner != unit->getPlayer()) return;
 
             // If the player still has a building near the base, don't update ownership
-            for (auto & otherUnit : Units::getForPlayer(unit->getPlayer()))
+            for (auto &otherUnit : Units::getForPlayer(unit->getPlayer()))
             {
                 if (!otherUnit->type.isBuilding() && !otherUnit->type.isAddon()) continue;
                 if (!otherUnit->lastPositionValid) continue;
@@ -271,7 +241,7 @@ namespace Map
             setBaseOwner(nearbyBase, nullptr);
         }
 
-        void checkCreep(Base * base)
+        void checkCreep(Base *base)
         {
             for (int x = -8; x <= 11; x++)
             {
@@ -280,7 +250,7 @@ namespace Map
                 {
                     if (y == 0) y = 2;
 
-                    BWAPI::TilePosition tile = { base->getTilePosition().x + x, base->getTilePosition().y + y };
+                    BWAPI::TilePosition tile = {base->getTilePosition().x + x, base->getTilePosition().y + y};
                     if (!tile.isValid()) continue;
                     if (BWAPI::Broodwar->hasCreep(tile))
                     {
@@ -298,30 +268,36 @@ namespace Map
             // Ground height is at tile resolution
             std::vector<long> groundHeight(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
             for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            {
                 for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
                 {
                     groundHeight[x + y * BWAPI::Broodwar->mapWidth()] = BWAPI::Broodwar->getGroundHeight(x, y);
                 }
+            }
 
             CherryVis::addHeatmap("GroundHeight", groundHeight, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 
             // Buildability is at tile resolution
             std::vector<long> buildability(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
             for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            {
                 for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
                 {
                     buildability[x + y * BWAPI::Broodwar->mapWidth()] = BWAPI::Broodwar->isBuildable(x, y);
                 }
+            }
 
             CherryVis::addHeatmap("Buildable", buildability, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 
             // Walkability is at walk tile resolution
             std::vector<long> walkability(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 16);
             for (int x = 0; x < BWAPI::Broodwar->mapWidth() * 4; x++)
+            {
                 for (int y = 0; y < BWAPI::Broodwar->mapHeight() * 4; y++)
                 {
                     walkability[x + y * BWAPI::Broodwar->mapWidth() * 4] = BWAPI::Broodwar->isWalkable(x, y);
                 }
+            }
 
             CherryVis::addHeatmap("Walkable", walkability, BWAPI::Broodwar->mapWidth() * 4, BWAPI::Broodwar->mapHeight() * 4);
         }
@@ -347,33 +323,44 @@ namespace Map
             _mapSpecificOverride = new MapSpecificOverride();
 
         // Analyze chokepoints
-        for (const auto & area : bwemMap.Areas())
-            for (const BWEM::ChokePoint * choke : area.ChokePoints())
+        for (const auto &area : bwemMap.Areas())
+        {
+            for (const BWEM::ChokePoint *choke : area.ChokePoints())
+            {
                 if (chokes.find(choke) == chokes.end())
                     chokes.emplace(choke, new Choke(choke));
+            }
+        }
         _mapSpecificOverride->initializeChokes(chokes);
 
         // Compute the minimum choke width
         _minChokeWidth = INT_MAX;
-        for (const auto & pair : chokes)
+        for (const auto &pair : chokes)
+        {
             if (pair.second->width < _minChokeWidth)
                 _minChokeWidth = pair.second->width;
+        }
 
         // Initialize bases
-        for (const auto & area : bwemMap.Areas())
-            for (const auto & base : area.Bases())
+        for (const auto &area : bwemMap.Areas())
+        {
+            for (const auto &base : area.Bases())
             {
                 auto newBase = new Base(base.Location(), &base);
                 bases.push_back(newBase);
-                if (newBase->isStartingBase())
+            }
+        }
+        for (auto &base : bases)
+        {
+            if (base->isStartingBase())
+            {
+                startingLocationBases.push_back(base);
+                if (base->getTilePosition() == BWAPI::Broodwar->self()->getStartLocation())
                 {
-                    startingLocationBases.push_back(newBase);
-                    if (newBase->getTilePosition() == BWAPI::Broodwar->self()->getStartLocation())
-                    {
-                        setBaseOwner(newBase, BWAPI::Broodwar->self());
-                    }
+                    setBaseOwner(base, BWAPI::Broodwar->self());
                 }
             }
+        }
         Log::Debug() << "Found " << bases.size() << " bases";
 
         dumpStaticHeatmaps();
@@ -412,11 +399,11 @@ namespace Map
                 base->lastScouted = BWAPI::Broodwar->getFrameCount();
             }
 
-            // If the base hasn't been owned for a while, and the enemy could be zerg, can we see creep?
+                // If the base hasn't been owned for a while, and the enemy could be zerg, can we see creep?
             else if (
-                (base->ownedSince == -1 || base->ownedSince < (BWAPI::Broodwar->getFrameCount() - 2500)) &&
-                BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran &&
-                BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss)
+                    (base->ownedSince == -1 || base->ownedSince < (BWAPI::Broodwar->getFrameCount() - 2500)) &&
+                    BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran &&
+                    BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss)
             {
                 checkCreep(base);
             }
@@ -434,22 +421,22 @@ namespace Map
         }
     }
 
-    MapSpecificOverride * mapSpecificOverride()
+    MapSpecificOverride *mapSpecificOverride()
     {
         return _mapSpecificOverride;
     }
 
-    std::vector<Base *>& allBases()
+    std::vector<Base *> &allBases()
     {
         return bases;
     }
 
-    std::set<Base*> & getMyBases(BWAPI::Player player)
+    std::set<Base *> &getMyBases(BWAPI::Player player)
     {
         return playerToPlayerBases[player].allOwned;
     }
 
-    std::set<Base*> getEnemyBases(BWAPI::Player player)
+    std::set<Base *> getEnemyBases(BWAPI::Player player)
     {
         std::set<Base *> result;
         for (auto base : bases)
@@ -461,7 +448,7 @@ namespace Map
         return result;
     }
 
-    Base * getMyMain()
+    Base *getMyMain()
     {
         return playerToPlayerBases[BWAPI::Broodwar->self()].main;
     }
@@ -471,17 +458,17 @@ namespace Map
         return playerToPlayerBases[BWAPI::Broodwar->self()].natural;
     }
 
-    Base * getEnemyMain()
+    Base *getEnemyMain()
     {
         return playerToPlayerBases[BWAPI::Broodwar->enemy()].main;
     }
 
-    Base * baseNear(BWAPI::Position position)
+    Base *baseNear(BWAPI::Position position)
     {
         int closestDist = INT_MAX;
-        Base * result = nullptr;
+        Base *result = nullptr;
 
-        for (auto & base : bases)
+        for (auto &base : bases)
         {
             int dist = base->getPosition().getApproxDistance(position);
             if (dist < 320 && dist < closestDist)
@@ -494,9 +481,9 @@ namespace Map
         return result;
     }
 
-    std::set<Base*> unscoutedStartingLocations()
+    std::set<Base *> unscoutedStartingLocations()
     {
-        std::set<Base*> result;
+        std::set<Base *> result;
         for (auto base : startingLocationBases)
         {
             if (base->owner) continue;
@@ -508,13 +495,68 @@ namespace Map
         return result;
     }
 
-    Choke * choke(const BWEM::ChokePoint * bwemChoke)
+    Base *getNaturalForStartLocation(BWAPI::TilePosition startLocation)
+    {
+        auto startPosition = BWAPI::Position(startLocation) + BWAPI::Position(64, 48);
+
+        // The natural base is the closest base that:
+        // - has gas
+        // - is closer (by ground) to at least one other start position
+
+        // Pick a natural base
+        Base *bestNatural = nullptr;
+        int bestDist = INT_MAX;
+        for (auto base : bases)
+        {
+            if (base->getTilePosition() == startLocation) continue;
+            if (base->gas() == 0) continue;
+
+            int dist = PathFinding::GetGroundDistance(
+                    startPosition,
+                    base->getPosition(),
+                    BWAPI::UnitTypes::Protoss_Zealot,
+                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            if (dist == -1 || dist > bestDist) continue;
+
+            bool closerToOtherStartLocation = false;
+            for (auto otherStartLocation : BWAPI::Broodwar->getStartLocations())
+            {
+                if (startLocation == otherStartLocation) continue;
+                auto otherPosition = BWAPI::Position(otherStartLocation) + BWAPI::Position(64, 48);
+                int distFromMain = PathFinding::GetGroundDistance(
+                        startPosition,
+                        otherPosition,
+                        BWAPI::UnitTypes::Protoss_Zealot,
+                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                int distFromBase = PathFinding::GetGroundDistance(
+                        base->getPosition(),
+                        otherPosition,
+                        BWAPI::UnitTypes::Protoss_Zealot,
+                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                if (distFromBase != -1 && distFromMain > distFromBase)
+                {
+                    closerToOtherStartLocation = true;
+                    break;
+                }
+            }
+
+            if (closerToOtherStartLocation)
+            {
+                bestNatural = base;
+                bestDist = dist;
+            }
+        }
+
+        return bestNatural;
+    }
+
+    Choke *choke(const BWEM::ChokePoint *bwemChoke)
     {
         if (!bwemChoke) return nullptr;
         auto it = chokes.find(bwemChoke);
         return it == chokes.end()
-            ? nullptr
-            : it->second;
+               ? nullptr
+               : it->second;
     }
 
     bool nearNarrowChokepoint(BWAPI::Position position)
@@ -539,9 +581,13 @@ namespace Map
     {
         std::vector<long> newVisibility(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
         for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        {
             for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            {
                 if (BWAPI::Broodwar->isVisible(x, y))
                     newVisibility[x + y * BWAPI::Broodwar->mapWidth()] = 1;
+            }
+        }
 
         if (newVisibility != visibility)
         {
