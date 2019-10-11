@@ -6,7 +6,9 @@ TEST(SelfPlay, ATest)
 {
     BWTest test;
     test.opponentRace = BWAPI::Races::Protoss;
-    test.opponentModule = []() {
+    test.expectWin = false;
+    test.opponentModule = []()
+    {
         return new LocutusAIModule();
     };
 

@@ -216,32 +216,43 @@ void BWTest::runGame(bool opponent)
             gameId << "_PASS";
         }
 
-        // Write the replay file
-        std::ostringstream replayFilename;
-        replayFilename << "replays/" << gameId.str() << ".rep";
-        std::filesystem::create_directories("replays");
-        BWAPI::BroodwarImpl.bwgame.saveReplay(replayFilename.str());
-
-        // Move the cvis directory
-        if (std::filesystem::exists("bwapi-data/write/cvis"))
+        // If enabled, write the replay file
+        // Otherwise remove the cvis directory
+        if (writeReplay)
         {
-            std::ostringstream cvisFilename;
-            cvisFilename << "replays/" << gameId.str() << ".rep.cvis";
-            std::filesystem::rename("bwapi-data/write/cvis", cvisFilename.str());
-        }
+            std::ostringstream replayFilename;
+            replayFilename << "replays/" << gameId.str() << ".rep";
+            std::filesystem::create_directories("replays");
+            BWAPI::BroodwarImpl.bwgame.saveReplay(replayFilename.str());
 
-        // Move log files
-        if (!Log::LogFiles().empty())
-        {
-            std::ostringstream logDirectory;
-            logDirectory << "replays/" << gameId.str() << ".rep.log";
-            std::filesystem::create_directories(logDirectory.str());
-
-            for (auto & logFilename : Log::LogFiles())
+            // Move the cvis directory
+            if (std::filesystem::exists("bwapi-data/write/cvis"))
             {
-                std::ostringstream newLogFilename;
-                newLogFilename << logDirectory.str() << "/" << logFilename.substr(logFilename.rfind('/') + 1);
-                std::filesystem::rename(logFilename, newLogFilename.str());
+                std::ostringstream cvisFilename;
+                cvisFilename << "replays/" << gameId.str() << ".rep.cvis";
+                std::filesystem::rename("bwapi-data/write/cvis", cvisFilename.str());
+            }
+
+            // Move log files
+            if (!Log::LogFiles().empty())
+            {
+                std::ostringstream logDirectory;
+                logDirectory << "replays/" << gameId.str() << ".rep.log";
+                std::filesystem::create_directories(logDirectory.str());
+
+                for (auto &logFilename : Log::LogFiles())
+                {
+                    std::ostringstream newLogFilename;
+                    newLogFilename << logDirectory.str() << "/" << logFilename.substr(logFilename.rfind('/') + 1);
+                    std::filesystem::rename(logFilename, newLogFilename.str());
+                }
+            }
+        }
+        else
+        {
+            if (std::filesystem::exists("bwapi-data/write/cvis"))
+            {
+                std::filesystem::remove_all("bwapi-data/write/cvis");
             }
         }
     }

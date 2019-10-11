@@ -13,8 +13,9 @@ public:
     int timeLimit = 600;
     int randomSeed = 42;
     bool expectWin = true;
+    bool writeReplay = true;
 
-    std::function<BWAPI::AIModule*()> opponentModule = nullptr;
+    std::function<BWAPI::AIModule *()> opponentModule = nullptr;
     BWAPI::Race opponentRace = BWAPI::Races::Protoss;
 
     std::function<void()> onStartMine = nullptr;

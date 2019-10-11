@@ -9,20 +9,23 @@ TEST(TakeNaturalExpansion, CanTakeNaturalExpansionImmediately)
 {
     BWTest test;
     test.opponentRace = BWAPI::Races::Zerg;
-    test.opponentModule = []() {
+    test.opponentModule = []()
+    {
         return new DoNothingModule();
     };
     test.map = "maps/sscai/(4)Andromeda.scx";
     test.frameLimit = 2500;
     test.expectWin = false;
 
-    test.onStartMine = []() {
+    test.onStartMine = []()
+    {
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<TakeNaturalExpansion>());
         Strategist::setOpening(openingPlays);
     };
 
-    test.onEndMine = []() {
+    test.onEndMine = []()
+    {
         EXPECT_EQ(Map::getMyNatural()->owner, BWAPI::Broodwar->self());
         EXPECT_FALSE(Map::getMyNatural()->resourceDepot == nullptr);
         EXPECT_EQ(Map::getMyNatural()->resourceDepot->getTilePosition(), Map::getMyNatural()->getTilePosition());

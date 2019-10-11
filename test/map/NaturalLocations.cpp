@@ -18,6 +18,7 @@ void verifyNaturalLocations(const std::string &map, std::map<BWAPI::TilePosition
     test.map = map;
     test.frameLimit = 10;
     test.expectWin = false;
+    test.writeReplay = false;
 
     test.onStartMine = [&]()
     {
@@ -35,10 +36,10 @@ void verifyNaturalLocations(const std::string &map, std::map<BWAPI::TilePosition
 TEST(NaturalLocations, Andromeda)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(7,118),BWAPI::TilePosition(21,105)},
-            {BWAPI::TilePosition(117,7),BWAPI::TilePosition(103,21)},
-            {BWAPI::TilePosition(117,119),BWAPI::TilePosition(103,105)},
-            {BWAPI::TilePosition(7,6),BWAPI::TilePosition(21,21)}
+            {BWAPI::TilePosition(7, 118),   BWAPI::TilePosition(21, 105)},
+            {BWAPI::TilePosition(117, 7),   BWAPI::TilePosition(103, 21)},
+            {BWAPI::TilePosition(117, 119), BWAPI::TilePosition(103, 105)},
+            {BWAPI::TilePosition(7, 6),     BWAPI::TilePosition(21, 21)}
     };
 
     verifyNaturalLocations("maps/sscai/(4)Andromeda.scx", expectedNaturalLocations);
@@ -47,10 +48,10 @@ TEST(NaturalLocations, Andromeda)
 TEST(NaturalLocations, Python)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(42,119),BWAPI::TilePosition(75,118)},
-            {BWAPI::TilePosition(7,86),BWAPI::TilePosition(7,57)},
-            {BWAPI::TilePosition(117,40),BWAPI::TilePosition(117,66)},
-            {BWAPI::TilePosition(83,6),BWAPI::TilePosition(47,6)}
+            {BWAPI::TilePosition(42, 119), BWAPI::TilePosition(75, 118)},
+            {BWAPI::TilePosition(7, 86),   BWAPI::TilePosition(7, 57)},
+            {BWAPI::TilePosition(117, 40), BWAPI::TilePosition(117, 66)},
+            {BWAPI::TilePosition(83, 6),   BWAPI::TilePosition(47, 6)}
     };
 
     verifyNaturalLocations("maps/sscai/(4)Python.scx", expectedNaturalLocations);
@@ -59,10 +60,10 @@ TEST(NaturalLocations, Python)
 TEST(NaturalLocations, EmpireOfTheSun)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(117,119),BWAPI::TilePosition(93,118)},
-            {BWAPI::TilePosition(117,6),BWAPI::TilePosition(93,6)},
-            {BWAPI::TilePosition(7,119),BWAPI::TilePosition(31,118)},
-            {BWAPI::TilePosition(7,6),BWAPI::TilePosition(31,6)}
+            {BWAPI::TilePosition(117, 119), BWAPI::TilePosition(93, 118)},
+            {BWAPI::TilePosition(117, 6),   BWAPI::TilePosition(93, 6)},
+            {BWAPI::TilePosition(7, 119),   BWAPI::TilePosition(31, 118)},
+            {BWAPI::TilePosition(7, 6),     BWAPI::TilePosition(31, 6)}
     };
 
     verifyNaturalLocations("maps/sscai/(4)Empire of the Sun.scm", expectedNaturalLocations);
@@ -71,10 +72,10 @@ TEST(NaturalLocations, EmpireOfTheSun)
 TEST(NaturalLocations, FightingSpirit)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(117,7),BWAPI::TilePosition(88,13)},
-            {BWAPI::TilePosition(117,117),BWAPI::TilePosition(110,88)},
-            {BWAPI::TilePosition(7,6),BWAPI::TilePosition(14,38)},
-            {BWAPI::TilePosition(7,116),BWAPI::TilePosition(36,112)}
+            {BWAPI::TilePosition(117, 7),   BWAPI::TilePosition(88, 13)},
+            {BWAPI::TilePosition(117, 117), BWAPI::TilePosition(110, 88)},
+            {BWAPI::TilePosition(7, 6),     BWAPI::TilePosition(14, 38)},
+            {BWAPI::TilePosition(7, 116),   BWAPI::TilePosition(36, 112)}
     };
 
     verifyNaturalLocations("maps/sscai/(4)Fighting Spirit.scx", expectedNaturalLocations);
@@ -83,10 +84,10 @@ TEST(NaturalLocations, FightingSpirit)
 TEST(NaturalLocations, LaMancha)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(116,6),BWAPI::TilePosition(92,7)},
-            {BWAPI::TilePosition(116,117),BWAPI::TilePosition(116,89)},
-            {BWAPI::TilePosition(7,6),BWAPI::TilePosition(8,37)},
-            {BWAPI::TilePosition(8,117),BWAPI::TilePosition(32,117)}
+            {BWAPI::TilePosition(116, 6),   BWAPI::TilePosition(92, 7)},
+            {BWAPI::TilePosition(116, 117), BWAPI::TilePosition(116, 89)},
+            {BWAPI::TilePosition(7, 6),     BWAPI::TilePosition(8, 37)},
+            {BWAPI::TilePosition(8, 117),   BWAPI::TilePosition(32, 117)}
     };
 
     verifyNaturalLocations("maps/sscai/(4)La Mancha1.1.scx", expectedNaturalLocations);
@@ -95,8 +96,8 @@ TEST(NaturalLocations, LaMancha)
 TEST(NaturalLocations, Destination)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(64,118),BWAPI::TilePosition(29,107)},
-            {BWAPI::TilePosition(31,7),BWAPI::TilePosition(63,19)}
+            {BWAPI::TilePosition(64, 118), BWAPI::TilePosition(29, 107)},
+            {BWAPI::TilePosition(31, 7),   BWAPI::TilePosition(63, 19)}
     };
 
     verifyNaturalLocations("maps/sscai/(2)Destination.scx", expectedNaturalLocations);
@@ -105,9 +106,9 @@ TEST(NaturalLocations, Destination)
 TEST(NaturalLocations, NeoMoonGlaive)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(117,96),BWAPI::TilePosition(115,66)},
-            {BWAPI::TilePosition(7,90),BWAPI::TilePosition(28,107)},
-            {BWAPI::TilePosition(67,6),BWAPI::TilePosition(39,14)}
+            {BWAPI::TilePosition(117, 96), BWAPI::TilePosition(115, 66)},
+            {BWAPI::TilePosition(7, 90),   BWAPI::TilePosition(28, 107)},
+            {BWAPI::TilePosition(67, 6),   BWAPI::TilePosition(39, 14)}
     };
 
     verifyNaturalLocations("maps/sscai/(3)Neo Moon Glaive.scx", expectedNaturalLocations);
@@ -116,8 +117,8 @@ TEST(NaturalLocations, NeoMoonGlaive)
 TEST(NaturalLocations, HeartbreakRidge)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(117,56),BWAPI::TilePosition(111,28)},
-            {BWAPI::TilePosition(7,37),BWAPI::TilePosition(13,66)}
+            {BWAPI::TilePosition(117, 56), BWAPI::TilePosition(111, 28)},
+            {BWAPI::TilePosition(7, 37),   BWAPI::TilePosition(13, 66)}
     };
 
     verifyNaturalLocations("maps/sscai/(2)Heartbreak Ridge.scx", expectedNaturalLocations);
@@ -126,9 +127,9 @@ TEST(NaturalLocations, HeartbreakRidge)
 TEST(NaturalLocations, TauCross)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(117,9),BWAPI::TilePosition(103,37)},
-            {BWAPI::TilePosition(93,118),BWAPI::TilePosition(51,113)},
-            {BWAPI::TilePosition(7,44),BWAPI::TilePosition(14,13)}
+            {BWAPI::TilePosition(117, 9),  BWAPI::TilePosition(103, 37)},
+            {BWAPI::TilePosition(93, 118), BWAPI::TilePosition(51, 113)},
+            {BWAPI::TilePosition(7, 44),   BWAPI::TilePosition(14, 13)}
     };
 
     verifyNaturalLocations("maps/sscai/(3)Tau Cross.scx", expectedNaturalLocations);
@@ -137,10 +138,10 @@ TEST(NaturalLocations, TauCross)
 TEST(NaturalLocations, CircuitBreaker)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(7,118),BWAPI::TilePosition(7,92)},
-            {BWAPI::TilePosition(117,118),BWAPI::TilePosition(117,92)},
-            {BWAPI::TilePosition(117,9),BWAPI::TilePosition(117,34)},
-            {BWAPI::TilePosition(7,9),BWAPI::TilePosition(7,34)}
+            {BWAPI::TilePosition(7, 118),   BWAPI::TilePosition(7, 92)},
+            {BWAPI::TilePosition(117, 118), BWAPI::TilePosition(117, 92)},
+            {BWAPI::TilePosition(117, 9),   BWAPI::TilePosition(117, 34)},
+            {BWAPI::TilePosition(7, 9),     BWAPI::TilePosition(7, 34)}
     };
 
     verifyNaturalLocations("maps/sscai/(4)Circuit Breaker.scx", expectedNaturalLocations);
@@ -149,10 +150,10 @@ TEST(NaturalLocations, CircuitBreaker)
 TEST(NaturalLocations, Roadrunner)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(7,90),BWAPI::TilePosition(7,66)},
-            {BWAPI::TilePosition(117,35),BWAPI::TilePosition(117,60)},
-            {BWAPI::TilePosition(98,119),BWAPI::TilePosition(71,118)},
-            {BWAPI::TilePosition(27,6),BWAPI::TilePosition(53,6)}
+            {BWAPI::TilePosition(7, 90),   BWAPI::TilePosition(7, 66)},
+            {BWAPI::TilePosition(117, 35), BWAPI::TilePosition(117, 60)},
+            {BWAPI::TilePosition(98, 119), BWAPI::TilePosition(71, 118)},
+            {BWAPI::TilePosition(27, 6),   BWAPI::TilePosition(53, 6)}
     };
 
     verifyNaturalLocations("maps/sscai/(4)Roadrunner.scx", expectedNaturalLocations);
@@ -161,10 +162,10 @@ TEST(NaturalLocations, Roadrunner)
 TEST(NaturalLocations, Jade)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(8,117),BWAPI::TilePosition(7,86)},
-            {BWAPI::TilePosition(7,7),BWAPI::TilePosition(35,6)},
-            {BWAPI::TilePosition(117,7),BWAPI::TilePosition(117,38)},
-            {BWAPI::TilePosition(117,117),BWAPI::TilePosition(89,118)}
+            {BWAPI::TilePosition(8, 117),   BWAPI::TilePosition(7, 86)},
+            {BWAPI::TilePosition(7, 7),     BWAPI::TilePosition(35, 6)},
+            {BWAPI::TilePosition(117, 7),   BWAPI::TilePosition(117, 38)},
+            {BWAPI::TilePosition(117, 117), BWAPI::TilePosition(89, 118)}
     };
 
     verifyNaturalLocations("maps/sscai/(4)Jade.scx", expectedNaturalLocations);
@@ -173,10 +174,10 @@ TEST(NaturalLocations, Jade)
 TEST(NaturalLocations, Icarus)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(43,8),BWAPI::TilePosition(78,6)},
-            {BWAPI::TilePosition(81,118),BWAPI::TilePosition(46,118)},
-            {BWAPI::TilePosition(8,77),BWAPI::TilePosition(7,49)},
-            {BWAPI::TilePosition(116,47),BWAPI::TilePosition(117,77)}
+            {BWAPI::TilePosition(43, 8),   BWAPI::TilePosition(78, 6)},
+            {BWAPI::TilePosition(81, 118), BWAPI::TilePosition(46, 118)},
+            {BWAPI::TilePosition(8, 77),   BWAPI::TilePosition(7, 49)},
+            {BWAPI::TilePosition(116, 47), BWAPI::TilePosition(117, 77)}
     };
 
     verifyNaturalLocations("maps/sscai/(4)Icarus.scm", expectedNaturalLocations);
@@ -185,8 +186,8 @@ TEST(NaturalLocations, Icarus)
 TEST(NaturalLocations, Benzene)
 {
     std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations = {
-            {BWAPI::TilePosition(7,96),BWAPI::TilePosition(11,70)},
-            {BWAPI::TilePosition(117,13),BWAPI::TilePosition(113,40)}
+            {BWAPI::TilePosition(7, 96),   BWAPI::TilePosition(11, 70)},
+            {BWAPI::TilePosition(117, 13), BWAPI::TilePosition(113, 40)}
     };
 
     verifyNaturalLocations("maps/sscai/(2)Benzene.scx", expectedNaturalLocations);

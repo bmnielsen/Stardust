@@ -24,16 +24,15 @@ set(LOCUTUS_TEST_INCLUDES
         )
 include_directories(${LOCUTUS_TEST_INCLUDES})
 
+file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR} *.cpp)
+list(FILTER SRC_FILES EXCLUDE REGEX ".*3rdparty.*")
+
 add_executable(tests
         $<TARGET_OBJECTS:BWAPIObj>
         $<TARGET_OBJECTS:BWAPICore>
         ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/OpenBWData/BW/BWData.cpp
-        BWTest.cpp
-        SelfPlay.cpp
-        Steamhammer.cpp
-        AiideMapAnalysis.cpp
-        plays/macro/TakeNaturalExpansionTests.cpp
-        map/NaturalLocations.cpp)
+        ${SRC_FILES}
+        )
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(tests PUBLIC DEBUG=1)
