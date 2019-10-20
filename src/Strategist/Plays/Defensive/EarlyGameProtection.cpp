@@ -5,7 +5,10 @@
 #include "Units.h"
 #include "UnitUtil.h"
 
-namespace { auto & bwemMap = BWEM::Map::Instance(); }
+namespace
+{
+    auto &bwemMap = BWEM::Map::Instance();
+}
 
 EarlyGameProtection::EarlyGameProtection() : squad(std::make_shared<DefendBaseSquad>(Map::getMyMain()))
 {
@@ -19,7 +22,8 @@ void EarlyGameProtection::update()
     {
         // Get enemy combat units in our base
         std::set<std::shared_ptr<Unit>> enemyCombatUnits;
-        Units::getInArea(enemyCombatUnits, BWAPI::Broodwar->enemy(), Map::getMyMain()->getArea(), [](const std::shared_ptr<Unit>& unit) {
+        Units::getInArea(enemyCombatUnits, BWAPI::Broodwar->enemy(), Map::getMyMain()->getArea(), [](const std::shared_ptr<Unit> &unit)
+        {
             return UnitUtil::IsCombatUnit(unit->type);
         });
 
@@ -41,7 +45,7 @@ void EarlyGameProtection::update()
 
 void EarlyGameProtection::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    for (auto & unitRequirement : status.unitRequirements)
+    for (auto &unitRequirement : status.unitRequirements)
     {
         if (unitRequirement.count < 1) continue;
         prioritizedProductionGoals[20].emplace_back(std::in_place_type<UnitProductionGoal>, unitRequirement.type, unitRequirement.count, 1);

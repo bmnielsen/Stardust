@@ -5,7 +5,7 @@
 
 namespace Timer
 {
-    namespace 
+    namespace
     {
 #ifdef DEBUG
         const int LOG_CUTOFF = 10000;
@@ -15,13 +15,13 @@ namespace Timer
         const int DEBUG_CUTOFF = 10;
 #endif
 
-        std::string                                    overallLabel;
-        std::chrono::steady_clock::time_point          startPoint;
-        std::chrono::steady_clock::time_point          lastCheckpoint;
+        std::string overallLabel;
+        std::chrono::steady_clock::time_point startPoint;
+        std::chrono::steady_clock::time_point lastCheckpoint;
         std::vector<std::pair<std::string, long long>> checkpoints;
 
-        bool sortCheckpoints(std::pair<std::string, long long> & first, std::pair<std::string, long long> & second)
-        { 
+        bool sortCheckpoints(std::pair<std::string, long long> &first, std::pair<std::string, long long> &second)
+        {
             return first.second > second.second;
         }
     }
@@ -52,7 +52,7 @@ namespace Timer
             std::sort(checkpoints.begin(), checkpoints.end(), sortCheckpoints);
 
             bool first = true;
-            for (auto & checkpoint : checkpoints)
+            for (auto &checkpoint : checkpoints)
             {
                 if (checkpoint.second < (DEBUG_CUTOFF / 5)) continue;
 

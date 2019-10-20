@@ -5,7 +5,10 @@
 #include "Map.h"
 #include "Units.h"
 
-namespace { auto & bwemMap = BWEM::Map::Instance(); }
+namespace
+{
+    auto &bwemMap = BWEM::Map::Instance();
+}
 
 /*
  * Almost everything in this file is currently just ported from the old Steamhammer-based Locutus.
@@ -66,8 +69,9 @@ namespace
         }
 
         // if the target is building something near our base something is fishy
-        BWAPI::Position ourBasePosition = BWAPI::Position(Map::getMyMain()->getPosition());
-        if (target->getDistance(ourBasePosition) < 1000) {
+        auto ourBasePosition = BWAPI::Position(Map::getMyMain()->getPosition());
+        if (target->getDistance(ourBasePosition) < 1000)
+        {
             if (target->getType().isWorker() && (target->isConstructing() || target->isRepairing()))
             {
                 return 12;
@@ -86,7 +90,8 @@ namespace
             }
         }
 
-        if (rangedType.isFlyer()) {
+        if (rangedType.isFlyer())
+        {
             // Exceptions if we're a flyer (other than scourge, which is handled above).
             if (targetType == BWAPI::UnitTypes::Zerg_Scourge)
             {
@@ -96,7 +101,7 @@ namespace
         else
         {
             // Exceptions if we're a ground unit.
-            if (targetType == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine && !target->isBurrowed() ||
+            if ((targetType == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine && !target->isBurrowed()) ||
                 targetType == BWAPI::UnitTypes::Zerg_Infested_Terran)
             {
                 return 12;
@@ -257,10 +262,10 @@ namespace
         // Downgrade unfinished/unpowered buildings, with exceptions.
         if (targetType.isBuilding() &&
             (!target->isCompleted() || !target->isPowered()) &&
-            !(	targetType.isResourceDepot() ||
-                  targetType.groundWeapon() != BWAPI::WeaponTypes::None ||
-                  targetType.airWeapon() != BWAPI::WeaponTypes::None ||
-                  targetType == BWAPI::UnitTypes::Terran_Bunker))
+            !(targetType.isResourceDepot() ||
+              targetType.groundWeapon() != BWAPI::WeaponTypes::None ||
+              targetType.airWeapon() != BWAPI::WeaponTypes::None ||
+              targetType == BWAPI::UnitTypes::Terran_Bunker))
         {
             return 2;
         }
@@ -324,10 +329,10 @@ std::shared_ptr<Unit> UnitCluster::ChooseRangedTarget(BWAPI::Unit attacker, std:
 
         // Let's say that 1 priority step is worth 160 pixels (5 tiles).
         // We care about unit-target range and target-order position distance.
-        const int priority = getAttackPriority(attacker, target);		// 0..12
+        const int priority = getAttackPriority(attacker, target);        // 0..12
         int score = 5 * 32 * priority - range;
 
-        const int closerToGoal =										// positive if target is closer than us to the goal
+        const int closerToGoal =                                        // positive if target is closer than us to the goal
                 distanceToTarget - target->getDistance(targetPosition);
         bool inWeaponRange = attacker->isInWeaponRange(target);
 
@@ -358,7 +363,7 @@ std::shared_ptr<Unit> UnitCluster::ChooseRangedTarget(BWAPI::Unit attacker, std:
             }
         }
 
-        // This could adjust for relative speed and direction, so that we don't chase what we can't catch.
+            // This could adjust for relative speed and direction, so that we don't chase what we can't catch.
         else if (!target->isMoving())
         {
             if (target->isSieged() ||

@@ -16,7 +16,7 @@ namespace Builder
         std::map<BWAPI::Unit, std::vector<std::shared_ptr<Building>>> builderQueues;
 
         // Ensures the worker is being ordered to build this building
-        void build(Building & building)
+        void build(Building &building)
         {
             if (building.unit || !building.builder || !building.builder->exists()) return;
 
@@ -44,7 +44,7 @@ namespace Builder
 
         // Releases the builder from constructing the given building
         // The builder may still have more buildings in its queue
-        void releaseBuilder(Building & building)
+        void releaseBuilder(Building &building)
         {
             if (!building.builder) return;
 
@@ -52,8 +52,8 @@ namespace Builder
             building.builder = nullptr;
 
             // Remove the building from the builder's queue
-            auto & builderQueue = builderQueues[builder];
-            for (auto it = builderQueue.begin(); it != builderQueue.end(); )
+            auto &builderQueue = builderQueues[builder];
+            for (auto it = builderQueue.begin(); it != builderQueue.end();)
             {
                 it = it->get() == &building ? builderQueue.erase(it) : it + 1;
             }
@@ -69,6 +69,7 @@ namespace Builder
             // Tell the worker to build the new start of its queue
             build(**builderQueue.begin());
         }
+
 #ifndef _DEBUG
     }
 #endif
@@ -76,9 +77,9 @@ namespace Builder
     void update()
     {
         // Prune the list of pending buildings
-        for (auto it = pendingBuildings.begin(); it != pendingBuildings.end(); )
+        for (auto it = pendingBuildings.begin(); it != pendingBuildings.end();)
         {
-            auto & building = **it;
+            auto &building = **it;
 
             // Remove the building if:
             // - The building has completed
@@ -99,10 +100,10 @@ namespace Builder
         // TODO: Flip this around and only check the unit list when we have sent the build order
         if (!pendingBuildings.empty())
         {
-            for (auto & unit : BWAPI::Broodwar->self()->getUnits())
+            for (auto &unit : BWAPI::Broodwar->self()->getUnits())
             {
                 if (!unit->getType().isBuilding() || unit->isCompleted()) continue;
-                for (auto & pendingBuilding : pendingBuildings)
+                for (auto &pendingBuilding : pendingBuildings)
                 {
                     if (pendingBuilding->unit) continue;
                     if (pendingBuilding->type != unit->getType()) continue;
@@ -116,7 +117,7 @@ namespace Builder
 
         // Remove dead builders
         // The buildings themselves are pruned earlier
-        for (auto it = builderQueues.begin(); it != builderQueues.end(); )
+        for (auto it = builderQueues.begin(); it != builderQueues.end();)
         {
             if (!it->first->exists() || it->first->getPlayer() != BWAPI::Broodwar->self())
             {
@@ -130,9 +131,9 @@ namespace Builder
 
     void issueOrders()
     {
-        for (auto it = builderQueues.begin(); it != builderQueues.end(); it++)
+        for (auto & builderQueue : builderQueues)
         {
-            build(**it->second.begin());
+            build(**builderQueue.second.begin());
         }
     }
 
@@ -144,22 +145,26 @@ namespace Builder
 
         Workers::reserveWorker(builder);
 
-        Log::Debug() << "Queued " << **pendingBuildings.rbegin() << " to start at " << startFrame << " for builder " << builder->getID() << "; builder queue length: " << builderQueues[builder].size();
+        Log::Debug() << "Queued " << **pendingBuildings.rbegin() << " to start at " << startFrame << " for builder " << builder->getID()
+                     << "; builder queue length: " << builderQueues[builder].size();
     }
 
-    BWAPI::Unit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int * expectedArrivalFrame)
+    BWAPI::Unit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int *expectedArrivalFrame)
     {
         BWAPI::Position buildPosition = BWAPI::Position(tile) + BWAPI::Position(type.tileWidth() * 16, type.tileHeight() * 16);
 
         // First get the closest worker currently available for reassignment
         int bestTravelTime = INT_MAX;
         BWAPI::Unit bestWorker = nullptr;
-        for (auto & unit : BWAPI::Broodwar->self()->getUnits())
+        for (auto &unit : BWAPI::Broodwar->self()->getUnits())
         {
             if (!Workers::isAvailableForReassignment(unit)) continue;
 
-            int travelTime = 
-                PathFinding::ExpectedTravelTime(unit->getPosition(), buildPosition, unit->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            int travelTime =
+                    PathFinding::ExpectedTravelTime(unit->getPosition(),
+                                                    buildPosition,
+                                                    unit->getType(),
+                                                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
             if (travelTime < bestTravelTime)
             {
                 bestTravelTime = travelTime;
@@ -168,7 +173,7 @@ namespace Builder
         }
 
         // Next see if any existing builder will be finished in time to reach the desired position faster
-        for (auto & builderAndQueue : builderQueues)
+        for (auto &builderAndQueue : builderQueues)
         {
             if (!builderAndQueue.first->exists()) continue;
             if (builderAndQueue.second.empty()) continue;
@@ -177,16 +182,22 @@ namespace Builder
 
             // Sum up the travel time between the existing queued buildings
             BWAPI::Position lastPosition = builderAndQueue.first->getPosition();
-            for (auto building : builderAndQueue.second)
+            for (const auto& building : builderAndQueue.second)
             {
                 totalTravelTime +=
-                    PathFinding::ExpectedTravelTime(lastPosition, building->getPosition(), builderAndQueue.first->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                        PathFinding::ExpectedTravelTime(lastPosition,
+                                                        building->getPosition(),
+                                                        builderAndQueue.first->getType(),
+                                                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
                 lastPosition = building->getPosition();
             }
 
             // Add in the travel time to this next building
-            totalTravelTime += 
-                PathFinding::ExpectedTravelTime(lastPosition, buildPosition, builderAndQueue.first->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            totalTravelTime +=
+                    PathFinding::ExpectedTravelTime(lastPosition,
+                                                    buildPosition,
+                                                    builderAndQueue.first->getType(),
+                                                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
 
             // Give a bonus to already-building workers, as we don't want to take a lot of workers off minerals
             if ((totalTravelTime / 2) < bestTravelTime)
@@ -201,11 +212,11 @@ namespace Builder
         return bestWorker;
     }
 
-    std::vector<Building*> allPendingBuildings()
+    std::vector<Building *> allPendingBuildings()
     {
-        std::vector<Building*> result;
+        std::vector<Building *> result;
 
-        for (auto building : pendingBuildings)
+        for (const auto& building : pendingBuildings)
         {
             result.push_back(building.get());
         }
@@ -213,10 +224,10 @@ namespace Builder
         return result;
     }
 
-    std::vector<Building*> pendingBuildingsOfType(BWAPI::UnitType type)
+    std::vector<Building *> pendingBuildingsOfType(BWAPI::UnitType type)
     {
-        std::vector<Building*> result;
-        for (auto building : pendingBuildings)
+        std::vector<Building *> result;
+        for (const auto& building : pendingBuildings)
         {
             if (building->type == type) result.push_back(building.get());
         }
@@ -226,7 +237,7 @@ namespace Builder
 
     bool isPendingHere(BWAPI::TilePosition tile)
     {
-        for (auto building : pendingBuildings)
+        for (const auto& building : pendingBuildings)
         {
             if (building->tile == tile) return true;
         }

@@ -10,6 +10,7 @@ namespace Strategist
     void update();
 
     void chooseOpening();
+
     void setOpening(std::vector<std::shared_ptr<Play>> openingPlays);
 
     std::vector<ProductionGoal> &currentProductionGoals();

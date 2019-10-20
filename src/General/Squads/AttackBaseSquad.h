@@ -6,15 +6,15 @@
 class AttackBaseSquad : public Squad
 {
 public:
-    AttackBaseSquad(Base* base)
-        : Squad((std::ostringstream() << "Attack base @ " << base->getTilePosition()).str())
-        , base(base)
+    explicit AttackBaseSquad(Base *base)
+            : Squad((std::ostringstream() << "Attack base @ " << base->getTilePosition()).str())
+            , base(base)
     {
         targetPosition = base->getPosition();
     };
 
 private:
-    Base* base;
+    Base *base;
 
-    void execute(UnitCluster & cluster);
+    void execute(UnitCluster &cluster) override;
 };

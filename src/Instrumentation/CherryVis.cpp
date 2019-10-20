@@ -2,6 +2,7 @@
 
 #include <BWAPI.h>
 #include <nlohmann/json.hpp>
+#include <utility>
 #include <zstdstream/zstdstream.hpp>
 #include <filesystem>
 
@@ -17,16 +18,16 @@ namespace CherryVis
             int firstFrame;
             std::string filename;
 
-            HeatmapFilePart(int firstFrame, std::string filename) : firstFrame(firstFrame), filename(filename) {}
+            HeatmapFilePart(int firstFrame, std::string filename) : firstFrame(firstFrame), filename(std::move(filename)) {}
         };
 
         struct HeatmapFile
         {
             std::vector<HeatmapFilePart> parts;
 
-            HeatmapFile(std::string heatmapName, int size) : heatmapName(heatmapName), size(size), count(0) {}
+            HeatmapFile(std::string heatmapName, int size) : heatmapName(std::move(heatmapName)), size(size), count(0), stream(nullptr) {}
 
-            void writeFrameData(nlohmann::json & frameData)
+            void writeFrameData(nlohmann::json &frameData)
             {
                 if (count * size >= 26214400)
                 {
@@ -46,8 +47,8 @@ namespace CherryVis
                 count++;
 
                 (*stream)
-                    << "\"" << BWAPI::Broodwar->getFrameCount() << "\":"
-                    << frameData.dump(-1, ' ', true);
+                        << "\"" << BWAPI::Broodwar->getFrameCount() << "\":"
+                        << frameData.dump(-1, ' ', true);
             }
 
             void close()
@@ -61,12 +62,12 @@ namespace CherryVis
             std::string heatmapName;
             int size;
             int count;
-            zstd::ofstream* stream;
+            zstd::ofstream *stream{};
 
             void createPart()
             {
                 std::ostringstream filenameBuilder;
-                filenameBuilder << "heatmap_" << heatmapName << "_" << BWAPI::Broodwar->getFrameCount()  << ".json.zstd";
+                filenameBuilder << "heatmap_" << heatmapName << "_" << BWAPI::Broodwar->getFrameCount() << ".json.zstd";
 
                 parts.emplace_back(BWAPI::Broodwar->getFrameCount(), filenameBuilder.str());
 
@@ -92,7 +93,7 @@ namespace CherryVis
 
         std::unordered_map<std::string, HeatmapFile> heatmapNameToHeatmapFile;
 
-        void log(std::string str, int unitId)
+        void log(const std::string& str, int unitId)
         {
             if (unitId == -1)
             {
@@ -100,7 +101,7 @@ namespace CherryVis
             }
             else
             {
-                frameUnitLogMessages.push_back(std::make_pair(unitId, str));
+                frameUnitLogMessages.emplace_back(unitId, str);
             }
         }
 
@@ -109,16 +110,16 @@ namespace CherryVis
 #endif
 
     LogWrapper::LogWrapper(int unitId)
-        : os(new std::ostringstream)
-        , refCount(new int(1))
-        , unitId(unitId)
+            : os(new std::ostringstream)
+            , refCount(new int(1))
+            , unitId(unitId)
     {
     }
 
-    LogWrapper::LogWrapper(const LogWrapper& other)
-        : os(other.os)
-        , refCount(other.refCount)
-        , unitId(other.unitId)
+    LogWrapper::LogWrapper(const LogWrapper &other)
+            : os(other.os)
+            , refCount(other.refCount)
+            , unitId(other.unitId)
     {
         ++*refCount;
     }
@@ -140,7 +141,7 @@ namespace CherryVis
         std::filesystem::create_directories("bwapi-data/write/cvis");
     }
 
-    void setBoardValue(std::string key, std::string value)
+    void setBoardValue(const std::string& key, const std::string& value)
     {
         if (boardKeyToLastValue.find(key) == boardKeyToLastValue.end() ||
             boardKeyToLastValue[key] != value)
@@ -151,15 +152,15 @@ namespace CherryVis
         }
     }
 
-    void setBoardListValue(std::string key, std::vector<std::string> & values)
+    void setBoardListValue(const std::string& key, std::vector<std::string> &values)
     {
         size_t limit = std::max(boardListToLastCount[key], values.size());
         for (size_t i = 1; i <= limit; i++)
         {
             std::ostringstream valueKey;
             valueKey << key << "_" << std::setfill('0') << std::setw(3) << i;
-            
-            setBoardValue(valueKey.str(), (i <= values.size() ? values.at(i-1) : ""));
+
+            setBoardValue(valueKey.str(), (i <= values.size() ? values.at(i - 1) : ""));
         }
 
         boardListToLastCount[key] = values.size();
@@ -171,14 +172,14 @@ namespace CherryVis
         if (frame == 0) frame = 1;
 
         frameToUnitsFirstSeen[std::to_string(frame)].push_back({
-            {"id", unit->getID()},
-            {"type", unit->getType().getID()},
-            {"x", unit->getPosition().x},
-            {"y", unit->getPosition().y}
-        });
+                                                                       {"id",   unit->getID()},
+                                                                       {"type", unit->getType().getID()},
+                                                                       {"x",    unit->getPosition().x},
+                                                                       {"y",    unit->getPosition().y}
+                                                               });
 
         unitIdToFrameToUnitUpdate[std::to_string(unit->getID())][std::to_string(frame)] = {
-            {"type", unit->getType().getID()}
+                {"type", unit->getType().getID()}
         };
     }
 
@@ -192,7 +193,7 @@ namespace CherryVis
         return LogWrapper(unit->getID());
     }
 
-    void addHeatmap(std::string key, const std::vector<long> & data, int sizeX, int sizeY)
+    void addHeatmap(const std::string& key, const std::vector<long> &data, int sizeX, int sizeY)
     {
         long max = 0;
         long min = LONG_MAX;
@@ -204,7 +205,7 @@ namespace CherryVis
             sum += val;
         }
 
-        double mean = (double)sum / data.size();
+        double mean = (double) sum / data.size();
         double variance = 0.0;
         for (long val : data)
         {
@@ -214,31 +215,31 @@ namespace CherryVis
         double stddev = std::sqrt(variance / data.size());
 
         nlohmann::json frameData = {
-            {"data", data},
-            {"dimension", {sizeY, sizeX}},
-            {"scaling", {(BWAPI::Broodwar->mapHeight() * 32.0) / sizeY, (BWAPI::Broodwar->mapWidth() * 32.0) / sizeX}},
-            {"top_left_pixel", {0, 0}},
-            {"summary", {
-                {"hist", {
-                    {"max", max},
-                    {"min", min},
-                    {"num_buckets", 1},
-                    {"values", {0}},
-                }},
-                {"max", max},
-                {"min", min},
-                {"mean", mean},
-                {"median", 0},
-                {"name", key},
-                {"shape", {sizeY, sizeX}},
-                {"std", stddev}
-            }}
+                {"data",           data},
+                {"dimension",      {sizeY,                                         sizeX}},
+                {"scaling",        {(BWAPI::Broodwar->mapHeight() * 32.0) / sizeY, (BWAPI::Broodwar->mapWidth() * 32.0) / sizeX}},
+                {"top_left_pixel", {0,                                             0}},
+                {"summary",        {
+                                    {"hist", {
+                                                     {"max", max},
+                                                     {"min", min},
+                                                     {"num_buckets", 1},
+                                                     {"values", {0}},
+                                             }},
+                                                                                   {"max", max},
+                                           {"min", min},
+                                           {"mean", mean},
+                                           {"median", 0},
+                                           {"name", key},
+                                           {"shape", {sizeY, sizeX}},
+                                           {"std", stddev}
+                                   }}
         };
 
         auto fileIt = heatmapNameToHeatmapFile.find(key);
         if (fileIt == heatmapNameToHeatmapFile.end())
         {
-            auto result = heatmapNameToHeatmapFile.try_emplace(key, key, sizeX*sizeY);
+            auto result = heatmapNameToHeatmapFile.try_emplace(key, key, sizeX * sizeY);
             fileIt = result.first;
         }
 
@@ -256,12 +257,12 @@ namespace CherryVis
 
         if (!frameLogMessages.empty())
         {
-            for (auto msg : frameLogMessages)
+            for (const auto& msg : frameLogMessages)
             {
                 logEntries.push_back({
-                    {"message", msg},
-                    {"frame", frame}
-                });
+                                             {"message", msg},
+                                             {"frame",   frame}
+                                     });
             }
 
             frameLogMessages.clear();
@@ -269,12 +270,12 @@ namespace CherryVis
 
         if (!frameUnitLogMessages.empty())
         {
-            for (auto unitIdAndMsg : frameUnitLogMessages)
+            for (const auto& unitIdAndMsg : frameUnitLogMessages)
             {
                 unitIdToLogEntries[std::to_string(unitIdAndMsg.first)].push_back({
-                    {"message", unitIdAndMsg.second},
-                    {"frame", frame}
-                });
+                                                                                         {"message", unitIdAndMsg.second},
+                                                                                         {"frame",   frame}
+                                                                                 });
             }
 
             frameUnitLogMessages.clear();
@@ -288,34 +289,35 @@ namespace CherryVis
         {
             heatmapNameAndHeatmapFile.second.close();
 
-            for (auto part : heatmapNameAndHeatmapFile.second.parts)
+            for (const auto& part : heatmapNameAndHeatmapFile.second.parts)
             {
                 std::ostringstream name;
                 name << heatmapNameAndHeatmapFile.first << "_" << part.firstFrame;
 
                 heatmaps.push_back({
-                    {"filename", part.filename},
-                    {"first_frame", part.firstFrame},
-                    {"name", name.str()}
-                });
+                                           {"filename",    part.filename},
+                                           {"first_frame", part.firstFrame},
+                                           {"name",        name.str()}
+                                   });
             }
         }
 
         std::unordered_map<std::string, std::string> buildTypesToName;
-        for (auto type : BWAPI::UnitTypes::allUnitTypes()) {
+        for (auto type : BWAPI::UnitTypes::allUnitTypes())
+        {
             buildTypesToName[std::to_string(type.getID())] = type.getName();
         }
 
         nlohmann::json trace = {
-            {"types_names", buildTypesToName},
-            {"board_updates", boardUpdates},
-            {"units_first_seen", frameToUnitsFirstSeen},
-            {"units_updates", unitIdToFrameToUnitUpdate},
-            {"logs", logEntries},
-            {"units_logs", unitIdToLogEntries},
-            {"heatmaps", heatmaps}
+                {"types_names",      buildTypesToName},
+                {"board_updates",    boardUpdates},
+                {"units_first_seen", frameToUnitsFirstSeen},
+                {"units_updates",    unitIdToFrameToUnitUpdate},
+                {"logs",             logEntries},
+                {"units_logs",       unitIdToLogEntries},
+                {"heatmaps",         heatmaps}
         };
-        
+
         zstd::ofstream traceFile("bwapi-data/write/cvis/trace.json");
         traceFile << trace.dump(-1, ' ', true);
         traceFile.close();

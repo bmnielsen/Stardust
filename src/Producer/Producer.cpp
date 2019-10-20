@@ -1,7 +1,7 @@
 #include "Producer.h"
 
 #include <array>
-
+#include <utility>
 #include "Strategist.h"
 #include "Units.h"
 #include "Builder.h"
@@ -44,7 +44,7 @@ namespace Producer
 
         using Type = std::variant<BWAPI::UnitType, BWAPI::UpgradeType>;
 
-        int buildTime(Type type)
+        int buildTime(const Type &type)
         {
             if (auto unitType = std::get_if<BWAPI::UnitType>(&type))
                 return UnitUtil::BuildTime(*unitType);
@@ -62,8 +62,8 @@ namespace Producer
                 bool operator()(const std::shared_ptr<ProductionItem> &a, const std::shared_ptr<ProductionItem> &b) const
                 {
                     return a->startFrame < b->startFrame
-                           || (!(b->startFrame < a->startFrame) && a->completionFrame < b->completionFrame)
-                           || (!(b->startFrame < a->startFrame) && !(b->completionFrame < a->completionFrame) && a < b);
+                           || (b->startFrame >= a->startFrame && a->completionFrame < b->completionFrame)
+                           || (b->startFrame >= a->startFrame && b->completionFrame >= a->completionFrame && a < b);
                 }
             };
 
@@ -124,23 +124,23 @@ namespace Producer
             mutable BuildingPlacement::BuildLocation buildLocation;
             mutable int estimatedWorkerMovementTime;
 
-            ProductionItem(Type type,
+            ProductionItem(const Type &type,
                            int startFrame,
                            ProductionLocation location = std::monostate(),
-                           const std::shared_ptr<Producer> producer = nullptr,
+                           std::shared_ptr<Producer> producer = nullptr,
                            bool isPrerequisite = false)
                     : type(type)
-                    , location(location)
+                    , location(std::move(location))
                     , startFrame(startFrame)
                     , completionFrame(startFrame + buildTime(type))
-                    , producer(producer)
+                    , producer(std::move(producer))
                     , isPrerequisite(isPrerequisite)
                     , queuedBuilding(nullptr)
                     , buildLocation(InvalidBuildLocation)
                     , estimatedWorkerMovementTime(0) {}
 
             // Constructor for pending buildings
-            ProductionItem(Building *queuedBuilding)
+            explicit ProductionItem(Building *queuedBuilding)
                     : type(queuedBuilding->type)
                     , location(std::monostate())
                     , startFrame(queuedBuilding->expectedFramesUntilStarted())
@@ -161,9 +161,9 @@ namespace Producer
             BWAPI::Unit existing;
             ProductionItemSet items;
 
-            Producer(const std::shared_ptr<ProductionItem> queued, int availableFrom)
+            Producer(std::shared_ptr<ProductionItem> queued, int availableFrom)
                     : availableFrom(availableFrom)
-                    , queued(queued)
+                    , queued(std::move(queued))
                     , existing(nullptr) {}
 
             Producer(BWAPI::Unit existing, int availableFrom)
@@ -177,17 +177,17 @@ namespace Producer
 
         ProductionItemSet committedItems;
 
-        void write(ProductionItemSet &items, std::string label)
+        void write(ProductionItemSet &items, const std::string &label)
         {
             auto itemLabel = [](const std::shared_ptr<ProductionItem> &item)
             {
-                std::ostringstream label;
-                std::visit([&label](auto &&arg)
-                           { label << arg; }, item->type);
-                if (item->queuedBuilding && item->queuedBuilding->isConstructionStarted()) label << "^";
-                if (item->queuedBuilding && !item->queuedBuilding->isConstructionStarted()) label << "*";
-                if (item->buildLocation.tile.isValid()) label << "(" << item->buildLocation.tile.x << ":" << item->buildLocation.tile.y << ")";
-                return label.str();
+                std::ostringstream labelstream;
+                std::visit([&labelstream](auto &&arg)
+                           { labelstream << arg; }, item->type);
+                if (item->queuedBuilding && item->queuedBuilding->isConstructionStarted()) labelstream << "^";
+                if (item->queuedBuilding && !item->queuedBuilding->isConstructionStarted()) labelstream << "*";
+                if (item->buildLocation.tile.isValid()) labelstream << "(" << item->buildLocation.tile.x << ":" << item->buildLocation.tile.y << ")";
+                return labelstream.str();
             };
 
             std::vector<std::string> values;
@@ -223,7 +223,7 @@ namespace Producer
             }
         }
 
-        int getRemainingBuildTime(BWAPI::Unit producer, int baseRemainingTrainTime, BWAPI::UnitCommandType buildCommandType, Type itemType)
+        int getRemainingBuildTime(BWAPI::Unit producer, int baseRemainingTrainTime, BWAPI::UnitCommandType buildCommandType, const Type &itemType)
         {
             if (producer->getLastCommand().getType() == buildCommandType &&
                 (BWAPI::Broodwar->getFrameCount() - producer->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
@@ -319,13 +319,13 @@ namespace Producer
         // Need a forward reference since the next two methods do mutual recursion
         void addMissingPrerequisites(ProductionItemSet &items,
                                      BWAPI::UnitType unitType,
-                                     ProductionLocation location,
+                                     const ProductionLocation &location,
                                      BWAPI::UnitType producerType,
                                      int startFrame = 0);
 
         void addBuildingIfIncomplete(ProductionItemSet &items,
                                      BWAPI::UnitType unitType,
-                                     ProductionLocation location,
+                                     const ProductionLocation &location,
                                      BWAPI::UnitType producerType,
                                      int baseFrame = 0,
                                      bool isPrerequisite = false)
@@ -361,7 +361,7 @@ namespace Producer
         // The frames are relative to the time when the first unit of the desired type can be produced
         void addMissingPrerequisites(ProductionItemSet &items,
                                      BWAPI::UnitType unitType,
-                                     ProductionLocation location,
+                                     const ProductionLocation &location,
                                      BWAPI::UnitType producerType,
                                      int startFrame)
         {
@@ -375,7 +375,7 @@ namespace Producer
         }
 
         // Shifts one item in the given set by the given amount
-        void shiftOne(ProductionItemSet &items, const std::shared_ptr<ProductionItem> item, int delta)
+        void shiftOne(ProductionItemSet &items, std::shared_ptr<ProductionItem> item, int delta)
         {
             if (delta == 0) return;
 
@@ -496,27 +496,27 @@ namespace Producer
             // Score the locations based on distance and what they will power
             int bestScore = INT_MAX;
             const BuildingPlacement::BuildLocation *best = nullptr;
-            for (auto it = pylons.begin(); it != pylons.end(); it++)
+            for (const auto &pylon : pylons)
             {
                 // If we have a hard requirement, don't consider anything that doesn't satisfy it
-                if ((requiredWidth == 3 && it->powersMedium.empty()) ||
-                    (requiredWidth == 4 && it->powersLarge.empty()))
+                if ((requiredWidth == 3 && pylon.powersMedium.empty()) ||
+                    (requiredWidth == 4 && pylon.powersLarge.empty()))
                 {
                     continue;
                 }
 
                 // Base score is the distance
-                int score = it->builderFrames;
+                int score = pylon.builderFrames;
 
                 // Penalize locations that don't power locations we need
-                score *= (int) std::pow(2, std::max(0, desiredMedium - (int) it->powersMedium.size()));
-                score *= (int) std::pow(2, std::max(0, desiredLarge - (int) it->powersLarge.size()));
+                score *= (int) std::pow(2, std::max(0, desiredMedium - (int) pylon.powersMedium.size()));
+                score *= (int) std::pow(2, std::max(0, desiredLarge - (int) pylon.powersLarge.size()));
 
                 // Set if better than current
                 if (score < bestScore)
                 {
                     bestScore = score;
-                    best = &*it;
+                    best = &pylon;
                 }
             }
 
@@ -662,7 +662,7 @@ namespace Producer
             }
         }
 
-        int availableAt(Type type, int startFrame, const std::shared_ptr<Producer> &producer)
+        int availableAt(const Type &type, int startFrame, const std::shared_ptr<Producer> &producer)
         {
             int build = buildTime(type);
             auto it = producer->items.begin();
@@ -755,13 +755,13 @@ namespace Producer
 
             // Precompute the frame stops and how much of the resource we need at each one
             std::vector<std::pair<int, int>> frameStopsAndResourceNeeded;
-            frameStopsAndResourceNeeded.push_back(std::make_pair(0, prerequisiteCost + itemCost));
+            frameStopsAndResourceNeeded.emplace_back(0, prerequisiteCost + itemCost);
             for (auto prerequisiteIt = prerequisiteItems.rbegin(); prerequisiteIt != prerequisiteItems.rend(); prerequisiteIt++)
             {
                 int cost = isMinerals ? (*prerequisiteIt)->mineralPrice() : (*prerequisiteIt)->gasPrice();
                 if (cost > 0)
                 {
-                    frameStopsAndResourceNeeded.push_back(std::make_pair(item.startFrame - (*prerequisiteIt)->startFrame, prerequisiteCost));
+                    frameStopsAndResourceNeeded.emplace_back(item.startFrame - (*prerequisiteIt)->startFrame, prerequisiteCost);
                     prerequisiteCost -= isMinerals ? (*prerequisiteIt)->mineralPrice() : (*prerequisiteIt)->gasPrice();
 
                     if (includeGasCostInMinerals)
@@ -1280,7 +1280,7 @@ namespace Producer
             committedItems.insert(item);
         }
 
-        bool resolveResourceBlocks(std::shared_ptr<ProductionItem> item, ProductionItemSet &prerequisiteItems, bool commit)
+        bool resolveResourceBlocks(const std::shared_ptr<ProductionItem> &item, ProductionItemSet &prerequisiteItems, bool commit)
         {
             if (!shiftForMinerals(*item, prerequisiteItems) ||
                 !shiftForGas(*item, prerequisiteItems, commit) ||
@@ -1292,11 +1292,9 @@ namespace Producer
             if (!commit) return true;
 
             // If there are prerequisites, commit them now
-            for (auto prerequisitesIt = prerequisiteItems.begin();
-                 prerequisitesIt != prerequisiteItems.end();
-                 prerequisitesIt++)
+            for (const auto &prerequisiteItem : prerequisiteItems)
             {
-                commitItem(*prerequisitesIt);
+                commitItem(prerequisiteItem);
             }
 
             // Commit this item

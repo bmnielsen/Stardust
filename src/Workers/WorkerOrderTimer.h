@@ -5,6 +5,7 @@
 namespace WorkerOrderTimer
 {
     void initialize();
+
     void write();
 
     void update();

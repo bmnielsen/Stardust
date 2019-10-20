@@ -6,11 +6,11 @@
 class Building
 {
 public:
-    BWAPI::UnitType     type;               // The type of the building
+    BWAPI::UnitType type;               // The type of the building
     BWAPI::TilePosition tile;               // The position of the building
-    BWAPI::Unit         unit;               // The building itself
-    BWAPI::Unit         builder;            // The unit that will build the building
-    int                 desiredStartFrame;  // The desired start frame given by the producer
+    BWAPI::Unit unit;               // The building itself
+    BWAPI::Unit builder;            // The unit that will build the building
+    int desiredStartFrame;  // The desired start frame given by the producer
 
     // TODO: State required by the builder
 
@@ -20,16 +20,20 @@ public:
     Building(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder, int desiredStartFrame);
 
     void constructionStarted(BWAPI::Unit unit);
-    
+
     BWAPI::Position getPosition() const;
+
     bool isConstructionStarted() const;
+
     int expectedFramesUntilStarted() const;
+
     int expectedFramesUntilCompletion() const;
+
     bool builderReady() const;
 
     // TODO: Stuff like handling things blocking construction, picking a new location, cancelling, etc.
 
-    friend std::ostream& operator << (std::ostream& out, const Building& b)
+    friend std::ostream &operator<<(std::ostream &out, const Building &b)
     {
         out << b.type << " @ " << b.tile;
         return out;

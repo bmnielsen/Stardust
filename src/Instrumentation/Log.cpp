@@ -8,16 +8,17 @@
 
 namespace Log
 {
-    namespace {
+    namespace
+    {
         bool isDebugLogging = false;
         bool isOutputtingToConsole = false;
         auto startTime = std::chrono::system_clock::now();
-        std::ofstream* log;
-        std::ofstream* debugLog;
-        std::map<std::string, std::ofstream*> csvFiles;
+        std::ofstream *log;
+        std::ofstream *debugLog;
+        std::map<std::string, std::ofstream *> csvFiles;
         std::vector<std::string> logFiles;
 
-        std::string logFileName(std::string base, bool csv = false)
+        std::string logFileName(const std::string& base, bool csv = false)
         {
             std::ostringstream filename;
             filename << "bwapi-data/write/" << base;
@@ -36,13 +37,13 @@ namespace Log
         }
     }
 
-    LogWrapper::LogWrapper(std::ofstream* logFile, bool outputToConsole, bool csv)
-        : os(new std::ostringstream)
-        , refCount(new int(1))
-        , logFile(logFile)
-        , outputToConsole(outputToConsole)
-        , csv(csv)
-        , first(true)
+    LogWrapper::LogWrapper(std::ofstream *logFile, bool outputToConsole, bool csv)
+            : os(new std::ostringstream)
+            , refCount(new int(1))
+            , logFile(logFile)
+            , outputToConsole(outputToConsole)
+            , csv(csv)
+            , first(true)
     {
         if (!logFile) return;
         if (csv) return;
@@ -53,13 +54,13 @@ namespace Log
         (*os) << BWAPI::Broodwar->getFrameCount() << "(" << minutes << ":" << (seconds < 10 ? "0" : "") << seconds << "): ";
     }
 
-    LogWrapper::LogWrapper(const LogWrapper& other)
-        : os(other.os)
-        , refCount(other.refCount)
-        , logFile(other.logFile)
-        , outputToConsole(other.outputToConsole)
-        , csv(other.csv)
-        , first(other.first)
+    LogWrapper::LogWrapper(const LogWrapper &other)
+            : os(other.os)
+            , refCount(other.refCount)
+            , logFile(other.logFile)
+            , outputToConsole(other.outputToConsole)
+            , csv(other.csv)
+            , first(other.first)
     {
         ++*refCount;
     }
@@ -121,7 +122,7 @@ namespace Log
         return LogWrapper(debugLog, false);
     }
 
-    LogWrapper Csv(std::string name)
+    LogWrapper Csv(const std::string& name)
     {
         if (!isDebugLogging) return LogWrapper(nullptr, false);
 
@@ -134,7 +135,7 @@ namespace Log
         return LogWrapper(csvFiles[name], false, true);
     }
 
-    std::vector<std::string> & LogFiles()
+    std::vector<std::string> &LogFiles()
     {
         return logFiles;
     }

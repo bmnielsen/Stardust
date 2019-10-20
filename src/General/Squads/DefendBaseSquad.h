@@ -7,16 +7,17 @@
 class DefendBaseSquad : public Squad
 {
 public:
-    DefendBaseSquad(Base* base)
+    explicit DefendBaseSquad(Base *base)
             : Squad((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
-              , base(base)
+            , base(base)
     {
         setTargetPosition();
     }
 
 private:
-    Base* base;
+    Base *base;
 
     void setTargetPosition();
-    void execute(UnitCluster & cluster);
+
+    void execute(UnitCluster &cluster) override;
 };

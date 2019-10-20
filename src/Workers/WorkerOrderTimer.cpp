@@ -21,22 +21,22 @@ namespace WorkerOrderTimer
 
             PositionAndVelocity(BWAPI::Unit unit)
                     : position(unit->getPosition())
-                      , velocityX((int) (unit->getVelocityX() * 100.0))
-                      , velocityY((int) (unit->getVelocityY() * 100.0)) {}
+                    , velocityX((int) (unit->getVelocityX() * 100.0))
+                    , velocityY((int) (unit->getVelocityY() * 100.0)) {}
         };
 
         std::ostream &operator<<(std::ostream &out, const PositionAndVelocity &p)
         {
             out << p.position.x << "," << p.position.y << "," << p.velocityX << "," << p.velocityY;
             return out;
-        };
+        }
 
         inline bool operator<(const PositionAndVelocity &a, const PositionAndVelocity &b)
         {
             return (a.position < b.position) ||
                    (a.position == b.position && a.velocityX < b.velocityX) ||
                    (a.position == b.position && a.velocityX == b.velocityX && a.velocityY < b.velocityY);
-        };
+        }
 
         std::map<BWAPI::Unit, std::set<PositionAndVelocity>> resourceToOptimalOrderPositions;
         std::map<BWAPI::Unit, std::map<int, PositionAndVelocity>> workerPositionHistory;
@@ -157,7 +157,7 @@ namespace WorkerOrderTimer
                 // Sometimes the probes will take different routes close to the mineral patch, perhaps because
                 // of other nearby workers. This is OK, as we would rather send the order a frame late than a frame
                 // early, but we still clear positions that are much too late.
-                for (auto & frameAndPos : positionHistory)
+                for (auto &frameAndPos : positionHistory)
                 {
                     if (frameAndPos.first <= (frame + 2)) continue;
                     optimalOrderPositions.erase(frameAndPos.second);

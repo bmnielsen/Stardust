@@ -4,7 +4,10 @@
 
 namespace Scout
 {
-    enum ScoutingMode { None, Location, Full };
+    enum ScoutingMode
+    {
+        None, Location, Full
+    };
 
     void update();
 

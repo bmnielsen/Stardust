@@ -4,7 +4,10 @@
 #include "UnitUtil.h"
 #include "Map.h"
 
-namespace { auto & bwemMap = BWEM::Map::Instance(); }
+namespace
+{
+    auto &bwemMap = BWEM::Map::Instance();
+}
 
 /*
  * Almost everything in this file is currently just ported from the old Steamhammer-based Locutus.
@@ -51,7 +54,8 @@ namespace
         }
 
         // Constructing a bunker makes a worker critical
-        if (targetType.isWorker() && target->isConstructing() && target->getOrderTarget() && target->getOrderTarget()->getType() == BWAPI::UnitTypes::Terran_Bunker)
+        if (targetType.isWorker() && target->isConstructing() && target->getOrderTarget()
+            && target->getOrderTarget()->getType() == BWAPI::UnitTypes::Terran_Bunker)
             return 12;
 
         // Short circuit: Units before bunkers!
@@ -155,10 +159,10 @@ std::shared_ptr<Unit> UnitCluster::ChooseMeleeTarget(BWAPI::Unit attacker, std::
 
         // Let's say that 1 priority step is worth 64 pixels (2 tiles).
         // We care about unit-target range and target-order position distance.
-        const int priority = getAttackPriority(attacker, target);		// 0..12
+        const int priority = getAttackPriority(attacker, target);        // 0..12
         int score = 2 * 32 * priority - range;
 
-        const int closerToGoal =										// positive if target is closer than us to the goal
+        const int closerToGoal =                                        // positive if target is closer than us to the goal
                 distanceToTarget - target->getDistance(targetPosition);
         bool inWeaponRange = attacker->isInWeaponRange(target);
 

@@ -4,5 +4,5 @@
 
 namespace Opponent
 {
-    std::string& getName();
+    std::string &getName();
 }

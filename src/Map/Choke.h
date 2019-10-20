@@ -8,11 +8,11 @@
 class Choke
 {
 public:
-    Choke(const BWEM::ChokePoint* _choke);
+    explicit Choke(const BWEM::ChokePoint *_choke);
 
     BWAPI::Position Center() const { return BWAPI::Position(choke->Center()) + BWAPI::Position(4, 4); }
 
-    const BWEM::ChokePoint* choke;
+    const BWEM::ChokePoint *choke;
 
     int width;
 
@@ -29,5 +29,6 @@ public:
 
 private:
     void computeRampHighGroundPosition();
-    void computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitType type, std::set<BWAPI::Position> & result);
+
+    static void computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitType type, std::set<BWAPI::Position> &result);
 };

@@ -444,6 +444,11 @@ namespace Workers
 
                     break;
                 }
+                default:
+                {
+                    // Nothing needed for other cases
+                    break;
+                }
             }
         }
     }
@@ -467,6 +472,7 @@ namespace Workers
             {
                 case Minerals:
                 case Gas:
+                {
                     // Skip if the worker doesn't have a valid base
                     auto base = workerBase[worker];
                     if (!base || !base->resourceDepot || !base->resourceDepot->exists())
@@ -508,7 +514,7 @@ namespace Workers
                             // Exception: If we are not at the patch yet, and our last command was sent a long time ago,
                             // we probably want to wait and allow our order timer optimization to send the command instead.
                             int dist = worker->getDistance(mineralPatch);
-                            if (dist > 20 && worker->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount()-20)) continue;
+                            if (dist > 20 && worker->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - 20)) continue;
 
                             Units::getMine(worker).gather(mineralPatch);
                             continue;
@@ -575,6 +581,12 @@ namespace Workers
                     // For some reason the worker doesn't have anything good to do, so let's just move towards the base
                     Units::getMine(worker).moveTo(base->getPosition());
                     break;
+                }
+                default:
+                {
+                    // Nothing needed for other cases
+                    break;
+                }
             }
         }
     }

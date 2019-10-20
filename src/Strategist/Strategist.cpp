@@ -1,5 +1,5 @@
 #include "Strategist.h"
-
+ #include <utility>
 #include "Scout.h"
 #include "Units.h"
 #include "PathFinding.h"
@@ -65,7 +65,7 @@ namespace Strategist
                     return a.distance < b.distance;
                 }
 
-                ReassignableUnit(BWAPI::Unit unit) : unit(unit), currentPlay(nullptr), distance(0) {}
+                explicit ReassignableUnit(BWAPI::Unit unit) : unit(unit), currentPlay(nullptr), distance(0) {}
 
                 ReassignableUnit(BWAPI::Unit unit, std::shared_ptr<Play> currentPlay)
                         : unit(unit), currentPlay(std::move(currentPlay)), distance(0) {}
@@ -186,14 +186,14 @@ namespace Strategist
             // Get leg upgrades when we have 5 zealots
             if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) >= 5)
             {
-                productionGoals.emplace_back(BWAPI::UpgradeTypes::Leg_Enhancements);
+                productionGoals.emplace_back(UpgradeProductionGoal(BWAPI::UpgradeTypes::Leg_Enhancements));
             }
 
             // Get goon range when we have one completed goon or two in progress
             int currentDragoons = Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon);
             if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon) >= 1 || currentDragoons >= 2)
             {
-                productionGoals.emplace_back(BWAPI::UpgradeTypes::Singularity_Charge);
+                productionGoals.emplace_back(UpgradeProductionGoal(BWAPI::UpgradeTypes::Singularity_Charge));
             }
         }
 
@@ -218,7 +218,7 @@ namespace Strategist
         {
             std::vector<std::string> values;
             values.reserve(plays.size());
-            for (auto & play : plays)
+            for (auto &play : plays)
             {
                 values.emplace_back(play->label());
             }
@@ -226,7 +226,7 @@ namespace Strategist
 
             values.clear();
             values.reserve(productionGoals.size());
-            for (auto & productionGoal : productionGoals)
+            for (auto &productionGoal : productionGoals)
             {
                 values.emplace_back((std::ostringstream() << productionGoal).str());
             }
@@ -290,7 +290,7 @@ namespace Strategist
                 it++;
             }
 
-            // Erase the play if it is marked complete
+                // Erase the play if it is marked complete
             else if ((*it)->status.complete)
             {
                 General::removeSquad((*it)->getSquad());
@@ -389,7 +389,7 @@ namespace Strategist
 
     void setOpening(std::vector<std::shared_ptr<Play>> openingPlays)
     {
-        plays = openingPlays;
+        plays = std::move(openingPlays);
     }
 
     std::vector<ProductionGoal> &currentProductionGoals()

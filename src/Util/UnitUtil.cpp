@@ -5,7 +5,8 @@
 
 namespace UnitUtil
 {
-    namespace {
+    namespace
+    {
         const int WARP_IN_FRAMES = 71;
     }
 
@@ -18,7 +19,7 @@ namespace UnitUtil
     {
         if (!unit || !unit->exists() || !unit->isVisible()) return BWAPI::Positions::Invalid;
 
-        return unit->getPosition() + BWAPI::Position((int)(frames * unit->getVelocityX()), (int)(frames * unit->getVelocityY()));
+        return unit->getPosition() + BWAPI::Position((int) (frames * unit->getVelocityX()), (int) (frames * unit->getVelocityY()));
     }
 
     bool Powers(BWAPI::TilePosition pylonTile, BWAPI::TilePosition buildingTile, BWAPI::UnitType buildingType)
@@ -55,7 +56,8 @@ namespace UnitUtil
 
     bool IsInWeaponRange(BWAPI::Unit attacker, BWAPI::Unit target)
     {
-        int range = Players::weaponRange(attacker->getPlayer(), target->isFlying() ? attacker->getType().airWeapon() : attacker->getType().groundWeapon());
+        int range = Players::weaponRange(attacker->getPlayer(),
+                                         target->isFlying() ? attacker->getType().airWeapon() : attacker->getType().groundWeapon());
         int dist = Geo::EdgeToEdgeDistance(attacker->getType(), attacker->getPosition(), target->getType(), target->getPosition());
 
         return dist <= range;
@@ -64,32 +66,32 @@ namespace UnitUtil
     bool CanAttack(BWAPI::Unit attacker, BWAPI::Unit target)
     {
         return target->isVisible() &&
-            target->isDetected() &&
-            !target->isStasised() &&
-            (target->isFlying() ? CanAttackAir(attacker) : CanAttackGround(attacker));
+               target->isDetected() &&
+               !target->isStasised() &&
+               (target->isFlying() ? CanAttackAir(attacker) : CanAttackGround(attacker));
     }
 
     bool CanAttackAir(BWAPI::Unit attacker)
     {
         return attacker->getType().airWeapon() != BWAPI::WeaponTypes::None ||
-            attacker->getType() == BWAPI::UnitTypes::Protoss_Carrier ||
-            attacker->getType() == BWAPI::UnitTypes::Terran_Bunker; // TODO: Track whether bunkers actually have units in them
+               attacker->getType() == BWAPI::UnitTypes::Protoss_Carrier ||
+               attacker->getType() == BWAPI::UnitTypes::Terran_Bunker; // TODO: Track whether bunkers actually have units in them
     }
 
     bool CanAttackGround(BWAPI::Unit attacker)
     {
         return attacker->getType().groundWeapon() != BWAPI::WeaponTypes::None ||
-            attacker->getType() == BWAPI::UnitTypes::Protoss_Carrier ||
-            attacker->getType() == BWAPI::UnitTypes::Protoss_Reaver ||
-            attacker->getType() == BWAPI::UnitTypes::Terran_Bunker; // TODO: Track whether bunkers actually have units in them
+               attacker->getType() == BWAPI::UnitTypes::Protoss_Carrier ||
+               attacker->getType() == BWAPI::UnitTypes::Protoss_Reaver ||
+               attacker->getType() == BWAPI::UnitTypes::Terran_Bunker; // TODO: Track whether bunkers actually have units in them
     }
 
     bool IsRangedUnit(BWAPI::UnitType type)
     {
         return
-            type.groundWeapon().maxRange() > 32 ||
-            type.isFlyer() ||
-            type == BWAPI::UnitTypes::Protoss_Reaver;
+                type.groundWeapon().maxRange() > 32 ||
+                type.isFlyer() ||
+                type == BWAPI::UnitTypes::Protoss_Reaver;
     }
 
     bool IsCombatUnit(BWAPI::UnitType type)

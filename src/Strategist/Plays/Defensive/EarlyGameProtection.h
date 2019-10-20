@@ -10,13 +10,13 @@ class EarlyGameProtection : public Play
 public:
     EarlyGameProtection();
 
-    const char *label() const { return "EarlyGameProtection"; }
+    const char *label() const override { return "EarlyGameProtection"; }
 
-    std::shared_ptr<Squad> getSquad() { return squad; }
+    std::shared_ptr<Squad> getSquad() override { return squad; }
 
-    void update();
+    void update() override;
 
-    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 
 private:
     std::shared_ptr<DefendBaseSquad> squad;

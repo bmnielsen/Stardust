@@ -6,13 +6,13 @@
 class AttackBase : public Play
 {
 public:
-    AttackBase(Base *base);
+    explicit AttackBase(Base *base);
 
-    const char *label() const { return "AttackBase"; }
+    const char *label() const override { return "AttackBase"; }
 
-    bool receivesUnassignedUnits() const { return true; }
+    bool receivesUnassignedUnits() const override { return true; }
 
-    std::shared_ptr<Squad> getSquad() { return squad; }
+    std::shared_ptr<Squad> getSquad() override { return squad; }
 
 private:
     std::shared_ptr<AttackBaseSquad> squad;

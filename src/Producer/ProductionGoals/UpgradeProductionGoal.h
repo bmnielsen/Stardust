@@ -5,7 +5,7 @@
 class UpgradeProductionGoal
 {
 public:
-    UpgradeProductionGoal(BWAPI::UpgradeType type, int level = 1) : type(type), level(level) {}
+    explicit UpgradeProductionGoal(BWAPI::UpgradeType type, int level = 1) : type(type), level(level) {}
 
     // The upgrade type
     BWAPI::UpgradeType upgradeType() { return type; }
@@ -16,7 +16,7 @@ public:
     // Prerequisite for the next upgrade level
     BWAPI::UnitType prerequisiteForNextLevel();
 
-    friend std::ostream& operator<<(std::ostream& os, const UpgradeProductionGoal& goal)
+    friend std::ostream &operator<<(std::ostream &os, const UpgradeProductionGoal &goal)
     {
         os << goal.type << "@" << goal.level;
         return os;
@@ -24,5 +24,5 @@ public:
 
 private:
     BWAPI::UpgradeType type;
-    int                level;
+    int level;
 };

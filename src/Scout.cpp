@@ -12,8 +12,8 @@ namespace Scout
     {
 #endif
         ScoutingMode scoutingMode;
-        BWAPI::Unit  workerScout;
-        Base*        targetBase;
+        BWAPI::Unit workerScout;
+        Base *targetBase;
 
         void assignWorkerScout()
         {
@@ -23,7 +23,7 @@ namespace Scout
             if (workerScout && !workerScout->exists()) workerScout = nullptr;
 
             // Get the set of bases we need to scout
-            std::set<Base*> locations;
+            std::set<Base *> locations;
             if (!Map::getEnemyMain())
             {
                 locations = Map::unscoutedStartingLocations();
@@ -36,7 +36,7 @@ namespace Scout
             // Find the available worker closest to any of these bases
             int bestTravelTime = INT_MAX;
             BWAPI::Unit bestWorker = nullptr;
-            for (auto & unit : BWAPI::Broodwar->self()->getUnits())
+            for (auto &unit : BWAPI::Broodwar->self()->getUnits())
             {
                 if (!Workers::isAvailableForReassignment(unit)) continue;
 
@@ -44,7 +44,10 @@ namespace Scout
                 for (auto base : locations)
                 {
                     int travelTime =
-                        PathFinding::ExpectedTravelTime(unit->getPosition(), base->getPosition(), unit->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                            PathFinding::ExpectedTravelTime(unit->getPosition(),
+                                                            base->getPosition(),
+                                                            unit->getType(),
+                                                            PathFinding::PathFindingOptions::UseNearestBWEMArea);
                     if (travelTime != -1 && travelTime < unitBestTravelTime)
                     {
                         unitBestTravelTime = travelTime;
@@ -77,7 +80,10 @@ namespace Scout
             for (auto base : Map::unscoutedStartingLocations())
             {
                 int travelTime =
-                    PathFinding::ExpectedTravelTime(workerScout->getPosition(), base->getPosition(), workerScout->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                        PathFinding::ExpectedTravelTime(workerScout->getPosition(),
+                                                        base->getPosition(),
+                                                        workerScout->getType(),
+                                                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
                 if (travelTime != -1 && travelTime < bestTravelTime)
                 {
                     bestTravelTime = travelTime;

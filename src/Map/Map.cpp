@@ -39,11 +39,13 @@ namespace Map
             Base *natural;
             std::set<Base *> allOwned;
             std::vector<Base *> probableExpansions;
+
+            PlayerBases() : main(nullptr), natural(nullptr) {}
         };
 
         std::map<BWAPI::Player, PlayerBases> playerToPlayerBases;
 
-        int closestBaseDistance(Base *base, std::set<Base *> otherBases)
+        int closestBaseDistance(Base *base, const std::set<Base *>& otherBases)
         {
             int closestDistance = -1;
             for (auto otherBase : otherBases)

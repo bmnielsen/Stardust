@@ -8,11 +8,11 @@ class TakeNaturalExpansion : public Play
 public:
     TakeNaturalExpansion();
 
-    const char *label() const { return "TakeNaturalExpansion"; }
+    const char *label() const override { return "TakeNaturalExpansion"; }
 
-    void update();
+    void update() override;
 
-    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 
 private:
     BWAPI::TilePosition depotPosition;

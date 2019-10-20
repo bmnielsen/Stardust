@@ -1,4 +1,5 @@
 #include <BWAPI.h>
+
 #ifdef _WIN32
 #include <Windows.h>
 #define DLLEXPORT __declspec(dllexport)
@@ -8,7 +9,7 @@
 
 #include "LocutusAIModule.h"
 
-extern "C" DLLEXPORT void gameInit(BWAPI::Game* game) { BWAPI::BroodwarPtr = game; }
+extern "C" DLLEXPORT void gameInit(BWAPI::Game *game) { BWAPI::BroodwarPtr = game; }
 #ifdef _WIN32
 BOOL APIENTRY DllMain( HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserved )
 {
@@ -23,7 +24,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 }
 #endif
 
-extern "C" DLLEXPORT BWAPI::AIModule* newAIModule()
+extern "C" DLLEXPORT BWAPI::AIModule *newAIModule()
 {
     return new LocutusAIModule();
 }

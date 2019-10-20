@@ -1,5 +1,6 @@
 #pragma once
 
+#include <utility>
 #include "Common.h"
 #include "BuildingPlacement.h"
 #include "ProductionLocation.h"
@@ -8,14 +9,14 @@ class UnitProductionGoal
 {
 public:
     // Constructor for normal units or buildings
-    UnitProductionGoal(BWAPI::UnitType type,
+    explicit UnitProductionGoal(BWAPI::UnitType type,
                        int count = -1,
                        int producerLimit = -1,
                        ProductionLocation location = std::monostate())
             : type(type)
             , count(count)
             , producerLimit(producerLimit)
-            , location(location) {}
+            , location(std::move(location)) {}
 
     // Constructor for buildings at a specific build location
     UnitProductionGoal(BWAPI::UnitType type, BuildingPlacement::BuildLocation location)

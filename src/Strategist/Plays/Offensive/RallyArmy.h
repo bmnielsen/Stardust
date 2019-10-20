@@ -8,13 +8,13 @@ class RallyArmy : public Play
 public:
     RallyArmy();
 
-    const char *label() const { return "RallyArmy"; }
+    const char *label() const override { return "RallyArmy"; }
 
-    bool receivesUnassignedUnits() const { return true; }
+    bool receivesUnassignedUnits() const override { return true; }
 
-    std::shared_ptr<Squad> getSquad() { return squad; }
+    std::shared_ptr<Squad> getSquad() override { return squad; }
 
-    void update();
+    void update() override;
 
 private:
     std::shared_ptr<DefendBaseSquad> squad;

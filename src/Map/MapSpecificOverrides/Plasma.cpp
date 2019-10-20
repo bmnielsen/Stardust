@@ -1,13 +1,16 @@
 #include "Plasma.h"
 
-namespace { auto & bwemMap = BWEM::Map::Instance(); }
-
-void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> & chokes)
+namespace
 {
-    for (auto & pair : chokes)
+    auto &bwemMap = BWEM::Map::Instance();
+}
+
+void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &chokes)
+{
+    for (auto &pair : chokes)
     {
-        const BWEM::ChokePoint * choke = pair.first;
-        Choke & chokeData = *pair.second;
+        const BWEM::ChokePoint *choke = pair.first;
+        Choke &chokeData = *pair.second;
 
         BWAPI::Position chokeCenter(choke->Center());
 
@@ -49,7 +52,8 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> & chok
         chokeData.requiresMineralWalk = true;
 
         auto closestArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(closestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
-        auto secondClosestArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(secondClosestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
+        auto secondClosestArea = bwemMap.GetNearestArea(
+                BWAPI::WalkPosition(secondClosestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
         if (closestArea == choke->GetAreas().second &&
             secondClosestArea == choke->GetAreas().first)
         {

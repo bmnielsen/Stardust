@@ -1,14 +1,14 @@
 #include "Base.h"
 
-Base::Base(BWAPI::TilePosition _tile, const BWEM::Base * _bwemBase)
-    : owner(nullptr)
-    , resourceDepot(nullptr)
-    , tile(_tile)
-    , bwemBase(_bwemBase)
-    , ownedSince(-1)
-    , lastScouted(-1)
-    , spiderMined(false)
-    , requiresMineralWalkFromEnemyStartLocations(false)
+Base::Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase)
+        : owner(nullptr)
+        , resourceDepot(nullptr)
+        , tile(_tile)
+        , bwemBase(_bwemBase)
+        , ownedSince(-1)
+        , lastScouted(-1)
+        , spiderMined(false)
+        , requiresMineralWalkFromEnemyStartLocations(false)
 {
     int x = 0;
     int y = 0;
@@ -81,7 +81,7 @@ int Base::gas() const
 bool Base::isStartingBase() const
 {
     return std::find(
-        BWAPI::Broodwar->getStartLocations().begin(), 
-        BWAPI::Broodwar->getStartLocations().end(), 
-        tile) != BWAPI::Broodwar->getStartLocations().end();
+            BWAPI::Broodwar->getStartLocations().begin(),
+            BWAPI::Broodwar->getStartLocations().end(),
+            tile) != BWAPI::Broodwar->getStartLocations().end();
 }

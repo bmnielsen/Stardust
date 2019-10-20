@@ -6,7 +6,10 @@
 #include "MyDragoon.h"
 #include "MyWorker.h"
 
-namespace { auto & bwemMap = BWEM::Map::Instance(); }
+namespace
+{
+    auto &bwemMap = BWEM::Map::Instance();
+}
 
 namespace Units
 {
@@ -45,8 +48,10 @@ namespace Units
                 //    unit.updateLastPositionValidity();
                 //};
 
-                for (auto unit : getForPlayer(player))
+                for (const auto& unit : getForPlayer(player))
+                {
                     unit->updateLastPositionValidity();
+                }
             }
 
             // Now update all the units we can see
@@ -85,7 +90,7 @@ namespace Units
                 //    *units.emplace(unit);
                 //}
 
-                auto & entry = get(unit);
+                auto &entry = get(unit);
                 entry.update(unit);
                 entry.tilePositionX = unit->getPosition().x << 3;
                 entry.tilePositionY = unit->getPosition().y << 3;
@@ -110,21 +115,33 @@ namespace Units
             {
                 anyDebugUnits = true;
 
-                debug << "\n" << unit->getType() << " " << unit->getID() << " @ " << unit->getPosition() << "^" << BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(unit->getPosition()));
+                debug << "\n" << unit->getType() << " " << unit->getID() << " @ " << unit->getPosition() << "^"
+                      << BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(unit->getPosition()));
                 debug << ",speed=" << (unit->getVelocityX() * unit->getVelocityX() + unit->getVelocityY() * unit->getVelocityY()) << ": ";
 
-                debug << "command: " << unit->getLastCommand().getType() << ",frame=" << (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame());
+                debug << "command: " << unit->getLastCommand().getType() << ",frame="
+                      << (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame());
                 if (unit->getLastCommand().getTarget())
-                    debug << ",target=" << unit->getLastCommand().getTarget()->getType() << " " << unit->getLastCommand().getTarget()->getID() << " @ " << unit->getLastCommand().getTarget()->getPosition() << ",dist=" << unit->getLastCommand().getTarget()->getDistance(unit) << ",sqdist=" << Geo::EdgeToEdgeSquaredDistance(unit->getType(), unit->getPosition(), unit->getLastCommand().getTarget()->getType(), unit->getLastCommand().getTarget()->getPosition());
+                    debug << ",target=" << unit->getLastCommand().getTarget()->getType() << " " << unit->getLastCommand().getTarget()->getID()
+                          << " @ " << unit->getLastCommand().getTarget()->getPosition() << ",dist="
+                          << unit->getLastCommand().getTarget()->getDistance(unit) << ",sqdist=" << Geo::EdgeToEdgeSquaredDistance(unit->getType(),
+                                                                                                                                   unit->getPosition(),
+                                                                                                                                   unit->getLastCommand().getTarget()->getType(),
+                                                                                                                                   unit->getLastCommand().getTarget()->getPosition());
                 else if (unit->getLastCommand().getTargetPosition())
                     debug << ",targetpos " << unit->getLastCommand().getTargetPosition();
 
                 debug << ". order: " << unit->getOrder() << ",timer=" << unit->getOrderTimer();
                 if (unit->getOrderTarget())
-                    debug << ",target=" << unit->getOrderTarget()->getType() << " " << unit->getOrderTarget()->getID() << " @ " << unit->getOrderTarget()->getPosition() << ",dist=" << unit->getOrderTarget()->getDistance(unit) << ",sqdist=" << Geo::EdgeToEdgeSquaredDistance(unit->getType(), unit->getPosition(), unit->getOrderTarget()->getType(), unit->getOrderTarget()->getPosition());
+                    debug << ",target=" << unit->getOrderTarget()->getType() << " " << unit->getOrderTarget()->getID() << " @ "
+                          << unit->getOrderTarget()->getPosition() << ",dist=" << unit->getOrderTarget()->getDistance(unit) << ",sqdist="
+                          << Geo::EdgeToEdgeSquaredDistance(unit->getType(),
+                                                            unit->getPosition(),
+                                                            unit->getOrderTarget()->getType(),
+                                                            unit->getOrderTarget()->getPosition());
                 else if (unit->getOrderTargetPosition())
                     debug << ",targetpos " << unit->getOrderTargetPosition();
-                
+
                 debug << ". isMoving=" << unit->isMoving();
                 if (unit->isCarryingMinerals())
                     debug << ",carrying minerals";
@@ -136,36 +153,43 @@ namespace Units
             {
                 anyDebugUnits = true;
 
-                debug << "\n" << unit->getType() << " " << unit->getID() << " @ " << unit->getPosition() << "^" << BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(unit->getPosition())) << ": ";
+                debug << "\n" << unit->getType() << " " << unit->getID() << " @ " << unit->getPosition() << "^"
+                      << BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(unit->getPosition())) << ": ";
 
                 debug << "completed=" << unit->isCompleted() << ",remainingBuildTime=" << unit->getRemainingBuildTime();
             }
 
             if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon && false)
             {
-                auto & myUnit = getMine(unit);
-                auto & myDragoon = dynamic_cast<MyDragoon&>(myUnit);
+                auto &myUnit = getMine(unit);
+                auto &myDragoon = dynamic_cast<MyDragoon &>(myUnit);
 
                 anyDebugUnits = true;
 
                 debug << "\n" << unit->getType() << " " << unit->getID() << " @ " << unit->getPosition() << ": ";
 
-                debug << "command: " << unit->getLastCommand().getType() << ",frame=" << (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame());
+                debug << "command: " << unit->getLastCommand().getType() << ",frame="
+                      << (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame());
                 if (unit->getLastCommand().getTarget())
-                    debug << ",target=" << unit->getLastCommand().getTarget()->getType() << " " << unit->getLastCommand().getTarget()->getID() << " @ " << unit->getLastCommand().getTarget()->getPosition() << ",dist=" << unit->getLastCommand().getTarget()->getDistance(unit);
+                    debug << ",target=" << unit->getLastCommand().getTarget()->getType() << " " << unit->getLastCommand().getTarget()->getID()
+                          << " @ " << unit->getLastCommand().getTarget()->getPosition() << ",dist="
+                          << unit->getLastCommand().getTarget()->getDistance(unit);
                 else if (unit->getLastCommand().getTargetPosition())
                     debug << ",targetpos " << unit->getLastCommand().getTargetPosition();
 
                 debug << ". order: " << unit->getOrder();
                 if (unit->getOrderTarget())
-                    debug << ",target=" << unit->getOrderTarget()->getType() << " " << unit->getOrderTarget()->getID() << " @ " << unit->getOrderTarget()->getPosition() << ",dist=" << unit->getOrderTarget()->getDistance(unit);
+                    debug << ",target=" << unit->getOrderTarget()->getType() << " " << unit->getOrderTarget()->getID() << " @ "
+                          << unit->getOrderTarget()->getPosition() << ",dist=" << unit->getOrderTarget()->getDistance(unit);
                 else if (unit->getOrderTargetPosition())
                     debug << ",targetpos " << unit->getOrderTargetPosition();
 
-                debug << ". isMoving=" << unit->isMoving() << ";isattackframe=" << unit->isAttackFrame() << ";isstartingattack=" << unit->isStartingAttack() << ";cooldown=" << unit->getGroundWeaponCooldown();
+                debug << ". isMoving=" << unit->isMoving() << ";isattackframe=" << unit->isAttackFrame() << ";isstartingattack="
+                      << unit->isStartingAttack() << ";cooldown=" << unit->getGroundWeaponCooldown();
 
                 if (myUnit.isStuck()) debug << ";is stuck";
-                if (myDragoon.getLastAttackStartedAt() > 0) debug << ";lastAttackStartedAt=" << (BWAPI::Broodwar->getFrameCount() - myDragoon.getLastAttackStartedAt());
+                if (myDragoon.getLastAttackStartedAt() > 0)
+                    debug << ";lastAttackStartedAt=" << (BWAPI::Broodwar->getFrameCount() - myDragoon.getLastAttackStartedAt());
                 debug << ";isReady=" << myUnit.isReady();
             }
         }
@@ -215,12 +239,12 @@ namespace Units
             bullet->getType() == BWAPI::BulletTypes::Halo_Rockets ||            // Valkyrie
             bullet->getType() == BWAPI::BulletTypes::Subterranean_Spines)       // Lurker
         {
-            auto & target = get(bullet->getTarget());
+            auto &target = get(bullet->getTarget());
             target.addUpcomingAttack(bullet->getSource(), bullet);
         }
     }
 
-    MyUnit& getMine(BWAPI::Unit unit)
+    MyUnit &getMine(BWAPI::Unit unit)
     {
         auto it = bwapiUnitToMyUnit.find(unit);
         if (it != bwapiUnitToMyUnit.end())
@@ -239,7 +263,7 @@ namespace Units
         return *bwapiUnitToMyUnit.emplace(unit, std::make_unique<MyUnit>(unit)).first->second;
     }
 
-    Unit const& get(BWAPI::Unit unit)
+    Unit const &get(BWAPI::Unit unit)
     {
         //auto entry = units.lookup<0>(unit);
         //if (entry)
@@ -255,11 +279,11 @@ namespace Units
         auto newUnit = std::make_shared<Unit>(unit);
         bwapiUnitToUnit.emplace(unit, newUnit);
         playerToUnits[unit->getPlayer()].emplace(newUnit);
-        
+
         return *newUnit;
     }
 
-    std::set<std::shared_ptr<Unit>> & getForPlayer(BWAPI::Player player)
+    std::set<std::shared_ptr<Unit>> &getForPlayer(BWAPI::Player player)
     {
         return playerToUnits[player];
     }
@@ -267,26 +291,36 @@ namespace Units
     void getInRadius(std::set<std::shared_ptr<Unit>> &units, BWAPI::Player player, BWAPI::Position position, int radius)
     {
         for (auto &unit : playerToUnits[player])
+        {
             if (unit->lastPositionValid && unit->lastPosition.getApproxDistance(position) <= radius)
                 units.insert(unit);
+        }
 
         // For debugging
         size_t count = 0;
         for (auto unit : player->getUnits())
+        {
             if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon && unit->getPosition().getApproxDistance(position) <= radius)
                 count++;
+        }
         if (count > units.size())
         {
             for (auto unit : player->getUnits())
+            {
                 if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon && unit->getPosition().getApproxDistance(position) <= radius)
                 {
-                    auto & unt = get(unit);
-                    Log::Debug() << "Missed " << unit->getType() << " @ " << unit->getPosition() << ": lastPosition=" << unt.lastPosition << "; lastPositionValid=" << unt.lastPositionValid << "; dist=" << unt.lastPosition.getApproxDistance(position);
+                    auto &unt = get(unit);
+                    Log::Debug() << "Missed " << unit->getType() << " @ " << unit->getPosition() << ": lastPosition=" << unt.lastPosition
+                                 << "; lastPositionValid=" << unt.lastPositionValid << "; dist=" << unt.lastPosition.getApproxDistance(position);
                 }
+            }
         }
     }
 
-    void getInArea(std::set<std::shared_ptr<Unit>> &units, BWAPI::Player player, const BWEM::Area *area, std::function<bool(const std::shared_ptr<Unit>&)> predicate)
+    void getInArea(std::set<std::shared_ptr<Unit>> &units,
+                   BWAPI::Player player,
+                   const BWEM::Area *area,
+                   const std::function<bool(const std::shared_ptr<Unit> &)>& predicate)
     {
         for (auto &unit : playerToUnits[player])
         {
@@ -314,7 +348,7 @@ namespace Units
     std::map<BWAPI::UnitType, int> countIncompleteByType()
     {
         std::map<BWAPI::UnitType, int> result;
-        for (auto & typeAndUnits : myIncompleteUnitsByType)
+        for (auto &typeAndUnits : myIncompleteUnitsByType)
         {
             result[typeAndUnits.first] = typeAndUnits.second.size();
         }

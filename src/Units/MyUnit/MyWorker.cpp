@@ -2,13 +2,16 @@
 
 #include "PathFinding.h"
 
-namespace { auto & bwemMap = BWEM::Map::Instance(); }
+namespace
+{
+    auto &bwemMap = BWEM::Map::Instance();
+}
 
 MyWorker::MyWorker(BWAPI::Unit unit)
         : MyUnit(unit)
-          , mineralWalkingPatch(nullptr)
-          , mineralWalkingTargetArea(nullptr)
-          , mineralWalkingStartPosition(BWAPI::Positions::Invalid)
+        , mineralWalkingPatch(nullptr)
+        , mineralWalkingTargetArea(nullptr)
+        , mineralWalkingStartPosition(BWAPI::Positions::Invalid)
 {
 }
 
@@ -33,7 +36,7 @@ void MyWorker::resetMoveData()
 }
 
 
-bool MyWorker::mineralWalk(const Choke * choke)
+bool MyWorker::mineralWalk(const Choke *choke)
 {
     if (!choke && !mineralWalkingPatch) return false;
 
@@ -45,7 +48,7 @@ bool MyWorker::mineralWalk(const Choke * choke)
             return false;
         }
 
-        const BWEM::ChokePoint * nextWaypoint = choke->choke;
+        const BWEM::ChokePoint *nextWaypoint = choke->choke;
 
         // Determine which of the two areas accessible by the choke we are moving towards.
         // We do this by looking at the waypoint after the next one and seeing which area they share,
@@ -109,13 +112,13 @@ bool MyWorker::mineralWalk(const Choke * choke)
             if (!staticNeutral->exists() || !staticNeutral->isVisible()) continue;
 
             // The path to this mineral field should cross the choke we're mineral walking
-            for (auto choke : PathFinding::GetChokePointPath(
+            for (auto pathChoke : PathFinding::GetChokePointPath(
                     unit->getPosition(),
                     staticNeutral->getInitialPosition(),
                     unit->getType(),
                     PathFinding::PathFindingOptions::UseNearestBWEMArea))
             {
-                if (choke == *waypoints.begin())
+                if (pathChoke == *waypoints.begin())
                 {
                     // The path went through the choke, let's use this field
                     rightClick(staticNeutral);

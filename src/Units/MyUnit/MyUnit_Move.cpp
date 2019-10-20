@@ -3,7 +3,10 @@
 #include "PathFinding.h"
 #include "Map.h"
 
-namespace { auto & bwemMap = BWEM::Map::Instance(); }
+namespace
+{
+    auto &bwemMap = BWEM::Map::Instance();
+}
 
 bool MyUnit::moveTo(BWAPI::Position position, bool avoidNarrowChokes)
 {
@@ -35,15 +38,17 @@ bool MyUnit::moveTo(BWAPI::Position position, bool avoidNarrowChokes)
 
     // Get the BWEM path
     // TODO: Consider narrow chokes
-    auto& path = PathFinding::GetChokePointPath(
+    auto &path = PathFinding::GetChokePointPath(
             unit->getPosition(),
             position,
             unit->getType(),
             PathFinding::PathFindingOptions::UseNearestBWEMArea);
     if (path.empty()) return false;
 
-    for (const BWEM::ChokePoint * chokepoint : path)
+    for (const BWEM::ChokePoint *chokepoint : path)
+    {
         waypoints.push_back(chokepoint);
+    }
 
     // Start moving
     targetPosition = position;
@@ -70,7 +75,7 @@ void MyUnit::updateMoveWaypoints()
         return;
     }
 
-    if (mineralWalk())
+    if (mineralWalk(nullptr))
     {
         return;
     }
@@ -111,7 +116,7 @@ void MyUnit::moveToNextWaypoint()
         return;
     }
 
-    const BWEM::ChokePoint * nextWaypoint = *waypoints.begin();
+    const BWEM::ChokePoint *nextWaypoint = *waypoints.begin();
     auto choke = Map::choke(nextWaypoint);
 
     // Check if the next waypoint needs to be mineral walked

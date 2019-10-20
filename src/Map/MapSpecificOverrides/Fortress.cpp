@@ -1,13 +1,16 @@
 #include "Fortress.h"
 
-namespace { auto & bwemMap = BWEM::Map::Instance(); }
-
-void Fortress::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> & chokes)
+namespace
 {
-    for (auto & pair : chokes)
+    auto &bwemMap = BWEM::Map::Instance();
+}
+
+void Fortress::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &chokes)
+{
+    for (auto &pair : chokes)
     {
-        const BWEM::ChokePoint * choke = pair.first;
-        Choke & chokeData = *pair.second;
+        const BWEM::ChokePoint *choke = pair.first;
+        Choke &chokeData = *pair.second;
 
         // On Fortress the mineral walking chokes are all considered blocked by BWEM
         if (!choke->Blocked()) continue;
@@ -45,7 +48,8 @@ void Fortress::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> & ch
         // The other choke has a mineral patch on the way in, but not on the way out, so one will be null
         // We will use a random visible mineral patch on the map to handle getting out
         auto closestArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(closestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
-        auto secondClosestArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(secondClosestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
+        auto secondClosestArea = bwemMap.GetNearestArea(
+                BWAPI::WalkPosition(secondClosestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
 
         if (closestArea == choke->GetAreas().first)
             chokeData.firstAreaMineralPatch = closestMineralPatch;

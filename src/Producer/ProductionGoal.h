@@ -7,4 +7,4 @@
 
 using ProductionGoal = std::variant<UnitProductionGoal, UpgradeProductionGoal>;
 
-std::ostream& operator<<(std::ostream& os, const ProductionGoal &goal);
+std::ostream &operator<<(std::ostream &os, const ProductionGoal &goal);

@@ -5,6 +5,7 @@
 class Fortress : public MapSpecificOverride
 {
 public:
-    bool hasMineralWalking() { return true; }
-    void initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> & chokes);
+    bool hasMineralWalking() override { return true; }
+
+    void initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &chokes);
 };

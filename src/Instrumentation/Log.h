@@ -6,23 +6,22 @@ namespace Log
 {
     class LogWrapper
     {
-    private:
-        LogWrapper& operator =(const LogWrapper&) = delete;
-
     protected:
-        std::ostringstream* os;
-        int* refCount;
-        std::ofstream* logFile;
+        std::ostringstream *os;
+        int *refCount;
+        std::ofstream *logFile;
         bool outputToConsole;
         bool csv;
         bool first;
 
     public:
-        LogWrapper(std::ofstream* logFile, bool outputToConsole, bool csv = false);
-        LogWrapper(const LogWrapper& other);
+        LogWrapper(std::ofstream *logFile, bool outputToConsole, bool csv = false);
+
+        LogWrapper(const LogWrapper &other);
+
         ~LogWrapper();
-        
-        template<typename T> LogWrapper& operator<<(T const& value)
+
+        template<typename T> LogWrapper &operator<<(T const &value)
         {
             if (logFile)
             {
@@ -32,15 +31,20 @@ namespace Log
             }
             return *this;
         }
+
+        LogWrapper &operator=(const LogWrapper &) = delete;
     };
 
     void SetDebug(bool debug);
+
     void SetOutputToConsole(bool outputToConsole);
 
     LogWrapper Get();
+
     LogWrapper Debug();
-    LogWrapper Csv(std::string name);
+
+    LogWrapper Csv(const std::string& name);
 
     // Returns a list of the paths of all the log files we have written in this game
-    std::vector<std::string> & LogFiles();
+    std::vector<std::string> &LogFiles();
 }

@@ -6,17 +6,18 @@
 #include "Geo.h"
 
 MyUnit::MyUnit(BWAPI::Unit unit)
-    : unit(unit)
-    , issuedOrderThisFrame(false)
-    , targetPosition(BWAPI::Positions::Invalid)
-    , currentlyMovingTowards(BWAPI::Positions::Invalid)
-    , lastMoveFrame(0)
+        : unit(unit)
+        , issuedOrderThisFrame(false)
+        , targetPosition(BWAPI::Positions::Invalid)
+        , currentlyMovingTowards(BWAPI::Positions::Invalid)
+        , lastMoveFrame(0)
 {
 }
 
 void MyUnit::update()
 {
-    if (!unit || !unit->exists()) { return; }
+    if (!unit || !unit->exists())
+    { return; }
 
     issuedOrderThisFrame = false;
 
@@ -27,7 +28,8 @@ void MyUnit::update()
     // Guard against buildings having a deep training queue
     if (unit->getTrainingQueue().size() > 1 && unit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))
     {
-        Log::Get() << "WARNING: Training queue for " << unit->getType() << " @ " << unit->getTilePosition() << " is too deep! Cancelling later units.";
+        Log::Get() << "WARNING: Training queue for " << unit->getType() << " @ " << unit->getTilePosition()
+                   << " is too deep! Cancelling later units.";
         std::ostringstream units;
         for (int i = 0; i < unit->getTrainingQueue().size(); i++)
         {

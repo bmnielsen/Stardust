@@ -43,7 +43,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
         return;
     }
 
-    auto & grid = Players::grid(BWAPI::Broodwar->self());
+    auto &grid = Players::grid(BWAPI::Broodwar->self());
 
     // Find a suitable retreat location:
     // - Unit furthest from the order position that is not under threat
@@ -51,7 +51,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     // TODO: Avoid retreating through enemy army, proper pathing, link up with other clusters, etc.
     BWAPI::Position rallyPoint = Map::getMyMain()->getPosition();
     int bestDist = 0;
-    for (auto & unit : cluster.units)
+    for (auto &unit : cluster.units)
     {
         if (grid.groundThreat(unit->getPosition()) > 0) continue;
 
@@ -64,9 +64,9 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     }
 
     // Micro each unit
-    for (auto & unit : cluster.units)
+    for (auto &unit : cluster.units)
     {
-        auto & myUnit = Units::getMine(unit);
+        auto &myUnit = Units::getMine(unit);
 
         // If the unit is stuck, unstick it
         if (myUnit.isStuck())

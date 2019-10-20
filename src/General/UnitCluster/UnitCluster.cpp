@@ -12,8 +12,8 @@ void UnitCluster::addUnit(BWAPI::Unit unit)
     units.insert(unit);
 
     center = BWAPI::Position(
-        ((center.x * (units.size() - 1)) + unit->getPosition().x) / units.size(),
-        ((center.y * (units.size() - 1)) + unit->getPosition().y) / units.size());
+            ((center.x * (units.size() - 1)) + unit->getPosition().x) / units.size(),
+            ((center.y * (units.size() - 1)) + unit->getPosition().y) / units.size());
 }
 
 void UnitCluster::removeUnit(BWAPI::Unit unit)
@@ -44,7 +44,7 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     int sumY = 0;
     BWAPI::Unit closestToTarget = nullptr;
     int closestToTargetDist = INT_MAX;
-    for (auto unitIt = units.begin(); unitIt != units.end(); )
+    for (auto unitIt = units.begin(); unitIt != units.end();)
     {
         auto unit = *unitIt;
 
@@ -73,26 +73,27 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     vanguard = closestToTarget;
 }
 
-std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> UnitCluster::selectTargets(std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition)
+std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>>
+UnitCluster::selectTargets(std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition)
 {
     std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> result;
 
     for (auto unit : units)
     {
         result.emplace_back(std::make_pair(unit, UnitUtil::IsRangedUnit(unit->getType())
-                                                  ? ChooseRangedTarget(unit, targets, targetPosition)
-                                                  : ChooseMeleeTarget(unit, targets, targetPosition)));
+                                                 ? ChooseRangedTarget(unit, targets, targetPosition)
+                                                 : ChooseMeleeTarget(unit, targets, targetPosition)));
     }
 
     return result;
 }
 
-void UnitCluster::execute(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> & unitsAndTargets, BWAPI::Position targetPosition)
+void UnitCluster::execute(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> &unitsAndTargets, BWAPI::Position targetPosition)
 {
     // Micro each unit
     for (auto &unitAndTarget : unitsAndTargets)
     {
-        auto & myUnit = Units::getMine(unitAndTarget.first);
+        auto &myUnit = Units::getMine(unitAndTarget.first);
 
         // If the unit is stuck, unstick it
         if (myUnit.isStuck())
@@ -107,7 +108,8 @@ void UnitCluster::execute(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Uni
         // Attack target
         if (unitAndTarget.second)
         {
-            CherryVis::log(unitAndTarget.first) << "Target: " << unitAndTarget.second->type << " @ " << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
+            CherryVis::log(unitAndTarget.first) << "Target: " << unitAndTarget.second->type << " @ "
+                                                << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
             myUnit.attackUnit(unitAndTarget.second->unit);
         }
         else

@@ -30,13 +30,13 @@ namespace Players
 
     void update()
     {
-        for (auto & playerAndUpgradeTracker : playerToUpgradeTracker)
+        for (auto &playerAndUpgradeTracker : playerToUpgradeTracker)
         {
             playerAndUpgradeTracker.second->update(grid(playerAndUpgradeTracker.first));
         }
     }
 
-    Grid & grid(BWAPI::Player player)
+    Grid &grid(BWAPI::Player player)
     {
         auto it = playerToGrid.find(player);
         if (it != playerToGrid.end()) return it->second;
@@ -59,12 +59,12 @@ namespace Players
     {
         return getUpgradeTracker(player)->unitCooldown(type);
     }
-    
+
     double unitTopSpeed(BWAPI::Player player, BWAPI::UnitType type)
     {
         return getUpgradeTracker(player)->unitCooldown(type);
     }
-    
+
     int unitArmor(BWAPI::Player player, BWAPI::UnitType type)
     {
         return getUpgradeTracker(player)->unitArmor(type);
@@ -75,9 +75,9 @@ namespace Players
         auto weapon = targetUnit.isFlyer() ? attackingUnit.airWeapon() : attackingUnit.groundWeapon();
         if (weapon == BWAPI::WeaponTypes::None) return 0;
 
-        int damage = (weaponDamage(attackingPlayer, weapon) - unitArmor(targetPlayer, targetUnit)) 
-            * (targetUnit.isFlyer() ? attackingUnit.maxAirHits() : attackingUnit.maxGroundHits())
-            * weapon.damageFactor();
+        int damage = (weaponDamage(attackingPlayer, weapon) - unitArmor(targetPlayer, targetUnit))
+                     * (targetUnit.isFlyer() ? attackingUnit.maxAirHits() : attackingUnit.maxGroundHits())
+                     * weapon.damageFactor();
 
         if (weapon.damageType() == BWAPI::DamageTypes::Concussive)
         {

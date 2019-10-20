@@ -43,7 +43,7 @@ namespace General
 
     void updateClusters()
     {
-        for (auto & squad : squads)
+        for (auto &squad : squads)
         {
             squad->updateClusters();
         }
@@ -51,18 +51,18 @@ namespace General
 
     void issueOrders()
     {
-        for (auto & squad : squads)
+        for (auto &squad : squads)
         {
             squad->execute();
         }
     }
 
-    void addSquad(std::shared_ptr<Squad> squad)
+    void addSquad(const std::shared_ptr<Squad>& squad)
     {
         squads.insert(squad);
     }
 
-    void removeSquad(std::shared_ptr<Squad> squad)
+    void removeSquad(const std::shared_ptr<Squad>& squad)
     {
         squads.erase(squad);
     }

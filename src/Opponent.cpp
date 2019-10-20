@@ -11,7 +11,7 @@ namespace Opponent
     }
 #endif
 
-    std::string& getName()
+    std::string &getName()
     {
         if (!name.empty()) return name;
 

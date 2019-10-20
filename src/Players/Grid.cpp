@@ -1,5 +1,5 @@
 #include "Grid.h"
-
+ #include <utility>
 #include "Geo.h"
 
 // We add a buffer on detection and threat ranges
@@ -13,15 +13,19 @@ namespace
 
     std::map<std::pair<BWAPI::UnitType, int>, std::set<BWAPI::WalkPosition>> positionsInRangeCache;
 
-    std::set<BWAPI::WalkPosition> & getPositionsInRange(BWAPI::UnitType type, int range)
+    std::set<BWAPI::WalkPosition> &getPositionsInRange(BWAPI::UnitType type, int range)
     {
-        std::set<BWAPI::WalkPosition> & positions = positionsInRangeCache[std::make_pair(type, range)];
+        std::set<BWAPI::WalkPosition> &positions = positionsInRangeCache[std::make_pair(type, range)];
 
         if (positions.empty())
             for (int x = -type.dimensionLeft() - range; x <= type.dimensionRight() + range; x++)
+            {
                 for (int y = -type.dimensionUp() - range; y <= type.dimensionDown() + range; y++)
+                {
                     if (Geo::EdgeToPointDistance(type, BWAPI::Positions::Origin, BWAPI::Position(x, y)) <= range)
                         positions.insert(BWAPI::WalkPosition(x >> 3, y >> 3));
+                }
+            }
 
         return positions;
     }
@@ -45,11 +49,11 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
     frameLastUpdated = BWAPI::Broodwar->getFrameCount();
 }
 
-void Grid::dumpHeatmapIfChanged(std::string heatmapName, const GridData & data) const
+void Grid::dumpHeatmapIfChanged(std::string heatmapName, const GridData &data) const
 {
     if (data.frameLastDumped >= data.frameLastUpdated) return;
 
-    CherryVis::addHeatmap(heatmapName, data.data, data.maxX, data.maxY);
+    CherryVis::addHeatmap(std::move(heatmapName), data.data, data.maxX, data.maxY);
 
     data.frameLastDumped = BWAPI::Broodwar->getFrameCount();
 }
@@ -65,29 +69,29 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position)
     if (type.groundWeapon() != BWAPI::WeaponTypes::None)
     {
         _groundThreat.add(
-            type,
-            upgradeTracker->weaponRange(type.groundWeapon()) + RANGE_BUFFER,
-            position,
-            upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
+                type,
+                upgradeTracker->weaponRange(type.groundWeapon()) + RANGE_BUFFER,
+                position,
+                upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
 
         // For sieged tanks, subtract the area close to the tank
         if (type.groundWeapon().minRange() > 0)
         {
             _groundThreat.add(
-                type,
-                type.groundWeapon().minRange() - RANGE_BUFFER,
-                position,
-                -upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
+                    type,
+                    type.groundWeapon().minRange() - RANGE_BUFFER,
+                    position,
+                    -upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
         }
     }
 
     if (type.airWeapon() != BWAPI::WeaponTypes::None)
     {
         _airThreat.add(
-            type,
-            upgradeTracker->weaponRange(type.airWeapon()) + RANGE_BUFFER,
-            position,
-            upgradeTracker->weaponDamage(type.airWeapon()) * type.maxAirHits() * type.airWeapon().damageFactor());
+                type,
+                upgradeTracker->weaponRange(type.airWeapon()) + RANGE_BUFFER,
+                position,
+                upgradeTracker->weaponDamage(type.airWeapon()) * type.maxAirHits() * type.airWeapon().damageFactor());
     }
 
     if (type.isDetector())
@@ -115,29 +119,29 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
     if (type.groundWeapon() != BWAPI::WeaponTypes::None)
     {
         _groundThreat.add(
-            type,
-            upgradeTracker->weaponRange(type.groundWeapon()) + RANGE_BUFFER,
-            position,
-            -upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
+                type,
+                upgradeTracker->weaponRange(type.groundWeapon()) + RANGE_BUFFER,
+                position,
+                -upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
 
         // For sieged tanks, add back the area close to the tank
         if (type.groundWeapon().minRange() > 0)
         {
             _groundThreat.add(
-                type,
-                type.groundWeapon().minRange() - RANGE_BUFFER,
-                position,
-                upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
+                    type,
+                    type.groundWeapon().minRange() - RANGE_BUFFER,
+                    position,
+                    upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
         }
     }
 
     if (type.airWeapon() != BWAPI::WeaponTypes::None)
     {
         _airThreat.add(
-            type,
-            upgradeTracker->weaponRange(type.airWeapon()) + RANGE_BUFFER,
-            position,
-            -upgradeTracker->weaponDamage(type.airWeapon()) * type.maxAirHits() * type.airWeapon().damageFactor());
+                type,
+                upgradeTracker->weaponRange(type.airWeapon()) + RANGE_BUFFER,
+                position,
+                -upgradeTracker->weaponDamage(type.airWeapon()) * type.maxAirHits() * type.airWeapon().damageFactor());
     }
 
     if (type.isDetector())
@@ -151,19 +155,19 @@ void Grid::unitWeaponDamageUpgraded(BWAPI::UnitType type, BWAPI::Position positi
     if (weapon.targetsGround())
     {
         _groundThreat.add(
-            type,
-            upgradeTracker->weaponRange(type.groundWeapon()),
-            position,
-            newDamage - formerDamage);
+                type,
+                upgradeTracker->weaponRange(type.groundWeapon()),
+                position,
+                newDamage - formerDamage);
     }
 
     if (weapon.targetsAir())
     {
         _airThreat.add(
-            type,
-            upgradeTracker->weaponRange(type.groundWeapon()),
-            position,
-            newDamage - formerDamage);
+                type,
+                upgradeTracker->weaponRange(type.groundWeapon()),
+                position,
+                newDamage - formerDamage);
     }
 }
 
@@ -174,30 +178,30 @@ void Grid::unitWeaponRangeUpgraded(BWAPI::UnitType type, BWAPI::Position positio
     if (weapon.targetsGround())
     {
         _groundThreat.add(
-            type,
-            formerRange + RANGE_BUFFER,
-            position,
-            -upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
+                type,
+                formerRange + RANGE_BUFFER,
+                position,
+                -upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
 
         _groundThreat.add(
-            type,
-            newRange + RANGE_BUFFER,
-            position,
-            upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
+                type,
+                newRange + RANGE_BUFFER,
+                position,
+                upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
     }
 
     if (weapon.targetsAir())
     {
         _airThreat.add(
-            type,
-            formerRange + RANGE_BUFFER,
-            position,
-            -upgradeTracker->weaponDamage(type.airWeapon()) * type.maxAirHits() * type.airWeapon().damageFactor());
+                type,
+                formerRange + RANGE_BUFFER,
+                position,
+                -upgradeTracker->weaponDamage(type.airWeapon()) * type.maxAirHits() * type.airWeapon().damageFactor());
 
         _airThreat.add(
-            type,
-            newRange + RANGE_BUFFER,
-            position,
-            upgradeTracker->weaponDamage(type.airWeapon()) * type.maxAirHits() * type.airWeapon().damageFactor());
+                type,
+                newRange + RANGE_BUFFER,
+                position,
+                upgradeTracker->weaponDamage(type.airWeapon()) * type.maxAirHits() * type.airWeapon().damageFactor());
     }
 }

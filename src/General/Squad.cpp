@@ -3,7 +3,8 @@
 
 #define DEBUG_CLUSTER_MEMBERSHIP false
 
-namespace {
+namespace
+{
     // Units are added to a cluster if they are within this distance of the cluster center
     const int ADD_THRESHOLD = 320;
 
@@ -12,7 +13,7 @@ namespace {
 
     // Units are removed from a cluster if they are further than this distance from the cluster center
     // This is deliberately large to try to avoid too much reshuffling of clusters
-    const int REMOVE_THRESHOLD = COMBINE_THRESHOLD + ADD_THRESHOLD*2;
+    const int REMOVE_THRESHOLD = COMBINE_THRESHOLD + ADD_THRESHOLD * 2;
 }
 
 void Squad::addUnit(BWAPI::Unit unit)
@@ -27,7 +28,7 @@ void Squad::addUnitToBestCluster(BWAPI::Unit unit)
     // Look for a suitable cluster to add this unit to
     std::shared_ptr<UnitCluster> best = nullptr;
     int bestDist = INT_MAX;
-    for (const auto& cluster : clusters)
+    for (const auto &cluster : clusters)
     {
         int dist = unit->getDistance(cluster->center);
         if (dist <= ADD_THRESHOLD && dist < bestDist)
@@ -59,12 +60,12 @@ void Squad::removeUnit(BWAPI::Unit unit)
 {
     auto clusterIt = unitToCluster.find(unit);
     if (clusterIt == unitToCluster.end()) return;
-    
+
     CherryVis::log(unit) << "Removed from squad: " << label;
 
     auto cluster = clusterIt->second;
     unitToCluster.erase(clusterIt);
- 
+
     cluster->removeUnit(unit);
     if (cluster->units.empty())
     {
@@ -75,7 +76,7 @@ void Squad::removeUnit(BWAPI::Unit unit)
 void Squad::updateClusters()
 {
     // Update the clusters: remove dead units, recompute position data
-    for (auto clusterIt = clusters.begin(); clusterIt != clusters.end(); )
+    for (auto clusterIt = clusters.begin(); clusterIt != clusters.end();)
     {
         (*clusterIt)->updatePositions(targetPosition);
 
@@ -94,7 +95,7 @@ void Squad::updateClusters()
     for (auto firstIt = clusters.begin(); firstIt != clusters.end(); firstIt++)
     {
         auto secondIt = firstIt;
-        for (secondIt++; secondIt != clusters.end(); )
+        for (secondIt++; secondIt != clusters.end();)
         {
             int dist = PathFinding::GetGroundDistance((*firstIt)->center, (*secondIt)->center, BWAPI::UnitTypes::Protoss_Dragoon);
             if (dist > COMBINE_THRESHOLD)
@@ -112,7 +113,7 @@ void Squad::updateClusters()
     // Find units that should be removed from their cluster
     for (auto &cluster : clusters)
     {
-        for (auto unitIt = cluster->units.begin(); unitIt != cluster->units.end(); )
+        for (auto unitIt = cluster->units.begin(); unitIt != cluster->units.end();)
         {
             if ((*unitIt)->getDistance(cluster->center) <= REMOVE_THRESHOLD)
             {
@@ -132,7 +133,7 @@ void Squad::updateClusters()
 
 void Squad::execute()
 {
-    for (const auto& cluster : clusters)
+    for (const auto &cluster : clusters)
     {
         execute(*cluster);
     }
@@ -142,7 +143,7 @@ std::vector<BWAPI::Unit> Squad::getUnits()
 {
     std::vector<BWAPI::Unit> result;
 
-    for (auto & unitAndCluster : unitToCluster)
+    for (auto &unitAndCluster : unitToCluster)
     {
         result.push_back(unitAndCluster.first);
     }

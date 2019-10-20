@@ -51,9 +51,12 @@ Technical stuff we need:
 namespace General
 {
     void updateClusters();
+
     void issueOrders();
-    void addSquad(std::shared_ptr<Squad> squad);
-    void removeSquad(std::shared_ptr<Squad> squad);
+
+    void addSquad(const std::shared_ptr<Squad>& squad);
+
+    void removeSquad(const std::shared_ptr<Squad>& squad);
 }
 
 namespace CombatSim

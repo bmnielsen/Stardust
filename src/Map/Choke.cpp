@@ -2,7 +2,10 @@
 
 #include "Geo.h"
 
-namespace { auto & bwemMap = BWEM::Map::Instance(); }
+namespace
+{
+    auto &bwemMap = BWEM::Map::Instance();
+}
 
 namespace
 {
@@ -28,57 +31,57 @@ namespace
             {
                 if (wall.y < topLeft.y)
                 {
-                    positionsToCheck.push_back(BWAPI::Position(topLeft.x - enemyUnit.dimensionRight(), topLeft.y - enemyUnit.dimensionDown()));
-                    positionsToCheck.push_back(BWAPI::Position(topLeft.x - enemyUnit.dimensionRight(), pos.y));
-                    positionsToCheck.push_back(BWAPI::Position(pos.x, topLeft.y - enemyUnit.dimensionDown()));
+                    positionsToCheck.emplace_back(topLeft.x - enemyUnit.dimensionRight(), topLeft.y - enemyUnit.dimensionDown());
+                    positionsToCheck.emplace_back(topLeft.x - enemyUnit.dimensionRight(), pos.y);
+                    positionsToCheck.emplace_back(pos.x, topLeft.y - enemyUnit.dimensionDown());
                 }
                 else if (wall.y > bottomRight.y)
                 {
-                    positionsToCheck.push_back(BWAPI::Position(topLeft.x - enemyUnit.dimensionRight(), bottomRight.y + enemyUnit.dimensionUp()));
-                    positionsToCheck.push_back(BWAPI::Position(topLeft.x - enemyUnit.dimensionRight(), pos.y));
-                    positionsToCheck.push_back(BWAPI::Position(pos.x, bottomRight.y + enemyUnit.dimensionUp()));
+                    positionsToCheck.emplace_back(topLeft.x - enemyUnit.dimensionRight(), bottomRight.y + enemyUnit.dimensionUp());
+                    positionsToCheck.emplace_back(topLeft.x - enemyUnit.dimensionRight(), pos.y);
+                    positionsToCheck.emplace_back(pos.x, bottomRight.y + enemyUnit.dimensionUp());
                 }
                 else
                 {
-                    positionsToCheck.push_back(BWAPI::Position(topLeft.x - enemyUnit.dimensionRight(), topLeft.y - enemyUnit.dimensionDown()));
-                    positionsToCheck.push_back(BWAPI::Position(topLeft.x - enemyUnit.dimensionRight(), pos.y));
-                    positionsToCheck.push_back(BWAPI::Position(topLeft.x - enemyUnit.dimensionRight(), bottomRight.y + enemyUnit.dimensionUp()));
+                    positionsToCheck.emplace_back(topLeft.x - enemyUnit.dimensionRight(), topLeft.y - enemyUnit.dimensionDown());
+                    positionsToCheck.emplace_back(topLeft.x - enemyUnit.dimensionRight(), pos.y);
+                    positionsToCheck.emplace_back(topLeft.x - enemyUnit.dimensionRight(), bottomRight.y + enemyUnit.dimensionUp());
                 }
             }
             else if (wall.x > bottomRight.x)
             {
                 if (wall.y < topLeft.y)
                 {
-                    positionsToCheck.push_back(BWAPI::Position(bottomRight.x + enemyUnit.dimensionLeft(), topLeft.y - enemyUnit.dimensionDown()));
-                    positionsToCheck.push_back(BWAPI::Position(bottomRight.x + enemyUnit.dimensionLeft(), pos.y));
-                    positionsToCheck.push_back(BWAPI::Position(pos.x, topLeft.y - enemyUnit.dimensionDown()));
+                    positionsToCheck.emplace_back(bottomRight.x + enemyUnit.dimensionLeft(), topLeft.y - enemyUnit.dimensionDown());
+                    positionsToCheck.emplace_back(bottomRight.x + enemyUnit.dimensionLeft(), pos.y);
+                    positionsToCheck.emplace_back(pos.x, topLeft.y - enemyUnit.dimensionDown());
                 }
                 else if (wall.y > bottomRight.y)
                 {
-                    positionsToCheck.push_back(BWAPI::Position(bottomRight.x + enemyUnit.dimensionLeft(), bottomRight.y + enemyUnit.dimensionUp()));
-                    positionsToCheck.push_back(BWAPI::Position(bottomRight.x + enemyUnit.dimensionLeft(), pos.y));
-                    positionsToCheck.push_back(BWAPI::Position(pos.x, bottomRight.y + enemyUnit.dimensionUp()));
+                    positionsToCheck.emplace_back(bottomRight.x + enemyUnit.dimensionLeft(), bottomRight.y + enemyUnit.dimensionUp());
+                    positionsToCheck.emplace_back(bottomRight.x + enemyUnit.dimensionLeft(), pos.y);
+                    positionsToCheck.emplace_back(pos.x, bottomRight.y + enemyUnit.dimensionUp());
                 }
                 else
                 {
-                    positionsToCheck.push_back(BWAPI::Position(bottomRight.x + enemyUnit.dimensionLeft(), topLeft.y - enemyUnit.dimensionDown()));
-                    positionsToCheck.push_back(BWAPI::Position(bottomRight.x + enemyUnit.dimensionLeft(), pos.y));
-                    positionsToCheck.push_back(BWAPI::Position(bottomRight.x + enemyUnit.dimensionLeft(), bottomRight.y + enemyUnit.dimensionUp()));
+                    positionsToCheck.emplace_back(bottomRight.x + enemyUnit.dimensionLeft(), topLeft.y - enemyUnit.dimensionDown());
+                    positionsToCheck.emplace_back(bottomRight.x + enemyUnit.dimensionLeft(), pos.y);
+                    positionsToCheck.emplace_back(bottomRight.x + enemyUnit.dimensionLeft(), bottomRight.y + enemyUnit.dimensionUp());
                 }
             }
             else
             {
                 if (wall.y < topLeft.y)
                 {
-                    positionsToCheck.push_back(BWAPI::Position(bottomRight.x + enemyUnit.dimensionLeft(), topLeft.y - enemyUnit.dimensionDown()));
-                    positionsToCheck.push_back(BWAPI::Position(pos.x, topLeft.y - enemyUnit.dimensionDown()));
-                    positionsToCheck.push_back(BWAPI::Position(topLeft.x - enemyUnit.dimensionRight(), topLeft.y - enemyUnit.dimensionDown()));
+                    positionsToCheck.emplace_back(bottomRight.x + enemyUnit.dimensionLeft(), topLeft.y - enemyUnit.dimensionDown());
+                    positionsToCheck.emplace_back(pos.x, topLeft.y - enemyUnit.dimensionDown());
+                    positionsToCheck.emplace_back(topLeft.x - enemyUnit.dimensionRight(), topLeft.y - enemyUnit.dimensionDown());
                 }
                 else if (wall.y > bottomRight.y)
                 {
-                    positionsToCheck.push_back(BWAPI::Position(pos.x, bottomRight.y + enemyUnit.dimensionUp()));
-                    positionsToCheck.push_back(BWAPI::Position(bottomRight.x + enemyUnit.dimensionLeft(), bottomRight.y + enemyUnit.dimensionUp()));
-                    positionsToCheck.push_back(BWAPI::Position(topLeft.x - enemyUnit.dimensionRight(), bottomRight.y + enemyUnit.dimensionUp()));
+                    positionsToCheck.emplace_back(pos.x, bottomRight.y + enemyUnit.dimensionUp());
+                    positionsToCheck.emplace_back(bottomRight.x + enemyUnit.dimensionLeft(), bottomRight.y + enemyUnit.dimensionUp());
+                    positionsToCheck.emplace_back(topLeft.x - enemyUnit.dimensionRight(), bottomRight.y + enemyUnit.dimensionUp());
                 }
                 else
                 {
@@ -87,30 +90,34 @@ namespace
             }
 
             for (auto current : positionsToCheck)
+            {
                 if (!Geo::Walkable(enemyUnit, current))
                     return false;
+            }
 
             return true;
         };
 
         return
-            !passable(type, BWAPI::UnitTypes::Protoss_Probe, pos, end1) &&
-            !passable(type, BWAPI::UnitTypes::Protoss_Probe, pos, end2);
+                !passable(type, BWAPI::UnitTypes::Protoss_Probe, pos, end1) &&
+                !passable(type, BWAPI::UnitTypes::Protoss_Probe, pos, end2);
     }
 }
 
-Choke::Choke(const BWEM::ChokePoint * _choke)
-    : choke(_choke)
-    , width(0)
-    , isRamp(false)
-    , highElevationTile(BWAPI::TilePositions::Invalid)
-    , requiresMineralWalk(false)
-    , firstAreaStartPosition(BWAPI::Positions::Invalid)
-    , secondAreaStartPosition(BWAPI::Positions::Invalid)
+Choke::Choke(const BWEM::ChokePoint *_choke)
+        : choke(_choke)
+        , width(0)
+        , isRamp(false)
+        , highElevationTile(BWAPI::TilePositions::Invalid)
+        , requiresMineralWalk(false)
+        , firstAreaStartPosition(BWAPI::Positions::Invalid)
+        , secondAreaStartPosition(BWAPI::Positions::Invalid)
+        , firstAreaMineralPatch(nullptr)
+        , secondAreaMineralPatch(nullptr)
 {
     // Compute the choke width
     // Because the ends are themselves walkable tiles, we need to add a bit of padding to estimate the actual walkable width of the choke
-    width = (int)BWAPI::Position(choke->Pos(choke->end1)).getDistance(BWAPI::Position(choke->Pos(choke->end2))) + 15;
+    width = (int) BWAPI::Position(choke->Pos(choke->end1)).getDistance(BWAPI::Position(choke->Pos(choke->end2))) + 15;
 
     // BWEM tends to not set the endpoints of blocked chokes properly
     // So bump up the width in these cases
@@ -135,7 +142,8 @@ Choke::Choke(const BWEM::ChokePoint * _choke)
         // Initial center position using the BWEM data
         BWAPI::Position centerPoint = BWAPI::Position(choke->Center()) + BWAPI::Position(4, 4);
         BWAPI::Position end1 = Geo::FindClosestUnwalkablePosition(centerPoint, centerPoint, 64);
-        BWAPI::Position end2 = Geo::FindClosestUnwalkablePosition(BWAPI::Position(centerPoint.x + centerPoint.x - end1.x, centerPoint.y + centerPoint.y - end1.y), centerPoint, 32);
+        BWAPI::Position end2 = Geo::FindClosestUnwalkablePosition(BWAPI::Position(centerPoint.x + centerPoint.x - end1.x,
+                                                                                  centerPoint.y + centerPoint.y - end1.y), centerPoint, 32);
         if (!end1.isValid() || !end2.isValid())
         {
             end1 = BWAPI::Position(choke->Pos(choke->end1)) + BWAPI::Position(4, 4);
@@ -169,6 +177,7 @@ void Choke::computeRampHighGroundPosition()
     // Generate a set of low-ground tiles near the choke, ignoring "holes"
     std::set<BWAPI::TilePosition> lowGroundTiles;
     for (int x = -5; x <= 5; x++)
+    {
         for (int y = -5; y <= 5; y++)
         {
             BWAPI::TilePosition tile = BWAPI::TilePosition(choke->Center()) + BWAPI::TilePosition(x, y);
@@ -182,8 +191,10 @@ void Choke::computeRampHighGroundPosition()
                 lowGroundTiles.insert(tile);
             }
         }
+    }
 
-    const auto inChokeCenter = [this](BWAPI::Position pos) {
+    const auto inChokeCenter = [this](BWAPI::Position pos)
+    {
         BWAPI::Position end1 = Geo::FindClosestUnwalkablePosition(pos, pos, 64);
         if (!end1.isValid()) return false;
 
@@ -200,6 +211,7 @@ void Choke::computeRampHighGroundPosition()
     BWAPI::Position bestPos = BWAPI::Positions::Invalid;
     int bestDist = INT_MAX;
     for (int x = -64; x <= 64; x++)
+    {
         for (int y = -64; y <= 64; y++)
         {
             BWAPI::Position pos = chokeCenter + BWAPI::Position(x, y);
@@ -222,12 +234,13 @@ void Choke::computeRampHighGroundPosition()
                 bestPos = pos;
             }
         }
+    }
 
     computeScoutBlockingPositions(bestPos, BWAPI::UnitTypes::Protoss_Probe, probeBlockScoutPositions);
     computeScoutBlockingPositions(bestPos, BWAPI::UnitTypes::Protoss_Zealot, zealotBlockScoutPositions);
 }
 
-void Choke::computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitType type, std::set<BWAPI::Position> & result)
+void Choke::computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitType type, std::set<BWAPI::Position> &result)
 {
     if (!center.isValid()) return;
     if (result.size() == 1) return;
@@ -238,8 +251,11 @@ void Choke::computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitTyp
     // Prefer at same elevation but return a lower elevation if that's all we have
     BWAPI::Position bestLowGround = BWAPI::Positions::Invalid;
     for (int x = 0; x <= 5; x++)
+    {
         for (int y = 0; y <= 5; y++)
+        {
             for (int xs = -1; xs <= (x == 0 ? 0 : 1); xs += 2)
+            {
                 for (int ys = -1; ys <= (y == 0 ? 0 : 1); ys += 2)
                 {
                     BWAPI::Position current = center + BWAPI::Position(x * xs, y * ys);
@@ -257,6 +273,9 @@ void Choke::computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitTyp
                     if (!bestLowGround.isValid())
                         bestLowGround = current;
                 }
+            }
+        }
+    }
 
     if (bestLowGround.isValid())
     {
@@ -273,7 +292,9 @@ void Choke::computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitTyp
     BWAPI::Position end1 = Geo::FindClosestUnwalkablePosition(center, center, 64);
     if (!end1.isValid()) return;
 
-    BWAPI::Position end2 = Geo::FindClosestUnwalkablePosition(BWAPI::Position(center.x + center.x - end1.x, center.y + center.y - end1.y), center, 32);
+    BWAPI::Position end2 = Geo::FindClosestUnwalkablePosition(BWAPI::Position(center.x + center.x - end1.x, center.y + center.y - end1.y),
+                                                              center,
+                                                              32);
     if (!end2.isValid()) return;
 
     if (end1.getDistance(end2) < (end1.getDistance(center) * 1.2)) return;
@@ -290,14 +311,16 @@ void Choke::computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitTyp
     {
         BWAPI::Position start = *toBlock.begin();
         for (auto it = toBlock.begin(); it != toBlock.end(); it = toBlock.erase(it))
+        {
             if (Geo::Walkable(BWAPI::UnitTypes::Protoss_Probe, *it))
                 break;
+        }
 
         std::reverse(toBlock.begin(), toBlock.end());
     }
 
     // Step 2: gather potential positions to place the unit that block the enemy unit locations at both ends
-    std::vector<std::vector<BWAPI::Position>> candidatePositions = { std::vector<BWAPI::Position>(), std::vector<BWAPI::Position>() };
+    std::vector<std::vector<BWAPI::Position>> candidatePositions = {std::vector<BWAPI::Position>(), std::vector<BWAPI::Position>()};
     for (int i = 0; i < 2; i++)
     {
         BWAPI::Position enemyPosition = *toBlock.begin();
@@ -326,6 +349,7 @@ void Choke::computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitTyp
     int bestScore = INT_MAX;
     int bestLowGroundScore = INT_MAX;
     for (auto first : candidatePositions[0])
+    {
         for (auto second : candidatePositions[1])
         {
             int score;
@@ -337,16 +361,18 @@ void Choke::computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitTyp
 
             // Skip if any positions are not blocked by one of the units
             for (auto pos : toBlock)
+            {
                 if (!Geo::Overlaps(type, first, BWAPI::UnitTypes::Protoss_Probe, pos) &&
                     !Geo::Overlaps(type, second, BWAPI::UnitTypes::Protoss_Probe, pos))
                 {
                     goto nextCombination;
                 }
+            }
 
             score = std::max({
-                Geo::EdgeToPointDistance(type, first, end1),
-                Geo::EdgeToPointDistance(type, second, end2),
-                Geo::EdgeToEdgeDistance(type, first, type, second) });
+                                     Geo::EdgeToPointDistance(type, first, end1),
+                                     Geo::EdgeToPointDistance(type, second, end2),
+                                     Geo::EdgeToEdgeDistance(type, first, type, second)});
 
             if (score < bestScore &&
                 BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(first)) >= targetElevation &&
@@ -361,8 +387,9 @@ void Choke::computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitTyp
                 bestLowGroundPair = std::make_pair(first, second);
             }
 
-        nextCombination:;
+            nextCombination:;
         }
+    }
 
     if (bestPair.first.isValid())
     {

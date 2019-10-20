@@ -7,13 +7,16 @@
 namespace Builder
 {
     void update();
+
     void issueOrders();
 
     void build(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder, int startFrame = 0);
 
-    BWAPI::Unit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int * expectedArrivalFrame = nullptr);
-    
-    std::vector<Building*> allPendingBuildings();
-    std::vector<Building*> pendingBuildingsOfType(BWAPI::UnitType type);
+    BWAPI::Unit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int *expectedArrivalFrame = nullptr);
+
+    std::vector<Building *> allPendingBuildings();
+
+    std::vector<Building *> pendingBuildingsOfType(BWAPI::UnitType type);
+
     bool isPendingHere(BWAPI::TilePosition tile);
 }

@@ -44,7 +44,7 @@ namespace
                 .setShields(unit.lastShields)
                 .setFlying(unit.isFlying)
 
-                // For this next section, we have modified FAP to allow taking the upgraded values instead of the upgrade levels
+                        // For this next section, we have modified FAP to allow taking the upgraded values instead of the upgrade levels
                 .setSpeed(Players::unitTopSpeed(unit.player, unit.type))
                 .setArmor(Players::unitArmor(unit.player, unit.type))
                 .setGroundCooldown(Players::unitCooldown(unit.player, unit.type)
@@ -73,9 +73,10 @@ namespace
     int score(std::vector<FAP::FAPUnit<>> *units)
     {
         int result = 0;
-        for (auto & unit : *units)
+        for (auto &unit : *units)
         {
-            result += baseScore[unit.unitType] + scaledScore[unit.unitType] * (unit.health * 3 + unit.shields) / (unit.maxHealth * 3 + unit.maxShields);
+            result +=
+                    baseScore[unit.unitType] + scaledScore[unit.unitType] * (unit.health * 3 + unit.shields) / (unit.maxHealth * 3 + unit.maxShields);
         }
 
         return result;
@@ -86,7 +87,8 @@ namespace
 
 #endif
 
-namespace CombatSim {
+namespace CombatSim
+{
     void initialize()
     {
         for (auto type : BWAPI::UnitTypes::allUnitTypes())
@@ -98,7 +100,8 @@ namespace CombatSim {
     }
 }
 
-CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> & unitsAndTargets, std::set<std::shared_ptr<Unit>> &targets)
+CombatSimResult
+UnitCluster::runCombatSim(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> &unitsAndTargets, std::set<std::shared_ptr<Unit>> &targets)
 {
     if (unitsAndTargets.empty() || targets.empty())
     {
@@ -119,7 +122,7 @@ CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<BWAPI::Unit, std
     int initialMine = score(sim.getState().first);
     int initialEnemy = score(sim.getState().second);
 
-    for (int i=0; i < 144; i++)
+    for (int i = 0; i < 144; i++)
     {
         sim.simulate(1);
 

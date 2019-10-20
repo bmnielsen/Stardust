@@ -9,9 +9,9 @@ const double pi = 3.14159265358979323846;
 
 MyDragoon::MyDragoon(BWAPI::Unit unit)
         : MyUnit(unit)
-          , lastAttackStartedAt(0)
-          , lastPosition(BWAPI::Positions::Invalid)
-          , potentiallyStuckSince(0)
+        , lastAttackStartedAt(0)
+        , lastPosition(BWAPI::Positions::Invalid)
+        , potentiallyStuckSince(0)
 {
 }
 
@@ -46,13 +46,13 @@ void MyDragoon::typeSpecificUpdate()
         potentiallyStuckSince = 0;
     }
 
-    // If the unit's position has changed after potentially being stuck, it is no longer stuck
+        // If the unit's position has changed after potentially being stuck, it is no longer stuck
     else if (potentiallyStuckSince > 0 && unit->getPosition() != lastPosition)
     {
         potentiallyStuckSince = 0;
     }
 
-    // If we have issued a stop command to the unit on the last turn, it will no longer be stuck after the command is executed
+        // If we have issued a stop command to the unit on the last turn, it will no longer be stuck after the command is executed
     else if (potentiallyStuckSince > 0 &&
              unit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Stop &&
              BWAPI::Broodwar->getRemainingLatencyFrames() == BWAPI::Broodwar->getLatencyFrames())
@@ -60,7 +60,7 @@ void MyDragoon::typeSpecificUpdate()
         potentiallyStuckSince = 0;
     }
 
-    // Otherwise it might have been stuck since the last frame where isAttackFrame==true
+        // Otherwise it might have been stuck since the last frame where isAttackFrame==true
     else if (unit->isAttackFrame())
     {
         potentiallyStuckSince = BWAPI::Broodwar->getFrameCount();
@@ -160,7 +160,7 @@ bool MyDragoon::shouldKite(BWAPI::Unit target)
     // Don't kite if we are soon ready to shoot
     int cooldown = target->isFlying() ? unit->getAirWeaponCooldown() : unit->getGroundWeaponCooldown();
     int dist = unit->getDistance(target);
-    int framesToFiringRange = (int)((double)std::max(0, dist - range) / unit->getType().topSpeed());
+    int framesToFiringRange = (int) ((double) std::max(0, dist - range) / unit->getType().topSpeed());
     if ((cooldown - BWAPI::Broodwar->getRemainingLatencyFrames() - 2) <= framesToFiringRange)
     {
         return false;
@@ -184,7 +184,8 @@ void MyDragoon::kiteFrom(BWAPI::Position position)
     BWAPI::Position delta(position - unit->getPosition());
     double angleToTarget = atan2(delta.y, delta.x);
 
-    const auto verifyPosition = [](BWAPI::Position position) {
+    const auto verifyPosition = [](BWAPI::Position position)
+    {
         // Valid
         if (!position.isValid()) return false;
 
@@ -210,27 +211,29 @@ void MyDragoon::kiteFrom(BWAPI::Position position)
     // Start by considering fleeing directly away, falling back to other angles if blocked
     BWAPI::Position bestPosition = BWAPI::Positions::Invalid;
     for (int i = 0; i <= 3; i++)
+    {
         for (int sign = -1; i == 0 ? sign == -1 : sign <= 1; sign += 2)
         {
             // Compute the position two tiles away
             double a = angleToTarget + (i * sign * pi / 6);
-            BWAPI::Position position(
-                    unit->getPosition().x - (int)std::round(64.0 * std::cos(a)),
-                    unit->getPosition().y - (int)std::round(64.0 * std::sin(a)));
+            BWAPI::Position currentPosition(
+                    unit->getPosition().x - (int) std::round(64.0 * std::cos(a)),
+                    unit->getPosition().y - (int) std::round(64.0 * std::sin(a)));
 
             // Verify it and positions around it
-            if (!verifyPosition(position) ||
-                !verifyPosition(position + BWAPI::Position(-16, -16)) ||
-                !verifyPosition(position + BWAPI::Position(16, -16)) ||
-                !verifyPosition(position + BWAPI::Position(16, 16)) ||
-                !verifyPosition(position + BWAPI::Position(-16, 16)))
+            if (!verifyPosition(currentPosition) ||
+                !verifyPosition(currentPosition + BWAPI::Position(-16, -16)) ||
+                !verifyPosition(currentPosition + BWAPI::Position(16, -16)) ||
+                !verifyPosition(currentPosition + BWAPI::Position(16, 16)) ||
+                !verifyPosition(currentPosition + BWAPI::Position(-16, 16)))
             {
                 continue;
             }
 
-            bestPosition = position;
+            bestPosition = currentPosition;
             goto breakOuterLoop;
         }
+    }
     breakOuterLoop:;
 
     if (bestPosition.isValid())

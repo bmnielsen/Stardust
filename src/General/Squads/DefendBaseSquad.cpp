@@ -9,7 +9,7 @@ void DefendBaseSquad::setTargetPosition()
     if (base == Map::getMyMain())
     {
         // Find a single unblocked choke out of the main
-        Choke * choke = nullptr;
+        Choke *choke = nullptr;
         for (auto bwemChoke : base->getArea()->ChokePoints())
         {
             if (bwemChoke->Blocked()) continue;
@@ -33,7 +33,7 @@ void DefendBaseSquad::setTargetPosition()
     {
         // Find a single unblocked choke out of the natural that doesn't go to our main
         auto mainArea = Map::getMyMain()->getArea();
-        Choke * choke = nullptr;
+        Choke *choke = nullptr;
         for (auto bwemChoke : base->getArea()->ChokePoints())
         {
             if (bwemChoke->Blocked()) continue;
@@ -57,14 +57,15 @@ void DefendBaseSquad::setTargetPosition()
     targetPosition = base->getPosition();
 }
 
-void DefendBaseSquad::execute(UnitCluster & cluster)
+void DefendBaseSquad::execute(UnitCluster &cluster)
 {
     // TODO: Update target position (run combat sim?)
 
     std::set<std::shared_ptr<Unit>> enemyUnits;
 
     // Get enemy combat units in our base
-    Units::getInArea(enemyUnits, BWAPI::Broodwar->enemy(), Map::getMyMain()->getArea(), [](const std::shared_ptr<Unit>& unit) {
+    Units::getInArea(enemyUnits, BWAPI::Broodwar->enemy(), Map::getMyMain()->getArea(), [](const std::shared_ptr<Unit> &unit)
+    {
         return UnitUtil::IsCombatUnit(unit->type);
     });
 

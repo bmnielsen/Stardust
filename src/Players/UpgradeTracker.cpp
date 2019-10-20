@@ -3,45 +3,49 @@
 #include "Units.h"
 #include "Grid.h"
 
-void UpgradeTracker::update(Grid & grid)
+void UpgradeTracker::update(Grid &grid)
 {
-    for (auto& weaponAndDamage : _weaponDamage)
+    for (auto &weaponAndDamage : _weaponDamage)
     {
         int current = player->damage(weaponAndDamage.first);
         if (current > weaponAndDamage.second)
         {
             // Update the grid for all known units with this weapon type
-            for (auto& unit : Units::getForPlayer(player))
+            for (auto &unit : Units::getForPlayer(player))
+            {
                 if (unit->lastPositionValid &&
                     (unit->type.groundWeapon() == weaponAndDamage.first ||
-                        unit->type.airWeapon() == weaponAndDamage.first))
+                     unit->type.airWeapon() == weaponAndDamage.first))
                 {
                     grid.unitWeaponDamageUpgraded(unit->type, unit->lastPosition, weaponAndDamage.first, weaponAndDamage.second, current);
                 }
+            }
 
             weaponAndDamage.second = current;
         }
     }
 
-    for (auto& weaponAndRange : _weaponRange)
+    for (auto &weaponAndRange : _weaponRange)
     {
         int current = player->weaponMaxRange(weaponAndRange.first);
         if (current > weaponAndRange.second)
         {
             // Update the grid for all known units with this weapon type
-            for (auto& unit : Units::getForPlayer(player))
+            for (auto &unit : Units::getForPlayer(player))
+            {
                 if (unit->lastPositionValid &&
                     (unit->type.groundWeapon() == weaponAndRange.first ||
-                        unit->type.airWeapon() == weaponAndRange.first))
+                     unit->type.airWeapon() == weaponAndRange.first))
                 {
                     grid.unitWeaponRangeUpgraded(unit->type, unit->lastPosition, weaponAndRange.first, weaponAndRange.second, current);
                 }
+            }
 
             weaponAndRange.second = current;
         }
     }
 
-    for (auto& unitAndCooldown : _unitCooldown)
+    for (auto &unitAndCooldown : _unitCooldown)
     {
         int current = player->weaponDamageCooldown(unitAndCooldown.first);
         if (current > unitAndCooldown.second)
@@ -50,7 +54,7 @@ void UpgradeTracker::update(Grid & grid)
         }
     }
 
-    for (auto& unitAndTopSpeed : _unitTopSpeed)
+    for (auto &unitAndTopSpeed : _unitTopSpeed)
     {
         double current = player->topSpeed(unitAndTopSpeed.first);
         if (current > unitAndTopSpeed.second)
@@ -59,7 +63,7 @@ void UpgradeTracker::update(Grid & grid)
         }
     }
 
-    for (auto& unitAndArmor : _unitArmor)
+    for (auto &unitAndArmor : _unitArmor)
     {
         int current = player->armor(unitAndArmor.first);
         if (current > unitAndArmor.second)
