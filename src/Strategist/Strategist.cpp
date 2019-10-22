@@ -9,6 +9,7 @@
 #include "Plays/Defensive/EarlyGameProtection.h"
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/Macro/TakeNaturalExpansion.h"
+#include "Plays/Macro/TakeExpansion.h"
 #include "Plays/Offensive/RallyArmy.h"
 
 /*
@@ -45,6 +46,7 @@ namespace Strategist
         std::unordered_map<BWAPI::Unit, std::shared_ptr<Play>> unitToPlay;
         std::vector<std::shared_ptr<Play>> plays;
         std::vector<ProductionGoal> productionGoals;
+        std::vector<std::pair<int, int>> mineralReservations;
 
         void updateScouting()
         {
@@ -181,6 +183,18 @@ namespace Strategist
             }
         }
 
+        void updateMineralReservations()
+        {
+            // Ask all of the plays for their mineral reservations
+            // We are not prioritizing them right now, as the expectation is that not many plays will need mineral reservations, but this can be
+            // added later.
+            mineralReservations.clear();
+            for (auto &play : plays)
+            {
+                play->addMineralReservations(mineralReservations);
+            }
+        }
+
         void handleUpgrades()
         {
             // Get leg upgrades when we have 5 zealots
@@ -302,15 +316,27 @@ namespace Strategist
             }
         }
 
+        // Temporary expansion logic for testing
+
         if (BWAPI::Broodwar->getFrameCount() == 7000)
         {
             plays.emplace(plays.begin(), std::make_shared<TakeNaturalExpansion>());
+        }
+
+        if (BWAPI::Broodwar->getFrameCount() == 12000)
+        {
+            auto &untakenExpansions = Map::getUntakenExpansions();
+            if (!untakenExpansions.empty())
+            {
+                plays.emplace(plays.begin(), std::make_shared<TakeExpansion>((*untakenExpansions.begin())->getTilePosition()));
+            }
         }
 
         // TODO: Logic engine to add and remove plays based on scouting information, etc.
 
         updateUnitAssignments();
         updateProductionGoals();
+        updateMineralReservations();
         handleUpgrades();
         handleMainArmyProduction();
 
@@ -395,5 +421,10 @@ namespace Strategist
     std::vector<ProductionGoal> &currentProductionGoals()
     {
         return productionGoals;
+    }
+
+    std::vector<std::pair<int, int>> &currentMineralReservations()
+    {
+        return mineralReservations;
     }
 }

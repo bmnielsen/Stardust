@@ -98,6 +98,7 @@ namespace Map
             if (scoredBases.empty()) return;
 
             std::sort(scoredBases.begin(), scoredBases.end());
+            std::reverse(scoredBases.begin(), scoredBases.end());
             for (auto &pair : scoredBases)
             {
                 playerBases.probableExpansions.push_back(pair.second);
@@ -448,6 +449,11 @@ namespace Map
         }
 
         return result;
+    }
+
+    std::vector<Base *> &getUntakenExpansions(BWAPI::Player player)
+    {
+        return playerToPlayerBases[player].probableExpansions;
     }
 
     Base *getMyMain()

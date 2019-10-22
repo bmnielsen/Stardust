@@ -48,4 +48,7 @@ public:
 
     // Runs at the end of the Strategist's frame and allows the play to order units or upgrades from the producer.
     virtual void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) {}
+
+    // Runs at the end of the Strategist's frame and allows the play to reserve minerals at a specific future frame.
+    virtual void addMineralReservations(std::vector<std::pair<int, int>> &mineralReservations) {}
 };

@@ -310,6 +310,36 @@ namespace Producer
                 }
             }
 
+            // Handle mineral reservations
+            for (const auto &mineralReservation : Strategist::currentMineralReservations())
+            {
+                int amount = mineralReservation.first;
+                int frame = mineralReservation.second;
+
+                // Find the frame after the desired frame where there are enough minerals
+                int mineralFrame = frame;
+                for (; mineralFrame < PREDICT_FRAMES; mineralFrame++)
+                {
+                    if (minerals[mineralFrame] >= amount) break;
+                }
+
+                // Abort now if we never have enough minerals
+                if (mineralFrame >= PREDICT_FRAMES) continue;
+
+                // Spend the minerals at the detected frame
+                spendResource(minerals, mineralFrame, amount);
+
+                // Adjust the preceding frames to account for saving up to the reserved amount
+                int saveUpFrames = (int) ((double) amount / mineralRate);
+                for (int f = 1; f <= saveUpFrames; f++)
+                {
+                    int saveUpFrame = mineralFrame - saveUpFrames + f - 1;
+                    if (saveUpFrame < 0) continue;
+
+                    minerals[saveUpFrame] -= (int) (mineralRate * f);
+                }
+            }
+
             buildLocations = BuildingPlacement::getBuildLocations();
             availableGeysers = BuildingPlacement::availableGeysers();
             queuedProducers.clear();
