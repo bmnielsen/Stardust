@@ -6,7 +6,7 @@ add_subdirectory(3rdparty/opponents/Steamhammer)
 
 include_directories(${CMAKE_SOURCE_DIR}/3rdparty/googletest/include)
 
-include_directories(
+include_directories(SYSTEM
         ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/Util/Source
         ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/BWAPI/openbw
         ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/BWAPI/openbw/BWAPI
@@ -14,13 +14,11 @@ include_directories(
         ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/BWAPICore
         ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/OpenBWData
         ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/Shared
-        ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/include
         ${CMAKE_SOURCE_DIR}/3rdparty/openbw/openbw
 )
 
 set(LOCUTUS_TEST_INCLUDES
         ${PROJECT_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/3rdparty/BWEM
         )
 include_directories(${LOCUTUS_TEST_INCLUDES})
 
@@ -33,6 +31,14 @@ add_executable(tests
         ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/OpenBWData/BW/BWData.cpp
         ${SRC_FILES}
         )
+
+set_source_files_properties(
+        $<TARGET_OBJECTS:BWAPIObj>
+        $<TARGET_OBJECTS:BWAPICore>
+        ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/OpenBWData/BW/BWData.cpp
+        PROPERTIES
+        COMPILE_FLAGS "-w"
+)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(tests PUBLIC DEBUG=1)
