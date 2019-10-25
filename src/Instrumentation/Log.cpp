@@ -23,7 +23,6 @@ namespace Log
             std::ostringstream filename;
             filename << "bwapi-data/write/" << base;
             auto tt = std::chrono::system_clock::to_time_t(startTime);
-#pragma warning(disable : 4996)
             auto tm = std::localtime(&tt);
             filename << "_" << std::put_time(tm, "%Y%m%d_%H%M%S");
             if (csv)

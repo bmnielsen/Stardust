@@ -45,7 +45,7 @@ namespace Map
 
         std::map<BWAPI::Player, PlayerBases> playerToPlayerBases;
 
-        int closestBaseDistance(Base *base, const std::set<Base *>& otherBases)
+        int closestBaseDistance(Base *base, const std::set<Base *> &otherBases)
         {
             int closestDistance = -1;
             for (auto otherBase : otherBases)

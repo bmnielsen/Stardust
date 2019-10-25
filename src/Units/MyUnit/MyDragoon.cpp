@@ -9,8 +9,8 @@ const double pi = 3.14159265358979323846;
 
 MyDragoon::MyDragoon(BWAPI::Unit unit)
         : MyUnit(unit)
-        , lastAttackStartedAt(0)
         , lastPosition(BWAPI::Positions::Invalid)
+        , lastAttackStartedAt(0)
         , potentiallyStuckSince(0)
 {
 }

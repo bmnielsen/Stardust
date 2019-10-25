@@ -3,12 +3,12 @@
 Base::Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase)
         : owner(nullptr)
         , resourceDepot(nullptr)
-        , tile(_tile)
-        , bwemBase(_bwemBase)
         , ownedSince(-1)
         , lastScouted(-1)
         , spiderMined(false)
         , requiresMineralWalkFromEnemyStartLocations(false)
+        , tile(_tile)
+        , bwemBase(_bwemBase)
 {
     int x = 0;
     int y = 0;

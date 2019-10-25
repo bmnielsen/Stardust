@@ -8,13 +8,12 @@ class AttackBaseSquad : public Squad
 public:
     explicit AttackBaseSquad(Base *base)
             : Squad((std::ostringstream() << "Attack base @ " << base->getTilePosition()).str())
-            , base(base)
     {
         targetPosition = base->getPosition();
     };
 
-private:
-    Base *base;
+    virtual ~AttackBaseSquad() = default;
 
+private:
     void execute(UnitCluster &cluster) override;
 };

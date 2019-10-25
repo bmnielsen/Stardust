@@ -334,7 +334,6 @@ std::shared_ptr<Unit> UnitCluster::ChooseRangedTarget(BWAPI::Unit attacker, std:
 
         const int closerToGoal =                                        // positive if target is closer than us to the goal
                 distanceToTarget - target->getDistance(targetPosition);
-        bool inWeaponRange = attacker->isInWeaponRange(target);
 
         // Adjust for special features.
         // A bonus for attacking enemies that are "in front".

@@ -110,10 +110,10 @@ Choke::Choke(const BWEM::ChokePoint *_choke)
         , isRamp(false)
         , highElevationTile(BWAPI::TilePositions::Invalid)
         , requiresMineralWalk(false)
-        , firstAreaStartPosition(BWAPI::Positions::Invalid)
-        , secondAreaStartPosition(BWAPI::Positions::Invalid)
         , firstAreaMineralPatch(nullptr)
+        , firstAreaStartPosition(BWAPI::Positions::Invalid)
         , secondAreaMineralPatch(nullptr)
+        , secondAreaStartPosition(BWAPI::Positions::Invalid)
 {
     // Compute the choke width
     // Because the ends are themselves walkable tiles, we need to add a bit of padding to estimate the actual walkable width of the choke
@@ -193,7 +193,7 @@ void Choke::computeRampHighGroundPosition()
         }
     }
 
-    const auto inChokeCenter = [this](BWAPI::Position pos)
+    const auto inChokeCenter = [](BWAPI::Position pos)
     {
         BWAPI::Position end1 = Geo::FindClosestUnwalkablePosition(pos, pos, 64);
         if (!end1.isValid()) return false;
@@ -309,7 +309,6 @@ void Choke::computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitTyp
     // Step 1: remove positions on both ends that the enemy worker cannot stand on because of unwalkable terrain
     for (int i = 0; i < 2; i++)
     {
-        BWAPI::Position start = *toBlock.begin();
         for (auto it = toBlock.begin(); it != toBlock.end(); it = toBlock.erase(it))
         {
             if (Geo::Walkable(BWAPI::UnitTypes::Protoss_Probe, *it))

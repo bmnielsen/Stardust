@@ -10,6 +10,8 @@ class MyUnit
 public:
     explicit MyUnit(BWAPI::Unit unit);
 
+    virtual ~MyUnit() = default;
+
     void update();
 
     bool moveTo(BWAPI::Position position, bool avoidNarrowChokes = false);

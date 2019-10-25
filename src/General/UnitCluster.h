@@ -18,6 +18,8 @@ public:
         units.insert(unit);
     }
 
+    virtual ~UnitCluster() = default;
+
     void addUnit(BWAPI::Unit unit);
 
     void removeUnit(BWAPI::Unit unit);

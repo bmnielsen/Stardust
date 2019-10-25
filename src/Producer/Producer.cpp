@@ -1333,6 +1333,7 @@ namespace Producer
         }
 
         // Pulls refineries earlier if there are minerals available to do so
+        /* currently disabled, see explanation below
         void pullRefineries()
         {
             auto refineryType = BWAPI::Broodwar->self()->getRace().getRefinery();
@@ -1375,6 +1376,7 @@ namespace Producer
                 }
             }
         }
+         */
 
         void handleGoal(Type type,
                         ProductionLocation location,

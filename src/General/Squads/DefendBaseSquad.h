@@ -14,6 +14,8 @@ public:
         setTargetPosition();
     }
 
+    virtual ~DefendBaseSquad() = default;
+
 private:
     Base *base;
 

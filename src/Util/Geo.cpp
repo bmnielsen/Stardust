@@ -98,9 +98,6 @@ namespace Geo
         BWAPI::Position topLeft = center + BWAPI::Position(-type.dimensionLeft(), -type.dimensionUp());
         BWAPI::Position bottomRight = center + BWAPI::Position(type.dimensionRight(), type.dimensionDown());
 
-        int x = center.x < topLeft.x ? topLeft.x : (center.x > bottomRight.x ? bottomRight.x : center.x);
-        int y = center.y < topLeft.y ? topLeft.y : (center.y > bottomRight.y ? bottomRight.y : center.y);
-
         return BWAPI::Position(
                 center.x < topLeft.x ? topLeft.x : (center.x > bottomRight.x ? bottomRight.x : center.x),
                 center.y < topLeft.y ? topLeft.y : (center.y > bottomRight.y ? bottomRight.y : center.y));

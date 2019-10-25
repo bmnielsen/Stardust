@@ -28,6 +28,8 @@ class Play
 public:
     PlayStatus status;
 
+    virtual ~Play() = default;
+
     // Gets a label for this play for use in instrumentation
     virtual const char *label() const = 0;
 
