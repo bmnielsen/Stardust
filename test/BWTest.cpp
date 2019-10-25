@@ -204,7 +204,6 @@ void BWTest::runGame(bool opponent)
         gameId << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
         gameId << "_" << ::testing::UnitTest::GetInstance()->current_test_info()->name();
         auto tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-#pragma warning(disable : 4996)
         auto tm = std::localtime(&tt);
         gameId << "_" << std::put_time(tm, "%Y%m%d_%H%M%S");
         if (::testing::UnitTest::GetInstance()->current_test_info()->result()->Failed())

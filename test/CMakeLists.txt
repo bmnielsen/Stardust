@@ -45,6 +45,7 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
 endif()
 
 target_link_libraries(tests gtest gtest_main BWAPILIB Locutus Steamhammer)
+target_compile_options(tests PRIVATE -Wall -Werror)
 
 file(COPY ${CMAKE_SOURCE_DIR}/test/3rdparty/maps DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bwapi-data/AI)
