@@ -64,3 +64,5 @@ install(TARGETS BWAPI
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
 )
+
+target_compile_options(BWAPIObj PRIVATE -w)

@@ -18,3 +18,5 @@ if (MSVC)
 endif()
 
 add_subdirectory(bwapi)
+
+target_compile_options(BWAPI PRIVATE -w)

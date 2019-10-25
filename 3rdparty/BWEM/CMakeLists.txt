@@ -3,7 +3,6 @@ project(BWEM)
 
 set(CMAKE_CXX_STANDARD 17)
 
-include_directories(${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/include)
 include_directories(include)
 
 add_library(BWEM
@@ -22,3 +21,8 @@ add_library(BWEM
         src/tiles.cpp
         src/utils.cpp
         src/BaseFinder.cpp)
+
+target_link_libraries(BWEM PUBLIC BWAPILIB)
+
+target_include_directories(BWEM SYSTEM PUBLIC ${PROJECT_SOURCE_DIR})
+target_compile_options(BWEM PRIVATE -w)

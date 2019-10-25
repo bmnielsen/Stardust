@@ -3,8 +3,6 @@ project(BWEB)
 
 set(CMAKE_CXX_STANDARD 17)
 
-include_directories(${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/include)
-include_directories(${CMAKE_SOURCE_DIR}/3rdparty/BWEM)
 include_directories(Source)
 
 add_library(BWEB
@@ -15,4 +13,7 @@ add_library(BWEB
         Source/Station.cpp
         Source/Wall.cpp)
 
-target_link_libraries(BWEM)
+target_link_libraries(BWEB BWAPILIB BWEM)
+
+target_include_directories(BWEB SYSTEM PUBLIC ${PROJECT_SOURCE_DIR})
+target_compile_options(BWEB PRIVATE -w)
