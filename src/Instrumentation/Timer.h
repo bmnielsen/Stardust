@@ -8,5 +8,5 @@ namespace Timer
 
     void checkpoint(const std::string &label);
 
-    void stop();
+    void stop(bool forceOutput = false);
 }

@@ -16,6 +16,10 @@ namespace Map
 
     void onUnitDestroy(BWAPI::Unit unit);
 
+    void onBuildingLifted(BWAPI::UnitType type, BWAPI::TilePosition tile);
+
+    void onBuildingLanded(BWAPI::UnitType type, BWAPI::TilePosition tile);
+
     void update();
 
     MapSpecificOverride *mapSpecificOverride();
@@ -40,6 +44,8 @@ namespace Map
 
     Base *getNaturalForStartLocation(BWAPI::TilePosition startLocation);
 
+    std::vector<Choke *> allChokes();
+
     Choke *choke(const BWEM::ChokePoint *bwemChoke);
 
     bool nearNarrowChokepoint(BWAPI::Position position);
@@ -47,4 +53,8 @@ namespace Map
     int minChokeWidth();
 
     void dumpVisibilityHeatmap();
+
+    bool isWalkable(BWAPI::TilePosition pos);
+
+    bool isWalkable(int x, int y);
 }

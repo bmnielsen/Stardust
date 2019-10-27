@@ -31,6 +31,7 @@ Tasks:
 
 #include "Timer.h"
 #include "Map.h"
+#include "PathFinding.h"
 #include "Producer.h"
 #include "Builder.h"
 #include "BuildingPlacement.h"
@@ -52,16 +53,27 @@ void LocutusAIModule::onStart()
     Timer::start("Startup");
 
     Map::initialize();
+    Timer::checkpoint("Map::initialize");
+
+    PathFinding::initialize();
+    Timer::checkpoint("PathFinding::initialize");
+
     BuildingPlacement::initialize();
+    Timer::checkpoint("BuildingPlacement::initialize");
+
     CombatSim::initialize();
+    Timer::checkpoint("CombatSim::initialize");
+
     WorkerOrderTimer::initialize();
+    Timer::checkpoint("WorkerOrderTimer::initialize");
+
+    Strategist::chooseOpening();
+    Timer::checkpoint("Strategist::initialize");
+
+    Timer::stop(true);
 
     BWAPI::Broodwar->setLocalSpeed(0);
     BWAPI::Broodwar->setFrameSkip(0);
-
-    Strategist::chooseOpening();
-
-    Timer::stop();
 
     Log::Get() << "I am Locutus of Borg, you are " << Opponent::getName() << ", we're in " << BWAPI::Broodwar->mapFileName();
     //Log::Debug() << "Seed: " << BWAPI::Broodwar->getRandomSeed();

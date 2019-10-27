@@ -205,25 +205,4 @@ namespace PathFinding
         if (dist <= 0) return 0;
         return (int) ((double) dist * 1.4 / unitType.topSpeed());
     }
-
-    BWAPI::TilePosition NearbyPathfindingTile(BWAPI::TilePosition start)
-    {
-        for (int radius = 0; radius < 4; radius++)
-        {
-            for (int x = -radius; x <= radius; x++)
-            {
-                for (int y = -radius; y <= radius; y++)
-                {
-                    if (std::abs(x + y) != radius) continue;
-
-                    BWAPI::TilePosition tile = start + BWAPI::TilePosition(x, y);
-                    if (!tile.isValid()) continue;
-                    if (BWEB::Map::isUsed(tile)) continue;
-                    if (!BWEB::Map::isWalkable(tile)) continue;
-                    return tile;
-                }
-            }
-        }
-        return BWAPI::TilePositions::Invalid;
-    }
 }

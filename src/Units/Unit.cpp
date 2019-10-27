@@ -3,6 +3,7 @@
 #include "UnitUtil.h"
 #include "Geo.h"
 #include "Players.h"
+#include "Map.h"
 
 Unit::Unit(BWAPI::Unit unit)
         : unit(unit)
@@ -249,6 +250,14 @@ void Unit::updateGrid(BWAPI::Unit unit) const
     if (!isFlying && unit->isFlying())
     {
         grid.unitDestroyed(type, lastPosition, completed);
+
+        // Also affects navigation grids, so tell the map when a building has lifted
+        if (type.isBuilding())
+        {
+            auto topLeft = lastPosition - (BWAPI::Position(type.tileSize()) / 2);
+            Map::onBuildingLifted(type, BWAPI::TilePosition(topLeft));
+        }
+
 #ifdef DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitDestroyed (liftoff) " << lastPosition;
 #endif
@@ -258,6 +267,13 @@ void Unit::updateGrid(BWAPI::Unit unit) const
     if (isFlying && !unit->isFlying())
     {
         grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted());
+
+        // Also affects navigation grids, so tell the map the unit has landed
+        if (type.isBuilding())
+        {
+            Map::onBuildingLanded(type, unit->getTilePosition());
+        }
+
 #ifdef DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitCreated (landed) " << unit->getPosition();
 #endif

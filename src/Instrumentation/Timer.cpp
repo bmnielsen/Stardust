@@ -40,11 +40,11 @@ namespace Timer
         lastCheckpoint = now;
     }
 
-    void stop()
+    void stop(bool forceOutput)
     {
         long long overall = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - startPoint).count();
 
-        if (overall > DEBUG_CUTOFF)
+        if (forceOutput || overall > DEBUG_CUTOFF)
         {
             std::ostringstream msg;
             msg << overallLabel << " took " << overall << "ms";
@@ -69,7 +69,7 @@ namespace Timer
 
             Log::Debug() << msg.str();
 
-            if (overall > LOG_CUTOFF)
+            if (forceOutput || overall > LOG_CUTOFF)
                 Log::Get() << msg.str();
         }
     }

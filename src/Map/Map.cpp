@@ -31,6 +31,8 @@ namespace Map
         std::map<const BWEM::ChokePoint *, Choke *> chokes;
         int _minChokeWidth;
 
+        std::vector<bool> tileWalkability;
+        bool tileWalkabilityUpdated;
         std::vector<long> visibility;
 
         struct PlayerBases
@@ -265,6 +267,79 @@ namespace Map
             }
         }
 
+        // Writes the tile walkability grid to CherryVis
+        void dumpTileWalkability()
+        {
+            // Dump to CherryVis
+            std::vector<long> tileWalkabilityCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            {
+                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                {
+                    tileWalkabilityCVis[x + y * BWAPI::Broodwar->mapWidth()] = tileWalkability[x + y * BWAPI::Broodwar->mapWidth()];
+                }
+            }
+
+            CherryVis::addHeatmap("TileWalkable", tileWalkabilityCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+        }
+
+        // Updates the tile walkability grid based on appearance or disappearance of a building, mineral field, etc.
+        bool updateTileWalkability(BWAPI::TilePosition tile, BWAPI::TilePosition size, bool walkable)
+        {
+            bool updated = false;
+
+            for (int x = 0; x < size.x; x++)
+            {
+                for (int y = 0; y < size.y; y++)
+                {
+                    if (tileWalkability[(tile.x + x) + (tile.y + y) * BWAPI::Broodwar->mapWidth()] != walkable)
+                    {
+                        tileWalkability[(tile.x + x) + (tile.y + y) * BWAPI::Broodwar->mapWidth()] = walkable;
+                        updated = true;
+                    }
+                }
+            }
+
+            return updated;
+        }
+
+        // Computes walkability at a tile level
+        void computeTileWalkability()
+        {
+            tileWalkability.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            for (int tileX = 0; tileX < BWAPI::Broodwar->mapWidth(); tileX++)
+            {
+                for (int tileY = 0; tileY < BWAPI::Broodwar->mapHeight(); tileY++)
+                {
+                    bool walkable = true;
+                    for (int walkX = 0; walkX < 4; walkX++)
+                    {
+                        for (int walkY = 0; walkY < 4; walkY++)
+                        {
+                            if (!BWAPI::Broodwar->isWalkable((tileX << 2) + walkX, (tileY << 2) + walkY))
+                            {
+                                walkable = false;
+                                goto breakInnerLoop;
+                            }
+                        }
+                    }
+                    breakInnerLoop:
+                    tileWalkability[tileX + tileY * BWAPI::Broodwar->mapWidth()] = walkable;
+                }
+            }
+
+            // Also remove our start position and neutrals
+            updateTileWalkability(BWAPI::Broodwar->self()->getStartLocation(), BWAPI::UnitTypes::Protoss_Nexus.tileSize(), false);
+            for (auto neutral : BWAPI::Broodwar->getStaticNeutralUnits())
+            {
+                updateTileWalkability(neutral->getInitialTilePosition(), neutral->getType().tileSize(), false);
+            }
+
+            // TODO: Consider map-specific overrides for maps with very narrow ramps, like Plasma
+
+            dumpTileWalkability();
+        }
+
         // Dumps heatmaps for static map things like ground height
         void dumpStaticHeatmaps()
         {
@@ -366,6 +441,7 @@ namespace Map
         }
         Log::Debug() << "Found " << bases.size() << " bases";
 
+        computeTileWalkability();
         dumpStaticHeatmaps();
 
         update();
@@ -375,6 +451,15 @@ namespace Map
     {
         // Whenever we see a new building, determine if it infers a change in base ownership
         inferBaseOwnershipFromUnitCreated(unit);
+
+        // Units that affect tile walkability
+        // Skip on frame 0, since we handle static neutrals and our base explicitly
+        if (BWAPI::Broodwar->getFrameCount() > 0 && (unit->getType().isMineralField() || unit->getType().isBuilding()))
+        {
+            tileWalkabilityUpdated = updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), false);
+
+            if (tileWalkabilityUpdated) PathFinding::addBlockingObject(unit->getType(), unit->getTilePosition());
+        }
     }
 
     void onUnitDestroy(BWAPI::Unit unit)
@@ -386,6 +471,28 @@ namespace Map
 
         // Whenever a building is lost, determine if it infers a change in base ownership
         inferBaseOwnershipFromUnitDestroyed(unit);
+
+        // Units that affect tile walkability
+        if (unit->getType().isMineralField() || unit->getType().isBuilding())
+        {
+            tileWalkabilityUpdated = updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), true);
+
+            if (tileWalkabilityUpdated) PathFinding::removeBlockingObject(unit->getType(), unit->getTilePosition());
+        }
+    }
+
+    void onBuildingLifted(BWAPI::UnitType type, BWAPI::TilePosition tile)
+    {
+        tileWalkabilityUpdated = updateTileWalkability(tile, type.tileSize(), true);
+
+        if (tileWalkabilityUpdated) PathFinding::removeBlockingObject(type, tile);
+    }
+
+    void onBuildingLanded(BWAPI::UnitType type, BWAPI::TilePosition tile)
+    {
+        tileWalkabilityUpdated = updateTileWalkability(tile, type.tileSize(), false);
+
+        if (tileWalkabilityUpdated) PathFinding::addBlockingObject(type, tile);
     }
 
     void update()
@@ -421,6 +528,12 @@ namespace Map
             {
                 setBaseOwner(*unscouted.begin(), BWAPI::Broodwar->enemy());
             }
+        }
+
+        if (tileWalkabilityUpdated)
+        {
+            dumpTileWalkability();
+            tileWalkabilityUpdated = false;
         }
     }
 
@@ -558,6 +671,17 @@ namespace Map
         return bestNatural;
     }
 
+    std::vector<Choke *> allChokes()
+    {
+        std::vector<Choke *> result;
+        result.reserve(chokes.size());
+        for (auto &pair : chokes)
+        {
+            result.push_back(pair.second);
+        }
+        return result;
+    }
+
     Choke *choke(const BWEM::ChokePoint *bwemChoke)
     {
         if (!bwemChoke) return nullptr;
@@ -602,5 +726,15 @@ namespace Map
             CherryVis::addHeatmap("FogOfWar", newVisibility, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
             visibility = newVisibility;
         }
+    }
+
+    bool isWalkable(BWAPI::TilePosition pos)
+    {
+        return isWalkable(pos.x, pos.y);
+    }
+
+    bool isWalkable(int x, int y)
+    {
+        return tileWalkability[x + y * BWAPI::Broodwar->mapWidth()];
     }
 }

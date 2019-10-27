@@ -1,10 +1,27 @@
 #pragma once
 
 #include "Common.h"
+#include "NavigationGrid.h"
 #include <bwem.h>
 
 namespace PathFinding
 {
+    // Initializes the navigation grids
+    void initialize();
+
+    // Gets the first node in a path to the desired target
+    const NavigationGrid::GridNode *optimizedPath(BWAPI::Position start, BWAPI::Position end);
+
+    // An object that affects pathfinding (e.g. a building) has been added
+    void addBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile);
+
+    // An object that affects pathfinding (e.g. a building) has been removed
+    void removeBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile);
+
+    // Gets the navigation grid to a specific goal position
+    const NavigationGrid &getNavigationGrid(BWAPI::TilePosition goal);
+
+    // Options for use in the BWEM-based pathfinding methods
     enum class PathFindingOptions
     {
         Default = 0,
@@ -44,7 +61,4 @@ namespace PathFinding
             BWAPI::Position end,
             BWAPI::UnitType unitType,
             PathFindingOptions options = PathFindingOptions::Default);
-
-    // Get a tile near the given tile that is suitable for pathfinding from or to.
-    BWAPI::TilePosition NearbyPathfindingTile(BWAPI::TilePosition tile);
 }

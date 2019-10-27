@@ -12,6 +12,7 @@ set(LOCUTUS_INCLUDES
         ${PROJECT_SOURCE_DIR}/General
         ${PROJECT_SOURCE_DIR}/Instrumentation
         ${PROJECT_SOURCE_DIR}/Map
+        ${PROJECT_SOURCE_DIR}/Map/PathFinding
         ${PROJECT_SOURCE_DIR}/Players
         ${PROJECT_SOURCE_DIR}/Producer
         ${PROJECT_SOURCE_DIR}/Strategist
