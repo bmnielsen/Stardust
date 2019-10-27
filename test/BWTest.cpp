@@ -114,13 +114,23 @@ void BWTest::runGame(bool opponent)
     }
     else
     {
-        auto module = new LocutusAIModule();
+        auto module = myModule ? myModule() : new LocutusAIModule();
         module->afterOnStart = onStartMine;
         h->setAIModule(module);
         Log::SetOutputToConsole(true);
     }
     h->update();
     h->setLocalSpeed(0);
+
+    if (opponent)
+    {
+        if (onFrameOpponent) onFrameOpponent();
+    }
+    else
+    {
+        if (onFrameMine) onFrameMine();
+    }
+
     gameOwner.getGame().nextFrame();
 
     bool leftGame = false;
