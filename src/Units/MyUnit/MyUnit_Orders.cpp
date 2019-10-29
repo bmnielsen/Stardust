@@ -1,14 +1,13 @@
 #include "MyUnit.h"
 
-#define DEBUG_ORDERS false
-
-void MyUnit::move(BWAPI::Position position)
+void MyUnit::move(BWAPI::Position position, bool force)
 {
     if (issuedOrderThisFrame) return;
     if (!position.isValid()) return;
 
     BWAPI::UnitCommand currentCommand(unit->getLastCommand());
-    if (!unit->isStuck() &&
+    if (!force &&
+        !unit->isStuck() &&
         currentCommand.getType() == BWAPI::UnitCommandTypes::Move &&
         currentCommand.getTargetPosition() == position &&
         unit->isMoving())
@@ -18,8 +17,8 @@ void MyUnit::move(BWAPI::Position position)
 
     issuedOrderThisFrame = unit->move(position);
 
-#if DEBUG_ORDERS
-    CherryVis::log(unit) << "Order: Move to " << BWAPI::WalkPosition(position);
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(unit) << "Order: Move to " << BWAPI::WalkPosition(position) << (force ? " (forced)" : "");
 #endif
 }
 
@@ -38,7 +37,7 @@ void MyUnit::attack(BWAPI::Unit target)
 
     issuedOrderThisFrame = unit->attack(target);
 
-#if DEBUG_ORDERS
+#if DEBUG_UNIT_ORDERS
     CherryVis::log(unit) << "Order: Attack " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
 #endif
 }
@@ -61,7 +60,7 @@ void MyUnit::rightClick(BWAPI::Unit target)
 
     issuedOrderThisFrame = unit->rightClick(target);
 
-#if DEBUG_ORDERS
+#if DEBUG_UNIT_ORDERS
     CherryVis::log(unit) << "Order: Right-click " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
 #endif
 }
@@ -84,7 +83,7 @@ void MyUnit::gather(BWAPI::Unit target)
 
     issuedOrderThisFrame = unit->gather(target);
 
-#if DEBUG_ORDERS
+#if DEBUG_UNIT_ORDERS
     CherryVis::log(unit) << "Order: Gather " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
 #endif
 }
@@ -95,7 +94,7 @@ void MyUnit::returnCargo()
 
     issuedOrderThisFrame = unit->returnCargo();
 
-#if DEBUG_ORDERS
+#if DEBUG_UNIT_ORDERS
     CherryVis::log(unit) << "Order: Return cargo";
 #endif
 }
@@ -107,7 +106,7 @@ bool MyUnit::build(BWAPI::UnitType type, BWAPI::TilePosition tile)
 
     issuedOrderThisFrame = unit->build(type, tile);
 
-#if DEBUG_ORDERS
+#if DEBUG_UNIT_ORDERS
     CherryVis::log(unit) << "Order: Build " << type << " @ " << BWAPI::WalkPosition(tile);
 #endif
 
@@ -120,7 +119,7 @@ void MyUnit::stop()
 
     issuedOrderThisFrame = unit->stop();
 
-#if DEBUG_ORDERS
+#if DEBUG_UNIT_ORDERS
     CherryVis::log(unit) << "Order: Stop";
 #endif
 }

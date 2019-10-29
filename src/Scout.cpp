@@ -96,6 +96,9 @@ namespace Scout
         {
             if (!targetBase) return;
 
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(workerScout) << "moveTo: Scout base";
+#endif
             Units::getMine(workerScout).moveTo(targetBase->getPosition());
         }
 

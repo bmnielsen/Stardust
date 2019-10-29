@@ -10,9 +10,9 @@ class UnitProductionGoal
 public:
     // Constructor for normal units or buildings
     explicit UnitProductionGoal(BWAPI::UnitType type,
-                       int count = -1,
-                       int producerLimit = -1,
-                       ProductionLocation location = std::monostate())
+                                int count = -1,
+                                int producerLimit = -1,
+                                ProductionLocation location = std::monostate())
             : type(type)
             , count(count)
             , producerLimit(producerLimit)

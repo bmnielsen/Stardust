@@ -16,14 +16,11 @@ MyUnit::MyUnit(BWAPI::Unit unit)
 
 void MyUnit::update()
 {
-    if (!unit || !unit->exists())
-    { return; }
+    if (!unit || !unit->exists()) return;
 
     issuedOrderThisFrame = false;
 
     typeSpecificUpdate();
-
-    updateMoveWaypoints();
 
     // Guard against buildings having a deep training queue
     if (unit->getTrainingQueue().size() > 1 && unit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))

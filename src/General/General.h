@@ -54,9 +54,9 @@ namespace General
 
     void issueOrders();
 
-    void addSquad(const std::shared_ptr<Squad>& squad);
+    void addSquad(const std::shared_ptr<Squad> &squad);
 
-    void removeSquad(const std::shared_ptr<Squad>& squad);
+    void removeSquad(const std::shared_ptr<Squad> &squad);
 }
 
 namespace CombatSim

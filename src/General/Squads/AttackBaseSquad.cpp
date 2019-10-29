@@ -29,7 +29,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
             (simResult.valueGain() > 0 && simResult.proportionalGain() > -0.05) ||
             simResult.proportionalGain() > 0.2;
 
-#ifdef DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM
     CherryVis::log() << BWAPI::WalkPosition(cluster.center)
                      << ": %l=" << simResult.myPercentLost()
                      << "; vg=" << simResult.valueGain()
@@ -78,6 +78,9 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
         // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
         if (!myUnit.isReady()) continue;
 
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(unit) << "moveTo: Cluster rally point";
+#endif
         myUnit.moveTo(rallyPoint);
     }
 }

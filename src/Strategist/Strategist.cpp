@@ -1,5 +1,5 @@
 #include "Strategist.h"
- #include <utility>
+#include <utility>
 #include "Scout.h"
 #include "Units.h"
 #include "PathFinding.h"
@@ -230,6 +230,7 @@ namespace Strategist
 
         void writeInstrumentation()
         {
+#if CHERRYVIS_ENABLED
             std::vector<std::string> values;
             values.reserve(plays.size());
             for (auto &play : plays)
@@ -245,6 +246,7 @@ namespace Strategist
                 values.emplace_back((std::ostringstream() << productionGoal).str());
             }
             CherryVis::setBoardListValue("prodgoal", values);
+#endif
         }
 
 #ifndef _DEBUG

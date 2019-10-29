@@ -8,6 +8,14 @@ namespace
     auto &bwemMap = BWEM::Map::Instance();
 }
 
+void MyUnit::issueMoveOrders()
+{
+    if (issuedOrderThisFrame) return;
+
+    updateMoveWaypoints();
+    unstickMoveUnit();
+}
+
 bool MyUnit::moveTo(BWAPI::Position position, bool avoidNarrowChokes)
 {
     // Fliers just move to the target
@@ -27,6 +35,28 @@ bool MyUnit::moveTo(BWAPI::Position position, bool avoidNarrowChokes)
 
     // Clear any existing waypoints
     resetMoveData();
+
+    // Get an optimized path, if one is available
+    // Otherwise we fall back to navigating with BWEM chokepoints
+    optimizedPath = PathFinding::optimizedPath(unit->getPosition(), position);
+    if (optimizedPath)
+    {
+        // If we are very close, just move directly
+        if (optimizedPath->cost < 30)
+        {
+            move(position);
+            return true;
+        }
+
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(unit) << "Order: Starting grid-based move to " << BWAPI::WalkPosition(position);
+        CherryVis::log(unit) << "Order: Path node set to (" << optimizedPath->x << "," << optimizedPath->y << ")";
+#endif
+
+        targetPosition = position;
+        moveToNextWaypoint();
+        return true;
+    }
 
     // If the unit is already in the same area, or the target doesn't have an area, just move it directly
     auto targetArea = bwemMap.GetArea(BWAPI::WalkPosition(position));
@@ -51,6 +81,9 @@ bool MyUnit::moveTo(BWAPI::Position position, bool avoidNarrowChokes)
     }
 
     // Start moving
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(unit) << "Order: Starting waypoint-based move to " << BWAPI::WalkPosition(position);
+#endif
     targetPosition = position;
     moveToNextWaypoint();
     return true;
@@ -61,16 +94,17 @@ void MyUnit::resetMoveData()
     waypoints.clear();
     targetPosition = BWAPI::Positions::Invalid;
     currentlyMovingTowards = BWAPI::Positions::Invalid;
+    optimizedPath = nullptr;
 }
 
 void MyUnit::updateMoveWaypoints()
 {
-    if (waypoints.empty())
+    // Reset after latency frames when we're done navigating
+    if (!optimizedPath && waypoints.empty())
     {
         if (BWAPI::Broodwar->getFrameCount() - lastMoveFrame > BWAPI::Broodwar->getLatencyFrames())
         {
-            targetPosition = BWAPI::Positions::Invalid;
-            currentlyMovingTowards = BWAPI::Positions::Invalid;
+            resetMoveData();
         }
         return;
     }
@@ -85,9 +119,25 @@ void MyUnit::updateMoveWaypoints()
     BWAPI::UnitCommand currentCommand(unit->getLastCommand());
     if (currentCommand.getType() != BWAPI::UnitCommandTypes::Move || currentCommand.getTargetPosition() != currentlyMovingTowards)
     {
-        waypoints.clear();
-        targetPosition = BWAPI::Positions::Invalid;
-        currentlyMovingTowards = BWAPI::Positions::Invalid;
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(unit) << "Order: Aborting move as command has changed";
+#endif
+        resetMoveData();
+        return;
+    }
+
+    // Logic for when we are navigating along an optimized path
+    if (optimizedPath)
+    {
+        // Wait until we are out of the current node
+        if (unit->getTilePosition().x == optimizedPath->x && unit->getTilePosition().y == optimizedPath->y) return;
+
+        // Advance the node
+        optimizedPath = PathFinding::optimizedPath(unit->getPosition(), targetPosition);
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(unit) << "Order: Path node set to (" << optimizedPath->x << "," << optimizedPath->y << ")";
+#endif
+        moveToNextWaypoint();
         return;
     }
 
@@ -107,12 +157,41 @@ void MyUnit::updateMoveWaypoints()
 
 void MyUnit::moveToNextWaypoint()
 {
-    // If there are no more waypoints, move to the target position
+    // If we are close to the target or there are no more waypoints, move to the target position
     // State will be reset after latency frames to avoid resetting the order later
-    if (waypoints.empty())
+    if ((optimizedPath && optimizedPath->cost < 30) || (!optimizedPath && waypoints.empty()))
     {
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(unit) << "Order: Finished waypoint navigation";
+#endif
         move(targetPosition);
         lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+        return;
+    }
+
+    // If we are moving on an optimized path, we move towards the third node (approximately three tiles ahead)
+    if (optimizedPath)
+    {
+        if (optimizedPath->nextNode && optimizedPath->nextNode->nextNode && optimizedPath->nextNode->nextNode->nextNode)
+        {
+            currentlyMovingTowards = BWAPI::Position(
+                    (optimizedPath->nextNode->nextNode->nextNode->x << 5) + 16,
+                    (optimizedPath->nextNode->nextNode->nextNode->y << 5) + 16);
+            move(currentlyMovingTowards);
+            lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+
+#if DEBUG_UNIT_ORDERS
+            auto one = BWAPI::Position((optimizedPath->x << 5) + 16, (optimizedPath->y << 5) + 16);
+            auto two = BWAPI::Position((optimizedPath->nextNode->x << 5) + 16, (optimizedPath->nextNode->y << 5) + 16);
+            auto three = BWAPI::Position((optimizedPath->nextNode->nextNode->x << 5) + 16, (optimizedPath->nextNode->nextNode->y << 5) + 16);
+            CherryVis::log(unit) << "Order: Moving through "
+                                 << BWAPI::WalkPosition(one) << "[" << optimizedPath->cost << "],"
+                                 << BWAPI::WalkPosition(two) << "[" << optimizedPath->nextNode->cost << "],"
+                                 << BWAPI::WalkPosition(three) << "[" << optimizedPath->nextNode->nextNode->cost << "] to "
+                                 << BWAPI::WalkPosition(currentlyMovingTowards) << "[" << optimizedPath->nextNode->nextNode->nextNode->cost << "]";
+#endif
+        }
+
         return;
     }
 
@@ -155,6 +234,38 @@ void MyUnit::moveToNextWaypoint()
 
     move(currentlyMovingTowards);
     lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(unit) << "Order: Moving towards next waypoint @ " << BWAPI::WalkPosition(currentlyMovingTowards);
+#endif
+}
+
+void MyUnit::unstickMoveUnit()
+{
+    // Bail out if:
+    // - The last command is not to move
+    // - The last command was sent recently (the unit might just not have started moving yet)
+    // - The unit is close to its move target (it may be decelerating or have already arrived)
+    BWAPI::UnitCommand currentCommand(unit->getLastCommand());
+    if (currentCommand.getType() != BWAPI::UnitCommandTypes::Move
+        || !currentCommand.getTargetPosition().isValid()
+        || (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame()) < (BWAPI::Broodwar->getLatencyFrames() + 3)
+        || unit->getDistance(currentCommand.getTargetPosition()) < 32)
+    {
+        return;
+    }
+
+    // We resend the move command if any of the following are true:
+    // - The unit is not moving (either via BWAPI flag or measured by velocity)
+    // - The order is changed to Guard or PlayerGuard
+    if (!unit->isMoving()
+        || unit->getOrder() == BWAPI::Orders::Guard
+        || unit->getOrder() == BWAPI::Orders::PlayerGuard
+        || (abs(unit->getVelocityX()) < 0.001 && abs(unit->getVelocityY()) < 0.001)
+            )
+    {
+        move(currentCommand.getTargetPosition(), true);
+    }
 }
 
 int MyUnit::distanceToMoveTarget() const

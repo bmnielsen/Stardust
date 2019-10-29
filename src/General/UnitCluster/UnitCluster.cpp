@@ -108,13 +108,17 @@ void UnitCluster::execute(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Uni
         // Attack target
         if (unitAndTarget.second)
         {
+#if DEBUG_UNIT_ORDERS
             CherryVis::log(unitAndTarget.first) << "Target: " << unitAndTarget.second->type << " @ "
                                                 << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
+#endif
             myUnit.attackUnit(unitAndTarget.second->unit);
         }
         else
         {
+#if DEBUG_UNIT_ORDERS
             CherryVis::log(unitAndTarget.first) << "No target: move to " << BWAPI::WalkPosition(targetPosition);
+#endif
             myUnit.moveTo(targetPosition);
         }
     }

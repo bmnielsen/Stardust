@@ -48,7 +48,7 @@ namespace Units
                 //    unit.updateLastPositionValidity();
                 //};
 
-                for (const auto& unit : getForPlayer(player))
+                for (const auto &unit : getForPlayer(player))
                 {
                     unit->updateLastPositionValidity();
                 }
@@ -104,6 +104,71 @@ namespace Units
             }
         }
 
+        for (auto unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            bool output = false;
+#if DEBUG_PROBE_STATUS
+            output = output || unit->getType() == BWAPI::UnitTypes::Protoss_Probe;
+#endif
+#if DEBUG_ZEALOT_STATUS
+            output = output || unit->getType() == BWAPI::UnitTypes::Protoss_Zealot;
+#endif
+#if DEBUG_DRAGOON_STATUS
+            output = output || unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon;
+#endif
+
+            if (!output) continue;
+
+            auto &myUnit = getMine(unit);
+            std::ostringstream debug;
+
+            // First line is command
+            debug << "cmd=" << unit->getLastCommand().getType() << ";f=" << (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame());
+            if (unit->getLastCommand().getTarget())
+            {
+                debug << ";tgt=" << unit->getLastCommand().getTarget()->getType()
+                      << "#" << unit->getLastCommand().getTarget()->getID()
+                      << "@" << BWAPI::WalkPosition(unit->getLastCommand().getTarget()->getPosition())
+                      << ";d=" << unit->getLastCommand().getTarget()->getDistance(unit);
+            }
+            else if (unit->getLastCommand().getTargetPosition())
+            {
+                debug << ";tgt=" << BWAPI::WalkPosition(unit->getLastCommand().getTargetPosition());
+            }
+
+            // Next line is order
+            debug << "\nord=" << unit->getOrder() << ";t=" << unit->getOrderTimer();
+            if (unit->getOrderTarget())
+            {
+                debug << ";tgt" << unit->getOrderTarget()->getType()
+                      << "#" << unit->getOrderTarget()->getID()
+                      << "@" << BWAPI::WalkPosition(unit->getOrderTarget()->getPosition())
+                      << ";d=" << unit->getOrderTarget()->getDistance(unit);
+            }
+            else if (unit->getOrderTargetPosition())
+            {
+                debug << ";tgt=" << BWAPI::WalkPosition(unit->getOrderTargetPosition());
+            }
+
+            // Last line is movement data and other unit-specific stuff
+            debug << "\n";
+            if (unit->getType().topSpeed() > 0.001)
+            {
+                auto speed = sqrt(unit->getVelocityX() * unit->getVelocityX() + unit->getVelocityY() * unit->getVelocityY());
+                debug << "spd=" << ((int) (100.0 * speed / unit->getType().topSpeed()));
+            }
+
+            debug << ";mvng=" << unit->isMoving() << ";stck=" << myUnit.isStuck() << ";rdy=" << myUnit.isReady();
+
+            if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon)
+            {
+                auto &myDragoon = dynamic_cast<MyDragoon &>(myUnit);
+                debug << ";atckf=" << (BWAPI::Broodwar->getFrameCount() - myDragoon.getLastAttackStartedAt());
+            }
+
+            CherryVis::log(unit) << debug.str();
+        }
+/*
         return;
 
         std::ostringstream debug;
@@ -195,6 +260,15 @@ namespace Units
         }
 
         if (anyDebugUnits) Log::Debug() << debug.str();
+        */
+    }
+
+    void issueOrders()
+    {
+        for (auto unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            getMine(unit).issueMoveOrders();
+        }
     }
 
     void onUnitDestroy(BWAPI::Unit unit)
@@ -205,7 +279,7 @@ namespace Units
             if (it->second->lastPositionValid)
             {
                 Players::grid(it->second->player).unitDestroyed(it->second->type, it->second->lastPosition, it->second->completed);
-#ifdef DEBUG_GRID_UPDATES
+#if DEBUG_GRID_UPDATES
                 CherryVis::log(unit) << "Grid::unitDestroyed " << it->second->lastPosition;
 #endif
             }
@@ -320,7 +394,7 @@ namespace Units
     void getInArea(std::set<std::shared_ptr<Unit>> &units,
                    BWAPI::Player player,
                    const BWEM::Area *area,
-                   const std::function<bool(const std::shared_ptr<Unit> &)>& predicate)
+                   const std::function<bool(const std::shared_ptr<Unit> &)> &predicate)
     {
         for (auto &unit : playerToUnits[player])
         {

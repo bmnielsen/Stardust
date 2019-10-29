@@ -13,6 +13,8 @@ namespace CherryVis
     {
 #endif
 
+#if CHERRYVIS_ENABLED
+
         struct HeatmapFilePart
         {
             int firstFrame;
@@ -93,7 +95,7 @@ namespace CherryVis
 
         std::unordered_map<std::string, HeatmapFile> heatmapNameToHeatmapFile;
 
-        void log(const std::string& str, int unitId)
+        void log(const std::string &str, int unitId)
         {
             if (unitId == -1)
             {
@@ -105,9 +107,13 @@ namespace CherryVis
             }
         }
 
+#endif
+
 #ifndef _DEBUG
     }
 #endif
+
+#if CHERRYVIS_ENABLED
 
     LogWrapper::LogWrapper(int unitId)
             : os(new std::ostringstream)
@@ -136,13 +142,26 @@ namespace CherryVis
         }
     }
 
+#else
+
+    LogWrapper::LogWrapper(int unitId) {}
+
+    LogWrapper::LogWrapper(const LogWrapper &other) {}
+
+    LogWrapper::~LogWrapper() {}
+
+#endif
+
     void initialize()
     {
+#if CHERRYVIS_ENABLED
         std::filesystem::create_directories("bwapi-data/write/cvis");
+#endif
     }
 
-    void setBoardValue(const std::string& key, const std::string& value)
+    void setBoardValue(const std::string &key, const std::string &value)
     {
+#if CHERRYVIS_ENABLED
         if (boardKeyToLastValue.find(key) == boardKeyToLastValue.end() ||
             boardKeyToLastValue[key] != value)
         {
@@ -150,10 +169,12 @@ namespace CherryVis
             frameBoardUpdates[key] = value;
             frameHasBoardUpdates = true;
         }
+#endif
     }
 
-    void setBoardListValue(const std::string& key, std::vector<std::string> &values)
+    void setBoardListValue(const std::string &key, std::vector<std::string> &values)
     {
+#if CHERRYVIS_ENABLED
         size_t limit = std::max(boardListToLastCount[key], values.size());
         for (size_t i = 1; i <= limit; i++)
         {
@@ -164,10 +185,12 @@ namespace CherryVis
         }
 
         boardListToLastCount[key] = values.size();
+#endif
     }
 
     void unitFirstSeen(BWAPI::Unit unit)
     {
+#if CHERRYVIS_ENABLED
         int frame = BWAPI::Broodwar->getFrameCount();
         if (frame == 0) frame = 1;
 
@@ -181,6 +204,7 @@ namespace CherryVis
         unitIdToFrameToUnitUpdate[std::to_string(unit->getID())][std::to_string(frame)] = {
                 {"type", unit->getType().getID()}
         };
+#endif
     }
 
     LogWrapper log(int unitId)
@@ -193,8 +217,9 @@ namespace CherryVis
         return LogWrapper(unit->getID());
     }
 
-    void addHeatmap(const std::string& key, const std::vector<long> &data, int sizeX, int sizeY)
+    void addHeatmap(const std::string &key, const std::vector<long> &data, int sizeX, int sizeY)
     {
+#if CHERRYVIS_ENABLED
         long max = 0;
         long min = LONG_MAX;
         long long sum = 0;
@@ -244,10 +269,12 @@ namespace CherryVis
         }
 
         fileIt->second.writeFrameData(frameData);
+#endif
     }
 
     void frameEnd(int frame)
     {
+#if CHERRYVIS_ENABLED
         if (frameHasBoardUpdates)
         {
             boardUpdates[std::to_string(frame)] = std::move(frameBoardUpdates);
@@ -257,7 +284,7 @@ namespace CherryVis
 
         if (!frameLogMessages.empty())
         {
-            for (const auto& msg : frameLogMessages)
+            for (const auto &msg : frameLogMessages)
             {
                 logEntries.push_back({
                                              {"message", msg},
@@ -270,7 +297,7 @@ namespace CherryVis
 
         if (!frameUnitLogMessages.empty())
         {
-            for (const auto& unitIdAndMsg : frameUnitLogMessages)
+            for (const auto &unitIdAndMsg : frameUnitLogMessages)
             {
                 unitIdToLogEntries[std::to_string(unitIdAndMsg.first)].push_back({
                                                                                          {"message", unitIdAndMsg.second},
@@ -280,16 +307,18 @@ namespace CherryVis
 
             frameUnitLogMessages.clear();
         }
+#endif
     }
 
     void gameEnd()
     {
+#if CHERRYVIS_ENABLED
         std::vector<nlohmann::json> heatmaps;
         for (auto heatmapNameAndHeatmapFile : heatmapNameToHeatmapFile)
         {
             heatmapNameAndHeatmapFile.second.close();
 
-            for (const auto& part : heatmapNameAndHeatmapFile.second.parts)
+            for (const auto &part : heatmapNameAndHeatmapFile.second.parts)
             {
                 std::ostringstream name;
                 name << heatmapNameAndHeatmapFile.first << "_" << part.firstFrame;
@@ -321,5 +350,6 @@ namespace CherryVis
         zstd::ofstream traceFile("bwapi-data/write/cvis/trace.json");
         traceFile << trace.dump(-1, ' ', true);
         traceFile.close();
+#endif
     }
 }

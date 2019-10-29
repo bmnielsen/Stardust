@@ -9,6 +9,8 @@ namespace Units
 {
     void update();
 
+    void issueOrders();
+
     void onUnitDestroy(BWAPI::Unit unit);
 
     void onBulletCreate(BWAPI::Bullet bullet);
@@ -22,7 +24,7 @@ namespace Units
     void getInArea(std::set<std::shared_ptr<Unit>> &units,
                    BWAPI::Player player,
                    const BWEM::Area *area,
-                   const std::function<bool(const std::shared_ptr<Unit> &)>& predicate = nullptr);
+                   const std::function<bool(const std::shared_ptr<Unit> &)> &predicate = nullptr);
 
     MyUnit &getMine(BWAPI::Unit unit);
 

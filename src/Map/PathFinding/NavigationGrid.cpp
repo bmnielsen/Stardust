@@ -3,7 +3,7 @@
 #include <queue>
 #include "Map.h"
 
-#define OUTPUT_GRID_TIMING true
+#define OUTPUT_GRID_TIMING false
 
 NavigationGrid::NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize) : goal(goal)
 {

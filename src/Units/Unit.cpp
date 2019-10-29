@@ -30,7 +30,7 @@ Unit::Unit(BWAPI::Unit unit)
     update(unit);
 
     Players::grid(player).unitCreated(type, lastPosition, completed);
-#ifdef DEBUG_GRID_UPDATES
+#if DEBUG_GRID_UPDATES
     CherryVis::log(unit) << "Grid::unitCreated " << lastPosition;
 #endif
 
@@ -161,7 +161,7 @@ void Unit::updateLastPositionValidity() const
     if (!lastPositionValid)
     {
         Players::grid(player).unitDestroyed(type, lastPosition, completed);
-#ifdef DEBUG_GRID_UPDATES
+#if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitDestroyed (!LPV) " << lastPosition;
 #endif
     }
@@ -172,7 +172,7 @@ void Unit::updateLastPositionValidity() const
         completed = true;
         estimatedCompletionFrame = -1;
         Players::grid(player).unitCompleted(type, lastPosition);
-#ifdef DEBUG_GRID_UPDATES
+#if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitCompleted (FOG) " << lastPosition;
 #endif
     }
@@ -203,7 +203,7 @@ void Unit::updateGrid(BWAPI::Unit unit) const
     {
         Players::grid(player).unitDestroyed(type, lastPosition, completed);
         grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted());
-#ifdef DEBUG_GRID_UPDATES
+#if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitDestroyed (renegade) " << lastPosition;
         CherryVis::log(id) << "Grid::unitCreated (renegade) " << unit->getPosition();
 #endif
@@ -214,7 +214,7 @@ void Unit::updateGrid(BWAPI::Unit unit) const
     if (!lastPositionValid)
     {
         grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted());
-#ifdef DEBUG_GRID_UPDATES
+#if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitCreated (LPV) " << unit->getPosition();
 #endif
         return;
@@ -224,7 +224,7 @@ void Unit::updateGrid(BWAPI::Unit unit) const
     if (lastPosition != unit->getPosition() || type != unit->getType())
     {
         grid.unitMoved(unit->getType(), unit->getPosition(), type, lastPosition);
-#ifdef DEBUG_GRID_UPDATES
+#if DEBUG_GRID_UPDATES
         if (type != unit->getType())
         {
             CherryVis::log(id) << "Grid::unitMoved (morph) " << type << " to " << unit->getType();
@@ -240,7 +240,7 @@ void Unit::updateGrid(BWAPI::Unit unit) const
     if (!completed && unit->isCompleted())
     {
         grid.unitCompleted(unit->getType(), unit->getPosition());
-#ifdef DEBUG_GRID_UPDATES
+#if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitCompleted " << unit->getPosition();
 #endif
     }
@@ -258,7 +258,7 @@ void Unit::updateGrid(BWAPI::Unit unit) const
             Map::onBuildingLifted(type, BWAPI::TilePosition(topLeft));
         }
 
-#ifdef DEBUG_GRID_UPDATES
+#if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitDestroyed (liftoff) " << lastPosition;
 #endif
     }
@@ -274,7 +274,7 @@ void Unit::updateGrid(BWAPI::Unit unit) const
             Map::onBuildingLanded(type, unit->getTilePosition());
         }
 
-#ifdef DEBUG_GRID_UPDATES
+#if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitCreated (landed) " << unit->getPosition();
 #endif
     }
@@ -284,7 +284,7 @@ void Unit::updateGrid(BWAPI::Unit unit) const
     {
         grid.unitDestroyed(type, lastPosition, true);
         grid.unitCreated(unit->getType(), unit->getPosition(), false);
-#ifdef DEBUG_GRID_UPDATES
+#if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitDestroyed (FOG!COMPLETE) " << lastPosition;
         CherryVis::log(id) << "Grid::unitCreated (FOG!COMPLETE) " << unit->getPosition();
 #endif

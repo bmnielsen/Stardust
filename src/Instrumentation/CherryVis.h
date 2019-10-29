@@ -2,14 +2,18 @@
 
 #include <BWAPI.h>
 
+#define CHERRYVIS_ENABLED true
+
 namespace CherryVis
 {
     class LogWrapper
     {
     protected:
+#if CHERRYVIS_ENABLED
         std::ostringstream *os;
         int *refCount;
         int unitId;
+#endif
 
     public:
         explicit LogWrapper(int unitId);
@@ -20,7 +24,9 @@ namespace CherryVis
 
         template<typename T> LogWrapper &operator<<(T const &value)
         {
+#if CHERRYVIS_ENABLED
             (*os) << value;
+#endif
             return *this;
         }
 
@@ -29,9 +35,9 @@ namespace CherryVis
 
     void initialize();
 
-    void setBoardValue(const std::string& key, const std::string& value);
+    void setBoardValue(const std::string &key, const std::string &value);
 
-    void setBoardListValue(const std::string& key, std::vector<std::string> &values);
+    void setBoardListValue(const std::string &key, std::vector<std::string> &values);
 
     void unitFirstSeen(BWAPI::Unit unit);
 
@@ -39,7 +45,7 @@ namespace CherryVis
 
     LogWrapper log(BWAPI::Unit unit);
 
-    void addHeatmap(const std::string& key, const std::vector<long> &data, int sizeX, int sizeY);
+    void addHeatmap(const std::string &key, const std::vector<long> &data, int sizeX, int sizeY);
 
     void frameEnd(int frame);
 

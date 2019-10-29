@@ -1,5 +1,5 @@
 #include "Grid.h"
- #include <utility>
+#include <utility>
 #include "Geo.h"
 
 // We add a buffer on detection and threat ranges
@@ -51,11 +51,13 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
 
 void Grid::dumpHeatmapIfChanged(std::string heatmapName, const GridData &data) const
 {
+#if CHERRYVIS_ENABLED
     if (data.frameLastDumped >= data.frameLastUpdated) return;
 
     CherryVis::addHeatmap(std::move(heatmapName), data.data, data.maxX, data.maxY);
 
     data.frameLastDumped = BWAPI::Broodwar->getFrameCount();
+#endif
 }
 
 void Grid::unitCreated(BWAPI::UnitType type, BWAPI::Position position, bool completed)

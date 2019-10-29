@@ -43,7 +43,7 @@ namespace Log
 
     LogWrapper Debug();
 
-    LogWrapper Csv(const std::string& name);
+    LogWrapper Csv(const std::string &name);
 
     // Returns a list of the paths of all the log files we have written in this game
     std::vector<std::string> &LogFiles();

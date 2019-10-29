@@ -179,6 +179,7 @@ namespace Producer
 
         void write(ProductionItemSet &items, const std::string &label)
         {
+#if CHERRYVIS_ENABLED
             auto itemLabel = [](const std::shared_ptr<ProductionItem> &item)
             {
                 std::ostringstream labelstream;
@@ -199,8 +200,9 @@ namespace Producer
             }
 
             CherryVis::setBoardListValue("producer", values);
+#endif
 
-            return;
+            /*
             Log::LogWrapper csv = Log::Csv(label);
 
             int seconds = BWAPI::Broodwar->getFrameCount() / 24;
@@ -221,6 +223,7 @@ namespace Producer
 
                 if (BWAPI::Broodwar->getFrameCount() < 2) Log::Debug() << itemLabel(item) << ": " << item->startFrame << ";" << item->completionFrame;
             }
+             */
         }
 
         int getRemainingBuildTime(BWAPI::Unit producer, int baseRemainingTrainTime, BWAPI::UnitCommandType buildCommandType, const Type &itemType)

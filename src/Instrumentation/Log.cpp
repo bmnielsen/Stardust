@@ -18,7 +18,7 @@ namespace Log
         std::map<std::string, std::ofstream *> csvFiles;
         std::vector<std::string> logFiles;
 
-        std::string logFileName(const std::string& base, bool csv = false)
+        std::string logFileName(const std::string &base, bool csv = false)
         {
             std::ostringstream filename;
             filename << "bwapi-data/write/" << base;
@@ -121,7 +121,7 @@ namespace Log
         return LogWrapper(debugLog, false);
     }
 
-    LogWrapper Csv(const std::string& name)
+    LogWrapper Csv(const std::string &name)
     {
         if (!isDebugLogging) return LogWrapper(nullptr, false);
 

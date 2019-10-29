@@ -33,7 +33,10 @@ namespace Map
 
         std::vector<bool> tileWalkability;
         bool tileWalkabilityUpdated;
+
+#if CHERRYVIS_ENABLED
         std::vector<long> visibility;
+#endif
 
         struct PlayerBases
         {
@@ -270,6 +273,7 @@ namespace Map
         // Writes the tile walkability grid to CherryVis
         void dumpTileWalkability()
         {
+#if CHERRYVIS_ENABLED
             // Dump to CherryVis
             std::vector<long> tileWalkabilityCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
             for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
@@ -281,6 +285,7 @@ namespace Map
             }
 
             CherryVis::addHeatmap("TileWalkable", tileWalkabilityCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+#endif
         }
 
         // Updates the tile walkability grid based on appearance or disappearance of a building, mineral field, etc.
@@ -343,6 +348,7 @@ namespace Map
         // Dumps heatmaps for static map things like ground height
         void dumpStaticHeatmaps()
         {
+#if CHERRYVIS_ENABLED
             // Ground height is at tile resolution
             std::vector<long> groundHeight(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
             for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
@@ -378,6 +384,7 @@ namespace Map
             }
 
             CherryVis::addHeatmap("Walkable", walkability, BWAPI::Broodwar->mapWidth() * 4, BWAPI::Broodwar->mapHeight() * 4);
+#endif
         }
 
 #ifndef _DEBUG
@@ -711,6 +718,7 @@ namespace Map
 
     void dumpVisibilityHeatmap()
     {
+#if CHERRYVIS_ENABLED
         std::vector<long> newVisibility(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
         for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
         {
@@ -726,6 +734,7 @@ namespace Map
             CherryVis::addHeatmap("FogOfWar", newVisibility, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
             visibility = newVisibility;
         }
+#endif
     }
 
     bool isWalkable(BWAPI::TilePosition pos)

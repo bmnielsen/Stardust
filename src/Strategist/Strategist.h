@@ -14,5 +14,6 @@ namespace Strategist
     void setOpening(std::vector<std::shared_ptr<Play>> openingPlays);
 
     std::vector<ProductionGoal> &currentProductionGoals();
+
     std::vector<std::pair<int, int>> &currentMineralReservations();
 }

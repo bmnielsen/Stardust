@@ -148,7 +148,7 @@ UnitCluster::runCombatSim(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Uni
     int finalMine = score(sim.getState().first);
     int finalEnemy = score(sim.getState().second);
 
-#ifdef DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM
     CherryVis::log() << BWAPI::WalkPosition(center)
                      << ": " << initialMine << "," << initialEnemy
                      << "-" << finalMine << "," << finalEnemy;

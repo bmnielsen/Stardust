@@ -19,4 +19,6 @@ namespace Builder
     std::vector<Building *> pendingBuildingsOfType(BWAPI::UnitType type);
 
     bool isPendingHere(BWAPI::TilePosition tile);
+
+    Building *pendingHere(BWAPI::TilePosition tile);
 }

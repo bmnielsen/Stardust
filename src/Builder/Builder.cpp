@@ -39,6 +39,9 @@ namespace Builder
             }
 
             // Move towards the build position
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(building.builder) << "moveTo: Build location";
+#endif
             Units::getMine(building.builder).moveTo(building.getPosition());
         }
 
@@ -131,7 +134,7 @@ namespace Builder
 
     void issueOrders()
     {
-        for (auto & builderQueue : builderQueues)
+        for (auto &builderQueue : builderQueues)
         {
             build(**builderQueue.second.begin());
         }
@@ -182,7 +185,7 @@ namespace Builder
 
             // Sum up the travel time between the existing queued buildings
             BWAPI::Position lastPosition = builderAndQueue.first->getPosition();
-            for (const auto& building : builderAndQueue.second)
+            for (const auto &building : builderAndQueue.second)
             {
                 totalTravelTime +=
                         PathFinding::ExpectedTravelTime(lastPosition,
@@ -216,7 +219,7 @@ namespace Builder
     {
         std::vector<Building *> result;
 
-        for (const auto& building : pendingBuildings)
+        for (const auto &building : pendingBuildings)
         {
             result.push_back(building.get());
         }
@@ -227,7 +230,7 @@ namespace Builder
     std::vector<Building *> pendingBuildingsOfType(BWAPI::UnitType type)
     {
         std::vector<Building *> result;
-        for (const auto& building : pendingBuildings)
+        for (const auto &building : pendingBuildings)
         {
             if (building->type == type) result.push_back(building.get());
         }
@@ -237,11 +240,21 @@ namespace Builder
 
     bool isPendingHere(BWAPI::TilePosition tile)
     {
-        for (const auto& building : pendingBuildings)
+        for (const auto &building : pendingBuildings)
         {
             if (building->tile == tile) return true;
         }
 
         return false;
+    }
+
+    Building *pendingHere(BWAPI::TilePosition tile)
+    {
+        for (const auto &building : pendingBuildings)
+        {
+            if (building->tile == tile) return building.get();
+        }
+
+        return nullptr;
     }
 }

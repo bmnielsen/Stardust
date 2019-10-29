@@ -560,6 +560,9 @@ namespace Workers
                     // If the worker is a long way from its base, move towards it
                     if (worker->getDistance(base->getPosition()) > 200)
                     {
+#if DEBUG_UNIT_ORDERS
+                        CherryVis::log(worker) << "moveTo: Assigned base (far away)";
+#endif
                         Units::getMine(worker).moveTo(base->getPosition());
                         continue;
                     }
@@ -579,6 +582,9 @@ namespace Workers
                     }
 
                     // For some reason the worker doesn't have anything good to do, so let's just move towards the base
+#if DEBUG_UNIT_ORDERS
+                    CherryVis::log(worker) << "moveTo: Assigned base (default)";
+#endif
                     Units::getMine(worker).moveTo(base->getPosition());
                     break;
                 }

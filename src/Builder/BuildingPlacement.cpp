@@ -236,6 +236,7 @@ namespace BuildingPlacement
 
         void dumpHeatmap()
         {
+#if CHERRYVIS_ENABLED
             // We dump a heatmap with the following values:
             // - No building: 0
             // - Large building: 2
@@ -256,7 +257,7 @@ namespace BuildingPlacement
                 }
             };
 
-            for (const auto& block : BWEB::Blocks::getBlocks())
+            for (const auto &block : BWEB::Blocks::getBlocks())
             {
                 for (auto large : block.LargeTiles())
                 { addLocation(large, 4, 3, 2); }
@@ -266,13 +267,14 @@ namespace BuildingPlacement
                 { addLocation(small, 2, 2, 4); }
             }
 
-            for (const auto& station : BWEB::Stations::getStations())
+            for (const auto &station : BWEB::Stations::getStations())
             {
                 for (auto small : station.DefenseLocations())
                 { addLocation(small, 2, 2, 5); }
             }
 
             CherryVis::addHeatmap("Blocks", blocks, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+#endif
         }
 
 #ifndef _DEBUG

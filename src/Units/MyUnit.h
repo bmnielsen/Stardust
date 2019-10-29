@@ -4,6 +4,7 @@
 
 #include <bwem.h>
 #include "Choke.h"
+#include "PathFinding.h"
 
 class MyUnit
 {
@@ -13,6 +14,8 @@ public:
     virtual ~MyUnit() = default;
 
     void update();
+
+    void issueMoveOrders();
 
     bool moveTo(BWAPI::Position position, bool avoidNarrowChokes = false);
 
@@ -24,7 +27,7 @@ public:
 
     virtual bool isStuck() const { return unit->isStuck(); };
 
-    void move(BWAPI::Position position);
+    void move(BWAPI::Position position, bool force = false);
 
     void attack(BWAPI::Unit target);
 
@@ -45,6 +48,7 @@ protected:
 
     BWAPI::Position targetPosition;
     BWAPI::Position currentlyMovingTowards;
+    const NavigationGrid::GridNode *optimizedPath;
     std::deque<const BWEM::ChokePoint *> waypoints;
     int lastMoveFrame;
 
@@ -55,6 +59,8 @@ protected:
     void updateMoveWaypoints();
 
     virtual void moveToNextWaypoint();
+
+    void unstickMoveUnit();
 
     virtual bool mineralWalk(const Choke *choke) { return false; }
 };

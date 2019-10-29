@@ -140,35 +140,38 @@ void LocutusAIModule::onFrame()
     Builder::issueOrders();
     Timer::checkpoint("Builder::issueOrders");
 
+    Units::issueOrders();
+    Timer::checkpoint("Units::issueOrders");
+
     Workers::issueOrders(); // Called last to allow workers to be taken or released for building, combat, etc. earlier
     Timer::checkpoint("Workers::issueOrders");
 
     // Instrumentation
-#ifdef COLLISION_HEATMAP_FREQUENCY
+#if COLLISION_HEATMAP_FREQUENCY
     if (BWAPI::Broodwar->getFrameCount() % COLLISION_HEATMAP_FREQUENCY == 0)
     {
         Players::grid(BWAPI::Broodwar->self()).dumpCollisionHeatmapIfChanged("Collision");
     }
 #endif
-#ifdef GROUND_THREAT_HEATMAP_FREQUENCY
+#if GROUND_THREAT_HEATMAP_FREQUENCY
     if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_HEATMAP_FREQUENCY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpGroundThreatHeatmapIfChanged("GroundThreat");
     }
 #endif
-#ifdef AIR_THREAT_HEATMAP_FREQUENCY
+#if AIR_THREAT_HEATMAP_FREQUENCY
     if (BWAPI::Broodwar->getFrameCount() % AIR_THREAT_HEATMAP_FREQUENCY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpAirThreatHeatmapIfChanged("AirThreat");
     }
 #endif
-#ifdef DETECTION_HEATMAP_FREQUENCY
+#if DETECTION_HEATMAP_FREQUENCY
     if (BWAPI::Broodwar->getFrameCount() % DETECTION_HEATMAP_FREQUENCY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpDetectionHeatmapIfChanged("Detection");
     }
 #endif
-#ifdef VISIBILITY_HEATMAP_FREQUENCY
+#if VISIBILITY_HEATMAP_FREQUENCY
     if (BWAPI::Broodwar->getFrameCount() % VISIBILITY_HEATMAP_FREQUENCY == 0)
     {
         Map::dumpVisibilityHeatmap();
