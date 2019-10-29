@@ -25,32 +25,17 @@ void TakeExpansion::update()
             return;
         }
 
-        Workers::reserveWorker(builder);
-    }
-
-    // For now, we just hand off control to the builder when we get close enough
-    // TODO: Support escorting the worker, fortifying the expansion immediately
-
-    auto depotCenter = BWAPI::Position(depotPosition) + BWAPI::Position(64, 48);
-
-    int dist = Geo::EdgeToEdgeDistance(builder->getType(), builder->getPosition(), BWAPI::UnitTypes::Protoss_Nexus, depotCenter);
-    if (dist < 64)
-    {
         Builder::build(BWAPI::UnitTypes::Protoss_Nexus, depotPosition, builder);
-        status.complete = true;
+
+        // TODO: Support escorting the worker
     }
 
-    Units::getMine(builder).moveTo(depotCenter);
-}
+    // Treat the play as complete when the nexus has been created
+    auto pendingBuilding = Builder::pendingHere(depotPosition);
+    if (pendingBuilding && pendingBuilding->isConstructionStarted())
+    {
+        status.complete = true;
 
-void TakeExpansion::addMineralReservations(std::vector<std::pair<int, int>> &mineralReservations)
-{
-    if (!builder) return;
-
-    int travelTime =
-            PathFinding::ExpectedTravelTime(builder->getPosition(),
-                                            BWAPI::Position(depotPosition) + BWAPI::Position(64, 48),
-                                            builder->getType(),
-                                            PathFinding::PathFindingOptions::UseNearestBWEMArea);
-    mineralReservations.emplace_back(std::make_pair(BWAPI::UnitTypes::Protoss_Nexus.mineralPrice(), travelTime));
+        // TODO: Support fortifying the expansion immediately
+    }
 }

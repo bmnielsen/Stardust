@@ -12,8 +12,6 @@ public:
 
     void update() override;
 
-    void addMineralReservations(std::vector<std::pair<int, int>> &mineralReservations) override;
-
 private:
     BWAPI::TilePosition depotPosition;
     BWAPI::Unit builder;
