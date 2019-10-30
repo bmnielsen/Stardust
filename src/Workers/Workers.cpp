@@ -614,6 +614,30 @@ namespace Workers
         return false;
     }
 
+    BWAPI::Unit getClosestReassignableWorker(BWAPI::Position position, int *bestTravelTime)
+    {
+        int bestTime = INT_MAX;
+        BWAPI::Unit bestWorker = nullptr;
+        for (auto &unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (!isAvailableForReassignment(unit)) continue;
+
+            int travelTime =
+                    PathFinding::ExpectedTravelTime(unit->getPosition(),
+                                                    position,
+                                                    unit->getType(),
+                                                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            if (travelTime < bestTime)
+            {
+                bestTime = travelTime;
+                bestWorker = unit;
+            }
+        }
+
+        if (bestTravelTime) *bestTravelTime = bestTime;
+        return bestWorker;
+    }
+
     void reserveWorker(BWAPI::Unit unit)
     {
         if (!unit || !unit->exists() || !unit->getType().isWorker() || !unit->isCompleted()) return;

@@ -12,8 +12,10 @@ namespace Workers
 
     void issueOrders();
 
-    // Whether the given worker unit can currently be reassigned to build something
+    // Whether the given worker unit can currently be reassigned to non-gathering duties
     bool isAvailableForReassignment(BWAPI::Unit unit);
+
+    BWAPI::Unit getClosestReassignableWorker(BWAPI::Position position, int *bestTravelTime = nullptr);
 
     void reserveWorker(BWAPI::Unit unit);
 

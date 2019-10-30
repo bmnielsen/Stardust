@@ -158,22 +158,7 @@ namespace Builder
 
         // First get the closest worker currently available for reassignment
         int bestTravelTime = INT_MAX;
-        BWAPI::Unit bestWorker = nullptr;
-        for (auto &unit : BWAPI::Broodwar->self()->getUnits())
-        {
-            if (!Workers::isAvailableForReassignment(unit)) continue;
-
-            int travelTime =
-                    PathFinding::ExpectedTravelTime(unit->getPosition(),
-                                                    buildPosition,
-                                                    unit->getType(),
-                                                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
-            if (travelTime < bestTravelTime)
-            {
-                bestTravelTime = travelTime;
-                bestWorker = unit;
-            }
-        }
+        BWAPI::Unit bestWorker = Workers::getClosestReassignableWorker(buildPosition, &bestTravelTime);
 
         // Next see if any existing builder will be finished in time to reach the desired position faster
         for (auto &builderAndQueue : builderQueues)
