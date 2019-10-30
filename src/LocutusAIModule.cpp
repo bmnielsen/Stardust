@@ -45,6 +45,53 @@ Tasks:
 #include "Bullets.h"
 #include "Players.h"
 
+namespace
+{
+    void handleUnitDiscover(BWAPI::Unit unit)
+    {
+        BuildingPlacement::onUnitDiscover(unit);
+        Map::onUnitDiscover(unit);
+    }
+
+    void handleUnitCreate(BWAPI::Unit unit)
+    {
+        BuildingPlacement::onUnitCreate(unit);
+
+        if (unit->getPlayer() == BWAPI::Broodwar->self())
+        {
+            Log::Get() << "Unit created: " << unit->getType() << " @ " << unit->getTilePosition();
+        }
+    }
+
+    void handleUnitDestroy(BWAPI::Unit unit)
+    {
+        Map::onUnitDestroy(unit);
+        BuildingPlacement::onUnitDestroy(unit);
+        Units::onUnitDestroy(unit);
+        Workers::onUnitDestroy(unit);
+
+        if (unit->getPlayer() == BWAPI::Broodwar->self())
+        {
+            Log::Get() << "Unit lost: " << unit->getType() << " @ " << unit->getTilePosition();
+        }
+    }
+
+    void handleUnitMorph(BWAPI::Unit unit)
+    {
+        BuildingPlacement::onUnitMorph(unit);
+
+        if (unit->getPlayer() == BWAPI::Broodwar->self() && unit->getType().isRefinery())
+        {
+            Log::Get() << "Unit created: " << unit->getType() << " @ " << unit->getTilePosition();
+        }
+    }
+
+    void handleUnitRenegade(BWAPI::Unit unit)
+    {
+        Workers::onUnitRenegade(unit);
+    }
+}
+
 void LocutusAIModule::onStart()
 {
     Log::SetDebug(true);
@@ -94,6 +141,32 @@ void LocutusAIModule::onFrame()
     }
 
     Timer::start("Frame");
+
+    // We handle events explicitly instead of through the event handlers so we can time them
+    for (auto &event : BWAPI::Broodwar->getEvents())
+    {
+        switch (event.getType())
+        {
+            case BWAPI::EventType::UnitDiscover:
+                handleUnitDiscover(event.getUnit());
+                break;
+            case BWAPI::EventType::UnitCreate:
+                handleUnitCreate(event.getUnit());
+                break;
+            case BWAPI::EventType::UnitDestroy:
+                handleUnitDestroy(event.getUnit());
+                break;
+            case BWAPI::EventType::UnitMorph:
+                handleUnitMorph(event.getUnit());
+                break;
+            case BWAPI::EventType::UnitRenegade:
+                handleUnitRenegade(event.getUnit());
+                break;
+            default:
+                break;
+        }
+    }
+    Timer::checkpoint("Events");
 
     // Update general information things
     Players::update();
@@ -183,82 +256,58 @@ void LocutusAIModule::onFrame()
     Timer::stop();
 }
 
-void LocutusAIModule::onSendText(std::string text)
+void LocutusAIModule::onSendText(std::string)
 {
 }
 
-void LocutusAIModule::onReceiveText(BWAPI::Player player, std::string text)
+void LocutusAIModule::onReceiveText(BWAPI::Player, std::string)
 {
 }
 
-void LocutusAIModule::onPlayerLeft(BWAPI::Player player)
+void LocutusAIModule::onPlayerLeft(BWAPI::Player)
 {
 }
 
-void LocutusAIModule::onNukeDetect(BWAPI::Position target)
+void LocutusAIModule::onNukeDetect(BWAPI::Position)
 {
 }
 
-void LocutusAIModule::onUnitDiscover(BWAPI::Unit unit)
-{
-    BuildingPlacement::onUnitDiscover(unit);
-    Map::onUnitDiscover(unit);
-}
-
-void LocutusAIModule::onUnitEvade(BWAPI::Unit unit)
+void LocutusAIModule::onUnitDiscover(BWAPI::Unit)
 {
 }
 
-void LocutusAIModule::onUnitShow(BWAPI::Unit unit)
+void LocutusAIModule::onUnitEvade(BWAPI::Unit)
 {
 }
 
-void LocutusAIModule::onUnitHide(BWAPI::Unit unit)
+void LocutusAIModule::onUnitShow(BWAPI::Unit)
 {
 }
 
-void LocutusAIModule::onUnitCreate(BWAPI::Unit unit)
-{
-    BuildingPlacement::onUnitCreate(unit);
-
-    if (unit->getPlayer() == BWAPI::Broodwar->self())
-    {
-        Log::Get() << "Unit created: " << unit->getType() << " @ " << unit->getTilePosition();
-    }
-}
-
-void LocutusAIModule::onUnitDestroy(BWAPI::Unit unit)
-{
-    Map::onUnitDestroy(unit);
-    BuildingPlacement::onUnitDestroy(unit);
-    Units::onUnitDestroy(unit);
-    Workers::onUnitDestroy(unit);
-
-    if (unit->getPlayer() == BWAPI::Broodwar->self())
-    {
-        Log::Get() << "Unit lost: " << unit->getType() << " @ " << unit->getTilePosition();
-    }
-}
-
-void LocutusAIModule::onUnitMorph(BWAPI::Unit unit)
-{
-    BuildingPlacement::onUnitMorph(unit);
-
-    if (unit->getPlayer() == BWAPI::Broodwar->self() && unit->getType().isRefinery())
-    {
-        Log::Get() << "Unit created: " << unit->getType() << " @ " << unit->getTilePosition();
-    }
-}
-
-void LocutusAIModule::onUnitRenegade(BWAPI::Unit unit)
-{
-    Workers::onUnitRenegade(unit);
-}
-
-void LocutusAIModule::onSaveGame(std::string gameName)
+void LocutusAIModule::onUnitHide(BWAPI::Unit)
 {
 }
 
-void LocutusAIModule::onUnitComplete(BWAPI::Unit unit)
+void LocutusAIModule::onUnitCreate(BWAPI::Unit)
+{
+}
+
+void LocutusAIModule::onUnitDestroy(BWAPI::Unit)
+{
+}
+
+void LocutusAIModule::onUnitMorph(BWAPI::Unit)
+{
+}
+
+void LocutusAIModule::onUnitRenegade(BWAPI::Unit)
+{
+}
+
+void LocutusAIModule::onSaveGame(std::string)
+{
+}
+
+void LocutusAIModule::onUnitComplete(BWAPI::Unit)
 {
 }
