@@ -15,18 +15,6 @@ MyWorker::MyWorker(BWAPI::Unit unit)
 {
 }
 
-void MyWorker::typeSpecificUpdate()
-{
-    // If a worker is stuck, order it to move again
-    // This will often happen when a worker can't get out of the mineral line to build something
-    if (unit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Move &&
-        unit->getLastCommand().getTargetPosition().isValid() &&
-        (unit->getOrder() == BWAPI::Orders::PlayerGuard || !unit->isMoving()))
-    {
-        move(unit->getLastCommand().getTargetPosition());
-    }
-}
-
 void MyWorker::resetMoveData()
 {
     MyUnit::resetMoveData();
@@ -53,7 +41,7 @@ bool MyWorker::mineralWalk(const Choke *choke)
         // Determine which of the two areas accessible by the choke we are moving towards.
         // We do this by looking at the waypoint after the next one and seeing which area they share,
         // or by looking at the area of the target position if there are no more waypoints.
-        if (waypoints.size() == 1)
+        if (chokePath.size() == 1)
         {
             mineralWalkingTargetArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(targetPosition));
         }
@@ -61,8 +49,8 @@ bool MyWorker::mineralWalk(const Choke *choke)
         {
             mineralWalkingTargetArea = nextWaypoint->GetAreas().second;
 
-            if (nextWaypoint->GetAreas().first == waypoints[1]->GetAreas().first ||
-                nextWaypoint->GetAreas().first == waypoints[1]->GetAreas().second)
+            if (nextWaypoint->GetAreas().first == chokePath[1]->GetAreas().first ||
+                nextWaypoint->GetAreas().first == chokePath[1]->GetAreas().second)
             {
                 mineralWalkingTargetArea = nextWaypoint->GetAreas().first;
             }
@@ -88,14 +76,17 @@ bool MyWorker::mineralWalk(const Choke *choke)
     if ((mineralWalkingPatch && unit->getDistance(mineralWalkingPatch) < 32) ||
         (!mineralWalkingPatch &&
          bwemMap.GetArea(unit->getTilePosition()) == mineralWalkingTargetArea &&
-         unit->getDistance(BWAPI::Position(waypoints[0]->Center())) > 100))
+         unit->getDistance(BWAPI::Position(chokePath[0]->Center())) > 100))
     {
         mineralWalkingPatch = nullptr;
         mineralWalkingTargetArea = nullptr;
         mineralWalkingStartPosition = BWAPI::Positions::Invalid;
 
+        // Remove the choke we just mineral walk and reset the grid
+        chokePath.pop_front();
+        resetGrid();
+
         // Move to the next waypoint
-        waypoints.pop_front();
         moveToNextWaypoint();
         return true;
     }
@@ -118,7 +109,7 @@ bool MyWorker::mineralWalk(const Choke *choke)
                     unit->getType(),
                     PathFinding::PathFindingOptions::UseNearestBWEMArea))
             {
-                if (pathChoke == *waypoints.begin())
+                if (pathChoke == *chokePath.begin())
                 {
                     // The path went through the choke, let's use this field
                     rightClick(staticNeutral);
@@ -131,12 +122,7 @@ bool MyWorker::mineralWalk(const Choke *choke)
         // We couldn't find any suitable visible mineral patch, warn and abort
         Log::Debug() << "Error: Unable to find mineral patch to use for mineral walking";
 
-        waypoints.clear();
-        targetPosition = BWAPI::Positions::Invalid;
-        currentlyMovingTowards = BWAPI::Positions::Invalid;
-        mineralWalkingPatch = nullptr;
-        mineralWalkingTargetArea = nullptr;
-        mineralWalkingStartPosition = BWAPI::Positions::Invalid;
+        resetMoveData();
         return true;
     }
 
@@ -156,13 +142,7 @@ bool MyWorker::mineralWalk(const Choke *choke)
     }
 
     Log::Debug() << "Error: Unable to find tile to mineral walk from";
-
-    waypoints.clear();
-    targetPosition = BWAPI::Positions::Invalid;
-    currentlyMovingTowards = BWAPI::Positions::Invalid;
-    mineralWalkingPatch = nullptr;
-    mineralWalkingTargetArea = nullptr;
-    mineralWalkingStartPosition = BWAPI::Positions::Invalid;
+    resetMoveData();
 
     // This code is still used for Plasma
     // TODO before CIG next year: migrate Plasma to set appropriate start positions for each choke

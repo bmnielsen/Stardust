@@ -10,6 +10,8 @@ MyUnit::MyUnit(BWAPI::Unit unit)
         , issuedOrderThisFrame(false)
         , targetPosition(BWAPI::Positions::Invalid)
         , currentlyMovingTowards(BWAPI::Positions::Invalid)
+        , grid(nullptr)
+        , gridNode(nullptr)
         , lastMoveFrame(0)
 {
 }

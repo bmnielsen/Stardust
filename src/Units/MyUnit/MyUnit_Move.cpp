@@ -6,6 +6,12 @@
 namespace
 {
     auto &bwemMap = BWEM::Map::Instance();
+
+    const NavigationGrid::GridNode *nextNode(const NavigationGrid::GridNode *currentNode)
+    {
+        if (!currentNode || !currentNode->nextNode || !currentNode->nextNode->nextNode || !currentNode->nextNode->nextNode->nextNode) return nullptr;
+        return currentNode->nextNode->nextNode->nextNode;
+    }
 }
 
 void MyUnit::issueMoveOrders()
@@ -16,7 +22,7 @@ void MyUnit::issueMoveOrders()
     unstickMoveUnit();
 }
 
-bool MyUnit::moveTo(BWAPI::Position position, bool avoidNarrowChokes)
+bool MyUnit::moveTo(BWAPI::Position position)
 {
     // Fliers just move to the target
     if (unit->isFlying())
@@ -35,55 +41,48 @@ bool MyUnit::moveTo(BWAPI::Position position, bool avoidNarrowChokes)
 
     // Clear any existing waypoints
     resetMoveData();
-
-    // Get an optimized path, if one is available
-    // Otherwise we fall back to navigating with BWEM chokepoints
-    optimizedPath = PathFinding::optimizedPath(unit->getPosition(), position);
-    if (optimizedPath)
-    {
-        // If we are very close, just move directly
-        if (optimizedPath->cost < 30)
-        {
-            move(position);
-            return true;
-        }
-
-#if DEBUG_UNIT_ORDERS
-        CherryVis::log(unit) << "Order: Starting grid-based move to " << BWAPI::WalkPosition(position);
-        CherryVis::log(unit) << "Order: Path node set to (" << optimizedPath->x << "," << optimizedPath->y << ")";
-#endif
-
-        targetPosition = position;
-        moveToNextWaypoint();
-        return true;
-    }
-
-    // If the unit is already in the same area, or the target doesn't have an area, just move it directly
-    auto targetArea = bwemMap.GetArea(BWAPI::WalkPosition(position));
-    if (!targetArea || targetArea == bwemMap.GetArea(BWAPI::WalkPosition(unit->getPosition())))
-    {
-        move(position);
-        return true;
-    }
+    targetPosition = position;
 
     // Get the BWEM path
-    // TODO: Consider narrow chokes
     auto &path = PathFinding::GetChokePointPath(
             unit->getPosition(),
             position,
             unit->getType(),
             PathFinding::PathFindingOptions::UseNearestBWEMArea);
-    if (path.empty()) return false;
-
     for (const BWEM::ChokePoint *chokepoint : path)
     {
-        waypoints.push_back(chokepoint);
+        chokePath.push_back(chokepoint);
     }
 
-    // Start moving
+    // Attempt to get an appropriate navigation grid
+    resetGrid();
+
+    // Validate if we can perform the move and issue orders for trivial moves
+    if ((!gridNode || !nextNode(gridNode)) && chokePath.empty())
+    {
+        // If the unit is in the same area as the target position, move to it directly
+        auto unitArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(unit->getPosition()));
+        auto targetArea = bwemMap.GetArea(BWAPI::WalkPosition(targetPosition));
+        if (!targetArea || targetArea == unitArea)
+        {
+            move(position);
+            return true;
+        }
+
+        // Otherwise we can't make the move - we don't have a choke path or a grid
+        targetPosition = BWAPI::Positions::Invalid;
+        return false;
+    }
+
+    // Start the move
 #if DEBUG_UNIT_ORDERS
-    CherryVis::log(unit) << "Order: Starting waypoint-based move to " << BWAPI::WalkPosition(position);
+    std::ostringstream log;
+    log << "Order: Starting move to " << BWAPI::WalkPosition(position);
+    if (grid) log << "; grid target " << grid->goal;
+    if (gridNode) log << "; initial grid node " << BWAPI::TilePosition(gridNode->x, gridNode->y);
+    CherryVis::log(unit) << log.str();
 #endif
+
     targetPosition = position;
     moveToNextWaypoint();
     return true;
@@ -91,16 +90,131 @@ bool MyUnit::moveTo(BWAPI::Position position, bool avoidNarrowChokes)
 
 void MyUnit::resetMoveData()
 {
-    waypoints.clear();
     targetPosition = BWAPI::Positions::Invalid;
     currentlyMovingTowards = BWAPI::Positions::Invalid;
-    optimizedPath = nullptr;
+    grid = nullptr;
+    chokePath.clear();
+    gridNode = nullptr;
+}
+
+void MyUnit::moveToNextWaypoint()
+{
+    // Current grid node is close to the target
+    if (gridNode && gridNode->cost <= 30)
+    {
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(unit) << "Order: Reached end of grid " << grid->goal;
+#endif
+
+        grid = nullptr;
+        gridNode = nullptr;
+
+        // Short-circuit if the unit is in the target area
+        // This means we are close to the destination and just need to do a simple move from here
+        // State will be reset after latency frames to avoid resetting the order later
+        auto unitArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(unit->getPosition()));
+        auto targetArea = bwemMap.GetArea(BWAPI::WalkPosition(targetPosition));
+        if (!targetArea || targetArea == unitArea)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(unit) << "Order: Moving to target position " << BWAPI::WalkPosition(targetPosition);
+#endif
+
+            move(targetPosition);
+            lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+            return;
+        }
+
+        // The unit is not in the target area, so we were using the grid to navigate to a choke
+        // Pop the choke path until it fits the current position and fall through to choke-based navigation
+        updateChokePath(unitArea);
+    }
+
+    // Navigate using the current grid node, if we have it
+    if (gridNode)
+    {
+        if (auto next = nextNode(gridNode))
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(unit) << "Order: Moving towards next grid node " << BWAPI::TilePosition(next->x, next->y);
+#endif
+
+            currentlyMovingTowards = BWAPI::Position(
+                    (next->x << 5U) + 16,
+                    (next->y << 5U) + 16);
+            move(currentlyMovingTowards);
+            lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+
+            return;
+        }
+
+        // We have a valid grid, but we're not in a connected grid node
+        // Ensure the choke path is updated and fall through
+        // We will pick up the grid path when we can
+        updateChokePath(bwemMap.GetNearestArea(BWAPI::WalkPosition(unit->getPosition())));
+    }
+
+    // If there is no choke path, and we couldn't navigate using the grid, just move to the position
+    if (chokePath.empty())
+    {
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(unit) << "Order: No path; moving to target position " << BWAPI::WalkPosition(targetPosition);
+#endif
+
+        move(targetPosition);
+        lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+        return;
+    }
+
+    const BWEM::ChokePoint *nextWaypoint = *chokePath.begin();
+    auto choke = Map::choke(nextWaypoint);
+
+    // Check if the next waypoint needs to be mineral walked
+    if (mineralWalk(choke))
+    {
+        return;
+    }
+
+    // Determine the position on the choke to move towards
+
+    // If it is a narrow ramp, move towards the point with highest elevation
+    // We do this to make sure we explore the higher elevation part of the ramp before bugging out if it is blocked
+    if (choke->width < 96 && choke->isRamp)
+    {
+        currentlyMovingTowards = BWAPI::Position(choke->highElevationTile) + BWAPI::Position(16, 16);
+    }
+    else
+    {
+        // Get the next position after this waypoint
+        BWAPI::Position next = targetPosition;
+        if (chokePath.size() > 1) next = BWAPI::Position(chokePath[1]->Center());
+
+        // Move to the part of the choke closest to the next position
+        int bestDist = INT_MAX;
+        for (auto walkPosition : nextWaypoint->Geometry())
+        {
+            BWAPI::Position pos(walkPosition);
+            int dist = pos.getApproxDistance(next);
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                currentlyMovingTowards = pos;
+            }
+        }
+    }
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(unit) << "Order: Moving towards next choke @ " << BWAPI::WalkPosition(currentlyMovingTowards);
+#endif
+
+    move(currentlyMovingTowards);
+    lastMoveFrame = BWAPI::Broodwar->getFrameCount();
 }
 
 void MyUnit::updateMoveWaypoints()
 {
     // Reset after latency frames when we're done navigating
-    if (!optimizedPath && waypoints.empty())
+    if (!gridNode && chokePath.empty())
     {
         if (BWAPI::Broodwar->getFrameCount() - lastMoveFrame > BWAPI::Broodwar->getLatencyFrames())
         {
@@ -126,19 +240,35 @@ void MyUnit::updateMoveWaypoints()
         return;
     }
 
-    // Logic for when we are navigating along an optimized path
-    if (optimizedPath)
+    // We have a grid we can use for navigation
+    if (grid)
     {
-        // Wait until we are out of the current node
-        if (unit->getTilePosition().x == optimizedPath->x && unit->getTilePosition().y == optimizedPath->y) return;
+        auto inSameNode = unit->getTilePosition().x == gridNode->x && unit->getTilePosition().y == gridNode->y;
+        auto currentNodeValid = nextNode(gridNode) != nullptr;
 
-        // Advance the node
-        optimizedPath = PathFinding::optimizedPath(unit->getPosition(), targetPosition);
+        // If we are still in the same node, and the node is valid, then we just wait until the unit gets to a new node
+        if (inSameNode && currentNodeValid)
+        {
+            return;
+        }
+
+        if (!inSameNode)
+        {
+            gridNode = &(*grid)[unit->getTilePosition()];
+
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(unit) << "Order: Path node set to (" << optimizedPath->x << "," << optimizedPath->y << ")";
+            CherryVis::log(unit) << "Order: Path node set to " << BWAPI::TilePosition(gridNode->x, gridNode->y);
 #endif
-        moveToNextWaypoint();
-        return;
+
+            // If we were navigating using the previous node, or can navigate using the new node, update the waypoint
+            if (currentNodeValid || nextNode(gridNode))
+            {
+                moveToNextWaypoint();
+                return;
+            }
+        }
+
+        // In all other cases fall through - we do not have a valid grid node so we are navigating using choke points
     }
 
     // Wait until the unit is close enough to the current target
@@ -146,98 +276,78 @@ void MyUnit::updateMoveWaypoints()
 
     // If the current target is a narrow ramp, wait until we can see the high elevation tile
     // We want to make sure we go up the ramp far enough to see anything potentially blocking the ramp
-    auto choke = Map::choke(*waypoints.begin());
+    auto choke = Map::choke(*chokePath.begin());
     if (choke->width < 96 && choke->isRamp && !BWAPI::Broodwar->isVisible(choke->highElevationTile))
         return;
 
     // Move to the next waypoint
-    waypoints.pop_front();
+    chokePath.pop_front();
     moveToNextWaypoint();
 }
 
-void MyUnit::moveToNextWaypoint()
+void MyUnit::resetGrid()
 {
-    // If we are close to the target or there are no more waypoints, move to the target position
-    // State will be reset after latency frames to avoid resetting the order later
-    if ((optimizedPath && optimizedPath->cost < 30) || (!optimizedPath && waypoints.empty()))
+    // If there is a choke in the BWEM path requiring mineral walking, try to get a navigation grid to that choke
+    Choke *mineralWalkingChoke = nullptr;
+    if (unit->getType().isWorker() && Map::mapSpecificOverride()->hasMineralWalking())
     {
-#if DEBUG_UNIT_ORDERS
-        CherryVis::log(unit) << "Order: Finished waypoint navigation";
-#endif
-        move(targetPosition);
-        lastMoveFrame = BWAPI::Broodwar->getFrameCount();
-        return;
-    }
-
-    // If we are moving on an optimized path, we move towards the third node (approximately three tiles ahead)
-    if (optimizedPath)
-    {
-        if (optimizedPath->nextNode && optimizedPath->nextNode->nextNode && optimizedPath->nextNode->nextNode->nextNode)
+        for (const BWEM::ChokePoint *chokepoint : chokePath)
         {
-            currentlyMovingTowards = BWAPI::Position(
-                    (optimizedPath->nextNode->nextNode->nextNode->x << 5) + 16,
-                    (optimizedPath->nextNode->nextNode->nextNode->y << 5) + 16);
-            move(currentlyMovingTowards);
-            lastMoveFrame = BWAPI::Broodwar->getFrameCount();
-
-#if DEBUG_UNIT_ORDERS
-            auto one = BWAPI::Position((optimizedPath->x << 5) + 16, (optimizedPath->y << 5) + 16);
-            auto two = BWAPI::Position((optimizedPath->nextNode->x << 5) + 16, (optimizedPath->nextNode->y << 5) + 16);
-            auto three = BWAPI::Position((optimizedPath->nextNode->nextNode->x << 5) + 16, (optimizedPath->nextNode->nextNode->y << 5) + 16);
-            CherryVis::log(unit) << "Order: Moving through "
-                                 << BWAPI::WalkPosition(one) << "[" << optimizedPath->cost << "],"
-                                 << BWAPI::WalkPosition(two) << "[" << optimizedPath->nextNode->cost << "],"
-                                 << BWAPI::WalkPosition(three) << "[" << optimizedPath->nextNode->nextNode->cost << "] to "
-                                 << BWAPI::WalkPosition(currentlyMovingTowards) << "[" << optimizedPath->nextNode->nextNode->nextNode->cost << "]";
-#endif
-        }
-
-        return;
-    }
-
-    const BWEM::ChokePoint *nextWaypoint = *waypoints.begin();
-    auto choke = Map::choke(nextWaypoint);
-
-    // Check if the next waypoint needs to be mineral walked
-    if (mineralWalk(choke))
-    {
-        return;
-    }
-
-    // Determine the position on the choke to move towards
-
-    // If it is a narrow ramp, move towards the point with highest elevation
-    // We do this to make sure we explore the higher elevation part of the ramp before bugging out if it is blocked
-    if (choke->width < 96 && choke->isRamp)
-    {
-        currentlyMovingTowards = BWAPI::Position(choke->highElevationTile) + BWAPI::Position(16, 16);
-    }
-    else
-    {
-        // Get the next position after this waypoint
-        BWAPI::Position next = targetPosition;
-        if (waypoints.size() > 1) next = BWAPI::Position(waypoints[1]->Center());
-
-        // Move to the part of the choke closest to the next position
-        int bestDist = INT_MAX;
-        for (auto walkPosition : nextWaypoint->Geometry())
-        {
-            BWAPI::Position pos(walkPosition);
-            int dist = pos.getApproxDistance(next);
-            if (dist < bestDist)
+            auto choke = Map::choke(chokepoint);
+            if (choke->requiresMineralWalk)
             {
-                bestDist = dist;
-                currentlyMovingTowards = pos;
+                mineralWalkingChoke = choke;
+                break;
             }
         }
     }
 
-    move(currentlyMovingTowards);
-    lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+    if (mineralWalkingChoke)
+    {
+        grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(mineralWalkingChoke->Center()));
+    }
+    else
+    {
+        // We have ruled out mineral walking, so try to get a grid to the target
+        grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
 
-#if DEBUG_UNIT_ORDERS
-    CherryVis::log(unit) << "Order: Moving towards next waypoint @ " << BWAPI::WalkPosition(currentlyMovingTowards);
-#endif
+        // If that failed, try to get a grid to the furthest choke we can
+        for (auto it = chokePath.rbegin(); it != chokePath.rend(); it++)
+        {
+            grid = PathFinding::getNavigationGrid(BWAPI::TilePosition((*it)->Center()));
+            if (grid) break;
+        }
+    }
+
+    // If we have a grid, get the first grid node
+    if (grid) gridNode = &(*grid)[unit->getPosition()];
+}
+
+void MyUnit::updateChokePath(const BWEM::Area *unitArea)
+{
+    while (!chokePath.empty())
+    {
+        auto nextChoke = *chokePath.begin();
+
+        // If the choke does not link the area we are currently in, pop it and continue
+        if (nextChoke->GetAreas().first != unitArea && nextChoke->GetAreas().second != unitArea)
+        {
+            chokePath.pop_front();
+            continue;
+        }
+
+        // If the choke is the only one left, break now
+        if (chokePath.size() == 1) return;
+
+        // If the next choke also includes the area we are currently in, then it should be next
+        auto secondChoke = chokePath[1];
+        if (secondChoke->GetAreas().first == unitArea || secondChoke->GetAreas().second == unitArea)
+        {
+            chokePath.pop_front();
+        }
+
+        return;
+    }
 }
 
 void MyUnit::unstickMoveUnit()
@@ -267,29 +377,3 @@ void MyUnit::unstickMoveUnit()
         move(currentCommand.getTargetPosition(), true);
     }
 }
-
-int MyUnit::distanceToMoveTarget() const
-{
-    // If we're currently doing a move with waypoints, sum up the total ground distance
-    if (targetPosition.isValid())
-    {
-        BWAPI::Position current = unit->getPosition();
-        int dist = 0;
-        for (auto waypoint : waypoints)
-        {
-            dist += current.getApproxDistance(BWAPI::Position(waypoint->Center()));
-            current = BWAPI::Position(waypoint->Center());
-        }
-        return dist + current.getApproxDistance(targetPosition);
-    }
-
-    // Otherwise, if the unit has a move order, compute the simple air distance
-    // Usually this means the unit is already in the same area as the target (or is a flier)
-    BWAPI::UnitCommand currentCommand(unit->getLastCommand());
-    if (currentCommand.getType() == BWAPI::UnitCommandTypes::Move)
-        return unit->getDistance(currentCommand.getTargetPosition());
-
-    // The unit is not moving
-    return INT_MAX;
-}
-

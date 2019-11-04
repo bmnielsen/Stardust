@@ -17,9 +17,7 @@ public:
 
     void issueMoveOrders();
 
-    bool moveTo(BWAPI::Position position, bool avoidNarrowChokes = false);
-
-    int distanceToMoveTarget() const;
+    bool moveTo(BWAPI::Position position);
 
     virtual void attackUnit(BWAPI::Unit target);
 
@@ -48,19 +46,24 @@ protected:
 
     BWAPI::Position targetPosition;
     BWAPI::Position currentlyMovingTowards;
-    const NavigationGrid::GridNode *optimizedPath;
-    std::deque<const BWEM::ChokePoint *> waypoints;
+    NavigationGrid *grid;
+    std::deque<const BWEM::ChokePoint *> chokePath;
+    const NavigationGrid::GridNode *gridNode;
     int lastMoveFrame;
 
     virtual void typeSpecificUpdate() {}
 
     virtual void resetMoveData();
 
-    void updateMoveWaypoints();
-
     virtual void moveToNextWaypoint();
 
+    void updateMoveWaypoints();
+
     void unstickMoveUnit();
+
+    void resetGrid();
+
+    void updateChokePath(const BWEM::Area *unitArea);
 
     virtual bool mineralWalk(const Choke *choke) { return false; }
 };

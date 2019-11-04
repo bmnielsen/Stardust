@@ -8,8 +8,6 @@ public:
     explicit MyWorker(BWAPI::Unit unit);
 
 protected:
-    void typeSpecificUpdate() override;
-
     void resetMoveData() override;
 
     bool mineralWalk(const Choke *choke) override;

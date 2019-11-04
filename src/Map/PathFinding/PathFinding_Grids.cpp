@@ -29,14 +29,13 @@ namespace PathFinding
         }
     }
 
-    const NavigationGrid::GridNode *optimizedPath(BWAPI::Position start, BWAPI::Position end)
+    NavigationGrid *getNavigationGrid(BWAPI::TilePosition goal)
     {
         for (auto &goalAndNavigationGrid : goalToNavigationGrid)
         {
-            if (goalAndNavigationGrid.first.getApproxDistance(BWAPI::TilePosition(end)) < 5)
+            if (goalAndNavigationGrid.first.getApproxDistance(goal) < 5)
             {
-                goalAndNavigationGrid.second.update();
-                return &goalAndNavigationGrid.second[start];
+                return &goalAndNavigationGrid.second;
             }
         }
 

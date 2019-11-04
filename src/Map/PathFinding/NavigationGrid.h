@@ -27,6 +27,8 @@ public:
         }
     };
 
+    BWAPI::TilePosition goal;
+
     explicit NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize = BWAPI::TilePositions::Invalid);
 
     GridNode &operator[](BWAPI::Position pos);
@@ -48,7 +50,6 @@ public:
     void removeBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size);
 
 private:
-    BWAPI::TilePosition goal;
     std::vector<GridNode> grid;
     std::priority_queue<QueueItem, std::vector<QueueItem>, QueueItemComparator> nodeQueue;
 

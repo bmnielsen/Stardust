@@ -12,7 +12,7 @@ namespace Timer
         const int DEBUG_CUTOFF = 10000;
 #else
         const int LOG_CUTOFF = 35;
-        const int DEBUG_CUTOFF = 10;
+        const int DEBUG_CUTOFF = 25;
 #endif
 
         std::string overallLabel;
