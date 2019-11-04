@@ -398,6 +398,32 @@ namespace Producer
             }
         }
 
+        // For buildings, whether this building can produce an item at the given location
+        bool canProduceFrom(const Type &type, const ProductionLocation &location, const ProductionItem &producerItem)
+        {
+            // For now we just check the case where we want to produce a worker from a specific base
+            auto unitType = std::get_if<BWAPI::UnitType>(&type);
+            if (!unitType || !unitType->isWorker()) return true;
+
+            auto base = std::get_if<Base *>(&location);
+            if (!base) return true;
+
+            return producerItem.buildLocation.tile == (*base)->getTilePosition();
+        }
+
+        // For buildings, whether this building can produce an item at the given location
+        bool canProduceFrom(const Type &type, const ProductionLocation &location, BWAPI::Unit producer)
+        {
+            // For now we just check the case where we want to produce a worker from a specific base
+            auto unitType = std::get_if<BWAPI::UnitType>(&type);
+            if (!unitType || !unitType->isWorker()) return true;
+
+            auto base = std::get_if<Base *>(&location);
+            if (!base) return true;
+
+            return producer->getTilePosition() == (*base)->getTilePosition();
+        }
+
         // Shifts one item in the given set by the given amount
         void shiftOne(ProductionItemSet &items, std::shared_ptr<ProductionItem> item, int delta)
         {
@@ -1373,7 +1399,7 @@ namespace Producer
          */
 
         void handleGoal(Type type,
-                        ProductionLocation location,
+                        const ProductionLocation &location,
                         int countToProduce,
                         int producerLimit,
                         BWAPI::UnitType prerequisite = BWAPI::UnitTypes::None)
@@ -1445,14 +1471,14 @@ namespace Producer
             // Planned producers
             for (auto &item : prerequisiteItems)
             {
-                if (item->is(producerType))
+                if (item->is(producerType) && canProduceFrom(type, location, *item))
                     producers.push_back(std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame)));
             }
 
             // Committed producers
             for (auto &item : committedItems)
             {
-                if (item->is(producerType))
+                if (item->is(producerType) && canProduceFrom(type, location, *item))
                 {
                     if (item->queuedBuilding && item->queuedBuilding->unit)
                     {
@@ -1479,6 +1505,7 @@ namespace Producer
             {
                 if (!unit->exists() || !unit->isCompleted()) continue;
                 if (unit->getType() != producerType) continue;
+                if (!canProduceFrom(type, location, unit)) continue;
 
                 // If we have sent the train command to a producer, but the unit isn't created yet, then reduce the number we need to build
                 // This is not perfect, as it will reduce the count of all production goals targeting this unit type, but it's probably
@@ -1512,6 +1539,14 @@ namespace Producer
                 auto producer = std::make_shared<Producer>(unit, std::max(prerequisitesAvailable, remainingTrainTime + 1));
                 producers.push_back(producer);
                 existingProducers[unit] = producer;
+            }
+
+            // If we at this point have no producers, it means we have added a location restriction that could not be met
+            if (producers.empty())
+            {
+                if (unitType) Log::Get() << "WARNING: No producers for " << *unitType;
+                if (upgradeType) Log::Get() << "WARNING: No producers for " << *upgradeType;
+                return;
             }
 
             // Step 3: Repeatedly commit a unit from the earliest producer available, or a new one if applicable, until we have built enough

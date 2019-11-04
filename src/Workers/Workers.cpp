@@ -655,14 +655,13 @@ namespace Workers
         CherryVis::log(unit->getID()) << "Released from non-mining duties";
     }
 
-    int availableMineralAssignments()
+    int availableMineralAssignments(Base *base)
     {
-        int count = 0;
-
-        for (auto &base : Map::allBases())
+        auto countForBase = [](Base *base)
         {
-            if (base->owner != BWAPI::Broodwar->self()) continue;
-            if (!base->resourceDepot || !base->resourceDepot->exists() || !base->resourceDepot->isCompleted()) continue;
+            int count = 0;
+
+            if (!base->resourceDepot || !base->resourceDepot->exists()) return 0;
 
             for (auto mineralPatch : base->mineralPatches())
             {
@@ -671,6 +670,16 @@ namespace Workers
                 int workers = mineralPatchWorkers[mineralPatch].size();
                 if (workers < 2) count += 2 - workers;
             }
+
+            return count;
+        };
+
+        if (base) return countForBase(base);
+
+        int count = 0;
+        for (auto &myBase : Map::getMyBases())
+        {
+            count += countForBase(myBase);
         }
 
         return count;

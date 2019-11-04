@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common.h"
+#include "Base.h"
 
 namespace Workers
 {
@@ -22,7 +23,7 @@ namespace Workers
     void releaseWorker(BWAPI::Unit unit);
 
     // How many mineral patches are currently available for assignment
-    int availableMineralAssignments();
+    int availableMineralAssignments(Base *base = nullptr);
 
     int availableGasAssignments();
 
