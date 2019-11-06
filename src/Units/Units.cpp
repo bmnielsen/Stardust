@@ -116,6 +116,9 @@ namespace Units
 #if DEBUG_DRAGOON_STATUS
             output = output || unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon;
 #endif
+#if DEBUG_SHUTTLE_STATUS
+            output = output || unit->getType() == BWAPI::UnitTypes::Protoss_Shuttle;
+#endif
 
             if (!output) continue;
 

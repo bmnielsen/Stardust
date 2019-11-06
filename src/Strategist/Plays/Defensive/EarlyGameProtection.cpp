@@ -36,7 +36,8 @@ void EarlyGameProtection::update()
     }
 
     // Otherwise make sure we have two zealots
-    int zealotsNeeded = 2 - squad->getUnits().size(); // TODO: This is not very efficient
+    // TODO: Vary based on information available
+    int zealotsNeeded = 2 - squad->getUnits().size();
     if (zealotsNeeded > 0)
     {
         status.unitRequirements.emplace_back(zealotsNeeded, BWAPI::UnitTypes::Protoss_Zealot, squad->getTargetPosition());
@@ -45,6 +46,7 @@ void EarlyGameProtection::update()
 
 void EarlyGameProtection::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
+    // TODO: Use higher priority in emergencies
     for (auto &unitRequirement : status.unitRequirements)
     {
         if (unitRequirement.count < 1) continue;

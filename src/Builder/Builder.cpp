@@ -158,7 +158,7 @@ namespace Builder
 
         // First get the closest worker currently available for reassignment
         int bestTravelTime = INT_MAX;
-        BWAPI::Unit bestWorker = Workers::getClosestReassignableWorker(buildPosition, &bestTravelTime);
+        BWAPI::Unit bestWorker = Workers::getClosestReassignableWorker(buildPosition, true, &bestTravelTime);
 
         // Next see if any existing builder will be finished in time to reach the desired position faster
         for (auto &builderAndQueue : builderQueues)

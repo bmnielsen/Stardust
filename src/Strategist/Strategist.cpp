@@ -113,7 +113,7 @@ namespace Strategist
                     {
                         // "Reserve" incomplete units if possible
                         auto incompleteUnits = typeToIncompleteUnits.find(unitRequirement.type);
-                        while (incompleteUnits->second > 0 && unitRequirement.count > 0)
+                        while (incompleteUnits != typeToIncompleteUnits.end() && incompleteUnits->second > 0 && unitRequirement.count > 0)
                         {
                             unitRequirement.count--;
                             incompleteUnits->second--;

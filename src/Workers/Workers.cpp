@@ -264,7 +264,7 @@ namespace Workers
             BWAPI::Unit bestWorker = nullptr;
             for (auto worker : BWAPI::Broodwar->self()->getUnits())
             {
-                if (!isAvailableForReassignment(worker)) continue;
+                if (!isAvailableForReassignment(worker, false)) continue;
 
                 for (auto refinery : BWAPI::Broodwar->self()->getUnits())
                 {
@@ -597,7 +597,7 @@ namespace Workers
         }
     }
 
-    bool isAvailableForReassignment(BWAPI::Unit unit)
+    bool isAvailableForReassignment(BWAPI::Unit unit, bool allowCarryMinerals)
     {
         if (!unit || !unit->exists() || !unit->isCompleted() || !unit->getType().isWorker()) return false;
 
@@ -606,6 +606,9 @@ namespace Workers
         if (job == Job::Minerals)
         {
             if (unit->isCarryingGas()) return false;
+            if (!allowCarryMinerals && unit->isCarryingMinerals()) return false;
+
+            // Don't interrupt a worker that is currently mining, but other states are OK
             return (unit->getOrder() == BWAPI::Orders::Move
                     || unit->getOrder() == BWAPI::Orders::MoveToMinerals
                     || unit->getOrder() == BWAPI::Orders::ReturnMinerals);
@@ -614,13 +617,13 @@ namespace Workers
         return false;
     }
 
-    BWAPI::Unit getClosestReassignableWorker(BWAPI::Position position, int *bestTravelTime)
+    BWAPI::Unit getClosestReassignableWorker(BWAPI::Position position, bool allowCarryMinerals, int *bestTravelTime)
     {
         int bestTime = INT_MAX;
         BWAPI::Unit bestWorker = nullptr;
         for (auto &unit : BWAPI::Broodwar->self()->getUnits())
         {
-            if (!isAvailableForReassignment(unit)) continue;
+            if (!isAvailableForReassignment(unit, allowCarryMinerals)) continue;
 
             int travelTime =
                     PathFinding::ExpectedTravelTime(unit->getPosition(),

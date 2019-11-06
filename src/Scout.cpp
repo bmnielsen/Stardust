@@ -38,7 +38,7 @@ namespace Scout
             BWAPI::Unit bestWorker = nullptr;
             for (auto &unit : BWAPI::Broodwar->self()->getUnits())
             {
-                if (!Workers::isAvailableForReassignment(unit)) continue;
+                if (!Workers::isAvailableForReassignment(unit, false)) continue;
 
                 int unitBestTravelTime = INT_MAX;
                 for (auto base : locations)

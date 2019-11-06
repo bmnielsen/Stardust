@@ -16,6 +16,7 @@
 #define DEBUG_PROBE_STATUS true
 #define DEBUG_ZEALOT_STATUS true
 #define DEBUG_DRAGOON_STATUS true
+#define DEBUG_SHUTTLE_STATUS true
 
 // Heatmaps are quite large, so we don't always want to write them every frame
 // These defines configure what frequency to dump them, or 0 to disable them
