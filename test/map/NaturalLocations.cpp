@@ -10,7 +10,6 @@
 void verifyNaturalLocations(const std::string &map, std::map<BWAPI::TilePosition, BWAPI::TilePosition> expectedNaturalLocations)
 {
     BWTest test;
-    test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
         return new DoNothingModule();

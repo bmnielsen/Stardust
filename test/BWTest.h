@@ -15,6 +15,8 @@ public:
     bool expectWin = true;
     bool writeReplay = true;
 
+    std::string replayName;
+
     std::function<BWAPI::AIModule *()> myModule = nullptr;
 
     std::function<BWAPI::AIModule *()> opponentModule = nullptr;

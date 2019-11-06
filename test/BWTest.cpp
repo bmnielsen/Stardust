@@ -211,8 +211,15 @@ void BWTest::runGame(bool opponent)
 
         // Create an ID for this game based on the test case and timestamp
         std::ostringstream gameId;
-        gameId << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
-        gameId << "_" << ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        if (replayName.empty())
+        {
+            gameId << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
+            gameId << "_" << ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        }
+        else
+        {
+            gameId << replayName;
+        }
         auto tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         auto tm = std::localtime(&tt);
         gameId << "_" << std::put_time(tm, "%Y%m%d_%H%M%S");

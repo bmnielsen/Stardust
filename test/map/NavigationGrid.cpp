@@ -48,7 +48,6 @@ namespace
 
     void setupGridTest(BWTest &test, BWAPI::TilePosition goal, NavigationGrid *&grid)
     {
-        test.opponentRace = BWAPI::Races::Zerg;
         test.opponentModule = []()
         {
             return new DoNothingModule();
