@@ -74,5 +74,5 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
 
     // Execute
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
-    cluster.execute(unitsAndTargets, targetPosition);
+    cluster.attack(unitsAndTargets, targetPosition);
 }

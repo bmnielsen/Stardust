@@ -4,6 +4,8 @@
 
 namespace Geo
 {
+    int ApproximateDistance(int x1, int x2, int y1, int y2);
+
     int EdgeToEdgeDistance(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter);
 
     int EdgeToEdgeDistance(BWAPI::UnitType firstType, int x1, int y1, BWAPI::UnitType secondType, int x2, int y2);

@@ -14,6 +14,8 @@ void UnitCluster::addUnit(BWAPI::Unit unit)
     center = BWAPI::Position(
             ((center.x * (units.size() - 1)) + unit->getPosition().x) / units.size(),
             ((center.y * (units.size() - 1)) + unit->getPosition().y) / units.size());
+
+    area += unit->getType().width() * unit->getType().height();
 }
 
 void UnitCluster::removeUnit(BWAPI::Unit unit)
@@ -34,6 +36,8 @@ std::set<BWAPI::Unit>::iterator UnitCluster::removeUnit(std::set<BWAPI::Unit>::i
     center = BWAPI::Position(
             ((center.x * (units.size() + 1)) - unit->getPosition().x) / units.size(),
             ((center.y * (units.size() + 1)) - unit->getPosition().y) / units.size());
+
+    area -= unit->getType().width() * unit->getType().height();
 
     return newUnitIt;
 }
@@ -73,6 +77,14 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     vanguard = closestToTarget;
 }
 
+void UnitCluster::setActivity(UnitCluster::Activity newActivity)
+{
+    if (currentActivity == newActivity) return;
+
+    currentActivity = newActivity;
+    lastActivityChange = BWAPI::Broodwar->getFrameCount();
+}
+
 std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>>
 UnitCluster::selectTargets(std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition)
 {
@@ -86,40 +98,4 @@ UnitCluster::selectTargets(std::set<std::shared_ptr<Unit>> &targets, BWAPI::Posi
     }
 
     return result;
-}
-
-void UnitCluster::execute(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> &unitsAndTargets, BWAPI::Position targetPosition)
-{
-    // Micro each unit
-    for (auto &unitAndTarget : unitsAndTargets)
-    {
-        auto &myUnit = Units::getMine(unitAndTarget.first);
-
-        // If the unit is stuck, unstick it
-        if (myUnit.isStuck())
-        {
-            myUnit.stop();
-            continue;
-        }
-
-        // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
-        if (!myUnit.isReady()) continue;
-
-        // Attack target
-        if (unitAndTarget.second)
-        {
-#if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first) << "Target: " << unitAndTarget.second->type << " @ "
-                                                << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
-#endif
-            myUnit.attackUnit(unitAndTarget.second->unit);
-        }
-        else
-        {
-#if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first) << "No target: move to " << BWAPI::WalkPosition(targetPosition);
-#endif
-            myUnit.moveTo(targetPosition);
-        }
-    }
 }

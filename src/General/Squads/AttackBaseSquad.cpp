@@ -12,11 +12,21 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     std::set<std::shared_ptr<Unit>> enemyUnits;
     Units::getInRadius(enemyUnits, BWAPI::Broodwar->enemy(), cluster.center, 480);
 
+    // If there are no enemies near the cluster, just move towards the target
+    if (enemyUnits.empty())
+    {
+        cluster.setActivity(UnitCluster::Activity::Default);
+        cluster.move(targetPosition);
+        return;
+    }
+
     // Select targets
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
 
     // Run combat sim
     auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits);
+
+    // TODO: If our units can't do any damage (e.g. ground-only vs. air, melee vs. kiting ranged units), do something else
 
     // For now, press the attack if one of these holds:
     // - Attacking does not cost us anything
@@ -39,7 +49,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
 
     if (attack)
     {
-        cluster.execute(unitsAndTargets, targetPosition);
+        cluster.attack(unitsAndTargets, targetPosition);
         return;
     }
 
@@ -63,24 +73,5 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
         }
     }
 
-    // Micro each unit
-    for (auto &unit : cluster.units)
-    {
-        auto &myUnit = Units::getMine(unit);
-
-        // If the unit is stuck, unstick it
-        if (myUnit.isStuck())
-        {
-            myUnit.stop();
-            continue;
-        }
-
-        // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
-        if (!myUnit.isReady()) continue;
-
-#if DEBUG_UNIT_ORDERS
-        CherryVis::log(unit) << "moveTo: Cluster rally point";
-#endif
-        myUnit.moveTo(rallyPoint);
-    }
+    cluster.regroup(rallyPoint);
 }
