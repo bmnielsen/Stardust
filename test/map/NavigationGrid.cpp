@@ -14,9 +14,28 @@ namespace
             {
                 auto &node = grid[BWAPI::TilePosition(x, y)];
 
+                if (node.cost > 0 && node.cost < SHRT_MAX && !node.nextNode)
+                {
+                    std::cout << "Node with no next node " << node << std::endl;
+                    return false;
+                }
+
+                if (node.cost == 0 && node.nextNode)
+                {
+                    std::cout << "Goal node with next node " << node << std::endl;
+                    return false;
+                }
+
+                if (Map::isWalkable(node.x, node.y) && node.cost == SHRT_MAX &&
+                    PathFinding::GetGroundDistance(BWAPI::Position(BWAPI::TilePosition(x, y)), BWAPI::Position(grid.goal)) != -1)
+                {
+                    std::cout << "Should be path from " << node << std::endl;
+                    return false;
+                }
+
                 if (node.nextNode && node.cost <= node.nextNode->cost)
                 {
-                    std::cout << "Non-decreasing cost @ " << BWAPI::TilePosition(node.x, node.y);
+                    std::cout << "Non-decreasing cost " << node << std::endl;
                     return false;
                 }
 
@@ -26,14 +45,13 @@ namespace
                 {
                     if (current == &node)
                     {
-                        std::cout << "Loop between " << BWAPI::TilePosition(node.x, node.y) << " and " << BWAPI::TilePosition(current->x, current->y);
+                        std::cout << "Loop between " << node << " and " << *current << std::endl;
                         return false;
                     }
 
                     if (!Map::isWalkable(current->x, current->y))
                     {
-                        std::cout << "Path from " << BWAPI::TilePosition(node.x, node.y)
-                                  << " goes through unwalkable tile " << BWAPI::TilePosition(current->x, current->y);
+                        std::cout << "Path from " << node << " goes through unwalkable tile " << *current << std::endl;
                         return false;
                     }
 
@@ -61,7 +79,7 @@ namespace
         test.expectWin = false;
         test.writeReplay = true;
 
-        test.onStartMine = [&]()
+        test.onStartMine = [&grid, goal]()
         {
             CherryVis::initialize();
             Map::initialize();
