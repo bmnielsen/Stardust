@@ -15,6 +15,13 @@ public:
         unsigned char prevNodes;
 
         GridNode(unsigned short x, unsigned short y) : x(x), y(y), cost(USHRT_MAX), nextNode(nullptr), prevNodes(0) {}
+
+        friend std::ostream &operator<<(std::ostream &os, const GridNode &node)
+        {
+            os << "(" << node.x << "," << node.y << ":" << node.cost << ")";
+            if (node.nextNode) os << "->(" << node.nextNode->x << "," << node.nextNode->y << ":" << node.nextNode->cost << ")";
+            return os;
+        }
     };
 
     typedef std::tuple<unsigned short, GridNode *, bool> QueueItem;

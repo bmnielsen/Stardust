@@ -97,8 +97,11 @@ void NavigationGrid::update()
 
         auto &node = grid[x + y * BWAPI::Broodwar->mapWidth()];
 
-        // If the node already has a lower cost, we don't need to consider it
+        // Compute the cost of this node
         auto cost = current->cost + (direction % 2 == 1 ? 14 : 10);
+        cost += 3 - Map::unwalkableProximity(x, y);
+
+        // If the node already has a lower cost, we don't need to consider it
         if (node.cost <= cost) return;
 
         // Don't allow diagonal connections through blocked tiles

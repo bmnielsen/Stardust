@@ -32,6 +32,7 @@ namespace Map
         int _minChokeWidth;
 
         std::vector<bool> tileWalkability;
+        std::vector<int> tileUnwalkableProximity;
         bool tileWalkabilityUpdated;
 
 #if CHERRYVIS_ENABLED
@@ -285,7 +286,57 @@ namespace Map
             }
 
             CherryVis::addHeatmap("TileWalkable", tileWalkabilityCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+
+            std::vector<long> tileUnwalkableProximityCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            {
+                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                {
+                    tileUnwalkableProximityCVis[x + y * BWAPI::Broodwar->mapWidth()] = tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()];
+                }
+            }
+
+            CherryVis::addHeatmap("TileUnwalkableProximity", tileUnwalkableProximityCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 #endif
+        }
+
+        void updateWalkabilityProximity(int tileX, int tileY)
+        {
+            auto tileValid = [](int x, int y)
+            {
+                return x >= 0 && y >= 0 && x < BWAPI::Broodwar->mapWidth() && y < BWAPI::Broodwar->mapHeight();
+            };
+
+            if (!tileValid(tileX, tileY)) return;
+
+            auto visit = [&tileValid](int x, int y, int val, int *result)
+            {
+                if (!tileValid(x, y)) return false;
+
+                if (!tileWalkability[x + y * BWAPI::Broodwar->mapWidth()])
+                {
+                    *result = val;
+                    return true;
+                }
+
+                return false;
+            };
+
+            int result = 3;
+            visit(tileX - 1, tileY, 0, &result) ||
+            visit(tileX + 1, tileY, 0, &result) ||
+            visit(tileX, tileY - 1, 0, &result) ||
+            visit(tileX, tileY + 1, 0, &result) ||
+            visit(tileX - 1, tileY - 1, 1, &result) ||
+            visit(tileX + 1, tileY - 1, 1, &result) ||
+            visit(tileX - 1, tileY + 1, 1, &result) ||
+            visit(tileX + 1, tileY + 1, 1, &result) ||
+            visit(tileX - 2, tileY, 2, &result) ||
+            visit(tileX + 2, tileY, 2, &result) ||
+            visit(tileX, tileY - 2, 2, &result) ||
+            visit(tileX, tileY + 2, 2, &result);
+
+            tileUnwalkableProximity[tileX + tileY * BWAPI::Broodwar->mapWidth()] = result;
         }
 
         // Updates the tile walkability grid based on appearance or disappearance of a building, mineral field, etc.
@@ -305,6 +356,24 @@ namespace Map
                 }
             }
 
+            if (updated)
+            {
+                for (int x = -2; x < size.x + 2; x++)
+                {
+                    updateWalkabilityProximity(tile.x + x, tile.y - 2);
+                    updateWalkabilityProximity(tile.x + x, tile.y - 1);
+                    updateWalkabilityProximity(tile.x + x, tile.y + size.y);
+                    updateWalkabilityProximity(tile.x + x, tile.y + size.y + 1);
+                }
+                for (int y = -1; y < size.y + 1; y++)
+                {
+                    updateWalkabilityProximity(tile.x - 2, tile.y + y);
+                    updateWalkabilityProximity(tile.x - 1, tile.y + y);
+                    updateWalkabilityProximity(tile.x + size.x, tile.y + y);
+                    updateWalkabilityProximity(tile.x + size.x + 1, tile.y + y);
+                }
+            }
+
             return updated;
         }
 
@@ -321,7 +390,7 @@ namespace Map
                     {
                         for (int walkY = 0; walkY < 4; walkY++)
                         {
-                            if (!BWAPI::Broodwar->isWalkable((tileX << 2) + walkX, (tileY << 2) + walkY))
+                            if (!BWAPI::Broodwar->isWalkable((tileX << 2U) + walkX, (tileY << 2U) + walkY))
                             {
                                 walkable = false;
                                 goto breakInnerLoop;
@@ -330,6 +399,15 @@ namespace Map
                     }
                     breakInnerLoop:
                     tileWalkability[tileX + tileY * BWAPI::Broodwar->mapWidth()] = walkable;
+                }
+            }
+
+            tileUnwalkableProximity.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            for (int tileX = 0; tileX < BWAPI::Broodwar->mapWidth(); tileX++)
+            {
+                for (int tileY = 0; tileY < BWAPI::Broodwar->mapHeight(); tileY++)
+                {
+                    updateWalkabilityProximity(tileX, tileY);
                 }
             }
 
@@ -745,5 +823,10 @@ namespace Map
     bool isWalkable(int x, int y)
     {
         return tileWalkability[x + y * BWAPI::Broodwar->mapWidth()];
+    }
+
+    int unwalkableProximity(int x, int y)
+    {
+        return tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()];
     }
 }

@@ -79,7 +79,7 @@ bool MyUnit::moveTo(BWAPI::Position position)
     std::ostringstream log;
     log << "Order: Starting move to " << BWAPI::WalkPosition(position);
     if (grid) log << "; grid target " << grid->goal;
-    if (gridNode) log << "; initial grid node " << BWAPI::TilePosition(gridNode->x, gridNode->y);
+    if (gridNode) log << "; initial grid node " << *gridNode;
     CherryVis::log(unit) << log.str();
 #endif
 
@@ -136,7 +136,7 @@ void MyUnit::moveToNextWaypoint()
         if (auto next = nextNode(gridNode))
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit) << "Order: Moving towards next grid node " << BWAPI::TilePosition(next->x, next->y);
+            CherryVis::log(unit) << "Order: Moving towards next grid node " << *next;
 #endif
 
             currentlyMovingTowards = BWAPI::Position(
@@ -257,7 +257,7 @@ void MyUnit::updateMoveWaypoints()
             gridNode = &(*grid)[unit->getTilePosition()];
 
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit) << "Order: Path node set to " << BWAPI::TilePosition(gridNode->x, gridNode->y);
+            CherryVis::log(unit) << "Order: Path node set to " << *gridNode;
 #endif
 
             // If we were navigating using the previous node, or can navigate using the new node, update the waypoint

@@ -35,6 +35,7 @@ namespace PathFinding
         {
             if (goalAndNavigationGrid.first.getApproxDistance(goal) < 5)
             {
+                goalAndNavigationGrid.second.update();
                 return &goalAndNavigationGrid.second;
             }
         }
