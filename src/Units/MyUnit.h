@@ -5,15 +5,16 @@
 #include <bwem.h>
 #include "Choke.h"
 #include "PathFinding.h"
+#include "Unit.h"
 
-class MyUnit
+class MyUnit : public Unit
 {
 public:
     explicit MyUnit(BWAPI::Unit unit);
 
     virtual ~MyUnit() = default;
 
-    void update();
+    void update(BWAPI::Unit unit) override;
 
     void issueMoveOrders();
 
@@ -40,8 +41,6 @@ public:
     void stop();
 
 protected:
-    BWAPI::Unit unit;
-
     bool issuedOrderThisFrame;
 
     BWAPI::Position targetPosition;

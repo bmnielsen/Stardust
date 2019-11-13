@@ -37,7 +37,7 @@ Unit::Unit(BWAPI::Unit unit)
     if (unit->isCompleted() || unit->getType().isBuilding()) CherryVis::unitFirstSeen(unit);
 }
 
-void Unit::update(BWAPI::Unit unit) const
+void Unit::update(BWAPI::Unit unit)
 {
     if (!unit || !unit->exists()) return;
 
@@ -115,7 +115,7 @@ void Unit::update(BWAPI::Unit unit) const
     if (doomed) CherryVis::log(id) << "DOOMED!";
 }
 
-void Unit::updateLastPositionValidity() const
+void Unit::updateLastPositionValidity()
 {
     // Skip if not applicable
     if (!lastPositionValid ||
@@ -180,7 +180,7 @@ void Unit::updateLastPositionValidity() const
     }
 }
 
-void Unit::addUpcomingAttack(BWAPI::Unit attacker, BWAPI::Bullet bullet) const
+void Unit::addUpcomingAttack(BWAPI::Unit attacker, BWAPI::Bullet bullet)
 {
     // Remove any existing upcoming attack from this attacker
     for (auto it = upcomingAttacks.begin(); it != upcomingAttacks.end();)
@@ -196,7 +196,7 @@ void Unit::addUpcomingAttack(BWAPI::Unit attacker, BWAPI::Bullet bullet) const
                                  Players::attackDamage(bullet->getSource()->getPlayer(), bullet->getSource()->getType(), player, type));
 }
 
-void Unit::updateGrid(BWAPI::Unit unit) const
+void Unit::updateGrid(BWAPI::Unit unit)
 {
     auto &grid = Players::grid(unit->getPlayer());
 
@@ -295,7 +295,7 @@ void Unit::updateGrid(BWAPI::Unit unit) const
     // TODO: Workers in a refinery
 }
 
-void Unit::computeCompletionFrame(BWAPI::Unit unit) const
+void Unit::computeCompletionFrame(BWAPI::Unit unit)
 {
     if (!unit->getType().isBuilding() || unit->isCompleted())
         estimatedCompletionFrame = -1;

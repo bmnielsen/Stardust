@@ -6,7 +6,7 @@
 #include "Geo.h"
 
 MyUnit::MyUnit(BWAPI::Unit unit)
-        : unit(unit)
+        : Unit(unit)
         , issuedOrderThisFrame(false)
         , targetPosition(BWAPI::Positions::Invalid)
         , currentlyMovingTowards(BWAPI::Positions::Invalid)
@@ -16,8 +16,10 @@ MyUnit::MyUnit(BWAPI::Unit unit)
 {
 }
 
-void MyUnit::update()
+void MyUnit::update(BWAPI::Unit unit)
 {
+    Unit::update(unit);
+
     if (!unit || !unit->exists()) return;
 
     issuedOrderThisFrame = false;

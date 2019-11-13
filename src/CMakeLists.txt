@@ -3,7 +3,6 @@ project(Locutus)
 
 set(CMAKE_CXX_STANDARD 17)
 
-include_directories(${CMAKE_SOURCE_DIR}/3rdparty/CQL)
 include_directories(${CMAKE_SOURCE_DIR}/3rdparty)
 
 set(LOCUTUS_INCLUDES

@@ -15,7 +15,7 @@ namespace Units
 
     void onBulletCreate(BWAPI::Bullet bullet);
 
-    Unit const &get(BWAPI::Unit unit);
+    Unit &get(BWAPI::Unit unit);
 
     std::set<std::shared_ptr<Unit>> &getForPlayer(BWAPI::Player player);
 

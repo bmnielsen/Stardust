@@ -22,6 +22,7 @@ namespace
 {
     const double pi = 3.14159265358979323846;
 
+    // TODO: These parameters need to be tuned
     const double goalWeight = 128.0;
     const double cohesionWeight = 64.0 / sqrt(5.0);
     const double separationDetectionLimitFactor = 2.0;
@@ -78,13 +79,12 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         }
 
         // We have a grid node, so compute our boids
-        const Unit &_unit = Units::get(unit);
 
         // Goal
 
         // Initialize with the offset to the node
-        int goalX = (node->x - _unit.tilePositionX) * 32;
-        int goalY = (node->y - _unit.tilePositionY) * 32;
+        int goalX = (node->x - myUnit.tilePositionX) * 32;
+        int goalY = (node->y - myUnit.tilePositionY) * 32;
 
         // Then scale to the desired weight
         double goalScale = goalWeight / (double) Geo::ApproximateDistance(goalX, 0, goalY, 0);
