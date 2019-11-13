@@ -105,22 +105,47 @@ void BWTest::runGame(bool opponent)
 
     if (opponent)
     {
+        for (auto unitAndPosition : opponentInitialUnits)
+        {
+            h->createUnit(h->players[1], unitAndPosition.first, unitAndPosition.second);
+        }
+    }
+    else
+    {
+        for (auto unitAndPosition : myInitialUnits)
+        {
+            h->createUnit(h->players[0], unitAndPosition.first, unitAndPosition.second);
+        }
+    }
+
+
+    if (opponent)
+    {
         if (opponentModule)
         {
             auto module = opponentModule();
-            module->afterOnStart = onStartOpponent;
+            module->afterOnStart = [this, &h]()
+            {
+                h->setLocalSpeed(0);
+
+                if (onStartOpponent) onStartOpponent();
+            };
             h->setAIModule(module);
         }
     }
     else
     {
         auto module = myModule ? myModule() : new LocutusAIModule();
-        module->afterOnStart = onStartMine;
+        module->afterOnStart = [this, &h]()
+        {
+            h->setLocalSpeed(0);
+
+            if (onStartMine) onStartMine();
+        };
         h->setAIModule(module);
         Log::SetOutputToConsole(true);
     }
     h->update();
-    h->setLocalSpeed(0);
 
     if (opponent)
     {

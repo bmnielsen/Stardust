@@ -31,6 +31,9 @@ public:
     std::function<void()> onEndMine = nullptr;
     std::function<void()> onEndOpponent = nullptr;
 
+    std::vector<std::pair<BWAPI::UnitType, BWAPI::Position>> myInitialUnits;
+    std::vector<std::pair<BWAPI::UnitType, BWAPI::Position>> opponentInitialUnits;
+
     void run();
 
 private:
