@@ -74,6 +74,11 @@ namespace
         {
             Log::Get() << "Unit lost: " << unit->getType() << " @ " << unit->getTilePosition();
         }
+
+        if (unit->getPlayer() == BWAPI::Broodwar->enemy())
+        {
+            Log::Get() << "Enemy destroyed: " << unit->getType() << " @ " << unit->getTilePosition();
+        }
     }
 
     void handleUnitMorph(BWAPI::Unit unit)

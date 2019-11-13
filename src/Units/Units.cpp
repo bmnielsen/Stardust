@@ -58,7 +58,6 @@ namespace Units
             for (auto unit : player->getUnits())
             {
                 // Update our own units
-                // We do this also for incomplete units
                 if (player == BWAPI::Broodwar->self())
                 {
                     getMine(unit).update();
@@ -71,8 +70,6 @@ namespace Units
                     else
                         myIncompleteUnitsByType[unit->getType()].insert(unit);
                 }
-
-                if (!unit->isCompleted()) continue;
 
                 //auto entry = units.lookup<0>(unit);
                 //if (entry)
@@ -92,8 +89,8 @@ namespace Units
 
                 auto &entry = get(unit);
                 entry.update(unit);
-                entry.tilePositionX = unit->getPosition().x << 3;
-                entry.tilePositionY = unit->getPosition().y << 3;
+                entry.tilePositionX = unit->getPosition().x >> 5U;
+                entry.tilePositionY = unit->getPosition().y >> 5U;
                 if (entry.player != player)
                 {
                     auto ptr = bwapiUnitToUnit[unit];
@@ -356,6 +353,11 @@ namespace Units
         auto newUnit = std::make_shared<Unit>(unit);
         bwapiUnitToUnit.emplace(unit, newUnit);
         playerToUnits[unit->getPlayer()].emplace(newUnit);
+
+        if (unit->getPlayer() == BWAPI::Broodwar->enemy())
+        {
+            Log::Get() << "Enemy discovered: " << unit->getType() << " @ " << unit->getTilePosition();
+        }
 
         return *newUnit;
     }

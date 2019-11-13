@@ -8,8 +8,8 @@
 Unit::Unit(BWAPI::Unit unit)
         : unit(unit)
         , player(unit->getPlayer())
-        , tilePositionX(unit->getPosition().x << 3)
-        , tilePositionY(unit->getPosition().y << 3)
+        , tilePositionX(unit->getPosition().x >> 5U)
+        , tilePositionY(unit->getPosition().y >> 5U)
         , lastSeen(BWAPI::Broodwar->getFrameCount())
         , type(unit->getType())
         , id(unit->getID())
@@ -34,12 +34,14 @@ Unit::Unit(BWAPI::Unit unit)
     CherryVis::log(unit) << "Grid::unitCreated " << lastPosition;
 #endif
 
-    CherryVis::unitFirstSeen(unit);
+    if (unit->isCompleted() || unit->getType().isBuilding()) CherryVis::unitFirstSeen(unit);
 }
 
 void Unit::update(BWAPI::Unit unit) const
 {
     if (!unit || !unit->exists()) return;
+
+    if (!completed && unit->isCompleted() && !unit->getType().isBuilding()) CherryVis::unitFirstSeen(unit);
 
     updateGrid(unit);
 
