@@ -211,3 +211,45 @@ TEST(SquadMovement, UnitsStayTogether_Mixed)
 
     test.run();
 }
+
+TEST(SquadMovement, OrphanedUnit)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 400;
+    test.expectWin = false;
+
+    // Start the units on opposite sides of a wall
+    test.myInitialUnits = {
+            std::make_pair(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(BWAPI::TilePosition(94, 19))),
+            std::make_pair(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(BWAPI::TilePosition(94, 20))),
+            std::make_pair(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(BWAPI::TilePosition(101, 18)))
+    };
+
+    Base *baseToAttack = nullptr;
+
+    // Order them to attack the bottom-right base
+    test.onStartMine = [&baseToAttack]()
+    {
+        baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 117)));
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<AttackBase>(baseToAttack));
+        Strategist::setOpening(openingPlays);
+    };
+
+    // Verify the units are all closer
+    test.onEndMine = [&baseToAttack]()
+    {
+        int avg, min, max;
+        computeDistances(BWAPI::UnitTypes::Protoss_Zealot, baseToAttack->getPosition(), &avg, &min, &max);
+
+        // Assert the orphaned unit made it out
+        EXPECT_LT(max, 3500);
+    };
+
+    test.run();
+}
