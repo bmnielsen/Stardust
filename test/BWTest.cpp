@@ -8,10 +8,17 @@
 #include <execinfo.h>
 #include <filesystem>
 
-void signalHandler(int sig)
+void signalHandler(int sig, bool opponent)
 {
-    EXPECT_FALSE(true);
-    std::cout << "Crashed with signal " << sig << std::endl;
+    if (opponent)
+    {
+        std::cerr << "Opponent crashed with signal " << sig << std::endl;
+    }
+    else
+    {
+        EXPECT_FALSE(true);
+        std::cerr << "Crashed with signal " << sig << std::endl;
+    }
 
     void *array[20];
     size_t size;
@@ -30,6 +37,14 @@ void BWTest::run()
     auto opponentPid = fork();
     if (opponentPid == 0)
     {
+        auto handler = [](int sig)
+        {
+            signalHandler(sig, true);
+        };
+        signal(SIGFPE, handler);
+        signal(SIGSEGV, handler);
+        signal(SIGABRT, handler);
+
         std::this_thread::sleep_for(std::chrono::milliseconds(1500));
         runGame(true);
         _exit(EXIT_SUCCESS);
@@ -38,18 +53,27 @@ void BWTest::run()
     // Unless we are debugging, we run our bot in a separate process to ensure we
     // get all of our globals reset if multiple tests are being run
 #ifdef DEBUG
-    signal(SIGFPE, signalHandler);
-    signal(SIGSEGV, signalHandler);
-    signal(SIGABRT, signalHandler);
+    auto handler = [](int sig)
+    {
+        signalHandler(sig, false);
+    };
+
+    signal(SIGFPE, handler);
+    signal(SIGSEGV, handler);
+    signal(SIGABRT, handler);
 
     runGame(false);
 #else
     auto selfPid = fork();
     if (selfPid == 0)
     {
-        signal(SIGFPE, signalHandler);
-        signal(SIGSEGV, signalHandler);
-        signal(SIGABRT, signalHandler);
+        auto handler = [](int sig)
+        {
+            signalHandler(sig, false);
+        };
+        signal(SIGFPE, handler);
+        signal(SIGSEGV, handler);
+        signal(SIGABRT, handler);
 
         runGame(false);
 
@@ -59,8 +83,8 @@ void BWTest::run()
     int result;
     waitpid(selfPid, &result, 0);
     EXPECT_EQ(result, 0);
-
 #endif
+
     waitpid(opponentPid, nullptr, 0);
 }
 
@@ -103,20 +127,31 @@ void BWTest::runGame(bool opponent)
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    if (opponent)
-    {
-        for (auto unitAndPosition : opponentInitialUnits)
-        {
-            h->createUnit(h->players[1], unitAndPosition.first, unitAndPosition.second);
-        }
-    }
-    else
-    {
-        for (auto unitAndPosition : myInitialUnits)
-        {
-            h->createUnit(h->players[0], unitAndPosition.first, unitAndPosition.second);
-        }
-    }
+//    if (opponent)
+//    {
+//        for (auto player : h->getPlayers())
+//        {
+//            std::cout << player->getID() << ": " << player->getName() << "; " << player->isEnemy(h->getPlayer(0)) << std::endl;
+//        }
+//
+//        for (auto unitAndPosition : opponentInitialUnits)
+//        {
+//            h->createUnit(h->getPlayer(1), unitAndPosition.first, unitAndPosition.second);
+//        }
+//    }
+//    else
+//    {
+//        std::cout << "Before attaching AI module:" << std::endl;
+//        for (auto player : h->getPlayers())
+//        {
+//            std::cout << player->getID() << ": " << player->getName() << "; " << player->isEnemy(h->getPlayer(0)) << std::endl;
+//        }
+//
+//        for (auto unitAndPosition : (opponent ? opponentInitialUnits : myInitialUnits))
+//        {
+//            h->createUnit(h->getPlayer(0), unitAndPosition.first, unitAndPosition.second);
+//        }
+//    }
 
 
     if (opponent)
@@ -146,6 +181,21 @@ void BWTest::runGame(bool opponent)
         Log::SetOutputToConsole(true);
     }
     h->update();
+
+    if (opponent)
+    {
+        for (auto unitAndPosition : opponentInitialUnits)
+        {
+            h->createUnit(h->getPlayer(1), unitAndPosition.first, unitAndPosition.second);
+        }
+    }
+    else
+    {
+        for (auto unitAndPosition : (opponent ? opponentInitialUnits : myInitialUnits))
+        {
+            h->createUnit(h->getPlayer(0), unitAndPosition.first, unitAndPosition.second);
+        }
+    }
 
     if (opponent)
     {
@@ -208,6 +258,8 @@ void BWTest::runGame(bool opponent)
             }
         }
     }
+
+    h->update();
 
     if (opponent)
     {

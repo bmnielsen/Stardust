@@ -11,7 +11,6 @@ TEST(Steamhammer, 4Pool)
         Config::LocutusTestStrategyName = "4PoolHard";
         return module;
     };
-    test.map = "maps/sscai/(4)Andromeda.scx";
     test.run();
 }
 
