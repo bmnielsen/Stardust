@@ -641,6 +641,19 @@ namespace Workers
         return bestWorker;
     }
 
+    void reserveBaseWorkers(std::vector<BWAPI::Unit> &workers, Base *base)
+    {
+        for (auto &worker : baseWorkers[base])
+        {
+            workers.push_back(worker);
+        }
+
+        for (auto &worker : workers)
+        {
+            reserveWorker(worker);
+        }
+    }
+
     void reserveWorker(BWAPI::Unit unit)
     {
         if (!unit || !unit->exists() || !unit->getType().isWorker() || !unit->isCompleted()) return;

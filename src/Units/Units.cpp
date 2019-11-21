@@ -110,7 +110,7 @@ namespace Units
             debug << "\nord=" << unit->getOrder() << ";t=" << unit->getOrderTimer();
             if (unit->getOrderTarget())
             {
-                debug << ";tgt" << unit->getOrderTarget()->getType()
+                debug << ";tgt=" << unit->getOrderTarget()->getType()
                       << "#" << unit->getOrderTarget()->getID()
                       << "@" << BWAPI::WalkPosition(unit->getOrderTarget()->getPosition())
                       << ";d=" << unit->getOrderTarget()->getDistance(unit);
@@ -128,7 +128,8 @@ namespace Units
                 debug << "spd=" << ((int) (100.0 * speed / unit->getType().topSpeed()));
             }
 
-            debug << ";mvng=" << unit->isMoving() << ";stck=" << myUnit.isStuck() << ";rdy=" << myUnit.isReady();
+            debug << ";mvng=" << unit->isMoving() << ";stck=" << myUnit.isStuck() << ";rdy=" << myUnit.isReady()
+                  << ";cdn=" << (myUnit.cooldownUntil - BWAPI::Broodwar->getFrameCount());
 
             if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon)
             {
@@ -242,32 +243,28 @@ namespace Units
         return playerToUnits[player];
     }
 
-    void getInRadius(std::set<std::shared_ptr<Unit>> &units, BWAPI::Player player, BWAPI::Position position, int radius)
+    void get(std::set<std::shared_ptr<Unit>> &units,
+             BWAPI::Player player,
+             const std::function<bool(const std::shared_ptr<Unit> &)> &predicate)
     {
         for (auto &unit : playerToUnits[player])
         {
+            if (predicate && !predicate(unit)) continue;
+            units.insert(unit);
+        }
+    }
+
+    void getInRadius(std::set<std::shared_ptr<Unit>> &units,
+                     BWAPI::Player player,
+                     BWAPI::Position position,
+                     int radius,
+                     const std::function<bool(const std::shared_ptr<Unit> &)> &predicate)
+    {
+        for (auto &unit : playerToUnits[player])
+        {
+            if (predicate && !predicate(unit)) continue;
             if (unit->lastPositionValid && unit->lastPosition.getApproxDistance(position) <= radius)
                 units.insert(unit);
-        }
-
-        // For debugging
-        size_t count = 0;
-        for (auto unit : player->getUnits())
-        {
-            if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon && unit->getPosition().getApproxDistance(position) <= radius)
-                count++;
-        }
-        if (count > units.size())
-        {
-            for (auto unit : player->getUnits())
-            {
-                if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon && unit->getPosition().getApproxDistance(position) <= radius)
-                {
-                    auto &unt = get(unit);
-                    Log::Debug() << "Missed " << unit->getType() << " @ " << unit->getPosition() << ": lastPosition=" << unt.lastPosition
-                                 << "; lastPositionValid=" << unt.lastPositionValid << "; dist=" << unt.lastPosition.getApproxDistance(position);
-                }
-            }
         }
     }
 

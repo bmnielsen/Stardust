@@ -70,7 +70,7 @@ void MyUnit::gather(BWAPI::Unit target)
     if (issuedOrderThisFrame) return;
     if (!target || !target->exists()) return;
 
-    // Unless is it a mineral field, don't gather on the same target again
+    // Unless it is a mineral field, don't gather on the same target again
     if (!target->getType().isMineralField())
     {
         BWAPI::UnitCommand currentCommand(unit->getLastCommand());

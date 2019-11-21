@@ -17,6 +17,7 @@ public:
     bool spiderMined;                                // Do we suspect this base to have a spider mine blocking it
     bool requiresMineralWalkFromEnemyStartLocations; // Does this base require mineral walking for the enemy to reach it
     BWAPI::Position mineralLineCenter; // Approximate center of the mineral line
+    BWAPI::Unit workerDefenseRallyPatch; // Mineral patch where workers should rally when doing worker defense
 
     Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase);
 
@@ -40,9 +41,14 @@ public:
 
     bool isStartingBase() const;
 
+    bool isInMineralLine(BWAPI::TilePosition pos) const;
+
 private:
 
     BWAPI::TilePosition tile;
     const BWEM::Base *bwemBase;
 
+    std::set<BWAPI::TilePosition> mineralLineTiles;
+
+    void analyzeMineralLine();
 };

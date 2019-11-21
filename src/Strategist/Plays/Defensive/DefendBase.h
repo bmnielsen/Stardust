@@ -1,16 +1,15 @@
 #pragma once
 
 #include "Play.h"
-
 #include "Squads/DefendBaseSquad.h"
 
-// Ensures we have zealots handy in the early game to protect against rushes or cheese.
-class EarlyGameProtection : public Play
+
+class DefendBase : public Play
 {
 public:
-    EarlyGameProtection();
+    explicit DefendBase(Base *base);
 
-    const char *label() const override { return "EarlyGameProtection"; }
+    const char *label() const override { return "DefendBase"; }
 
     std::shared_ptr<Squad> getSquad() override { return squad; }
 
@@ -19,5 +18,10 @@ public:
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 
 private:
+    Base *base;
     std::shared_ptr<DefendBaseSquad> squad;
+
+    std::vector<BWAPI::Unit> reservedWorkers;
+
+    void mineralLineWorkerDefense();
 };

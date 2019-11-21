@@ -19,7 +19,15 @@ namespace Units
 
     std::set<std::shared_ptr<Unit>> &getForPlayer(BWAPI::Player player);
 
-    void getInRadius(std::set<std::shared_ptr<Unit>> &units, BWAPI::Player player, BWAPI::Position position, int radius);
+    void get(std::set<std::shared_ptr<Unit>> &units,
+             BWAPI::Player player,
+             const std::function<bool(const std::shared_ptr<Unit> &)> &predicate = nullptr);
+
+    void getInRadius(std::set<std::shared_ptr<Unit>> &units,
+                     BWAPI::Player player,
+                     BWAPI::Position position,
+                     int radius,
+                     const std::function<bool(const std::shared_ptr<Unit> &)> &predicate = nullptr);
 
     void getInArea(std::set<std::shared_ptr<Unit>> &units,
                    BWAPI::Player player,

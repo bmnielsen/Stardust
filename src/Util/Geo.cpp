@@ -138,6 +138,26 @@ namespace Geo
         }
     }
 
+    void FindTilesBetween(BWAPI::TilePosition start, BWAPI::TilePosition end, std::vector<BWAPI::TilePosition> &result)
+    {
+        std::set<BWAPI::TilePosition> added;
+        int distTotal = start.getApproxDistance(end);
+        int xdiff = end.x - start.x;
+        int ydiff = end.y - start.y;
+        for (int distStop = 0; distStop <= distTotal; distStop++)
+        {
+            BWAPI::TilePosition pos(
+                    start.x + (int) std::round(((double) distStop / distTotal) * xdiff),
+                    start.y + (int) std::round(((double) distStop / distTotal) * ydiff));
+
+            if (!pos.isValid()) continue;
+            if (added.find(pos) != added.end()) continue;
+
+            result.push_back(pos);
+            added.insert(pos);
+        }
+    }
+
     // Computes the intercept point of a unit targeting another one, assuming the interceptor
     // is going at full speed and the target remains on its current trajectory and speed.
     // Returns invalid if the target cannot be intercepted.

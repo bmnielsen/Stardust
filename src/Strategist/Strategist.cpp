@@ -6,7 +6,7 @@
 #include "General.h"
 
 #include "Play.h"
-#include "Plays/Defensive/EarlyGameProtection.h"
+#include "Plays/Defensive/DefendBase.h"
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/Macro/TakeNaturalExpansion.h"
 #include "Plays/Macro/TakeExpansion.h"
@@ -349,7 +349,7 @@ namespace Strategist
 
     void chooseOpening()
     {
-        plays.emplace_back(std::make_shared<EarlyGameProtection>());
+        plays.emplace_back(std::make_shared<DefendBase>(Map::getMyMain()));
         plays.emplace_back(std::make_shared<SaturateBases>());
         plays.emplace_back(std::make_shared<RallyArmy>());
 

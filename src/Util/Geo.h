@@ -28,5 +28,7 @@ namespace Geo
 
     void FindWalkablePositionsBetween(BWAPI::Position start, BWAPI::Position end, std::vector<BWAPI::Position> &result);
 
+    void FindTilesBetween(BWAPI::TilePosition start, BWAPI::TilePosition end, std::vector<BWAPI::TilePosition> &result);
+
     BWAPI::Position FindInterceptPoint(BWAPI::Unit interceptor, BWAPI::Unit target);
 }

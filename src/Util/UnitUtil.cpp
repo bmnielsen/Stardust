@@ -73,17 +73,27 @@ namespace UnitUtil
 
     bool CanAttackAir(BWAPI::Unit attacker)
     {
-        return attacker->getType().airWeapon() != BWAPI::WeaponTypes::None ||
-               attacker->getType() == BWAPI::UnitTypes::Protoss_Carrier ||
-               attacker->getType() == BWAPI::UnitTypes::Terran_Bunker; // TODO: Track whether bunkers actually have units in them
+        return CanAttackAir(attacker->getType());
+    }
+
+    bool CanAttackAir(BWAPI::UnitType attackerType)
+    {
+        return attackerType.airWeapon() != BWAPI::WeaponTypes::None ||
+               attackerType == BWAPI::UnitTypes::Protoss_Carrier ||
+               attackerType == BWAPI::UnitTypes::Terran_Bunker;
     }
 
     bool CanAttackGround(BWAPI::Unit attacker)
     {
-        return attacker->getType().groundWeapon() != BWAPI::WeaponTypes::None ||
-               attacker->getType() == BWAPI::UnitTypes::Protoss_Carrier ||
-               attacker->getType() == BWAPI::UnitTypes::Protoss_Reaver ||
-               attacker->getType() == BWAPI::UnitTypes::Terran_Bunker; // TODO: Track whether bunkers actually have units in them
+        return CanAttackGround(attacker->getType());
+    }
+
+    bool CanAttackGround(BWAPI::UnitType attackerType)
+    {
+        return attackerType.groundWeapon() != BWAPI::WeaponTypes::None ||
+               attackerType == BWAPI::UnitTypes::Protoss_Carrier ||
+               attackerType == BWAPI::UnitTypes::Protoss_Reaver ||
+               attackerType == BWAPI::UnitTypes::Terran_Bunker;
     }
 
     bool IsRangedUnit(BWAPI::UnitType type)

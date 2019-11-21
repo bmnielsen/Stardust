@@ -18,7 +18,11 @@ namespace UnitUtil
 
     bool CanAttackAir(BWAPI::Unit attacker);
 
+    bool CanAttackAir(BWAPI::UnitType attackerType);
+
     bool CanAttackGround(BWAPI::Unit attacker);
+
+    bool CanAttackGround(BWAPI::UnitType attackerType);
 
     bool IsRangedUnit(BWAPI::UnitType type);
 
