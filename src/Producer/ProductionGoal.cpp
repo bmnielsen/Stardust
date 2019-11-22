@@ -1,4 +1,4 @@
-#import "ProductionGoal.h"
+#include "ProductionGoal.h"
 
 std::ostream &operator<<(std::ostream &os, const ProductionGoal &goal)
 {

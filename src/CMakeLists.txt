@@ -25,6 +25,14 @@ file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR} *.cpp)
 
 add_library(Locutus SHARED ${SRC_FILES})
 
-target_link_libraries(Locutus -L/usr/local/Cellar/llvm/8.0.0/lib BWAPILIB BWEM BWEB FAP libzstd_static c++fs)
+IF(MSVC)
+    target_link_libraries(Locutus BWAPILIB BWEM BWEB FAP libzstd_static)
+ELSE(MSVC)
+    target_link_libraries(Locutus -L/usr/local/Cellar/llvm/8.0.0/lib BWAPILIB BWEM BWEB FAP libzstd_static c++fs)
+ENDIF(MSVC)
+
 target_include_directories(Locutus PUBLIC ${LOCUTUS_INCLUDES})
-target_compile_options(Locutus PRIVATE -Wall -Werror)
+
+IF(NOT MSVC)
+    target_compile_options(Locutus PRIVATE -Wall -Werror)
+ENDIF(NOT MSVC)
