@@ -38,6 +38,14 @@ void UnitCluster::move(BWAPI::Position targetPosition)
                    << BWAPI::TilePosition(targetPosition);
     }
 
+    // Get the node at the cluster center
+    NavigationGrid::GridNode *centerNode = nullptr;
+    if (grid)
+    {
+        centerNode = &(*grid)[BWAPI::TilePosition(center)];
+        while (centerNode && centerNode->cost == USHRT_MAX) centerNode = centerNode->nextNode;
+    }
+
     // Compute scaling factor for cohesion boid, based on the size of the squad
     double cohesionFactor = cohesionWeight * pi / (double) sqrt(area);
 
@@ -92,8 +100,33 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         goalY = (int) ((double) goalY * goalScale);
 
         // Cohesion
-        int cohesionX = (int) ((double) (center.x - unit->getPosition().x) * cohesionFactor);
-        int cohesionY = (int) ((double) (center.y - unit->getPosition().y) * cohesionFactor);
+
+        int cohesionX = 0;
+        int cohesionY = 0;
+
+        // We ignore the cohesion boid if the center grid node is at a greatly lower cost, as this indicates a probable cliff
+        // between this unit and the rest of the cluster
+        if (!centerNode || node->cost < 150 || centerNode->cost > (node->cost - 150))
+        {
+            cohesionX = (int) ((double) (center.x - unit->getPosition().x) * cohesionFactor);
+            cohesionY = (int) ((double) (center.y - unit->getPosition().y) * cohesionFactor);
+
+            // For cases where we have no valid center node, check for unwalkable terrain directly
+            if (!centerNode)
+            {
+                std::vector<BWAPI::TilePosition> tiles;
+                Geo::FindTilesBetween(BWAPI::TilePosition(unit->getPosition()), BWAPI::TilePosition(center), tiles);
+                for (auto tile : tiles)
+                {
+                    if (!Map::isWalkable(tile))
+                    {
+                        cohesionX = 0;
+                        cohesionY = 0;
+                        break;
+                    }
+                }
+            }
+        }
 
         // Separation
         int separationX = 0;
@@ -137,7 +170,7 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         }
 
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(unit) << "Movement boids"
+        CherryVis::log(unit) << "Movement boids; cluster=" << BWAPI::WalkPosition(center)
                              << ": goal=" << BWAPI::WalkPosition(unit->getPosition() + BWAPI::Position(goalX, goalY))
                              << "; cohesion=" << BWAPI::WalkPosition(unit->getPosition() + BWAPI::Position(cohesionX, cohesionY))
                              << "; separation=" << BWAPI::WalkPosition(unit->getPosition() + BWAPI::Position(separationX, separationY))

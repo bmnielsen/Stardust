@@ -5,6 +5,8 @@
 #include "Players.h"
 #include "Geo.h"
 
+#define DEBUG_CLUSTER_MEMBERSHIP true
+
 void UnitCluster::addUnit(BWAPI::Unit unit)
 {
     if (units.find(unit) != units.end()) return;
@@ -16,6 +18,10 @@ void UnitCluster::addUnit(BWAPI::Unit unit)
             ((center.y * (units.size() - 1)) + unit->getPosition().y) / units.size());
 
     area += unit->getType().width() * unit->getType().height();
+
+#if DEBUG_CLUSTER_MEMBERSHIP
+    CherryVis::log(unit) << "Added to cluster @ " << BWAPI::WalkPosition(center);
+#endif
 }
 
 void UnitCluster::removeUnit(BWAPI::Unit unit)
@@ -24,6 +30,10 @@ void UnitCluster::removeUnit(BWAPI::Unit unit)
     if (unitIt == units.end()) return;
 
     removeUnit(unitIt);
+
+#if DEBUG_CLUSTER_MEMBERSHIP
+    CherryVis::log(unit) << "Removed from cluster @ " << BWAPI::WalkPosition(center);
+#endif
 }
 
 std::set<BWAPI::Unit>::iterator UnitCluster::removeUnit(std::set<BWAPI::Unit>::iterator unitIt)
