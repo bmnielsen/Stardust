@@ -36,14 +36,14 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     // TODO: Consider whether it is even more beneficial to wait for nearby reinforcements
     bool attack =
             simResult.myPercentLost() <= 0.001 ||
-            (simResult.valueGain() > 0 && simResult.proportionalGain() > -0.05) ||
-            simResult.proportionalGain() > 0.2;
+            (simResult.valueGain() > 0 && simResult.percentGain() > -0.05) ||
+            simResult.percentGain() > 0.2;
 
 #if DEBUG_COMBATSIM
     CherryVis::log() << BWAPI::WalkPosition(cluster.center)
                      << ": %l=" << simResult.myPercentLost()
                      << "; vg=" << simResult.valueGain()
-                     << "; %g=" << simResult.proportionalGain()
+                     << "; %g=" << simResult.percentGain()
                      << (attack ? "" : "; RETREAT");
 #endif
 

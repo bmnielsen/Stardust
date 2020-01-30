@@ -13,23 +13,17 @@ public:
 
     CombatSimResult() : CombatSimResult(0, 0, 0, 0) {};
 
-    // How much my army lost in value during the sim
-    int myValueLost();
-
     // What percentage of my army value was lost during the sim
     double myPercentLost();
 
-    // The difference in value between my army and the enemy army at the end of the sim (negative if the enemy army is more valuable)
-    int valueDifference();
-
-    // The percentage of the total army size that is mine after the sim
-    double myArmyProportion();
+    // What percentage of the enemy's army value was lost during the sim
+    double enemyPercentLost();
 
     // How much relative value was gained by my army during the sim (i.e. if positive, the value the enemy lost more than mine)
     int valueGain();
 
-    // How much the proportion of army size to total changed during the sim
-    double proportionalGain();
+    // Similar to valueGain, but dealing in percentages (i.e. if positive, the enemy lost a higher percentage of their army than we lost of ours)
+    double percentGain();
 
 private:
     int initialMine;

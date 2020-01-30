@@ -1760,7 +1760,10 @@ namespace Producer
                 // Upgrade if start frame is now
                 if (item->producer && item->producer->existing && item->startFrame <= BWAPI::Broodwar->getRemainingLatencyFrames())
                 {
-                    item->producer->existing->upgrade(*upgradeType);
+                    if (item->producer->existing->upgrade(*upgradeType))
+                    {
+                        Log::Get() << "Started upgrade: " << *upgradeType;
+                    }
                 }
             }
         }

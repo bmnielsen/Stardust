@@ -55,6 +55,11 @@ void DefendBase::update()
                 status.unitRequirements.emplace_back(zealotsNeeded, BWAPI::UnitTypes::Protoss_Zealot, squad->getTargetPosition());
             }
         }
+        else
+        {
+            status.removedUnits = squad->getUnits();
+            status.complete = true;
+        }
     }
 }
 
@@ -134,14 +139,36 @@ void DefendBase::mineralLineWorkerDefense()
 
         workersAndTargets.emplace_back(std::make_pair(worker, bestTarget));
 
-        if (bestTargetDist <= Players::weaponRange(bestTarget->getPlayer(), bestTarget->getType().groundWeapon()) ||
-            bestTargetDist <= Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Probe.groundWeapon()))
+        auto predictedPosition = UnitUtil::PredictPosition(bestTarget, BWAPI::Broodwar->getLatencyFrames());
+        auto predictedDist = Geo::EdgeToEdgeDistance(worker->getType(), worker->getPosition(), bestTarget->getType(), predictedPosition);
+
+        if (predictedDist <= Players::weaponRange(bestTarget->getPlayer(), bestTarget->getType().groundWeapon()) ||
+            predictedDist <= Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Probe.groundWeapon()))
         {
             isEnemyInRange = true;
         }
     }
 
-    // If any of our workers is in range of an enemy, we attack
+    // Consider if any combat units are in range of an enemy
+    if (!isEnemyInRange && squad)
+    {
+        for (auto unit : squad->getUnits())
+        {
+            for (auto &enemy : enemyUnits)
+            {
+                int dist = Geo::EdgeToEdgeDistance(unit->getType(), unit->getPosition(), enemy->type, enemy->lastPosition);
+                if (dist <= Players::weaponRange(enemy->player, enemy->type.groundWeapon()) ||
+                    dist <= Players::weaponRange(BWAPI::Broodwar->self(), unit->getType().groundWeapon()))
+                {
+                    isEnemyInRange = true;
+                    goto breakOuterLoop;
+                }
+            }
+        }
+        breakOuterLoop:;
+    }
+
+    // If any of our units are in range of an enemy, we attack
     if (isEnemyInRange)
     {
         for (auto &workerAndTarget : workersAndTargets)

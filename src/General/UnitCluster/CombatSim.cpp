@@ -94,7 +94,7 @@ namespace CombatSim
         for (auto type : BWAPI::UnitTypes::allUnitTypes())
         {
             int score = type.mineralPrice() + type.gasPrice() * 2;
-            baseScore[type] = score >> 2;
+            baseScore[type] = score >> 2U;
             scaledScore[type] = score - baseScore[type];
         }
     }

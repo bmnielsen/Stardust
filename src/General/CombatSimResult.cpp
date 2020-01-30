@@ -1,10 +1,5 @@
 #include "CombatSimResult.h"
 
-int CombatSimResult::myValueLost()
-{
-    return initialMine - finalMine;
-}
-
 double CombatSimResult::myPercentLost()
 {
     if (initialMine == 0) return 0.0;
@@ -12,16 +7,11 @@ double CombatSimResult::myPercentLost()
     return 1.0 - ((double) finalMine / (double) initialMine);
 }
 
-int CombatSimResult::valueDifference()
+double CombatSimResult::enemyPercentLost()
 {
-    return finalMine - finalEnemy;
-}
+    if (initialEnemy == 0) return 0.0;
 
-double CombatSimResult::myArmyProportion()
-{
-    if (finalMine == 0 && finalEnemy == 0) return 1.0;
-
-    return (double) finalMine / (double) (finalMine + finalEnemy);
+    return 1.0 - ((double) finalEnemy / (double) initialEnemy);
 }
 
 int CombatSimResult::valueGain()
@@ -29,9 +19,10 @@ int CombatSimResult::valueGain()
     return finalMine - initialMine - (finalEnemy - initialEnemy);
 }
 
-double CombatSimResult::proportionalGain()
+double CombatSimResult::percentGain()
 {
-    if (initialMine == 0 && initialEnemy == 0) return 0.0;
+    auto mine = myPercentLost();
+    auto enemy = enemyPercentLost();
 
-    return myArmyProportion() - ((double) initialMine / (double) (initialMine + initialEnemy));
+    return enemy - mine;
 }

@@ -2,6 +2,8 @@
 
 #include "Units.h"
 #include "UnitUtil.h"
+#include "Geo.h"
+#include "Players.h"
 
 void DefendBaseSquad::setTargetPosition()
 {
@@ -53,14 +55,12 @@ void DefendBaseSquad::setTargetPosition()
         }
     }
 
-    // By default we defend at the resource depot
-    targetPosition = base->getPosition();
+    // By default we defend at the center of the mineral line
+    targetPosition = base->mineralLineCenter;
 }
 
 void DefendBaseSquad::execute(UnitCluster &cluster)
 {
-    // TODO: Update target position (run combat sim?)
-
     std::set<std::shared_ptr<Unit>> enemyUnits;
 
     // Get enemy combat units in our base
@@ -72,7 +72,81 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
     // Get enemy combat units very close to the target position
     Units::getInRadius(enemyUnits, BWAPI::Broodwar->enemy(), targetPosition, 64);
 
-    // Execute
+    // Select targets
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
-    cluster.attack(unitsAndTargets, targetPosition);
+
+    // Run combat sim
+    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits);
+
+    // TODO: Needs tuning
+    bool attack =
+            simResult.myPercentLost() <= 0.001 ||
+            (simResult.valueGain() > 0 && simResult.percentGain() > -0.05) ||
+            simResult.percentGain() > 0.2;
+
+    if (attack)
+    {
+        cluster.attack(unitsAndTargets, targetPosition);
+        return;
+    }
+
+    // Ensure the target position is set to the mineral line center
+    // This allows our workers to help with the defense
+    targetPosition = base->mineralLineCenter;
+
+    // Move our units in the following way:
+    // - If the unit is in the mineral line and close to its target, attack it
+    // - If the unit's target is far out of its attack range, move towards it
+    //   Rationale: we want to encourage our enemies to get distracted and chase us
+    // - Otherwise move towards the mineral line center
+
+    // TODO: This probably doesn't make sense against ranged units
+
+    // For each of our units, move it towards the mineral line center if it is not in the mineral line, otherwise attack
+    for (auto &unitAndTarget : unitsAndTargets)
+    {
+        auto &myUnit = Units::getMine(unitAndTarget.first);
+
+        // If the unit is stuck, unstick it
+        if (myUnit.isStuck())
+        {
+            myUnit.stop();
+            continue;
+        }
+
+        // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
+        if (!myUnit.isReady()) continue;
+
+        // If the unit has no target, just move to the target position
+        if (!unitAndTarget.second)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(unitAndTarget.first) << "No target: move to " << BWAPI::WalkPosition(targetPosition);
+#endif
+            myUnit.moveTo(targetPosition);
+            continue;
+        }
+
+        auto enemy = unitAndTarget.second->unit;
+        auto enemyPosition = UnitUtil::PredictPosition(unitAndTarget.second->unit, BWAPI::Broodwar->getLatencyFrames());
+        int dist = Geo::EdgeToEdgeDistance(myUnit.type, myUnit.lastPosition, enemy->getType(), enemyPosition);
+
+        // Attack the enemy if we are in the mineral line and in range of the enemy (or the enemy is in range of us)
+        if (base->isInMineralLine(BWAPI::TilePosition(myUnit.tilePositionX, myUnit.tilePositionY)) &&
+            (dist <= Players::weaponRange(enemy->getPlayer(), enemy->getType().groundWeapon())
+             || dist <= Players::weaponRange(BWAPI::Broodwar->self(), myUnit.type.groundWeapon())))
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(unitAndTarget.first) << "Target: " << unitAndTarget.second->type << " @ "
+                                                << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
+#endif
+            myUnit.attackUnit(unitAndTarget.second->unit);
+            continue;
+        }
+
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(unitAndTarget.first) << "Retreating: move to " << BWAPI::WalkPosition(targetPosition);
+#endif
+        myUnit.moveTo(targetPosition);
+    }
 }
