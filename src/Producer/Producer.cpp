@@ -699,7 +699,7 @@ namespace Producer
                     }
                 }
 
-                // TODO: Cancel everything if there are no build lcoations
+                // TODO: Cancel everything if there are no build locations
                 if (locations.empty()) return;
 
                 // Take the best build location
@@ -1154,18 +1154,20 @@ namespace Producer
             // Try to resolve each supply block
             for (int f : supplyBlockFrames)
             {
-                // Look for an existing supply provider active at this time
+                // Look for an existing pylon active at this time
+                // We are currently ignoring nexuses as they are not primarily built for supply, and we want our producer to queue pylons while a
+                // nexus is building when it is appropriate
+                // TODO This probably introduces some issues when a nexus is about to complete
                 std::shared_ptr<ProductionItem> supplyProvider = nullptr;
                 bool supplyProviderQueued = false;
                 for (auto &potentialSupplyProvider : committedItems)
                 {
-                    // Ignore anything that doesn't provide supply or completes before the block
-                    if (potentialSupplyProvider->supplyProvided() <= 0) continue;
+                    // Ignore anything that isn't a pylon or completes before the block
+                    if (!potentialSupplyProvider->is(BWAPI::UnitTypes::Protoss_Pylon)) continue;
                     if (potentialSupplyProvider->completionFrame <= f) continue;
 
-                    // If a supply provider is already being built, push the item until the completion frame
+                    // If a pylon is already being built, push the item until the completion frame
                     // Rationale is that we can't move it earlier and can't build a new one faster
-                    // TODO: This probably isn't a valid approach for queued nexuses as we might be able to fit in a pylon ahead of time
                     if (potentialSupplyProvider->queuedBuilding)
                     {
                         if (potentialSupplyProvider->completionFrame >= PREDICT_FRAMES) return false;
@@ -1202,7 +1204,7 @@ namespace Producer
 
                     int pylonDelta = mineralFrame - supplyProvider->startFrame;
 
-                    // If the pylon couldn't be moved back to resolve the block completely, shift the item
+                    // If the supply provider couldn't be moved back to resolve the block completely, shift the item
                     if (mineralFrame > desiredStartFrame)
                     {
                         int itemDelta = supplyProvider->completionFrame + pylonDelta - item.startFrame;
