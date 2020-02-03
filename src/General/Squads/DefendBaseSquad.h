@@ -12,12 +12,14 @@ public:
             , base(base)
     {
         setTargetPosition();
+        defaultTargetPosition = targetPosition;
     }
 
     virtual ~DefendBaseSquad() = default;
 
 private:
     Base *base;
+    BWAPI::Position defaultTargetPosition;
 
     void setTargetPosition();
 

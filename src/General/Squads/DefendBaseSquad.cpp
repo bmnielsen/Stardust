@@ -66,8 +66,10 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
     // Get enemy combat units in our base
     Units::getInArea(enemyUnits, BWAPI::Broodwar->enemy(), Map::getMyMain()->getArea(), [](const std::shared_ptr<Unit> &unit)
     {
-        return UnitUtil::IsCombatUnit(unit->type);
+        return UnitUtil::IsCombatUnit(unit->type) && UnitUtil::CanAttackGround(unit->type);
     });
+
+    bool enemyInOurBase = !enemyUnits.empty();
 
     // Get enemy combat units very close to the target position
     Units::getInRadius(enemyUnits, BWAPI::Broodwar->enemy(), targetPosition, 64);
@@ -86,6 +88,9 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
 
     if (attack)
     {
+        // Reset our defensive position when all enemy units are out of our base
+        if (!enemyInOurBase) targetPosition = defaultTargetPosition;
+
         cluster.attack(unitsAndTargets, targetPosition);
         return;
     }
