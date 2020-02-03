@@ -195,22 +195,6 @@ namespace Strategist
             }
         }
 
-        void handleUpgrades()
-        {
-            // Get leg upgrades when we have 5 zealots
-            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) >= 5)
-            {
-                productionGoals.emplace_back(UpgradeProductionGoal(BWAPI::UpgradeTypes::Leg_Enhancements));
-            }
-
-            // Get goon range when we have one completed goon or two in progress
-            int currentDragoons = Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon);
-            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon) >= 1 || currentDragoons >= 2)
-            {
-                productionGoals.emplace_back(UpgradeProductionGoal(BWAPI::UpgradeTypes::Singularity_Charge));
-            }
-        }
-
         void handleMainArmyProduction()
         {
             // TODO
@@ -226,6 +210,55 @@ namespace Strategist
                 productionGoals.emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Dragoon, -1, -1);
             }
             productionGoals.emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Zealot, -1, -1);
+        }
+
+        void upgradeAtCount(BWAPI::UpgradeType upgradeType, BWAPI::UnitType unitType, int unitCount)
+        {
+            // First bail out if the upgrade is already done or queued
+            if (BWAPI::Broodwar->self()->getUpgradeLevel(upgradeType) > 0) return;
+            if (Units::isBeingUpgraded(upgradeType)) return;
+
+            int units = Units::countCompleted(unitType);
+
+            // Iterate the goals until we exceed the desired unit count
+            auto it = productionGoals.begin();
+            for (; units < unitCount && it != productionGoals.end(); it++)
+            {
+                auto unitProductionGoal = std::get_if<UnitProductionGoal>(&*it);
+                if (!unitProductionGoal) continue;
+                if (unitProductionGoal->unitType() != unitType) continue;
+
+                // Special case: unit production goal for unlimited units
+                // In this case we split the production goal and put the upgrade in the middle
+                if (unitProductionGoal->countToProduce() == -1)
+                {
+                    it = productionGoals.emplace(it, UpgradeProductionGoal(upgradeType));
+                    productionGoals.emplace(it,
+                                            std::in_place_type<UnitProductionGoal>,
+                                            unitType,
+                                            unitCount - units,
+                                            unitProductionGoal->getProducerLimit(),
+                                            unitProductionGoal->getLocation());
+                    return;
+                }
+
+                units += unitProductionGoal->countToProduce();
+            }
+
+            // If we have counted enough units, insert the upgrade goal now
+            if (units >= unitCount)
+            {
+                productionGoals.emplace(it, UpgradeProductionGoal(upgradeType));
+                return;
+            }
+        }
+
+        void handleUpgrades()
+        {
+            upgradeAtCount(BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 6);
+            upgradeAtCount(BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+
+            // TODO: Normal upgrades
         }
 
         void writeInstrumentation()
@@ -339,8 +372,8 @@ namespace Strategist
         updateUnitAssignments();
         updateProductionGoals();
         updateMineralReservations();
-        handleUpgrades();
         handleMainArmyProduction();
+        handleUpgrades();
 
         updateScouting();
 

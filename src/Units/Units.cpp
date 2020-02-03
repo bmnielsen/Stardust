@@ -20,12 +20,16 @@ namespace Units
 
         std::map<BWAPI::UnitType, std::set<BWAPI::Unit>> myCompletedUnitsByType;
         std::map<BWAPI::UnitType, std::set<BWAPI::Unit>> myIncompleteUnitsByType;
+
+        std::set<BWAPI::UpgradeType> upgradesInProgress;
 #ifndef _DEBUG
     }
 #endif
 
     void update()
     {
+        upgradesInProgress.clear();
+
         // Update all units
         for (auto player : BWAPI::Broodwar->getPlayers())
         {
@@ -55,6 +59,11 @@ namespace Units
                     }
                     else
                         myIncompleteUnitsByType[unit->getType()].insert(unit);
+
+                    if (unit->isUpgrading())
+                    {
+                        upgradesInProgress.insert(unit->getUpgrade());
+                    }
                 }
 
                 auto &entry = get(unit);
@@ -304,5 +313,10 @@ namespace Units
             result[typeAndUnits.first] = typeAndUnits.second.size();
         }
         return result;
+    }
+
+    bool isBeingUpgraded(BWAPI::UpgradeType type)
+    {
+        return upgradesInProgress.find(type) != upgradesInProgress.end();
     }
 }

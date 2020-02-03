@@ -43,4 +43,6 @@ namespace Units
     int countIncomplete(BWAPI::UnitType type);
 
     std::map<BWAPI::UnitType, int> countIncompleteByType();
+
+    bool isBeingUpgraded(BWAPI::UpgradeType type);
 }
