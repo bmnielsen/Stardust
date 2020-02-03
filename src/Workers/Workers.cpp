@@ -7,29 +7,6 @@
 #include "Builder.h"
 #include "WorkerOrderTimer.h"
 
-/*
-
-Does this thing work?
-if (u->order_process_timer) {
-            --u->order_process_timer;
-            return;
-}
-u->order_process_timer = 8;
-switch (u->order_type->id) {
-case Orders::MoveToGas:
-            order_MoveToGas(u);
-            break;
-case Orders::WaitForGas:
-            order_WaitForGas(u);
-            break;
-}
-
-https://www.teamliquid.net/forum/brood-war/484849-improving-mineral-gathering-rate-in-brood-war
-
-order_process_timer
-order_timer_counter
-*/
-
 namespace Workers
 {
 #ifndef _DEBUG
@@ -400,12 +377,8 @@ namespace Workers
                         }
                     }
 
-                    // Assign a mineral patch if:
-                    // - It is close to its assigned base
-                    // - It is not carrying cargo
-                    if (worker->getDistance(base->getPosition()) <= 200 &&
-                        !worker->isCarryingMinerals() &&
-                        !worker->isCarryingGas())
+                    // Assign a mineral patch if it is close to its assigned base
+                    if (worker->getDistance(base->getPosition()) <= 200)
                     {
                         assignMineralPatch(worker);
                     }
@@ -432,12 +405,8 @@ namespace Workers
                         }
                     }
 
-                    // Assign a refinery if:
-                    // - It is close to its assigned base
-                    // - It is not carrying cargo
-                    if (worker->getDistance(base->getPosition()) <= 200 &&
-                        !worker->isCarryingMinerals() &&
-                        !worker->isCarryingGas())
+                    // Assign a refinery if it is close to its assigned base
+                    if (worker->getDistance(base->getPosition()) <= 200)
                     {
                         assignRefinery(worker);
                     }
@@ -477,6 +446,71 @@ namespace Workers
                     auto base = workerBase[worker];
                     if (!base || !base->resourceDepot || !base->resourceDepot->exists())
                     {
+                        continue;
+                    }
+
+                    // If the worker has cargo, return it
+                    if (worker->isCarryingMinerals() || worker->isCarryingGas())
+                    {
+                        // Handle the special case when the worker is harvesting from a base without a completed depot
+                        if (!base->resourceDepot || !base->resourceDepot->isCompleted())
+                        {
+                            // Find the nearest base with a completed depot
+                            int closestTime = INT_MAX;
+                            Base *closestBase = nullptr;
+                            for (auto otherBase : Map::getMyBases())
+                            {
+                                if (otherBase == base) continue;
+                                if (!otherBase->resourceDepot || !otherBase->resourceDepot->isCompleted()) continue;
+
+                                int time = PathFinding::ExpectedTravelTime(worker->getPosition(), otherBase->getPosition(), worker->getType());
+                                if (time < closestTime)
+                                {
+                                    closestTime = time;
+                                    closestBase = otherBase;
+                                }
+                            }
+
+                            // If there is one, and the worker can get there and back before the base depot is complete, deliver there
+                            if (closestBase)
+                            {
+                                int baseToBaseTime = PathFinding::ExpectedTravelTime(base->getPosition(), closestBase->getPosition(), BWAPI::UnitTypes::Protoss_Probe);
+                                if (closestTime + baseToBaseTime < base->resourceDepot->getRemainingBuildTime())
+                                {
+                                    if (worker->getDistance(closestBase->resourceDepot) > 200)
+                                    {
+                                        Units::getMine(worker).moveTo(closestBase->getPosition());
+                                    }
+                                    else if (worker->getOrder() != BWAPI::Orders::ReturnMinerals &&
+                                             worker->getOrder() != BWAPI::Orders::ReturnGas)
+                                    {
+                                        Units::getMine(worker).rightClick(closestBase->resourceDepot);
+                                    }
+                                    continue;
+                                }
+                            }
+
+                            // There wasn't another base to return to, or it would take too long, so move towards the preferred base instead
+                            if (base->resourceDepot)
+                            {
+                                Units::getMine(worker).moveTo(base->getPosition());
+                            }
+                            else
+                            {
+                                Units::getMine(worker).moveTo(base->mineralLineCenter);
+                            }
+                            continue;
+                        }
+
+                        // Leave it alone if it already has the return order or is resetting after finishing gathering
+                        if (worker->getOrder() == BWAPI::Orders::ReturnMinerals ||
+                            worker->getOrder() == BWAPI::Orders::ReturnGas ||
+                            worker->getOrder() == BWAPI::Orders::ResetCollision)
+                        {
+                            continue;
+                        }
+
+                        Units::getMine(worker).returnCargo();
                         continue;
                     }
 
@@ -567,20 +601,6 @@ namespace Workers
                         continue;
                     }
 
-                    // If the worker has cargo, return it
-                    if (worker->isCarryingMinerals() || worker->isCarryingGas())
-                    {
-                        // Leave it alone if it already has the return order
-                        if (worker->getOrder() == BWAPI::Orders::ReturnMinerals ||
-                            worker->getOrder() == BWAPI::Orders::ReturnGas)
-                        {
-                            continue;
-                        }
-
-                        Units::getMine(worker).returnCargo();
-                        continue;
-                    }
-
                     // For some reason the worker doesn't have anything good to do, so let's just move towards the base
 #if DEBUG_UNIT_ORDERS
                     CherryVis::log(worker) << "moveTo: Assigned base (default)";
@@ -660,6 +680,7 @@ namespace Workers
 
         workerJob[unit] = Job::Reserved;
         removeFromResource(unit, workerMineralPatch, mineralPatchWorkers);
+        removeFromResource(unit, workerRefinery, refineryWorkers);
         CherryVis::log(unit->getID()) << "Reserved for non-mining duties";
     }
 

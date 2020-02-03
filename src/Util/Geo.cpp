@@ -55,8 +55,8 @@ namespace Geo
         BWAPI::Position bottomRight = center + BWAPI::Position(type.dimensionRight(), type.dimensionDown());
 
         return BWAPI::Position(
-                center.x < topLeft.x ? topLeft.x : (center.x > bottomRight.x ? bottomRight.x : center.x),
-                center.y < topLeft.y ? topLeft.y : (center.y > bottomRight.y ? bottomRight.y : center.y));
+                point.x < topLeft.x ? topLeft.x : (point.x > bottomRight.x ? bottomRight.x : point.x),
+                point.y < topLeft.y ? topLeft.y : (point.y > bottomRight.y ? bottomRight.y : point.y));
     }
 
     bool Overlaps(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter)
