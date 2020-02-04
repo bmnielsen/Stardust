@@ -26,6 +26,8 @@ namespace Map
 
     std::vector<Base *> &allBases();
 
+    std::vector<std::vector<Base *>> &allBaseClusters();
+
     std::set<Base *> &getMyBases(BWAPI::Player player = BWAPI::Broodwar->self());
 
     std::set<Base *> getEnemyBases(BWAPI::Player player = BWAPI::Broodwar->enemy());

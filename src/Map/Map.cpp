@@ -28,6 +28,7 @@ namespace Map
         MapSpecificOverride *_mapSpecificOverride;
         std::vector<Base *> bases;
         std::vector<Base *> startingLocationBases;
+        std::vector<std::vector<Base *>> baseClusters;
         std::map<const BWEM::ChokePoint *, Choke *> chokes;
         int _minChokeWidth;
 
@@ -526,6 +527,45 @@ namespace Map
         }
         Log::Debug() << "Found " << bases.size() << " bases";
 
+        // Initialize base clusters
+        // These are groups of bases that are close enough together that we can freely transfer probes between them
+        // On most maps this will be the main/natural pairs
+
+        // Start by adding each base to its own cluster
+        for (auto &base : bases)
+        {
+            std::vector<Base *> cluster{base};
+            baseClusters.emplace_back(std::move(cluster));
+        }
+
+        // Now continually try to combine clusters until there are no more to combine
+        for (auto clusterIt = baseClusters.begin(); clusterIt != baseClusters.end(); )
+        {
+            auto otherClusterIt = clusterIt;
+            otherClusterIt++;
+            for (; otherClusterIt != baseClusters.end(); otherClusterIt++)
+            {
+                // Combine the two clusters if any of the bases are within 300 frames of worker travel from each other
+                for (auto first : *clusterIt)
+                {
+                    for (auto second : *otherClusterIt)
+                    {
+                        int time = PathFinding::ExpectedTravelTime(first->getPosition(),
+                                                                  second->getPosition(),
+                                                                  BWAPI::UnitTypes::Protoss_Probe);
+                        if (time <= 300)
+                        {
+                            clusterIt->insert(clusterIt->end(), std::make_move_iterator(otherClusterIt->begin()), std::make_move_iterator(otherClusterIt->end()));
+                            baseClusters.erase(otherClusterIt);
+                            goto continueOuterLoop;
+                        }
+                    }
+                }
+            }
+            clusterIt++;
+            continueOuterLoop:;
+        }
+
         computeTileWalkability();
         dumpStaticHeatmaps();
 
@@ -630,6 +670,11 @@ namespace Map
     std::vector<Base *> &allBases()
     {
         return bases;
+    }
+
+    std::vector<std::vector<Base *>> &allBaseClusters()
+    {
+        return baseClusters;
     }
 
     std::set<Base *> &getMyBases(BWAPI::Player player)
