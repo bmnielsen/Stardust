@@ -8,6 +8,11 @@
 
 #include <utility>
 
+bool std::less<BWAPI::Player>::operator()(const BWAPI::Player &a, const BWAPI::Player &b) const
+{
+    return a == nullptr || (b != nullptr && a->getID() < b->getID());
+}
+
 namespace BWAPI
 {
   Unitset Playerset::getUnits() const

@@ -3,14 +3,26 @@
 
 #include <BWAPI/Race.h>
 #include <BWAPI/Filters.h>
+#include <BWAPI/Player.h>
 
 namespace BWAPI
 {
-  // Forward Declarations
-  class PlayerInterface;
-  typedef PlayerInterface *Player;
-  class Unitset;
+    // Forward Declarations
+    class PlayerInterface;
+    typedef PlayerInterface *Player;
+    class Unitset;
+}
 
+namespace std
+{
+    template<>
+    struct less<BWAPI::Player>{
+        bool operator()(const BWAPI::Player& a, const BWAPI::Player& b) const;
+    };
+}
+
+namespace BWAPI
+{
   /// <summary>A set containing Player objects.</summary>
   class Playerset : public SetContainer<BWAPI::Player, std::hash<void*>>
   {

@@ -5,12 +5,23 @@
 
 namespace BWAPI
 {
-  // Forward Declarations
-  class RegionInterface;
-  typedef RegionInterface *Region;
+    // Forward Declarations
+    class RegionInterface;
+    typedef RegionInterface *Region;
 
-  class Unitset;
+    class Unitset;
+}
 
+namespace std
+{
+    template<>
+    struct less<BWAPI::Region>{
+        bool operator()(const BWAPI::Region& a, const BWAPI::Region& b) const;
+    };
+}
+
+namespace BWAPI
+{
   /// <summary>A container that holds a set of Region objects.</summary>
   class Regionset : public SetContainer<BWAPI::Region, std::hash<void*>>
   {
