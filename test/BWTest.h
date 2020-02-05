@@ -4,6 +4,25 @@
 #include "BWAPI/GameImpl.h"
 #include "gtest/gtest.h"
 
+struct UnitTypeAndPosition
+{
+public:
+    BWAPI::UnitType type;
+
+    UnitTypeAndPosition(BWAPI::UnitType type, BWAPI::Position position)
+            : type(type), position(position), tilePosition(BWAPI::TilePositions::Invalid) {}
+
+    UnitTypeAndPosition(BWAPI::UnitType type, BWAPI::TilePosition tilePosition)
+            : type(type), position(BWAPI::Positions::Invalid), tilePosition(tilePosition) {}
+
+    BWAPI::Position getCenterPosition();
+
+private:
+    BWAPI::Position position;
+    BWAPI::TilePosition tilePosition;
+
+};
+
 struct BWTest
 {
 public:
@@ -31,12 +50,16 @@ public:
     std::function<void()> onEndMine = nullptr;
     std::function<void()> onEndOpponent = nullptr;
 
-    std::vector<std::pair<BWAPI::UnitType, BWAPI::Position>> myInitialUnits;
-    std::vector<std::pair<BWAPI::UnitType, BWAPI::Position>> opponentInitialUnits;
+    std::vector<UnitTypeAndPosition> myInitialUnits;
+    std::vector<UnitTypeAndPosition> opponentInitialUnits;
 
     void run();
 
 private:
+
+    int initialUnitFrames = 0;
+    std::unordered_map<int, std::vector<UnitTypeAndPosition>> myInitialUnitsByFrame;
+    std::unordered_map<int, std::vector<UnitTypeAndPosition>> opponentInitialUnitsByFrame;
 
     void runGame(bool opponent);
 };

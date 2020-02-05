@@ -8,6 +8,84 @@
 #include <execinfo.h>
 #include <filesystem>
 
+#include "Geo.h"
+
+namespace
+{
+    int scheduleInitialUnitCreation(std::vector<UnitTypeAndPosition> &initialUnits,
+                                    std::unordered_map<int, std::vector<UnitTypeAndPosition>> &initialUnitsByFrame)
+    {
+        // Rules for creating units:
+        // - Create buildings before non-buildings
+        // - Create non-combat buildings before combat buildings
+        // - Create pylons before buildings requiring power
+
+        bool changed = false;
+        int frame = 0;
+
+        // Scan for pylons
+        for (auto it = initialUnits.begin(); it != initialUnits.end();)
+        {
+            if (it->type == BWAPI::UnitTypes::Protoss_Pylon)
+            {
+                initialUnitsByFrame[frame].push_back(*it);
+                it = initialUnits.erase(it);
+                changed = true;
+            }
+            else
+            {
+                it++;
+            }
+        }
+
+        if (changed) frame++;
+
+        // Scan for non-combat buildings
+        changed = false;
+        for (auto it = initialUnits.begin(); it != initialUnits.end();)
+        {
+            if (it->type.isBuilding() && !it->type.canAttack())
+            {
+                initialUnitsByFrame[frame].push_back(*it);
+                it = initialUnits.erase(it);
+                changed = true;
+            }
+            else
+            {
+                it++;
+            }
+        }
+
+        if (changed) frame++;
+
+        // Scan for combat buildings
+        changed = false;
+        for (auto it = initialUnits.begin(); it != initialUnits.end();)
+        {
+            if (it->type.isBuilding())
+            {
+                initialUnitsByFrame[frame].push_back(*it);
+                it = initialUnits.erase(it);
+                changed = true;
+            }
+            else
+            {
+                it++;
+            }
+        }
+
+        if (changed) frame++;
+
+        // Add remaining units
+        for (auto &initialUnit : initialUnits)
+        {
+            initialUnitsByFrame[frame].push_back(initialUnit);
+        }
+
+        return frame;
+    }
+}
+
 void signalHandler(int sig, bool opponent)
 {
     if (opponent)
@@ -32,8 +110,22 @@ void signalHandler(int sig, bool opponent)
     exit(1);
 }
 
+BWAPI::Position UnitTypeAndPosition::getCenterPosition()
+{
+    if (tilePosition.isValid())
+    {
+        return Geo::CenterOfUnit(tilePosition, type);
+    }
+
+    return Geo::CenterOfUnit(position, type);
+}
+
 void BWTest::run()
 {
+    initialUnitFrames = std::max(
+            scheduleInitialUnitCreation(myInitialUnits, myInitialUnitsByFrame),
+            scheduleInitialUnitCreation(opponentInitialUnits, opponentInitialUnitsByFrame));
+
     auto opponentPid = fork();
     if (opponentPid == 0)
     {
@@ -127,33 +219,6 @@ void BWTest::runGame(bool opponent)
 
     auto start = std::chrono::high_resolution_clock::now();
 
-//    if (opponent)
-//    {
-//        for (auto player : h->getPlayers())
-//        {
-//            std::cout << player->getID() << ": " << player->getName() << "; " << player->isEnemy(h->getPlayer(0)) << std::endl;
-//        }
-//
-//        for (auto unitAndPosition : opponentInitialUnits)
-//        {
-//            h->createUnit(h->getPlayer(1), unitAndPosition.first, unitAndPosition.second);
-//        }
-//    }
-//    else
-//    {
-//        std::cout << "Before attaching AI module:" << std::endl;
-//        for (auto player : h->getPlayers())
-//        {
-//            std::cout << player->getID() << ": " << player->getName() << "; " << player->isEnemy(h->getPlayer(0)) << std::endl;
-//        }
-//
-//        for (auto unitAndPosition : (opponent ? opponentInitialUnits : myInitialUnits))
-//        {
-//            h->createUnit(h->getPlayer(0), unitAndPosition.first, unitAndPosition.second);
-//        }
-//    }
-
-
     if (opponent)
     {
         if (opponentModule)
@@ -182,31 +247,31 @@ void BWTest::runGame(bool opponent)
     }
     h->update();
 
-    if (opponent)
+    for (int frame = 0; frame <= initialUnitFrames; frame++)
     {
-        for (auto unitAndPosition : opponentInitialUnits)
-        {
-            h->createUnit(h->getPlayer(1), unitAndPosition.first, unitAndPosition.second);
-        }
-    }
-    else
-    {
-        for (auto unitAndPosition : (opponent ? opponentInitialUnits : myInitialUnits))
-        {
-            h->createUnit(h->getPlayer(0), unitAndPosition.first, unitAndPosition.second);
-        }
-    }
+        if (frame > 0) h->update();
 
-    if (opponent)
-    {
-        if (onFrameOpponent) onFrameOpponent();
-    }
-    else
-    {
-        if (onFrameMine) onFrameMine();
-    }
+        if (opponent)
+        {
+            for (auto &unitAndPosition : opponentInitialUnitsByFrame[frame])
+            {
+                h->createUnit(h->getPlayer(1), unitAndPosition.type, unitAndPosition.getCenterPosition());
+            }
 
-    gameOwner.getGame().nextFrame();
+            if (onFrameOpponent) onFrameOpponent();
+        }
+        else
+        {
+            for (auto &unitAndPosition : myInitialUnitsByFrame[frame])
+            {
+                h->createUnit(h->getPlayer(0), unitAndPosition.type, unitAndPosition.getCenterPosition());
+            }
+
+            if (onFrameMine) onFrameMine();
+        }
+
+        gameOwner.getGame().nextFrame();
+    }
 
     bool leftGame = false;
     auto startTime = std::chrono::high_resolution_clock::now();
