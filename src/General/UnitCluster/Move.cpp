@@ -54,11 +54,7 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         auto &myUnit = Units::getMine(unit);
 
         // If the unit is stuck, unstick it
-        if (myUnit.isStuck())
-        {
-            myUnit.stop();
-            continue;
-        }
+        if (myUnit.unstick()) continue;
 
         // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
         if (!myUnit.isReady()) continue;

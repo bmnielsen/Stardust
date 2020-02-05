@@ -137,7 +137,7 @@ namespace Units
                 debug << "spd=" << ((int) (100.0 * speed / unit->getType().topSpeed()));
             }
 
-            debug << ";mvng=" << unit->isMoving() << ";stck=" << myUnit.isStuck() << ";rdy=" << myUnit.isReady()
+            debug << ";mvng=" << unit->isMoving() << ";rdy=" << myUnit.isReady()
                   << ";cdn=" << (myUnit.cooldownUntil - BWAPI::Broodwar->getFrameCount());
 
             if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon)

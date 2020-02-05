@@ -13,12 +13,13 @@ private:
     BWAPI::Position lastPosition;
     int lastAttackStartedAt;
     int potentiallyStuckSince;  // frame the unit might have been stuck since, or 0 if it isn't stuck
+    int lastUnstickFrame;       // frame we last sent a command to unstick the unit
 
     void typeSpecificUpdate() override;
 
     bool isReady() const override;
 
-    bool isStuck() const override;
+    bool unstick() override;
 
     void attackUnit(BWAPI::Unit target) override;
 

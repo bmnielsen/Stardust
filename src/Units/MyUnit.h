@@ -24,7 +24,7 @@ public:
 
     virtual bool isReady() const { return true; };
 
-    virtual bool isStuck() const { return unit->isStuck(); };
+    virtual bool unstick();
 
     void move(BWAPI::Position position, bool force = false);
 
@@ -58,7 +58,7 @@ protected:
 
     void updateMoveWaypoints();
 
-    void unstickMoveUnit();
+    bool unstickMoveUnit();
 
     void resetGrid();
 

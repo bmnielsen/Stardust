@@ -74,3 +74,14 @@ void MyUnit::attackUnit(BWAPI::Unit target)
     if (!intercept.isValid()) intercept = UnitUtil::PredictPosition(target, 5);
     move(intercept);
 }
+
+bool MyUnit::unstick()
+{
+    if (unit->isStuck())
+    {
+        stop();
+        return true;
+    }
+
+    return false;
+}

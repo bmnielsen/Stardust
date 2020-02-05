@@ -24,11 +24,7 @@ void UnitCluster::attack(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit
         auto &myUnit = Units::getMine(unitAndTarget.first);
 
         // If the unit is stuck, unstick it
-        if (myUnit.isStuck())
-        {
-            myUnit.stop();
-            continue;
-        }
+        if (myUnit.unstick()) continue;
 
         // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
         if (!myUnit.isReady()) continue;

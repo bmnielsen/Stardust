@@ -17,9 +17,11 @@ namespace
 void MyUnit::issueMoveOrders()
 {
     if (issuedOrderThisFrame) return;
+    if (!targetPosition.isValid()) return;
+
+    if (unstickMoveUnit()) return;
 
     updateMoveWaypoints();
-    unstickMoveUnit();
 }
 
 bool MyUnit::moveTo(BWAPI::Position position)
@@ -350,30 +352,34 @@ void MyUnit::updateChokePath(const BWEM::Area *unitArea)
     }
 }
 
-void MyUnit::unstickMoveUnit()
+bool MyUnit::unstickMoveUnit()
 {
-    // Bail out if:
-    // - The last command is not to move
-    // - The last command was sent recently (the unit might just not have started moving yet)
-    // - The unit is close to its move target (it may be decelerating or have already arrived)
+    // Consider the unit to not be stuck if the last command was not a valid move command
     BWAPI::UnitCommand currentCommand(unit->getLastCommand());
     if (currentCommand.getType() != BWAPI::UnitCommandTypes::Move
-        || !currentCommand.getTargetPosition().isValid()
-        || (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame()) < (BWAPI::Broodwar->getLatencyFrames() + 3)
-        || unit->getDistance(currentCommand.getTargetPosition()) < 32)
+        || !currentCommand.getTargetPosition().isValid())
     {
-        return;
+        return false;
     }
 
-    // We resend the move command if any of the following are true:
-    // - The unit is not moving (either via BWAPI flag or measured by velocity)
-    // - The order is changed to Guard or PlayerGuard
-    if (!unit->isMoving()
-        || unit->getOrder() == BWAPI::Orders::Guard
-        || unit->getOrder() == BWAPI::Orders::PlayerGuard
-        || (abs(unit->getVelocityX()) < 0.001 && abs(unit->getVelocityY()) < 0.001)
-            )
+    // Consider the unit to not be stuck if it is close to its move target (it may be decelerating or have already arrived)
+    if (unit->getDistance(currentCommand.getTargetPosition()) < 32)
+    {
+        return false;
+    }
+
+    // Consider the unit to not be stuck if it is moving and the order is not Guard or PlayerGuard
+    if (unit->isMoving() && (abs(unit->getVelocityX()) > 0.001 || abs(unit->getVelocityY()) > 0.001)
+        && unit->getOrder() != BWAPI::Orders::Guard && unit->getOrder() != BWAPI::Orders::PlayerGuard)
+    {
+        return false;
+    }
+
+    // Otherwise force resend the last move command unless we recently did so
+    if ((BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame()) >= (BWAPI::Broodwar->getLatencyFrames() + 3))
     {
         move(currentCommand.getTargetPosition(), true);
     }
+
+    return true;
 }

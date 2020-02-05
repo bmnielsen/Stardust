@@ -12,6 +12,7 @@ MyDragoon::MyDragoon(BWAPI::Unit unit)
         , lastPosition(BWAPI::Positions::Invalid)
         , lastAttackStartedAt(0)
         , potentiallyStuckSince(0)
+        , lastUnstickFrame(0)
 {
 }
 
@@ -69,12 +70,49 @@ void MyDragoon::typeSpecificUpdate()
     lastPosition = unit->getPosition();
 }
 
-bool MyDragoon::isStuck() const
+bool MyDragoon::unstick()
 {
-    if (MyUnit::isStuck()) return true;
+    // If we recently sent a command meant to unstick the unit, give it a bit of time to kick in
+    if (BWAPI::Broodwar->getFrameCount() - lastUnstickFrame < BWAPI::Broodwar->getLatencyFrames())
+    {
+        return true;
+    }
 
-    return unit->isMoving() && potentiallyStuckSince > 0 &&
-           potentiallyStuckSince < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 10);
+    // This checks for the case of cancelled attacks sticking a dragoon
+    if (unit->isMoving() && potentiallyStuckSince > 0
+        && potentiallyStuckSince < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 10))
+    {
+        stop();
+        lastUnstickFrame = BWAPI::Broodwar->getFrameCount();
+        return true;
+    }
+
+    // This checks for a dragoon stuck on a building
+    // Condition is:
+    // - The last command is a valid move command
+    // - The last command was issued more than 3+LF frames ago
+    // - The dragoon is not moving
+    BWAPI::UnitCommand currentCommand(unit->getLastCommand());
+    if (currentCommand.getType() == BWAPI::UnitCommandTypes::Move && currentCommand.getTargetPosition().isValid()
+        && (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame()) >= (BWAPI::Broodwar->getLatencyFrames() + 3)
+        && (!unit->isMoving() || (abs(unit->getVelocityX()) < 0.001 && abs(unit->getVelocityY()) < 0.001)))
+    {
+        for (const auto &building : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (!building->getType().isBuilding()) continue;
+
+            if (unit->getDistance(building) < 2)
+            {
+                auto delta = unit->getPosition() - building->getPosition();
+                auto pos = unit->getPosition() + (delta / 2);
+                move(pos);
+                lastUnstickFrame = BWAPI::Broodwar->getFrameCount();
+                return true;
+            }
+        }
+    }
+
+    return MyUnit::unstick();
 }
 
 bool MyDragoon::isReady() const
