@@ -253,3 +253,77 @@ TEST(SquadMovement, OrphanedUnit)
 
     test.run();
 }
+
+// TODO: Improve flocking behaviour of large groups and add some assertions to this test
+TEST(SquadMovement, DragoonBall)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 600;
+    test.expectWin = false;
+
+    // Start the dragoons in a tight ball
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(88, 19)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(88, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(88, 21)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(88, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(88, 23)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(89, 19)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(89, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(89, 21)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(89, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(89, 23)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(90, 19)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(90, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(90, 21)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(90, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(90, 23)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(91, 19)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(91, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(91, 21)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(91, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(91, 23)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(92, 19)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(92, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(92, 21)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(92, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(92, 23)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 19)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 21)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 23)),
+    };
+
+    Base *baseToAttack = nullptr;
+
+    // Order them to attack the bottom-right base
+    test.onStartMine = [&baseToAttack]()
+    {
+        baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 117)));
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<AttackBase>(baseToAttack));
+        Strategist::setOpening(openingPlays);
+    };
+
+    // Verify the units have moved efficiently
+    test.onEndMine = [&baseToAttack]()
+    {
+        // Without flocking the distances are avg=1913; min=1411; max=2386
+        // default: 2018;1773;2187
+
+        int avg, min, max;
+        computeDistances(BWAPI::UnitTypes::Protoss_Dragoon, baseToAttack->getPosition(), &avg, &min, &max);
+        std::cout << "avg=" << avg << "; min=" << min << "; max=" << max << std::endl;
+
+        // Assert the orphaned unit made it out
+        //EXPECT_LT(max, 3500);
+    };
+
+    test.run();
+}
