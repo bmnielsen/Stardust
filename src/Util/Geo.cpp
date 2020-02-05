@@ -193,4 +193,21 @@ namespace Geo
                 target->getPosition().x + (int) (t * target->getVelocityX()),
                 target->getPosition().y + (int) (t * target->getVelocityY()));
     }
+
+    BWAPI::Position CenterOfUnit(BWAPI::TilePosition topLeft, BWAPI::UnitType type)
+    {
+        return CenterOfUnit(BWAPI::Position(topLeft), type);
+    }
+
+    BWAPI::Position CenterOfUnit(BWAPI::Position topLeft, BWAPI::UnitType type)
+    {
+        // For buildings we assume the top left is the top left of the tile placement, not the top left of the actual building dimensions
+        if (type.isBuilding())
+        {
+            return BWAPI::Position(topLeft.x + type.tileWidth() * 16, topLeft.y + type.tileHeight() * 16);
+        }
+
+        return BWAPI::Position(topLeft.x + type.dimensionLeft() + 1, topLeft.y + type.dimensionUp() + 1);
+    }
+
 }
