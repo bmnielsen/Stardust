@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <execinfo.h>
 #include <filesystem>
+#include <sys/shm.h>
 
 #include "Geo.h"
 
@@ -126,6 +127,10 @@ void BWTest::run()
             scheduleInitialUnitCreation(myInitialUnits, myInitialUnitsByFrame),
             scheduleInitialUnitCreation(opponentInitialUnits, opponentInitialUnitsByFrame));
 
+    auto shmid = shmget(IPC_PRIVATE, 256, IPC_CREAT | 0666);
+    sharedMemory = (char *) shmat(shmid, nullptr, 0);
+    memset(sharedMemory, 0, 256);
+
     auto opponentPid = fork();
     if (opponentPid == 0)
     {
@@ -178,6 +183,9 @@ void BWTest::run()
 #endif
 
     waitpid(opponentPid, nullptr, 0);
+
+    shmdt(sharedMemory);
+    shmctl(shmid, IPC_RMID, nullptr);
 }
 
 void BWTest::runGame(bool opponent)

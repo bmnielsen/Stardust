@@ -1,6 +1,31 @@
 #include "BWTest.h"
 #include "UAlbertaBotModule.h"
 
+TEST(Steamhammer, RunUntilLoss)
+{
+    while (true)
+    {
+        BWTest test;
+        test.opponentRace = BWAPI::Races::Zerg;
+        test.opponentModule = []()
+        {
+            return new UAlbertaBot::UAlbertaBotModule();
+        };
+        test.onStartOpponent = [&test]()
+        {
+            std::cout << "Steamhammer strategy: " << Config::Strategy::StrategyName << std::endl;
+            strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
+        };
+        test.onEndMine = [&test]()
+        {
+            test.replayName = (std::ostringstream() << "Steamhammer_" << test.sharedMemory).str();
+        };
+        test.run();
+
+        if (::testing::UnitTest::GetInstance()->current_test_info()->result()->Failed()) break;
+    }
+}
+
 TEST(Steamhammer, 4Pool)
 {
     BWTest test;
@@ -78,11 +103,14 @@ TEST(Steamhammer, Anything)
     {
         return new UAlbertaBot::UAlbertaBotModule();
     };
-    test.onStartOpponent = []()
+    test.onStartOpponent = [&test]()
     {
-        std::cout << "Steamhammer is using opening strategy " << Config::Strategy::StrategyName << std::endl;
+        std::cout << "Steamhammer strategy: " << Config::Strategy::StrategyName << std::endl;
+        strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
     };
-
+    test.onEndMine = [&test]()
+    {
+        test.replayName = (std::ostringstream() << "Steamhammer_" << test.sharedMemory).str();
+    };
     test.run();
 }
-

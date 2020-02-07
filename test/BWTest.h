@@ -34,6 +34,8 @@ public:
     bool expectWin = true;
     bool writeReplay = true;
 
+    char *sharedMemory = nullptr;
+
     std::string replayName;
 
     std::function<BWAPI::AIModule *()> myModule = nullptr;
