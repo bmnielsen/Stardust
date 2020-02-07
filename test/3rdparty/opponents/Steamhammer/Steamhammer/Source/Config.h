@@ -26,21 +26,35 @@ namespace Config
 		extern std::string ErrorLogFilename;
 		extern bool LogAssertToErrorFile;
 
-		extern std::string ReadDir;
+        extern std::string StaticDir;
+        extern std::string PreparedDataDir;
+        extern std::string ReadDir;
 		extern std::string WriteDir;
 		extern int MaxGameRecords;
 		extern bool ReadOpponentModel;
 		extern bool WriteOpponentModel;
 	}
 
+    namespace Skills
+    {
+        extern bool UnderSCHNAIL;
+        extern bool SCHNAILMeansHuman;
+        extern bool HumanOpponent;
+        extern bool SurrenderWhenHopeIsLost;
+
+        extern bool ScoutHarassEnemy;
+        extern bool AutoGasSteal;
+        extern double RandomGasStealRate;
+
+        extern bool Burrow;
+        extern int MaxQueens;
+        extern int MaxInfestedTerrans;
+    }
+
 	namespace Strategy
     {
         extern std::string StrategyName;
-        extern bool ScoutHarassEnemy;
-		extern bool AutoGasSteal;
-		extern double RandomGasStealRate;
 		extern bool UsePlanRecognizer;
-		extern bool SurrenderWhenHopeIsLost;
         extern bool UseEnemySpecificStrategy;
         extern bool FoundEnemySpecificStrategy;
     }

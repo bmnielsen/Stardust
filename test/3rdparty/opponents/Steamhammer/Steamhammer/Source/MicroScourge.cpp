@@ -27,35 +27,45 @@ void MicroScourge::assignTargets(const BWAPI::Unitset & scourge, const BWAPI::Un
 {
 	// The set of potential targets.
 	BWAPI::Unitset scourgeTargets;
-	std::copy_if(targets.begin(), targets.end(), std::inserter(scourgeTargets, scourgeTargets.end()),
-		[](BWAPI::Unit u) {
-		return
-			u->isVisible() &&
-			u->isDetected() &&
-			u->isFlying();
-	});
+	for (BWAPI::Unit target : targets)
+	{
+		if (target->isVisible() &&
+			target->isFlying() &&
+            target->getType() != BWAPI::UnitTypes::Protoss_Interceptor &&
+            target->getType() != BWAPI::UnitTypes::Zerg_Overlord &&
+            !the.airAttacks.inRange(target->getTilePosition()) &&	// skip defended targets
+			target->isDetected() &&
+			!target->isInvincible())
+		{
+			scourgeTargets.insert(target);
+		}
+	}
 
 	for (const auto scourgeUnit : scourge)
 	{
-		// If a target is found,
 		BWAPI::Unit target = getTarget(scourgeUnit, scourgeTargets);
 		if (target)
 		{
+			// A target was found. Attack it.
 			if (Config::Debug::DrawUnitTargetInfo)
 			{
-				BWAPI::Broodwar->drawLineMap(scourgeUnit->getPosition(), scourgeUnit->getTargetPosition(), BWAPI::Colors::Purple);
+				BWAPI::Broodwar->drawLineMap(scourgeUnit->getPosition(), scourgeUnit->getTargetPosition(), BWAPI::Colors::Blue);
 			}
 
-			//the.micro.CatchAndAttackUnit(scourgeUnit, target);
-			the.micro.AttackUnit(scourgeUnit, target);
+			the.micro.CatchAndAttackUnit(scourgeUnit, target);
 		}
 		else
 		{
 			// No target found. If we're not near the order position, go there.
+			// Use Move (not AttackMove) so that we don't attack overlords and such along the way.
 			if (scourgeUnit->getDistance(order.getPosition()) > 3 * 32)
 			{
-				the.micro.AttackMove(scourgeUnit, order.getPosition());
-			}
+				the.micro.MoveNear(scourgeUnit, order.getPosition());
+                if (Config::Debug::DrawUnitTargetInfo)
+                {
+                    BWAPI::Broodwar->drawLineMap(scourgeUnit->getPosition(), order.getPosition(), BWAPI::Colors::Orange);
+                }
+            }
 		}
 	}
 }
@@ -70,9 +80,9 @@ BWAPI::Unit MicroScourge::getTarget(BWAPI::Unit scourge, const BWAPI::Unitset & 
 		const int priority = getAttackPriority(target->getType());	// 0..12
 		const int range = scourge->getDistance(target);				// 0..map diameter in pixels
 
-		// Let's say that 1 priority step is worth 160 pixels (5 tiles).
+		// Let's say that 1 priority step is worth 3 tiles.
 		// We care about unit-target range and target-order position distance.
-		int score = 5 * 32 * priority - range;
+		int score = 3 * 32 * priority - range;
 
 		if (score > bestScore)
 		{
@@ -101,7 +111,7 @@ int MicroScourge::getAttackPriority(BWAPI::UnitType targetType)
 		targetType == BWAPI::UnitTypes::Protoss_Shuttle ||
 		targetType == BWAPI::UnitTypes::Zerg_Queen)
 	{
-		// Transports other than overlords, plus queens: They are important and defenseless.
+		// Transports other than overlords, plus queens. They are important and defenseless.
 		return 9;
 	}
 	if (targetType == BWAPI::UnitTypes::Terran_Battlecruiser ||
@@ -114,11 +124,17 @@ int MicroScourge::getAttackPriority(BWAPI::UnitType targetType)
 		targetType == BWAPI::UnitTypes::Protoss_Corsair ||
 		targetType == BWAPI::UnitTypes::Zerg_Mutalisk)
 	{
+        // Lesser flyers that can shoot back.
 		return 5;
 	}
 	if (targetType == BWAPI::UnitTypes::Protoss_Observer)
 	{
-		return 3;
+		// Higher priority if we have burrow or lurker tech.
+		return
+            (BWAPI::Broodwar->self()->hasResearched(BWAPI::TechTypes::Burrowing) ||
+            BWAPI::Broodwar->self()->hasResearched(BWAPI::TechTypes::Lurker_Aspect))
+                ? 7
+                : 5;
 	}
 
 	// Overlords, scourge, interceptors.

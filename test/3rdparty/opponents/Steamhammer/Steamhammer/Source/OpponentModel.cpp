@@ -64,6 +64,13 @@ OpeningPlan OpponentModel::predictEnemyPlan() const
 // So far, we only check the plan. We have plenty of other data that could be helpful.
 void OpponentModel::considerSingleStrategy()
 {
+    // Humans, we assume, are unpredictable.
+    if (Config::Skills::HumanOpponent)
+    {
+        _singleStrategy = false;
+        return;
+    }
+
 	// Gather info.
 	int knownPlan = 0;
 	int unknownPlan = 0;
@@ -93,7 +100,6 @@ void OpponentModel::considerSingleStrategy()
 		_singleStrategy = true;
 	}
 }
-
 
 // If the opponent model has collected useful information,
 // set _recommendedOpening, the opening to play (or instructions for choosing it).
@@ -157,7 +163,6 @@ void OpponentModel::considerOpenings()
 	// For the first games, stick to the counter openings based on the predicted plan.
 	if (_summary.totalGames <= 5)
 	{
-		// BWAPI::Broodwar->printf("initial exploration phase");
 		_recommendedOpening = getOpeningForEnemyPlan(_expectedEnemyPlan);
 		return;										// with or without expected play
 	}
@@ -205,13 +210,13 @@ void OpponentModel::considerOpenings()
 	}
 	if (!alwaysWins.empty())
 	{
-		// BWAPI::Broodwar->printf("always wins");
+		//BWAPI::Broodwar->printf("always wins");
 		_recommendedOpening = alwaysWins;
 		return;
 	}
 	if (!alwaysWinsOnThisMap.empty())
 	{
-		// BWAPI::Broodwar->printf("always wins on this map");
+		//BWAPI::Broodwar->printf("always wins on this map");
 		_recommendedOpening = alwaysWinsOnThisMap;
 		return;
 	}
@@ -244,7 +249,7 @@ void OpponentModel::considerOpenings()
 	}
 }
 
-// The enemy always plays the same plan against us.
+// The enemy always plays the same plan against us (we think).
 // Seek the single opening that best counters it.
 void OpponentModel::singleStrategyEnemyOpenings()
 {
@@ -259,7 +264,7 @@ void OpponentModel::singleStrategyEnemyOpenings()
 	// Decide whether to explore.
 	if (summary.totalWins == 0 || Random::Instance().flag(explorationRate))
 	{
-		// BWAPI::Broodwar->printf("single strategy - explore");
+		//BWAPI::Broodwar->printf("single strategy - explore");
 		_recommendedOpening = getExploreOpening(summary);
 		return;
 	}
@@ -342,7 +347,7 @@ void OpponentModel::multipleStrategyEnemyOpenings()
 		}
 	}
 
-	// BWAPI::Broodwar->printf("multiple strategy choice %s", _recommendedOpening.c_str());
+	//BWAPI::Broodwar->printf("multiple strategy choice %s", _recommendedOpening.c_str());
 
 	if (_recommendedOpening == "explore")
 	{
@@ -393,14 +398,14 @@ void OpponentModel::considerGasSteal()
 {
 	// 1. Random gas stealing.
 	// This part really should run only once per game.
-	if (Random::Instance().flag(Config::Strategy::RandomGasStealRate))
+	if (Random::Instance().flag(Config::Skills::RandomGasStealRate))
 	{
 		_recommendGasSteal = true;
 		return;
 	}
 
 	// 2. Is auto gas stealing turned on?
-	if (!Config::Strategy::AutoGasSteal)
+	if (!Config::Skills::AutoGasSteal)
 	{
 		return;
 	}
@@ -535,13 +540,22 @@ void OpponentModel::read()
 {
 	if (Config::IO::ReadOpponentModel)
 	{
-		std::ifstream inFile(Config::IO::ReadDir + _filename);
+        std::ifstream inFile;
+        
+        inFile.open(Config::IO::ReadDir + _filename);
 
-		// There may not be a file to read. That's OK.
-		if (inFile.bad())
+		// There may not be a file to read. Check for a prepared file in the AI directory.
+        if (!inFile.good())
 		{
-			return;
+            inFile.clear();
+            inFile.open(Config::IO::PreparedDataDir + _filename);
+            if (!inFile.good())
+            {
+                // No prepared file either. That's OK.
+                return;
+            }
 		}
+        // At this point, we have a file to read.
 
 		while (inFile.good())
 		{

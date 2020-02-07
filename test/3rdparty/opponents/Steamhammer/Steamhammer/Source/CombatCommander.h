@@ -20,6 +20,7 @@ class CombatCommander
 
 	BWAPI::Position	_scourgeTarget;
 
+    bool            _isWatching;                    // watch squad activated
 	BWAPI::Position	_reconTarget;
 	int				_lastReconTargetChange;         // frame number
 

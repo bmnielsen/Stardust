@@ -41,9 +41,10 @@ class GameCommander
 	BWAPI::Unitset          _combatUnits;
 	BWAPI::Unitset          _scoutUnits;
 
-	int						_surrenderTime;    // for giving up early
+	int						_surrenderTime;     // for giving up early
+    int                     _myHighWaterSupply; // used for surrender decisions vs. a human
 
-	int						_initialScoutTime; // 0 until a scouting worker is assigned
+	int						_initialScoutTime;  // 0 until a scouting worker is assigned
 
     void                    assignUnit(BWAPI::Unit unit, BWAPI::Unitset & set);
 	bool                    isAssigned(BWAPI::Unit unit) const;

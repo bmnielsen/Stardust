@@ -17,6 +17,9 @@ namespace Assert
 }
 }
 
+// BOSS debugging.
+// Can be tured off (see the URL), but may then allow crashes to occur rather than hiding them.
+// https://github.com/kant2002/ualbertabot/commit/228d20c6522b0d3f6d00107bc3d5fc871612accc
 #define BOSS_ASSERT_ENABLE
 
 #ifdef BOSS_ASSERT_ENABLE
@@ -40,6 +43,6 @@ namespace Assert
         } while(0)
 
 #else
-    #define SPARCRAFT_ASSERT(cond, msg, ...) 
-    #define SPARCRAFT_ASSERT_STATE(cond, state, filename, msg, ...) 
+    #define BOSS_ASSERT(cond, msg, ...) 
+    #define BOSS_ASSERT_STATE(cond, state, filename, msg, ...) 
 #endif

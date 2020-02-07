@@ -3,6 +3,7 @@
 #include "CombatCommander.h"
 
 #include "Bases.h"
+#include "BuildingManager.h"
 #include "MapGrid.h"
 #include "Micro.h"
 #include "Random.h"
@@ -16,11 +17,11 @@ const size_t IdlePriority = 0;
 const size_t OverlordPriority = 1;
 const size_t AttackPriority = 2;
 const size_t ReconPriority = 3;
-const size_t WatchPriority = 4;
-const size_t BaseDefensePriority = 5;
-const size_t ScoutDefensePriority = 6;
+const size_t BaseDefensePriority = 4;
+const size_t ScoutDefensePriority = 5;
+const size_t WatchPriority = 6;
 const size_t DropPriority = 7;			// don't steal from Drop squad for anything else
-const size_t ScourgePriority = 8;		// scourge go in the Scourge squad, nowhere else
+const size_t ScourgePriority = 8;		// all scourge and only scourge
 
 // The attack squads.
 const int DefendFrontRadius = 400;
@@ -38,6 +39,7 @@ CombatCommander::CombatCommander()
 	: the(The::Root())
 	, _initialized(false)
 	, _goAggressive(true)
+    , _isWatching(false)
 	, _reconTarget(BWAPI::Positions::Invalid)   // it will be changed later
 	, _lastReconTargetChange(0)
 	, _carrierCount(0)
@@ -196,9 +198,13 @@ void CombatCommander::chooseScourgeTarget(const Squad & sourgeSquad)
 	{
 		const UnitInfo & ui(kv.second);
 
-		// Skip ground units and units known to have moved away some time ago.
+		// Skip inappropriate units and units known to have moved away some time ago.
+        // Also stay out of range of enemy static air defense.
 		if (!ui.type.isFlyer() ||
-			ui.goneFromLastPosition && BWAPI::Broodwar->getFrameCount() - ui.updateFrame < 5 * 24)
+            ui.type == BWAPI::UnitTypes::Protoss_Interceptor ||
+            ui.type == BWAPI::UnitTypes::Zerg_Overlord ||
+			ui.goneFromLastPosition && BWAPI::Broodwar->getFrameCount() - ui.updateFrame > 5 * 24 ||
+            the.airAttacks.inRange(BWAPI::TilePosition(ui.lastPosition)))
 		{
 			continue;
 		}
@@ -212,7 +218,7 @@ void CombatCommander::chooseScourgeTarget(const Squad & sourgeSquad)
 
 		// Each score increment is worth 2 tiles of distance.
 		const int distance = center.getApproxDistance(ui.lastPosition);
-		score = 2 * score - distance / 32;
+		score -= distance / 16;
 		if (score > bestScore)
 		{
 			bestTarget = ui.lastPosition;
@@ -256,40 +262,89 @@ void CombatCommander::updateScourgeSquad()
 	scourgeSquad.setSquadOrder(scourgeOrder);
 }
 
+// Comparison function for a sort done below.
+bool compareFirst(const std::pair<int, Base *> & left, const std::pair<int, Base *> & right)
+{
+    return left.first < right.first;
+}
+
 // Update the watch squads, which set a sentry in each free base to see enemy expansions
 // and possibly stop them. It also clears spider mines as a side effect.
 // A free base may get a watch squad with up to 1 zergling and 1 overlord.
 // For now, only zerg keeps watch squads, and only when units are available.
 void CombatCommander::updateWatchSquads()
 {
-	// TODO Disabled because it is not in a useful state.
-	return;
-
-	// Only if we're zerg.
+	// Only if we're zerg. Not implemented for other races.
 	if (BWAPI::Broodwar->self()->getRace() != BWAPI::Races::Zerg)
 	{
 		return;
 	}
 
-	// Number of zerglings. Whether to assign overlords--other races can't afford so many detectors.
-	int maxWatchers = BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg
-		? 0
-		: UnitUtil::GetAllUnitCount(BWAPI::UnitTypes::Zerg_Zergling) - 18;
-	const bool wantDetector = wantSquadDetectors();
+    // We choose bases to watch relative to the enemy start, so we must know it first.
+    if (!Bases::Instance().enemyStart())
+    {
+        return;
+    }
 
-	for (Base * base : Bases::Instance().getBases())
+    // What to assign to Watch squads.
+    const bool hasBurrow = BWAPI::Broodwar->self()->hasResearched(BWAPI::TechTypes::Burrowing);
+    const int nLings = UnitUtil::GetCompletedUnitCount(BWAPI::UnitTypes::Zerg_Zergling);
+    const int groundStrength =
+        nLings +
+        UnitUtil::GetCompletedUnitCount(BWAPI::UnitTypes::Zerg_Hydralisk) +
+        2 * UnitUtil::GetCompletedUnitCount(BWAPI::UnitTypes::Zerg_Lurker) +
+        3 * UnitUtil::GetCompletedUnitCount(BWAPI::UnitTypes::Zerg_Ultralisk);
+    const int perWatcher = hasBurrow ? 9 : 12;
+    if (nLings < 2 || Bases::Instance().freeLandBaseCount() == 0)
+    {
+        // We have either nothing to watch with, or nothing to watch over.
+        _isWatching = false;
+    }
+
+    // When _isWatching is set, we ensure at least one watching zergling.
+    // 
+    int nWatchers = std::min(nLings, Clip(groundStrength / perWatcher, _isWatching ? 1 : 0, hasBurrow ? 4 : 2));
+
+    // NOTE The detector assignments have little effect. Early in the game, we have no free overlords.
+    // Later in the game, we don't assign overlords because of the danger.
+    const bool wantIslandDetector = !InformationManager::Instance().enemyHasOverlordHunters();
+    const bool wantDetector = !InformationManager::Instance().enemyHasAntiAir();
+        // TODO when overlords get a little smarter, change it to this:
+        //!InformationManager::Instance().enemyHasOverlordHunters() &&
+        //(BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Pneumatized_Carapace) > 0 || !InformationManager::Instance().enemyHasAntiAir());
+
+    // Sort free bases by nearness to enemy main, which must be known (we check above).
+    // Distance scores for good bases, score -1 for others.
+    // NOTE If the enemy main is destroyed, it becomes the top priority for watching.
+    std::vector<std::pair<int, Base *>> baseScores;
+    for (Base * base : Bases::Instance().getBases())
+    {
+        if (nWatchers > 0 &&
+            base->getOwner() == BWAPI::Broodwar->neutral() &&
+            Bases::Instance().connectedToStart(base->getTilePosition()) &&
+            !base->isReserved() &&
+            !BuildingManager::Instance().isBasePlanned(base))
+        {
+            baseScores.push_back(std::pair<int, Base *>(base->getTileDistance(Bases::Instance().enemyStart()->getTilePosition()), base));
+        }
+        else
+        {
+            baseScores.push_back(std::pair<int, Base *>(-1, base));
+        }
+    }
+
+    std::stable_sort(baseScores.begin(), baseScores.end(), compareFirst);
+    
+	for (std::pair<int, Base *> baseScore : baseScores)
 	{
+        Base * base = baseScore.second;
+        int score = baseScore.first;
+
 		std::stringstream squadName;
 		BWAPI::TilePosition tile(base->getTilePosition() + BWAPI::TilePosition(2, 1));
 		squadName << "Watch " << tile.x << "," << tile.y;
 
-		bool wantWatcher =
-			maxWatchers > 0 &&
-			base->getOwner() == BWAPI::Broodwar->neutral() &&
-			Bases::Instance().connectedToStart(tile) &&
-			!base->isReserved();
-
-		if (!wantDetector && !wantWatcher && !_squadData.squadExists(squadName.str()))
+        if (!wantIslandDetector && !wantDetector && score < 0 && !_squadData.squadExists(squadName.str()))
 		{
 			continue;
 		}
@@ -304,38 +359,58 @@ void CombatCommander::updateWatchSquads()
 
 		// Add or remove the squad's watcher unit, or sentry.
 		bool hasWatcher = watchSquad.containsUnitType(BWAPI::UnitTypes::Zerg_Zergling);
+        if (hasWatcher)
+        {
+            if (score < 0 || nWatchers <= 0)
+            {
+                // Has watcher and should not.
+                for (BWAPI::Unit unit : watchSquad.getUnits())
+                {
+                    if (unit->getType() == BWAPI::UnitTypes::Zerg_Zergling)
+                    {
+                        watchSquad.removeUnit(unit);
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                // Has watcher as it should. Count it.
+                --nWatchers;
+            }
+        }
+        else
+        {
+            if (score >= 0 && nWatchers > 0)
+            {
+                // Has no watcher and should have one.
+                for (BWAPI::Unit unit : _combatUnits)
+                {
+                    if (unit->getType() == BWAPI::UnitTypes::Zerg_Zergling &&
+                        _squadData.canAssignUnitToSquad(unit, watchSquad))
+                    {
+                        _squadData.assignUnitToSquad(unit, watchSquad);
+                        --nWatchers;		// we used one up
+                        // If we have burrow, we want to keep watching at least one neutral base. Flag it.
+                        if (hasBurrow)
+                        {
+                            _isWatching = true;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
 
-		if (hasWatcher && !wantWatcher)
-		{
-			for (BWAPI::Unit unit : watchSquad.getUnits())
-			{
-				if (unit->getType() == BWAPI::UnitTypes::Zerg_Zergling)
-				{
-					watchSquad.removeUnit(unit);
-					break;
-				}
-			}
-		}
-		else if (!hasWatcher && wantWatcher)
-		{
-			for (BWAPI::Unit unit : _combatUnits)
-			{
-				if (unit->getType() == BWAPI::UnitTypes::Zerg_Zergling && _squadData.canAssignUnitToSquad(unit, watchSquad))
-				{
-					_squadData.assignUnitToSquad(unit, watchSquad);
-					--maxWatchers;		// we used one up
-					break;
-				}
-			}
-		}
+        // Possibly assign overlords to bases which are not being watched by zerglings.
+        maybeAssignDetector(watchSquad, !watchSquad.containsUnitType(BWAPI::UnitTypes::Zerg_Zergling) &&
+            (wantDetector || base->isIsland() && wantIslandDetector));
 
-		maybeAssignDetector(watchSquad, wantDetector);
-
-		// Drop the squad if it is no longer needed. Don't clutter the squad display.
-		if (watchSquad.isEmpty())
-		{
-			_squadData.removeSquad(squadName.str());
-		}
+        // Drop the squad if it is no longer needed. Don't clutter the squad display.
+        if (watchSquad.isEmpty())
+        {
+            _squadData.removeSquad(squadName.str());
+        }
 	}
 }
 
@@ -615,8 +690,8 @@ BWAPI::Position CombatCommander::getReconLocation() const
 // Form the ground squad and the flying squad, the main attack squads.
 // NOTE Arbiters and guardians go into the ground squad.
 //      Devourers are flying squad if it exists, otherwise ground.
-//		Carriers are flying squad if it exists or the carrier count is high enough.
-//      Other air units always go into the flying squad.
+//		Carriers are flying squad if it already exists or if the carrier count is high enough.
+//      Other air units always go into the flying squad (except scourge, they are in their own squad).
 void CombatCommander::updateAttackSquads()
 {
     Squad & groundSquad = _squadData.getSquad("Ground");
@@ -961,8 +1036,12 @@ void CombatCommander::updateBaseDefenseSquads()
 						unit->getType() == BWAPI::UnitTypes::Protoss_Arbiter)
 					{
 						// NOTE Carriers don't need extra, they show interceptors.
-						nEnemyAir += 3;
+						nEnemyAir += 4;
 					}
+                    else if (unit->getType() == BWAPI::UnitTypes::Zerg_Devourer)
+                    {
+                        nEnemyAir += 3;
+                    }
 					else
 					{
 						++nEnemyAir;
@@ -971,13 +1050,21 @@ void CombatCommander::updateBaseDefenseSquads()
 				else
 				{
 					// Workers don't count as ground units here.
-					if (unit->getType() == BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode ||
+                    if (unit->getType() == BWAPI::UnitTypes::Terran_Goliath ||
+                        unit->getType() == BWAPI::UnitTypes::Protoss_Zealot ||
+                        unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon ||
+                        unit->getType() == BWAPI::UnitTypes::Protoss_Dark_Templar ||
+                        unit->getType() == BWAPI::UnitTypes::Zerg_Lurker)
+                    {
+                        nEnemyGround += 2;
+                    }
+                    else if (unit->getType() == BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode ||
 						unit->getType() == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode ||
 						unit->getType() == BWAPI::UnitTypes::Protoss_Archon ||
 						unit->getType() == BWAPI::UnitTypes::Protoss_Reaver ||
-						unit->getType() == BWAPI::UnitTypes::Zerg_Lurker)
+						unit->getType() == BWAPI::UnitTypes::Zerg_Ultralisk)
 					{
-						nEnemyGround += 2;
+						nEnemyGround += 4;
 					}
 					else
 					{
@@ -1063,11 +1150,11 @@ void CombatCommander::updateBaseDefenseSquads()
 
 		// Don't let the number of defenders go negative.
 		flyingDefendersNeeded = nEnemyAir ? std::max(flyingDefendersNeeded, 2) : 0;
-		if (nEnemyGround)
+		if (nEnemyGround > 0)
 		{
 			groundDefendersNeeded = std::max(groundDefendersNeeded, 2);
 		}
-		else if (nEnemyWorkers)
+		else if (nEnemyWorkers > 0)
 		{
 			// Workers only, no other attackers.
 			groundDefendersNeeded = std::max(groundDefendersNeeded, 1 + nEnemyWorkers / 2);
@@ -1078,12 +1165,12 @@ void CombatCommander::updateBaseDefenseSquads()
 		}
 
 		// Drop unneeded defenders.
-		if (groundDefendersNeeded == 0 && flyingDefendersNeeded == 0)
+		if (groundDefendersNeeded <= 0 && flyingDefendersNeeded <= 0)
 		{
 			defenseSquad.clear();
 			continue;
 		}
-		if (groundDefendersNeeded == 0)
+		if (groundDefendersNeeded <= 0)
 		{
 			// Drop any defenders which can't shoot air.
 			BWAPI::Unitset drop;
@@ -1100,7 +1187,7 @@ void CombatCommander::updateBaseDefenseSquads()
 			}
 			// And carry on. We may still want to add air defenders.
 		}
-		if (flyingDefendersNeeded == 0)
+		if (flyingDefendersNeeded <= 0)
 		{
 			// Drop any defenders which can't shoot ground.
 			BWAPI::Unitset drop;
@@ -1334,18 +1421,11 @@ void CombatCommander::loadOrUnloadBunkers()
 bool CombatCommander::wantSquadDetectors() const
 {
 	if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss &&
-		InformationManager::Instance().enemyHasMobileDetection())
+		InformationManager::Instance().enemyHasMobileDetection() &&
+        InformationManager::Instance().weHaveCloakTech())
 	{
-		if (BWAPI::Broodwar->self()->hasResearched(BWAPI::TechTypes::Cloaking_Field) ||
-			BWAPI::Broodwar->self()->hasResearched(BWAPI::TechTypes::Personnel_Cloaking) ||
-			UnitUtil::GetCompletedUnitCount(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0 ||
-			UnitUtil::GetCompletedUnitCount(BWAPI::UnitTypes::Protoss_Arbiter) > 0 ||
-			BWAPI::Broodwar->self()->hasResearched(BWAPI::TechTypes::Burrowing) ||
-			BWAPI::Broodwar->self()->hasResearched(BWAPI::TechTypes::Lurker_Aspect))
-		{
-			return true;
-		}
-	}
+        return true;
+    }
 
 	return
 		BWAPI::Broodwar->self()->getRace() == BWAPI::Races::Protoss ||      // observers should be safe-ish
@@ -1461,19 +1541,21 @@ void CombatCommander::cancelDyingItems()
 				type == BWAPI::UnitTypes::Zerg_Egg ||
 				type == BWAPI::UnitTypes::Zerg_Lurker_Egg ||
 				type == BWAPI::UnitTypes::Zerg_Cocoon
-			) &&
-			(	unit->getHitPoints() < 30 ||
-				type == BWAPI::UnitTypes::Zerg_Sunken_Colony && unit->getHitPoints() < 130 && unit->getRemainingBuildTime() < 24
 			))
 		{
-			if (unit->canCancelMorph())
-			{
-				unit->cancelMorph();
-			}
-			else if (unit->canCancelConstruction())
-			{
-				the.micro.Cancel(unit);
-			}
+            const int timeSoFar = unit->getType().buildTime() - unit->getRemainingBuildTime();    // time under construction so far
+            if (unit->getHitPoints() < 30 && timeSoFar >= 2 * 24 ||
+                type == BWAPI::UnitTypes::Zerg_Sunken_Colony && unit->getHitPoints() < 130 && unit->getRemainingBuildTime() < 24)
+            {
+                if (unit->canCancelMorph())
+                {
+                    unit->cancelMorph();
+                }
+                else if (unit->canCancelConstruction())
+                {
+                    the.micro.Cancel(unit);
+                }
+            }
 		}
 	}
 }
@@ -1590,14 +1672,14 @@ SquadOrder CombatCommander::getAttackOrder(const Squad * squad)
 	// 2. If we're defensive, look for a front line to hold. No attacks.
 	if (!_goAggressive)
 	{
-		return SquadOrder(SquadOrderTypes::Attack, getDefenseLocation(), DefendFrontRadius, "Defend front");
+        return SquadOrder(SquadOrderTypes::Attack, getDefenseLocation(), DefendFrontRadius, "Defend front");
 	}
 
 	// 3. Otherwise we are aggressive. Look for a spot to attack.
 	return SquadOrder(SquadOrderTypes::Attack, getAttackLocation(squad), AttackRadius, "Attack enemy");
 }
 
-// Choose a point of attack for the given squad (which may be null).
+// Choose a point of attack for the given squad (which may be null--no squad at all).
 // For a squad with ground units, ignore targets which are not accessible by ground.
 BWAPI::Position CombatCommander::getAttackLocation(const Squad * squad)
 {
@@ -1656,7 +1738,8 @@ BWAPI::Position CombatCommander::getAttackLocation(const Squad * squad)
 				}
 
 				std::vector<UnitInfo> enemies;
-				InformationManager::Instance().getNearbyForce(enemies, base->getCenter(), BWAPI::Broodwar->enemy(), 384);
+                int enemyDefenseRange = InformationManager::Instance().enemyHasSiegeMode() ? 12 * 32 : 8 * 32;
+                InformationManager::Instance().getNearbyForce(enemies, base->getCenter(), BWAPI::Broodwar->enemy(), enemyDefenseRange);
 				for (const auto & enemy : enemies)
 				{
 					// Count enemies that are buildings or slow-moving units good for defense.
@@ -1698,18 +1781,17 @@ BWAPI::Position CombatCommander::getAttackLocation(const Squad * squad)
 		{
 			const UnitInfo & ui = kv.second;
 
-			// 1. Special case for refinery buildings because their ground reachability is tricky to check.
-			// 2. We only know that a building is lifted while it is in sight. That can cause oscillatory
-			// behavior--we move away, can't see it, move back because now we can attack it, see it is lifted, ....
+			// Special case for refinery buildings because their ground reachability is tricky to check.
 			if (ui.type.isBuilding() &&
+                !ui.type.isAddon() &&
 				ui.lastPosition.isValid() &&
 				!ui.goneFromLastPosition &&
 				(ui.type.isRefinery() || squadPartition == the.partitions.id(ui.lastPosition)))
 				// (!hasGround || (!ui.type.isRefinery() && squadPartition == the.partitions.id(ui.lastPosition))))
 			{
-				if (ui.unit->exists() && ui.unit->isLifted())
+				if (ui.lifted)
 				{
-					// The building is lifted. Only if the squad can hit it.
+					// The building is lifted (or was when last seen). Only if the squad can hit it.
 					if (canAttackAir)
 					{
 						return ui.lastPosition;
@@ -1717,7 +1799,7 @@ BWAPI::Position CombatCommander::getAttackLocation(const Squad * squad)
 				}
 				else
 				{
-					// The building is not known for sure to be lifted.
+					// The building is not thought to be lifted.
 					return ui.lastPosition;
 				}
 			}
@@ -1754,7 +1836,26 @@ BWAPI::Position CombatCommander::getAttackLocation(const Squad * squad)
 		}
 	}
 
-	// 4. We can't see anything, so explore the map until we find something.
+    // 4. Attack the remembered locations of unseen enemy units which might still be there.
+    // Choose the one most recently seen.
+    int lastSeenFrame = 0;
+    BWAPI::Position lastSeenPos = BWAPI::Positions::None;
+    for (const auto & kv : InformationManager::Instance().getUnitData(BWAPI::Broodwar->enemy()).getUnits())
+    {
+        const UnitInfo & ui(kv.second);
+
+        if (!ui.goneFromLastPosition && ui.updateFrame > lastSeenFrame)
+        {
+            lastSeenFrame = ui.updateFrame;
+            lastSeenPos = ui.lastPosition;
+        }
+    }
+    if (lastSeenPos.isValid())
+    {
+        return lastSeenPos;
+    }
+
+	// 5. We can't see anything, so explore the map until we find something.
 	return MapGrid::Instance().getLeastExplored(hasGround && !hasAir, squadPartition);
 }
 

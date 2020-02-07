@@ -84,7 +84,16 @@ void Squad::update()
 		return;
 	}
 
-	// This is a non-empty combat squad, so it has a meaningful vanguard unit.
+    if (_order.getType() == SquadOrderTypes::Watch)
+    {
+        if (maybeWatch())
+        {
+            return;
+        }
+        // Else fall through and act as usual.
+    }
+
+	// This is a non-empty combat squad, so it may have a meaningful vanguard unit.
 	_vanguard = unitClosestToEnemy(_units);
 
 	if (_order.getType() == SquadOrderTypes::Load)
@@ -102,13 +111,16 @@ void Squad::update()
 	// Maybe stim marines and firebats.
 	stimIfNeeded();
 
-	// Detectors.
-	_microDetectors.setUnitClosestToEnemy(_vanguard);
-	_microDetectors.setSquadSize(_units.size());
-	_microDetectors.go();
+    // Detectors.
+    _microDetectors.setUnitClosestToEnemy(_vanguard);
+    _microDetectors.setSquadSize(_units.size());
+    _microDetectors.go(_units);
 
-	// High templar stay home until they merge to archons, all that's supported so far.
+    // High templar stay home until they merge to archons, all that's supported so far.
 	_microHighTemplar.update();
+
+	// Queens don't go into clusters, but act independently.
+	_microQueens.update(_vanguard);
 
 	// Finish choosing the units.
 	BWAPI::Unitset unitsToCluster;
@@ -116,9 +128,10 @@ void Squad::update()
 	{
 		if (unit->getType().isDetector() ||
 			unit->getType().spaceProvided() > 0 ||
-			unit->getType() == BWAPI::UnitTypes::Protoss_High_Templar)
+			unit->getType() == BWAPI::UnitTypes::Protoss_High_Templar ||
+			unit->getType() == BWAPI::UnitTypes::Zerg_Queen)
 		{
-			// Don't cluster detectors, transports, or high templar.
+			// Don't cluster detectors, transports, high templar, queens.
 			// They are handled separately above.
 		}
 		else if (unreadyUnit(unit))
@@ -136,10 +149,11 @@ void Squad::update()
 	for (UnitCluster & cluster : _clusters)
 	{
 		setClusterStatus(cluster);
+		microSpecialUnits(cluster);
 	}
 
 	// It can get slow in late game when there are many clusters, so cut down the update frequency.
-	const int nPhases = std::max(1, std::min(4, int(_clusters.size() / 8)));
+	const int nPhases = std::max(1, std::min(4, int(_clusters.size() / 12)));
 	int phase = BWAPI::Broodwar->getFrameCount() % nPhases;
 	for (const UnitCluster & cluster : _clusters)
 	{
@@ -201,8 +215,41 @@ void Squad::setClusterStatus(UnitCluster & cluster)
 	drawCluster(cluster);
 }
 
+// Special-case units which are clustered, but arrange their own movement
+// instead of accepting the cluster's movement commands.
+// Currently, this is medics and defilers.
+// Queens are not clustered.
+void  Squad::microSpecialUnits(const UnitCluster & cluster)
+{
+    // Medics and defilers try to get near the front line.
+	static int spellPhase = 0;
+	spellPhase = (spellPhase + 1) % 8;
+	if (spellPhase == 1)
+	{
+		// The vanguard is chosen among combat units only, so a non-combat unit sent toward
+		// the vanguard may either advance or retreat--either way, that's probably what we want.
+		BWAPI::Unit vanguard = unitClosestToEnemy(cluster.units);	// cluster vanguard
+		if (!vanguard)
+		{
+			vanguard = _vanguard;									// squad vanguard
+		}
+		
+		_microDefilers.updateMovement(cluster, vanguard);
+		_microMedics.update(cluster, vanguard);
+	}
+	else if (spellPhase == 5)
+	{
+		_microDefilers.updateSwarm(cluster);
+	}
+	else if (spellPhase == 7)
+	{
+		_microDefilers.updatePlague(cluster);
+	}
+}
+
 // Take cluster combat actions. These can depend on the status of other clusters.
 // This handles cluster status of Attack and Regroup. Others are handled by setClusterStatus().
+// This takes no action for special units; see microSpecialUnits().
 void Squad::clusterCombat(const UnitCluster & cluster)
 {
 	if (cluster.status == ClusterStatus::Attack)
@@ -233,40 +280,10 @@ void Squad::clusterCombat(const UnitCluster & cluster)
 		_microRanged.regroup(regroupPosition, cluster);
 		_microScourge.regroup(regroupPosition, cluster);
 		_microTanks.regroup(regroupPosition, cluster);
-	}
-	else
-	{
-		// It's not a combat status.
-		return;
-	}
 
-	// The rest is for any combat status.
-
-	// Lurkers never regroup, always execute their order.
-	// NOTE It is because regrouping works poorly. It retreats and unburrows them too often.
-	_microLurkers.execute(cluster);
-
-	// Medics and defilers try to get near the front line.
-	static int defilerPhase = 0;
-	defilerPhase = (defilerPhase + 1) % 8;
-	if (defilerPhase == 3)
-	{
-		BWAPI::Unit vanguard = unitClosestToEnemy(cluster.units);  // cluster vanguard (not squad vanguard)
-
-		// Defilers.
-		_microDefilers.updateMovement(cluster, vanguard);
-
-		// Medics.
-		BWAPI::Position medicGoal = vanguard ? vanguard->getPosition() : cluster.center;
-		_microMedics.update(cluster, medicGoal);
-	}
-	else if (defilerPhase == 5)
-	{
-		_microDefilers.updateSwarm(cluster);
-	}
-	else if (defilerPhase == 7)
-	{
-		_microDefilers.updatePlague(cluster);
+		// Lurkers never regroup, always execute their order.
+		// NOTE It is because regrouping works poorly. It retreats and unburrows them too often.
+		_microLurkers.execute(cluster);
 	}
 }
 
@@ -340,15 +357,21 @@ void Squad::moveCluster(const UnitCluster & cluster, const BWAPI::Position & des
 {
 	for (BWAPI::Unit unit : cluster.units)
 	{
-		if (!UnitUtil::MobilizeUnit(unit))
+		// Only move units which don't arrange their own movement.
+		// Queens do their own movement, but are not clustered and won't turn up here.
+		if (unit->getType() != BWAPI::UnitTypes::Terran_Medic &&
+			!_microDefilers.getUnits().contains(unit))      // defilers plus defiler food
 		{
-			if (lazy)
+			if (!UnitUtil::MobilizeUnit(unit))
 			{
-				the.micro.MoveNear(unit, destination);
-			}
-			else
-			{
-				the.micro.Move(unit, destination);
+				if (lazy)
+				{
+					the.micro.MoveNear(unit, destination);
+				}
+				else
+				{
+					the.micro.Move(unit, destination);
+				}
 			}
 		}
 	}
@@ -484,6 +507,7 @@ void Squad::addUnitsToMicroManagers()
 	BWAPI::Unitset transportUnits;
 	BWAPI::Unitset lurkerUnits;
 	//BWAPI::Unitset mutaUnits;
+	BWAPI::Unitset queenUnits;
 	BWAPI::Unitset overlordUnits;
     BWAPI::Unitset tankUnits;
     BWAPI::Unitset medicUnits;
@@ -493,12 +517,15 @@ void Squad::addUnitsToMicroManagers()
 
 	// First grab the defilers, so we know how many there are.
 	// Assign the minimum number of zerglings as food--check each defiler's energy level.
-	for (const auto unit : _units)
+    // Remember where one of the defilers is, so we can assign nearby zerglings as food.
+    BWAPI::Position defilerPos = BWAPI::Positions::None;
+	for (BWAPI::Unit unit : _units)
 	{
 		if (unit->getType() == BWAPI::UnitTypes::Zerg_Defiler &&
 			unit->isCompleted() && unit->exists() && unit->getHitPoints() > 0 && unit->getPosition().isValid())
 		{
 			defilerUnits.insert(unit);
+            defilerPos = unit->getPosition();
 			if (BWAPI::Broodwar->self()->hasResearched(BWAPI::TechTypes::Consume))
 			{
 				defilerFoodWanted += std::max(0, (199 - unit->getEnergy()) / 50);
@@ -506,17 +533,18 @@ void Squad::addUnitsToMicroManagers()
 		}
 	}
 
-	for (const auto unit : _units)
+    for (BWAPI::Unit unit : _units)
 	{
 		if (unit->isCompleted() && unit->exists() && unit->getHitPoints() > 0 && unit->getPosition().isValid())
 		{
-			if (defilerFoodWanted > 0 && unit->getType() == BWAPI::UnitTypes::Zerg_Zergling)
+			/* if (defilerFoodWanted > 0 && unit->getType() == BWAPI::UnitTypes::Zerg_Zergling)
 			{
 				// If no defiler food is wanted, the zergling falls through to the melee micro manager.
 				defilerUnits.insert(unit);
 				--defilerFoodWanted;
 			}
-			else if (_name == "Overlord" && unit->getType() == BWAPI::UnitTypes::Zerg_Overlord)
+			else */
+            if (_name == "Overlord" && unit->getType() == BWAPI::UnitTypes::Zerg_Overlord)
 			{
                 // Special case for the Overlord squad: All overlords under control of MicroOverlords.
 				overlordUnits.insert(unit);
@@ -543,6 +571,10 @@ void Squad::addUnitsToMicroManagers()
 			{
 				scourgeUnits.insert(unit);
 			}
+			else if (unit->getType() == BWAPI::UnitTypes::Zerg_Queen)
+			{
+				queenUnits.insert(unit);
+			}
 			else if (unit->getType() == BWAPI::UnitTypes::Terran_Medic)
 			{
 				medicUnits.insert(unit);
@@ -563,7 +595,7 @@ void Squad::addUnitsToMicroManagers()
 				transportUnits.insert(unit);
 			}
 			// NOTE This excludes spellcasters (except arbiters, which have a regular weapon too).
-			else if ((unit->getType().groundWeapon().maxRange() > 32) ||
+			else if (unit->getType().groundWeapon().maxRange() > 32 ||
 				unit->getType() == BWAPI::UnitTypes::Protoss_Reaver ||
 				unit->getType() == BWAPI::UnitTypes::Protoss_Carrier)
 			{
@@ -578,13 +610,31 @@ void Squad::addUnitsToMicroManagers()
 				meleeUnits.insert(unit);
 			}
 			// Melee units include firebats, which have range 32.
-			else if (unit->getType().groundWeapon().maxRange() <= 32)
+			else if (unit->getType().groundWeapon().maxRange() <= 32 &&     // melee range
+                unit->getType().groundWeapon().maxRange() > 0)              // but can attack: not a spellcaster
 			{
 				meleeUnits.insert(unit);
 			}
-			// NOTE Some units may fall through and not be assigned.
+			// NOTE Some units may fall through and not be assigned. It's intentional.
 		}
 	}
+
+    // If we want defiler food, find the nearest zerglings and pull them out of meleeUnits.
+    while (defilerFoodWanted > 0)
+    {
+        BWAPI::Unit food = NearestOf(defilerPos, meleeUnits, BWAPI::UnitTypes::Zerg_Zergling);
+        if (food)
+        {
+            defilerUnits.insert(food);
+            meleeUnits.erase(food);
+            --defilerFoodWanted;
+        }
+        else
+        {
+            // No zerglings left in meleeUnits (though there may be other unit types).
+            break;
+        }
+    }
 
 	_microAirToAir.setUnits(airToAirUnits);
 	_microMelee.setUnits(meleeUnits);
@@ -596,6 +646,7 @@ void Squad::addUnitsToMicroManagers()
 	_microMedics.setUnits(medicUnits);
 	//_microMutas.setUnits(mutaUnits);
 	_microScourge.setUnits(scourgeUnits);
+	_microQueens.setUnits(queenUnits);
 	_microOverlords.setUnits(overlordUnits);
 	_microTanks.setUnits(tankUnits);
 	_microTransports.setUnits(transportUnits);
@@ -636,7 +687,7 @@ bool Squad::needsToRegroup(const UnitCluster & cluster)
 	if (!vanguard)
 	{
 		_regroupStatus = yellow + std::string("No vanguard");
-		return false;
+		return true;
 	}
 
 	// Is there static defense nearby that we should take into account?
@@ -702,13 +753,8 @@ BWAPI::Position Squad::calcRegroupPosition(const UnitCluster & cluster) const
 		BWAPI::Unit nearest = nearbyStaticDefense(vanguard->getPosition());
 		if (nearest)
 		{
-			// TODO this should be better but has a bug that can cause retreat toward the enemy
-			// It's better to retreat to behind the static defense.
 			BWAPI::Position behind = DistanceAndDirection(nearest->getPosition(), cluster.center, -128);
 			return behind;
-
-			// TODO old way, tested but weak
-			return nearest->getPosition();
 		}
 	}
 
@@ -1039,12 +1085,37 @@ const std::string & Squad::getName() const
     return _name;
 }
 
+// This is a watch squad. Handle special cases.
+// 1. If a unit is at its assigned watch position, burrow it if possible.
+// 2. If a unit is burrowed and no detector is in view, leave it there.
+bool Squad::maybeWatch()
+{
+    for (BWAPI::Unit u : _units)
+    {
+        if (!u->isBurrowed() &&
+            u->getDistance(_order.getPosition()) < 8 &&
+            u->canBurrow())
+        {
+            the.micro.Burrow(u);
+            return true;
+        }
+        else if (u->isBurrowed() && !UnitUtil::EnemyDetectorInRange(u->getPosition()))
+        {
+            // Return true to indicate that no action is to be taken.
+            // In particilar, don't unburrow to retreat.
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // The drop squad has been given a Load order. Load up the transports for a drop.
 // Unlike other code in the drop system, this supports any number of transports, including zero.
 // Called once per frame while a Load order is in effect.
 void Squad::loadTransport()
 {
-	for (const auto trooper : _units)
+	for (BWAPI::Unit trooper : _units)
 	{
 		// If it's not the transport itself, send it toward the order location,
 		// which is set to the transport's initial location.

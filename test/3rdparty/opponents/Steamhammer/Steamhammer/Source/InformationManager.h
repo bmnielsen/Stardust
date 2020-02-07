@@ -92,7 +92,10 @@ public:
 	bool					enemyHasMobileDetection();
 	bool					enemyHasSiegeMode();
 
+    bool                    weHaveCloakTech() const;
+
 	void					enemySeenBurrowing();
+    int                     getEnemyBuildingTiming(BWAPI::UnitType type) const;
 
 	const BWAPI::Unitset &  getStaticDefense() const { return _staticDefense; };
 	const BWAPI::Unitset &  getOurPylons() const { return _ourPylons; };

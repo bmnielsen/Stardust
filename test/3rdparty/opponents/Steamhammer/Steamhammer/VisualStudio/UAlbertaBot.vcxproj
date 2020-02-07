@@ -118,6 +118,7 @@
   <ItemGroup>
     <ClCompile Include="..\Source\Base.cpp" />
     <ClCompile Include="..\Source\Bases.cpp" />
+    <ClCompile Include="..\Source\BOSimulator.cpp" />
     <ClCompile Include="..\Source\BOSSManager.cpp" />
     <ClCompile Include="..\source\BuildingManager.cpp" />
     <ClCompile Include="..\source\BuildingPlacer.cpp" />
@@ -130,11 +131,13 @@
     <ClCompile Include="..\Source\FAP.cpp" />
     <ClCompile Include="..\Source\GameCommander.cpp" />
     <ClCompile Include="..\Source\GameRecord.cpp" />
+    <ClCompile Include="..\Source\GameRecordNow.cpp" />
     <ClCompile Include="..\Source\Grid.cpp" />
     <ClCompile Include="..\Source\GridAttacks.cpp" />
     <ClCompile Include="..\Source\GridDistances.cpp" />
     <ClCompile Include="..\Source\GridInset.cpp" />
     <ClCompile Include="..\Source\GridRoom.cpp" />
+    <ClCompile Include="..\Source\GridSafeAirPath.cpp" />
     <ClCompile Include="..\Source\GridTileRoom.cpp" />
     <ClCompile Include="..\Source\GridWalk.cpp" />
     <ClCompile Include="..\Source\GridZone.cpp" />
@@ -157,6 +160,7 @@
     <ClCompile Include="..\Source\MicroMelee.cpp" />
     <ClCompile Include="..\Source\MicroMutas.cpp" />
     <ClCompile Include="..\Source\MicroOverlords.cpp" />
+    <ClCompile Include="..\Source\MicroQueens.cpp" />
     <ClCompile Include="..\Source\MicroRanged.cpp" />
     <ClCompile Include="..\Source\MicroScourge.cpp" />
     <ClCompile Include="..\Source\MicroTanks.cpp" />
@@ -169,8 +173,6 @@
     <ClCompile Include="..\Source\ProductionGoal.cpp" />
     <ClCompile Include="..\source\ProductionManager.cpp" />
     <ClCompile Include="..\Source\Random.cpp" />
-    <ClCompile Include="..\Source\Region.cpp" />
-    <ClCompile Include="..\Source\Regions.cpp" />
     <ClCompile Include="..\source\ScoutManager.cpp" />
     <ClCompile Include="..\Source\Squad.cpp" />
     <ClCompile Include="..\Source\SquadData.cpp" />
@@ -188,6 +190,7 @@
   <ItemGroup>
     <ClInclude Include="..\Source\Base.h" />
     <ClInclude Include="..\Source\Bases.h" />
+    <ClInclude Include="..\Source\BOSimulator.h" />
     <ClInclude Include="..\Source\BOSSManager.h" />
     <ClInclude Include="..\Source\BuildingData.h" />
     <ClInclude Include="..\source\BuildingManager.h" />
@@ -200,11 +203,13 @@
     <ClInclude Include="..\Source\FAP.h" />
     <ClInclude Include="..\Source\GameCommander.h" />
     <ClInclude Include="..\Source\GameRecord.h" />
+    <ClInclude Include="..\Source\GameRecordNow.h" />
     <ClInclude Include="..\Source\Grid.h" />
     <ClInclude Include="..\Source\GridAttacks.h" />
     <ClInclude Include="..\Source\GridDistances.h" />
     <ClInclude Include="..\Source\GridInset.h" />
     <ClInclude Include="..\Source\GridRoom.h" />
+    <ClInclude Include="..\Source\GridSafeAirPath.h" />
     <ClInclude Include="..\Source\GridTileRoom.h" />
     <ClInclude Include="..\Source\GridWalk.h" />
     <ClInclude Include="..\Source\GridZone.h" />
@@ -228,6 +233,7 @@
     <ClInclude Include="..\Source\MicroMelee.h" />
     <ClInclude Include="..\Source\MicroMutas.h" />
     <ClInclude Include="..\Source\MicroOverlords.h" />
+    <ClInclude Include="..\Source\MicroQueens.h" />
     <ClInclude Include="..\Source\MicroRanged.h" />
     <ClInclude Include="..\Source\MicroScourge.h" />
     <ClInclude Include="..\Source\MicroTanks.h" />
@@ -240,8 +246,6 @@
     <ClInclude Include="..\Source\ProductionGoal.h" />
     <ClInclude Include="..\source\ProductionManager.h" />
     <ClInclude Include="..\Source\Random.h" />
-    <ClInclude Include="..\Source\Region.h" />
-    <ClInclude Include="..\Source\Regions.h" />
     <ClInclude Include="..\source\ScoutManager.h" />
     <ClInclude Include="..\Source\Squad.h" />
     <ClInclude Include="..\Source\SquadData.h" />

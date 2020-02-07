@@ -1,19 +1,9 @@
 #include "GameRecord.h"
 
-#include "Bases.h"
-#include "GameCommander.h"
-#include "InformationManager.h"
 #include "Logger.h"
 #include "OpponentModel.h"
-#include "UnitUtil.h"
 
 using namespace UAlbertaBot;
-
-// Take a digest snapshot of the game situation.
-void GameRecord::takeSnapshot()
-{
-	snapshots.push_back(new GameSnapshot(PlayerSnapshot (BWAPI::Broodwar->self()), PlayerSnapshot (BWAPI::Broodwar->enemy())));
-}
 
 BWAPI::Race GameRecord::charRace(char ch)
 {
@@ -241,19 +231,19 @@ void GameRecord::read(std::istream & input)
 
 void GameRecord::writePlayerSnapshot(std::ostream & output, const PlayerSnapshot & snap)
 {
-	output << snap.numBases;
-	for (auto unitCount : snap.unitCounts)
-	{
-		output << ' ' << unitCount.first.getID() << ' ' << unitCount.second;
-	}
-	output << '\n';
+    output << snap.numBases;
+    for (auto unitCount : snap.unitCounts)
+    {
+        output << ' ' << unitCount.first.getID() << ' ' << unitCount.second;
+    }
+    output << '\n';
 }
 
 void GameRecord::writeGameSnapshot(std::ostream & output, const GameSnapshot * snap)
 {
-	output << snap->frame << '\n';
-	writePlayerSnapshot(output, snap->us);
-	writePlayerSnapshot(output, snap->them);
+    output << snap->frame << '\n';
+    writePlayerSnapshot(output, snap->us);
+    writePlayerSnapshot(output, snap->them);
 }
 
 // Calculate a similarity distance between 2 snapshots.
@@ -291,50 +281,31 @@ int GameRecord::snapDistance(const PlayerSnapshot & a, const PlayerSnapshot & b)
 	return distance;
 }
 
-// Figure out whether the enemy has seen our base yet.
-bool GameRecord::enemyScoutedUs() const
-{
-	Base * base = Bases::Instance().myStartingBase();
-
-	for (const auto & kv : InformationManager::Instance().getUnitData(BWAPI::Broodwar->enemy()).getUnits())
-	{
-		const UnitInfo & ui(kv.second);
-
-		// If a unit was last spotted close to us, assume we've been seen.
-		if (ui.lastPosition.getDistance(base->getCenter()) < 800)
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
 // -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
 // Constructor for the record of the current game.
 // When this object is initialized, the opening and some other items are not yet known.
 GameRecord::GameRecord()
-	: valid(true)                  // never invalid, since it is recorded live
-	, savedRecord(false)
-	, ourRace(BWAPI::Broodwar->self()->getRace())
-	, enemyRace(BWAPI::Broodwar->enemy()->getRace())
-	, enemyIsRandom(BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Unknown)
-	, mapName(BWAPI::Broodwar->mapFileName())
-	, expectedEnemyPlan(OpeningPlan::Unknown)
-	, enemyPlan(OpeningPlan::Unknown)
-	, win(false)                   // until proven otherwise
-	, frameScoutSentForGasSteal(0)
-	, gasStealHappened(false)
-	, frameEnemyScoutsOurBase(0)
-	, frameEnemyGetsCombatUnits(0)
-	, frameEnemyGetsAirUnits(0)
-	, frameEnemyGetsStaticAntiAir(0)
-	, frameEnemyGetsMobileAntiAir(0)
-	, frameEnemyGetsCloakedUnits(0)
-	, frameEnemyGetsStaticDetection(0)
-	, frameEnemyGetsMobileDetection(0)
-	, frameGameEnds(0)
+    : valid(true)                  // never invalid, since it is recorded live
+    , savedRecord(false)
+    , ourRace(BWAPI::Broodwar->self()->getRace())
+    , enemyRace(BWAPI::Broodwar->enemy()->getRace())
+    , enemyIsRandom(BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Unknown)
+    , mapName(BWAPI::Broodwar->mapFileName())
+    , expectedEnemyPlan(OpeningPlan::Unknown)
+    , enemyPlan(OpeningPlan::Unknown)
+    , win(false)                   // until proven otherwise
+    , frameScoutSentForGasSteal(0)
+    , gasStealHappened(false)
+    , frameEnemyScoutsOurBase(0)
+    , frameEnemyGetsCombatUnits(0)
+    , frameEnemyGetsAirUnits(0)
+    , frameEnemyGetsStaticAntiAir(0)
+    , frameEnemyGetsMobileAntiAir(0)
+    , frameEnemyGetsCloakedUnits(0)
+    , frameEnemyGetsStaticDetection(0)
+    , frameEnemyGetsMobileDetection(0)
+    , frameGameEnds(0)
 {
 }
 
@@ -363,13 +334,6 @@ GameRecord::GameRecord(std::istream & input)
 	read(input);
 }
 
-// Called when the game is over.
-void GameRecord::setWin(bool isWinner)
-{
-	win = isWinner;
-	frameGameEnds = BWAPI::Broodwar->getFrameCount();
-}
-
 // Write the game record to the given stream. File format:
 
 // 1.4 = file format version number
@@ -395,109 +359,42 @@ void GameRecord::setWin(bool isWinner)
 
 void GameRecord::write(std::ostream & output)
 {
-	// We only now notice that there was an expected enemy opening plan.
-	// Can't initialize this right off, and there is no point in tracking it during the game.
-	if (!savedRecord)
-	{
-		expectedEnemyPlan = OpponentModel::Instance().getInitialExpectedEnemyPlan();
-	}
+    // We only now notice that there was an expected enemy opening plan.
+    // Can't initialize this right off, and there is no point in tracking it during the game.
+    if (!savedRecord)
+    {
+        expectedEnemyPlan = OpponentModel::Instance().getInitialExpectedEnemyPlan();
+    }
 
-	output << fileFormatVersion << '\n';
-	output <<
-		RaceChar(ourRace) <<
-		'v' <<
-		(enemyIsRandom ? "R" : "") << RaceChar(enemyRace) << '\n';
-	output << mapName << '\n';
-	output << openingName << '\n';
-	output << OpeningPlanString(expectedEnemyPlan) << '\n';
-	output << OpeningPlanString(enemyPlan) << '\n';
-	output << (win ? '1' : '0') << '\n';
-	output << frameScoutSentForGasSteal << '\n';
-	output << (gasStealHappened ? '1' : '0') << '\n';
-	output << frameEnemyScoutsOurBase << '\n';
-	output << frameEnemyGetsCombatUnits << '\n';
-	output << frameEnemyGetsAirUnits << '\n';
-	output << frameEnemyGetsStaticAntiAir << '\n';
-	output << frameEnemyGetsMobileAntiAir << '\n';
-	output << frameEnemyGetsCloakedUnits << '\n';
-	output << frameEnemyGetsStaticDetection << '\n';
-	output << frameEnemyGetsMobileDetection << '\n';
-	output << frameGameEnds << '\n';
+    output << fileFormatVersion << '\n';
+    output <<
+        RaceChar(ourRace) <<
+        'v' <<
+        (enemyIsRandom ? "R" : "") << RaceChar(enemyRace) << '\n';
+    output << mapName << '\n';
+    output << openingName << '\n';
+    output << OpeningPlanString(expectedEnemyPlan) << '\n';
+    output << OpeningPlanString(enemyPlan) << '\n';
+    output << (win ? '1' : '0') << '\n';
+    output << frameScoutSentForGasSteal << '\n';
+    output << (gasStealHappened ? '1' : '0') << '\n';
+    output << frameEnemyScoutsOurBase << '\n';
+    output << frameEnemyGetsCombatUnits << '\n';
+    output << frameEnemyGetsAirUnits << '\n';
+    output << frameEnemyGetsStaticAntiAir << '\n';
+    output << frameEnemyGetsMobileAntiAir << '\n';
+    output << frameEnemyGetsCloakedUnits << '\n';
+    output << frameEnemyGetsStaticDetection << '\n';
+    output << frameEnemyGetsMobileDetection << '\n';
+    output << frameGameEnds << '\n';
 
-	// TODO skip the snapshots for now
-	// for (const auto & snap : snapshots)
-	// {
-	// 	writeGameSnapshot(output, snap);
-	// }
+    // TODO skip the snapshots for now
+    // for (const auto & snap : snapshots)
+    // {
+    // 	writeGameSnapshot(output, snap);
+    // }
 
-	output << gameEndMark << '\n';
-}
-
-void GameRecord::update()
-{
-	int now = BWAPI::Broodwar->getFrameCount();
-
-	// Update the when-it-happens frame counters. We don't actually need to check often.
-	if (now % 32 == 30)
-	{
-		if (enemyRace == BWAPI::Races::Unknown)
-		{
-			enemyRace = BWAPI::Broodwar->enemy()->getRace();
-		}
-		enemyPlan = OpponentModel::Instance().getEnemyPlan();
-		if (!frameEnemyScoutsOurBase)
-		{
-			if (enemyScoutedUs())
-			{
-				frameEnemyScoutsOurBase = now;
-			}
-		}
-		if (!frameScoutSentForGasSteal && GameCommander::Instance().getScoutTime() && ScoutManager::Instance().tryGasSteal())
-		{
-			// Not now, but the time when the scout was first sent out.
-			frameScoutSentForGasSteal = GameCommander::Instance().getScoutTime();
-		}
-		if (ScoutManager::Instance().gasStealQueued())
-		{
-			// We at least got close enough to queue up the building. Let's pretend that means it started.
-			gasStealHappened = true;
-		}
-		if (!frameEnemyGetsCombatUnits && InformationManager::Instance().enemyHasCombatUnits())
-		{
-			frameEnemyGetsCombatUnits = now;
-		}
-		if (!frameEnemyGetsAirUnits && InformationManager::Instance().enemyHasAirTech())
-		{
-			frameEnemyGetsAirUnits = now;
-		}
-		if (!frameEnemyGetsStaticAntiAir && InformationManager::Instance().enemyHasStaticAntiAir())
-		{
-			frameEnemyGetsStaticAntiAir = now;
-		}
-		if (!frameEnemyGetsMobileAntiAir && InformationManager::Instance().enemyHasAntiAir())
-		{
-			frameEnemyGetsMobileAntiAir = now;
-		}
-		if (!frameEnemyGetsCloakedUnits && InformationManager::Instance().enemyHasCloakTech())
-		{
-			frameEnemyGetsCloakedUnits = now;
-		}
-		if (!frameEnemyGetsStaticDetection && InformationManager::Instance().enemyHasStaticDetection())
-		{
-			frameEnemyGetsStaticDetection = now;
-		}
-		if (!frameEnemyGetsMobileDetection && InformationManager::Instance().enemyHasMobileDetection())
-		{
-			frameEnemyGetsMobileDetection = now;
-		}
-	}
-
-	// If it's time, take a snapshot.
-	int sinceFirst = now - firstSnapshotTime;
-	if (sinceFirst >= 0 && sinceFirst % snapshotInterval == 0)
-	{
-		takeSnapshot();
-	}
+    output << gameEndMark << '\n';
 }
 
 // Calculate a similarity distance between two game records; -1 if they cannot be compared.
@@ -607,10 +504,4 @@ bool GameRecord::sameMatchup(const GameRecord & record) const
 			enemyIsRandom && record.enemyIsRandom &&
 			(enemyRace == BWAPI::Races::Unknown || record.enemyRace == BWAPI::Races::Unknown)
 		);
-}
-
-GameRecord & GameRecord::Instance()
-{
-	static GameRecord instance;
-	return instance;
 }

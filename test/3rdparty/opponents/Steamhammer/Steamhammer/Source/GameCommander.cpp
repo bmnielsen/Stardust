@@ -11,6 +11,7 @@ GameCommander::GameCommander()
 	, _combatCommander(CombatCommander::Instance())
 	, _initialScoutTime(0)
 	, _surrenderTime(0)
+    , _myHighWaterSupply(0)
 {
 }
 
@@ -45,6 +46,7 @@ void GameCommander::update()
 	_timerManager.stopTimer(TimerManager::InformationManager);
 
 	_timerManager.startTimer(TimerManager::MapGrid);
+	the.update();
 	MapGrid::Instance().update();
 	_timerManager.stopTimer(TimerManager::MapGrid);
 
@@ -279,13 +281,63 @@ bool GameCommander::isAssigned(BWAPI::Unit unit) const
 // validates units as usable for distribution to various managers
 void GameCommander::setValidUnits()
 {
-	for (const auto unit : BWAPI::Broodwar->self()->getUnits())
+    /*
+    // TODO testing
+    std::string timingFile = Config::IO::WriteDir + "timing.csv";
+    static bool speed = false;
+    if (!speed && BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Metabolic_Boost) > 0)
+    {
+        BWAPI::Broodwar->printf("zergling speed %d", BWAPI::Broodwar->getFrameCount());
+        Logger::LogAppendToFile(timingFile, "%d,%s\n", BWAPI::Broodwar->getFrameCount(), "speed");
+        speed = true;
+    }
+    static BWAPI::Unitset lings;
+    size_t nLings = lings.size();
+    */
+
+    for (BWAPI::Unit unit : BWAPI::Broodwar->self()->getUnits())
 	{
 		if (UnitUtil::IsValidUnit(unit))
 		{	
 			_validUnits.insert(unit);
+
+            // TODO testing
+            //if (unit->getType() == BWAPI::UnitTypes::Zerg_Zergling)
+            //{
+            //    lings.insert(unit);
+            //}
+
+            /*
+            // TODO testing
+            static bool firstTime1 = false;
+            if (!firstTime1 && unit->getType() == BWAPI::UnitTypes::Zerg_Zergling)
+            {
+                BWAPI::Broodwar->printf("unit timing %d", BWAPI::Broodwar->getFrameCount());
+                firstTime1 = true;
+            }
+            */
 		}
+        else
+        {
+            /*
+            static bool firstTime2 = false;
+            if (!firstTime2 && unit->getType() == BWAPI::UnitTypes::Zerg_Hatchery && !unit->isCompleted())
+            {
+                BWAPI::Broodwar->printf("hatchery timing %d", BWAPI::Broodwar->getFrameCount());
+                firstTime2 = true;
+            }
+            */
+        }
 	}
+
+    /*
+    // TODO testing
+    if (lings.size() > nLings)
+    {
+        BWAPI::Broodwar->printf("%d lings @ %d", lings.size(), BWAPI::Broodwar->getFrameCount());
+        Logger::LogAppendToFile(timingFile, "%d,%d,%d\n", BWAPI::Broodwar->getFrameCount(), lings.size(), BWAPI::Broodwar->self()->minerals());
+    }
+    */
 }
 
 void GameCommander::setScoutUnits()
@@ -326,7 +378,7 @@ void GameCommander::setScoutUnits()
 // Set combat units to be passed to CombatCommander.
 void GameCommander::setCombatUnits()
 {
-	for (const auto unit : _validUnits)
+	for (BWAPI::Unit unit : _validUnits)
 	{
 		if (!isAssigned(unit) && (UnitUtil::IsCombatUnit(unit) || unit->getType().isWorker()))		
 		{	
@@ -409,9 +461,11 @@ void GameCommander::assignUnit(BWAPI::Unit unit, BWAPI::Unitset & set)
 
 // Decide whether to give up early. See config option SurrenderWhenHopeIsLost.
 // This depends on _validUnits, so call it after handleUnitAssignments().
+// Giving up early is important in testing, to save time. In a serious tournament,
+// it's a question of taste.
 bool GameCommander::surrenderMonkey()
 {
-	if (!Config::Strategy::SurrenderWhenHopeIsLost)
+	if (!Config::Skills::SurrenderWhenHopeIsLost)
 	{
 		return false;
 	}
@@ -422,9 +476,37 @@ bool GameCommander::surrenderMonkey()
 		return false;
 	}
 
+    // Don't surrender right at the start.
+    if (BWAPI::Broodwar->getFrameCount() < 24 * 60)
+    {
+        return false;
+    }
+
+    // We are playing against a human. Surrender earlier to reduce frustration.
+    if (Config::Skills::HumanOpponent)
+    {
+        int mySupply = BWAPI::Broodwar->self()->supplyUsed();
+        PlayerSnapshot enemySnap(BWAPI::Broodwar->enemy());
+        int knownEnemySupply = enemySnap.getSupply();
+
+        // BWAPI::Broodwar->printf("supply %d < %d vs enemy %d", mySupply, _myHighWaterSupply, knownEnemySupply);
+
+        if (mySupply > _myHighWaterSupply)
+        {
+            _myHighWaterSupply = mySupply;
+            return false;
+        }
+
+        // Surrender if the enemy is way ahead AND we have been hurt.
+        // We don't check that we were RECENTLY hurt.
+        return mySupply < knownEnemySupply / 2 && mySupply < _myHighWaterSupply / 2;
+    }
+
+    // We assume we are playing against another bot.
+    // The only reason to gg is to save time, so be conservative.
 	// Surrender if all conditions are met:
 	// 1. We don't have the cash to make a worker.
-	// 2. We have no unit that can attack.
+	// 2. We have no completed unit that can attack. (We may have incomplete units.)
 	// 3. The enemy has at least one visible unit that can destroy buildings.
 	// Terran does not float buildings, so we check whether the enemy can attack ground.
 
@@ -435,7 +517,7 @@ bool GameCommander::surrenderMonkey()
 	}
 
 	// 2. Our units.
-	for (const auto unit : _validUnits)
+	for (BWAPI::Unit unit : _validUnits)
 	{
 		if (unit->canAttack())
 		{
@@ -445,7 +527,7 @@ bool GameCommander::surrenderMonkey()
 
 	// 3. Enemy units.
 	bool safe = true;
-	for (const auto unit : BWAPI::Broodwar->enemy()->getUnits())
+    for (BWAPI::Unit unit : BWAPI::Broodwar->enemy()->getUnits())
 	{
 		if (unit->isVisible() && UnitUtil::CanAttackGround(unit))
 		{

@@ -131,7 +131,7 @@ void ParseUtils::ParseConfigFile(const std::string & filename)
         JSONTools::ReadBool("DrawBOSSStateInfo", debug, Config::Debug::DrawBOSSStateInfo); 
     }
 
-    // Parse the Tool Options
+    // Parse the Tool options.
     if (doc.HasMember("Tools") && doc["Tools"].IsObject())
     {
         const rapidjson::Value & tool = doc["Tools"];
@@ -147,7 +147,9 @@ void ParseUtils::ParseConfigFile(const std::string & filename)
 		JSONTools::ReadString("ErrorLogFilename", io, Config::IO::ErrorLogFilename);
 		JSONTools::ReadBool("LogAssertToErrorFile", io, Config::IO::LogAssertToErrorFile);
 
-		JSONTools::ReadString("ReadDirectory", io, Config::IO::ReadDir);
+        JSONTools::ReadString("StaticDirectory", io, Config::IO::StaticDir);
+        JSONTools::ReadString("PreparedDataDirectory", io, Config::IO::PreparedDataDir);
+        JSONTools::ReadString("ReadDirectory", io, Config::IO::ReadDir);
 		JSONTools::ReadString("WriteDirectory", io, Config::IO::WriteDir);
 
 		JSONTools::ReadInt("MaxGameRecords", io, Config::IO::MaxGameRecords);
@@ -156,7 +158,40 @@ void ParseUtils::ParseConfigFile(const std::string & filename)
 		Config::IO::WriteOpponentModel = GetBoolByRace("WriteOpponentModel", io);
 	}
 
-	// We do this here because opening selection may depend on the results.
+    // Parse the Skills options.
+    if (doc.HasMember("Skills") && doc["Skills"].IsObject())
+    {
+        const rapidjson::Value & skills = doc["Skills"];
+
+        Config::Skills::SCHNAILMeansHuman = GetBoolByRace("SCHNAILMeansHuman", skills);
+        Config::Skills::HumanOpponent = GetBoolByRace("HumanOpponent", skills);
+        Config::Skills::SurrenderWhenHopeIsLost = GetBoolByRace("SurrenderWhenHopeIsLost", skills);
+
+        Config::Skills::ScoutHarassEnemy = GetBoolByRace("ScoutHarassEnemy", skills);
+        Config::Skills::AutoGasSteal = GetBoolByRace("AutoGasSteal", skills);
+        Config::Skills::RandomGasStealRate = GetDoubleByRace("RandomGasStealRate", skills);
+
+        JSONTools::ReadBool("Burrow", skills, Config::Skills::Burrow);
+        JSONTools::ReadInt("MaxQueens", skills, Config::Skills::MaxQueens);
+        JSONTools::ReadInt("MaxInfestedTerrans", skills, Config::Skills::MaxInfestedTerrans);
+    }
+
+    // Are we running under SCHNAIL?
+    {
+        // Do this in braces so the stream object gets destroyed right away.
+        std::ifstream schnail;
+
+        schnail.open(Config::IO::ReadDir + "schnail.env");
+        Config::Skills::UnderSCHNAIL = schnail.good();
+    }
+    if (Config::Skills::UnderSCHNAIL && Config::Skills::SCHNAILMeansHuman)
+    {
+        // Override the configured value.
+        Config::Skills::HumanOpponent = true;
+    }
+
+    // This depends on whether the opponent is a human, decided above.
+    // Opening selection below may depend on the results.
 	// File reading only happens if Config::IO::ReadOpponentModel is true.
 	OpponentModel::Instance().read();
 
@@ -171,11 +206,7 @@ void ParseUtils::ParseConfigFile(const std::string & filename)
 			strategyCombos = &strategy["StrategyCombos"];
 		}
 
-		Config::Strategy::ScoutHarassEnemy = GetBoolByRace("ScoutHarassEnemy", strategy);
-		Config::Strategy::AutoGasSteal = GetBoolByRace("AutoGasSteal", strategy);
-		Config::Strategy::RandomGasStealRate = GetDoubleByRace("RandomGasStealRate", strategy);
 		Config::Strategy::UsePlanRecognizer = GetBoolByRace("UsePlanRecognizer", strategy);
-		Config::Strategy::SurrenderWhenHopeIsLost = GetBoolByRace("SurrenderWhenHopeIsLost", strategy);
 
 		bool openingStrategyDecided = false;
 
@@ -264,7 +295,7 @@ void ParseUtils::ParseConfigFile(const std::string & filename)
             openingStrategyDecided = true;
         }
 
-		// 0.5 TEMPORARY SPECIAL CASE FOR AIST S1
+		// 0.5 SPECIAL CASE FOR AIST S1
 		// On the map Sparkle, play a Sparkle opening.
 		if (BWAPI::Broodwar->mapFileName().find("Sparkle") != std::string::npos)
 		{

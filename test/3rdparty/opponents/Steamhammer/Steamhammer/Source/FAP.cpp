@@ -1,13 +1,14 @@
 #include "FAP.h"
 #include "BWAPI.h"
+#include "UnitUtil.h"
 
 UAlbertaBot::FastAPproximation fap;
 
-// This is N00byEdge's original version of FAP, slightly adjusted to fit into its new environment.
+// This is N00byEdge's original version of FAP, adjusted to fit into its new environment.
 // Newer versions exist.
 // https://github.com/N00byEdge/Neohuman/blob/master/FAP.cpp
 
-// This version is also updated to understand dark swarm, in an approximate way.
+// This version is also updated to understand dark swarm and ensnare, in an approximate way.
 // There are a few bug fixes and other improvements.
 
 // NOTE FAP does not use UnitInfo.goneFromLastPosition. The flag is always set false
@@ -132,7 +133,9 @@ namespace UAlbertaBot {
 		fu.health -= std::max(1, damage - fu.armor);
 	}
 
-	int inline FastAPproximation::distButNotReally(const FastAPproximation::FAPUnit &u1, const FastAPproximation::FAPUnit &u2) const {
+    // The square of the Euclidean distance between the units' positions.
+    // Skip the expensive step of computing the square root.
+	int inline FastAPproximation::distSquared(const FastAPproximation::FAPUnit &u1, const FastAPproximation::FAPUnit &u2) const {
 		return (u1.x - u2.x)*(u1.x - u2.x) + (u1.y - u2.y)*(u1.y - u2.y);
 	}
 
@@ -151,23 +154,25 @@ namespace UAlbertaBot {
 		}
 
 		auto closestEnemy = enemyUnits.end();
-		int closestDist = 99999;
+		int closestDist = 99999999;        // actually distance squared
 
 		// NOTE This skips siege tanks, which do splash damage under swarm.
 		const bool hitUnderSwarm =
 			fu.groundDamage &&
-			(	fu.groundMaxRange <= 32 ||
+            !fu.unitType.isWorker() &&
+			(	fu.groundMaxRange <= 32 * 32 ||     // "range" is actually squared range
 				isSuicideUnit(fu.unitType) ||
 				fu.unitType == BWAPI::UnitTypes::Protoss_Archon ||
-				fu.unitType == BWAPI::UnitTypes::Zerg_Lurker
+                fu.unitType == BWAPI::UnitTypes::Protoss_Reaver ||
+                fu.unitType == BWAPI::UnitTypes::Zerg_Lurker
 			);
 
 		// Find the closest enemy unit which is not too close to hit with our weapon.
 		// A sieged tank has a minimum range; all other weapons have min range 0 (so we only check ground weapons).
-		for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++ enemyIt) {
+		for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
 			if (enemyIt->flying) {
 				if (fu.airDamage) {
-					int d = distButNotReally(fu, *enemyIt);
+					int d = distSquared(fu, *enemyIt);
 					if (closestEnemy == enemyUnits.end() || d < closestDist) {
 						closestDist = d;
 						closestEnemy = enemyIt;
@@ -176,7 +181,7 @@ namespace UAlbertaBot {
 			}
 			else {
 				if (fu.groundDamage && (!enemyIt->underSwarm || hitUnderSwarm)) {
-					int d = distButNotReally(fu, *enemyIt);
+					int d = distSquared(fu, *enemyIt);
 					if ((closestEnemy == enemyUnits.end() || d < closestDist) && d >= fu.groundMinRange) {
 						closestDist = d;
 						closestEnemy = enemyIt;
@@ -187,7 +192,9 @@ namespace UAlbertaBot {
 
 		// If we can reach the enemy this simulated frame, do it and continue.
 
-		if (closestEnemy != enemyUnits.end() && closestDist <= fu.speed * fu.speed && !(fu.x == closestEnemy->x && fu.y == closestEnemy->y)) {
+		if (closestEnemy != enemyUnits.end() &&
+            closestDist <= fu.speed * fu.speed &&
+            !(fu.x == closestEnemy->x && fu.y == closestEnemy->y)) {
 			fu.x = closestEnemy->x;
 			fu.y = closestEnemy->y;
 			closestDist = 0;
@@ -196,7 +203,8 @@ namespace UAlbertaBot {
 		}
 
 		// Shoot at the enemy if in range, otherwise move toward the enemy.
-		if (closestEnemy != enemyUnits.end() && closestDist <= (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange)) {
+		if (closestEnemy != enemyUnits.end() &&
+            closestDist <= (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange)) {
 			if (closestEnemy->flying) {
 				dealDamage(*closestEnemy, fu.airDamage, fu.airDamageType);
 				fu.attackCooldownRemaining = fu.airCooldown;
@@ -230,11 +238,11 @@ namespace UAlbertaBot {
 
 	void FastAPproximation::medicsim(const FAPUnit & fu, std::vector<FAPUnit> &friendlyUnits) {
 		auto closestHealable = friendlyUnits.end();
-		int closestDist = 99999;
+        int closestDist = 99999999;
 
 		for (auto it = friendlyUnits.begin(); it != friendlyUnits.end(); ++it) {
 			if (it->isOrganic && it->health < it->maxHealth && !it->didHealThisFrame) {
-				int d = distButNotReally(fu, *it);
+				int d = distSquared(fu, *it);
 				if (closestHealable == friendlyUnits.end() || d < closestDist) {
 					closestHealable = it;
 					closestDist = d;
@@ -260,12 +268,12 @@ namespace UAlbertaBot {
 
 	bool FastAPproximation::suicideSim(const FAPUnit & fu, std::vector<FAPUnit>& enemyUnits) {
 		auto closestEnemy = enemyUnits.end();
-		int closestDist = 99999;
+        int closestDist = 99999999;
 
 		for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
 			if (enemyIt->flying) {
 				if (fu.airDamage) {
-					int d = distButNotReally(fu, *enemyIt);
+					int d = distSquared(fu, *enemyIt);
 					if (closestEnemy == enemyUnits.end() || d < closestDist) {
 						closestDist = d;
 						closestEnemy = enemyIt;
@@ -274,7 +282,7 @@ namespace UAlbertaBot {
 			}
 			else {
 				if (fu.groundDamage) {
-					int d = distButNotReally(fu, *enemyIt);
+					int d = distSquared(fu, *enemyIt);
 					if ((closestEnemy == enemyUnits.end() || d < closestDist) && d >= fu.groundMinRange) {
 						closestDist = d;
 						closestEnemy = enemyIt;
@@ -385,14 +393,13 @@ namespace UAlbertaBot {
 	}
 
 	FastAPproximation::FAPUnit::FAPUnit(BWAPI::Unit u): FAPUnit(UnitInfo(u)) {
-
 	}
 
-	FastAPproximation::FAPUnit::FAPUnit(UnitInfo ui) :
+	FastAPproximation::FAPUnit::FAPUnit(const UnitInfo & ui) :
 		x(ui.lastPosition.x),
 		y(ui.lastPosition.y),
 
-		speed(ui.player->topSpeed(ui.type)),
+        speed(ui.player->topSpeed(ui.type)),
 
 		health(ui.estimateHP()),
 		maxHealth(ui.type.maxHitPoints()),
@@ -446,16 +453,45 @@ namespace UAlbertaBot {
 			groundDamage = ui.player->damage(BWAPI::WeaponTypes::Scarab);
 		}
 
-		if (ui.unit && ui.unit->isStimmed()) {
+        // Stimmed units shoot faster, unless they are also ensnared.
+        if (ui.unit && ui.unit->isStimmed() && !ui.unit->isEnsnared()) {
 			groundCooldown /= 2;
 			airCooldown /= 2;
 		}
+
+        if (ui.unit && ui.unit->isEnsnared())
+        {
+            // An ensnared unit moves and shoots more slowly.
+
+            // Half speed movement.
+            // NOTE The result is incorrect for stimmed units and units with a speed upgrade.
+            //      But it's close enough for now.
+            speed /= 2.0;
+
+            // Cooldown increased by 25%, with exceptions.
+            if (ui.type == BWAPI::UnitTypes::Zerg_Zergling && groundCooldown < 8)
+            {
+                // Zergling with the adrenal glands upgrade returns to its base cooldown of 8.
+                groundCooldown = 8;
+            }
+            else if (
+                ui.type != BWAPI::UnitTypes::Terran_Goliath &&
+                ui.type != BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode &&
+                ui.type != BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode &&
+                ui.type != BWAPI::UnitTypes::Zerg_Ultralisk &&
+                !ui.unit->isStimmed())      // handled by earlier stimmed unit adjustment
+            {
+                groundCooldown = 5 * groundCooldown / 4;
+                airCooldown = 5 * airCooldown / 4;
+            }
+        }
 
 		// Ground height for ground units.
 		if (ui.unit && !ui.unit->isFlying()) {
 			elevation = BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(x,y));
 		}
 
+        // Convert ranges to squared ranges so they can be compared with squared distances.
 		groundMaxRange *= groundMaxRange;
 		groundMinRange *= groundMinRange;
 		airMaxRange *= airMaxRange;
@@ -472,6 +508,7 @@ namespace UAlbertaBot {
 		maxShields *= 2;
 	}
 
+    // Copy a FAPUnit.
 	const FastAPproximation::FAPUnit &FastAPproximation::FAPUnit::operator=(const FAPUnit & other) const {
 		x = other.x, y = other.y;
 		health = other.health, maxHealth = other.maxHealth;
@@ -495,19 +532,36 @@ namespace UAlbertaBot {
 
 	// Some types get special case scores.
 	int FastAPproximation::FAPUnit::unitScore(BWAPI::UnitType type) const {
-		if (type == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine) {
+		if (type == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine)
+		{
 			return 20;
 		}
-		if (type == BWAPI::UnitTypes::Protoss_Archon) {
+		if (type == BWAPI::UnitTypes::Protoss_Archon)
+		{
 			return 2 * (50 + 150);
 		}
-		if (type == BWAPI::UnitTypes::Protoss_Dark_Archon) {
+		if (type == BWAPI::UnitTypes::Protoss_Dark_Archon)
+		{
 			return 2 * (125 + 100);
 		}
-		if (type == BWAPI::UnitTypes::Zerg_Sunken_Colony ||
-			type == BWAPI::UnitTypes::Zerg_Spore_Colony)
+		if (type == BWAPI::UnitTypes::Protoss_Reaver)
 		{
-			return 50 + 75 + 50;
+			return 200 + 100 + 5 * 15;		// account for scarabs
+		}
+		if (type == BWAPI::UnitTypes::Protoss_Carrier)
+		{
+			return 350 + 250 + 8 * 25;		// account for interceptors
+		}
+		if (type.getRace() == BWAPI::Races::Zerg && (type.isBuilding() || UnitUtil::IsMorphedUnitType(type)))
+		{
+			// Add up the total price of a morphed unit, e.g. hydra + lurker morph, muta + guardian morph.
+			// The longest chain that goes into combat sim is drone + creep colony + sunken/spore.
+			int cost = 0;
+			for (BWAPI::UnitType t = type; t != BWAPI::UnitTypes::Zerg_Larva; t = t.whatBuilds().first)
+			{
+				cost += t.mineralPrice() + t.gasPrice();
+			}
+			return cost;
 		}
 		if (type == BWAPI::UnitTypes::Zerg_Broodling)
 		{

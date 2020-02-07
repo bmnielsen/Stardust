@@ -19,10 +19,18 @@ class CombatSimulation
 {
 private:
 	CombatSimEnemies _whichEnemies;
+    bool _allEnemiesUndetected;
+    bool _allEnemiesHitGroundOnly;
+    bool _allFriendliesFlying;
 
-	CombatSimEnemies analyzeForEnemies(const BWAPI::Unitset units) const;
-	void drawWhichEnemies(const BWAPI::Position center) const;
+	CombatSimEnemies analyzeForEnemies(const BWAPI::Unitset & units) const;
+    bool allFlying(const BWAPI::Unitset & units) const;
+    void drawWhichEnemies(const BWAPI::Position & center) const;
 	bool includeEnemy(CombatSimEnemies which, BWAPI::UnitType type) const;
+    bool includeEnemy(CombatSimEnemies which, BWAPI::Unit enemy) const;
+
+    bool undetectedEnemy(BWAPI::Unit enemy) const;
+    bool undetectedEnemy(const UnitInfo & enemyUI) const;
 
 	BWAPI::Position getClosestEnemyCombatUnit(const BWAPI::Position & center) const;
 

@@ -1,6 +1,7 @@
 #include "MicroRanged.h"
 
 #include "Bases.h"
+#include "InformationManager.h"
 #include "The.h"
 #include "UnitUtil.h"
 
@@ -37,13 +38,14 @@ void MicroRanged::assignTargets(const BWAPI::Unitset & rangedUnits, const BWAPI:
 	// The set of potential targets.
 	BWAPI::Unitset rangedUnitTargets;
     std::copy_if(targets.begin(), targets.end(), std::inserter(rangedUnitTargets, rangedUnitTargets.end()),
-		[](BWAPI::Unit u) {
+		[=](BWAPI::Unit u) {
 		return
 			u->isVisible() &&
 			u->isDetected() &&
 			u->getType() != BWAPI::UnitTypes::Zerg_Larva &&
 			u->getType() != BWAPI::UnitTypes::Zerg_Egg &&
-			!u->isStasised();
+            !infestable(u) &&
+			!u->isInvincible();
 	});
 
 	// Figure out if the enemy is ready to attack ground or air.
@@ -51,9 +53,9 @@ void MicroRanged::assignTargets(const BWAPI::Unitset & rangedUnits, const BWAPI:
 	bool enemyHasAntiAir = false;
 	for (BWAPI::Unit target : rangedUnitTargets)
 	{
-		if (UnitUtil::AttackOrder(target))
+        // If the enemy unit is retreating or whatever, it won't attack.
+        if (UnitUtil::AttackOrder(target))
 		{
-			// If the enemy unit is retreating or whatever, it won't attack.
 			if (UnitUtil::CanAttackGround(target))
 			{
 				enemyHasAntiGround = true;
@@ -65,12 +67,19 @@ void MicroRanged::assignTargets(const BWAPI::Unitset & rangedUnits, const BWAPI:
 		}
 	}
 	
-	for (const auto rangedUnit : rangedUnits)
+    // Are any enemies in range to shoot at the ranged units?
+    bool underThreat = false;
+    if (order.isCombatOrder())
+    {
+        underThreat = anyUnderThreat(rangedUnits);
+    }
+
+    for (const auto rangedUnit : rangedUnits)
 	{
 		if (rangedUnit->isBurrowed())
 		{
 			// For now, it would burrow only if irradiated. Leave it.
-			// Lurkers are controlled by a different class.
+			// Lurkers are controlled elsewhere.
 			continue;
 		}
 
@@ -81,7 +90,7 @@ void MicroRanged::assignTargets(const BWAPI::Unitset & rangedUnits, const BWAPI:
 		}
 
 		// Special case for irradiated zerg units.
-		if (rangedUnit->isIrradiated() && rangedUnit->getType().getRace() == BWAPI::Races::Zerg)
+		if (rangedUnit->isIrradiated() && rangedUnit->getType().isOrganic())
 		{
 			if (rangedUnit->isFlying())
 			{
@@ -117,7 +126,7 @@ void MicroRanged::assignTargets(const BWAPI::Unitset & rangedUnits, const BWAPI:
 		if (order.isCombatOrder())
         {
 			// If a target is found,
-			BWAPI::Unit target = getTarget(rangedUnit, rangedUnitTargets);
+			BWAPI::Unit target = getTarget(rangedUnit, rangedUnitTargets, underThreat);
 			if (target)
 			{
 				if (Config::Debug::DrawUnitTargetInfo)
@@ -140,7 +149,7 @@ void MicroRanged::assignTargets(const BWAPI::Unitset & rangedUnits, const BWAPI:
 				// No target found. If we're not near the order position, go there.
 				if (rangedUnit->getDistance(order.getPosition()) > 100)
 				{
-					the.micro.AttackMove(rangedUnit, order.getPosition());
+					the.micro.Move(rangedUnit, order.getPosition());
 				}
 			}
 		}
@@ -148,11 +157,11 @@ void MicroRanged::assignTargets(const BWAPI::Unitset & rangedUnits, const BWAPI:
 }
 
 // This can return null if no target is worth attacking.
-BWAPI::Unit MicroRanged::getTarget(BWAPI::Unit rangedUnit, const BWAPI::Unitset & targets)
+// underThreat is true if any of the melee units is under immediate threat of attack.
+BWAPI::Unit MicroRanged::getTarget(BWAPI::Unit rangedUnit, const BWAPI::Unitset & targets, bool underThreat)
 {
 	int bestScore = -999999;
 	BWAPI::Unit bestTarget = nullptr;
-	int bestPriority = -1;   // TODO debug only
 
 	for (const auto target : targets)
 	{
@@ -192,7 +201,16 @@ BWAPI::Unit MicroRanged::getTarget(BWAPI::Unit rangedUnit, const BWAPI::Unitset 
 			score += 2 * 32;
 		}
 
-		const bool isThreat = UnitUtil::CanAttack(target, rangedUnit);   // may include workers as threats
+        if (!underThreat)
+        {
+            // We're not under threat. Prefer to attack stuff outside enemy static defense range.
+            if (rangedUnit->isFlying() ? !the.airAttacks.inRange(target) : !the.groundAttacks.inRange(target))
+            {
+                score += 4 * 32;
+            }
+        }
+
+        const bool isThreat = UnitUtil::CanAttack(target, rangedUnit);   // may include workers as threats
 		const bool canShootBack = isThreat && range <= 32 + UnitUtil::GetAttackRange(target, rangedUnit);
 
 		if (isThreat)
@@ -282,15 +300,13 @@ BWAPI::Unit MicroRanged::getTarget(BWAPI::Unit rangedUnit, const BWAPI::Unitset 
 		{
 			bestScore = score;
 			bestTarget = target;
-
-			bestPriority = priority;
 		}
 	}
 
 	return bestScore > 0 ? bestTarget : nullptr;
 }
 
-// get the attack priority of a target unit
+// How much do we want to attack this enenmy target?
 int MicroRanged::getAttackPriority(BWAPI::Unit rangedUnit, BWAPI::Unit target) 
 {
 	const BWAPI::UnitType rangedType = rangedUnit->getType();
@@ -323,7 +339,7 @@ int MicroRanged::getAttackPriority(BWAPI::Unit rangedUnit, BWAPI::Unit target)
 		return 15;
 	}
 
-	// if the target is building something near our base something is fishy
+	// if the target is building something near our base, something is fishy
     BWAPI::Position ourBasePosition = BWAPI::Position(Bases::Instance().myMainBase()->getPosition());
 	if (target->getDistance(ourBasePosition) < 1000) {
 		if (target->getType().isWorker() && (target->isConstructing() || target->isRepairing()))
@@ -345,7 +361,7 @@ int MicroRanged::getAttackPriority(BWAPI::Unit rangedUnit, BWAPI::Unit target)
 	}
     
 	if (rangedType.isFlyer()) {
-		// Exceptions if we're a flyer (other than scourge, which is handled above).
+		// Exceptions if we're a flyer.
 		if (targetType == BWAPI::UnitTypes::Zerg_Scourge)
 		{
 			return 12;
@@ -422,11 +438,20 @@ int MicroRanged::getAttackPriority(BWAPI::Unit rangedUnit, BWAPI::Unit target)
 	}
 	// Also as bad are other dangerous things.
 	if (targetType == BWAPI::UnitTypes::Terran_Science_Vessel ||
-		targetType == BWAPI::UnitTypes::Zerg_Scourge ||
-		targetType == BWAPI::UnitTypes::Protoss_Observer)
+		targetType == BWAPI::UnitTypes::Zerg_Scourge)
 	{
 		return 10;
 	}
+    if (targetType == BWAPI::UnitTypes::Protoss_Observer)
+    {
+        // If we have cloaked units, observers are worse than threats.
+        if (InformationManager::Instance().weHaveCloakTech())
+        {
+            return 11;
+        }
+        // Otherwise, they are equal.
+        return 10;
+    }
 	// Next are workers.
 	if (targetType.isWorker()) 
 	{
@@ -454,61 +479,8 @@ int MicroRanged::getAttackPriority(BWAPI::Unit rangedUnit, BWAPI::Unit target)
 	{
 		return 8;
 	}
-	// Nydus canal is the most important building to kill.
-	if (targetType == BWAPI::UnitTypes::Zerg_Nydus_Canal)
-	{
-		return 10;
-	}
-	// Spellcasters are as important as key buildings.
-	// Also remember to target other non-threat combat units.
-	if (targetType.isSpellcaster() ||
-		targetType.groundWeapon() != BWAPI::WeaponTypes::None ||
-		targetType.airWeapon() != BWAPI::WeaponTypes::None)
-	{
-		return 7;
-	}
-	// Templar tech and spawning pool are more important.
-	if (targetType == BWAPI::UnitTypes::Protoss_Templar_Archives)
-	{
-		return 7;
-	}
-	if (targetType == BWAPI::UnitTypes::Zerg_Spawning_Pool)
-	{
-		return 7;
-	}
-	// Don't forget the nexus/cc/hatchery.
-	if (targetType.isResourceDepot())
-	{
-		return 6;
-	}
-	if (targetType == BWAPI::UnitTypes::Protoss_Pylon)
-	{
-		return 5;
-	}
-	if (targetType == BWAPI::UnitTypes::Terran_Factory || targetType == BWAPI::UnitTypes::Terran_Armory)
-	{
-		return 5;
-	}
-	// Downgrade unfinished/unpowered buildings, with exceptions.
-	if (targetType.isBuilding() &&
-		(!target->isCompleted() || !target->isPowered()) &&
-		!(	targetType.isResourceDepot() ||
-			targetType.groundWeapon() != BWAPI::WeaponTypes::None ||
-			targetType.airWeapon() != BWAPI::WeaponTypes::None ||
-			targetType == BWAPI::UnitTypes::Terran_Bunker))
-	{
-		return 2;
-	}
-	if (targetType.gasPrice() > 0)
-	{
-		return 4;
-	}
-	if (targetType.mineralPrice() > 0)
-	{
-		return 3;
-	}
-	// Finally everything else.
-	return 1;
+
+    return getBackstopAttackPriority(target);
 }
 
 // Should the unit stay (or return) home until ready to move out?

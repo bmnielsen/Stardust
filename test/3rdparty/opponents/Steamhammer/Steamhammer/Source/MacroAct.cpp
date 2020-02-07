@@ -44,7 +44,11 @@ MacroLocation MacroAct::getMacroLocationFromString(const std::string & s)
 	{
 		return MacroLocation::Center;
 	}
-	if (s == "gas steal")
+    if (s == "proxy")
+    {
+        return MacroLocation::Proxy;
+    }
+    if (s == "gas steal")
 	{
 		return MacroLocation::GasSteal;
 	}
@@ -217,7 +221,7 @@ MacroAct::MacroAct(MacroCommandType t, int amount)
 {
 }
 
-const size_t & MacroAct::type() const
+size_t MacroAct::type() const
 {
     return _type;
 }
@@ -247,7 +251,7 @@ bool MacroAct::isCommand() const
     return _type == MacroActs::Command; 
 }
 
-const BWAPI::Race & MacroAct::getRace() const
+BWAPI::Race MacroAct::getRace() const
 {
     return _race;
 }
@@ -281,36 +285,38 @@ bool MacroAct::isSupply() const
 		|| _unitType == BWAPI::UnitTypes::Zerg_Overlord);
 }
 
-const BWAPI::UnitType & MacroAct::getUnitType() const
+BWAPI::UnitType MacroAct::getUnitType() const
 {
 	UAB_ASSERT(_type == MacroActs::Unit, "getUnitType of non-unit");
     return _unitType;
 }
 
-const BWAPI::TechType & MacroAct::getTechType() const
+BWAPI::TechType MacroAct::getTechType() const
 {
 	UAB_ASSERT(_type == MacroActs::Tech, "getTechType of non-tech");
 	return _techType;
 }
 
-const BWAPI::UpgradeType & MacroAct::getUpgradeType() const
+BWAPI::UpgradeType MacroAct::getUpgradeType() const
 {
 	UAB_ASSERT(_type == MacroActs::Upgrade, "getUpgradeType of non-upgrade");
 	return _upgradeType;
 }
 
-const MacroCommand MacroAct::getCommandType() const
+MacroCommand MacroAct::getCommandType() const
 {
 	UAB_ASSERT(_type == MacroActs::Command, "getCommandType of non-command");
 	return _macroCommandType;
 }
 
-const MacroLocation MacroAct::getMacroLocation() const
+MacroLocation MacroAct::getMacroLocation() const
 {
 	return _macroLocation;
 }
 
 // Supply required if this is produced.
+// It is NOT THE SAME as the supply required to have one of the units; it is the extra supply needed
+// to make one of them.
 int MacroAct::supplyRequired() const
 {
 	if (isUnit())
@@ -591,57 +597,23 @@ void MacroAct::produce(BWAPI::Unit producer)
 		return;
 	}
 
-	// If it's a terran add-on.
+	// A terran add-on.
 	if (isAddon())
 	{
 		The::Root().micro.Make(producer, getUnitType());
 	}
-	// If it's a building other than a morphed zerg building.
-	else if (isBuilding()                                   // implies act.isUnit()
+	// A building other than a morphed zerg building.
+	else if (isBuilding()                                   // implies isUnit()
 		&& !UnitUtil::IsMorphedBuildingType(getUnitType())) // not morphed from another zerg building
 	{
-		// Every once in a while, pick a new base as the "main" base to build in.
-		if (getRace() != BWAPI::Races::Protoss || getUnitType() == BWAPI::UnitTypes::Protoss_Pylon)
-		{
-			// NOTE This has been removed.
-			// InformationManager::Instance().maybeChooseNewMainBase();
-		}
-
-		// By default, build in the main base.
-		// BuildingManager will override the location if it needs to.
-		// Otherwise it will find some spot near desiredLocation.
-		BWAPI::TilePosition desiredLocation = Bases::Instance().myMainBase()->getTilePosition();
-
-		if (getMacroLocation() == MacroLocation::Front)
-		{
-			BWAPI::TilePosition front = Bases::Instance().frontPoint();
-			if (front.isValid())
-			{
-				desiredLocation = front;
-			}
-		}
-		else if (getMacroLocation() == MacroLocation::Natural)
-		{
-			Base * natural = Bases::Instance().myNaturalBase();
-			if (natural)
-			{
-				desiredLocation = natural->getTilePosition();
-			}
-		}
-		else if (getMacroLocation() == MacroLocation::Center)
-		{
-			// Near the center of the map.
-			desiredLocation = BWAPI::TilePosition(BWAPI::Broodwar->mapWidth() / 2, BWAPI::Broodwar->mapHeight() / 2);
-		}
-
-		BuildingManager::Instance().addBuildingTask(*this, desiredLocation, nullptr, getMacroLocation() == MacroLocation::GasSteal);
+        BWAPI::TilePosition desiredPosition = BuildingManager::Instance().getStandardDesiredPosition(getMacroLocation());
+        BuildingManager::Instance().addBuildingTask(*this, desiredPosition, nullptr, getMacroLocation() == MacroLocation::GasSteal);
 	}
-	// if we're dealing with a non-building unit, or a morphed zerg building
+	// A non-building unit, or a morphed zerg building.
 	else if (isUnit())
 	{
 		The::Root().micro.Make(producer, getUnitType());
 	}
-	// if we're dealing with a tech research
 	else if (isTech())
 	{
 		producer->research(getTechType());
@@ -652,6 +624,6 @@ void MacroAct::produce(BWAPI::Unit producer)
 	}
 	else
 	{
-		UAB_ASSERT(false, "Can't produce");
+		UAB_ASSERT(false, "can't produce");
 	}
 }

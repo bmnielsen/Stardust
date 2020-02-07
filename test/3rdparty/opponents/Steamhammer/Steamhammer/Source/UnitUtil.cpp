@@ -34,6 +34,19 @@ bool UnitUtil::IsCompletedResourceDepot(BWAPI::Unit unit)
 		(unit->isCompleted() || unit->getType() == BWAPI::UnitTypes::Zerg_Lair || unit->getType() == BWAPI::UnitTypes::Zerg_Hive);
 }
 
+// Is the resource depot almost finished? We may want to start transferring workers now.
+// A lair or hive is a completed resource depot even if not a completed unit.
+bool UnitUtil::IsNearlyCompletedResourceDepot(BWAPI::Unit unit, int framesLeft)
+{
+    return
+        unit &&
+        unit->getType().isResourceDepot() &&
+        (unit->isCompleted() ||
+         unit->getRemainingBuildTime() <= framesLeft ||
+         unit->getType() == BWAPI::UnitTypes::Zerg_Lair ||
+         unit->getType() == BWAPI::UnitTypes::Zerg_Hive);
+}
+
 bool UnitUtil::IsStaticDefense(BWAPI::UnitType type)
 {
 	return
@@ -141,6 +154,20 @@ bool UnitUtil::IsCombatUnit(BWAPI::Unit unit)
 	return unit && unit->isCompleted() && IsCombatUnit(unit->getType());
 }
 
+bool UnitUtil::IsSuicideUnit(BWAPI::UnitType type)
+{
+    return
+        type == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine ||
+        type == BWAPI::UnitTypes::Protoss_Scarab ||
+        type == BWAPI::UnitTypes::Zerg_Scourge ||
+        type == BWAPI::UnitTypes::Zerg_Infested_Terran;
+}
+
+bool UnitUtil::IsSuicideUnit(BWAPI::Unit unit)
+{
+    return IsSuicideUnit(unit->getType());
+}
+
 // Check whether a unit variable points to a unit we control.
 // This is called only on units that we believe are ours (we may be wrong if it was mind controlled).
 bool UnitUtil::IsValidUnit(BWAPI::Unit unit)
@@ -203,6 +230,8 @@ bool UnitUtil::TypeCanAttackGround(BWAPI::UnitType attacker)
 		attacker == BWAPI::UnitTypes::Protoss_Reaver;
 }
 
+// Does the unit type have any attack?
+// This test has a different meaning than CanAttack(unit, target) above.
 bool UnitUtil::TypeCanAttack(BWAPI::UnitType type)
 {
 	return TypeCanAttackGround(type) || TypeCanAttackAir(type);
@@ -457,6 +486,45 @@ int UnitUtil::GetWeaponDamageToWorker(BWAPI::Unit attacker)
 	return damage;
 }
 
+// Check whether the unit type can hit targets that are covered by dark swarm.
+// A ranged unit can do no direct damage under swarm, only splash damage.
+// NOTE Spells work under dark swarm. This routine doesn't handle that.
+bool UnitUtil::HitsUnderSwarm(BWAPI::UnitType type)
+{
+    if (type.isWorker() || type.isBuilding())
+    {
+        // Workers cannot cause damage under swarm, though they have melee range.
+        // No defensive buildings can hit under dark swarm, except a bunker containing firebats.
+        // We ignore the bunker exception.
+        return false;
+    }
+
+    if (type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode ||
+        type == BWAPI::UnitTypes::Protoss_Reaver ||
+        type == BWAPI::UnitTypes::Protoss_Archon ||
+        type == BWAPI::UnitTypes::Zerg_Lurker)
+    {
+        // Ranged units that do splash damage.
+        return true;
+    }
+
+    if (type.groundWeapon() == BWAPI::WeaponTypes::None ||
+        type.groundWeapon().maxRange() > 32)
+    {
+        // Units that can't attack ground, plus non-splash ranged units.
+        return false;
+    }
+
+    // Spider mines, firebats, zealots, zerglings, etc.
+    return true;
+}
+
+// Check whether the unit can hit targets that are covered by dark swarm.
+bool UnitUtil::HitsUnderSwarm(BWAPI::Unit unit)
+{
+    return HitsUnderSwarm(unit->getType());
+}
+
 // The unit has an order that might lead it to attack.
 // NOTE The list may be incomplete. It also deliberately ignores spell casting.
 // NOTE A spider mine has order VultureMine no matter what it is doing.
@@ -470,6 +538,40 @@ bool UnitUtil::AttackOrder(BWAPI::Unit unit)
 		order == BWAPI::Orders::Patrol ||
 		order == BWAPI::Orders::InterceptorAttack ||
 		order == BWAPI::Orders::ScarabAttack;
+}
+
+// Return the unit or building's detection range in tiles, 0 if it is not a detector.
+// Detection range is independent of sight range. To detect a cloaked enemy, you
+// need to see it also: Any unit in sight range of it, plus a detector in detection range.
+int UnitUtil::GetDetectionRange(BWAPI::UnitType type)
+{
+	if (type.isDetector())
+	{
+		if (type.isBuilding())
+		{
+			return 7;
+		}
+		return 11;
+	}
+	return 0;
+}
+
+// Can the enemy detect a unit at this position?
+// This is nearly accurate for known enemy detectors, possibly off at the edges.
+// It doesn't try to check whether the enemy can see the unit, which is independent of detection.
+bool UnitUtil::EnemyDetectorInRange(BWAPI::Position pos)
+{
+    if (The::Root().airAttacks.at(pos))
+    {
+        // For turrets, cannons, spore colonies: attack range == detection range.
+        return true;
+    }
+
+    return nullptr != BWAPI::Broodwar->getClosestUnit(
+        pos,
+        BWAPI::Filter::IsDetector && BWAPI::Filter::IsEnemy && BWAPI::Filter::IsFlyer,
+        11 * 32
+    );
 }
 
 // All our units, whether completed or not.
@@ -570,7 +672,7 @@ int UnitUtil::GetUncompletedUnitCount(BWAPI::UnitType type)
 			}
 		}
 
-		// The basic case.
+		// The basic case. Includes morphing buildings.
 		else if (unit->getType() == type && !unit->isCompleted())
 		{
 			++count;

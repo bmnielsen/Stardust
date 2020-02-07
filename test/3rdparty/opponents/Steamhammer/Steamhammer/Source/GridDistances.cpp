@@ -11,6 +11,7 @@ GridDistances::GridDistances()
 
 // Set neutralBlocks = false to pretend that static neutral units do not block
 // walking, necessary if we are calculating the distance to static neutral units.
+// The start tile should be walkable!
 GridDistances::GridDistances(const BWAPI::TilePosition & start, bool neutralBlocks)
 	: Grid(BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight(), -1)
 {
@@ -19,6 +20,7 @@ GridDistances::GridDistances(const BWAPI::TilePosition & start, bool neutralBloc
 
 // Compute the map only up to the given distance limit.
 // Tiles beyond the limit are "unreachable".
+// The start tile should be walkable!
 GridDistances::GridDistances(const BWAPI::TilePosition & start, int limit, bool neutralBlocks)
 	: Grid(BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight(), -1)
 {

@@ -27,12 +27,13 @@ void MicroAirToAir::assignTargets(const BWAPI::Unitset & airUnits, const BWAPI::
 	// The set of potential targets.
 	BWAPI::Unitset airTargets;
     std::copy_if(targets.begin(), targets.end(), std::inserter(airTargets, airTargets.end()),
-		[](BWAPI::Unit u) {
+		[=](BWAPI::Unit u) {
 		return
 			u->isFlying() &&
 			u->isVisible() &&
 			u->isDetected() &&
-			!u->isStasised();
+            !infestable(u) &&
+			!u->isInvincible();
 	});
 
     for (const auto airUnit : airUnits)
@@ -190,12 +191,13 @@ int MicroAirToAir::getAttackPriority(BWAPI::Unit airUnit, BWAPI::Unit target)
 	if (targetType == BWAPI::UnitTypes::Terran_Science_Vessel ||
 		targetType == BWAPI::UnitTypes::Terran_Dropship ||
 		targetType == BWAPI::UnitTypes::Protoss_Shuttle ||
-		targetType == BWAPI::UnitTypes::Zerg_Overlord)
+        targetType == BWAPI::UnitTypes::Protoss_Arbiter ||
+        targetType == BWAPI::UnitTypes::Zerg_Overlord)
 	{
 		return 8;
 	}
 
-	// Flying buildings are less important than other units.
+	// Floating buildings are less important than other units.
 	if (targetType.isBuilding())
 	{
 		return 1;

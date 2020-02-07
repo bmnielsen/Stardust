@@ -12,6 +12,7 @@ namespace UnitUtil
 	bool IsMorphedBuildingType(BWAPI::UnitType type);
 	bool IsMorphedUnitType(BWAPI::UnitType type);
 	bool IsCompletedResourceDepot(BWAPI::Unit unit);
+    bool IsNearlyCompletedResourceDepot(BWAPI::Unit unit, int framesLeft);
 
 	bool IsStaticDefense(BWAPI::UnitType type);
 	bool IsComingStaticDefense(BWAPI::UnitType type);
@@ -21,8 +22,10 @@ namespace UnitUtil
 	bool IsCombatSimUnit(BWAPI::UnitType type);
 	bool IsCombatUnit(BWAPI::UnitType type);
 	bool IsCombatUnit(BWAPI::Unit unit);
+    bool IsSuicideUnit(BWAPI::UnitType type);
+    bool IsSuicideUnit(BWAPI::Unit unit);
     bool IsValidUnit(BWAPI::Unit unit);
-    
+
 	// Damage per frame (formerly CalculateLDT()).
 	double DPF(BWAPI::Unit attacker, BWAPI::Unit target);
 	double GroundDPF(BWAPI::Player player, BWAPI::UnitType type);
@@ -52,7 +55,13 @@ namespace UnitUtil
 	int FramesToReachAttackRange(BWAPI::Unit attacker, BWAPI::Unit target);
 	int GetWeaponDamageToWorker(BWAPI::Unit attacker);
 
+    bool HitsUnderSwarm(BWAPI::UnitType type);
+    bool HitsUnderSwarm(BWAPI::Unit unit);
+
 	bool AttackOrder(BWAPI::Unit unit);
+
+	int GetDetectionRange(BWAPI::UnitType type);
+    bool EnemyDetectorInRange(BWAPI::Position pos);
 
 	int GetAllUnitCount(BWAPI::UnitType type);
 	int GetCompletedUnitCount(BWAPI::UnitType type);

@@ -9,6 +9,7 @@ using namespace UAlbertaBot;
 
 // Is this unit type to be excluded from the game record?
 // We leave out boring units like interceptors. Larvas are interesting.
+// Neutral boring unit types like dark swarm don't need to be listed here.
 bool PlayerSnapshot::excludeType(BWAPI::UnitType type)
 {
 	return
@@ -48,7 +49,7 @@ void PlayerSnapshot::takeSelf()
 
 	numBases = Bases::Instance().baseCount(self);
 
-	for (const auto unit : self->getUnits())
+	for (BWAPI::Unit unit : self->getUnits())
 	{
 		if (UnitUtil::IsValidUnit(unit) && !excludeType(unit->getType()))
 		{
@@ -86,13 +87,29 @@ int PlayerSnapshot::getCount(BWAPI::UnitType type) const
 	return it->second;
 }
 
+// Count supply "by hand"--useful for finding the lower limit of the enemy supply.
+int PlayerSnapshot::getSupply() const
+{
+    int supply = 0;
+
+    for (const std::pair<BWAPI::UnitType, int> & unitCount : unitCounts)
+    {
+        if (!unitCount.first.isBuilding())
+        {
+            supply += unitCount.first.supplyRequired() * unitCount.second;
+        }
+    }
+
+    return supply;
+}
+
 std::string PlayerSnapshot::debugString() const
 {
 	std::stringstream ss;
 
 	ss << numBases;
 
-	for (std::pair<BWAPI::UnitType, int> unitCount : unitCounts)
+	for (const std::pair<BWAPI::UnitType, int> & unitCount : unitCounts)
 	{
 		ss << ' ' << unitCount.first.getName() << ':' << unitCount.second;
 	}

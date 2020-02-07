@@ -352,7 +352,7 @@ void ScoutManager::moveGroundScout()
 				BWAPI::Unit closestWorker = enemyWorkerToHarass();
 
 				// If configured and reasonable, harass an enemy worker.
-				if (Config::Strategy::ScoutHarassEnemy && closestWorker &&
+				if (Config::Skills::ScoutHarassEnemy && closestWorker &&
 					!wantGasSteal() &&
 					_workerScout->getHitPoints() + _workerScout->getShields() > 20)
 				{
@@ -606,7 +606,7 @@ BWAPI::Unit ScoutManager::getTheEnemyGeyser() const
 	{
 		BWAPI::Unit geyser = *(geysers.begin());
 		// If the geyser is visible, we may be able to reject it as already taken.
-		// TODO get the type from InformationManager, which may remember
+		// TODO get the type from InformationManager or Bases, which may remember
 		if (!geyser->isVisible() || geyser->getType() == BWAPI::UnitTypes::Resource_Vespene_Geyser)
 		{
 			// We see it is untaken, or we don't see the geyser. Assume the best.

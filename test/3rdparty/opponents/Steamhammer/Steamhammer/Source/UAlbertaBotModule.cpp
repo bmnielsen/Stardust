@@ -21,7 +21,7 @@ UAlbertaBotModule::UAlbertaBotModule()
 {
 }
 
-// This gets called when the bot starts.
+// BWAPI calls this when the bot starts.
 void UAlbertaBotModule::onStart()
 {
 	the.initialize();
@@ -33,9 +33,10 @@ void UAlbertaBotModule::onStart()
 	Bases::Instance().initialize();
 
 	// Parse the bot's configuration file.
-	// Change this file path to point to your config file.
+	// Change this file path (in config.cpp) to point to your config file.
     // Any relative path name will be relative to Starcraft installation folder
 	// The config depends on the map and must be read after the map is analyzed.
+    // This also reads the opponent model data and decides on the opening.
     ParseUtils::ParseConfigFile(Config::ConfigFile::ConfigFileLocation);
 
     // Set our BWAPI options according to the configuration. 
@@ -57,7 +58,11 @@ void UAlbertaBotModule::onStart()
     if (Config::BotInfo::PrintInfoOnStart)
     {
         BWAPI::Broodwar->printf("%s by %s, based on UAlbertaBot.", Config::BotInfo::BotName.c_str(), Config::BotInfo::Authors.c_str());
-	}
+        if (Config::Skills::HumanOpponent)
+        {
+            GameMessage("gl hf");
+        }
+    }
 
 	// Turn off latency compensation, which is on by default.
 	// BWAPI::Broodwar->setLatCom(false);

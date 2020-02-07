@@ -290,7 +290,7 @@ void BuildOrderQueue::drawQueueInformation(int x, int y, bool outOfBook)
             {
                 prefix = orange;
             }
-            else if (act.getUnitType().groundWeapon() != BWAPI::WeaponTypes::None || act.getUnitType().airWeapon() != BWAPI::WeaponTypes::None)
+            else if (UnitUtil::TypeCanAttack(act.getUnitType()))
             {
                 prefix = red;
             }

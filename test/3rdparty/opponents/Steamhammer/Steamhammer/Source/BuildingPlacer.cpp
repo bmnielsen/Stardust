@@ -266,7 +266,11 @@ bool BuildingPlacer::canBuildHere(BWAPI::TilePosition position, const Building &
 
 		// A worker can reach the place.
 		// NOTE This simplified check disallows building on islands!
-		Bases::Instance().connectedToStart(position);
+		Bases::Instance().connectedToStart(position) &&
+		
+		// Enemy static defense cannot fire on the building location.
+		// This is part of the response to e.g. cannon rushes.
+		!the.groundAttacks.inRange(b.type, position);
 }
 
 // Can we build this building here with the specified amount of space around it?
@@ -536,10 +540,6 @@ BWAPI::TilePosition BuildingPlacer::findSpecialLocation(const Building & b) cons
 			tile = findGroupedLocation(b);
 		}
 	}
-	else if (b.type == BWAPI::UnitTypes::Terran_Barracks)
-	{
-		tile = findGroupedLocation(b);
-	}
 	else if (b.type == BWAPI::UnitTypes::Protoss_Pylon)
 	{
 		tile = findPylonlessBaseLocation(b);
@@ -591,8 +591,7 @@ BWAPI::TilePosition BuildingPlacer::getBuildLocationNear(const Building & b, int
 		tile = findAnyLocation(b, extraSpace);
 	}
 
-	// Let Bases decide whether the change the main base to another base.
-	// 
+	// Let Bases decide whether to change which base is the main base.
 	Bases::Instance().checkBuildingPosition(b.desiredPosition, tile);
 
 	return tile;		// may be None
@@ -653,11 +652,18 @@ BWAPI::TilePosition BuildingPlacer::getRefineryPosition()
 	// have been canceled or destroyed: They become inaccessible. https://github.com/bwapi/bwapi/issues/697
 	for (const auto geyser : BWAPI::Broodwar->getGeysers())
 	{
-        // check to see if it's near one of our depots
-        for (const auto unit : BWAPI::Broodwar->self()->getUnits())
-        {
-            if (unit->getType().isResourceDepot() && unit->getDistance(geyser) < 300)
-            {
+		// Check to see if the geyser is near one of our depots.
+		for (const auto unit : BWAPI::Broodwar->self()->getUnits())
+		{
+			if (unit->getType().isResourceDepot() && unit->getDistance(geyser) < 300)
+			{
+				// Don't take a geyser which is in enemy static defense range. It'll just die.
+				// This is rare so we check it only after other checks succeed.
+				if (the.groundAttacks.inRange(geyser->getType(), geyser->getTilePosition()))
+				{
+					break;
+				}
+
 				int homeDistance = geyser->getDistance(homePosition);
 
 				if (homeDistance < minGeyserDistanceFromHome)
@@ -666,9 +672,47 @@ BWAPI::TilePosition BuildingPlacer::getRefineryPosition()
 					closestGeyser = geyser->getTilePosition();      // BWAPI bug workaround by Arrak
 				}
 				break;
-            }
-        }
-    }
+			}
+		}
+	}
     
     return closestGeyser;
+}
+
+// TODO UNFINISHED This is not ready to use.
+// Figure out where to place proxy buildings near this enemy base.
+BWAPI::TilePosition BuildingPlacer::getProxyPosition(const Base * base) const
+{
+    // 1. Near the enemy natural, concealed by terrain. Only possible on a few maps.
+    // TODO unimplemented
+
+    // 2. In the enemy main base, as far away as possible from the enemy's position.
+
+    // Tiles sorted in order of closeness to the enemy resource depot.
+    const BWAPI::TilePosition enemyCenter = BWAPI::TilePosition(base->getCenter());
+    const std::vector<BWAPI::TilePosition> & closest = MapTools::Instance().getClosestTilesTo(enemyCenter);
+
+    // A fictitious large building to place.
+    Building b(BWAPI::UnitTypes::Zerg_Hatchery, BWAPI::TilePositions::None);
+
+    int bestDist = 8;
+    BWAPI::TilePosition bestTile = BWAPI::TilePositions::None;
+    for (const BWAPI::TilePosition & tile : closest)
+    {
+        const int dist = std::max(abs(tile.x - enemyCenter.x), abs(tile.y - enemyCenter.y));
+        if (dist > bestDist)
+        {
+            if (the.zone.at(tile) == the.zone.at(enemyCenter) && canBuildHere(tile, b))
+            {
+                bestDist = dist;
+                bestTile = tile;
+            }
+        }
+        else if (dist > 25)
+        {
+            // Too far away. Stop looking.
+            break;
+        }
+    }
+    return bestTile;
 }

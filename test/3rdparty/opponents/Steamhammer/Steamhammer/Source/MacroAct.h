@@ -15,6 +15,7 @@ enum class MacroLocation
 	, Natural      // "natural" first expansion base
     , Front        // front line base (main or natural, as available)
 	, Center       // middle of the map
+    , Proxy        // in or in range of the enemy main or natural
     , GasSteal     // this is a gas steal, the unit type must be a refinery type
 	};
 
@@ -59,14 +60,14 @@ public:
 	bool    isRefinery()		const;
 	bool	isSupply()			const;
     
-    const size_t & type() const;
-    const BWAPI::Race & getRace() const;
+    size_t type() const;
+    BWAPI::Race getRace() const;
 
-    const BWAPI::UnitType & getUnitType() const;
-    const BWAPI::TechType & getTechType() const;
-    const BWAPI::UpgradeType & getUpgradeType() const;
-	const MacroCommand getCommandType() const;
-	const MacroLocation getMacroLocation() const;
+    BWAPI::UnitType getUnitType() const;
+    BWAPI::TechType getTechType() const;
+    BWAPI::UpgradeType getUpgradeType() const;
+	MacroCommand getCommandType() const;
+	MacroLocation getMacroLocation() const;
 
 	int supplyRequired() const;
 	int mineralPrice()   const;

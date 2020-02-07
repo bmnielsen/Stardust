@@ -14,7 +14,7 @@ namespace Config
     {
         bool ConfigFileFound                = false;
         bool ConfigFileParsed               = false;
-        std::string ConfigFileLocation      = "bwapi-data/AI/Steamhammer_2.3.json";
+        std::string ConfigFileLocation      = "bwapi-data/AI/Steamhammer_2.4.2.json";
     }
 
 	namespace IO
@@ -22,12 +22,30 @@ namespace Config
 		std::string ErrorLogFilename		= "Steamhammer_ErrorLog.txt";
 		bool LogAssertToErrorFile			= false;
 
-		std::string ReadDir					= "bwapi-data/read/";
+        std::string StaticDir               = "bwapi-data/AI/";
+        std::string PreparedDataDir         = "bwapi-data/AI/om/";
+        std::string ReadDir                 = "bwapi-data/read/";
 		std::string WriteDir				= "bwapi-data/write/";
 		int MaxGameRecords					= 0;
 		bool ReadOpponentModel				= false;
 		bool WriteOpponentModel				= false;
 	}
+
+    namespace Skills
+    {
+        bool UnderSCHNAIL                   = false;
+        bool SCHNAILMeansHuman              = true;
+        bool HumanOpponent                  = false;
+		bool SurrenderWhenHopeIsLost        = true;
+
+        bool ScoutHarassEnemy               = false;
+		bool AutoGasSteal                   = true;
+		double RandomGasStealRate           = 0.0;
+
+        bool Burrow                         = true;
+        int MaxQueens                       = 0;
+        int MaxInfestedTerrans              = 0;
+    }
 
 	namespace Strategy
     {
@@ -35,11 +53,7 @@ namespace Config
         std::string TerranStrategyName      = "11Rax";					// default
         std::string ZergStrategyName        = "9PoolSpeed";				// default
         std::string StrategyName            = "9PoolSpeed";
-        bool ScoutHarassEnemy               = true;
-		bool AutoGasSteal                   = true;
-		double RandomGasStealRate           = 0.0;
 		bool UsePlanRecognizer				= true;
-		bool SurrenderWhenHopeIsLost        = true;
         bool UseEnemySpecificStrategy       = true;
         bool FoundEnemySpecificStrategy     = false;
     }

@@ -68,6 +68,13 @@ void ProductionManager::update()
 			BWAPI::Broodwar->drawTextScreen(150, 10, "Nothing left to build, replanning.");
 		}
 
+		if (!_outOfBook)
+		{
+			//BWAPI::Broodwar->printf("build finished %d, minerals and gas %d %d",
+			//	BWAPI::Broodwar->getFrameCount(), BWAPI::Broodwar->self()->minerals(), BWAPI::Broodwar->self()->gas()
+			//);
+		}
+
 		goOutOfBookAndClearQueue();
 		StrategyManager::Instance().freshProductionPlan();
 	}
@@ -143,6 +150,7 @@ void ProductionManager::onUnitDestroy(BWAPI::Unit unit)
 		unit->getType().supplyProvided() == 0)
 	{
 		// We lost a building other than static defense or supply. It may be serious. Replan from scratch.
+        // BWAPI::Broodwar->printf("critical building loss");
 		goOutOfBookAndClearQueue();
 	}
 }
@@ -229,7 +237,8 @@ void ProductionManager::manageBuildOrderQueue()
 		{
 			_goals.push_front(ProductionGoal(currentItem.macroAct));
 			_queue.doneWithHighestPriorityItem();
-			continue;
+            _lastProductionFrame = BWAPI::Broodwar->getFrameCount();
+            continue;
 		}
 
 		// The unit which can produce the currentItem. May be null.
@@ -273,16 +282,34 @@ void ProductionManager::manageBuildOrderQueue()
 			// don't actually loop around in here
 			// TODO because we don't keep track of resources used,
 			//      we wait until the next frame to build the next thing.
-			//      Can cause delays in late game!
+			//      Can cause delays, especially in late game!
 			break;
 		}
 
 		// We didn't make anything. Check for a possible production jam.
 		// Jams can happen due to bugs, or due to losing prerequisites for planned items.
-		if (BWAPI::Broodwar->getFrameCount() > _lastProductionFrame + Config::Macro::ProductionJamFrameLimit)
+        // If the queue is empty, we didn't intend to make anything--likely we can't.
+        if (!_queue.isEmpty() &&
+            BWAPI::Broodwar->getFrameCount() > _lastProductionFrame + Config::Macro::ProductionJamFrameLimit)
 		{
-			// Looks very like a jam. Clear the queue and hope for better luck next time.
-			goOutOfBookAndClearQueue();
+            if (_queue.getHighestPriorityItem().macroAct.isUnit() &&
+                _queue.getHighestPriorityItem().macroAct.getUnitType() == BWAPI::UnitTypes::Zerg_Mutalisk &&
+                UnitUtil::GetCompletedUnitCount(BWAPI::UnitTypes::Zerg_Spire) == 0 &&
+                (UnitUtil::GetAllUnitCount(BWAPI::UnitTypes::Zerg_Spire) > 0 || BuildingManager::Instance().isBeingBuilt(BWAPI::UnitTypes::Zerg_Spire)))
+            {
+                // Exception: Sometimes the opening book can intentionally pause production for over a minute
+                // while saving up for mutalisks. So if a mutalisk is next and a spire is building, do nothing.
+                // BWAPI::Broodwar->printf("saving for mutas");
+            }
+            else
+            {
+                // Looks very like a jam. Clear the queue and hope for better luck next time.
+                if (Config::Debug::DrawQueueFixInfo)
+                {
+                    BWAPI::Broodwar->printf("queue: production jam timed out");
+                }
+                goOutOfBookAndClearQueue();
+            }
 		}
 
 		// TODO not much of a loop, eh? breaks on all branches
@@ -405,6 +432,19 @@ BWAPI::Unit ProductionManager::getProducer(MacroAct act, BWAPI::Position closest
 
 	act.getCandidateProducers(candidateProducers);
 
+	if (candidateProducers.empty())
+	{
+		return nullptr;
+	}
+
+	// If we're producing from a larva and we don't care where, seek an appropriate one.
+	if (act.isUnit() &&
+		act.getUnitType().whatBuilds().first == BWAPI::UnitTypes::Zerg_Larva &&
+		closestTo == BWAPI::Positions::None)
+	{
+		return getBestLarva(act, candidateProducers);
+	}
+
 	// Trick: If we're producing a worker, choose the producer (command center, nexus,
 	// or larva) which is farthest from the main base. That way expansions are preferentially
 	// populated with less need to transfer workers.
@@ -413,46 +453,118 @@ BWAPI::Unit ProductionManager::getProducer(MacroAct act, BWAPI::Position closest
 		return getFarthestUnitFromPosition(candidateProducers,
 			Bases::Instance().myMainBase()->getPosition());
 	}
-	else
+
+	return getClosestUnitToPosition(candidateProducers, closestTo);
+}
+
+// We're producing a zerg unit from a larva.
+// The list of units (candidate producers) is guaranteed not empty.
+BWAPI::Unit ProductionManager::getBestLarva(const MacroAct & act, const std::vector<BWAPI::Unit> & units) const
+{
+	// 1. If it's a worker, seek the least saturated base.
+	// For equally saturated bases, take the one with the highest larva count.
+	// Count only the base's resource depot, not any possible macro hatcheries there.
+	if (act.getUnitType().isWorker())
 	{
-		return getClosestUnitToPosition(candidateProducers, closestTo);
+		Base * bestBase = nullptr;
+		int maxShortfall = -1;
+		size_t maxLarvas = 0;
+		for (Base * base : Bases::Instance().getBases())
+		{
+			if (base->getOwner() == BWAPI::Broodwar->self() && UnitUtil::IsCompletedResourceDepot(base->getDepot()))
+			{
+				auto larvaSet = base->getDepot()->getLarva();
+				if (!larvaSet.empty())
+				{
+					int shortfall = std::max(0, base->getMaxWorkers() - base->getNumWorkers());
+					if (shortfall > maxShortfall || shortfall == maxShortfall && larvaSet.size() > maxLarvas)
+					{
+						bestBase = base;
+						maxShortfall = shortfall;
+						maxLarvas = larvaSet.size();
+					}
+				}
+			}
+		}
+
+		if (bestBase)
+		{
+			return *bestBase->getDepot()->getLarva().begin();
+		}
 	}
+
+    // 2. Otherwise, pick a hatchery that has the most larvas.
+	// This reduces wasted larvas; a hatchery won't make another if it has three.
+	BWAPI::Unit bestHatchery = nullptr;
+	size_t maxLarvas = 0;
+	for (BWAPI::Unit hatchery : BWAPI::Broodwar->self()->getUnits())
+	{
+		if (UnitUtil::IsCompletedResourceDepot(hatchery))
+		{
+			auto larvaSet = hatchery->getLarva();
+			if (larvaSet.size() > maxLarvas)
+			{
+				bestHatchery = hatchery;
+				maxLarvas = larvaSet.size();
+				if (maxLarvas >= 3)
+				{
+					break;
+				}
+			}
+		}
+	}
+
+	if (bestHatchery)
+	{
+		return *bestHatchery->getLarva().begin();
+	}
+
+    // 3. There might be a larva not attached to any hatchery.
+    for (BWAPI::Unit larva : BWAPI::Broodwar->self()->getUnits())
+    {
+        if (larva->getType() == BWAPI::UnitTypes::Zerg_Larva)
+        {
+            return larva;
+        }
+    }
+
+	return nullptr;
 }
 
 BWAPI::Unit ProductionManager::getClosestUnitToPosition(const std::vector<BWAPI::Unit> & units, BWAPI::Position closestTo) const
 {
-    if (units.size() == 0)
-    {
-        return nullptr;
-    }
+	if (units.empty())
+	{
+		return nullptr;
+	}
 
-    // if we don't care where the unit is return the first one we have
-    if (closestTo == BWAPI::Positions::None)
-    {
-        return *(units.begin());
-    }
+	// if we don't care where the unit is return the first one we have
+	if (closestTo == BWAPI::Positions::None)
+	{
+		return *(units.begin());
+	}
 
-    BWAPI::Unit closestUnit = nullptr;
-    int minDist(1000000);
+	BWAPI::Unit closestUnit = nullptr;
+	int minDist(1000000);
 
-	for (const auto unit : units) 
-    {
-        UAB_ASSERT(unit != nullptr, "Unit was null");
+	for (const auto unit : units)
+	{
+		UAB_ASSERT(unit != nullptr, "Unit was null");
 
 		int distance = unit->getDistance(closestTo);
-		if (distance < minDist) 
-        {
+		if (distance < minDist)
+		{
 			closestUnit = unit;
 			minDist = distance;
 		}
 	}
 
-    return closestUnit;
+	return closestUnit;
 }
 
 BWAPI::Unit ProductionManager::getFarthestUnitFromPosition(const std::vector<BWAPI::Unit> & units, BWAPI::Position farthest) const
 {
-	if (units.size() == 0)
+	if (units.empty())
 	{
 		return nullptr;
 	}
@@ -514,35 +626,8 @@ void ProductionManager::create(BWAPI::Unit producer, const BuildOrderItem & item
 	else if (act.isBuilding()                                    // implies act.isUnit()
 		&& !UnitUtil::IsMorphedBuildingType(act.getUnitType()))  // not morphed from another zerg building
 	{
-		// By default, build in the main base.
-		// BuildingManager will override the location if it needs to.
-		// Otherwise it will find some spot near desiredLocation.
-		BWAPI::TilePosition desiredLocation = Bases::Instance().myMainBase()->getTilePosition();
-
-		if (act.getMacroLocation() == MacroLocation::Front)
-		{
-			BWAPI::TilePosition front = Bases::Instance().frontPoint();
-			if (front.isValid())
-			{
-				desiredLocation = front;
-			}
-		}
-		else if (act.getMacroLocation() == MacroLocation::Natural)
-		{
-			Base * natural = Bases::Instance().myNaturalBase();
-			if (natural)
-			{
-				desiredLocation = natural->getTilePosition();
-			}
-		}
-		else if (act.getMacroLocation() == MacroLocation::Center)
-		{
-			// Near the center of the map.
-			// NOTE This does not work reliably because of unbuildable tiles.
-			desiredLocation = BWAPI::TilePosition(BWAPI::Broodwar->mapWidth()/2, BWAPI::Broodwar->mapHeight()/2);
-		}
-		
-		BuildingManager::Instance().addBuildingTask(act, desiredLocation, _assignedWorkerForThisBuilding, item.isGasSteal);
+        BWAPI::TilePosition desiredPosition = BuildingManager::Instance().getStandardDesiredPosition(act.getMacroLocation());
+        BuildingManager::Instance().addBuildingTask(act, desiredPosition, _assignedWorkerForThisBuilding, item.isGasSteal);
 	}
 	// if we're dealing with a non-building unit, or a morphed zerg building
 	else if (act.isUnit() || act.isTech() || act.isUpgrade())
@@ -1044,6 +1129,10 @@ bool ProductionManager::nextIsBuilding() const
 // NOTE This clears the queue even if we are already out of book.
 void ProductionManager::goOutOfBookAndClearQueue()
 {
+    if (Config::Debug::DrawQueueFixInfo && !_queue.isEmpty())
+    {
+        BWAPI::Broodwar->printf("queue: go out of book and clear queue");
+    }
 	_queue.clearAll();
 	_outOfBook = true;
 	CombatCommander::Instance().setAggression(true);
@@ -1055,6 +1144,10 @@ void ProductionManager::goOutOfBook()
 {
 	if (!_outOfBook)
 	{
-		goOutOfBookAndClearQueue();
+        if (Config::Debug::DrawQueueFixInfo && _queue.isEmpty())
+        {
+            BWAPI::Broodwar->printf("queue: go out of book");
+        }
+        goOutOfBookAndClearQueue();
 	}
 }

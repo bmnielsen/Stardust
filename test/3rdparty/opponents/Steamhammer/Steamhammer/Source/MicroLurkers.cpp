@@ -6,6 +6,62 @@
 
 using namespace UAlbertaBot;
 
+// Prefer the nearest target, as most units do.
+BWAPI::Unit MicroLurkers::getNearestTarget(BWAPI::Unit lurker, const BWAPI::Unitset & targets) const
+{
+	int highPriority = 0;
+	int closestDist = 99999;
+	BWAPI::Unit bestTarget = nullptr;
+
+	for (BWAPI::Unit target : targets)
+	{
+		int distance = lurker->getDistance(target);
+		int priority = getAttackPriority(target);
+
+		// BWAPI::Broodwar->drawTextMap(target->getPosition() + BWAPI::Position(20, -10), "%c%d", yellow, priority);
+
+		if (priority > highPriority || priority == highPriority && distance < closestDist)
+		{
+			closestDist = distance;
+			highPriority = priority;
+			bestTarget = target;
+		}
+	}
+
+	return bestTarget;
+}
+
+// Prefer the farthest target with the highest priority.
+// The caller promises that all targets are in range, so all targets can be attacked.
+// Choosing a distant target gives better odds of accidentally also hitting nearer targets,
+// since nearby targets subtend a larger angle from the point of view of the lurker.
+// It's a way to slightly improve lurker targeting without doing a full analysis.
+BWAPI::Unit MicroLurkers::getFarthestTarget(BWAPI::Unit lurker, const BWAPI::Unitset & targets) const
+{
+	int highPriority = 0;
+	int farthestDist = -1;
+	BWAPI::Unit bestTarget = nullptr;
+
+	for (BWAPI::Unit target : targets)
+	{
+		int distance = lurker->getDistance(target);
+		int priority = getAttackPriority(target);
+
+		// BWAPI::Broodwar->drawTextMap(target->getPosition() + BWAPI::Position(20, -10), "%c%d", yellow, priority);
+
+		if (priority > highPriority || priority == highPriority && distance > farthestDist)
+		{
+			farthestDist = distance;
+			highPriority = priority;
+			bestTarget = target;
+		}
+	}
+
+	return bestTarget;
+}
+
+// -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
 MicroLurkers::MicroLurkers()
 {
 }
@@ -21,14 +77,17 @@ void MicroLurkers::executeMicro(const BWAPI::Unitset & targets, const UnitCluste
 	// Potential targets.
 	BWAPI::Unitset lurkerTargets;
 	std::copy_if(targets.begin(), targets.end(), std::inserter(lurkerTargets, lurkerTargets.end()),
-		[](BWAPI::Unit u){
+		[=](BWAPI::Unit u){
 			return
-				u->isVisible() &&
-				!u->isFlying() &&
-				u->getPosition().isValid();
+                !u->isFlying() &&
+                u->isVisible() &&
+                u->isDetected() &&
+ 				u->getPosition().isValid() &&
+                !infestable(u) &&
+                !u->isInvincible();
 		});
 	
-	for (const auto lurker : lurkers)
+	for (BWAPI::Unit lurker : lurkers)
 	{
 		const bool inOrderRange = lurker->getDistance(order.getPosition()) <= 3 * 32;
 		BWAPI::Unit target = getTarget(lurker, lurkerTargets);
@@ -123,7 +182,8 @@ void MicroLurkers::executeMicro(const BWAPI::Unitset & targets, const UnitCluste
 		}
 		else
 		{
-			if (Config::Debug::DrawUnitTargetInfo) {
+			if (Config::Debug::DrawUnitTargetInfo)
+			{
 				BWAPI::Broodwar->drawLineMap(lurker->getPosition(), order.getPosition(), BWAPI::Colors::White);
 			}
 
@@ -164,7 +224,7 @@ BWAPI::Unit MicroLurkers::getTarget(BWAPI::Unit lurker, const BWAPI::Unitset & t
 	const int lurkerRange = BWAPI::UnitTypes::Zerg_Lurker.groundWeapon().maxRange();
 
 	BWAPI::Unitset targetsInRange;
-	for (const auto target : targets)
+	for (BWAPI::Unit target : targets)
 	{
 		if (lurker->getDistance(target) <= lurkerRange)
 		{
@@ -172,29 +232,14 @@ BWAPI::Unit MicroLurkers::getTarget(BWAPI::Unit lurker, const BWAPI::Unitset & t
 		}
 	}
 
-	// If any targets are in lurker range, then always return one of the targets in range.
-	const BWAPI::Unitset & newTargets = targetsInRange.empty() ? targets : targetsInRange;
-
-	int highPriority = 0;
-	int closestDist = 99999;
-	BWAPI::Unit bestTarget = nullptr;
-
-	for (const auto target : newTargets)
+	if (lurker->isBurrowed() && !targetsInRange.empty())
 	{
-		int distance = lurker->getDistance(target);
-		int priority = getAttackPriority(target);
-
-		// BWAPI::Broodwar->drawTextMap(target->getPosition() + BWAPI::Position(20, -10), "%c%d", yellow, priority);
-
-		if ((priority > highPriority) || (priority == highPriority && distance < closestDist))
-		{
-			closestDist = distance;
-			highPriority = priority;
-			bestTarget = target;
-		}
+		return getFarthestTarget(lurker, targetsInRange);
 	}
 
-	return bestTarget;
+	// If any targets are in lurker range, then always return one of the targets in range.
+	const BWAPI::Unitset & newTargets = targetsInRange.empty() ? targets : targetsInRange;
+	return getNearestTarget(lurker, newTargets);
 }
 
 //  Only ground units are passed in as potential targets.
@@ -222,11 +267,6 @@ int MicroLurkers::getAttackPriority(BWAPI::Unit target) const
 		return 10;
 	}
 
-	// Nydus canal is critical.
-	if (targetType == BWAPI::UnitTypes::Zerg_Nydus_Canal)
-	{
-		return 10;
-	}
 	// Something that can attack us or aid in combat
 	if (UnitUtil::CanAttackGround(target) && !target->getType().isWorker())
 	{
@@ -249,36 +289,14 @@ int MicroLurkers::getAttackPriority(BWAPI::Unit target) const
 	{
 		return 8;
 	}
-	// next is special buildings
-	if (targetType == BWAPI::UnitTypes::Zerg_Spore_Colony)
-	{
-		return 6;
-	}
-	if (targetType == BWAPI::UnitTypes::Terran_Comsat_Station)
-	{
-		return 6;
-	}
-	if (targetType == BWAPI::UnitTypes::Zerg_Spawning_Pool)
-	{
-		return 5;
-	}
-	if (targetType == BWAPI::UnitTypes::Protoss_Observatory || targetType == BWAPI::UnitTypes::Protoss_Robotics_Facility)
-	{
-		return 5;
-	}
-	if (targetType == BWAPI::UnitTypes::Protoss_Pylon)
-	{
-		return 5;
-	}
-	// next is buildings that cost gas
-	if (targetType.gasPrice() > 0)
-	{
-		return 4;
-	}
-	if (targetType.mineralPrice() > 0)
-	{
-		return 3;
-	}
-	// then everything else
-	return 1;
+    if (targetType == BWAPI::UnitTypes::Terran_Comsat_Station)      // even if unfinished
+    {
+        return 7;
+    }
+    if (targetType == BWAPI::UnitTypes::Protoss_Observatory || targetType == BWAPI::UnitTypes::Protoss_Robotics_Facility)
+    {
+        return 7;
+    }
+
+    return getBackstopAttackPriority(target);
 }

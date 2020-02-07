@@ -21,6 +21,7 @@ public:
 	void takeEnemy();
 
 	int getCount(BWAPI::UnitType type) const;
+    int getSupply() const;
 
 	std::string debugString() const;
 };

@@ -4,7 +4,7 @@
 
 using namespace UAlbertaBot;
 
-CombatSimEnemies CombatSimulation::analyzeForEnemies(const BWAPI::Unitset units) const
+CombatSimEnemies CombatSimulation::analyzeForEnemies(const BWAPI::Unitset & units) const
 {
 	bool nonscourge = false;
 	bool hasGround = false;
@@ -26,11 +26,11 @@ CombatSimEnemies CombatSimulation::analyzeForEnemies(const BWAPI::Unitset units)
 		{
 			hasGround = true;
 		}
-		if (UnitUtil::GetGroundWeapon(unit->getType()) != BWAPI::WeaponTypes::None)
+		if (UnitUtil::TypeCanAttackGround(unit->getType()))
 		{
 			hitsGround = true;
 		}
-		if (UnitUtil::GetAirWeapon(unit->getType()) != BWAPI::WeaponTypes::None)
+        if (UnitUtil::TypeCanAttackAir(unit->getType()))
 		{
 			hitsAir = true;
 		}
@@ -60,7 +60,19 @@ CombatSimEnemies CombatSimulation::analyzeForEnemies(const BWAPI::Unitset units)
 	return CombatSimEnemies::AllEnemies;
 }
 
-void CombatSimulation::drawWhichEnemies(const BWAPI::Position center) const
+bool CombatSimulation::allFlying(const BWAPI::Unitset & units) const
+{
+    for (BWAPI::Unit unit : units)
+    {
+        if (!unit->isFlying())
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+void CombatSimulation::drawWhichEnemies(const BWAPI::Position & center) const
 {
 	std::string whichEnemies = "All Enemies";
 	if (_whichEnemies == CombatSimEnemies::ZerglingEnemies) {
@@ -82,6 +94,7 @@ void CombatSimulation::drawWhichEnemies(const BWAPI::Position center) const
 
 }
 
+// Include an enemy unit if we can hit it, or it can hit us.
 bool CombatSimulation::includeEnemy(CombatSimEnemies which, BWAPI::UnitType type) const
 {
 	if (which == CombatSimEnemies::ZerglingEnemies)
@@ -89,8 +102,7 @@ bool CombatSimulation::includeEnemy(CombatSimEnemies which, BWAPI::UnitType type
 		// Ground enemies plus air enemies that can shoot down.
 		// For combat sim with zergling-alikes: Ground units that cannot shoot air.
 		return
-			!type.isFlyer() ||
-			UnitUtil::GetGroundWeapon(type) != BWAPI::WeaponTypes::None;
+			!type.isFlyer() || UnitUtil::TypeCanAttackGround(type);
 	}
 
 	if (which == CombatSimEnemies::GuardianEnemies)
@@ -98,8 +110,7 @@ bool CombatSimulation::includeEnemy(CombatSimEnemies which, BWAPI::UnitType type
 		// Ground enemies plus air enemies that can shoot air.
 		// For combat sim with guardians: Air units that can only shoot ground.
 		return
-			!type.isFlyer() ||
-			UnitUtil::GetAirWeapon(type) != BWAPI::WeaponTypes::None;
+			!type.isFlyer() || UnitUtil::TypeCanAttackAir(type);
 	}
 
 	if (which == CombatSimEnemies::DevourerEnemies)
@@ -107,27 +118,77 @@ bool CombatSimulation::includeEnemy(CombatSimEnemies which, BWAPI::UnitType type
 		// Air enemies plus ground enemies that can shoot air.
 		// For combat sim with devourer-alikes: Air units that can only shoot air.
 		return
-			type.isFlyer() ||
-			UnitUtil::GetAirWeapon(type) != BWAPI::WeaponTypes::None;
+			type.isFlyer() || UnitUtil::TypeCanAttackAir(type);
 	}
 
 	if (which == CombatSimEnemies::ScourgeEnemies)
 	{
 		// Only ground enemies that can shoot up.
-		// For scourge only. The scourge will take on air enemies no matter what.
+		// For scourge only. The scourge will take on air enemies no matter the odds.
 		return
-			!type.isFlyer() &&
-			UnitUtil::GetAirWeapon(type) != BWAPI::WeaponTypes::None;
+			!type.isFlyer() && UnitUtil::TypeCanAttackAir(type);
 	}
 
 	// AllEnemies.
 	return true;
 }
 
+// This variant of includeEnemy() is called only when the enemy unit is visible.
+// Our air units ignore undetected dark templar.
+// Burrowed units are not visible, so there's no need to ignore them.
+bool CombatSimulation::includeEnemy(CombatSimEnemies which, BWAPI::Unit enemy) const
+{
+    if (_allFriendliesFlying &&
+        enemy->getType() == BWAPI::UnitTypes::Protoss_Dark_Templar &&
+        !enemy->isDetected())
+    {
+        return false;
+    }
+
+    return includeEnemy(which, enemy->getType());
+}
+
+bool CombatSimulation::undetectedEnemy(BWAPI::Unit enemy) const
+{
+    if (enemy->isVisible())
+    {
+        return !enemy->isDetected();
+    }
+
+    // The enemy is out of sight.
+    // Consider it undetected if it is likely to be cloaked, or if it is an arbiter.
+    // NOTE This will often be wrong!
+    return
+        enemy->getType() == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine ||
+        enemy->getType() == BWAPI::UnitTypes::Protoss_Dark_Templar ||
+        enemy->getType() == BWAPI::UnitTypes::Protoss_Arbiter ||
+        enemy->getType() == BWAPI::UnitTypes::Zerg_Lurker;
+}
+
+bool CombatSimulation::undetectedEnemy(const UnitInfo & enemyUI) const
+{
+    if (enemyUI.unit->isVisible())
+    {
+        return !enemyUI.unit->isDetected();
+    }
+
+    // The enemy is out of sight.
+    // Consider it undetected if it is likely to be cloaked.
+    // NOTE This will often be wrong!
+    return
+        enemyUI.type == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine ||
+        enemyUI.type == BWAPI::UnitTypes::Protoss_Dark_Templar ||
+        enemyUI.type == BWAPI::UnitTypes::Protoss_Arbiter ||
+        enemyUI.type == BWAPI::UnitTypes::Zerg_Lurker;
+}
+
 // -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
 CombatSimulation::CombatSimulation()
 	: _whichEnemies(CombatSimEnemies::AllEnemies)
+    , _allEnemiesUndetected(false)
+    , _allEnemiesHitGroundOnly(false)
+    , _allFriendliesFlying(false)
 {
 }
 
@@ -166,8 +227,6 @@ void CombatSimulation::setCombatUnits
 	, bool visibleOnly
 	)
 {
-	_whichEnemies = analyzeForEnemies(myUnits);
-
 	fap.clearState();
 
 	// Center the circle of interest on the nearest enemy unit, not on one of our own units.
@@ -181,15 +240,15 @@ void CombatSimulation::setCombatUnits
 		return;
 	}
 
-	if (Config::Debug::DrawCombatSimulationInfo)
-	{
-		BWAPI::Broodwar->drawCircleMap(center, 6, BWAPI::Colors::Red, true);
-		BWAPI::Broodwar->drawCircleMap(center, radius, BWAPI::Colors::Red);
+    _whichEnemies = analyzeForEnemies(myUnits);
+    _allFriendliesFlying = allFlying(myUnits);
 
-		drawWhichEnemies(ourCenter + BWAPI::Position(-20, 28));
-	}
+    // If all enemies are cloaked and undetected, and can hit us,
+    // then we can run away without needing to do a sim.
+    _allEnemiesUndetected = true;       // until proven false
+    _allEnemiesHitGroundOnly = true;    // until proven false
 
-	// Work around poor play in mutalisks versus static defense:
+    // Work around poor play in mutalisks versus static defense:
 	// We compensate by dropping a given number of our mutalisks.
 	// Compensation only applies when visibleOnly is false.
 	int compensatoryMutalisks = 0;
@@ -197,34 +256,47 @@ void CombatSimulation::setCombatUnits
 	// Add enemy units.
 	if (visibleOnly)
 	{
-		// Only units that we can see right now.
+        // Static defense that is out of sight.
+        // NOTE getNearbyForce() includes completed units and uncompleted buildings which are out of vision.
+        std::vector<UnitInfo> enemyStaticDefense;
+        InformationManager::Instance().getNearbyForce(enemyStaticDefense, center, BWAPI::Broodwar->enemy(), radius);
+        for (const UnitInfo & ui : enemyStaticDefense)
+        {
+            if (ui.type.isBuilding() && !ui.unit->isVisible() && includeEnemy(_whichEnemies, ui.type))
+            {
+                _allEnemiesUndetected = false;
+                if (UnitUtil::TypeCanAttackAir(ui.type))
+                {
+                    _allEnemiesHitGroundOnly = false;
+                }
+                fap.addIfCombatUnitPlayer2(ui);
+                if (Config::Debug::DrawCombatSimulationInfo)
+                {
+                    BWAPI::Broodwar->drawCircleMap(ui.lastPosition, 3, BWAPI::Colors::Orange, true);
+                }
+            }
+        }
+
+        // Only units that we can see right now.
 		BWAPI::Unitset enemyCombatUnits;
 		MapGrid::Instance().getUnits(enemyCombatUnits, center, radius, false, true);
-		for (const auto unit : enemyCombatUnits)
+		for (BWAPI::Unit unit : enemyCombatUnits)
 		{
 			if (UnitUtil::IsCombatSimUnit(unit) &&
-				includeEnemy(_whichEnemies, unit->getType()))
+				includeEnemy(_whichEnemies, unit))
 			{
-				fap.addIfCombatUnitPlayer2(unit);
+                if (_allEnemiesUndetected && !undetectedEnemy(unit))
+                {
+                    _allEnemiesUndetected = false;
+                }
+                if (UnitUtil::TypeCanAttackAir(unit->getType()))
+                {
+                    _allEnemiesHitGroundOnly = false;
+                }
+                fap.addIfCombatUnitPlayer2(unit);
 				if (Config::Debug::DrawCombatSimulationInfo)
 				{
 					BWAPI::Broodwar->drawCircleMap(unit->getPosition(), 3, BWAPI::Colors::Orange, true);
-				}
-			}
-		}
-
-		// Also static defense that is out of sight.
-		// NOTE getNearbyForce() includes completed units and uncompleted buildings which are out of vision.
-		std::vector<UnitInfo> enemyStaticDefense;
-		InformationManager::Instance().getNearbyForce(enemyStaticDefense, center, BWAPI::Broodwar->enemy(), radius);
-		for (const UnitInfo & ui : enemyStaticDefense)
-		{
-			if (ui.type.isBuilding() && !ui.unit->isVisible() && includeEnemy(_whichEnemies, ui.type))
-			{
-				fap.addIfCombatUnitPlayer2(ui);
-				if (Config::Debug::DrawCombatSimulationInfo)
-				{
-					BWAPI::Broodwar->drawCircleMap(ui.lastPosition, 3, BWAPI::Colors::Orange, true);
 				}
 			}
 		}
@@ -239,9 +311,17 @@ void CombatSimulation::setCombatUnits
 		{
 			// The check is careful about seen units and assumes that unseen units are completed and powered.
 			if ((ui.unit->exists() || ui.lastPosition.isValid() && !ui.goneFromLastPosition) &&
-				includeEnemy(_whichEnemies, ui.type))
+                ui.unit->isVisible() ? includeEnemy(_whichEnemies, ui.unit) : includeEnemy(_whichEnemies, ui.type))
 			{
-				fap.addIfCombatUnitPlayer2(ui);
+                if (_allEnemiesUndetected && !undetectedEnemy(ui))
+                {
+                    _allEnemiesUndetected = false;
+                }
+                if (UnitUtil::TypeCanAttackAir(ui.type))
+                {
+                    _allEnemiesHitGroundOnly = false;
+                }
+                fap.addIfCombatUnitPlayer2(ui);
 
 				if (ui.type == BWAPI::UnitTypes::Terran_Missile_Turret)
 				{
@@ -267,7 +347,8 @@ void CombatSimulation::setCombatUnits
 	// Add our units.
 	// Add them from the input set. Other units have been given other instructions
 	// and may not cooperate in the fight, so skip them.
-	for (const auto unit : myUnits)
+	// NOTE This does not include our static defense unless the caller passed it in!
+    for (BWAPI::Unit unit : myUnits)
 	{
 		if (UnitUtil::IsCombatSimUnit(unit))
 		{
@@ -285,6 +366,18 @@ void CombatSimulation::setCombatUnits
 			}
 		}
 	}
+
+    if (Config::Debug::DrawCombatSimulationInfo)
+    {
+        BWAPI::Broodwar->drawCircleMap(center, 6, BWAPI::Colors::Red, true);
+        BWAPI::Broodwar->drawCircleMap(center, radius, BWAPI::Colors::Red);
+
+        drawWhichEnemies(ourCenter + BWAPI::Position(-20, 28));
+        //BWAPI::Broodwar->drawTextMap(ourCenter + BWAPI::Position(-20, 44), "%c %s v %s%s", yellow,
+        //    (_allFriendliesFlying ? "flyers" : ""),
+        //    (_allEnemiesUndetected ? "unseen" : ""),
+        //    (_allEnemiesHitGroundOnly ? "antiground" : ""));
+    }
 }
 
 // Simulate combat and return the result as a score. Score >= 0 means you win.
@@ -293,9 +386,22 @@ double CombatSimulation::simulateCombat(bool meatgrinder)
 	std::pair<int, int> startScores = fap.playerScores();
 	if (startScores.second == 0)
 	{
-		// No enemies. We can stop early.
+		// No enemies. We win.
 		return 0.0;
 	}
+
+    if (_allFriendliesFlying && _allEnemiesHitGroundOnly)
+    {
+        // The enemy can't hit us. We win.
+        return 1.0;
+    }
+
+    // If all enemies are undetected, and can hit us, we should run away.
+    // We approximate "and can hit us" by the flyers versus hit-ground-only check above.
+    if (_allEnemiesUndetected)
+    {
+        return -1.0;
+    }
 
 	fap.simulate();
 	std::pair<int, int> endScores = fap.playerScores();
@@ -324,6 +430,7 @@ double CombatSimulation::simulateCombat(bool meatgrinder)
 
 		// Call it a victory if we took down at least this fraction of the enemy army.
 		return double(3 * yourLosses - myLosses);
+        // return double(2 * endScores.first - endScores.second);
 	}
 
 	// Winner is the side with smaller losses.
@@ -332,13 +439,4 @@ double CombatSimulation::simulateCombat(bool meatgrinder)
 	// Original scoring: Winner is whoever has more stuff left.
 	// NOTE This tested best for Steamhammer.
 	return double(endScores.first - endScores.second);
-
-	/*
-	if (Config::Debug::DrawCombatSimulationInfo)
-	{
-		BWAPI::Broodwar->drawTextScreen(150, 200, "%cCombat sim: us %c%d %c/ them %c%d %c= %c%g",
-			white, orange, endScores.first, white, orange, endScores.second, white,
-			score >= 0.0 ? green : red, score);
-	}
-	*/
 }

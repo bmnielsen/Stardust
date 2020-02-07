@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Common.h"
-#include "GameRecord.h"
+#include "GameRecordNow.h"
 #include "OpponentPlan.h"
 
 namespace UAlbertaBot
@@ -49,8 +49,8 @@ namespace UAlbertaBot
 		OpponentPlan _planRecognizer;
 
 		std::string _filename;
-		GameRecord _gameRecord;
-		std::vector<GameRecord *> _pastGameRecords;
+		GameRecordNow _gameRecord;                      // the current game
+		std::vector<GameRecord *> _pastGameRecords;     // from learning files
 
 		GameRecord * _bestMatch;
 

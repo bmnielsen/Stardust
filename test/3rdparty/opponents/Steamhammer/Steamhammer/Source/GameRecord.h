@@ -38,7 +38,7 @@ struct GameSnapshot
 
 class GameRecord
 {
-private:
+protected:
 	const int firstSnapshotTime = 2 * 60 * 24;
 	const int snapshotInterval = 30 * 24;
 
@@ -81,8 +81,6 @@ private:
 	// We allocate the snapshots and never release them.
 	std::vector<GameSnapshot *> snapshots;
 
-	void takeSnapshot();
-
 	BWAPI::Race charRace(char ch);
 
 	int readNumber(std::istream & input);
@@ -97,26 +95,20 @@ private:
 	void skipToEnd(std::istream & input);
 	void read(std::istream & input);
 
-	void writePlayerSnapshot(std::ostream & output, const PlayerSnapshot & snap);
-	void writeGameSnapshot(std::ostream & output, const GameSnapshot * snap);
+    void writePlayerSnapshot(std::ostream & output, const PlayerSnapshot & snap);
+    void writeGameSnapshot(std::ostream & output, const GameSnapshot * snap);
 
-	int snapDistance(const PlayerSnapshot & a, const PlayerSnapshot & b) const;
-
-	bool enemyScoutedUs() const;
+    int snapDistance(const PlayerSnapshot & a, const PlayerSnapshot & b) const;
 
 public:
 	GameRecord();
 	GameRecord(std::istream & input);
 
+    void write(std::ostream & output);
+
 	bool isValid() { return valid; };
-	void setOpening(const std::string & opening) { openingName = opening; };
-	void setWin(bool isWinner);
 
-	void write(std::ostream & output);
-
-	void update();
-
-	int distance(const GameRecord & record) const;    // similarity distance
+	int distance(const GameRecord & record) const;    // similarity distance UNUSED
 
 	bool findClosestSnapshot(int t, PlayerSnapshot & snap) const;
 
@@ -131,7 +123,6 @@ public:
 	bool getGasStealHappened() const { return gasStealHappened; };
 
 	void debugLog();
-	static GameRecord & Instance();
 };
 
 }

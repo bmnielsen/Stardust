@@ -80,7 +80,7 @@ class StrategyBossZerg
 	int nCompletedHatches;
 	int nSpores;
 
-	int nGas;          // taken geysers
+	int nGas;          // taken geysers, including those with extractor morphing
 	int nFreeGas;      // untaken geysers at our completed bases
 
 	int nDrones;
@@ -92,9 +92,14 @@ class StrategyBossZerg
 	int nHydras;
 	int nLurkers;
 	int nMutas;
+	int nQueens;
 	int nGuardians;
 	int nDevourers;
 	int nDefilers;
+
+    int nInfestedCC;
+    int nInfestedTerrans;
+    int _lastInfestedTerranOrderFrame;
 
 	// Tech stuff. It has to be completed for the tech to be available.
 	int nEvo;
@@ -128,6 +133,14 @@ class StrategyBossZerg
 	int enemyAntigroundArmySize;
 	int defilerScore;
 
+    bool _enemySeemsToBeDead;
+    bool _wantDefensiveSpire;
+
+	int _lastQueenAliveFrame;	// last frame we had a living queen (now if one is still alive)
+	bool _recommendParasite;
+    bool _recommendEnsnare;
+    bool _recommendBroodling;
+
 	// For choosing the tech target and the unit mix.
 	std::array<int, int(TechUnit::Size)> techScores;
 
@@ -137,7 +150,12 @@ class StrategyBossZerg
 	void updateArmySizes();
 	bool enoughArmy() const;
 	bool enoughGroundArmy() const;
-	bool enemySeemsToBeDead(const PlayerSnapshot & snap) const;
+    bool enemyIsAllAir() const;
+    bool enemySeemsToBeDead(const PlayerSnapshot & snap) const;
+    bool canSafelyMineGas() const;
+    int nFreeEvo() const;
+
+    int getOurSpireTiming() const;
 
 	int numInEgg(BWAPI::UnitType) const;
 	bool isBeingBuilt(const BWAPI::UnitType unitType) const;
@@ -145,6 +163,7 @@ class StrategyBossZerg
 	int mineralsBackOnCancel(BWAPI::UnitType type) const;
 	void cancelStuff(int mineralsNeeded);
 	void cancelForSpawningPool();
+	void cancelUpgrade(BWAPI::UpgradeType upgrade);
 	bool nextInQueueIsUseless(BuildOrderQueue & queue) const;
 	void leaveBook();
 
@@ -176,6 +195,7 @@ class StrategyBossZerg
 	void resetTechScores();
 	void setAvailableTechUnits(std::array<bool, int(TechUnit::Size)> & available);
 
+	void recommendResearch(const PlayerSnapshot & snap);
 	void vProtossTechScores(const PlayerSnapshot & snap);
 	void vTerranTechScores(const PlayerSnapshot & snap);
 	void vZergTechScores(const PlayerSnapshot & snap);

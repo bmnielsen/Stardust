@@ -159,7 +159,7 @@ void MicroTanks::executeMicro(const BWAPI::Unitset & targets, const UnitCluster 
                     }
                     else
                     {
-    					the.micro.AttackMove(tank, order.getPosition());
+    					the.micro.Move(tank, order.getPosition());
                     }
 				}
 			}
@@ -277,43 +277,5 @@ int MicroTanks::getAttackPriority(BWAPI::Unit tank, BWAPI::Unit target)
 		return 11;
 	}
 
-	if (!targetType.isBuilding())
-	{
-		return 8;
-	}
-
-	// next is special buildings
-	if (targetType.isResourceDepot())
-	{
-		return 7;
-	}
-	if (targetType == BWAPI::UnitTypes::Zerg_Spire)
-	{
-		return 6;
-	}
-	if (targetType == BWAPI::UnitTypes::Zerg_Spawning_Pool)
-	{
-		return 5;
-	}
-	if (targetType == BWAPI::UnitTypes::Protoss_Templar_Archives)
-	{
-		return 6;
-	}
-	if (targetType == BWAPI::UnitTypes::Protoss_Pylon)
-	{
-		return 5;
-	}
-
-	// any buildings that cost gas
-	if (targetType.gasPrice() > 0)
-	{
-		return 4;
-	}
-	if (targetType.mineralPrice() > 0)
-	{
-		return 3;
-	}
-
-	// then everything else
-	return 1;
+    return getBackstopAttackPriority(target);
 }

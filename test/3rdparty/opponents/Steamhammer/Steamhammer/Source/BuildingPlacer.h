@@ -5,6 +5,7 @@
 namespace UAlbertaBot
 {
 class The;
+class Base;
 
 class BuildingPlacer
 {
@@ -55,6 +56,7 @@ public:
     void				drawReservedTiles();
 
     BWAPI::TilePosition	getRefineryPosition();
+    BWAPI::TilePosition getProxyPosition(const Base * base) const;
 
 };
 }

@@ -19,29 +19,30 @@ private:
 	BWAPI::Unitset		geysers;			// the base's associated geysers
 	BWAPI::Unitset		blockers;			// destructible neutral units that may be in the way
 	GridDistances		distances;			// ground distances from tilePosition
-	bool				startingBase;		// one of the map's starting bases
+	bool				startingBase;		// one of the map's starting bases?
 
 	bool				reserved;			// if this is a planned expansion
 	bool				workerDanger;		// for our own bases only; false for others
 	int					failedPlacements;	// count building placements that failed
 
-	bool			isStartingBase() const;	// to initialize the startingBase flag
+    bool                findIsStartingBase() const;	// to initialize the startingBase flag
 
 public:
 
-	BWAPI::Unit		resourceDepot;			// hatchery, etc., or null if none
+    // The resourceDepot pointer is set for a base if the depot has been seen.
+    // It is possible to infer a base location without seeing the depot.
+    BWAPI::Unit		resourceDepot;			// hatchery, etc., or null if none
 	BWAPI::Player	owner;					// self, enemy, neutral
 
-	int				getID()    const { return id; };
-	BWAPI::Unit		getDepot() const { return resourceDepot; };
-	BWAPI::Player	getOwner() const { return owner; };
+    Base(BWAPI::TilePosition pos, const BWAPI::Unitset availableResources);
 
-	// The resourceDepot pointer is set for a base if the depot has been seen.
-	// It is possible to infer a base location without seeing the depot.
+    int				getID()           const { return id; };
+    BWAPI::Unit		getDepot()        const { return resourceDepot; };
+    BWAPI::Player	getOwner()        const { return owner; };
+    bool            isAStartingBase() const { return startingBase; };
+    bool            isIsland()        const;
 
-	Base(BWAPI::TilePosition pos, const BWAPI::Unitset availableResources);
-
-	void findGeysers();
+    void findGeysers();
 
 	const BWAPI::TilePosition & getTilePosition() const { return tilePosition; };
 	const BWAPI::Position getPosition() const { return BWAPI::Position(tilePosition); };
@@ -65,6 +66,10 @@ public:
 	// The sum of resources available.
 	int getInitialMinerals() const;
 	int getInitialGas() const;
+
+	// Workers assigned to mine minerals or gas.
+	int getMaxWorkers() const;
+	int getNumWorkers() const;
 
 	BWAPI::Position getMineralOffset() const;	// mean offset of minerals from base center
 	BWAPI::Position getFrontPoint() const;		// the "front" of the base, where static defense should go

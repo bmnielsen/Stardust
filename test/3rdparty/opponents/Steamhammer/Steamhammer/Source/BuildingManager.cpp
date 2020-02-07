@@ -141,8 +141,6 @@ void BuildingManager::assignWorkersToUnassignedBuildings()
 		}
 		b.finalPosition = testLocation;
 
-		the.micro.Move(b.builderUnit, b.getCenter());
-
 		++b.buildersSent;    // count workers ever assigned to build it
 
 		//BWAPI::Broodwar->printf("assign builder %d to %s", b.builderUnit->getID(), UnitTypeName(b.type).c_str());
@@ -396,6 +394,55 @@ void BuildingManager::checkReservedResources()
 	}
 }
 
+// The caller specifies a desired position, which the building should be placed near.
+// It can be anything. This method handles the usual case, where the desired position is
+// based on the MacroLocation.
+// Macrolocations not handled here are special cases and dealt with elsewhere.
+BWAPI::TilePosition BuildingManager::getStandardDesiredPosition(MacroLocation loc) const
+{
+    if (loc == MacroLocation::Front)
+    {
+        BWAPI::TilePosition front = Bases::Instance().frontPoint();
+        if (front.isValid())
+        {
+            return front;
+        }
+    }
+    else if (loc == MacroLocation::Natural)
+    {
+        Base * natural = Bases::Instance().myNaturalBase();
+        if (natural)
+        {
+            return natural->getTilePosition();
+        }
+    }
+    else if (loc == MacroLocation::Center)
+    {
+        // Near the center of the map.
+        return BWAPI::TilePosition(BWAPI::Broodwar->mapWidth() / 2, BWAPI::Broodwar->mapHeight() / 2);
+    }
+    else if (loc == MacroLocation::Proxy)
+    {
+        if (Bases::Instance().enemyStart())
+        {
+            // We know where the enemy is. We can proxy in or close to the enemy base.
+            // Other code should try to find the enemy base first!
+            BWAPI::TilePosition proxy = BuildingPlacer::Instance().getProxyPosition(Bases::Instance().enemyStart());
+            if (proxy.isValid())
+            {
+                // BWAPI::Broodwar->printf("proxy at %d,%d", proxy.x, proxy.y);
+                return proxy;
+            }
+        }
+        // We don't know where the enemy is, or can't find a close proxy position,
+        // but we can at least proxy to the center of the map.
+        return getStandardDesiredPosition(MacroLocation::Center);
+    }
+
+    // Default: Build in the current main base, which is guaranteed to exist (though it may be empty or in enemy cobtrol).
+    return Bases::Instance().myMainBase()->getTilePosition();
+}
+
 // Add a new building to be constructed and return it.
 // The builder may be null. In that case, the building manager will assign a worker on its own later.
 Building & BuildingManager::addTrackedBuildingTask(const MacroAct & act, BWAPI::TilePosition desiredLocation, BWAPI::Unit builder, bool isGasSteal)
@@ -438,7 +485,7 @@ bool BuildingManager::isBuildingPositionExplored(const Building & b) const
 {
     BWAPI::TilePosition tile = b.finalPosition;
 
-    // for each tile where the building will be built
+    // For each tile where the building will be built, is the tile explored?
     for (int x=0; x<b.type.tileWidth(); ++x)
     {
         for (int y=0; y<b.type.tileHeight(); ++y)
@@ -563,6 +610,21 @@ bool BuildingManager::isGasStealInQueue() const
 	}
 
 	return false;
+}
+
+// We have queued an expansion to the given base.
+// (Or at least some building at the same location.)
+bool BuildingManager::isBasePlanned(const Base * base) const
+{
+    for (const Building & b : _buildings)
+    {
+        if (b.finalPosition == base->getTilePosition())
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void BuildingManager::drawBuildingInformation(int x, int y)
@@ -728,7 +790,7 @@ BWAPI::TilePosition BuildingManager::getBuildingLocation(const Building & b)
 		UAB_ASSERT(enemyBase, "Should find enemy base before gas steal");
 		UAB_ASSERT(enemyBase->getGeysers().size() > 0, "Should have spotted an enemy geyser");
 
-		for (const auto geyser : enemyBase->getGeysers())
+		for (BWAPI::Unit geyser : enemyBase->getGeysers())
         {
 			return geyser->getTilePosition();
         }
@@ -748,21 +810,25 @@ BWAPI::TilePosition BuildingManager::getBuildingLocation(const Building & b)
 	if (b.type.isResourceDepot())
 	{
 		BWAPI::TilePosition front = Bases::Instance().frontPoint();
-		if (b.macroLocation == MacroLocation::Front && front.isValid())
+		if (b.macroLocation == MacroLocation::Front &&
+			front.isValid() &&
+			!the.groundAttacks.inRange(b.type, front))
 		{
             // This means build an additional hatchery at our existing front base, wherever it is.
 			return front;
 		}
 		Base * natural = Bases::Instance().myNaturalBase();
-		if (b.macroLocation == MacroLocation::Natural && natural)
+		if (b.macroLocation == MacroLocation::Natural &&
+			natural &&
+			!the.groundAttacks.inRange(b.type, natural->getTilePosition()))
 		{
 			return natural->getTilePosition();
 		}
-		if (b.macroLocation != MacroLocation::Macro)
+        if (b.macroLocation != MacroLocation::Macro && b.macroLocation != MacroLocation::Proxy)
 		{
 			return MapTools::Instance().getNextExpansion(b.macroLocation == MacroLocation::Hidden, true, b.macroLocation != MacroLocation::MinOnly);
 		}
-		// Else if it's a macro hatchery, treat it like any other building.
+		// Else if it's a macro hatchery or other location, treat it like any other building.
 	}
 
     int distance = Config::Macro::BuildingSpacing;
