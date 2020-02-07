@@ -26,7 +26,7 @@ TEST(Steamhammer, RunUntilLoss)
     }
 }
 
-TEST(Steamhammer, 4Pool)
+TEST(Steamhammer, 4PoolHard)
 {
     BWTest test;
     test.opponentRace = BWAPI::Races::Zerg;
@@ -34,6 +34,32 @@ TEST(Steamhammer, 4Pool)
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
         Config::LocutusTestStrategyName = "4PoolHard";
+        return module;
+    };
+    test.run();
+}
+
+TEST(Steamhammer, 4PoolSoft)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::LocutusTestStrategyName = "4PoolSoft";
+        return module;
+    };
+    test.run();
+}
+
+TEST(Steamhammer, OverhatchExpoMuta)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::LocutusTestStrategyName = "OverhatchExpoMuta";
         return module;
     };
     test.run();
