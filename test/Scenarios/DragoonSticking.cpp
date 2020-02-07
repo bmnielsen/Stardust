@@ -4,7 +4,7 @@
 #include "Geo.h"
 #include "Map.h"
 #include "Strategist.h"
-#include "Plays/Offensive/AttackBase.h"
+#include "Plays/Offensive/AttackMainBase.h"
 
 TEST(DragoonSticking, StuckOnGateway)
 {
@@ -33,7 +33,7 @@ TEST(DragoonSticking, StuckOnGateway)
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 117)));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackBase>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
         Strategist::setOpening(openingPlays);
 
         std::cout << (int)BWAPI::UnitTypes::Protoss_Dragoon << std::endl;

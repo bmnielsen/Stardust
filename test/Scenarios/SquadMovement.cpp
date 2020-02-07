@@ -4,7 +4,7 @@
 #include "Map.h"
 #include "Strategist.h"
 #include "PathFinding.h"
-#include "Plays/Offensive/AttackBase.h"
+#include "Plays/Offensive/AttackMainBase.h"
 
 namespace
 {
@@ -77,7 +77,7 @@ TEST(SquadMovement, UnitsStayTogether_Dragoons)
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackBase>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -127,7 +127,7 @@ TEST(SquadMovement, UnitsStayTogether_Zealots)
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackBase>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -183,7 +183,7 @@ TEST(SquadMovement, UnitsStayTogether_Mixed)
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackBase>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -237,7 +237,7 @@ TEST(SquadMovement, OrphanedUnit)
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 117)));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackBase>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -307,7 +307,7 @@ TEST(SquadMovement, DragoonBall)
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 117)));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackBase>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
