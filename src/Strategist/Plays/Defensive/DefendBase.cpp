@@ -33,33 +33,34 @@ void DefendBase::update()
     mineralLineWorkerDefense();
 
     // Temporary early game logic: keeps four zealots in main
+    bool protectionNeeded = false;
     if (base == Map::getMyMain() && BWAPI::Broodwar->getFrameCount() < 7000)
     {
-        bool protectionNeeded = true;
+        protectionNeeded = true;
         if ((Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) + Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon)) > 4)
         {
             // Get enemy combat units in our base
             std::set<std::shared_ptr<Unit>> enemyCombatUnits;
             Units::getInArea(enemyCombatUnits, BWAPI::Broodwar->enemy(), Map::getMyMain()->getArea(), [](const std::shared_ptr<Unit> &unit)
             {
-                return UnitUtil::IsCombatUnit(unit->type);
+                return UnitUtil::IsCombatUnit(unit->type) && unit->type.canAttack();
             });
             if (enemyCombatUnits.empty()) protectionNeeded = false;
         }
+    }
 
-        if (protectionNeeded)
+    if (protectionNeeded)
+    {
+        int zealotsNeeded = 4 - squad->getUnits().size();
+        if (zealotsNeeded > 0)
         {
-            int zealotsNeeded = 4 - squad->getUnits().size();
-            if (zealotsNeeded > 0)
-            {
-                status.unitRequirements.emplace_back(zealotsNeeded, BWAPI::UnitTypes::Protoss_Zealot, squad->getTargetPosition());
-            }
+            status.unitRequirements.emplace_back(zealotsNeeded, BWAPI::UnitTypes::Protoss_Zealot, squad->getTargetPosition());
         }
-        else
-        {
-            status.removedUnits = squad->getUnits();
-            status.complete = true;
-        }
+    }
+    else
+    {
+        status.removedUnits = squad->getUnits();
+        status.complete = true;
     }
 }
 
