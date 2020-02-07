@@ -38,6 +38,8 @@ namespace Map
 
     Base *getMyNatural();
 
+    Base *getEnemyStartingMain();
+
     Base *getEnemyMain();
 
     Base *baseNear(BWAPI::Position position);

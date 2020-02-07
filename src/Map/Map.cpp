@@ -42,12 +42,13 @@ namespace Map
 
         struct PlayerBases
         {
+            Base *startingMain;
+            Base *startingNatural;
             Base *main;
-            Base *natural;
             std::set<Base *> allOwned;
             std::vector<Base *> probableExpansions;
 
-            PlayerBases() : main(nullptr), natural(nullptr) {}
+            PlayerBases() : startingMain(nullptr), startingNatural(nullptr), main(nullptr) {}
         };
 
         std::map<BWAPI::Player, PlayerBases> playerToPlayerBases;
@@ -73,8 +74,8 @@ namespace Map
         {
             playerBases.probableExpansions.clear();
 
-            // If we don't yet know the location of this player's main, we can't guess where they will expand
-            if (!playerBases.main) return;
+            // If we don't yet know the location of this player's starting base, we can't guess where they will expand
+            if (!playerBases.startingMain) return;
 
             auto myBases = getMyBases(player);
             auto enemyBases = getEnemyBases(player);
@@ -112,18 +113,31 @@ namespace Map
             }
         }
 
-        void setMainBase(Base *mainBase, PlayerBases &playerBases)
-        {
-            playerBases.main = mainBase;
-            playerBases.natural = getNaturalForStartLocation(mainBase->getTilePosition());
-        }
-
         void setBaseOwner(Base *base, BWAPI::Player owner)
         {
             if (base->owner == owner) return;
 
             // If the base previously had an owner, remove it from their list of owned bases
-            if (base->owner) playerToPlayerBases[base->owner].allOwned.erase(base);
+            if (base->owner)
+            {
+                auto &playerBases = playerToPlayerBases[base->owner];
+                playerBases.allOwned.erase(base);
+
+                // If this was the player's main base, pick the oldest of the player's known owned bases as their new main base
+                if (base == playerBases.main)
+                {
+                    playerBases.main = nullptr;
+                    int oldestBase = INT_MAX;
+                    for (auto &other : playerBases.allOwned)
+                    {
+                        if (other->ownedSince < oldestBase)
+                        {
+                            oldestBase = other->ownedSince;
+                            playerBases.main = other;
+                        }
+                    }
+                }
+            }
 
             auto playerLabel = [](BWAPI::Player player)
             { return player ? player->getName() : "(none)"; };
@@ -141,10 +155,12 @@ namespace Map
                 auto &ownerBases = playerToPlayerBases[owner];
                 ownerBases.allOwned.insert(base);
 
-                // If this base is at a start position and we haven't registered a main base for the new owner, do so now
-                if (!ownerBases.main && base->isStartingBase())
+                // If this base is at a start position and we haven't registered a starting main base for the new owner, do so now
+                if (!ownerBases.startingMain && base->isStartingBase())
                 {
-                    setMainBase(base, ownerBases);
+                    ownerBases.startingMain = base;
+                    ownerBases.startingNatural = getNaturalForStartLocation(base->getTilePosition());
+                    ownerBases.main = base;
                 }
             }
 
@@ -204,7 +220,7 @@ namespace Map
 
             // If we haven't found the player's main base yet, determine if this building infers the start location
             auto &playerBases = playerToPlayerBases[unit->getPlayer()];
-            if (!playerBases.main)
+            if (!playerBases.startingMain)
             {
                 for (auto startingLocationBase : startingLocationBases)
                 {
@@ -646,7 +662,7 @@ namespace Map
 
         // Infer single-enemy base ownership from which starting locations are scouted
         if (BWAPI::Broodwar->enemies().size() == 1 &&
-            !playerToPlayerBases[BWAPI::Broodwar->enemy()].main)
+            !playerToPlayerBases[BWAPI::Broodwar->enemy()].startingMain)
         {
             auto unscouted = unscoutedStartingLocations();
             if (unscouted.size() == 1)
@@ -701,12 +717,17 @@ namespace Map
 
     Base *getMyMain()
     {
-        return playerToPlayerBases[BWAPI::Broodwar->self()].main;
+        return playerToPlayerBases[BWAPI::Broodwar->self()].startingMain;
     }
 
     Base *getMyNatural()
     {
-        return playerToPlayerBases[BWAPI::Broodwar->self()].natural;
+        return playerToPlayerBases[BWAPI::Broodwar->self()].startingNatural;
+    }
+
+    Base *getEnemyStartingMain()
+    {
+        return playerToPlayerBases[BWAPI::Broodwar->enemy()].startingMain;
     }
 
     Base *getEnemyMain()

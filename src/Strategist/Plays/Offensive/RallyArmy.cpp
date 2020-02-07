@@ -2,7 +2,7 @@
 
 #include "Map.h"
 #include "General.h"
-#include "AttackBase.h"
+#include "AttackMainBase.h"
 
 RallyArmy::RallyArmy() : squad(std::make_shared<DefendBaseSquad>(Map::getMyMain()))
 {
@@ -11,10 +11,10 @@ RallyArmy::RallyArmy() : squad(std::make_shared<DefendBaseSquad>(Map::getMyMain(
 
 void RallyArmy::update()
 {
-    auto enemyMain = Map::getEnemyMain();
+    // This play is obsolete as soon as we know where the enemy's main base is
+    auto enemyMain = Map::getEnemyStartingMain();
     if (enemyMain)
     {
-        // Transition to attack the enemy main when we know where it is
-        status.transitionTo = std::make_shared<AttackBase>(enemyMain);
+        status.transitionTo = std::make_shared<AttackMainBase>(enemyMain);
     }
 }

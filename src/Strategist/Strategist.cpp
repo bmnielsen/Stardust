@@ -35,6 +35,12 @@
  * - Attack plays keep track of how they are doing, e.g. if an attack play does not feel it can succeed, it might transition
  *   into a contain enemy play
  *
+ * Default play:
+ *
+ * The last play will always be the play for the bulk of our army. Generally it will be tasked with attacking the enemy's main base. If we haven't
+ * found the enemy's main base yet, the army will rally at our base. Once the enemy's main base is destroyed, we will either consider a new enemy
+ * base to be its main base, or transition to a mop up play that searches for remaining buildings to destroy.
+ *
  */
 namespace Strategist
 {

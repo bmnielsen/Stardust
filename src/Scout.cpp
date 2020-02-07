@@ -24,13 +24,13 @@ namespace Scout
 
             // Get the set of bases we need to scout
             std::set<Base *> locations;
-            if (!Map::getEnemyMain())
+            if (!Map::getEnemyStartingMain())
             {
                 locations = Map::unscoutedStartingLocations();
             }
             else
             {
-                locations.insert(Map::getEnemyMain());
+                locations.insert(Map::getEnemyStartingMain());
             }
 
             // Find the available worker closest to any of these bases
@@ -119,7 +119,7 @@ namespace Scout
         if (scoutingMode == ScoutingMode::None) return;
 
         // If we have scouted the enemy location, stop scouting
-        auto enemyMain = Map::getEnemyMain();
+        auto enemyMain = Map::getEnemyStartingMain();
         if (scoutingMode == ScoutingMode::Location && enemyMain)
         {
             scoutingMode = ScoutingMode::None;

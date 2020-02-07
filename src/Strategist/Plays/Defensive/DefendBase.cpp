@@ -32,11 +32,11 @@ void DefendBase::update()
 {
     mineralLineWorkerDefense();
 
-    // Temporary early game logic: keeps two zealots in main
+    // Temporary early game logic: keeps four zealots in main
     if (base == Map::getMyMain() && BWAPI::Broodwar->getFrameCount() < 7000)
     {
         bool protectionNeeded = true;
-        if ((Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) + Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon)) > 2)
+        if ((Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) + Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon)) > 4)
         {
             // Get enemy combat units in our base
             std::set<std::shared_ptr<Unit>> enemyCombatUnits;
@@ -49,7 +49,7 @@ void DefendBase::update()
 
         if (protectionNeeded)
         {
-            int zealotsNeeded = 2 - squad->getUnits().size();
+            int zealotsNeeded = 4 - squad->getUnits().size();
             if (zealotsNeeded > 0)
             {
                 status.unitRequirements.emplace_back(zealotsNeeded, BWAPI::UnitTypes::Protoss_Zealot, squad->getTargetPosition());
@@ -69,7 +69,10 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
     for (auto &unitRequirement : status.unitRequirements)
     {
         if (unitRequirement.count < 1) continue;
-        prioritizedProductionGoals[20].emplace_back(std::in_place_type<UnitProductionGoal>, unitRequirement.type, unitRequirement.count, 1);
+        prioritizedProductionGoals[20].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                    unitRequirement.type,
+                                                    unitRequirement.count,
+                                                    (unitRequirement.count + 1) / 2);
     }
 }
 
