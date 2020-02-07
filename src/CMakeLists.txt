@@ -25,6 +25,10 @@ file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR} *.cpp)
 
 add_library(Locutus SHARED ${SRC_FILES})
 
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    target_compile_definitions(Locutus PUBLIC DEBUG=1)
+endif()
+
 IF(MSVC)
     target_link_libraries(Locutus BWAPILIB BWEM BWEB FAP libzstd_static)
 ELSE(MSVC)
