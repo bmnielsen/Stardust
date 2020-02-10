@@ -44,6 +44,10 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(tests PUBLIC DEBUG=1)
 endif()
 
+if(CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
+    target_compile_definitions(tests PUBLIC DEBUG=1)
+endif()
+
 target_link_libraries(tests gtest gtest_main BWAPILIB Locutus Steamhammer)
 target_compile_options(tests PRIVATE -Wall -Werror)
 
