@@ -6,6 +6,8 @@
 
 namespace Builder
 {
+    void initialize();
+
     void update();
 
     void issueOrders();

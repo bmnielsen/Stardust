@@ -10,9 +10,9 @@ namespace Log
 {
     namespace
     {
-        bool isDebugLogging = false;
         bool isOutputtingToConsole = false;
-        auto startTime = std::chrono::system_clock::now();
+        bool isDebugLogging;
+        std::chrono::system_clock::time_point startTime;
         std::ofstream *log;
         std::ofstream *debugLog;
         std::map<std::string, std::ofstream *> csvFiles;
@@ -85,6 +85,42 @@ namespace Log
             delete os;
             delete refCount;
         }
+    }
+
+    void initialize()
+    {
+        isDebugLogging = false;
+        startTime = std::chrono::system_clock::now();
+
+        try
+        {
+            if (log)
+            {
+                log->close();
+                log = nullptr;
+            }
+
+            if (debugLog)
+            {
+                debugLog->close();
+                debugLog = nullptr;
+            }
+
+            for (auto &csvFile : csvFiles)
+            {
+                if (csvFile.second)
+                {
+                    csvFile.second->close();
+                }
+            }
+        }
+        catch (std::exception &ex)
+        {
+            // Ignore
+        }
+
+        csvFiles.clear();
+        logFiles.clear();
     }
 
     void SetDebug(bool debug)

@@ -50,6 +50,8 @@ Technical stuff we need:
 
 namespace General
 {
+    void initialize();
+
     void updateClusters();
 
     void issueOrders();

@@ -1,10 +1,5 @@
 #include "Plasma.h"
 
-namespace
-{
-    auto &bwemMap = BWEM::Map::Instance();
-}
-
 void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &chokes)
 {
     for (auto &pair : chokes)
@@ -51,8 +46,8 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
 
         chokeData.requiresMineralWalk = true;
 
-        auto closestArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(closestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
-        auto secondClosestArea = bwemMap.GetNearestArea(
+        auto closestArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(closestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
+        auto secondClosestArea = BWEM::Map::Instance().GetNearestArea(
                 BWAPI::WalkPosition(secondClosestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
         if (closestArea == choke->GetAreas().second &&
             secondClosestArea == choke->GetAreas().first)

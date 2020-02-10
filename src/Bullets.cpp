@@ -4,16 +4,15 @@
 
 namespace Bullets
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
-
         std::set<int> seenBullets;
-
-#ifndef _DEBUG
     }
-#endif
+
+    void initialize()
+    {
+        seenBullets.clear();
+    }
 
     void update()
     {

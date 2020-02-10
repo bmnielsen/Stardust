@@ -4,11 +4,8 @@
 #include "Players.h"
 #include "Units.h"
 
-#ifndef _DEBUG
 namespace
 {
-#endif
-
     // Cache of unit scores
     int baseScore[BWAPI::UnitTypes::Enum::MAX];
     int scaledScore[BWAPI::UnitTypes::Enum::MAX];
@@ -81,11 +78,7 @@ namespace
 
         return result;
     }
-
-#ifndef _DEBUG
 }
-
-#endif
 
 namespace CombatSim
 {

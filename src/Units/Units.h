@@ -7,6 +7,8 @@
 
 namespace Units
 {
+    void initialize();
+
     void update();
 
     void issueOrders();

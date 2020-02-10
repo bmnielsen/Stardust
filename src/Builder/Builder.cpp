@@ -8,10 +8,8 @@
 
 namespace Builder
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
         std::vector<std::shared_ptr<Building>> pendingBuildings;
         std::map<BWAPI::Unit, std::vector<std::shared_ptr<Building>>> builderQueues;
 
@@ -73,9 +71,13 @@ namespace Builder
             build(**builderQueue.begin());
         }
 
-#ifndef _DEBUG
     }
-#endif
+
+    void initialize()
+    {
+        pendingBuildings.clear();
+        builderQueues.clear();
+    }
 
     void update()
     {

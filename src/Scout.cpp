@@ -7,10 +7,8 @@
 
 namespace Scout
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
         ScoutingMode scoutingMode;
         BWAPI::Unit workerScout;
         Base *targetBase;
@@ -109,10 +107,14 @@ namespace Scout
             Workers::releaseWorker(workerScout);
             workerScout = nullptr;
         }
-
-#ifndef _DEBUG
     }
-#endif
+
+    void initialize()
+    {
+        scoutingMode = ScoutingMode::None;
+        workerScout = nullptr;
+        targetBase = nullptr;
+    }
 
     void update()
     {

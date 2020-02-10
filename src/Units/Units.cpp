@@ -4,17 +4,10 @@
 #include "MyDragoon.h"
 #include "MyWorker.h"
 
-namespace
-{
-    auto &bwemMap = BWEM::Map::Instance();
-}
-
 namespace Units
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
         std::map<BWAPI::Unit, std::shared_ptr<Unit>> bwapiUnitToUnit;
         std::map<BWAPI::Player, std::set<std::shared_ptr<Unit>>> playerToUnits;
 
@@ -22,9 +15,16 @@ namespace Units
         std::map<BWAPI::UnitType, std::set<BWAPI::Unit>> myIncompleteUnitsByType;
 
         std::set<BWAPI::UpgradeType> upgradesInProgress;
-#ifndef _DEBUG
     }
-#endif
+
+    void initialize()
+    {
+        bwapiUnitToUnit.clear();
+        playerToUnits.clear();
+        myCompletedUnitsByType.clear();
+        myIncompleteUnitsByType.clear();
+        upgradesInProgress.clear();
+    }
 
     void update()
     {
@@ -285,7 +285,7 @@ namespace Units
         for (auto &unit : playerToUnits[player])
         {
             if (predicate && !predicate(unit)) continue;
-            if (unit->lastPositionValid && bwemMap.GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)
+            if (unit->lastPositionValid && BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)
                 units.insert(unit);
         }
     }

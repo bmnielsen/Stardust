@@ -5,6 +5,8 @@
 
 namespace Workers
 {
+    void initialize();
+
     void onUnitDestroy(BWAPI::Unit unit);
 
     void onUnitRenegade(BWAPI::Unit unit);

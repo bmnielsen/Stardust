@@ -5,11 +5,8 @@
 
 namespace WorkerOrderTimer
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
-
         struct PositionAndVelocity
         {
             BWAPI::Position position;
@@ -71,13 +68,13 @@ namespace WorkerOrderTimer
             }
             return result;
         }
-
-#ifndef _DEBUG
     }
-#endif
 
     void initialize()
     {
+        resourceToOptimalOrderPositions.clear();
+        workerPositionHistory.clear();
+
         // Attempt to open a CSV file storing the optimal positions found in previous matches on this map
         std::ifstream file;
         file.open(resourceOptimalOrderPositionsFilename());

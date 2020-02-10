@@ -5,8 +5,6 @@
 
 namespace
 {
-    auto &bwemMap = BWEM::Map::Instance();
-
     const NavigationGrid::GridNode *nextNode(const NavigationGrid::GridNode *currentNode)
     {
         if (!currentNode || !currentNode->nextNode || !currentNode->nextNode->nextNode || !currentNode->nextNode->nextNode->nextNode) return nullptr;
@@ -63,8 +61,8 @@ bool MyUnit::moveTo(BWAPI::Position position)
     if ((!gridNode || !nextNode(gridNode)) && chokePath.empty())
     {
         // If the unit is in the same area as the target position, move to it directly
-        auto unitArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(unit->getPosition()));
-        auto targetArea = bwemMap.GetArea(BWAPI::WalkPosition(targetPosition));
+        auto unitArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(unit->getPosition()));
+        auto targetArea = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(targetPosition));
         if (!targetArea || targetArea == unitArea)
         {
             move(position);
@@ -114,8 +112,8 @@ void MyUnit::moveToNextWaypoint()
         // Short-circuit if the unit is in the target area
         // This means we are close to the destination and just need to do a simple move from here
         // State will be reset after latency frames to avoid resetting the order later
-        auto unitArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(unit->getPosition()));
-        auto targetArea = bwemMap.GetArea(BWAPI::WalkPosition(targetPosition));
+        auto unitArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(unit->getPosition()));
+        auto targetArea = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(targetPosition));
         if (!targetArea || targetArea == unitArea)
         {
 #if DEBUG_UNIT_ORDERS
@@ -153,7 +151,7 @@ void MyUnit::moveToNextWaypoint()
         // We have a valid grid, but we're not in a connected grid node
         // Ensure the choke path is updated and fall through
         // We will pick up the grid path when we can
-        updateChokePath(bwemMap.GetNearestArea(BWAPI::WalkPosition(unit->getPosition())));
+        updateChokePath(BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(unit->getPosition())));
     }
 
     // If there is no choke path, and we couldn't navigate using the grid, just move to the position

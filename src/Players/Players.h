@@ -6,6 +6,8 @@
 
 namespace Players
 {
+    void initialize();
+
     void update();
 
     Grid &grid(BWAPI::Player player);

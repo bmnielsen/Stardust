@@ -23,10 +23,8 @@ Ideas:
 */
 namespace Producer
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
         // How many frames in the future to consider when predicting future production needs
 #ifdef DEBUG
         const int PREDICT_FRAMES = 24*60*2; // 2 minutes
@@ -1653,10 +1651,7 @@ namespace Producer
                 if (toProduce > 0) toProduce--;
             }
         }
-
-#ifndef _DEBUG
     }
-#endif
 
     void update()
     {

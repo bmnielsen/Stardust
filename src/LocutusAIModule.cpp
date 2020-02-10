@@ -99,6 +99,16 @@ namespace
 
 void LocutusAIModule::onStart()
 {
+    // Initialize globals that just need to make sure their global data is reset
+    Log::initialize();
+    Builder::initialize();
+    Opponent::initialize();
+    General::initialize();
+    Units::initialize();
+    Workers::initialize();
+    Bullets::initialize();
+    Scout::initialize();
+
     Log::SetDebug(true);
     CherryVis::initialize();
 
@@ -119,7 +129,7 @@ void LocutusAIModule::onStart()
     WorkerOrderTimer::initialize();
     Timer::checkpoint("WorkerOrderTimer::initialize");
 
-    Strategist::chooseOpening();
+    Strategist::initialize();
     Timer::checkpoint("Strategist::initialize");
 
     Timer::stop(true);

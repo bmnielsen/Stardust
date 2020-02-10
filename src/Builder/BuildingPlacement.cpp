@@ -7,17 +7,10 @@
 #include "PathFinding.h"
 #include "UnitUtil.h"
 
-namespace
-{
-    auto &bwemMap = BWEM::Map::Instance();
-}
-
 namespace BuildingPlacement
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
         std::vector<Neighbourhood> ALL_NEIGHBOURHOODS = {Neighbourhood::MainBase};
 
         std::map<Neighbourhood, BWAPI::Position> neighbourhoodOrigins;
@@ -276,13 +269,14 @@ namespace BuildingPlacement
             CherryVis::addHeatmap("Blocks", blocks, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 #endif
         }
-
-#ifndef _DEBUG
     }
-#endif
 
     void initialize()
     {
+        neighbourhoodOrigins.clear();
+        availableBuildLocations.clear();
+        _availableGeysers.clear();
+
         BWEB::Map::onStart();
 
         // FIXME: Create wall

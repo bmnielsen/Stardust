@@ -5,20 +5,12 @@
 #include "Map.h"
 #include "Units.h"
 
-namespace
-{
-    auto &bwemMap = BWEM::Map::Instance();
-}
-
 /*
  * Almost everything in this file is currently just ported from the old Steamhammer-based Locutus.
  */
 
-#ifndef _DEBUG
 namespace
 {
-#endif
-
     int getAttackPriority(BWAPI::Unit attacker, BWAPI::Unit target)
     {
         const BWAPI::UnitType rangedType = attacker->getType();
@@ -280,10 +272,7 @@ namespace
         // Finally everything else.
         return 1;
     }
-
-#ifndef _DEBUG
 }
-#endif
 
 std::shared_ptr<Unit> UnitCluster::ChooseRangedTarget(BWAPI::Unit attacker, std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition)
 {

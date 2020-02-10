@@ -4,11 +4,6 @@
 
 namespace
 {
-    auto &bwemMap = BWEM::Map::Instance();
-}
-
-namespace
-{
     // Does a unit of the given type at the given position block the choke?
     bool blocksChoke(BWAPI::Position pos, BWAPI::UnitType type)
     {

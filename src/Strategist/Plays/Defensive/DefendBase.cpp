@@ -24,11 +24,6 @@
  * - Zealots should stay close to enemy units to draw their attention until we have sufficient numbers to engage
  */
 
-namespace
-{
-    auto &bwemMap = BWEM::Map::Instance();
-}
-
 DefendBase::DefendBase(Base *base) : base(base), squad(std::make_shared<DefendBaseSquad>(base))
 {
     General::addSquad(squad);

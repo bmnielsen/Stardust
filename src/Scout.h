@@ -9,6 +9,8 @@ namespace Scout
         None, Location, Full
     };
 
+    void initialize();
+
     void update();
 
     void setScoutingMode(ScoutingMode scoutingMode);

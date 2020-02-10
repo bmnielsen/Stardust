@@ -9,10 +9,8 @@
 
 namespace Workers
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
         enum Job
         {
             None, Minerals, Gas, Reserved
@@ -284,10 +282,19 @@ namespace Workers
                 }
             }
         }
-
-#ifndef _DEBUG
     }
-#endif
+
+    void initialize()
+    {
+        _desiredGasWorkers = 0;
+        workerJob.clear();
+        workerBase.clear();
+        baseWorkers.clear();
+        workerMineralPatch.clear();
+        mineralPatchWorkers.clear();
+        workerRefinery.clear();
+        refineryWorkers.clear();
+    }
 
     void onUnitDestroy(BWAPI::Unit unit)
     {

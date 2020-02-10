@@ -35,6 +35,8 @@ namespace Log
         LogWrapper &operator=(const LogWrapper &) = delete;
     };
 
+    void initialize();
+
     void SetDebug(bool debug);
 
     void SetOutputToConsole(bool outputToConsole);

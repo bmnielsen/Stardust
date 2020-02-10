@@ -9,7 +9,7 @@ namespace Strategist
 {
     void update();
 
-    void chooseOpening();
+    void initialize();
 
     void setOpening(std::vector<std::shared_ptr<Play>> openingPlays);
 

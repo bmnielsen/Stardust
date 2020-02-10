@@ -4,5 +4,7 @@
 
 namespace Bullets
 {
+    void initialize();
+
     void update();
 }

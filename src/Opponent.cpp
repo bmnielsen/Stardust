@@ -2,14 +2,15 @@
 
 namespace Opponent
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
         std::string name;
-#ifndef _DEBUG
     }
-#endif
+
+    void initialize()
+    {
+        name.clear();
+    }
 
     std::string &getName()
     {

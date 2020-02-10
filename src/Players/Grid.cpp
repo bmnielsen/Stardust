@@ -6,11 +6,8 @@
 // Generally this is more useful as it forces our units to keep their distance
 const int RANGE_BUFFER = 48;
 
-#ifndef _DEBUG
 namespace
 {
-#endif
-
     std::map<std::pair<BWAPI::UnitType, int>, std::set<BWAPI::WalkPosition>> positionsInRangeCache;
 
     std::set<BWAPI::WalkPosition> &getPositionsInRange(BWAPI::UnitType type, int range)
@@ -29,10 +26,7 @@ namespace
 
         return positions;
     }
-
-#ifndef _DEBUG
 }
-#endif
 
 void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position position, int delta)
 {

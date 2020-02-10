@@ -4,11 +4,8 @@
 
 namespace Players
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
-
         std::map<BWAPI::Player, std::shared_ptr<UpgradeTracker>> playerToUpgradeTracker;
         std::map<BWAPI::Player, Grid> playerToGrid;
 
@@ -23,10 +20,13 @@ namespace Players
             auto result = playerToUpgradeTracker.try_emplace(player, std::make_shared<UpgradeTracker>(player));
             return result.first->second;
         }
-
-#ifndef _DEBUG
     }
-#endif
+
+    void initialize()
+    {
+        playerToUpgradeTracker.clear();
+        playerToGrid.clear();
+    }
 
     void update()
     {

@@ -30,16 +30,15 @@ Ideas for structuring:
 
 namespace General
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
-
         std::unordered_set<std::shared_ptr<Squad>> squads;
-
-#ifndef _DEBUG
     }
-#endif
+
+    void initialize()
+    {
+        squads.clear();
+    }
 
     void updateClusters()
     {

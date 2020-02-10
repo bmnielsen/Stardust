@@ -6,11 +6,6 @@
 #include "Units.h"
 #include "PathFinding.h"
 
-namespace
-{
-    auto &bwemMap = BWEM::Map::Instance();
-}
-
 /*
 Base ownership:
 - Set our main base on startup
@@ -21,10 +16,8 @@ Base ownership:
 
 namespace Map
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
         MapSpecificOverride *_mapSpecificOverride;
         std::vector<Base *> bases;
         std::vector<Base *> startingLocationBases;
@@ -481,17 +474,29 @@ namespace Map
             CherryVis::addHeatmap("Walkable", walkability, BWAPI::Broodwar->mapWidth() * 4, BWAPI::Broodwar->mapHeight() * 4);
 #endif
         }
-
-#ifndef _DEBUG
     }
-#endif
 
     void initialize()
     {
+        _mapSpecificOverride = nullptr;
+        bases.clear();
+        startingLocationBases.clear();
+        baseClusters.clear();
+        chokes.clear();
+        _minChokeWidth = 0;
+        tileWalkability.clear();
+        tileUnwalkableProximity.clear();
+        tileWalkabilityUpdated = false;
+#if CHERRYVIS_ENABLED
+        visibility.clear();
+#endif
+        playerToPlayerBases.clear();
+
         // Initialize BWEM
-        bwemMap.Initialize(BWAPI::BroodwarPtr);
-        bwemMap.EnableAutomaticPathAnalysis();
-        bool bwem = bwemMap.FindBasesForStartingLocations();
+        BWEM::Map::ResetInstance();
+        BWEM::Map::Instance().Initialize(BWAPI::BroodwarPtr);
+        BWEM::Map::Instance().EnableAutomaticPathAnalysis();
+        bool bwem = BWEM::Map::Instance().FindBasesForStartingLocations();
         Log::Debug() << "Initialized BWEM: " << bwem;
 
         // Select map-specific overrides
@@ -503,7 +508,7 @@ namespace Map
             _mapSpecificOverride = new MapSpecificOverride();
 
         // Analyze chokepoints
-        for (const auto &area : bwemMap.Areas())
+        for (const auto &area : BWEM::Map::Instance().Areas())
         {
             for (const BWEM::ChokePoint *choke : area.ChokePoints())
             {
@@ -522,7 +527,7 @@ namespace Map
         }
 
         // Initialize bases
-        for (const auto &area : bwemMap.Areas())
+        for (const auto &area : BWEM::Map::Instance().Areas())
         {
             for (const auto &base : area.Bases())
             {
@@ -555,7 +560,7 @@ namespace Map
         }
 
         // Now continually try to combine clusters until there are no more to combine
-        for (auto clusterIt = baseClusters.begin(); clusterIt != baseClusters.end(); )
+        for (auto clusterIt = baseClusters.begin(); clusterIt != baseClusters.end();)
         {
             auto otherClusterIt = clusterIt;
             otherClusterIt++;
@@ -567,11 +572,13 @@ namespace Map
                     for (auto second : *otherClusterIt)
                     {
                         int time = PathFinding::ExpectedTravelTime(first->getPosition(),
-                                                                  second->getPosition(),
-                                                                  BWAPI::UnitTypes::Protoss_Probe);
+                                                                   second->getPosition(),
+                                                                   BWAPI::UnitTypes::Protoss_Probe);
                         if (time <= 300)
                         {
-                            clusterIt->insert(clusterIt->end(), std::make_move_iterator(otherClusterIt->begin()), std::make_move_iterator(otherClusterIt->end()));
+                            clusterIt->insert(clusterIt->end(),
+                                              std::make_move_iterator(otherClusterIt->begin()),
+                                              std::make_move_iterator(otherClusterIt->end()));
                             baseClusters.erase(otherClusterIt);
                             goto continueOuterLoop;
                         }
@@ -606,9 +613,9 @@ namespace Map
     void onUnitDestroy(BWAPI::Unit unit)
     {
         if (unit->getType().isMineralField())
-            bwemMap.OnMineralDestroyed(unit);
+            BWEM::Map::Instance().OnMineralDestroyed(unit);
         else if (unit->getType().isSpecialBuilding())
-            bwemMap.OnStaticBuildingDestroyed(unit);
+            BWEM::Map::Instance().OnStaticBuildingDestroyed(unit);
 
         // Whenever a building is lost, determine if it infers a change in base ownership
         inferBaseOwnershipFromUnitDestroyed(unit);

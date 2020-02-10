@@ -4,5 +4,7 @@
 
 namespace Opponent
 {
+    void initialize();
+    
     std::string &getName();
 }

@@ -3,11 +3,6 @@
 #include <BWEB.h>
 #include "Map.h"
 
-namespace
-{
-    auto &bwemMap = BWEM::Map::Instance();
-}
-
 namespace PathFinding
 {
     namespace
@@ -32,10 +27,10 @@ namespace PathFinding
         {
             if (pathLength) *pathLength = -1;
 
-            const BWEM::Area *startArea = useNearestBWEMArea ? bwemMap.GetNearestArea(BWAPI::WalkPosition(start))
-                                                             : bwemMap.GetArea(BWAPI::WalkPosition(start));
-            const BWEM::Area *targetArea = useNearestBWEMArea ? bwemMap.GetNearestArea(BWAPI::WalkPosition(end))
-                                                              : bwemMap.GetArea(BWAPI::WalkPosition(end));
+            const BWEM::Area *startArea = useNearestBWEMArea ? BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(start))
+                                                             : BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(start));
+            const BWEM::Area *targetArea = useNearestBWEMArea ? BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(end))
+                                                              : BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(end));
             if (!startArea || !targetArea)
             {
                 return {};
@@ -138,7 +133,7 @@ namespace PathFinding
         bool useNearestBWEMArea = ((int) options & (int) PathFindingOptions::UseNearestBWEMArea) != 0;
 
         // If either of the points is not in a BWEM area, fall back to air distance unless the caller overrides this
-        if (!useNearestBWEMArea && (!bwemMap.GetArea(BWAPI::WalkPosition(start)) || !bwemMap.GetArea(BWAPI::WalkPosition(end))))
+        if (!useNearestBWEMArea && (!BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(start)) || !BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(end))))
             return start.getApproxDistance(end);
 
         int dist;
@@ -159,11 +154,11 @@ namespace PathFinding
         bool useNearestBWEMArea = ((int) options & (int) PathFindingOptions::UseNearestBWEMArea) != 0;
 
         // If either of the points is not in a BWEM area, it is probably over unwalkable terrain
-        if (!useNearestBWEMArea && (!bwemMap.GetArea(BWAPI::WalkPosition(start)) || !bwemMap.GetArea(BWAPI::WalkPosition(end))))
+        if (!useNearestBWEMArea && (!BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(start)) || !BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(end))))
             return BWEM::CPPath();
 
         // Start with the BWEM path
-        auto bwemPath = bwemMap.GetPath(start, end, pathLength);
+        auto bwemPath = BWEM::Map::Instance().GetPath(start, end, pathLength);
 
         // We can always use BWEM's default pathfinding if:
         // - The minimum choke width is equal to or greater than the unit width

@@ -2,11 +2,6 @@
 
 #include "PathFinding.h"
 
-namespace
-{
-    auto &bwemMap = BWEM::Map::Instance();
-}
-
 MyWorker::MyWorker(BWAPI::Unit unit)
         : MyUnit(unit)
         , mineralWalkingPatch(nullptr)
@@ -43,7 +38,7 @@ bool MyWorker::mineralWalk(const Choke *choke)
         // or by looking at the area of the target position if there are no more waypoints.
         if (chokePath.size() == 1)
         {
-            mineralWalkingTargetArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(targetPosition));
+            mineralWalkingTargetArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(targetPosition));
         }
         else
         {
@@ -75,7 +70,7 @@ bool MyWorker::mineralWalk(const Choke *choke)
     // we're done mineral walking
     if ((mineralWalkingPatch && unit->getDistance(mineralWalkingPatch) < 32) ||
         (!mineralWalkingPatch &&
-         bwemMap.GetArea(unit->getTilePosition()) == mineralWalkingTargetArea &&
+         BWEM::Map::Instance().GetArea(unit->getTilePosition()) == mineralWalkingTargetArea &&
          unit->getDistance(BWAPI::Position(chokePath[0]->Center())) > 100))
     {
         mineralWalkingPatch = nullptr;

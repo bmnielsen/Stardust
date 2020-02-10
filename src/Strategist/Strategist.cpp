@@ -44,10 +44,8 @@
  */
 namespace Strategist
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
         bool startedScouting = false;
         std::unordered_map<BWAPI::Unit, std::shared_ptr<Play>> unitToPlay;
         std::vector<std::shared_ptr<Play>> plays;
@@ -287,10 +285,7 @@ namespace Strategist
             CherryVis::setBoardListValue("prodgoal", values);
 #endif
         }
-
-#ifndef _DEBUG
     }
-#endif
 
     void update()
     {
@@ -386,8 +381,14 @@ namespace Strategist
         writeInstrumentation();
     }
 
-    void chooseOpening()
+    void initialize()
     {
+        startedScouting = false;
+        unitToPlay.clear();
+        plays.clear();
+        productionGoals.clear();
+        mineralReservations.clear();
+
         plays.emplace_back(std::make_shared<DefendBase>(Map::getMyMain()));
         plays.emplace_back(std::make_shared<SaturateBases>());
         plays.emplace_back(std::make_shared<RallyArmy>());

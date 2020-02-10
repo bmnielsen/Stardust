@@ -1,10 +1,5 @@
 #include "Fortress.h"
 
-namespace
-{
-    auto &bwemMap = BWEM::Map::Instance();
-}
-
 void Fortress::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &chokes)
 {
     for (auto &pair : chokes)
@@ -47,8 +42,8 @@ void Fortress::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &cho
         // So the choke closest to the base will have a mineral patch on both sides we can use
         // The other choke has a mineral patch on the way in, but not on the way out, so one will be null
         // We will use a random visible mineral patch on the map to handle getting out
-        auto closestArea = bwemMap.GetNearestArea(BWAPI::WalkPosition(closestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
-        auto secondClosestArea = bwemMap.GetNearestArea(
+        auto closestArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(closestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
+        auto secondClosestArea = BWEM::Map::Instance().GetNearestArea(
                 BWAPI::WalkPosition(secondClosestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
 
         if (closestArea == choke->GetAreas().first)

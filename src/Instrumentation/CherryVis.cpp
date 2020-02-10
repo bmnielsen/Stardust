@@ -8,11 +8,8 @@
 
 namespace CherryVis
 {
-#ifndef _DEBUG
     namespace
     {
-#endif
-
 #if CHERRYVIS_ENABLED
 
         struct HeatmapFilePart
@@ -108,10 +105,7 @@ namespace CherryVis
         }
 
 #endif
-
-#ifndef _DEBUG
     }
-#endif
 
 #if CHERRYVIS_ENABLED
 
@@ -155,6 +149,19 @@ namespace CherryVis
     void initialize()
     {
 #if CHERRYVIS_ENABLED
+        boardUpdates = nlohmann::json::object();
+        frameBoardUpdates = nlohmann::json::object();
+        frameHasBoardUpdates = false;
+        boardKeyToLastValue.clear();
+        boardListToLastCount.clear();
+        frameToUnitsFirstSeen.clear();
+        unitIdToFrameToUnitUpdate.clear();
+        logEntries.clear();
+        frameLogMessages.clear();
+        unitIdToLogEntries.clear();
+        frameUnitLogMessages.clear();
+        heatmapNameToHeatmapFile.clear();
+
         std::filesystem::create_directories("bwapi-data/write/cvis");
 #endif
     }
@@ -261,14 +268,8 @@ namespace CherryVis
                                    }}
         };
 
-        auto fileIt = heatmapNameToHeatmapFile.find(key);
-        if (fileIt == heatmapNameToHeatmapFile.end())
-        {
-            auto result = heatmapNameToHeatmapFile.try_emplace(key, key, sizeX * sizeY);
-            fileIt = result.first;
-        }
-
-        fileIt->second.writeFrameData(frameData);
+        auto heatmap = heatmapNameToHeatmapFile.try_emplace(key, key, sizeX * sizeY);
+        heatmap.first->second.writeFrameData(frameData);
 #endif
     }
 
