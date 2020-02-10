@@ -57,6 +57,8 @@ public:
 	// It is equal to use Map::Instance() each time, or to store the returned reference and use it instead.
 	static Map &						Instance();
 
+	// Resets the instance to a new one. Useful when running multiple games.
+	static void                         ResetInstance();
 
 	// This has to be called before any other function is called.
 	// A good place to do this is in ExampleAIModule::onStart()

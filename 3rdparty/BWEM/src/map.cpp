@@ -59,6 +59,12 @@ Map & Map::Instance()
 }
 
 
+void Map::ResetInstance()
+{
+    m_gInstance = nullptr;
+}
+
+
 Position Map::RandomPosition() const
 {
 	const auto PixelSize = Position(Size());
