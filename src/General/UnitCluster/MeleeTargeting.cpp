@@ -126,7 +126,7 @@ std::shared_ptr<Unit> UnitCluster::ChooseMeleeTarget(BWAPI::Unit attacker, std::
     int bestScore = -999999;
     std::shared_ptr<Unit> bestTarget = nullptr;
 
-    // Determine if the target is a base that is not owned by the enemy
+    // Determine if the target is a base that is owned by the enemy
     auto targetBase = Map::baseNear(targetPosition);
     bool targetIsEnemyBase = targetBase && targetBase->owner == BWAPI::Broodwar->enemy();
 
@@ -152,10 +152,10 @@ std::shared_ptr<Unit> UnitCluster::ChooseMeleeTarget(BWAPI::Unit attacker, std::
 
         // Skip targets that are too far away to worry about.
         const int range = attacker->getDistance(target);
-        if (range >= 13 * 32)
-        {
-            continue;
-        }
+//        if (range >= 13 * 32)
+//        {
+//            continue;
+//        }
 
         // Let's say that 1 priority step is worth 64 pixels (2 tiles).
         // We care about unit-target range and target-order position distance.

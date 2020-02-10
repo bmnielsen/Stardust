@@ -16,6 +16,12 @@
  * - If high risk (enemy units are here or expected to come soon), reserve some units for protection
  * - If at medium risk, get some static defense
  * - If at low risk, do nothing
+ *
+ * Main base:
+ * - Keep some zealots for safety until we have scouting information
+ * - If under pressure, produce infinite zealots -> triggers Producer to remove workers from gas
+ * - Ensure some workers keep mining to allow us to produce
+ * - Zealots should stay close to enemy units to draw their attention until we have sufficient numbers to engage
  */
 
 namespace
