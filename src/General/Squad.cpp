@@ -75,6 +75,13 @@ void Squad::removeUnit(BWAPI::Unit unit)
 
 void Squad::updateClusters()
 {
+    // If we have no target position, skip this
+    if (!targetPosition.isValid())
+    {
+        Log::Get() << "ERROR: Trying to update clusters of a squad with no target position. Squad: " << label;
+        return;
+    }
+
     // Update the clusters: remove dead units, recompute position data
     for (auto clusterIt = clusters.begin(); clusterIt != clusters.end();)
     {

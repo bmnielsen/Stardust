@@ -5,7 +5,7 @@
 class MopUpSquad : public Squad
 {
 public:
-    MopUpSquad() : Squad("Mop Up") {}
+    MopUpSquad();
 
     virtual ~MopUpSquad() = default;
 

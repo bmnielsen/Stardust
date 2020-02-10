@@ -4,6 +4,11 @@
 #include "PathFinding.h"
 #include "Map.h"
 
+MopUpSquad::MopUpSquad() : Squad("Mop Up")
+{
+    targetPosition = Map::getMyMain()->getPosition();
+}
+
 void MopUpSquad::execute(UnitCluster &cluster)
 {
     // If there are enemy units near the cluster, attack them
@@ -26,8 +31,8 @@ void MopUpSquad::execute(UnitCluster &cluster)
         if (!enemyUnit->lastPositionValid || !enemyUnit->lastPosition.isValid()) continue;
 
         int dist = enemyUnit->isFlying
-                ? enemyUnit->lastPosition.getApproxDistance(cluster.center)
-                : PathFinding::GetGroundDistance(cluster.center, enemyUnit->lastPosition);
+                   ? enemyUnit->lastPosition.getApproxDistance(cluster.center)
+                   : PathFinding::GetGroundDistance(cluster.center, enemyUnit->lastPosition);
         if (dist < closestDist)
         {
             closestDist = dist;
