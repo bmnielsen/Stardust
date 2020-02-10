@@ -85,6 +85,18 @@ namespace
 
         return frame;
     }
+
+    void printBacktrace()
+    {
+        void *array[20];
+        size_t size;
+
+        // get void*'s for all entries on the stack
+        size = backtrace(array, 20);
+
+        // print out all the frames to stderr
+        backtrace_symbols_fd(array, size, STDERR_FILENO);
+    }
 }
 
 void signalHandler(int sig, bool opponent)
@@ -99,15 +111,8 @@ void signalHandler(int sig, bool opponent)
         std::cerr << "Crashed with signal " << sig << std::endl;
     }
 
-    void *array[20];
-    size_t size;
-
-    // get void*'s for all entries on the stack
-    size = backtrace(array, 20);
-
-    // print out all the frames to stderr
     fprintf(stderr, "Error: signal %d:\n", sig);
-    backtrace_symbols_fd(array, size, STDERR_FILENO);
+    printBacktrace();
     exit(1);
 }
 
@@ -324,6 +329,7 @@ void BWTest::runGame(bool opponent)
         catch (std::exception &ex)
         {
             std::cout << "Exception caught in frame (" << (opponent ? "opponent" : "mine") << "): " << ex.what() << std::endl;
+            printBacktrace();
             if (!leftGame)
             {
                 leftGame = true;
@@ -350,6 +356,7 @@ void BWTest::runGame(bool opponent)
     catch (std::exception &ex)
     {
         std::cout << "Exception caught in game end (" << (opponent ? "opponent" : "mine") << "): " << ex.what() << std::endl;
+        printBacktrace();
     }
 
     if (!opponent)
