@@ -14,9 +14,6 @@
 
 namespace BWEB::Map
 {
-	/// <summary> Global access of BWEM for BWEB. </summary>
-	inline BWEM::Map& mapBWEM = BWEM::Map::Instance();	
-
 	/// <summary> Draws all BWEB::Walls, BWEB::Stations, BWEB::Blocks and BWEB::Paths when called. Call this every frame if you need debugging information. </summary>
 	void draw();
 

@@ -17,7 +17,7 @@ namespace BWEB::Blocks
 			for (auto x = here.x - 1; x < here.x + width + 1; x++) {
 				for (auto y = here.y - 1; y < here.y + height + 1; y++) {
 					TilePosition t(x, y);
-					if (!t.isValid() || !mapBWEM.GetTile(t).Buildable() || Map::isOverlapping(t) || Map::isReserved(t))
+					if (!t.isValid() || !BWEM::Map::Instance().GetTile(t).Buildable() || Map::isOverlapping(t) || Map::isReserved(t))
 						return false;
 				}
 			}
@@ -27,7 +27,7 @@ namespace BWEB::Blocks
 		void insertBlock(Race race, TilePosition here, int width, int height)
 		{
 			Block newBlock(width, height, here);
-			BWEM::Area const* a = mapBWEM.GetArea(here);
+			BWEM::Area const* a = BWEM::Map::Instance().GetArea(here);
 
 			const auto &offset = [&](int x, int y) {
 				return here + TilePosition(x, y);
@@ -267,7 +267,7 @@ namespace BWEB::Blocks
 				for (auto y = start.y - 6; y <= start.y + 10; y++) {
 					TilePosition tile(x, y);
 
-					if (!tile.isValid() || mapBWEM.GetArea(tile) != Map::getMainArea())
+					if (!tile.isValid() || BWEM::Map::Instance().GetArea(tile) != Map::getMainArea())
 						continue;
 
 					auto blockCenter = Position(tile) + Position(128, 80);
@@ -310,7 +310,7 @@ namespace BWEB::Blocks
 					for (auto y = Map::getMainTile().y - 16; y <= Map::getMainTile().y + 20; y++) {
 						TilePosition tile(x, y);
 
-						if (!tile.isValid() || mapBWEM.GetArea(tile) != Map::getMainArea())
+						if (!tile.isValid() || BWEM::Map::Instance().GetArea(tile) != Map::getMainArea())
 							continue;
 
 						auto blockCenter = Position(tile) + Position(80, 128);
@@ -343,7 +343,7 @@ namespace BWEB::Blocks
 				for (auto y = start.y - 12; y <= start.y + 16; y++) {
 					TilePosition tile(x, y);
 
-					if (!tile.isValid() || mapBWEM.GetArea(tile) != Map::getMainArea())
+					if (!tile.isValid() || BWEM::Map::Instance().GetArea(tile) != Map::getMainArea())
 						continue;
 
 					auto blockCenter = Position(tile) + Position(80, 32);

@@ -153,7 +153,7 @@ namespace BWEB::Stations
 			}
 		};
 
-		for (auto &area : Map::mapBWEM.Areas()) {
+		for (auto &area : BWEM::Map::Instance().Areas()) {
 			for (auto &base : area.Bases()) {
 				auto h = false, v = false;
 				Position genCenter, sCenter;

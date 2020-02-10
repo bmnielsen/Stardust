@@ -375,7 +375,7 @@ namespace BWEB::Walls
 						if (Map::overlapsCurrentWall(currentWall, t) != UnitTypes::None || !Map::isWalkable(t))
 							continue;
 
-						if (Map::mapBWEM.GetArea(t) == wall.getArea() && dist < distBest) {
+						if (BWEM::Map::Instance().GetArea(t) == wall.getArea() && dist < distBest) {
 							startTile = t;
 							distBest = dist;
 						}
@@ -392,7 +392,7 @@ namespace BWEB::Walls
 						if (Map::overlapsCurrentWall(currentWall, t) != UnitTypes::None || !Map::isWalkable(t))
 							continue;
 
-						if (Map::mapBWEM.GetArea(t) && dist > distBest) {
+						if (BWEM::Map::Instance().GetArea(t) && dist > distBest) {
 							endTile = t;
 							distBest = dist;
 						}
@@ -413,7 +413,7 @@ namespace BWEB::Walls
 			auto dy2 = n1.y - n2.y;
 			Position direction1 = Position(-dy1 / 2, dx1 / 2) + Position(choke->Center());
 			Position direction2 = Position(-dy2 / 2, dx2 / 2) + Position(choke->Center());
-			Position trueDirection = direction1.getDistance(Map::mapBWEM.Center()) < direction2.getDistance(Map::mapBWEM.Center()) ? direction1 : direction2;
+			Position trueDirection = direction1.getDistance(BWEM::Map::Instance().Center()) < direction2.getDistance(BWEM::Map::Instance().Center()) ? direction1 : direction2;
 
 			if (choke == Map::getNaturalChoke()) {
 				initialStart = TilePosition(Map::getMainChoke()->Center());
@@ -441,7 +441,7 @@ namespace BWEB::Walls
 
 			// Get a new path
 			BWEB::PathFinding::Path newPath;
-			newPath.createWallPath(Map::mapBWEM, currentWall, startCenter, endCenter, ignoreOverlap);
+			newPath.createWallPath(BWEM::Map::Instance(), currentWall, startCenter, endCenter, ignoreOverlap);
 			currentHole = TilePositions::None;
 			currentPath = newPath.getTiles();
 
@@ -686,7 +686,7 @@ namespace BWEB::Walls
 
 		/*map<TilePosition, UnitType> test;
 		BWEB::PathFinding::Path newPath;
-		newPath.createWallPath(Map::mapBWEM, test, Position(startTile), Position(endTile), false);
+		newPath.createWallPath(BWEM::Map::Instance(), test, Position(startTile), Position(endTile), false);
 
 		for (auto &tile : newPath.getTiles()) {
 			Broodwar->drawBoxMap(Position(tile), Position(tile) + Position(33, 33), Colors::Red);

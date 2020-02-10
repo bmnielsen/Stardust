@@ -19,21 +19,21 @@ namespace BWEB::Map
 		std::set<BWAPI::TilePosition> usedTiles;
 
 		int testGrid[256][256];
-		int reserveGrid[256][256] ={};
-		int overlapGrid[256][256] ={};
-		int usedGrid[256][256] ={};
+		int reserveGrid[256][256];
+		int overlapGrid[256][256];
+		int usedGrid[256][256];
 
 		void findMain()
 		{
 			mainTile = Broodwar->self()->getStartLocation();
 			mainPosition = static_cast<Position>(mainTile) + Position(64, 48);
-			mainArea = mapBWEM.GetArea(mainTile);
+			mainArea = BWEM::Map::Instance().GetArea(mainTile);
 		}
 
 		void findNatural()
 		{
 			auto distBest = DBL_MAX;
-			for (auto &area : mapBWEM.Areas()) {
+			for (auto &area : BWEM::Map::Instance().Areas()) {
 				for (auto &base : area.Bases()) {
 
 					// Must have gas, be accesible and at least 5 mineral patches
@@ -76,7 +76,7 @@ namespace BWEB::Map
 
 			// If we didn't find a main choke that belongs to main and natural, find another one
 			if (!mainChoke) {
-				for (auto &choke : mapBWEM.GetPath(mainPosition, naturalPosition)) {
+				for (auto &choke : BWEM::Map::Instance().GetPath(mainPosition, naturalPosition)) {
 					const auto width = choke->Pos(choke->end1).getDistance(choke->Pos(choke->end2));
 					if (width < distBest) {
 						mainChoke = choke;
@@ -89,13 +89,13 @@ namespace BWEB::Map
 		void findNaturalChoke()
 		{
 			// Exception for maps with a natural behind the main such as Crossing Fields
-			if (getGroundDistance(mainPosition, mapBWEM.Center()) < getGroundDistance(naturalPosition, mapBWEM.Center())) {
+			if (getGroundDistance(mainPosition, BWEM::Map::Instance().Center()) < getGroundDistance(naturalPosition, BWEM::Map::Instance().Center())) {
 				naturalChoke = mainChoke;
 				return;
 			}
 
 			set<BWEM::ChokePoint const *> nonChokes;
-			for (auto &choke : mapBWEM.GetPath(mainPosition, naturalPosition))
+			for (auto &choke : BWEM::Map::Instance().GetPath(mainPosition, naturalPosition))
 				nonChokes.insert(choke);
 
 			// Find area that shares the choke we need to defend
@@ -104,7 +104,7 @@ namespace BWEB::Map
 			if (naturalArea) {
 				for (auto &area : naturalArea->AccessibleNeighbours()) {
 					auto center = area->Top();
-					const auto dist = Position(center).getDistance(mapBWEM.Center());
+					const auto dist = Position(center).getDistance(BWEM::Map::Instance().Center());
 
 					bool wrongArea = false;
 					for (auto &choke : area->ChokePoints()) {
@@ -147,6 +147,24 @@ namespace BWEB::Map
 
 	void onStart()
 	{
+        mainPosition = naturalPosition = BWAPI::Positions::Invalid;
+        mainTile = naturalTile = BWAPI::TilePositions::Invalid;
+        naturalArea = nullptr;
+        mainArea = nullptr;
+        naturalChoke = nullptr;
+        mainChoke = nullptr;
+        usedTiles.clear();
+        for (int x=0; x<256; x++)
+        {
+            for (int y=0; y<256; y++)
+            {
+                testGrid[x][y] = 0;
+                reserveGrid[x][y] = 0;
+                overlapGrid[x][y] = 0;
+                usedGrid[x][y] = 0;
+            }
+        }
+
 		findNeutrals();
 		findMain();
 		findNatural();
@@ -317,12 +335,12 @@ namespace BWEB::Map
 		auto dist = 0.0;
 		if (!start.isValid()
 			|| !end.isValid()
-			|| !mapBWEM.GetArea(WalkPosition(start))
-			|| !mapBWEM.GetArea(WalkPosition(end))
-			|| !mapBWEM.GetArea(WalkPosition(start))->AccessibleFrom(mapBWEM.GetArea(WalkPosition(end))))
+			|| !BWEM::Map::Instance().GetArea(WalkPosition(start))
+			|| !BWEM::Map::Instance().GetArea(WalkPosition(end))
+			|| !BWEM::Map::Instance().GetArea(WalkPosition(start))->AccessibleFrom(BWEM::Map::Instance().GetArea(WalkPosition(end))))
 			return DBL_MAX;
 
-		for (auto &cpp : mapBWEM.GetPath(start, end)) {
+		for (auto &cpp : BWEM::Map::Instance().GetPath(start, end)) {
 			auto center = Position(cpp->Center());
 			dist += start.getDistance(center);
 			start = center;
@@ -336,12 +354,12 @@ namespace BWEB::Map
 		if (!start.isValid() || !end.isValid())
 			return DBL_MAX;
 
-		auto bwemPath = mapBWEM.GetPath(start, end);
+		auto bwemPath = BWEM::Map::Instance().GetPath(start, end);
 		auto source = bwemPath.front();
 
 
 		BWEB::PathFinding::Path newPath;
-		newPath.createUnitPath(mapBWEM, start, (Position)source->Center());
+		newPath.createUnitPath(BWEM::Map::Instance(), start, (Position)source->Center());
 		return newPath.getDistance();
 	}
 
@@ -458,7 +476,7 @@ namespace BWEB::Map
 					return false;
 
 				// Make an assumption that if it's on a chokepoint geometry, it belongs to the area provided
-				if (Map::mapBWEM.GetArea(t) == area /*|| !mapBWEM.GetArea(t)*/)
+				if (BWEM::Map::Instance().GetArea(t) == area /*|| !BWEM::Map::Instance().GetArea(t)*/)
 					cnt++;
 			}
 		}
