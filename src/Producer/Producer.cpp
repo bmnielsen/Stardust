@@ -28,7 +28,11 @@ namespace Producer
     {
 #endif
         // How many frames in the future to consider when predicting future production needs
-        const int PREDICT_FRAMES = 8000;
+#ifdef DEBUG
+        const int PREDICT_FRAMES = 24*60*2; // 2 minutes
+#else
+        const int PREDICT_FRAMES = 24*60*3; // 3 minutes
+#endif
 
         const double MINERALS_PER_WORKER_FRAME = 0.0465;
         const double GAS_PER_WORKER_FRAME = 0.071;
