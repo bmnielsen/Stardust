@@ -102,7 +102,7 @@ void UnitCluster::move(BWAPI::Position targetPosition)
 
         // We ignore the cohesion boid if the center grid node is at a greatly lower cost, as this indicates a probable cliff
         // between this unit and the rest of the cluster
-        if (!centerNode || node->cost < 150 || centerNode->cost > (node->cost - 150))
+        if (!centerNode || (node->cost < 150) || (centerNode->cost > (node->cost - 150)))
         {
             cohesionX = (int) ((double) (center.x - unit->getPosition().x) * cohesionFactor);
             cohesionY = (int) ((double) (center.y - unit->getPosition().y) * cohesionFactor);
