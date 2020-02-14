@@ -121,6 +121,34 @@ TEST(Steamhammer, 9PoolSpeedAllIn)
     test.run();
 }
 
+TEST(Steamhammer, 2HatchLurkerAllIn)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::LocutusTestStrategyName = "2HatchLurkerAllIn";
+        return module;
+    };
+
+    test.run();
+}
+
+TEST(Steamhammer, OverhatchExpoLing)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::LocutusTestStrategyName = "OverhatchExpoLing";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, Anything)
 {
     BWTest test;
