@@ -12,7 +12,10 @@ public:
 
     void update() override;
 
-private:
+    void cancel();
+
     BWAPI::TilePosition depotPosition;
+
+private:
     BWAPI::Unit builder;
 };

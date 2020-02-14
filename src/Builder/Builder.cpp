@@ -154,6 +154,25 @@ namespace Builder
                      << "; builder queue length: " << builderQueues[builder].size();
     }
 
+    void cancel(BWAPI::TilePosition tile)
+    {
+        for (auto it = pendingBuildings.begin(); it != pendingBuildings.end(); it++)
+        {
+            if ((*it)->tile != tile) continue;
+
+            // If construction has started, cancel it
+            if ((*it)->unit)
+            {
+                Log::Get() << "Cancelling construction of " << (*it)->unit->getType() << " @ " << (*it)->tile;
+                (*it)->unit->cancelConstruction();
+            }
+
+            releaseBuilder(**it);
+            pendingBuildings.erase(it);
+            return;
+        }
+    }
+
     BWAPI::Unit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int *expectedArrivalFrame)
     {
         BWAPI::Position buildPosition = BWAPI::Position(tile) + BWAPI::Position(type.tileWidth() * 16, type.tileHeight() * 16);

@@ -2,6 +2,8 @@
 
 #include "Map.h"
 #include "Builder.h"
+#include "Units.h"
+#include "PathFinding.h"
 
 TakeNaturalExpansion::TakeNaturalExpansion() : depotPosition(Map::getMyNatural()->getTilePosition()) {}
 
@@ -16,6 +18,27 @@ void TakeNaturalExpansion::update()
 
 void TakeNaturalExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
+    // Currently we do this as soon as we have at least 5 combat units and one of them is 2000 units of ground distance away from our main
+    // TODO: More nuanced approach
+    int army = Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) + Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon);
+    if (army < 5) return;
+
+    bool unitIsAwayFromHome = false;
+    for (auto unit : BWAPI::Broodwar->self()->getUnits())
+    {
+        if (unit->getType() != BWAPI::UnitTypes::Protoss_Zealot && unit->getType() != BWAPI::UnitTypes::Protoss_Dragoon) continue;
+        if (!unit->isCompleted()) continue;
+        if (!unit->exists()) continue;
+
+        int dist = PathFinding::GetGroundDistance(unit->getPosition(), Map::getMyMain()->getPosition(), unit->getType());
+        if (dist > 2000)
+        {
+            unitIsAwayFromHome = true;
+            break;
+        }
+    }
+    if (!unitIsAwayFromHome) return;
+
     auto buildLocation = BuildingPlacement::BuildLocation(depotPosition,
                                                           BuildingPlacement::builderFrames(BuildingPlacement::Neighbourhood::MainBase,
                                                                                            depotPosition,

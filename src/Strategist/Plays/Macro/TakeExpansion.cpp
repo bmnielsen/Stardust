@@ -1,10 +1,7 @@
 #include "TakeExpansion.h"
 
 #include "Builder.h"
-#include "Workers.h"
-#include "Units.h"
 #include "Geo.h"
-#include "PathFinding.h"
 
 TakeExpansion::TakeExpansion(BWAPI::TilePosition depotPosition) : depotPosition(depotPosition), builder(nullptr) {}
 
@@ -36,6 +33,12 @@ void TakeExpansion::update()
     {
         status.complete = true;
 
-        // TODO: Support fortifying the expansion immediately
+        // TODO: Transition to DefendBase play
     }
+}
+
+void TakeExpansion::cancel()
+{
+    Builder::cancel(depotPosition);
+    status.complete = true;
 }

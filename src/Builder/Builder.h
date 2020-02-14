@@ -14,6 +14,8 @@ namespace Builder
 
     void build(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder, int startFrame = 0);
 
+    void cancel(BWAPI::TilePosition tile);
+
     BWAPI::Unit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int *expectedArrivalFrame = nullptr);
 
     std::vector<Building *> allPendingBuildings();
