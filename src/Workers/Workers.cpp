@@ -369,9 +369,16 @@ namespace Workers
                     auto mineralPatch = workerMineralPatch[worker];
                     if (mineralPatch && mineralPatch->exists()) continue;
 
-                    // If the worker doesn't have an assigned base, assign it one
-                    // FIXME: Release from bases when mined out
+                    // Release from assigned base if it is mined out
                     auto base = workerBase[worker];
+                    if (base && availableMineralAssignmentsAtBase(base) <= 0)
+                    {
+                        baseWorkers[base].erase(worker);
+                        workerBase[worker] = nullptr;
+                        base = nullptr;
+                    }
+
+                    // If the worker doesn't have an assigned base, assign it one
                     if (!base || !base->resourceDepot || !base->resourceDepot->exists())
                     {
                         base = assignBase(worker, Minerals);
