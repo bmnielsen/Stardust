@@ -212,7 +212,8 @@ int WorkerData::getNumMineralWorkers() const
 	size_t num = 0;
 	for (const auto unit : workers)
 	{
-		if (workerJobMap.at(unit) == WorkerData::Minerals)
+        auto job = workerJobMap.find(unit);
+		if (job != workerJobMap.end() && job->second == WorkerData::Minerals)
 		{
 			num++;
 		}
@@ -225,7 +226,8 @@ int WorkerData::getNumGasWorkers() const
 	size_t num = 0;
 	for (const auto unit : workers)
 	{
-		if (workerJobMap.at(unit) == WorkerData::Gas)
+        auto job = workerJobMap.find(unit);
+        if (job != workerJobMap.end() && job->second == WorkerData::Gas)
 		{
 			num++;
 		}
@@ -238,7 +240,8 @@ int WorkerData::getNumReturnCargoWorkers() const
 	size_t num = 0;
 	for (const auto unit : workers)
 	{
-		if (workerJobMap.at(unit) == WorkerData::ReturnCargo)
+        auto job = workerJobMap.find(unit);
+        if (job != workerJobMap.end() && job->second == WorkerData::ReturnCargo)
 		{
 			num++;
 		}
@@ -251,7 +254,8 @@ int WorkerData::getNumCombatWorkers() const
 	size_t num = 0;
 	for (const auto unit : workers)
 	{
-		if (workerJobMap.at(unit) == WorkerData::Combat)
+        auto job = workerJobMap.find(unit);
+        if (job != workerJobMap.end() && job->second == WorkerData::Combat)
 		{
 			num++;
 		}
@@ -264,7 +268,8 @@ int WorkerData::getNumIdleWorkers() const
 	size_t num = 0;
 	for (const auto unit : workers)
 	{
-		if (workerJobMap.at(unit) == WorkerData::Idle)
+        auto job = workerJobMap.find(unit);
+        if (job != workerJobMap.end() && job->second == WorkerData::Idle)
 		{
 			num++;
 		}
