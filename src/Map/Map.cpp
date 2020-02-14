@@ -80,6 +80,18 @@ namespace Map
 
                 // Want to be close to our own base
                 int distanceFromUs = closestBaseDistance(base, myBases);
+
+                // If the player has no known bases, assume they expanded based on proximity to their starting main
+                if (distanceFromUs == -1)
+                {
+                    distanceFromUs = PathFinding::GetGroundDistance(
+                            base->getPosition(),
+                            playerBases.startingMain->getPosition(),
+                            BWAPI::UnitTypes::Protoss_Probe,
+                            PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                }
+
+                // Might be an island base
                 if (distanceFromUs == -1) continue;
 
                 // Want to be far from the enemy base.
@@ -153,6 +165,12 @@ namespace Map
                 {
                     ownerBases.startingMain = base;
                     ownerBases.startingNatural = getNaturalForStartLocation(base->getTilePosition());
+                    ownerBases.main = base;
+                }
+
+                // If this player had a starting main, but doesn't currently have a main, set this base as the main
+                if (ownerBases.startingMain && !ownerBases.main)
+                {
                     ownerBases.main = base;
                 }
             }

@@ -44,19 +44,19 @@ void MopUpSquad::execute(UnitCluster &cluster)
     if (closestPosition.isValid())
     {
         cluster.setActivity(UnitCluster::Activity::Default);
-        cluster.move(closestPosition);
+
+        auto base = Map::baseNear(closestPosition);
+        cluster.move(base ? base->getPosition() : closestPosition);
         return;
     }
 
     // We don't know of any enemy buildings, so try to find one
     // TODO: Make this based on when we last scouted tiles
     // TODO: Somehow handle terran floated buildings
-    int bestBaseScoutedAt = INT_MAX;
+    int bestBaseScoutedAt = BWAPI::Broodwar->getFrameCount();
     Base *bestBase = nullptr;
-    for (auto &base : Map::allBases())
+    for (auto &base : Map::getUntakenExpansions(BWAPI::Broodwar->enemy()))
     {
-        if (base->owner == BWAPI::Broodwar->self()) continue;
-
         if (base->lastScouted < bestBaseScoutedAt)
         {
             bestBaseScoutedAt = base->lastScouted;
