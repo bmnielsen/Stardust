@@ -16,6 +16,8 @@ namespace Map
 
     void onUnitDestroy(BWAPI::Unit unit);
 
+    void onUnitMorph(BWAPI::Unit unit);
+
     void onBuildingLifted(BWAPI::UnitType type, BWAPI::TilePosition tile);
 
     void onBuildingLanded(BWAPI::UnitType type, BWAPI::TilePosition tile);

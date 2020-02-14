@@ -238,19 +238,24 @@ namespace Map
         // if the player has no buildings left near the base.
         void inferBaseOwnershipFromUnitDestroyed(BWAPI::Unit unit)
         {
-            // Only consider buildings
-            if (!unit->getType().isBuilding() && !unit->getType().isAddon()) return;
+            // Only consider buildings or vespene geysers
+            if (unit->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser && !unit->getType().isBuilding() && !unit->getType().isAddon()) return;
 
-            // Ensure there is a base near the building
+            // Ensure there is an owned base near the building
             auto nearbyBase = baseNear(unit->getPosition());
-            if (!nearbyBase) return;
+            if (!nearbyBase || !nearbyBase->owner) return;
 
             // Ignore if the building wasn't owned by the base owner
-            if (nearbyBase->owner != unit->getPlayer()) return;
+            // Exception: geysers (they come from morph)
+            if (unit->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser && nearbyBase->owner != unit->getPlayer())
+            {
+                return;
+            }
 
             // If the player still has a building near the base, don't update ownership
-            for (auto &otherUnit : Units::getForPlayer(unit->getPlayer()))
+            for (auto &otherUnit : Units::getForPlayer(nearbyBase->owner))
             {
+                if (otherUnit->id == unit->getID()) continue;
                 if (!otherUnit->type.isBuilding() && !otherUnit->type.isAddon()) continue;
                 if (!otherUnit->lastPositionValid) continue;
                 if (nearbyBase->getPosition().getApproxDistance(otherUnit->lastPosition) < 320) return;
@@ -629,6 +634,21 @@ namespace Map
         }
     }
 
+    void onUnitMorph(BWAPI::Unit unit)
+    {
+        // If the unit is a geyser, a refinery has just been destroyed
+        if (unit->getType() == BWAPI::UnitTypes::Resource_Vespene_Geyser)
+        {
+            inferBaseOwnershipFromUnitDestroyed(unit);
+        }
+
+        // If the unit is a refinery, it has just been created
+        if (unit->getType().isRefinery())
+        {
+            inferBaseOwnershipFromUnitCreated(unit);
+        }
+    }
+
     void onBuildingLifted(BWAPI::UnitType type, BWAPI::TilePosition tile)
     {
         tileWalkabilityUpdated = updateTileWalkability(tile, type.tileSize(), true);
@@ -750,7 +770,7 @@ namespace Map
         for (auto &base : bases)
         {
             int dist = base->getPosition().getApproxDistance(position);
-            if (dist < 320 && dist < closestDist)
+            if (dist < 500 && dist < closestDist)
             {
                 closestDist = dist;
                 result = base;

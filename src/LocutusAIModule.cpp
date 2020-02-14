@@ -84,10 +84,16 @@ namespace
     void handleUnitMorph(BWAPI::Unit unit)
     {
         BuildingPlacement::onUnitMorph(unit);
+        Map::onUnitMorph(unit);
 
         if (unit->getPlayer() == BWAPI::Broodwar->self() && unit->getType().isRefinery())
         {
             Log::Get() << "Unit created: " << unit->getType() << " @ " << unit->getTilePosition();
+        }
+
+        if (unit->getType() == BWAPI::UnitTypes::Resource_Vespene_Geyser)
+        {
+            Log::Get() << "Refinery destroyed: " << unit->getTilePosition();
         }
     }
 
