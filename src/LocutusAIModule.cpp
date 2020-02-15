@@ -114,6 +114,7 @@ void LocutusAIModule::onStart()
     Workers::initialize();
     Bullets::initialize();
     Scout::initialize();
+    Players::initialize();
 
     Log::SetDebug(true);
     CherryVis::initialize();
