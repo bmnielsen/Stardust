@@ -187,7 +187,27 @@ void BWTest::run()
     EXPECT_EQ(result, 0);
 #endif
 
-    waitpid(opponentPid, nullptr, 0);
+    // Give the opponent 5 seconds to exit
+    int tries = 0;
+    while (true)
+    {
+        if (waitpid(opponentPid, nullptr, WNOHANG) != -1)
+        {
+            std::cout << "Opponent process exited" << std::endl;
+            break;
+        }
+
+        // Kill after 5 seconds
+        tries++;
+        if (tries == 50)
+        {
+            kill(opponentPid, SIGKILL);
+            std::cout << "Opponent process killed" << std::endl;
+            break;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
 
     shmdt(sharedMemory);
     shmctl(shmid, IPC_RMID, nullptr);
