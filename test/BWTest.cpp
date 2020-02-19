@@ -11,6 +11,8 @@
 
 #include "Geo.h"
 
+// Clear orphaned shared memory: ipcs | grep 0x00000000 | tr -s ' ' | cut -d' ' -f2 | xargs -n1 ipcrm -m
+
 namespace
 {
     int scheduleInitialUnitCreation(std::vector<UnitTypeAndPosition> &initialUnits,
@@ -133,8 +135,15 @@ void BWTest::run()
             scheduleInitialUnitCreation(opponentInitialUnits, opponentInitialUnitsByFrame));
 
     auto shmid = shmget(IPC_PRIVATE, 256, IPC_CREAT | 0666);
-    sharedMemory = (char *) shmat(shmid, nullptr, 0);
-    memset(sharedMemory, 0, 256);
+    if (shmid < 0)
+    {
+        std::cout << "Unable to create shared memory: " << errno << std::endl;
+    }
+    else
+    {
+        sharedMemory = (char *) shmat(shmid, nullptr, 0);
+        memset(sharedMemory, 0, 256);
+    }
 
     auto opponentPid = fork();
     if (opponentPid == 0)
@@ -209,8 +218,11 @@ void BWTest::run()
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    shmdt(sharedMemory);
-    shmctl(shmid, IPC_RMID, nullptr);
+    if (shmid >= 0)
+    {
+        shmdt(sharedMemory);
+        shmctl(shmid, IPC_RMID, nullptr);
+    }
 }
 
 void BWTest::runGame(bool opponent)

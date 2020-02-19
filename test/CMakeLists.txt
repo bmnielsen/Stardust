@@ -40,11 +40,7 @@ set_source_files_properties(
         COMPILE_FLAGS "-w"
 )
 
-if(CMAKE_BUILD_TYPE MATCHES Debug)
-    target_compile_definitions(tests PUBLIC DEBUG=1)
-endif()
-
-if(CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
+if((CMAKE_BUILD_TYPE MATCHES Debug) OR (CMAKE_BUILD_TYPE MATCHES RelWithDebInfo))
     target_compile_definitions(tests PUBLIC DEBUG=1)
 endif()
 

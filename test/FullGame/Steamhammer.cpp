@@ -14,11 +14,17 @@ TEST(Steamhammer, RunUntilLoss)
         test.onStartOpponent = [&test]()
         {
             std::cout << "Steamhammer strategy: " << Config::Strategy::StrategyName << std::endl;
-            strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
+            if (test.sharedMemory)
+            {
+                strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
+            }
         };
         test.onEndMine = [&test]()
         {
-            test.replayName = (std::ostringstream() << "Steamhammer_" << test.sharedMemory).str();
+            if (test.sharedMemory)
+            {
+                test.replayName = (std::ostringstream() << "Steamhammer_" << test.sharedMemory).str();
+            }
         };
         test.run();
 
@@ -160,11 +166,17 @@ TEST(Steamhammer, Anything)
     test.onStartOpponent = [&test]()
     {
         std::cout << "Steamhammer strategy: " << Config::Strategy::StrategyName << std::endl;
-        strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
+        if (test.sharedMemory)
+        {
+            strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
+        }
     };
     test.onEndMine = [&test]()
     {
-        test.replayName = (std::ostringstream() << "Steamhammer_" << test.sharedMemory).str();
+        if (test.sharedMemory)
+        {
+            test.replayName = (std::ostringstream() << "Steamhammer_" << test.sharedMemory).str();
+        }
     };
     test.run();
 }

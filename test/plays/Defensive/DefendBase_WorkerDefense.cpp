@@ -19,7 +19,7 @@ namespace
             for (auto unit : BWAPI::Broodwar->self()->getUnits())
             {
                 if (!unit->exists()) continue;
-                if (!UnitUtil::IsCombatUnit(unit->getType()) || !UnitUtil::CanAttackGround(unit)) continue;
+                if (!UnitUtil::IsCombatUnit(unit->getType()) || unit->getType().groundWeapon() == BWAPI::WeaponTypes::None) continue;
 
                 anyCombatUnits = true;
 
