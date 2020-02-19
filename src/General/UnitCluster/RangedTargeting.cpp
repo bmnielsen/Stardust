@@ -11,10 +11,10 @@
 
 namespace
 {
-    int getAttackPriority(BWAPI::Unit attacker, BWAPI::Unit target)
+    int getAttackPriority(const MyUnit &attacker, const Unit &target)
     {
-        const BWAPI::UnitType rangedType = attacker->getType();
-        const BWAPI::UnitType targetType = target->getType();
+        const BWAPI::UnitType rangedType = attacker->type;
+        const BWAPI::UnitType targetType = target->type;
 
         if (rangedType == BWAPI::UnitTypes::Zerg_Scourge)
         {
@@ -41,7 +41,7 @@ namespace
             return 9;
         }
 
-        if (rangedType == BWAPI::UnitTypes::Zerg_Guardian && target->isFlying())
+        if (rangedType == BWAPI::UnitTypes::Zerg_Guardian && target->isFlying)
         {
             // Can't target it.
             return 0;
@@ -55,7 +55,7 @@ namespace
 
         // An addon other than a completed comsat is boring.
         // TODO should also check that it is attached
-        if (targetType.isAddon() && !(targetType == BWAPI::UnitTypes::Terran_Comsat_Station && target->isCompleted()))
+        if (targetType.isAddon() && !(targetType == BWAPI::UnitTypes::Terran_Comsat_Station && target->completed))
         {
             return 1;
         }
@@ -64,17 +64,17 @@ namespace
         auto ourBasePosition = BWAPI::Position(Map::getMyMain()->getPosition());
         if (target->getDistance(ourBasePosition) < 1000)
         {
-            if (target->getType().isWorker() && (target->isConstructing() || target->isRepairing()))
+            if (target->type.isWorker() && (target->bwapiUnit->isConstructing() || target->bwapiUnit->isRepairing()))
             {
                 return 12;
             }
-            if (target->getType().isBuilding())
+            if (target->type.isBuilding())
             {
                 // This includes proxy buildings, which deserve high priority.
                 // But when bases are close together, it can include innocent buildings.
                 // We also don't want to disrupt priorities in case of proxy buildings
                 // supported by units; we may want to target the units first.
-                if (UnitUtil::CanAttackGround(target) || UnitUtil::CanAttackAir(target))
+                if (target->canAttackGround() || target->canAttackAir())
                 {
                     return 10;
                 }
@@ -93,7 +93,7 @@ namespace
         else
         {
             // Exceptions if we're a ground unit.
-            if ((targetType == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine && !target->isBurrowed()) ||
+            if ((targetType == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine && !target->burrowed) ||
                 targetType == BWAPI::UnitTypes::Zerg_Infested_Terran)
             {
                 return 12;
@@ -108,17 +108,17 @@ namespace
         }
 
         // Wraiths, scouts, and goliaths strongly prefer air targets because they do more damage to air units.
-        if (attacker->getType() == BWAPI::UnitTypes::Terran_Wraith ||
-            attacker->getType() == BWAPI::UnitTypes::Protoss_Scout)
+        if (attacker->type == BWAPI::UnitTypes::Terran_Wraith ||
+            attacker->type == BWAPI::UnitTypes::Protoss_Scout)
         {
-            if (target->getType().isFlyer())    // air units, not floating buildings
+            if (target->type.isFlyer())    // air units, not floating buildings
             {
                 return 11;
             }
         }
-        else if (attacker->getType() == BWAPI::UnitTypes::Terran_Goliath)
+        else if (attacker->type == BWAPI::UnitTypes::Terran_Goliath)
         {
-            if (target->getType().isFlyer())    // air units, not floating buildings
+            if (target->type.isFlyer())    // air units, not floating buildings
             {
                 return 10;
             }
@@ -141,10 +141,10 @@ namespace
         }
 
         // Threats can attack us. Exceptions: Workers are not threats.
-        if (UnitUtil::CanAttack(target, attacker) && !targetType.isWorker())
+        if (target->canAttack(attacker) && !targetType.isWorker())
         {
             // Enemy unit which is far enough outside its range is lower priority than a worker.
-            int enemyRange = Players::weaponRange(target->getPlayer(), attacker->isFlying() ? targetType.airWeapon() : targetType.groundWeapon());
+            int enemyRange = Players::weaponRange(target->player, target->getWeapon(attacker));
             if (attacker->getDistance(target) > 48 + enemyRange)
             {
                 return 8;
@@ -167,27 +167,27 @@ namespace
         // Next are workers.
         if (targetType.isWorker())
         {
-            if (attacker->getType() == BWAPI::UnitTypes::Terran_Vulture)
+            if (attacker->type == BWAPI::UnitTypes::Terran_Vulture)
             {
                 return 11;
             }
             // Blocking a narrow choke makes you critical.
-            if (Map::nearNarrowChokepoint(target->getPosition()))
+            if (Map::nearNarrowChokepoint(target->lastPosition))
             {
                 return 11;
             }
             // Repairing
-            if (target->isRepairing() && target->getOrderTarget())
+            if (target->bwapiUnit->isRepairing() && target->bwapiUnit->getOrderTarget())
             {
                 // Something that can shoot
-                if (target->getOrderTarget()->getType().groundWeapon() != BWAPI::WeaponTypes::None)
+                if (target->bwapiUnit->getOrderTarget()->getType().groundWeapon() != BWAPI::WeaponTypes::None)
                 {
                     return 11;
                 }
 
                 // A bunker: only target the workers if we can't outrange the bunker
-                if (target->getOrderTarget()->getType() == BWAPI::UnitTypes::Terran_Bunker &&
-                    Players::weaponRange(target->getPlayer(), BWAPI::UnitTypes::Terran_Marine.groundWeapon()) > 128)
+                if (target->bwapiUnit->getOrderTarget()->getType() == BWAPI::UnitTypes::Terran_Bunker &&
+                    Players::weaponRange(target->player, BWAPI::UnitTypes::Terran_Marine.groundWeapon()) > 128)
                 {
                     return 10;
                 }
@@ -198,7 +198,7 @@ namespace
                 return 10;
             }
             // SCVs constructing are also important.
-            if (target->isConstructing())
+            if (target->bwapiUnit->isConstructing())
             {
                 return 9;
             }
@@ -253,7 +253,7 @@ namespace
         }
         // Downgrade unfinished/unpowered buildings, with exceptions.
         if (targetType.isBuilding() &&
-            (!target->isCompleted() || !target->isPowered()) &&
+            (!target->completed || !target->bwapiUnit->isPowered()) &&
             !(targetType.isResourceDepot() ||
               targetType.groundWeapon() != BWAPI::WeaponTypes::None ||
               targetType.airWeapon() != BWAPI::WeaponTypes::None ||
@@ -274,10 +274,10 @@ namespace
     }
 }
 
-std::shared_ptr<Unit> UnitCluster::ChooseRangedTarget(BWAPI::Unit attacker, std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition)
+Unit UnitCluster::ChooseRangedTarget(const MyUnit &attacker, std::set<Unit> &targets, BWAPI::Position targetPosition)
 {
     int bestScore = -999999;
-    std::shared_ptr<Unit> bestTarget = nullptr;
+    Unit bestTarget = nullptr;
 
     // Determine if the target is a base that is not owned by the enemy
     auto targetBase = Map::baseNear(targetPosition);
@@ -287,30 +287,30 @@ std::shared_ptr<Unit> UnitCluster::ChooseRangedTarget(BWAPI::Unit attacker, std:
 
     for (const auto &targetUnit : targets)
     {
-        auto target = targetUnit->unit;
+        auto target = targetUnit->bwapiUnit;
 
         if (target->getType() == BWAPI::UnitTypes::Zerg_Larva ||
             target->getType() == BWAPI::UnitTypes::Zerg_Egg ||
-            !UnitUtil::CanAttack(attacker, target))
+            !attacker->canAttack(targetUnit))
         {
             continue;
         }
 
 
         // If we are targeting an enemy base, ignore outlying buildings (except static defense)
-        if (targetIsEnemyBase && distanceToTarget > 200 && target->getType().isBuilding() && !UnitUtil::CanAttackGround(target))
+        if (targetIsEnemyBase && distanceToTarget > 200 && target->getType().isBuilding() && !targetUnit->canAttackGround())
         {
             continue;
         }
 
         // Skip targets under dark swarm that we can't hit.
-        if (target->isUnderDarkSwarm() && attacker->getType() != BWAPI::UnitTypes::Protoss_Reaver)
+        if (target->isUnderDarkSwarm() && attacker->type != BWAPI::UnitTypes::Protoss_Reaver)
         {
             continue;
         }
 
         // Skip targets that are too far away to worry about.
-        const int range = attacker->getDistance(target);
+        const int range = attacker->getDistance(targetUnit);
         if (range >= 13 * 32)
         {
             continue;
@@ -318,7 +318,7 @@ std::shared_ptr<Unit> UnitCluster::ChooseRangedTarget(BWAPI::Unit attacker, std:
 
         // Let's say that 1 priority step is worth 160 pixels (5 tiles).
         // We care about unit-target range and target-order position distance.
-        const int priority = getAttackPriority(attacker, target);        // 0..12
+        const int priority = getAttackPriority(attacker, targetUnit);        // 0..12
         int score = 5 * 32 * priority - range;
 
         const int closerToGoal =                                        // positive if target is closer than us to the goal
@@ -332,8 +332,8 @@ std::shared_ptr<Unit> UnitCluster::ChooseRangedTarget(BWAPI::Unit attacker, std:
             score += 2 * 32;
         }
 
-        const bool isThreat = UnitUtil::CanAttack(target, attacker);   // may include workers as threats
-        const bool canShootBack = isThreat && target->isInWeaponRange(attacker);
+        const bool isThreat = targetUnit->canAttack(attacker);   // may include workers as threats
+        const bool canShootBack = isThreat && attacker->isInEnemyWeaponRange(targetUnit);
 
         if (isThreat)
         {
@@ -341,7 +341,7 @@ std::shared_ptr<Unit> UnitCluster::ChooseRangedTarget(BWAPI::Unit attacker, std:
             {
                 score += 6 * 32;
             }
-            else if (attacker->isInWeaponRange(target))
+            else if (attacker->isInOurWeaponRange(targetUnit))
             {
                 score += 4 * 32;
             }
@@ -369,7 +369,7 @@ std::shared_ptr<Unit> UnitCluster::ChooseRangedTarget(BWAPI::Unit attacker, std:
         {
             score += 16;
         }
-        else if (target->getType().topSpeed() >= attacker->getType().topSpeed())
+        else if (target->getType().topSpeed() >= attacker->type.topSpeed())
         {
             score -= 4 * 32;
         }
@@ -402,7 +402,7 @@ std::shared_ptr<Unit> UnitCluster::ChooseRangedTarget(BWAPI::Unit attacker, std:
         if (target->getAcidSporeCount() > 0)
         {
             // Especially if we're a mutalisk with a bounce attack.
-            if (attacker->getType() == BWAPI::UnitTypes::Zerg_Mutalisk)
+            if (attacker->type == BWAPI::UnitTypes::Zerg_Mutalisk)
             {
                 score += 16 * target->getAcidSporeCount();
             }
@@ -413,7 +413,7 @@ std::shared_ptr<Unit> UnitCluster::ChooseRangedTarget(BWAPI::Unit attacker, std:
         }
 
         // Take the damage type into account.
-        BWAPI::DamageType damage = UnitUtil::GetWeapon(attacker->getType(), target).damageType();
+        BWAPI::DamageType damage = attacker->getWeapon(targetUnit).damageType();
         if (damage == BWAPI::DamageTypes::Explosive)
         {
             if (target->getType().size() == BWAPI::UnitSizeTypes::Large)

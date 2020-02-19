@@ -1,4 +1,3 @@
-#include "Strategist.h"
 #include <utility>
 #include "Scout.h"
 #include "Units.h"
@@ -48,7 +47,7 @@ namespace Strategist
     namespace
     {
         bool startedScouting = false;
-        std::unordered_map<BWAPI::Unit, std::shared_ptr<Play>> unitToPlay;
+        std::unordered_map<MyUnit, std::shared_ptr<Play>> unitToPlay;
         std::vector<std::shared_ptr<Play>> plays;
         std::unordered_set<std::shared_ptr<TakeExpansion>> takeExpansionPlays;
         std::vector<ProductionGoal> productionGoals;
@@ -73,32 +72,32 @@ namespace Strategist
                     return a.distance < b.distance;
                 }
 
-                explicit ReassignableUnit(BWAPI::Unit unit) : unit(unit), currentPlay(nullptr), distance(0) {}
+                explicit ReassignableUnit(MyUnit unit) : unit(std::move(std::move(unit))), currentPlay(nullptr), distance(0) {}
 
-                ReassignableUnit(BWAPI::Unit unit, std::shared_ptr<Play> currentPlay)
-                        : unit(unit), currentPlay(std::move(currentPlay)), distance(0) {}
+                ReassignableUnit(MyUnit unit, std::shared_ptr<Play> currentPlay)
+                        : unit(std::move(std::move(unit))), currentPlay(std::move(currentPlay)), distance(0) {}
 
-                BWAPI::Unit unit;
+                MyUnit unit;
                 std::shared_ptr<Play> currentPlay;
                 int distance;
             };
 
             // Gather a map of all reassignable units by type
             std::unordered_map<int, std::vector<ReassignableUnit>> typeToReassignableUnits;
-            for (auto unit : BWAPI::Broodwar->self()->getUnits())
+            for (const auto &unit : Units::allMine())
             {
-                if (!unit->isCompleted()) continue;
-                if (unit->getType().isBuilding()) continue;
-                if (unit->getType().isWorker()) continue;
+                if (!unit->completed) continue;
+                if (unit->type.isBuilding()) continue;
+                if (unit->type.isWorker()) continue;
 
                 auto playIt = unitToPlay.find(unit);
                 if (playIt == unitToPlay.end())
                 {
-                    typeToReassignableUnits[unit->getType()].emplace_back(unit);
+                    typeToReassignableUnits[unit->type].emplace_back(unit);
                 }
                 else if (playIt->second->receivesUnassignedUnits())
                 {
-                    typeToReassignableUnits[unit->getType()].emplace_back(unit, playIt->second);
+                    typeToReassignableUnits[unit->type].emplace_back(unit, playIt->second);
                 }
             }
 
@@ -134,9 +133,9 @@ namespace Strategist
                     // TODO: Include some measurement of whether it is safe for the unit to get to the position
                     for (auto &reassignableUnit : reassignableUnits)
                     {
-                        reassignableUnit.distance = reassignableUnit.unit->isFlying()
+                        reassignableUnit.distance = reassignableUnit.unit->isFlying
                                                     ? reassignableUnit.unit->getDistance(unitRequirement.position)
-                                                    : PathFinding::GetGroundDistance(reassignableUnit.unit->getPosition(),
+                                                    : PathFinding::GetGroundDistance(reassignableUnit.unit->lastPosition,
                                                                                      unitRequirement.position,
                                                                                      unitRequirement.type);
                     }
@@ -373,7 +372,7 @@ namespace Strategist
         // This cascades down to squads and unit clusters
         for (auto it = unitToPlay.begin(); it != unitToPlay.end();)
         {
-            if (it->first->exists() && it->first->getPlayer() == BWAPI::Broodwar->self())
+            if (it->first->exists())
             {
                 it++;
                 continue;
@@ -399,7 +398,7 @@ namespace Strategist
         for (auto it = plays.begin(); it != plays.end();)
         {
             // Update our unit map for units released from the play
-            for (auto unit : (*it)->status.removedUnits)
+            for (const auto &unit : (*it)->status.removedUnits)
             {
                 (*it)->removeUnit(unit);
                 unitToPlay.erase(unit);
@@ -411,7 +410,7 @@ namespace Strategist
             {
                 if ((*it)->getSquad() != nullptr)
                 {
-                    for (auto unit : (*it)->getSquad()->getUnits())
+                    for (const auto &unit : (*it)->getSquad()->getUnits())
                     {
                         (*it)->status.transitionTo->addUnit(unit);
                         unitToPlay[unit] = (*it)->status.transitionTo;

@@ -215,7 +215,7 @@ namespace BuildingPlacement
             for (auto &base : Map::allBases())
             {
                 if (base->owner != BWAPI::Broodwar->self()) continue;
-                if (!base->resourceDepot || !base->resourceDepot->exists() || !base->resourceDepot->isCompleted()) continue;
+                if (!base->resourceDepot || !base->resourceDepot->exists() || !base->resourceDepot->completed) continue;
 
                 for (auto geyser : base->geysers())
                 {

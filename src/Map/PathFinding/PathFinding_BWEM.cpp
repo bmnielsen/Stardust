@@ -1,6 +1,5 @@
 #include "PathFinding.h"
 
-#include <BWEB.h>
 #include "Map.h"
 
 namespace PathFinding
@@ -18,7 +17,7 @@ namespace PathFinding
         // Creates a BWEM-style choke point path using an algorithm similar to BWEB's tile-resolution path finding.
         // Used when we want to generate paths with additional constraints beyond what BWEM provides, like taking
         // choke width and mineral walking into consideration.
-        const BWEM::CPPath CustomChokePointPath(
+        BWEM::CPPath CustomChokePointPath(
                 BWAPI::Position start,
                 BWAPI::Position end,
                 bool useNearestBWEMArea,
@@ -133,7 +132,8 @@ namespace PathFinding
         bool useNearestBWEMArea = ((int) options & (int) PathFindingOptions::UseNearestBWEMArea) != 0;
 
         // If either of the points is not in a BWEM area, fall back to air distance unless the caller overrides this
-        if (!useNearestBWEMArea && (!BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(start)) || !BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(end))))
+        if (!useNearestBWEMArea
+            && (!BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(start)) || !BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(end))))
             return start.getApproxDistance(end);
 
         int dist;
@@ -141,7 +141,7 @@ namespace PathFinding
         return dist;
     }
 
-    const BWEM::CPPath GetChokePointPath(
+    BWEM::CPPath GetChokePointPath(
             BWAPI::Position start,
             BWAPI::Position end,
             BWAPI::UnitType unitType,
@@ -154,7 +154,8 @@ namespace PathFinding
         bool useNearestBWEMArea = ((int) options & (int) PathFindingOptions::UseNearestBWEMArea) != 0;
 
         // If either of the points is not in a BWEM area, it is probably over unwalkable terrain
-        if (!useNearestBWEMArea && (!BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(start)) || !BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(end))))
+        if (!useNearestBWEMArea
+            && (!BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(start)) || !BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(end))))
             return BWEM::CPPath();
 
         // Start with the BWEM path

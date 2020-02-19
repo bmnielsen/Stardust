@@ -9,7 +9,7 @@ class DefendBase : public Play
 public:
     explicit DefendBase(Base *base);
 
-    const char *label() const override { return "DefendBase"; }
+    [[nodiscard]] const char *label() const override { return "DefendBase"; }
 
     std::shared_ptr<Squad> getSquad() override { return squad; }
 
@@ -21,7 +21,7 @@ private:
     Base *base;
     std::shared_ptr<DefendBaseSquad> squad;
 
-    std::vector<BWAPI::Unit> reservedWorkers;
+    std::vector<MyUnit> reservedWorkers;
 
     void mineralLineWorkerDefense();
 };

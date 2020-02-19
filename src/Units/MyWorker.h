@@ -2,7 +2,7 @@
 
 #include "MyUnit.h"
 
-class MyWorker : public MyUnit
+class MyWorker : public MyUnitImpl
 {
 public:
     explicit MyWorker(BWAPI::Unit unit);

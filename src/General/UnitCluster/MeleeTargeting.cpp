@@ -10,12 +10,12 @@
 
 namespace
 {
-    int getAttackPriority(BWAPI::Unit attacker, BWAPI::Unit target)
+    int getAttackPriority(const Unit &attacker, const Unit &target)
     {
-        BWAPI::UnitType targetType = target->getType();
+        BWAPI::UnitType targetType = target->type;
 
         // Exceptions for dark templar.
-        if (attacker->getType() == BWAPI::UnitTypes::Protoss_Dark_Templar)
+        if (attacker->type == BWAPI::UnitTypes::Protoss_Dark_Templar)
         {
             if (targetType == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine)
             {
@@ -37,7 +37,7 @@ namespace
         }
 
         // Short circuit: Enemy unit which is far enough outside its range is lower priority than a worker.
-        int enemyRange = Players::weaponRange(target->getPlayer(), attacker->isFlying() ? targetType.airWeapon() : targetType.groundWeapon());
+        int enemyRange = Players::weaponRange(target->player, attacker->isFlying ? targetType.airWeapon() : targetType.groundWeapon());
         if (enemyRange &&
             !targetType.isWorker() &&
             attacker->getDistance(target) > 32 + enemyRange)
@@ -46,8 +46,8 @@ namespace
         }
 
         // Constructing a bunker makes a worker critical
-        if (targetType.isWorker() && target->isConstructing() && target->getOrderTarget()
-            && target->getOrderTarget()->getType() == BWAPI::UnitTypes::Terran_Bunker)
+        if (targetType.isWorker() && target->bwapiUnit->isConstructing() && target->bwapiUnit->getOrderTarget()
+            && target->bwapiUnit->getOrderTarget()->getType() == BWAPI::UnitTypes::Terran_Bunker)
             return 12;
 
         // Short circuit: Units before bunkers!
@@ -67,7 +67,8 @@ namespace
         {
             return 11;
         }
-        if (targetType.isWorker() && (target->isRepairing() || target->isConstructing() || Map::nearNarrowChokepoint(target->getPosition())))
+        if (targetType.isWorker()
+            && (target->bwapiUnit->isRepairing() || target->bwapiUnit->isConstructing() || Map::nearNarrowChokepoint(target->lastPosition)))
         {
             return 11;
         }
@@ -95,7 +96,7 @@ namespace
         }
         // Short circuit: Addons other than a completed comsat are worth almost nothing.
         // TODO should also check that it is attached
-        if (targetType.isAddon() && !(targetType == BWAPI::UnitTypes::Terran_Comsat_Station && target->isCompleted()))
+        if (targetType.isAddon() && !(targetType == BWAPI::UnitTypes::Terran_Comsat_Station && target->completed))
         {
             return 1;
         }
@@ -110,10 +111,10 @@ namespace
     }
 }
 
-std::shared_ptr<Unit> UnitCluster::ChooseMeleeTarget(BWAPI::Unit attacker, std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition)
+Unit UnitCluster::ChooseMeleeTarget(const MyUnit &attacker, std::set<Unit> &targets, BWAPI::Position targetPosition)
 {
     int bestScore = -999999;
-    std::shared_ptr<Unit> bestTarget = nullptr;
+    Unit bestTarget = nullptr;
 
     // Determine if the target is a base that is owned by the enemy
     auto targetBase = Map::baseNear(targetPosition);
@@ -123,24 +124,24 @@ std::shared_ptr<Unit> UnitCluster::ChooseMeleeTarget(BWAPI::Unit attacker, std::
 
     for (const auto &targetUnit : targets)
     {
-        auto target = targetUnit->unit;
+        auto target = targetUnit->bwapiUnit;
 
-        if (target->getType() == BWAPI::UnitTypes::Zerg_Larva ||
-            target->getType() == BWAPI::UnitTypes::Zerg_Egg ||
+        if (targetUnit->type == BWAPI::UnitTypes::Zerg_Larva ||
+            targetUnit->type == BWAPI::UnitTypes::Zerg_Egg ||
             target->isUnderDisruptionWeb() ||
-            !UnitUtil::CanAttack(attacker, target))
+            !attacker->canAttack(targetUnit))
         {
             continue;
         }
 
         // If we are targeting an enemy base, ignore outlying buildings (except static defense)
-        if (targetIsEnemyBase && distanceToTarget > 200 && target->getType().isBuilding() && !UnitUtil::CanAttackGround(target))
+        if (targetIsEnemyBase && distanceToTarget > 200 && targetUnit->type.isBuilding() && !targetUnit->canAttackGround())
         {
             continue;
         }
 
         // Skip targets that are too far away to worry about.
-        const int range = attacker->getDistance(target);
+        const int range = attacker->getDistance(targetUnit);
 //        if (range >= 13 * 32)
 //        {
 //            continue;
@@ -148,40 +149,40 @@ std::shared_ptr<Unit> UnitCluster::ChooseMeleeTarget(BWAPI::Unit attacker, std::
 
         // Let's say that 1 priority step is worth 64 pixels (2 tiles).
         // We care about unit-target range and target-order position distance.
-        const int priority = getAttackPriority(attacker, target);        // 0..12
+        const int priority = getAttackPriority(attacker, targetUnit);        // 0..12
         int score = 2 * 32 * priority - range;
 
         const int closerToGoal =                                        // positive if target is closer than us to the goal
                 distanceToTarget - target->getDistance(targetPosition);
-        bool inWeaponRange = attacker->isInWeaponRange(target);
+        bool inWeaponRange = attacker->isInOurWeaponRange(targetUnit);
 
         /*
          * Disabled as we do not currently have these skills
          *
         // Kamikaze and rush attacks ignore all tier 2+ combat units unless they are closer to the order position and in weapon range
-        if ((StrategyManager::Instance().isRushing() || order.getType() == SquadOrderTypes::KamikazeAttack) &&
+        if ((StrategyManager::Instance().isRushing() || order.type == SquadOrderTypes::KamikazeAttack) &&
             UnitUtil::IsCombatUnit(target) &&
             !UnitUtil::IsTierOneCombatUnit(target->getType()) &&
-            !target->getType().isWorker() &&
+            !target->type.isWorker() &&
             (range > UnitUtil::GetAttackRange(attacker, target) || closerToGoal < 0))
         {
             continue;
         }
 
         // Consider whether to attack enemies that are outside of our weapon range when on the attack
-        if (!inWeaponRange && order.getType() != SquadOrderTypes::Defend)
+        if (!inWeaponRange && order.type != SquadOrderTypes::Defend)
         {
             // Never chase units that can kite us easily
-            if (target->getType() == BWAPI::UnitTypes::Protoss_Dragoon ||
-                target->getType() == BWAPI::UnitTypes::Terran_Vulture) continue;
+            if (target->type == BWAPI::UnitTypes::Protoss_Dragoon ||
+                target->type == BWAPI::UnitTypes::Terran_Vulture) continue;
 
             // Check if the target is moving away from us
             BWAPI::Position targetPositionInFiveFrames = InformationManager::Instance().predictUnitPosition(target, 5);
             if (target->isMoving() &&
-                range <= MathUtil::EdgeToEdgeDistance(attacker->getType(), myPositionInFiveFrames, target->getType(), targetPositionInFiveFrames))
+                range <= MathUtil::EdgeToEdgeDistance(attacker->type, myPositionInFiveFrames, target->type, targetPositionInFiveFrames))
             {
                 // Never chase workers
-                if (target->getType().isWorker()) continue;
+                if (target->type.isWorker()) continue;
 
                 // When rushing, don't chase anything when outside the order position area
                 if (StrategyManager::Instance().isRushing() && !inOrderPositionArea) continue;
@@ -192,7 +193,7 @@ std::shared_ptr<Unit> UnitCluster::ChooseMeleeTarget(BWAPI::Unit attacker, std::
         }
 
         // When rushing, prioritize workers that are building something
-        if (StrategyManager::Instance().isRushing() && target->getType().isWorker() && target->isConstructing())
+        if (StrategyManager::Instance().isRushing() && target->type.isWorker() && target->isConstructing())
         {
             score += 4 * 32;
         }
@@ -203,7 +204,7 @@ std::shared_ptr<Unit> UnitCluster::ChooseMeleeTarget(BWAPI::Unit attacker, std::
         // Prefer targets under dark swarm, on the expectation that then we'll be under it too.
         if (target->isUnderDarkSwarm())
         {
-            if (attacker->getType().isWorker())
+            if (attacker->type.isWorker())
             {
                 // Workers can't hit under dark swarm. Skip this target.
                 continue;
@@ -240,7 +241,7 @@ std::shared_ptr<Unit> UnitCluster::ChooseMeleeTarget(BWAPI::Unit attacker, std::
         {
             score += 16;
         }
-        else if (target->getType().topSpeed() >= attacker->getType().topSpeed())
+        else if (targetUnit->type.topSpeed() >= attacker->type.topSpeed())
         {
             score -= 2 * 32;
         }
@@ -251,18 +252,18 @@ std::shared_ptr<Unit> UnitCluster::ChooseMeleeTarget(BWAPI::Unit attacker, std::
         }
 
         // Prefer targets that are already hurt.
-        if (target->getType().getRace() == BWAPI::Races::Protoss && target->getShields() <= 5)
+        if (targetUnit->type.getRace() == BWAPI::Races::Protoss && target->getShields() <= 5)
         {
             score += 32;
-            if (target->getHitPoints() < (target->getType().maxHitPoints() / 3))
+            if (target->getHitPoints() < (targetUnit->type.maxHitPoints() / 3))
             {
                 score += 24;
             }
         }
-        else if (target->getHitPoints() < target->getType().maxHitPoints())
+        else if (target->getHitPoints() < targetUnit->type.maxHitPoints())
         {
             score += 24;
-            if (target->getHitPoints() < (target->getType().maxHitPoints() / 3))
+            if (target->getHitPoints() < (targetUnit->type.maxHitPoints() / 3))
             {
                 score += 24;
             }

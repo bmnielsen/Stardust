@@ -7,7 +7,7 @@ class Grid;
 class UpgradeTracker
 {
 public:
-    UpgradeTracker(BWAPI::Player player) : player(player) {}
+    explicit UpgradeTracker(BWAPI::Player player) : player(player) {}
 
     // Updates the items that have been queried previously
     void update(Grid &grid);

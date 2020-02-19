@@ -12,7 +12,7 @@ namespace
     }
 }
 
-void MyUnit::issueMoveOrders()
+void MyUnitImpl::issueMoveOrders()
 {
     if (issuedOrderThisFrame) return;
     if (!targetPosition.isValid()) return;
@@ -22,17 +22,17 @@ void MyUnit::issueMoveOrders()
     updateMoveWaypoints();
 }
 
-bool MyUnit::moveTo(BWAPI::Position position)
+bool MyUnitImpl::moveTo(BWAPI::Position position)
 {
     // Fliers just move to the target
-    if (unit->isFlying())
+    if (bwapiUnit->isFlying())
     {
         move(position);
         return true;
     }
 
     // If the unit is already moving to this position, don't do anything
-    BWAPI::UnitCommand currentCommand(unit->getLastCommand());
+    BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
     if (position == targetPosition ||
         (currentCommand.getType() == BWAPI::UnitCommandTypes::Move && currentCommand.getTargetPosition() == position))
     {
@@ -44,10 +44,10 @@ bool MyUnit::moveTo(BWAPI::Position position)
     targetPosition = position;
 
     // Get the BWEM path
-    auto &path = PathFinding::GetChokePointPath(
-            unit->getPosition(),
+    auto path = PathFinding::GetChokePointPath(
+            bwapiUnit->getPosition(),
             position,
-            unit->getType(),
+            bwapiUnit->getType(),
             PathFinding::PathFindingOptions::UseNearestBWEMArea);
     for (const BWEM::ChokePoint *chokepoint : path)
     {
@@ -61,7 +61,7 @@ bool MyUnit::moveTo(BWAPI::Position position)
     if ((!gridNode || !nextNode(gridNode)) && chokePath.empty())
     {
         // If the unit is in the same area as the target position, move to it directly
-        auto unitArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(unit->getPosition()));
+        auto unitArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(bwapiUnit->getPosition()));
         auto targetArea = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(targetPosition));
         if (!targetArea || targetArea == unitArea)
         {
@@ -80,7 +80,7 @@ bool MyUnit::moveTo(BWAPI::Position position)
     log << "Order: Starting move to " << BWAPI::WalkPosition(position);
     if (grid) log << "; grid target " << grid->goal;
     if (gridNode) log << "; initial grid node " << *gridNode;
-    CherryVis::log(unit) << log.str();
+    CherryVis::log(id) << log.str();
 #endif
 
     targetPosition = position;
@@ -88,7 +88,7 @@ bool MyUnit::moveTo(BWAPI::Position position)
     return true;
 }
 
-void MyUnit::resetMoveData()
+void MyUnitImpl::resetMoveData()
 {
     targetPosition = BWAPI::Positions::Invalid;
     currentlyMovingTowards = BWAPI::Positions::Invalid;
@@ -97,13 +97,13 @@ void MyUnit::resetMoveData()
     gridNode = nullptr;
 }
 
-void MyUnit::moveToNextWaypoint()
+void MyUnitImpl::moveToNextWaypoint()
 {
     // Current grid node is close to the target
     if (gridNode && gridNode->cost <= 30)
     {
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(unit) << "Order: Reached end of grid " << grid->goal;
+        CherryVis::log(id) << "Order: Reached end of grid " << grid->goal;
 #endif
 
         grid = nullptr;
@@ -112,12 +112,12 @@ void MyUnit::moveToNextWaypoint()
         // Short-circuit if the unit is in the target area
         // This means we are close to the destination and just need to do a simple move from here
         // State will be reset after latency frames to avoid resetting the order later
-        auto unitArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(unit->getPosition()));
+        auto unitArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(bwapiUnit->getPosition()));
         auto targetArea = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(targetPosition));
         if (!targetArea || targetArea == unitArea)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit) << "Order: Moving to target position " << BWAPI::WalkPosition(targetPosition);
+            CherryVis::log(id) << "Order: Moving to target position " << BWAPI::WalkPosition(targetPosition);
 #endif
 
             move(targetPosition);
@@ -136,7 +136,7 @@ void MyUnit::moveToNextWaypoint()
         if (auto next = nextNode(gridNode))
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit) << "Order: Moving towards next grid node " << *next;
+            CherryVis::log(id) << "Order: Moving towards next grid node " << *next;
 #endif
 
             currentlyMovingTowards = BWAPI::Position(
@@ -151,14 +151,14 @@ void MyUnit::moveToNextWaypoint()
         // We have a valid grid, but we're not in a connected grid node
         // Ensure the choke path is updated and fall through
         // We will pick up the grid path when we can
-        updateChokePath(BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(unit->getPosition())));
+        updateChokePath(BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(bwapiUnit->getPosition())));
     }
 
     // If there is no choke path, and we couldn't navigate using the grid, just move to the position
     if (chokePath.empty())
     {
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(unit) << "Order: No path; moving to target position " << BWAPI::WalkPosition(targetPosition);
+        CherryVis::log(id) << "Order: No path; moving to target position " << BWAPI::WalkPosition(targetPosition);
 #endif
 
         move(targetPosition);
@@ -204,14 +204,14 @@ void MyUnit::moveToNextWaypoint()
     }
 
 #if DEBUG_UNIT_ORDERS
-    CherryVis::log(unit) << "Order: Moving towards next choke @ " << BWAPI::WalkPosition(currentlyMovingTowards);
+    CherryVis::log(id) << "Order: Moving towards next choke @ " << BWAPI::WalkPosition(currentlyMovingTowards);
 #endif
 
     move(currentlyMovingTowards);
     lastMoveFrame = BWAPI::Broodwar->getFrameCount();
 }
 
-void MyUnit::updateMoveWaypoints()
+void MyUnitImpl::updateMoveWaypoints()
 {
     // Reset after latency frames when we're done navigating
     if (!gridNode && chokePath.empty())
@@ -230,11 +230,11 @@ void MyUnit::updateMoveWaypoints()
 
     // If the unit command is no longer to move towards our current target, clear the waypoints
     // This means we have ordered the unit to do something else in the meantime
-    BWAPI::UnitCommand currentCommand(unit->getLastCommand());
+    BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
     if (currentCommand.getType() != BWAPI::UnitCommandTypes::Move || currentCommand.getTargetPosition() != currentlyMovingTowards)
     {
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(unit) << "Order: Aborting move as command has changed";
+        CherryVis::log(id) << "Order: Aborting move as command has changed";
 #endif
         resetMoveData();
         return;
@@ -243,7 +243,7 @@ void MyUnit::updateMoveWaypoints()
     // We have a grid we can use for navigation
     if (grid)
     {
-        auto inSameNode = unit->getTilePosition().x == gridNode->x && unit->getTilePosition().y == gridNode->y;
+        auto inSameNode = bwapiUnit->getTilePosition().x == gridNode->x && bwapiUnit->getTilePosition().y == gridNode->y;
         auto currentNodeValid = nextNode(gridNode) != nullptr;
 
         // If we are still in the same node, and the node is valid, then we just wait until the unit gets to a new node
@@ -254,10 +254,10 @@ void MyUnit::updateMoveWaypoints()
 
         if (!inSameNode)
         {
-            gridNode = &(*grid)[unit->getTilePosition()];
+            gridNode = &(*grid)[bwapiUnit->getTilePosition()];
 
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit) << "Order: Path node set to " << *gridNode;
+            CherryVis::log(id) << "Order: Path node set to " << *gridNode;
 #endif
 
             // If we were navigating using the previous node, or can navigate using the new node, update the waypoint
@@ -272,7 +272,7 @@ void MyUnit::updateMoveWaypoints()
     }
 
     // Wait until the unit is close enough to the current target
-    if (unit->getDistance(currentlyMovingTowards) > 100) return;
+    if (bwapiUnit->getDistance(currentlyMovingTowards) > 100) return;
 
     // If the current target is a narrow ramp, wait until we can see the high elevation tile
     // We want to make sure we go up the ramp far enough to see anything potentially blocking the ramp
@@ -281,15 +281,15 @@ void MyUnit::updateMoveWaypoints()
         return;
 
     // Move to the next waypoint
-    chokePath.pop_front();
+    if (!chokePath.empty()) chokePath.pop_front();
     moveToNextWaypoint();
 }
 
-void MyUnit::resetGrid()
+void MyUnitImpl::resetGrid()
 {
     // If there is a choke in the BWEM path requiring mineral walking, try to get a navigation grid to that choke
     Choke *mineralWalkingChoke = nullptr;
-    if (unit->getType().isWorker() && Map::mapSpecificOverride()->hasMineralWalking())
+    if (bwapiUnit->getType().isWorker() && Map::mapSpecificOverride()->hasMineralWalking())
     {
         for (const BWEM::ChokePoint *chokepoint : chokePath)
         {
@@ -320,10 +320,10 @@ void MyUnit::resetGrid()
     }
 
     // If we have a grid, get the first grid node
-    if (grid) gridNode = &(*grid)[unit->getPosition()];
+    if (grid) gridNode = &(*grid)[bwapiUnit->getPosition()];
 }
 
-void MyUnit::updateChokePath(const BWEM::Area *unitArea)
+void MyUnitImpl::updateChokePath(const BWEM::Area *unitArea)
 {
     while (!chokePath.empty())
     {
@@ -350,10 +350,10 @@ void MyUnit::updateChokePath(const BWEM::Area *unitArea)
     }
 }
 
-bool MyUnit::unstickMoveUnit()
+bool MyUnitImpl::unstickMoveUnit()
 {
     // Consider the unit to not be stuck if the last command was not a valid move command
-    BWAPI::UnitCommand currentCommand(unit->getLastCommand());
+    BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
     if (currentCommand.getType() != BWAPI::UnitCommandTypes::Move
         || !currentCommand.getTargetPosition().isValid())
     {
@@ -361,20 +361,20 @@ bool MyUnit::unstickMoveUnit()
     }
 
     // Consider the unit to not be stuck if it is close to its move target (it may be decelerating or have already arrived)
-    if (unit->getDistance(currentCommand.getTargetPosition()) < 32)
+    if (bwapiUnit->getDistance(currentCommand.getTargetPosition()) < 32)
     {
         return false;
     }
 
     // Consider the unit to not be stuck if it is moving and the order is not Guard or PlayerGuard
-    if (unit->isMoving() && (abs(unit->getVelocityX()) > 0.001 || abs(unit->getVelocityY()) > 0.001)
-        && unit->getOrder() != BWAPI::Orders::Guard && unit->getOrder() != BWAPI::Orders::PlayerGuard)
+    if (bwapiUnit->isMoving() && (abs(bwapiUnit->getVelocityX()) > 0.001 || abs(bwapiUnit->getVelocityY()) > 0.001)
+        && bwapiUnit->getOrder() != BWAPI::Orders::Guard && bwapiUnit->getOrder() != BWAPI::Orders::PlayerGuard)
     {
         return false;
     }
 
     // Otherwise force resend the last move command unless we recently did so
-    if ((BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame()) >= (BWAPI::Broodwar->getLatencyFrames() + 3))
+    if ((BWAPI::Broodwar->getFrameCount() - bwapiUnit->getLastCommandFrame()) >= (BWAPI::Broodwar->getLatencyFrames() + 3))
     {
         move(currentCommand.getTargetPosition(), true);
     }

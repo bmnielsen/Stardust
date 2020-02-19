@@ -16,34 +16,34 @@
  * - Retreating individual hurt units
  */
 
-void UnitCluster::attack(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> &unitsAndTargets, BWAPI::Position targetPosition)
+void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition)
 {
     // Micro each unit
     for (auto &unitAndTarget : unitsAndTargets)
     {
-        auto &myUnit = Units::getMine(unitAndTarget.first);
+        auto &myUnit = unitAndTarget.first;
 
         // If the unit is stuck, unstick it
-        if (myUnit.unstick()) continue;
+        if (myUnit->unstick()) continue;
 
         // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
-        if (!myUnit.isReady()) continue;
+        if (!myUnit->isReady()) continue;
 
         // Attack target
         if (unitAndTarget.second)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first) << "Target: " << unitAndTarget.second->type << " @ "
+            CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
                                                 << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
 #endif
-            myUnit.attackUnit(unitAndTarget.second->unit);
+            myUnit->attackUnit(unitAndTarget.second);
         }
         else
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first) << "No target: move to " << BWAPI::WalkPosition(targetPosition);
+            CherryVis::log(unitAndTarget.first->id) << "No target: move to " << BWAPI::WalkPosition(targetPosition);
 #endif
-            myUnit.moveTo(targetPosition);
+            myUnit->moveTo(targetPosition);
         }
     }
 }

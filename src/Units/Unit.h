@@ -1,29 +1,36 @@
 #pragma once
 
+#include <utility>
+
 #include "Common.h"
+
+class UnitImpl;
+
+typedef std::shared_ptr<UnitImpl> Unit;
 
 struct UpcomingAttack
 {
-    BWAPI::Unit attacker;
+    Unit attacker;
     BWAPI::Bullet bullet;
     int bulletId;
     int damage;
 
-    UpcomingAttack(BWAPI::Unit attacker, BWAPI::Bullet bullet, int damage)
-            : attacker(attacker)
+    UpcomingAttack(Unit attacker, BWAPI::Bullet bullet, int damage)
+            : attacker(std::move(attacker))
             , bullet(bullet)
             , bulletId(bullet ? bullet->getID() : -1)
             , damage(damage) {}
 };
 
-class Unit
+class UnitImpl
 {
 public:
 
-    BWAPI::Unit unit;               // Reference to the unit
+    BWAPI::Unit bwapiUnit;               // Reference to the unit
     BWAPI::Player player;             // Player owning the unit
     int tilePositionX;      // X coordinate of the tile position
     int tilePositionY;      // Y coordinate of the tile position
+    BWAPI::TilePosition buildTile; // For landed buildings, the tile position of the build tile (top-left tile)
 
     int lastSeen;                   // Frame the unit was last updated
 
@@ -51,18 +58,46 @@ public:
     std::vector<UpcomingAttack> upcomingAttacks; // List of attacks of this unit that are expected soon
     bool doomed;                     // Whether this unit is likely to be dead after the upcoming attacks are finished
 
-    explicit Unit(BWAPI::Unit unit);
+    explicit UnitImpl(BWAPI::Unit unit);
 
-    virtual ~Unit() = default;
+    virtual ~UnitImpl() = default;
 
     virtual void update(BWAPI::Unit unit);
 
-    void updateLastPositionValidity();
+    void updateUnitInFog();
 
-    void addUpcomingAttack(BWAPI::Unit attacker, BWAPI::Bullet bullet);
+    void addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet);
+
+    /* Information stuff, see Unit_Info.cpp */
+
+    [[nodiscard]] BWAPI::TilePosition getTilePosition() const;
+
+    [[nodiscard]] bool exists() const { return bwapiUnit != nullptr; };
+
+    [[nodiscard]] bool isAttackable() const;
+
+    [[nodiscard]] bool canAttack(const Unit &target) const;
+
+    [[nodiscard]] bool canBeAttackedBy(const Unit &attacker) const;
+
+    [[nodiscard]] bool canAttackGround() const;
+
+    [[nodiscard]] bool canAttackAir() const;
+
+    [[nodiscard]] BWAPI::WeaponType getWeapon(const Unit &target) const;
+
+    [[nodiscard]] bool isInOurWeaponRange(const Unit &target, BWAPI::Position predictedTargetPosition = BWAPI::Positions::Invalid) const;
+
+    [[nodiscard]] bool isInEnemyWeaponRange(const Unit &attacker, BWAPI::Position predictedAttackerPosition = BWAPI::Positions::Invalid) const;
+
+    [[nodiscard]] int getDistance(BWAPI::Position position) const;
+
+    [[nodiscard]] int getDistance(const Unit &other, BWAPI::Position predictedOtherPosition = BWAPI::Positions::Invalid) const;
+
+    [[nodiscard]] BWAPI::Position predictPosition(int frames) const;
+
+    [[nodiscard]] BWAPI::Position intercept(const Unit &target) const;
 
 private:
     void updateGrid(BWAPI::Unit unit);
-
-    void computeCompletionFrame(BWAPI::Unit unit);
 };

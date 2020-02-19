@@ -1,6 +1,8 @@
 #include "Units.h"
 #include "Geo.h"
 #include "Players.h"
+#include "Workers.h"
+#include "Map.h"
 #include "MyDragoon.h"
 #include "MyWorker.h"
 
@@ -8,19 +10,80 @@ namespace Units
 {
     namespace
     {
-        std::map<BWAPI::Unit, std::shared_ptr<Unit>> bwapiUnitToUnit;
-        std::map<BWAPI::Player, std::set<std::shared_ptr<Unit>>> playerToUnits;
+        std::set<MyUnit> myUnits;
+        std::set<Unit> enemyUnits;
 
-        std::map<BWAPI::UnitType, std::set<BWAPI::Unit>> myCompletedUnitsByType;
-        std::map<BWAPI::UnitType, std::set<BWAPI::Unit>> myIncompleteUnitsByType;
+        std::map<int, MyUnit> unitIdToMyUnit;
+        std::map<int, Unit> unitIdToEnemyUnit;
+
+        std::map<BWAPI::UnitType, std::set<MyUnit>> myCompletedUnitsByType;
+        std::map<BWAPI::UnitType, std::set<MyUnit>> myIncompleteUnitsByType;
 
         std::set<BWAPI::UpgradeType> upgradesInProgress;
+
+        void unitCreated(const Unit &unit)
+        {
+            Map::onUnitCreated(unit);
+            // TODO: Send events
+
+            if (unit->player == BWAPI::Broodwar->self())
+            {
+                Log::Get() << "Unit created: " << unit->type << " @ " << unit->getTilePosition();
+            }
+
+            if (unit->player == BWAPI::Broodwar->enemy())
+            {
+                Log::Get() << "Enemy discovered: " << unit->type << " @ " << unit->getTilePosition();
+            }
+        }
+
+        void unitDestroyed(const Unit &unit)
+        {
+            if (unit->lastPositionValid)
+            {
+                Players::grid(unit->player).unitDestroyed(unit->type, unit->lastPosition, unit->completed);
+#if DEBUG_GRID_UPDATES
+                CherryVis::log(unit->id) << "Grid::unitDestroyed " << unit->lastPosition;
+#endif
+            }
+
+            Map::onUnitDestroy(unit);
+            Workers::onUnitDestroy(unit);
+            // TODO: Send events
+
+            unit->bwapiUnit = nullptr; // Signals to all holding a copy of the pointer that this unit is dead
+        }
+
+        void myUnitDestroyed(const MyUnit &unit)
+        {
+            Log::Get() << "Unit lost: " << unit->type << " @ " << unit->getTilePosition();
+
+            unitDestroyed(unit);
+
+            myCompletedUnitsByType[unit->type].erase(unit);
+            myIncompleteUnitsByType[unit->type].erase(unit);
+
+            myUnits.erase(unit);
+            unitIdToMyUnit.erase(unit->id);
+        }
+
+        void enemyUnitDestroyed(const Unit &unit)
+        {
+            Log::Get() << "Enemy destroyed: " << unit->type << " @ " << unit->getTilePosition();
+
+            unitDestroyed(unit);
+
+            enemyUnits.erase(unit);
+            unitIdToEnemyUnit.erase(unit->id);
+        }
     }
 
     void initialize()
     {
-        bwapiUnitToUnit.clear();
-        playerToUnits.clear();
+        myUnits.clear();
+        enemyUnits.clear();
+        unitIdToMyUnit.clear();
+        unitIdToEnemyUnit.clear();
         myCompletedUnitsByType.clear();
         myIncompleteUnitsByType.clear();
         upgradesInProgress.clear();
@@ -30,153 +93,198 @@ namespace Units
     {
         upgradesInProgress.clear();
 
-        // Update all units
-        for (auto player : BWAPI::Broodwar->getPlayers())
+        // Update our units
+        // We always have vision of our own units, so we don't have to handle units in fog
+        for (auto bwapiUnit : BWAPI::Broodwar->self()->getUnits())
         {
-            // Ignore neutral units
-            if (player->isNeutral()) continue;
-
-            // First handle units that are gone from the last recorded position
-            // We don't need to do this for allied players, as we can see their units
-            if (!player->isAlly(BWAPI::Broodwar->self()))
+            // If we just mind controlled an enemy unit, consider the enemy unit destroyed
+            auto enemyIt = unitIdToEnemyUnit.find(bwapiUnit->getID());
+            if (enemyIt != unitIdToEnemyUnit.end())
             {
-                for (const auto &unit : getForPlayer(player))
-                {
-                    unit->updateLastPositionValidity();
-                }
+                enemyUnitDestroyed(enemyIt->second);
             }
 
-            // Now update all the units we can see
-            for (auto unit : player->getUnits())
+            // Create or update
+            MyUnit unit;
+            auto it = unitIdToMyUnit.find(bwapiUnit->getID());
+            if (it == unitIdToMyUnit.end())
             {
-                // Our own units are added to some maps
-                if (player == BWAPI::Broodwar->self())
+                if (bwapiUnit->getType().isWorker())
                 {
-                    if (unit->isCompleted())
-                    {
-                        myCompletedUnitsByType[unit->getType()].insert(unit);
-                        myIncompleteUnitsByType[unit->getType()].erase(unit);
-                    }
-                    else
-                        myIncompleteUnitsByType[unit->getType()].insert(unit);
-
-                    if (unit->isUpgrading())
-                    {
-                        upgradesInProgress.insert(unit->getUpgrade());
-                    }
+                    unit = std::make_shared<MyWorker>(bwapiUnit);
                 }
-
-                auto &entry = get(unit);
-                entry.update(unit);
-                entry.tilePositionX = unit->getPosition().x >> 5U;
-                entry.tilePositionY = unit->getPosition().y >> 5U;
-                if (entry.player != player)
+                else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Dragoon)
                 {
-                    auto ptr = bwapiUnitToUnit[unit];
-                    playerToUnits[entry.player].erase(bwapiUnitToUnit[unit]);
-                    playerToUnits[player].insert(ptr);
-                    entry.player = player;
+                    unit = std::make_shared<MyDragoon>(bwapiUnit);
                 }
+                else
+                {
+                    unit = std::make_shared<MyUnitImpl>(bwapiUnit);
+                }
+                myUnits.insert(unit);
+                unitIdToMyUnit.emplace(unit->id, unit);
+
+                unitCreated(unit);
+            }
+            else
+            {
+                unit = it->second;
+                unit->update(bwapiUnit);
+            }
+
+            if (unit->completed)
+            {
+                myCompletedUnitsByType[unit->type].insert(unit);
+                myIncompleteUnitsByType[unit->type].erase(unit);
+            }
+            else
+                myIncompleteUnitsByType[unit->type].insert(unit);
+
+            if (bwapiUnit->isUpgrading())
+            {
+                upgradesInProgress.insert(bwapiUnit->getUpgrade());
             }
         }
 
-        for (auto unit : BWAPI::Broodwar->self()->getUnits())
+        // Update visible enemy units
+        for (auto bwapiUnit : BWAPI::Broodwar->enemy()->getUnits())
+        {
+            // If the enemy just mind controlled one of our units, consider our unit destroyed
+            auto myIt = unitIdToMyUnit.find(bwapiUnit->getID());
+            if (myIt != unitIdToMyUnit.end())
+            {
+                myUnitDestroyed(myIt->second);
+            }
+
+            // Create or update
+            Unit unit;
+            auto it = unitIdToEnemyUnit.find(bwapiUnit->getID());
+            if (it == unitIdToEnemyUnit.end())
+            {
+                unit = std::make_shared<UnitImpl>(bwapiUnit);
+                enemyUnits.insert(unit);
+                unitIdToEnemyUnit.emplace(unit->id, unit);
+
+                unitCreated(unit);
+            }
+            else
+            {
+                unit = it->second;
+                unit->update(bwapiUnit);
+            }
+        }
+
+        // Update enemy units in the fog
+        std::vector<Unit> destroyedEnemyUnits;
+        for (auto &unit : enemyUnits)
+        {
+            if (unit->lastSeen == BWAPI::Broodwar->getFrameCount()) continue;
+
+            // If the unit is a building, check if it has been destroyed
+            if (unit->type.isBuilding() && !unit->type.isFlyingBuilding() && BWAPI::Broodwar->isVisible(unit->tilePositionX, unit->tilePositionY))
+            {
+                destroyedEnemyUnits.push_back(unit);
+                continue;
+            }
+
+            unit->updateUnitInFog();
+        }
+        for (auto &unit : destroyedEnemyUnits)
+        { enemyUnitDestroyed(unit); }
+
+        // Output debug info for our own units
+        for (auto &unit : myUnits)
         {
             bool output = false;
 #if DEBUG_PROBE_STATUS
-            output = output || unit->getType() == BWAPI::UnitTypes::Protoss_Probe;
+            output = output || unit->type == BWAPI::UnitTypes::Protoss_Probe;
 #endif
 #if DEBUG_ZEALOT_STATUS
-            output = output || unit->getType() == BWAPI::UnitTypes::Protoss_Zealot;
+            output = output || unit->type == BWAPI::UnitTypes::Protoss_Zealot;
 #endif
 #if DEBUG_DRAGOON_STATUS
-            output = output || unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon;
+            output = output || unit->type == BWAPI::UnitTypes::Protoss_Dragoon;
 #endif
 #if DEBUG_SHUTTLE_STATUS
-            output = output || unit->getType() == BWAPI::UnitTypes::Protoss_Shuttle;
+            output = output || unit->type == BWAPI::UnitTypes::Protoss_Shuttle;
 #endif
 
             if (!output) continue;
 
-            auto &myUnit = getMine(unit);
             std::ostringstream debug;
 
             // First line is command
-            debug << "cmd=" << unit->getLastCommand().getType() << ";f=" << (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame());
-            if (unit->getLastCommand().getTarget())
+            debug << "cmd=" << unit->bwapiUnit->getLastCommand().getType() << ";f="
+                  << (BWAPI::Broodwar->getFrameCount() - unit->bwapiUnit->getLastCommandFrame());
+            if (unit->bwapiUnit->getLastCommand().getTarget())
             {
-                debug << ";tgt=" << unit->getLastCommand().getTarget()->getType()
-                      << "#" << unit->getLastCommand().getTarget()->getID()
-                      << "@" << BWAPI::WalkPosition(unit->getLastCommand().getTarget()->getPosition())
-                      << ";d=" << unit->getLastCommand().getTarget()->getDistance(unit);
+                debug << ";tgt=" << unit->bwapiUnit->getLastCommand().getTarget()->getType()
+                      << "#" << unit->bwapiUnit->getLastCommand().getTarget()->getID()
+                      << "@" << BWAPI::WalkPosition(unit->bwapiUnit->getLastCommand().getTarget()->getPosition())
+                      << ";d=" << unit->bwapiUnit->getLastCommand().getTarget()->getDistance(unit->bwapiUnit);
             }
-            else if (unit->getLastCommand().getTargetPosition())
+            else if (unit->bwapiUnit->getLastCommand().getTargetPosition())
             {
-                debug << ";tgt=" << BWAPI::WalkPosition(unit->getLastCommand().getTargetPosition());
+                debug << ";tgt=" << BWAPI::WalkPosition(unit->bwapiUnit->getLastCommand().getTargetPosition());
             }
 
             // Next line is order
-            debug << "\nord=" << unit->getOrder() << ";t=" << unit->getOrderTimer();
-            if (unit->getOrderTarget())
+            debug << "\nord=" << unit->bwapiUnit->getOrder() << ";t=" << unit->bwapiUnit->getOrderTimer();
+            if (unit->bwapiUnit->getOrderTarget())
             {
-                debug << ";tgt=" << unit->getOrderTarget()->getType()
-                      << "#" << unit->getOrderTarget()->getID()
-                      << "@" << BWAPI::WalkPosition(unit->getOrderTarget()->getPosition())
-                      << ";d=" << unit->getOrderTarget()->getDistance(unit);
+                debug << ";tgt=" << unit->bwapiUnit->getOrderTarget()->getType()
+                      << "#" << unit->bwapiUnit->getOrderTarget()->getID()
+                      << "@" << BWAPI::WalkPosition(unit->bwapiUnit->getOrderTarget()->getPosition())
+                      << ";d=" << unit->bwapiUnit->getOrderTarget()->getDistance(unit->bwapiUnit);
             }
-            else if (unit->getOrderTargetPosition())
+            else if (unit->bwapiUnit->getOrderTargetPosition())
             {
-                debug << ";tgt=" << BWAPI::WalkPosition(unit->getOrderTargetPosition());
+                debug << ";tgt=" << BWAPI::WalkPosition(unit->bwapiUnit->getOrderTargetPosition());
             }
 
             // Last line is movement data and other unit-specific stuff
             debug << "\n";
-            if (unit->getType().topSpeed() > 0.001)
+            if (unit->type.topSpeed() > 0.001)
             {
-                auto speed = sqrt(unit->getVelocityX() * unit->getVelocityX() + unit->getVelocityY() * unit->getVelocityY());
-                debug << "spd=" << ((int) (100.0 * speed / unit->getType().topSpeed()));
+                auto speed = sqrt(unit->bwapiUnit->getVelocityX() * unit->bwapiUnit->getVelocityX()
+                                  + unit->bwapiUnit->getVelocityY() * unit->bwapiUnit->getVelocityY());
+                debug << "spd=" << ((int) (100.0 * speed / unit->type.topSpeed()));
             }
 
-            debug << ";mvng=" << unit->isMoving() << ";rdy=" << myUnit.isReady()
-                  << ";cdn=" << (myUnit.cooldownUntil - BWAPI::Broodwar->getFrameCount());
+            debug << ";mvng=" << unit->bwapiUnit->isMoving() << ";rdy=" << unit->isReady()
+                  << ";cdn=" << (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
 
-            if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon)
+            if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon)
             {
-                auto &myDragoon = dynamic_cast<MyDragoon &>(myUnit);
-                debug << ";atckf=" << (BWAPI::Broodwar->getFrameCount() - myDragoon.getLastAttackStartedAt());
+                auto myDragoon = std::dynamic_pointer_cast<MyDragoon>(unit);
+                debug << ";atckf=" << (BWAPI::Broodwar->getFrameCount() - myDragoon->getLastAttackStartedAt());
             }
 
-            CherryVis::log(unit) << debug.str();
+            CherryVis::log(unit->id) << debug.str();
         }
     }
 
     void issueOrders()
     {
-        for (auto unit : BWAPI::Broodwar->self()->getUnits())
+        for (auto &unit : myUnits)
         {
-            getMine(unit).issueMoveOrders();
+            unit->issueMoveOrders();
         }
     }
 
     void onUnitDestroy(BWAPI::Unit unit)
     {
-        auto it = bwapiUnitToUnit.find(unit);
-        if (it != bwapiUnitToUnit.end())
+        auto it = unitIdToMyUnit.find(unit->getID());
+        if (it != unitIdToMyUnit.end())
         {
-            if (it->second->lastPositionValid)
-            {
-                Players::grid(it->second->player).unitDestroyed(it->second->type, it->second->lastPosition, it->second->completed);
-#if DEBUG_GRID_UPDATES
-                CherryVis::log(unit) << "Grid::unitDestroyed " << it->second->lastPosition;
-#endif
-            }
-
-            playerToUnits[unit->getPlayer()].erase(it->second);
-            bwapiUnitToUnit.erase(it);
+            myUnitDestroyed(it->second);
         }
 
-        myCompletedUnitsByType[unit->getType()].erase(unit);
-        myIncompleteUnitsByType[unit->getType()].erase(unit);
+        auto enemyIt = unitIdToEnemyUnit.find(unit->getID());
+        if (enemyIt != unitIdToEnemyUnit.end())
+        {
+            enemyUnitDestroyed(enemyIt->second);
+        }
     }
 
     void onBulletCreate(BWAPI::Bullet bullet)
@@ -199,77 +307,78 @@ namespace Units
             bullet->getType() == BWAPI::BulletTypes::Halo_Rockets ||            // Valkyrie
             bullet->getType() == BWAPI::BulletTypes::Subterranean_Spines)       // Lurker
         {
-            auto &target = get(bullet->getTarget());
-            target.addUpcomingAttack(bullet->getSource(), bullet);
+            auto target = get(bullet->getTarget());
+            auto source = get(bullet->getSource());
+            if (target) target->addUpcomingAttack(source, bullet);
         }
     }
 
-    MyUnit &getMine(BWAPI::Unit unit)
+    Unit get(BWAPI::Unit unit)
     {
-        return dynamic_cast<MyUnit &>(get(unit));
-    }
+        if (!unit) return nullptr;
 
-    Unit &get(BWAPI::Unit unit)
-    {
-        auto it = bwapiUnitToUnit.find(unit);
-        if (it != bwapiUnitToUnit.end())
-            return *it->second;
-
-        std::shared_ptr<Unit> newUnit;
-        if (unit->getPlayer() == BWAPI::Broodwar->self())
+        auto it = unitIdToMyUnit.find(unit->getID());
+        if (it != unitIdToMyUnit.end())
         {
-            if (unit->getType().isWorker())
-            {
-                newUnit = std::make_shared<MyWorker>(unit);
-            }
-            else if (unit->getType() == BWAPI::UnitTypes::Protoss_Dragoon)
-            {
-                newUnit = std::make_shared<MyDragoon>(unit);
-            }
-            else
-            {
-                newUnit = std::make_shared<MyUnit>(unit);
-            }
+            return it->second;
         }
-        else
+
+        auto enemyIt = unitIdToEnemyUnit.find(unit->getID());
+        if (enemyIt != unitIdToEnemyUnit.end())
         {
-            newUnit = std::make_shared<Unit>(unit);
+            return it->second;
         }
 
-        bwapiUnitToUnit.emplace(unit, newUnit);
-        playerToUnits[unit->getPlayer()].emplace(newUnit);
-
-        if (unit->getPlayer() == BWAPI::Broodwar->enemy())
-        {
-            Log::Get() << "Enemy discovered: " << unit->getType() << " @ " << unit->getTilePosition();
-        }
-
-        return *newUnit;
+        return nullptr;
     }
 
-    std::set<std::shared_ptr<Unit>> &getForPlayer(BWAPI::Player player)
+    MyUnit mine(BWAPI::Unit unit)
     {
-        return playerToUnits[player];
+        auto it = unitIdToMyUnit.find(unit->getID());
+        if (it != unitIdToMyUnit.end())
+        {
+            return it->second;
+        }
+
+        return nullptr;
     }
 
-    void get(std::set<std::shared_ptr<Unit>> &units,
-             BWAPI::Player player,
-             const std::function<bool(const std::shared_ptr<Unit> &)> &predicate)
+    std::set<MyUnit> &allMine()
     {
-        for (auto &unit : playerToUnits[player])
+        return myUnits;
+    }
+
+    std::set<Unit> &allEnemy()
+    {
+        return enemyUnits;
+    }
+
+    void mine(std::set<MyUnit> &units,
+              const std::function<bool(const MyUnit &)> &predicate)
+    {
+        for (auto &unit : myUnits)
         {
             if (predicate && !predicate(unit)) continue;
             units.insert(unit);
         }
     }
 
-    void getInRadius(std::set<std::shared_ptr<Unit>> &units,
-                     BWAPI::Player player,
-                     BWAPI::Position position,
-                     int radius,
-                     const std::function<bool(const std::shared_ptr<Unit> &)> &predicate)
+    void enemy(std::set<Unit> &units,
+               const std::function<bool(const Unit &)> &predicate)
     {
-        for (auto &unit : playerToUnits[player])
+        for (auto &unit : enemyUnits)
+        {
+            if (predicate && !predicate(unit)) continue;
+            units.insert(unit);
+        }
+    }
+
+    void enemyInRadius(std::set<Unit> &units,
+                       BWAPI::Position position,
+                       int radius,
+                       const std::function<bool(const Unit &)> &predicate)
+    {
+        for (auto &unit : enemyUnits)
         {
             if (predicate && !predicate(unit)) continue;
             if (unit->lastPositionValid && unit->lastPosition.getApproxDistance(position) <= radius)
@@ -277,12 +386,11 @@ namespace Units
         }
     }
 
-    void getInArea(std::set<std::shared_ptr<Unit>> &units,
-                   BWAPI::Player player,
-                   const BWEM::Area *area,
-                   const std::function<bool(const std::shared_ptr<Unit> &)> &predicate)
+    void enemyInArea(std::set<Unit> &units,
+                     const BWEM::Area *area,
+                     const std::function<bool(const Unit &)> &predicate)
     {
-        for (auto &unit : playerToUnits[player])
+        for (auto &unit : enemyUnits)
         {
             if (predicate && !predicate(unit)) continue;
             if (unit->lastPositionValid && BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)

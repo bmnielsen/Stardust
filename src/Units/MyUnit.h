@@ -7,12 +7,12 @@
 #include "PathFinding.h"
 #include "Unit.h"
 
-class MyUnit : public Unit
+class MyUnitImpl : public UnitImpl
 {
 public:
-    explicit MyUnit(BWAPI::Unit unit);
+    explicit MyUnitImpl(BWAPI::Unit unit);
 
-    virtual ~MyUnit() = default;
+    ~MyUnitImpl() override = default;
 
     void update(BWAPI::Unit unit) override;
 
@@ -20,9 +20,9 @@ public:
 
     bool moveTo(BWAPI::Position position);
 
-    virtual void attackUnit(BWAPI::Unit target);
+    virtual void attackUnit(Unit target);
 
-    virtual bool isReady() const { return true; };
+    [[nodiscard]] virtual bool isReady() const { return true; };
 
     virtual bool unstick();
 
@@ -38,7 +38,17 @@ public:
 
     bool build(BWAPI::UnitType type, BWAPI::TilePosition tile);
 
+    bool train(BWAPI::UnitType type);
+
+    bool upgrade(BWAPI::UpgradeType type);
+
     void stop();
+
+    void cancelConstruction();
+
+    void load(BWAPI::Unit cargo);
+
+    void unloadAll();
 
 protected:
     bool issuedOrderThisFrame;
@@ -66,3 +76,7 @@ protected:
 
     virtual bool mineralWalk(const Choke *choke) { return false; }
 };
+
+typedef std::shared_ptr<MyUnitImpl> MyUnit;
+
+std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit);

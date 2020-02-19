@@ -46,7 +46,8 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
 
         chokeData.requiresMineralWalk = true;
 
-        auto closestArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(closestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
+        auto closestArea = BWEM::Map::Instance().GetNearestArea(
+                BWAPI::WalkPosition(closestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
         auto secondClosestArea = BWEM::Map::Instance().GetNearestArea(
                 BWAPI::WalkPosition(secondClosestMineralPatch->getTilePosition()) + BWAPI::WalkPosition(4, 2));
         if (closestArea == choke->GetAreas().second &&

@@ -17,26 +17,28 @@ namespace Units
 
     void onBulletCreate(BWAPI::Bullet bullet);
 
-    Unit &get(BWAPI::Unit unit);
+    Unit get(BWAPI::Unit unit);
 
-    std::set<std::shared_ptr<Unit>> &getForPlayer(BWAPI::Player player);
+    MyUnit mine(BWAPI::Unit unit);
 
-    void get(std::set<std::shared_ptr<Unit>> &units,
-             BWAPI::Player player,
-             const std::function<bool(const std::shared_ptr<Unit> &)> &predicate = nullptr);
+    std::set<MyUnit> &allMine();
 
-    void getInRadius(std::set<std::shared_ptr<Unit>> &units,
-                     BWAPI::Player player,
-                     BWAPI::Position position,
-                     int radius,
-                     const std::function<bool(const std::shared_ptr<Unit> &)> &predicate = nullptr);
+    std::set<Unit> &allEnemy();
 
-    void getInArea(std::set<std::shared_ptr<Unit>> &units,
-                   BWAPI::Player player,
-                   const BWEM::Area *area,
-                   const std::function<bool(const std::shared_ptr<Unit> &)> &predicate = nullptr);
+    void mine(std::set<MyUnit> &units,
+              const std::function<bool(const MyUnit &)> &predicate = nullptr);
 
-    MyUnit &getMine(BWAPI::Unit unit);
+    void enemy(std::set<Unit> &units,
+               const std::function<bool(const Unit &)> &predicate = nullptr);
+
+    void enemyInRadius(std::set<Unit> &units,
+                       BWAPI::Position position,
+                       int radius,
+                       const std::function<bool(const Unit &)> &predicate = nullptr);
+
+    void enemyInArea(std::set<Unit> &units,
+                     const BWEM::Area *area,
+                     const std::function<bool(const Unit &)> &predicate = nullptr);
 
     int countAll(BWAPI::UnitType type);
 

@@ -189,24 +189,23 @@ namespace Map
         // - We keep track of the resource depot itself when we see it, so if two players have buildings in the same base,
         //   the player owning the resource depot is considered to be the owner of the base
         // - We infer unknown start positions if we see buildings nearby
-        void inferBaseOwnershipFromUnitCreated(BWAPI::Unit unit)
+        void inferBaseOwnershipFromUnitCreated(const Unit &unit)
         {
             // Only consider non-neutral buildings
-            if (!unit->getType().isBuilding() && !unit->getType().isAddon()) return;
-            if (unit->getPlayer()->isNeutral()) return;
+            if (!unit->type.isBuilding() && !unit->type.isAddon()) return;
 
             // Check if there is a base near the building
-            auto nearbyBase = baseNear(unit->getPosition());
+            auto nearbyBase = baseNear(unit->lastPosition);
             if (nearbyBase)
             {
                 // Is this unit a resource depot that is closer than the existing resource depot registered for this base?
                 bool isCloserDepot = false;
-                if (unit->getType().isResourceDepot())
+                if (unit->type.isResourceDepot())
                 {
                     if (nearbyBase->resourceDepot && nearbyBase->resourceDepot->exists())
                     {
-                        int existingDist = nearbyBase->resourceDepot->getPosition().getApproxDistance(nearbyBase->getPosition());
-                        int newDist = unit->getPosition().getApproxDistance(nearbyBase->getPosition());
+                        int existingDist = nearbyBase->resourceDepot->lastPosition.getApproxDistance(nearbyBase->getPosition());
+                        int newDist = unit->lastPosition.getApproxDistance(nearbyBase->getPosition());
                         isCloserDepot = newDist < existingDist;
                     }
                     else
@@ -216,21 +215,21 @@ namespace Map
                 // If the base was previously unowned, or this is a closer depot, change the ownership
                 if (!nearbyBase->owner || isCloserDepot)
                 {
-                    setBaseOwner(nearbyBase, unit->getPlayer());
+                    setBaseOwner(nearbyBase, unit->player);
 
                     if (isCloserDepot)
                     {
                         nearbyBase->resourceDepot = unit;
-                        if (unit->getPlayer() == BWAPI::Broodwar->self())
+                        if (unit->player == BWAPI::Broodwar->self())
                         {
-                            unit->setRallyPoint(nearbyBase->mineralLineCenter);
+                            unit->bwapiUnit->setRallyPoint(nearbyBase->mineralLineCenter);
                         }
                     }
                 }
             }
 
             // If we haven't found the player's main base yet, determine if this building infers the start location
-            auto &playerBases = playerToPlayerBases[unit->getPlayer()];
+            auto &playerBases = playerToPlayerBases[unit->player];
             if (!playerBases.startingMain)
             {
                 for (auto startingLocationBase : startingLocationBases)
@@ -238,13 +237,13 @@ namespace Map
                     if (startingLocationBase->owner) continue;
 
                     int dist = PathFinding::GetGroundDistance(
-                            unit->getPosition(),
+                            unit->lastPosition,
                             startingLocationBase->getPosition(),
                             BWAPI::UnitTypes::Protoss_Probe,
                             PathFinding::PathFindingOptions::UseNearestBWEMArea);
                     if (dist != -1 && dist < 1500)
                     {
-                        setBaseOwner(startingLocationBase, unit->getPlayer());
+                        setBaseOwner(startingLocationBase, unit->player);
                         break;
                     }
                 }
@@ -254,29 +253,43 @@ namespace Map
         // Given a newly-destroyed building, determine whether it infers something about base ownership.
         // If the lost unit is a building near a base owned by the unit's owner, change the base ownership
         // if the player has no buildings left near the base.
-        void inferBaseOwnershipFromUnitDestroyed(BWAPI::Unit unit)
+        void inferBaseOwnershipFromUnitDestroyed(Unit unit)
         {
-            // Only consider buildings or vespene geysers
-            if (unit->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser && !unit->getType().isBuilding() && !unit->getType().isAddon()) return;
+            // Only consider buildings
+            if (!unit->type.isBuilding()) return;
 
             // Ensure there is an owned base near the building
-            auto nearbyBase = baseNear(unit->getPosition());
+            auto nearbyBase = baseNear(unit->lastPosition);
             if (!nearbyBase || !nearbyBase->owner) return;
 
             // Ignore if the building wasn't owned by the base owner
-            // Exception: geysers (they come from morph)
-            if (unit->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser && nearbyBase->owner != unit->getPlayer())
+            if (nearbyBase->owner != unit->player)
             {
                 return;
             }
 
             // If the player still has a building near the base, don't update ownership
-            for (auto &otherUnit : Units::getForPlayer(nearbyBase->owner))
+            auto isNearbyBuilding = [&unit, &nearbyBase](const Unit &other)
             {
-                if (otherUnit->id == unit->getID()) continue;
-                if (!otherUnit->type.isBuilding() && !otherUnit->type.isAddon()) continue;
-                if (!otherUnit->lastPositionValid) continue;
-                if (nearbyBase->getPosition().getApproxDistance(otherUnit->lastPosition) < 320) return;
+                if (other->id == unit->id) return false;
+                if (!other->type.isBuilding()) return false;
+                if (!other->lastPositionValid) return false;
+                return nearbyBase->getPosition().getApproxDistance(other->lastPosition) < 320;
+            };
+
+            if (nearbyBase->owner == BWAPI::Broodwar->self())
+            {
+                for (auto &other : Units::allMine())
+                {
+                    if (isNearbyBuilding(other)) return;
+                }
+            }
+            else
+            {
+                for (auto &other : Units::allEnemy())
+                {
+                    if (isNearbyBuilding(other)) return;
+                }
             }
 
             // The player has lost the base
@@ -618,18 +631,46 @@ namespace Map
         update();
     }
 
-    void onUnitDiscover(BWAPI::Unit unit)
+    void onUnitCreated(const Unit &unit)
     {
         // Whenever we see a new building, determine if it infers a change in base ownership
         inferBaseOwnershipFromUnitCreated(unit);
 
         // Units that affect tile walkability
         // Skip on frame 0, since we handle static neutrals and our base explicitly
-        if (BWAPI::Broodwar->getFrameCount() > 0 && (unit->getType().isMineralField() || unit->getType().isBuilding()))
+        if (BWAPI::Broodwar->getFrameCount() > 0 && unit->type.isBuilding())
+        {
+            tileWalkabilityUpdated = updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), false);
+
+            if (tileWalkabilityUpdated) PathFinding::addBlockingObject(unit->type, unit->getTilePosition());
+        }
+
+        // FIXME: Check tile walkability for mineral fields
+    }
+
+    void onUnitDiscover(BWAPI::Unit unit)
+    {
+        // Update tile walkability for discovered mineral fields
+        // TODO: Is this even needed?
+        if (BWAPI::Broodwar->getFrameCount() > 0 && unit->getType().isMineralField())
         {
             tileWalkabilityUpdated = updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), false);
 
             if (tileWalkabilityUpdated) PathFinding::addBlockingObject(unit->getType(), unit->getTilePosition());
+        }
+    }
+
+    void onUnitDestroy(const Unit &unit)
+    {
+        // Whenever a building is lost, determine if it infers a change in base ownership
+        inferBaseOwnershipFromUnitDestroyed(unit);
+
+        // Units that affect tile walkability
+        if (unit->type.isBuilding())
+        {
+            tileWalkabilityUpdated = updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), true);
+
+            if (tileWalkabilityUpdated) PathFinding::removeBlockingObject(unit->type, unit->getTilePosition());
         }
     }
 
@@ -640,30 +681,12 @@ namespace Map
         else if (unit->getType().isSpecialBuilding())
             BWEM::Map::Instance().OnStaticBuildingDestroyed(unit);
 
-        // Whenever a building is lost, determine if it infers a change in base ownership
-        inferBaseOwnershipFromUnitDestroyed(unit);
-
         // Units that affect tile walkability
         if (unit->getType().isMineralField() || unit->getType().isBuilding())
         {
             tileWalkabilityUpdated = updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), true);
 
             if (tileWalkabilityUpdated) PathFinding::removeBlockingObject(unit->getType(), unit->getTilePosition());
-        }
-    }
-
-    void onUnitMorph(BWAPI::Unit unit)
-    {
-        // If the unit is a geyser, a refinery has just been destroyed
-        if (unit->getType() == BWAPI::UnitTypes::Resource_Vespene_Geyser)
-        {
-            inferBaseOwnershipFromUnitDestroyed(unit);
-        }
-
-        // If the unit is a refinery, it has just been created
-        if (unit->getType().isRefinery())
-        {
-            inferBaseOwnershipFromUnitCreated(unit);
         }
     }
 

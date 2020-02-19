@@ -13,8 +13,8 @@ void MopUpSquad::execute(UnitCluster &cluster)
 {
     // If there are enemy units near the cluster, attack them
     // TODO: Refactor so we can use the same code as in AttackBaseSquad (combat sim, etc.)
-    std::set<std::shared_ptr<Unit>> enemyUnits;
-    Units::getInRadius(enemyUnits, BWAPI::Broodwar->enemy(), cluster.center, 480);
+    std::set<Unit> enemyUnits;
+    Units::enemyInRadius(enemyUnits, cluster.center, 480);
     if (!enemyUnits.empty())
     {
         auto unitsAndTargets = cluster.selectTargets(enemyUnits, cluster.center);
@@ -25,7 +25,7 @@ void MopUpSquad::execute(UnitCluster &cluster)
     // Search for the closest known enemy building to the cluster
     int closestDist = INT_MAX;
     BWAPI::Position closestPosition = BWAPI::Positions::Invalid;
-    for (auto &enemyUnit : Units::getForPlayer(BWAPI::Broodwar->enemy()))
+    for (auto &enemyUnit : Units::allEnemy())
     {
         if (!enemyUnit->type.isBuilding()) continue;
         if (!enemyUnit->lastPositionValid || !enemyUnit->lastPosition.isValid()) continue;

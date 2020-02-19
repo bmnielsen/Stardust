@@ -6,7 +6,7 @@
 class SaturateBases : public Play
 {
 public:
-    const char *label() const override { return "SaturateBases"; }
+    [[nodiscard]] const char *label() const override { return "SaturateBases"; }
 
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 };

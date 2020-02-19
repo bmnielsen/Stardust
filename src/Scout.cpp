@@ -10,7 +10,7 @@ namespace Scout
     namespace
     {
         ScoutingMode scoutingMode;
-        BWAPI::Unit workerScout;
+        MyUnit workerScout;
         Base *targetBase;
 
         void assignWorkerScout()
@@ -33,8 +33,8 @@ namespace Scout
 
             // Find the available worker closest to any of these bases
             int bestTravelTime = INT_MAX;
-            BWAPI::Unit bestWorker = nullptr;
-            for (auto &unit : BWAPI::Broodwar->self()->getUnits())
+            MyUnit bestWorker = nullptr;
+            for (auto &unit : Units::allMine())
             {
                 if (!Workers::isAvailableForReassignment(unit, false)) continue;
 
@@ -42,9 +42,9 @@ namespace Scout
                 for (auto base : locations)
                 {
                     int travelTime =
-                            PathFinding::ExpectedTravelTime(unit->getPosition(),
+                            PathFinding::ExpectedTravelTime(unit->lastPosition,
                                                             base->getPosition(),
-                                                            unit->getType(),
+                                                            unit->type,
                                                             PathFinding::PathFindingOptions::UseNearestBWEMArea);
                     if (travelTime != -1 && travelTime < unitBestTravelTime)
                     {
@@ -78,9 +78,9 @@ namespace Scout
             for (auto base : Map::unscoutedStartingLocations())
             {
                 int travelTime =
-                        PathFinding::ExpectedTravelTime(workerScout->getPosition(),
+                        PathFinding::ExpectedTravelTime(workerScout->lastPosition,
                                                         base->getPosition(),
-                                                        workerScout->getType(),
+                                                        workerScout->type,
                                                         PathFinding::PathFindingOptions::UseNearestBWEMArea);
                 if (travelTime != -1 && travelTime < bestTravelTime)
                 {
@@ -95,9 +95,9 @@ namespace Scout
             if (!targetBase) return;
 
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(workerScout) << "moveTo: Scout base";
+            CherryVis::log(workerScout->id) << "moveTo: Scout base";
 #endif
-            Units::getMine(workerScout).moveTo(targetBase->getPosition());
+            workerScout->moveTo(targetBase->getPosition());
         }
 
         void releaseWorkerScout()

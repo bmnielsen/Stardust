@@ -16,10 +16,10 @@ namespace WorkerOrderTimer
             PositionAndVelocity(BWAPI::Position position, int velocityX, int velocityY)
                     : position(position), velocityX(velocityX), velocityY(velocityY) {}
 
-            PositionAndVelocity(BWAPI::Unit unit)
-                    : position(unit->getPosition())
-                    , velocityX((int) (unit->getVelocityX() * 100.0))
-                    , velocityY((int) (unit->getVelocityY() * 100.0)) {}
+            explicit PositionAndVelocity(const MyUnit &unit)
+                    : position(unit->lastPosition)
+                    , velocityX((int) (unit->bwapiUnit->getVelocityX() * 100.0))
+                    , velocityY((int) (unit->bwapiUnit->getVelocityY() * 100.0)) {}
         };
 
         std::ostream &operator<<(std::ostream &out, const PositionAndVelocity &p)
@@ -36,7 +36,7 @@ namespace WorkerOrderTimer
         }
 
         std::map<BWAPI::Unit, std::set<PositionAndVelocity>> resourceToOptimalOrderPositions;
-        std::map<BWAPI::Unit, std::map<int, PositionAndVelocity>> workerPositionHistory;
+        std::map<MyUnit, std::map<int, PositionAndVelocity>> workerPositionHistory;
 
         std::string resourceOptimalOrderPositionsFilename()
         {
@@ -133,10 +133,10 @@ namespace WorkerOrderTimer
         // TODO: At some point track the order timers to see if we can predict their reset values
     }
 
-    bool optimizeMineralWorker(BWAPI::Unit worker, BWAPI::Unit resource)
+    bool optimizeMineralWorker(const MyUnit &worker, BWAPI::Unit resource)
     {
         // Break out early if the distance is larger than we need to worry about
-        auto dist = worker->getDistance(resource);
+        auto dist = worker->bwapiUnit->getDistance(resource);
         if (dist > 100) return false;
 
         auto &positionHistory = workerPositionHistory[worker];
@@ -171,10 +171,10 @@ namespace WorkerOrderTimer
         PositionAndVelocity currentPositionAndVelocity(worker);
 
         // Check if this worker is at an optimal position to resend the gather order
-        if (worker->getOrder() == BWAPI::Orders::MoveToMinerals &&
+        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals &&
             optimalOrderPositions.find(currentPositionAndVelocity) != optimalOrderPositions.end())
         {
-            Units::getMine(worker).gather(resource);
+            worker->gather(resource);
             positionHistory.emplace(std::make_pair(BWAPI::Broodwar->getFrameCount(), currentPositionAndVelocity));
             return true;
         }

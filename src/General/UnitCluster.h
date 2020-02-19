@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Common.h"
-#include "Unit.h"
+#include "MyUnit.h"
 #include "CombatSimResult.h"
 
 class UnitCluster
@@ -13,29 +13,29 @@ public:
     };
 
     BWAPI::Position center;
-    BWAPI::Unit vanguard;
-    std::set<BWAPI::Unit> units;
+    MyUnit vanguard;
+    std::set<MyUnit> units;
 
     Activity currentActivity;
     int lastActivityChange;
 
-    explicit UnitCluster(BWAPI::Unit unit)
-            : center(unit->getPosition())
+    explicit UnitCluster(const MyUnit &unit)
+            : center(unit->lastPosition)
             , vanguard(unit)
             , currentActivity(Activity::Default)
             , lastActivityChange(0)
-            , area(unit->getType().width() * unit->getType().height())
+            , area(unit->type.width() * unit->type.height())
     {
         units.insert(unit);
     }
 
     virtual ~UnitCluster() = default;
 
-    void addUnit(BWAPI::Unit unit);
+    void addUnit(const MyUnit &unit);
 
-    void removeUnit(BWAPI::Unit unit);
+    void removeUnit(const MyUnit &unit);
 
-    std::set<BWAPI::Unit>::iterator removeUnit(std::set<BWAPI::Unit>::iterator unitIt);
+    std::set<MyUnit>::iterator removeUnit(std::set<MyUnit>::iterator unitIt);
 
     void updatePositions(BWAPI::Position targetPosition);
 
@@ -45,18 +45,18 @@ public:
 
     virtual void regroup(BWAPI::Position regroupPosition);
 
-    std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>>
-    selectTargets(std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition);
+    std::vector<std::pair<MyUnit, Unit>>
+    selectTargets(std::set<Unit> &targets, BWAPI::Position targetPosition);
 
-    virtual void attack(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> &unitsAndTargets, BWAPI::Position targetPosition);
+    virtual void attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition);
 
     CombatSimResult
-    runCombatSim(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> &unitsAndTargets, std::set<std::shared_ptr<Unit>> &targets);
+    runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &targets);
 
 protected:
-    static std::shared_ptr<Unit> ChooseMeleeTarget(BWAPI::Unit attacker, std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition);
+    static Unit ChooseMeleeTarget(const MyUnit &attacker, std::set<Unit> &targets, BWAPI::Position targetPosition);
 
-    static std::shared_ptr<Unit> ChooseRangedTarget(BWAPI::Unit attacker, std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition);
+    static Unit ChooseRangedTarget(const MyUnit &attacker, std::set<Unit> &targets, BWAPI::Position targetPosition);
 
     int area;
 };

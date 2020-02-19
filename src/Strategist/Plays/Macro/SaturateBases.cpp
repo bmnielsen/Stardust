@@ -47,7 +47,7 @@ void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
 
             if (!pair.first->resourceDepot) continue;
             if (!pair.first->resourceDepot->exists()) continue;
-            if (!pair.first->resourceDepot->isCompleted()) continue;
+            if (!pair.first->resourceDepot->completed) continue;
 
             prioritizedProductionGoals[10].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                         BWAPI::UnitTypes::Protoss_Probe,

@@ -8,9 +8,9 @@ class MopUp : public Play
 public:
     MopUp();
 
-    const char *label() const override { return "MopUp"; }
+    [[nodiscard]] const char *label() const override { return "MopUp"; }
 
-    bool receivesUnassignedUnits() const override { return true; }
+    [[nodiscard]] bool receivesUnassignedUnits() const override { return true; }
 
     std::shared_ptr<Squad> getSquad() override { return squad; }
 

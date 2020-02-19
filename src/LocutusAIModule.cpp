@@ -56,11 +56,6 @@ namespace
     void handleUnitCreate(BWAPI::Unit unit)
     {
         BuildingPlacement::onUnitCreate(unit);
-
-        if (unit->getPlayer() == BWAPI::Broodwar->self())
-        {
-            Log::Get() << "Unit created: " << unit->getType() << " @ " << unit->getTilePosition();
-        }
     }
 
     void handleUnitDestroy(BWAPI::Unit unit)
@@ -69,37 +64,11 @@ namespace
         BuildingPlacement::onUnitDestroy(unit);
         Units::onUnitDestroy(unit);
         Workers::onUnitDestroy(unit);
-
-        if (unit->getPlayer() == BWAPI::Broodwar->self())
-        {
-            Log::Get() << "Unit lost: " << unit->getType() << " @ " << unit->getTilePosition();
-        }
-
-        if (unit->getPlayer() == BWAPI::Broodwar->enemy())
-        {
-            Log::Get() << "Enemy destroyed: " << unit->getType() << " @ " << unit->getTilePosition();
-        }
     }
 
     void handleUnitMorph(BWAPI::Unit unit)
     {
         BuildingPlacement::onUnitMorph(unit);
-        Map::onUnitMorph(unit);
-
-        if (unit->getPlayer() == BWAPI::Broodwar->self() && unit->getType().isRefinery())
-        {
-            Log::Get() << "Unit created: " << unit->getType() << " @ " << unit->getTilePosition();
-        }
-
-        if (unit->getType() == BWAPI::UnitTypes::Resource_Vespene_Geyser)
-        {
-            Log::Get() << "Refinery destroyed: " << unit->getTilePosition();
-        }
-    }
-
-    void handleUnitRenegade(BWAPI::Unit unit)
-    {
-        Workers::onUnitRenegade(unit);
     }
 }
 
@@ -164,6 +133,10 @@ void LocutusAIModule::onFrame()
 
     Timer::start("Frame");
 
+    // We update units as the first thing, since we want to use our own abstraction over BWAPI::Unit everywhere
+    Units::update();
+    Timer::checkpoint("Units::update");
+
     // We handle events explicitly instead of through the event handlers so we can time them
     for (auto &event : BWAPI::Broodwar->getEvents())
     {
@@ -181,9 +154,6 @@ void LocutusAIModule::onFrame()
             case BWAPI::EventType::UnitMorph:
                 handleUnitMorph(event.getUnit());
                 break;
-            case BWAPI::EventType::UnitRenegade:
-                handleUnitRenegade(event.getUnit());
-                break;
             default:
                 break;
         }
@@ -196,9 +166,6 @@ void LocutusAIModule::onFrame()
 
     Bullets::update();
     Timer::checkpoint("Bullets::update");
-
-    Units::update();
-    Timer::checkpoint("Units::update");
 
     WorkerOrderTimer::update();
     Timer::checkpoint("WorkerOrderTimer::update");

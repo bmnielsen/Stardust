@@ -3,19 +3,19 @@
 #include "PathFinding.h"
 #include "UnitUtil.h"
 
-Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder, int desiredStartFrame)
+Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyUnit builder, int desiredStartFrame)
         : type(type)
         , tile(tile)
         , unit(nullptr)
-        , builder(builder)
+        , builder(std::move(builder))
         , desiredStartFrame(desiredStartFrame)
         , startFrame(-1)
 {
 }
 
-void Building::constructionStarted(BWAPI::Unit _unit)
+void Building::constructionStarted(MyUnit startedUnit)
 {
-    unit = _unit;
+    unit = std::move(startedUnit);
     startFrame = BWAPI::Broodwar->getFrameCount();
 }
 
@@ -36,9 +36,9 @@ int Building::expectedFramesUntilStarted() const
     // This can be inaccurate if this isn't the next building in the builder's queue
     // TODO: Verify this doesn't cause problems
     int workerFrames =
-            PathFinding::ExpectedTravelTime(builder->getPosition(),
+            PathFinding::ExpectedTravelTime(builder->lastPosition,
                                             getPosition(),
-                                            builder->getType(),
+                                            builder->type,
                                             PathFinding::PathFindingOptions::UseNearestBWEMArea);
 
     return std::max(workerFrames, desiredStartFrame - BWAPI::Broodwar->getFrameCount());

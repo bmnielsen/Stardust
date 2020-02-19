@@ -1,56 +1,80 @@
 #include "MyUnit.h"
 
-void MyUnit::move(BWAPI::Position position, bool force)
+void MyUnitImpl::move(BWAPI::Position position, bool force)
 {
-    if (issuedOrderThisFrame) return;
-    if (!position.isValid()) return;
+    if (!position.isValid())
+    {
+        Log::Get() << "MOVE TO INVALID POSITION: " << *this;
+        return;
+    }
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Move to " << BWAPI::WalkPosition(position) << (force ? " (forced)" : "");
+        return;
+    }
 
-    BWAPI::UnitCommand currentCommand(unit->getLastCommand());
+    BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
     if (!force &&
-        !unit->isStuck() &&
+        !bwapiUnit->isStuck() &&
         currentCommand.getType() == BWAPI::UnitCommandTypes::Move &&
         currentCommand.getTargetPosition() == position &&
-        unit->isMoving())
+        bwapiUnit->isMoving())
     {
         return;
     }
 
-    issuedOrderThisFrame = unit->move(position);
+    issuedOrderThisFrame = bwapiUnit->move(position);
 
 #if DEBUG_UNIT_ORDERS
-    CherryVis::log(unit) << "Order: Move to " << BWAPI::WalkPosition(position) << (force ? " (forced)" : "");
+    CherryVis::log(id) << "Order: Move to " << BWAPI::WalkPosition(position) << (force ? " (forced)" : "");
 #endif
 }
 
-void MyUnit::attack(BWAPI::Unit target)
+void MyUnitImpl::attack(BWAPI::Unit target)
 {
-    if (issuedOrderThisFrame) return;
-    if (!target || !target->exists()) return;
+    if (!target || !target->exists())
+    {
+        Log::Get() << "ATTACK INVALID TARGET: " << *this;
+        return;
+    }
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Attack " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
+        return;
+    }
 
-    BWAPI::UnitCommand currentCommand(unit->getLastCommand());
-    if (!unit->isStuck() &&
+    BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
+    if (!bwapiUnit->isStuck() &&
         currentCommand.getType() == BWAPI::UnitCommandTypes::Attack_Unit &&
         currentCommand.getTarget() == target)
     {
         return;
     }
 
-    issuedOrderThisFrame = unit->attack(target);
+    issuedOrderThisFrame = bwapiUnit->attack(target);
 
 #if DEBUG_UNIT_ORDERS
-    CherryVis::log(unit) << "Order: Attack " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
+    CherryVis::log(id) << "Order: Attack " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
 #endif
 }
 
-void MyUnit::rightClick(BWAPI::Unit target)
+void MyUnitImpl::rightClick(BWAPI::Unit target)
 {
-    if (issuedOrderThisFrame) return;
-    if (!target || !target->exists()) return;
+    if (!target || !target->exists())
+    {
+        Log::Get() << "RIGHT-CLICK INVALID TARGET: " << *this;
+        return;
+    }
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Right-click " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
+        return;
+    }
 
     // Unless is it a mineral field, don't click on the same target again
     if (!target->getType().isMineralField())
     {
-        BWAPI::UnitCommand currentCommand(unit->getLastCommand());
+        BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
         if (currentCommand.getType() == BWAPI::UnitCommandTypes::Right_Click_Unit &&
             currentCommand.getTargetPosition() == target->getPosition())
         {
@@ -58,22 +82,30 @@ void MyUnit::rightClick(BWAPI::Unit target)
         }
     }
 
-    issuedOrderThisFrame = unit->rightClick(target);
+    issuedOrderThisFrame = bwapiUnit->rightClick(target);
 
 #if DEBUG_UNIT_ORDERS
-    CherryVis::log(unit) << "Order: Right-click " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
+    CherryVis::log(id) << "Order: Right-click " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
 #endif
 }
 
-void MyUnit::gather(BWAPI::Unit target)
+void MyUnitImpl::gather(BWAPI::Unit target)
 {
-    if (issuedOrderThisFrame) return;
-    if (!target || !target->exists()) return;
+    if (!target || !target->exists())
+    {
+        Log::Get() << "GATHER INVALID TARGET: " << *this;
+        return;
+    }
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Gather " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
+        return;
+    }
 
     // Unless it is a mineral field, don't gather on the same target again
     if (!target->getType().isMineralField())
     {
-        BWAPI::UnitCommand currentCommand(unit->getLastCommand());
+        BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
         if (currentCommand.getType() == BWAPI::UnitCommandTypes::Gather &&
             currentCommand.getTargetPosition() == target->getPosition())
         {
@@ -81,45 +113,140 @@ void MyUnit::gather(BWAPI::Unit target)
         }
     }
 
-    issuedOrderThisFrame = unit->gather(target);
+    issuedOrderThisFrame = bwapiUnit->gather(target);
 
 #if DEBUG_UNIT_ORDERS
-    CherryVis::log(unit) << "Order: Gather " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
+    CherryVis::log(id) << "Order: Gather " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
 #endif
 }
 
-void MyUnit::returnCargo()
+void MyUnitImpl::returnCargo()
 {
-    if (issuedOrderThisFrame) return;
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Return cargo";
+        return;
+    }
 
-    issuedOrderThisFrame = unit->returnCargo();
+    issuedOrderThisFrame = bwapiUnit->returnCargo();
 
 #if DEBUG_UNIT_ORDERS
-    CherryVis::log(unit) << "Order: Return cargo";
+    CherryVis::log(id) << "Order: Return cargo";
 #endif
 }
 
-bool MyUnit::build(BWAPI::UnitType type, BWAPI::TilePosition tile)
+bool MyUnitImpl::build(BWAPI::UnitType type, BWAPI::TilePosition tile)
 {
-    if (issuedOrderThisFrame) return false;
-    if (!tile.isValid()) return false;
+    if (!tile.isValid())
+    {
+        Log::Get() << "BUILD INVALID TILE: " << *this;
+        return false;
+    }
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Build " << type << " @ " << BWAPI::WalkPosition(tile);
+        return false;
+    }
 
-    issuedOrderThisFrame = unit->build(type, tile);
+    issuedOrderThisFrame = bwapiUnit->build(type, tile);
 
 #if DEBUG_UNIT_ORDERS
-    CherryVis::log(unit) << "Order: Build " << type << " @ " << BWAPI::WalkPosition(tile);
+    CherryVis::log(id) << "Order: Build " << type << " @ " << BWAPI::WalkPosition(tile);
 #endif
 
     return issuedOrderThisFrame;
 }
 
-void MyUnit::stop()
+bool MyUnitImpl::train(BWAPI::UnitType type)
 {
-    if (issuedOrderThisFrame) return;
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Train " << type;
+        return false;
+    }
 
-    issuedOrderThisFrame = unit->stop();
+    issuedOrderThisFrame = bwapiUnit->train(type);
 
 #if DEBUG_UNIT_ORDERS
-    CherryVis::log(unit) << "Order: Stop";
+    CherryVis::log(id) << "Order: Train " << type;
+#endif
+
+    return issuedOrderThisFrame;
+}
+
+bool MyUnitImpl::upgrade(BWAPI::UpgradeType type)
+{
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Upgrade " << type;
+        return false;
+    }
+
+    issuedOrderThisFrame = bwapiUnit->upgrade(type);
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Order: Upgrade " << type;
+#endif
+
+    return issuedOrderThisFrame;
+}
+
+void MyUnitImpl::stop()
+{
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Stop";
+        return;
+    }
+
+    issuedOrderThisFrame = bwapiUnit->stop();
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Order: Stop";
+#endif
+}
+
+void MyUnitImpl::cancelConstruction()
+{
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Cancel Construction";
+        return;
+    }
+
+    issuedOrderThisFrame = bwapiUnit->cancelConstruction();
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Order: Cancel Construction";
+#endif
+}
+
+void MyUnitImpl::load(BWAPI::Unit cargo)
+{
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Load " << cargo->getType() << " @ " << cargo->getTilePosition();
+        return;
+    }
+
+    issuedOrderThisFrame = bwapiUnit->load(cargo);
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Order: Load " << cargo->getType() << " @ " << cargo->getTilePosition();
+#endif
+}
+
+void MyUnitImpl::unloadAll()
+{
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Unload All";
+        return;
+    }
+
+    issuedOrderThisFrame = bwapiUnit->unloadAll();
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Order: Unload All";
 #endif
 }

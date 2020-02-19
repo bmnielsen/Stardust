@@ -24,13 +24,13 @@ void TakeNaturalExpansion::addPrioritizedProductionGoals(std::map<int, std::vect
     if (army < 5) return;
 
     bool unitIsAwayFromHome = false;
-    for (auto unit : BWAPI::Broodwar->self()->getUnits())
+    for (const auto &unit : Units::allMine())
     {
-        if (unit->getType() != BWAPI::UnitTypes::Protoss_Zealot && unit->getType() != BWAPI::UnitTypes::Protoss_Dragoon) continue;
-        if (!unit->isCompleted()) continue;
+        if (unit->type != BWAPI::UnitTypes::Protoss_Zealot && unit->type != BWAPI::UnitTypes::Protoss_Dragoon) continue;
+        if (!unit->completed) continue;
         if (!unit->exists()) continue;
 
-        int dist = PathFinding::GetGroundDistance(unit->getPosition(), Map::getMyMain()->getPosition(), unit->getType());
+        int dist = PathFinding::GetGroundDistance(unit->lastPosition, Map::getMyMain()->getPosition(), unit->type);
         if (dist > 2000)
         {
             unitIsAwayFromHome = true;

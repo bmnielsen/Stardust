@@ -1,25 +1,11 @@
 #include "UnitUtil.h"
 
-#include "Geo.h"
-#include "Players.h"
 
 namespace UnitUtil
 {
     namespace
     {
         const int WARP_IN_FRAMES = 71;
-    }
-
-    bool IsUndetected(BWAPI::Unit unit)
-    {
-        return (unit->isBurrowed() || unit->isCloaked() || unit->getType().hasPermanentCloak()) && !unit->isDetected();
-    }
-
-    BWAPI::Position PredictPosition(BWAPI::Unit unit, int frames)
-    {
-        if (!unit || !unit->exists() || !unit->isVisible()) return BWAPI::Positions::Invalid;
-
-        return unit->getPosition() + BWAPI::Position((int) (frames * unit->getVelocityX()), (int) (frames * unit->getVelocityY()));
     }
 
     bool Powers(BWAPI::TilePosition pylonTile, BWAPI::TilePosition buildingTile, BWAPI::UnitType buildingType)
@@ -54,38 +40,41 @@ namespace UnitUtil
         return type.buildTime();
     }
 
-    bool IsInWeaponRange(BWAPI::Unit attacker, BWAPI::Unit target)
+    BWAPI::WeaponType GetGroundWeapon(BWAPI::UnitType attacker)
     {
-        int range = Players::weaponRange(attacker->getPlayer(),
-                                         target->isFlying() ? attacker->getType().airWeapon() : attacker->getType().groundWeapon());
-        int dist = Geo::EdgeToEdgeDistance(attacker->getType(), attacker->getPosition(), target->getType(), target->getPosition());
+        // Assume bunkers have marines in them
+        if (attacker == BWAPI::UnitTypes::Terran_Bunker)
+        {
+            return GetGroundWeapon(BWAPI::UnitTypes::Terran_Marine);
+        }
 
-        return dist <= range;
+        if (attacker == BWAPI::UnitTypes::Protoss_Carrier)
+        {
+            return GetGroundWeapon(BWAPI::UnitTypes::Protoss_Interceptor);
+        }
+
+        if (attacker == BWAPI::UnitTypes::Protoss_Reaver)
+        {
+            return GetGroundWeapon(BWAPI::UnitTypes::Protoss_Scarab);
+        }
+
+        return attacker.groundWeapon();
     }
 
-    bool CanAttack(BWAPI::Unit attacker, BWAPI::Unit target)
+    BWAPI::WeaponType GetAirWeapon(BWAPI::UnitType attacker)
     {
-        return target->isVisible() &&
-               target->isDetected() &&
-               !target->isStasised() &&
-               (target->isFlying() ? CanAttackAir(attacker) : CanAttackGround(attacker));
-    }
+        // Assume bunkers have marines in them
+        if (attacker == BWAPI::UnitTypes::Terran_Bunker)
+        {
+            return GetAirWeapon(BWAPI::UnitTypes::Terran_Marine);
+        }
 
-    bool CanAttackAir(BWAPI::Unit attacker)
-    {
-        return CanAttackAir(attacker->getType());
-    }
+        if (attacker == BWAPI::UnitTypes::Protoss_Carrier)
+        {
+            return GetAirWeapon(BWAPI::UnitTypes::Protoss_Interceptor);
+        }
 
-    bool CanAttackAir(BWAPI::UnitType attackerType)
-    {
-        return attackerType.airWeapon() != BWAPI::WeaponTypes::None ||
-               attackerType == BWAPI::UnitTypes::Protoss_Carrier ||
-               attackerType == BWAPI::UnitTypes::Terran_Bunker;
-    }
-
-    bool CanAttackGround(BWAPI::Unit attacker)
-    {
-        return CanAttackGround(attacker->getType());
+        return attacker.airWeapon();
     }
 
     bool CanAttackGround(BWAPI::UnitType attackerType)
@@ -93,6 +82,13 @@ namespace UnitUtil
         return attackerType.groundWeapon() != BWAPI::WeaponTypes::None ||
                attackerType == BWAPI::UnitTypes::Protoss_Carrier ||
                attackerType == BWAPI::UnitTypes::Protoss_Reaver ||
+               attackerType == BWAPI::UnitTypes::Terran_Bunker;
+    }
+
+    bool CanAttackAir(BWAPI::UnitType attackerType)
+    {
+        return attackerType.airWeapon() != BWAPI::WeaponTypes::None ||
+               attackerType == BWAPI::UnitTypes::Protoss_Carrier ||
                attackerType == BWAPI::UnitTypes::Terran_Bunker;
     }
 
@@ -117,24 +113,5 @@ namespace UnitUtil
                 type == BWAPI::UnitTypes::Protoss_High_Templar ||
                 type == BWAPI::UnitTypes::Protoss_Dark_Archon ||
                 (type.isFlyer() && type.spaceProvided() > 0);
-    }
-
-    BWAPI::WeaponType GetWeapon(BWAPI::UnitType attacker, BWAPI::Unit target)
-    {
-        // We pretend that a bunker has marines in it. It's only a guess.
-        if (attacker == BWAPI::UnitTypes::Terran_Bunker)
-        {
-            return GetWeapon(BWAPI::UnitTypes::Terran_Marine, target);
-        }
-        if (attacker == BWAPI::UnitTypes::Protoss_Carrier)
-        {
-            return GetWeapon(BWAPI::UnitTypes::Protoss_Interceptor, target);
-        }
-        if (attacker == BWAPI::UnitTypes::Protoss_Reaver)
-        {
-            return GetWeapon(BWAPI::UnitTypes::Protoss_Scarab, target);
-        }
-        return target->isFlying() ? attacker.airWeapon() : attacker.groundWeapon();
-
     }
 }

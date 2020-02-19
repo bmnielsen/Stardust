@@ -2,12 +2,12 @@
 
 #include "MyUnit.h"
 
-class MyDragoon : public MyUnit
+class MyDragoon : public MyUnitImpl
 {
 public:
     explicit MyDragoon(BWAPI::Unit unit);
 
-    int getLastAttackStartedAt() const { return lastAttackStartedAt; }
+    [[nodiscard]] int getLastAttackStartedAt() const { return lastAttackStartedAt; }
 
 private:
     BWAPI::Position lastPosition;
@@ -17,13 +17,13 @@ private:
 
     void typeSpecificUpdate() override;
 
-    bool isReady() const override;
+    [[nodiscard]] bool isReady() const override;
 
     bool unstick() override;
 
-    void attackUnit(BWAPI::Unit target) override;
+    void attackUnit(Unit target) override;
 
-    bool shouldKite(BWAPI::Unit target);
+    bool shouldKite(const Unit &target);
 
     void kiteFrom(BWAPI::Position position);
 };

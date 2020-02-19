@@ -12,8 +12,8 @@ namespace
 
     auto inline makeUnit(const Unit &unit, int target = 0)
     {
-        auto weaponType = unit.type;
-        switch (unit.type)
+        BWAPI::UnitType weaponType;
+        switch (unit->type)
         {
             case BWAPI::UnitTypes::Protoss_Carrier:
                 weaponType = BWAPI::UnitTypes::Protoss_Interceptor;
@@ -24,44 +24,47 @@ namespace
             case BWAPI::UnitTypes::Protoss_Reaver:
                 weaponType = BWAPI::UnitTypes::Protoss_Scarab;
                 break;
+            default:
+                weaponType = unit->type;
+                break;
         }
 
-        int groundDamage = Players::weaponDamage(unit.player, weaponType.groundWeapon());
-        int airDamage = Players::weaponDamage(unit.player, weaponType.airWeapon());
-        if ((unit.burrowed && unit.type != BWAPI::UnitTypes::Zerg_Lurker) ||
-            (!unit.burrowed && unit.type == BWAPI::UnitTypes::Zerg_Lurker))
+        int groundDamage = Players::weaponDamage(unit->player, weaponType.groundWeapon());
+        int airDamage = Players::weaponDamage(unit->player, weaponType.airWeapon());
+        if ((unit->burrowed && unit->type != BWAPI::UnitTypes::Zerg_Lurker) ||
+            (!unit->burrowed && unit->type == BWAPI::UnitTypes::Zerg_Lurker))
         {
             groundDamage = airDamage = 0;
         }
 
         return FAP::makeUnit<>()
-                .setUnitType(unit.type)
-                .setPosition(unit.lastPosition)
-                .setHealth(unit.lastHealth)
-                .setShields(unit.lastShields)
-                .setFlying(unit.isFlying)
+                .setUnitType(unit->type)
+                .setPosition(unit->lastPosition)
+                .setHealth(unit->lastHealth)
+                .setShields(unit->lastShields)
+                .setFlying(unit->isFlying)
 
                         // For this next section, we have modified FAP to allow taking the upgraded values instead of the upgrade levels
-                .setSpeed(Players::unitTopSpeed(unit.player, unit.type))
-                .setArmor(Players::unitArmor(unit.player, unit.type))
-                .setGroundCooldown(Players::unitCooldown(unit.player, unit.type)
-                                   / std::max(unit.type.maxGroundHits() * unit.type.groundWeapon().damageFactor(), 1))
+                .setSpeed(Players::unitTopSpeed(unit->player, unit->type))
+                .setArmor(Players::unitArmor(unit->player, unit->type))
+                .setGroundCooldown(Players::unitCooldown(unit->player, unit->type)
+                                   / std::max(unit->type.maxGroundHits() * unit->type.groundWeapon().damageFactor(), 1))
                 .setGroundDamage(groundDamage)
-                .setGroundMaxRange(Players::weaponRange(unit.player, weaponType.groundWeapon()))
+                .setGroundMaxRange(Players::weaponRange(unit->player, weaponType.groundWeapon()))
                 .setAirDamage(airDamage)
 
-                .setElevation(BWAPI::Broodwar->getGroundHeight(unit.lastPosition.x << 3, unit.lastPosition.y << 3))
-                .setAttackerCount(unit.type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
-                .setAttackCooldownRemaining(std::max(0, unit.cooldownUntil - BWAPI::Broodwar->getFrameCount()))
+                .setElevation(BWAPI::Broodwar->getGroundHeight(unit->lastPosition.x << 3, unit->lastPosition.y << 3))
+                .setAttackerCount(unit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
+                .setAttackCooldownRemaining(std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount()))
 
                 .setSpeedUpgrade(false) // Squares the speed
                 .setRangeUpgrade(false) // Squares the ranges
                 .setShieldUpgrades(0)
 
-                .setStimmed(unit.stimmedUntil > BWAPI::Broodwar->getFrameCount())
-                .setUndetected(unit.undetected)
+                .setStimmed(unit->stimmedUntil > BWAPI::Broodwar->getFrameCount())
+                .setUndetected(unit->undetected)
 
-                .setID(unit.id)
+                .setID(unit->id)
                 .setTarget(target)
 
                 .setData({});
@@ -94,7 +97,7 @@ namespace CombatSim
 }
 
 CombatSimResult
-UnitCluster::runCombatSim(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> &unitsAndTargets, std::set<std::shared_ptr<Unit>> &targets)
+UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &targets)
 {
     if (unitsAndTargets.empty() || targets.empty())
     {
@@ -105,11 +108,11 @@ UnitCluster::runCombatSim(std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Uni
     for (auto &unitAndTarget : unitsAndTargets)
     {
         auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
-        sim.addIfCombatUnitPlayer1(makeUnit(Units::get(unitAndTarget.first), target));
+        sim.addIfCombatUnitPlayer1(makeUnit(unitAndTarget.first, target));
     }
     for (auto &unit : targets)
     {
-        sim.addIfCombatUnitPlayer2(makeUnit(*unit));
+        sim.addIfCombatUnitPlayer2(makeUnit(unit));
     }
 
     int initialMine = score(sim.getState().first);

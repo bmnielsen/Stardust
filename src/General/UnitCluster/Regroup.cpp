@@ -14,19 +14,17 @@
 
 void UnitCluster::regroup(BWAPI::Position regroupPosition)
 {
-    for (auto unit : units)
+    for (const auto &unit : units)
     {
-        auto &myUnit = Units::getMine(unit);
-
         // If the unit is stuck, unstick it
-        if (myUnit.unstick()) continue;
+        if (unit->unstick()) continue;
 
         // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
-        if (!myUnit.isReady()) continue;
+        if (!unit->isReady()) continue;
 
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(unit) << "Regroup: Moving to " << BWAPI::WalkPosition(regroupPosition);
+        CherryVis::log(unit->id) << "Regroup: Moving to " << BWAPI::WalkPosition(regroupPosition);
 #endif
-        myUnit.moveTo(regroupPosition);
+        unit->moveTo(regroupPosition);
     }
 }

@@ -1,12 +1,11 @@
 #include <Players/Players.h>
 #include "MyUnit.h"
 
-#include "Players.h"
 #include "UnitUtil.h"
 #include "Geo.h"
 
-MyUnit::MyUnit(BWAPI::Unit unit)
-        : Unit(unit)
+MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
+        : UnitImpl(unit)
         , issuedOrderThisFrame(false)
         , targetPosition(BWAPI::Positions::Invalid)
         , currentlyMovingTowards(BWAPI::Positions::Invalid)
@@ -16,9 +15,15 @@ MyUnit::MyUnit(BWAPI::Unit unit)
 {
 }
 
-void MyUnit::update(BWAPI::Unit unit)
+std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit)
 {
-    Unit::update(unit);
+    os << unit.type << ":" << unit.id << "@" << BWAPI::WalkPosition(unit.getTilePosition());
+    return os;
+}
+
+void MyUnitImpl::update(BWAPI::Unit unit)
+{
+    UnitImpl::update(unit);
 
     if (!unit || !unit->exists()) return;
 
@@ -42,42 +47,41 @@ void MyUnit::update(BWAPI::Unit unit)
     }
 }
 
-
-void MyUnit::attackUnit(BWAPI::Unit target)
+void MyUnitImpl::attackUnit(Unit target)
 {
-    int cooldown = target->isFlying() ? unit->getAirWeaponCooldown() : unit->getGroundWeaponCooldown();
-    int range = Players::weaponRange(BWAPI::Broodwar->self(), target->isFlying() ? unit->getType().airWeapon() : unit->getType().groundWeapon());
+    int cooldown = target->isFlying ? bwapiUnit->getAirWeaponCooldown() : bwapiUnit->getGroundWeaponCooldown();
+    int range = Players::weaponRange(player, getWeapon(target));
 
     // If the target is already in range, just attack it
-    if (unit->getDistance(target) <= range)
+    if (bwapiUnit->getDistance(target->bwapiUnit) <= range)
     {
-        attack(target);
+        attack(target->bwapiUnit);
         return;
     }
 
     // Otherwise attack when our cooldown is almost over and we expect to be in range shortly
     if (cooldown <= BWAPI::Broodwar->getRemainingLatencyFrames() + 2)
     {
-        auto predictedPosition = UnitUtil::PredictPosition(unit, BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
-        auto predictedTargetPosition = UnitUtil::PredictPosition(target, BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
-        auto predictedDist = Geo::EdgeToEdgeDistance(unit->getType(), predictedPosition, target->getType(), predictedTargetPosition);
+        auto predictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+        auto predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+        auto predictedDist = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, predictedTargetPosition);
 
         if (predictedDist <= range)
         {
-            attack(target);
+            attack(target->bwapiUnit);
             return;
         }
     }
 
     // Plot an intercept course
-    auto intercept = Geo::FindInterceptPoint(unit, target);
-    if (!intercept.isValid()) intercept = UnitUtil::PredictPosition(target, 5);
-    move(intercept);
+    auto interceptPosition = intercept(target);
+    if (!interceptPosition.isValid()) interceptPosition = target->predictPosition(5);
+    move(interceptPosition);
 }
 
-bool MyUnit::unstick()
+bool MyUnitImpl::unstick()
 {
-    if (unit->isStuck())
+    if (bwapiUnit->isStuck())
     {
         stop();
         return true;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common.h"
+#include "MyUnit.h"
 
 // Used to store data about buildings that are either under construction or about to be constructed
 class Building
@@ -8,8 +9,8 @@ class Building
 public:
     BWAPI::UnitType type;               // The type of the building
     BWAPI::TilePosition tile;               // The position of the building
-    BWAPI::Unit unit;               // The building itself
-    BWAPI::Unit builder;            // The unit that will build the building
+    MyUnit unit;               // The building itself
+    MyUnit builder;            // The unit that will build the building
     int desiredStartFrame;  // The desired start frame given by the producer
 
     // TODO: State required by the builder
@@ -17,19 +18,19 @@ public:
     // Constructor
     // We always decide on the position and builder unit before storing the building
     // If something happens to invalidate them before the building is started, we will create a new building
-    Building(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder, int desiredStartFrame);
+    Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyUnit builder, int desiredStartFrame);
 
-    void constructionStarted(BWAPI::Unit unit);
+    void constructionStarted(MyUnit unit);
 
-    BWAPI::Position getPosition() const;
+    [[nodiscard]] BWAPI::Position getPosition() const;
 
-    bool isConstructionStarted() const;
+    [[nodiscard]] bool isConstructionStarted() const;
 
-    int expectedFramesUntilStarted() const;
+    [[nodiscard]] int expectedFramesUntilStarted() const;
 
-    int expectedFramesUntilCompletion() const;
+    [[nodiscard]] int expectedFramesUntilCompletion() const;
 
-    bool builderReady() const;
+    [[nodiscard]] bool builderReady() const;
 
     // TODO: Stuff like handling things blocking construction, picking a new location, cancelling, etc.
 

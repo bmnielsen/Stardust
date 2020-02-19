@@ -2,8 +2,6 @@
 
 #include "Units.h"
 #include "UnitUtil.h"
-#include "Geo.h"
-#include "Players.h"
 
 void DefendBaseSquad::setTargetPosition()
 {
@@ -61,10 +59,10 @@ void DefendBaseSquad::setTargetPosition()
 
 void DefendBaseSquad::execute(UnitCluster &cluster)
 {
-    std::set<std::shared_ptr<Unit>> enemyUnits;
+    std::set<Unit> enemyUnits;
 
     // Get enemy combat units in our base
-    Units::getInArea(enemyUnits, BWAPI::Broodwar->enemy(), Map::getMyMain()->getArea(), [](const std::shared_ptr<Unit> &unit)
+    Units::enemyInArea(enemyUnits, Map::getMyMain()->getArea(), [](const Unit &unit)
     {
         return UnitUtil::IsCombatUnit(unit->type) && UnitUtil::CanAttackGround(unit->type);
     });
@@ -72,7 +70,7 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
     bool enemyInOurBase = !enemyUnits.empty();
 
     // Get enemy combat units very close to the target position
-    Units::getInRadius(enemyUnits, BWAPI::Broodwar->enemy(), targetPosition, 64);
+    Units::enemyInRadius(enemyUnits, targetPosition, 64);
 
     // Select targets
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
@@ -110,44 +108,42 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
     // For each of our units, move it towards the mineral line center if it is not in the mineral line, otherwise attack
     for (auto &unitAndTarget : unitsAndTargets)
     {
-        auto &myUnit = Units::getMine(unitAndTarget.first);
+        auto &unit = unitAndTarget.first;
+        auto &target = unitAndTarget.second;
 
         // If the unit is stuck, unstick it
-        if (myUnit.unstick()) continue;
+        if (unit->unstick()) continue;
 
         // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
-        if (!myUnit.isReady()) continue;
+        if (!unit->isReady()) continue;
 
         // If the unit has no target, just move to the target position
-        if (!unitAndTarget.second)
+        if (!target)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first) << "No target: move to " << BWAPI::WalkPosition(targetPosition);
+            CherryVis::log(unitAndTarget.first->id) << "No target: move to " << BWAPI::WalkPosition(targetPosition);
 #endif
-            myUnit.moveTo(targetPosition);
+            unit->moveTo(targetPosition);
             continue;
         }
 
-        auto enemy = unitAndTarget.second->unit;
-        auto enemyPosition = UnitUtil::PredictPosition(unitAndTarget.second->unit, BWAPI::Broodwar->getLatencyFrames());
-        int dist = Geo::EdgeToEdgeDistance(myUnit.type, myUnit.lastPosition, enemy->getType(), enemyPosition);
+        auto enemyPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames());
 
         // Attack the enemy if we are in the mineral line and in range of the enemy (or the enemy is in range of us)
-        if (base->isInMineralLine(BWAPI::TilePosition(myUnit.tilePositionX, myUnit.tilePositionY)) &&
-            (dist <= Players::weaponRange(enemy->getPlayer(), enemy->getType().groundWeapon())
-             || dist <= Players::weaponRange(BWAPI::Broodwar->self(), myUnit.type.groundWeapon())))
+        if (base->isInMineralLine(BWAPI::TilePosition(unit->tilePositionX, unit->tilePositionY)) &&
+            (unit->isInOurWeaponRange(target, enemyPosition) || unit->isInEnemyWeaponRange(target, enemyPosition)))
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first) << "Target: " << unitAndTarget.second->type << " @ "
+            CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
                                                 << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
 #endif
-            myUnit.attackUnit(unitAndTarget.second->unit);
+            unit->attackUnit(target);
             continue;
         }
 
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(unitAndTarget.first) << "Retreating: move to " << BWAPI::WalkPosition(targetPosition);
+        CherryVis::log(unitAndTarget.first->id) << "Retreating: move to " << BWAPI::WalkPosition(targetPosition);
 #endif
-        myUnit.moveTo(targetPosition);
+        unit->moveTo(targetPosition);
     }
 }

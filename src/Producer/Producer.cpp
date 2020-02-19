@@ -27,9 +27,9 @@ namespace Producer
     {
         // How many frames in the future to consider when predicting future production needs
 #ifdef DEBUG
-        const int PREDICT_FRAMES = 24*60*2; // 2 minutes
+        const int PREDICT_FRAMES = 24 * 60 * 2; // 2 minutes
 #else
-        const int PREDICT_FRAMES = 24*60*3; // 3 minutes
+        const int PREDICT_FRAMES = 24 * 60 * 3; // 3 minutes
 #endif
 
         const double MINERALS_PER_WORKER_FRAME = 0.0465;
@@ -160,7 +160,7 @@ namespace Producer
         {
             int availableFrom;
             std::shared_ptr<ProductionItem> queued;
-            BWAPI::Unit existing;
+            MyUnit existing;
             ProductionItemSet items;
 
             Producer(std::shared_ptr<ProductionItem> queued, int availableFrom)
@@ -168,14 +168,14 @@ namespace Producer
                     , queued(std::move(queued))
                     , existing(nullptr) {}
 
-            Producer(BWAPI::Unit existing, int availableFrom)
+            Producer(MyUnit existing, int availableFrom)
                     : availableFrom(availableFrom)
                     , queued(nullptr)
-                    , existing(existing) {}
+                    , existing(std::move(existing)) {}
         };
 
         std::map<std::shared_ptr<ProductionItem>, std::shared_ptr<Producer>> queuedProducers;
-        std::map<BWAPI::Unit, std::shared_ptr<Producer>> existingProducers;
+        std::map<MyUnit, std::shared_ptr<Producer>> existingProducers;
 
         ProductionItemSet committedItems;
 
@@ -228,15 +228,15 @@ namespace Producer
              */
         }
 
-        int getRemainingBuildTime(BWAPI::Unit producer, int baseRemainingTrainTime, BWAPI::UnitCommandType buildCommandType, const Type &itemType)
+        int getRemainingBuildTime(const MyUnit &producer, int baseRemainingTrainTime, BWAPI::UnitCommandType buildCommandType, const Type &itemType)
         {
-            if (producer->getLastCommand().getType() == buildCommandType &&
-                (BWAPI::Broodwar->getFrameCount() - producer->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+            if (producer->bwapiUnit->getLastCommand().getType() == buildCommandType &&
+                (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
             {
                 return buildTime(itemType);
             }
 
-            if (!producer->isTraining()) return -1;
+            if (!producer->bwapiUnit->isTraining()) return -1;
 
             return baseRemainingTrainTime;
         }
@@ -275,13 +275,13 @@ namespace Producer
             supply.fill(BWAPI::Broodwar->self()->supplyTotal() - BWAPI::Broodwar->self()->supplyUsed());
 
             // Assume workers being built will go to minerals
-            for (auto unit : BWAPI::Broodwar->self()->getUnits())
+            for (const auto &unit : Units::allMine())
             {
-                if (!unit->isCompleted()) continue;
-                if (!unit->getType().isResourceDepot()) continue;
+                if (!unit->completed) continue;
+                if (!unit->type.isResourceDepot()) continue;
 
                 int remainingTrainTime = getRemainingBuildTime(unit,
-                                                               unit->getRemainingTrainTime(),
+                                                               unit->bwapiUnit->getRemainingTrainTime(),
                                                                BWAPI::UnitCommandTypes::Train,
                                                                BWAPI::Broodwar->self()->getRace().getWorker());
                 if (remainingTrainTime >= 0) updateResourceCollection(minerals, remainingTrainTime + 1, 1, MINERALS_PER_WORKER_FRAME);
@@ -414,7 +414,7 @@ namespace Producer
         }
 
         // For buildings, whether this building can produce an item at the given location
-        bool canProduceFrom(const Type &type, const ProductionLocation &location, BWAPI::Unit producer)
+        bool canProduceFrom(const Type &type, const ProductionLocation &location, const MyUnit &producer)
         {
             // For now we just check the case where we want to produce a worker from a specific base
             auto unitType = std::get_if<BWAPI::UnitType>(&type);
@@ -423,7 +423,7 @@ namespace Producer
             auto base = std::get_if<Base *>(&location);
             if (!base) return true;
 
-            return producer->getTilePosition() == (*base)->getTilePosition();
+            return producer == (*base)->resourceDepot;
         }
 
         // Shifts one item in the given set by the given amount
@@ -538,8 +538,8 @@ namespace Producer
             auto fixedNeighbourhood = std::get_if<BuildingPlacement::Neighbourhood>(&pylon.location);
             auto neighbourhood = fixedNeighbourhood ? *fixedNeighbourhood : BuildingPlacement::Neighbourhood::MainBase;
 
-            auto &pylons = buildLocations[neighbourhood][2];
-            if (pylons.empty()) return;
+            auto &pylonLocations = buildLocations[neighbourhood][2];
+            if (pylonLocations.empty()) return;
 
             // All else being equal, try to keep two of each location type powered
             int desiredMedium = std::max(0, 2 - (int) buildLocations[neighbourhood][3].size());
@@ -548,27 +548,27 @@ namespace Producer
             // Score the locations based on distance and what they will power
             int bestScore = INT_MAX;
             const BuildingPlacement::BuildLocation *best = nullptr;
-            for (const auto &pylon : pylons)
+            for (const auto &pylonLocation : pylonLocations)
             {
                 // If we have a hard requirement, don't consider anything that doesn't satisfy it
-                if ((requiredWidth == 3 && pylon.powersMedium.empty()) ||
-                    (requiredWidth == 4 && pylon.powersLarge.empty()))
+                if ((requiredWidth == 3 && pylonLocation.powersMedium.empty()) ||
+                    (requiredWidth == 4 && pylonLocation.powersLarge.empty()))
                 {
                     continue;
                 }
 
                 // Base score is the distance
-                int score = pylon.builderFrames;
+                int score = pylonLocation.builderFrames;
 
                 // Penalize locations that don't power locations we need
-                score *= (int) std::pow(2, std::max(0, desiredMedium - (int) pylon.powersMedium.size()));
-                score *= (int) std::pow(2, std::max(0, desiredLarge - (int) pylon.powersLarge.size()));
+                score *= (int) std::pow(2, std::max(0, desiredMedium - (int) pylonLocation.powersMedium.size()));
+                score *= (int) std::pow(2, std::max(0, desiredLarge - (int) pylonLocation.powersLarge.size()));
 
                 // Set if better than current
                 if (score < bestScore)
                 {
                     bestScore = score;
-                    best = &pylon;
+                    best = &pylonLocation;
                 }
             }
 
@@ -579,7 +579,7 @@ namespace Producer
                 if (!tentative)
                 {
                     pylon.buildLocation = *best;
-                    pylons.erase(*best);
+                    pylonLocations.erase(*best);
                 }
                 return;
             }
@@ -587,11 +587,11 @@ namespace Producer
             // That failed, so we can't satisfy our hard requirement
             // Just return the first one
             // TODO: Handle this situation
-            pylon.estimatedWorkerMovementTime = pylons.begin()->builderFrames;
+            pylon.estimatedWorkerMovementTime = pylonLocations.begin()->builderFrames;
             if (!tentative)
             {
-                pylon.buildLocation = *pylons.begin();
-                pylons.erase(pylons.begin());
+                pylon.buildLocation = *pylonLocations.begin();
+                pylonLocations.erase(pylonLocations.begin());
             }
         }
 
@@ -1505,18 +1505,18 @@ namespace Producer
             }
 
             // Completed producers
-            for (auto unit : BWAPI::Broodwar->self()->getUnits())
+            for (auto unit : Units::allMine())
             {
-                if (!unit->exists() || !unit->isCompleted()) continue;
-                if (unit->getType() != producerType) continue;
+                if (!unit->exists() || !unit->completed) continue;
+                if (unit->type != producerType) continue;
                 if (!canProduceFrom(type, location, unit)) continue;
 
                 // If we have sent the train command to a producer, but the unit isn't created yet, then reduce the number we need to build
                 // This is not perfect, as it will reduce the count of all production goals targeting this unit type, but it's probably
                 // rare that we have multiple goals with limited numbers of the same unit type anyway.
-                if (unitType && toProduce != -1 && unit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
-                    (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame() - 1) < BWAPI::Broodwar->getLatencyFrames() &&
-                    unit->getLastCommand().getUnitType() == *unitType)
+                if (unitType && toProduce != -1 && unit->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
+                    (BWAPI::Broodwar->getFrameCount() - unit->bwapiUnit->getLastCommandFrame() - 1) < BWAPI::Broodwar->getLatencyFrames() &&
+                    unit->bwapiUnit->getLastCommand().getUnitType() == *unitType)
                 {
                     toProduce--;
                     if (toProduce == 0) return;
@@ -1533,11 +1533,14 @@ namespace Producer
                 int remainingTrainTime = -1;
                 if (unitType)
                 {
-                    remainingTrainTime = getRemainingBuildTime(unit, unit->getRemainingTrainTime(), BWAPI::UnitCommandTypes::Train, type);
+                    remainingTrainTime = getRemainingBuildTime(unit, unit->bwapiUnit->getRemainingTrainTime(), BWAPI::UnitCommandTypes::Train, type);
                 }
                 else if (upgradeType)
                 {
-                    remainingTrainTime = getRemainingBuildTime(unit, unit->getRemainingUpgradeTime(), BWAPI::UnitCommandTypes::Upgrade, type);
+                    remainingTrainTime = getRemainingBuildTime(unit,
+                                                               unit->bwapiUnit->getRemainingUpgradeTime(),
+                                                               BWAPI::UnitCommandTypes::Upgrade,
+                                                               type);
                 }
 
                 auto producer = std::make_shared<Producer>(unit, std::max(prerequisitesAvailable, remainingTrainTime + 1));
@@ -1699,7 +1702,7 @@ namespace Producer
                 {
                     auto result = item->producer->existing->train(*unitType);
                     if (result)
-                        Log::Debug() << "Sent command to train " << (*unitType) << " from " << item->producer->existing->getType() << " @ "
+                        Log::Debug() << "Sent command to train " << (*unitType) << " from " << item->producer->existing->type << " @ "
                                      << item->producer->existing->getTilePosition();
                 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common.h"
+#include "Unit.h"
 
 #include <bwem.h>
 
@@ -11,7 +12,7 @@ public:
     //enum class Owner { None, Me, Enemy, Ally };
 
     BWAPI::Player owner;                                      // Who owns the base
-    BWAPI::Unit resourceDepot;                              // The resource depot for the base, may be null
+    Unit resourceDepot;                              // The resource depot for the base, may be null
     int ownedSince;                                 // Frame the base last changed ownership
     int lastScouted;                                // When we have last seen this base
     bool spiderMined;                                // Do we suspect this base to have a spider mine blocking it
@@ -21,27 +22,27 @@ public:
 
     Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase);
 
-    const BWAPI::TilePosition &getTilePosition() const { return tile; }
+    [[nodiscard]] const BWAPI::TilePosition &getTilePosition() const { return tile; }
 
-    const BWAPI::Position getPosition() const { return BWAPI::Position(tile) + BWAPI::Position(64, 48); }
+    [[nodiscard]] BWAPI::Position getPosition() const { return BWAPI::Position(tile) + BWAPI::Position(64, 48); }
 
-    const BWEM::Area *getArea() const { return bwemBase->GetArea(); }
+    [[nodiscard]] const BWEM::Area *getArea() const { return bwemBase->GetArea(); }
 
-    size_t mineralPatchCount() const { return bwemBase->Minerals().size(); }
+    [[nodiscard]] size_t mineralPatchCount() const { return bwemBase->Minerals().size(); }
 
-    std::vector<BWAPI::Unit> mineralPatches() const;
+    [[nodiscard]] std::vector<BWAPI::Unit> mineralPatches() const;
 
-    std::vector<BWAPI::Unit> geysers() const;
+    [[nodiscard]] std::vector<BWAPI::Unit> geysers() const;
 
-    std::vector<BWAPI::Unit> refineries() const;
+    [[nodiscard]] std::vector<BWAPI::Unit> refineries() const;
 
-    int minerals() const;
+    [[nodiscard]] int minerals() const;
 
-    int gas() const;
+    [[nodiscard]] int gas() const;
 
-    bool isStartingBase() const;
+    [[nodiscard]] bool isStartingBase() const;
 
-    bool isInMineralLine(BWAPI::TilePosition pos) const;
+    [[nodiscard]] bool isInMineralLine(BWAPI::TilePosition pos) const;
 
 private:
 

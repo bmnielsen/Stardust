@@ -9,9 +9,9 @@ public:
 
     std::string label;
 
-    void addUnit(BWAPI::Unit unit);
+    void addUnit(const MyUnit &unit);
 
-    void removeUnit(BWAPI::Unit unit);
+    void removeUnit(const MyUnit &unit);
 
     void updateClusters();
 
@@ -19,7 +19,7 @@ public:
 
     BWAPI::Position getTargetPosition() { return targetPosition; }
 
-    std::vector<BWAPI::Unit> getUnits();
+    std::vector<MyUnit> getUnits();
 
     explicit Squad(std::string label) : label(std::move(label)), targetPosition(BWAPI::Positions::Invalid) {}
 
@@ -27,11 +27,11 @@ protected:
     BWAPI::Position targetPosition;
 
     std::set<std::shared_ptr<UnitCluster>> clusters;
-    std::map<BWAPI::Unit, std::shared_ptr<UnitCluster>> unitToCluster;
+    std::map<MyUnit, std::shared_ptr<UnitCluster>> unitToCluster;
 
-    void addUnitToBestCluster(BWAPI::Unit unit);
+    void addUnitToBestCluster(const MyUnit &unit);
 
-    virtual std::shared_ptr<UnitCluster> createCluster(BWAPI::Unit unit) { return std::make_shared<UnitCluster>(unit); }
+    virtual std::shared_ptr<UnitCluster> createCluster(MyUnit unit) { return std::make_shared<UnitCluster>(unit); }
 
     virtual void execute(UnitCluster &cluster) = 0;
 };

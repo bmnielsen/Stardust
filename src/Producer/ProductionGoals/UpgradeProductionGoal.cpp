@@ -1,5 +1,7 @@
 #include "ProductionGoal.h"
 
+#include "Units.h"
+
 bool UpgradeProductionGoal::isFulfilled()
 {
     // Fulfilled if we have already upgraded to the desired level
@@ -7,12 +9,12 @@ bool UpgradeProductionGoal::isFulfilled()
 
     // Fulfilled if something is currently upgrading it
     // Technically we still may want to go further, but we don't need to plan that in advance
-    for (auto unit : BWAPI::Broodwar->self()->getUnits())
+    for (const auto &unit : Units::allMine())
     {
-        if (!unit->isCompleted()) continue;
-        if (unit->getType() != type.whatUpgrades()) continue;
+        if (!unit->completed) continue;
+        if (unit->type != type.whatUpgrades()) continue;
 
-        if (unit->isUpgrading() && unit->getUpgrade() == type) return true;
+        if (unit->bwapiUnit->isUpgrading() && unit->bwapiUnit->getUpgrade() == type) return true;
     }
 
     return false;

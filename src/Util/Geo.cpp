@@ -6,8 +6,8 @@ namespace Geo
 {
     int ApproximateDistance(int x1, int x2, int y1, int y2)
     {
-        unsigned int min = abs((int) (x1 - x2));
-        unsigned int max = abs((int) (y1 - y2));
+        unsigned int min = abs(x1 - x2);
+        unsigned int max = abs(y1 - y2);
         if (max < min)
             std::swap(min, max);
 
@@ -156,42 +156,6 @@ namespace Geo
             result.push_back(pos);
             added.insert(pos);
         }
-    }
-
-    // Computes the intercept point of a unit targeting another one, assuming the interceptor
-    // is going at full speed and the target remains on its current trajectory and speed.
-    // Returns invalid if the target cannot be intercepted.
-    // Uses the formula derived here: http://jaran.de/goodbits/2011/07/17/calculating-an-intercept-course-to-a-target-with-constant-direction-and-velocity-in-a-2-dimensional-plane/
-    BWAPI::Position FindInterceptPoint(BWAPI::Unit interceptor, BWAPI::Unit target)
-    {
-        double speed = interceptor->getType().topSpeed();
-
-        double diffX = (double) target->getPosition().x - interceptor->getPosition().x;
-        double diffY = (double) target->getPosition().y - interceptor->getPosition().y;
-
-        double diffSpeed = target->getVelocityX() * target->getVelocityX() + target->getVelocityY() * target->getVelocityY() - speed * speed;
-        double diffDist = diffX * target->getVelocityX() + diffY * target->getVelocityY();
-
-        double t;
-        if (diffSpeed < 0.0001)
-        {
-            t = -(diffX * diffX + diffY * diffY) / (2 * diffDist);
-        }
-        else
-        {
-            double distSpeedRatio = -diffDist / diffSpeed;
-            double d = distSpeedRatio * distSpeedRatio - (diffX * diffX + diffY * diffY) / diffSpeed;
-            if (d < 0) return BWAPI::Positions::Invalid;
-
-            double r = sqrt(d);
-            t = std::max(distSpeedRatio + r, distSpeedRatio - r);
-        }
-
-        if (t < 0) return BWAPI::Positions::Invalid;
-
-        return BWAPI::Position(
-                target->getPosition().x + (int) (t * target->getVelocityX()),
-                target->getPosition().y + (int) (t * target->getVelocityY()));
     }
 
     BWAPI::Position CenterOfUnit(BWAPI::TilePosition topLeft, BWAPI::UnitType type)

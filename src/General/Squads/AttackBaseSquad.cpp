@@ -9,8 +9,8 @@
 void AttackBaseSquad::execute(UnitCluster &cluster)
 {
     // Look for enemies near this cluster
-    std::set<std::shared_ptr<Unit>> enemyUnits;
-    Units::getInRadius(enemyUnits, BWAPI::Broodwar->enemy(), cluster.center, 480);
+    std::set<Unit> enemyUnits;
+    Units::enemyInRadius(enemyUnits, cluster.center, 480);
 
     // If there are no enemies near the cluster, just move towards the target
     if (enemyUnits.empty())
@@ -32,12 +32,14 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     // - Attacking does not cost us anything
     // - We gain value without losing too much of our army
     // - We gain significant army proportion
+    // - We have a huge advantage, so there's no reason to withdraw
     // TODO: Make this more dynamic, integrate more of the logic from old Locutus
     // TODO: Consider whether it is even more beneficial to wait for nearby reinforcements
     bool attack =
             simResult.myPercentLost() <= 0.001 ||
             (simResult.valueGain() > 0 && simResult.percentGain() > -0.05) ||
-            simResult.percentGain() > 0.2;
+            simResult.percentGain() > 0.2 ||
+            simResult.myPercentageOfTotal() > 0.9;
 
 #if DEBUG_COMBATSIM
     CherryVis::log() << BWAPI::WalkPosition(cluster.center)
@@ -63,13 +65,13 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     int bestDist = 0;
     for (auto &unit : cluster.units)
     {
-        if (grid.groundThreat(unit->getPosition()) > 0) continue;
+        if (grid.groundThreat(unit->lastPosition) > 0) continue;
 
-        int dist = PathFinding::GetGroundDistance(unit->getPosition(), targetPosition, unit->getType());
+        int dist = PathFinding::GetGroundDistance(unit->lastPosition, targetPosition, unit->type);
         if (dist > bestDist)
         {
             bestDist = dist;
-            rallyPoint = unit->getPosition();
+            rallyPoint = unit->lastPosition;
         }
     }
 

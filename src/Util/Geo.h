@@ -8,12 +8,6 @@ namespace Geo
 
     int EdgeToEdgeDistance(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter);
 
-    int EdgeToEdgeDistance(BWAPI::UnitType firstType, int x1, int y1, BWAPI::UnitType secondType, int x2, int y2);
-
-    int EdgeToEdgeSquaredDistance(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter);
-
-    int EdgeToEdgeSquaredDistance(BWAPI::UnitType firstType, int x1, int y1, BWAPI::UnitType secondType, int x2, int y2);
-
     int EdgeToPointDistance(BWAPI::UnitType type, BWAPI::Position center, BWAPI::Position point);
 
     BWAPI::Position NearestPointOnEdge(BWAPI::Position point, BWAPI::UnitType type, BWAPI::Position center);
@@ -29,8 +23,6 @@ namespace Geo
     void FindWalkablePositionsBetween(BWAPI::Position start, BWAPI::Position end, std::vector<BWAPI::Position> &result);
 
     void FindTilesBetween(BWAPI::TilePosition start, BWAPI::TilePosition end, std::vector<BWAPI::TilePosition> &result);
-
-    BWAPI::Position FindInterceptPoint(BWAPI::Unit interceptor, BWAPI::Unit target);
 
     BWAPI::Position CenterOfUnit(BWAPI::TilePosition topLeft, BWAPI::UnitType type);
 

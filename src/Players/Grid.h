@@ -84,5 +84,5 @@ private:
     GridData _airThreat;
     GridData _detection;
 
-    void dumpHeatmapIfChanged(std::string heatmapName, const GridData &data) const;
+    void dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &data) const;
 };

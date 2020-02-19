@@ -110,7 +110,9 @@ void Base::analyzeMineralLine()
             Geo::FindTilesBetween(BWAPI::TilePosition(mineralPatch->getPosition()), BWAPI::TilePosition(getPosition()), tilesBetween);
             for (auto pos : tilesBetween)
             {
-                if (Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Nexus, getPosition(), BWAPI::Position(pos) + BWAPI::Position(16, 16)) < 1) continue;
+                if (Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Nexus, getPosition(), BWAPI::Position(pos) + BWAPI::Position(16, 16))
+                    < 1)
+                    continue;
 
                 for (int x = pos.x - 1; x <= pos.x + 1; x++)
                 {

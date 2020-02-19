@@ -10,7 +10,7 @@ class Choke
 public:
     explicit Choke(const BWEM::ChokePoint *_choke);
 
-    BWAPI::Position Center() const { return BWAPI::Position(choke->Center()) + BWAPI::Position(4, 4); }
+    [[nodiscard]] BWAPI::Position Center() const { return BWAPI::Position(choke->Center()) + BWAPI::Position(4, 4); }
 
     const BWEM::ChokePoint *choke;
 

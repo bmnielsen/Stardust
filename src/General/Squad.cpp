@@ -16,14 +16,14 @@ namespace
     const int REMOVE_THRESHOLD = COMBINE_THRESHOLD + ADD_THRESHOLD * 2;
 }
 
-void Squad::addUnit(BWAPI::Unit unit)
+void Squad::addUnit(const MyUnit &unit)
 {
-    CherryVis::log(unit) << "Added to squad: " << label;
+    CherryVis::log(unit->id) << "Added to squad: " << label;
 
     addUnitToBestCluster(unit);
 }
 
-void Squad::addUnitToBestCluster(BWAPI::Unit unit)
+void Squad::addUnitToBestCluster(const MyUnit &unit)
 {
     // Look for a suitable cluster to add this unit to
     std::shared_ptr<UnitCluster> best = nullptr;
@@ -43,7 +43,7 @@ void Squad::addUnitToBestCluster(BWAPI::Unit unit)
         best->addUnit(unit);
         unitToCluster[unit] = best;
 #if DEBUG_CLUSTER_MEMBERSHIP
-        CherryVis::log(unit) << "Added to cluster " << BWAPI::WalkPosition(best->center);
+        CherryVis::log(unit->id) << "Added to cluster " << BWAPI::WalkPosition(best->center);
 #endif
         return;
     }
@@ -52,16 +52,16 @@ void Squad::addUnitToBestCluster(BWAPI::Unit unit)
     clusters.insert(newCluster);
     unitToCluster[unit] = newCluster;
 #if DEBUG_CLUSTER_MEMBERSHIP
-    CherryVis::log(unit) << "Added to new cluster " << BWAPI::WalkPosition(newCluster->center);
+    CherryVis::log(unit->id) << "Added to new cluster " << BWAPI::WalkPosition(newCluster->center);
 #endif
 }
 
-void Squad::removeUnit(BWAPI::Unit unit)
+void Squad::removeUnit(const MyUnit &unit)
 {
     auto clusterIt = unitToCluster.find(unit);
     if (clusterIt == unitToCluster.end()) return;
 
-    CherryVis::log(unit) << "Removed from squad: " << label;
+    CherryVis::log(unit->id) << "Removed from squad: " << label;
 
     auto cluster = clusterIt->second;
     unitToCluster.erase(clusterIt);
@@ -131,7 +131,7 @@ void Squad::updateClusters()
             auto unit = *unitIt;
             unitIt = cluster->removeUnit(unitIt);
 #if DEBUG_CLUSTER_MEMBERSHIP
-            CherryVis::log(unit) << "Removed from cluster " << BWAPI::WalkPosition(cluster->center);
+            CherryVis::log(unit->id) << "Removed from cluster " << BWAPI::WalkPosition(cluster->center);
 #endif
             addUnitToBestCluster(unit);
         }
@@ -146,9 +146,9 @@ void Squad::execute()
     }
 }
 
-std::vector<BWAPI::Unit> Squad::getUnits()
+std::vector<MyUnit> Squad::getUnits()
 {
-    std::vector<BWAPI::Unit> result;
+    std::vector<MyUnit> result;
 
     for (auto &unitAndCluster : unitToCluster)
     {

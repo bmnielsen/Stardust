@@ -25,18 +25,18 @@ file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR} *.cpp)
 
 add_library(Locutus SHARED ${SRC_FILES})
 
-if(CMAKE_BUILD_TYPE MATCHES Debug)
+if ((CMAKE_BUILD_TYPE MATCHES Debug) OR (CMAKE_BUILD_TYPE MATCHES RelWithDebInfo))
     target_compile_definitions(Locutus PUBLIC DEBUG=1)
-endif()
+endif ()
 
-IF(MSVC)
+IF (MSVC)
     target_link_libraries(Locutus BWAPILIB BWEM BWEB FAP libzstd_static)
-ELSE(MSVC)
+ELSE (MSVC)
     target_link_libraries(Locutus -L/usr/local/Cellar/llvm/8.0.0/lib BWAPILIB BWEM BWEB FAP libzstd_static c++fs)
-ENDIF(MSVC)
+ENDIF (MSVC)
 
 target_include_directories(Locutus PUBLIC ${LOCUTUS_INCLUDES})
 
-IF(NOT MSVC)
+IF (NOT MSVC)
     target_compile_options(Locutus PRIVATE -Wall -Werror)
-ENDIF(NOT MSVC)
+ENDIF (NOT MSVC)

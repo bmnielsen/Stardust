@@ -14,16 +14,19 @@ public:
     CombatSimResult() : CombatSimResult(0, 0, 0, 0) {};
 
     // What percentage of my army value was lost during the sim
-    double myPercentLost();
+    double myPercentLost() const;
 
     // What percentage of the enemy's army value was lost during the sim
-    double enemyPercentLost();
+    double enemyPercentLost() const;
 
     // How much relative value was gained by my army during the sim (i.e. if positive, the value the enemy lost more than mine)
-    int valueGain();
+    int valueGain() const;
 
     // Similar to valueGain, but dealing in percentages (i.e. if positive, the enemy lost a higher percentage of their army than we lost of ours)
-    double percentGain();
+    double percentGain() const;
+
+    // What percentage of the total army value is ours
+    double myPercentageOfTotal() const;
 
 private:
     int initialMine;

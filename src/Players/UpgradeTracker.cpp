@@ -11,7 +11,7 @@ void UpgradeTracker::update(Grid &grid)
         if (current > weaponAndDamage.second)
         {
             // Update the grid for all known units with this weapon type
-            for (auto &unit : Units::getForPlayer(player))
+            auto updateGrid = [&](const Unit &unit)
             {
                 if (unit->lastPositionValid &&
                     (unit->type.groundWeapon() == weaponAndDamage.first ||
@@ -19,6 +19,16 @@ void UpgradeTracker::update(Grid &grid)
                 {
                     grid.unitWeaponDamageUpgraded(unit->type, unit->lastPosition, weaponAndDamage.first, weaponAndDamage.second, current);
                 }
+            };
+            if (player == BWAPI::Broodwar->self())
+            {
+                for (auto &unit : Units::allMine())
+                { updateGrid(unit); }
+            }
+            else
+            {
+                for (auto &unit : Units::allEnemy())
+                { updateGrid(unit); }
             }
 
             weaponAndDamage.second = current;
@@ -31,7 +41,7 @@ void UpgradeTracker::update(Grid &grid)
         if (current > weaponAndRange.second)
         {
             // Update the grid for all known units with this weapon type
-            for (auto &unit : Units::getForPlayer(player))
+            auto updateGrid = [&](const Unit &unit)
             {
                 if (unit->lastPositionValid &&
                     (unit->type.groundWeapon() == weaponAndRange.first ||
@@ -39,6 +49,16 @@ void UpgradeTracker::update(Grid &grid)
                 {
                     grid.unitWeaponRangeUpgraded(unit->type, unit->lastPosition, weaponAndRange.first, weaponAndRange.second, current);
                 }
+            };
+            if (player == BWAPI::Broodwar->self())
+            {
+                for (auto &unit : Units::allMine())
+                { updateGrid(unit); }
+            }
+            else
+            {
+                for (auto &unit : Units::allEnemy())
+                { updateGrid(unit); }
             }
 
             weaponAndRange.second = current;

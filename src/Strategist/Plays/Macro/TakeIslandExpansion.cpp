@@ -4,7 +4,6 @@
 #include "Workers.h"
 #include "Units.h"
 #include "Geo.h"
-#include "PathFinding.h"
 #include "Map.h"
 
 TakeIslandExpansion::TakeIslandExpansion(BWAPI::TilePosition
@@ -21,25 +20,25 @@ void TakeIslandExpansion::update()
 
     if (!builder)
     {
-        builder = Workers::getClosestReassignableWorker(shuttle->getPosition(), false);
+        builder = Workers::getClosestReassignableWorker(shuttle->lastPosition, false);
         if (!builder) return;
 
-        Units::getMine(builder).moveTo(shuttle->getPosition());
-        shuttle->load(builder);
+        builder->moveTo(shuttle->lastPosition);
+        shuttle->load(builder->bwapiUnit);
     }
 
     auto targetPos = BWAPI::Position(depotPosition) + BWAPI::Position(64, 48);
 
-    if (builder->isLoaded())
+    if (builder->bwapiUnit->isLoaded())
     {
         if (shuttle->getDistance(targetPos) < 64)
         {
-            if (shuttle->getLastCommand().getType() == BWAPI::UnitCommandTypes::Unload_All) return;
+            if (shuttle->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Unload_All) return;
             shuttle->unloadAll();
         }
         else
         {
-            Units::getMine(shuttle).moveTo(targetPos);
+            shuttle->moveTo(targetPos);
         }
 
         return;
@@ -65,8 +64,8 @@ void TakeIslandExpansion::update()
 
         if (blockingMineral)
         {
-            if (builder->getLastCommand().getType() == BWAPI::UnitCommandTypes::Gather &&
-                builder->getLastCommand().getTarget() == blockingMineral)
+            if (builder->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Gather &&
+                builder->bwapiUnit->getLastCommand().getTarget() == blockingMineral)
                 return;
             builder->gather(blockingMineral);
             return;
@@ -92,12 +91,12 @@ void TakeIslandExpansion::addPrioritizedProductionGoals(std::map<int, std::vecto
     }
 }
 
-void TakeIslandExpansion::addUnit(BWAPI::Unit unit)
+void TakeIslandExpansion::addUnit(MyUnit unit)
 {
-    if (unit->getType() == BWAPI::UnitTypes::Protoss_Shuttle) shuttle = unit;
+    if (unit->type == BWAPI::UnitTypes::Protoss_Shuttle) shuttle = unit;
 }
 
-void TakeIslandExpansion::removeUnit(BWAPI::Unit unit)
+void TakeIslandExpansion::removeUnit(MyUnit unit)
 {
     if (shuttle == unit) shuttle = nullptr;
 }

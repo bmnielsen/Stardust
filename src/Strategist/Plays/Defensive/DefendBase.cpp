@@ -6,7 +6,6 @@
 #include "Units.h"
 #include "UnitUtil.h"
 #include "Workers.h"
-#include "Players.h"
 
 /*
  * General approach:
@@ -41,8 +40,8 @@ void DefendBase::update()
         if ((Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) + Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon)) > 4)
         {
             // Get enemy combat units in our base
-            std::set<std::shared_ptr<Unit>> enemyCombatUnits;
-            Units::getInArea(enemyCombatUnits, BWAPI::Broodwar->enemy(), Map::getMyMain()->getArea(), [](const std::shared_ptr<Unit> &unit)
+            std::set<Unit> enemyCombatUnits;
+            Units::enemyInArea(enemyCombatUnits, Map::getMyMain()->getArea(), [](const Unit &unit)
             {
                 return UnitUtil::IsCombatUnit(unit->type) && unit->type.canAttack();
             });
@@ -81,13 +80,13 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
 void DefendBase::mineralLineWorkerDefense()
 {
     // Check if there are enemy melee units in our mineral line
-    std::set<std::shared_ptr<Unit>> enemyUnits;
-    Units::get(enemyUnits, BWAPI::Broodwar->enemy(), [this](const std::shared_ptr<Unit> &unit)
+    std::set<Unit> enemyUnits;
+    Units::enemy(enemyUnits, [this](const Unit &unit)
     {
         if (!unit->lastPositionValid) return false;
         if (!UnitUtil::IsCombatUnit(unit->type) || UnitUtil::IsRangedUnit(unit->type) || !UnitUtil::CanAttackGround(unit->type)) return false;
 
-        auto comingPosition = UnitUtil::PredictPosition(unit->unit, 24);
+        auto comingPosition = unit->predictPosition(24);
         return base->isInMineralLine(BWAPI::TilePosition(comingPosition));
     });
 
@@ -95,7 +94,7 @@ void DefendBase::mineralLineWorkerDefense()
     {
         if (!reservedWorkers.empty())
         {
-            for (auto worker : reservedWorkers)
+            for (const auto &worker : reservedWorkers)
             {
                 Workers::releaseWorker(worker);
             }
@@ -125,18 +124,18 @@ void DefendBase::mineralLineWorkerDefense()
     // Choose a target for each of our workers
     // Each attacks the closest enemy unit with the least health
     bool isEnemyInRange = false;
-    std::vector<std::pair<BWAPI::Unit, BWAPI::Unit>> workersAndTargets;
-    for (auto worker : reservedWorkers)
+    std::vector<std::pair<MyUnit, Unit>> workersAndTargets;
+    for (const auto &worker : reservedWorkers)
     {
-        BWAPI::Unit bestTarget = nullptr;
+        Unit bestTarget = nullptr;
         int bestTargetDist = INT_MAX;
         int bestTargetHealth = INT_MAX;
         for (auto &enemy : enemyUnits)
         {
-            int dist = Geo::EdgeToEdgeDistance(worker->getType(), worker->getPosition(), enemy->type, enemy->lastPosition);
+            int dist = worker->getDistance(enemy);
             if (dist < bestTargetDist || (dist == bestTargetDist && enemy->lastHealth < bestTargetHealth))
             {
-                bestTarget = enemy->unit;
+                bestTarget = enemy;
                 bestTargetDist = dist;
                 bestTargetHealth = enemy->lastHealth;
             }
@@ -144,11 +143,9 @@ void DefendBase::mineralLineWorkerDefense()
 
         workersAndTargets.emplace_back(std::make_pair(worker, bestTarget));
 
-        auto predictedPosition = UnitUtil::PredictPosition(bestTarget, BWAPI::Broodwar->getLatencyFrames());
-        auto predictedDist = Geo::EdgeToEdgeDistance(worker->getType(), worker->getPosition(), bestTarget->getType(), predictedPosition);
-
-        if (predictedDist <= Players::weaponRange(bestTarget->getPlayer(), bestTarget->getType().groundWeapon()) ||
-            predictedDist <= Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Probe.groundWeapon()))
+        auto predictedPosition = bestTarget->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        if (worker->isInOurWeaponRange(bestTarget, predictedPosition) ||
+            worker->isInEnemyWeaponRange(bestTarget, predictedPosition))
         {
             isEnemyInRange = true;
         }
@@ -157,13 +154,11 @@ void DefendBase::mineralLineWorkerDefense()
     // Consider if any combat units are in range of an enemy
     if (!isEnemyInRange && squad)
     {
-        for (auto unit : squad->getUnits())
+        for (const auto &unit : squad->getUnits())
         {
             for (auto &enemy : enemyUnits)
             {
-                int dist = Geo::EdgeToEdgeDistance(unit->getType(), unit->getPosition(), enemy->type, enemy->lastPosition);
-                if (dist <= Players::weaponRange(enemy->player, enemy->type.groundWeapon()) ||
-                    dist <= Players::weaponRange(BWAPI::Broodwar->self(), unit->getType().groundWeapon()))
+                if (unit->isInOurWeaponRange(enemy) || unit->isInEnemyWeaponRange(enemy))
                 {
                     isEnemyInRange = true;
                     goto breakOuterLoop;
@@ -178,7 +173,7 @@ void DefendBase::mineralLineWorkerDefense()
     {
         for (auto &workerAndTarget : workersAndTargets)
         {
-            Units::getMine(workerAndTarget.first).attack(workerAndTarget.second);
+            workerAndTarget.first->attack(workerAndTarget.second->bwapiUnit);
         }
 
         return;
@@ -187,9 +182,9 @@ void DefendBase::mineralLineWorkerDefense()
     // Otherwise we rally our workers on the mineral patch
     if (base->workerDefenseRallyPatch)
     {
-        for (auto worker : reservedWorkers)
+        for (const auto &worker : reservedWorkers)
         {
-            Units::getMine(worker).gather(base->workerDefenseRallyPatch);
+            worker->gather(base->workerDefenseRallyPatch);
         }
     }
 }

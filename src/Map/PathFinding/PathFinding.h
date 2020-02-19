@@ -41,7 +41,7 @@ namespace PathFinding
     // By default, if either of the ends doesn't have a valid BWEM area, the method will return an empty path.
     // If you want to use the nearest BWEM areas, pass the UseNearestBWEMArea flag.
     // Make sure neither of the ends is over a lake, this will make it very slow!
-    const BWEM::CPPath GetChokePointPath(
+    BWEM::CPPath GetChokePointPath(
             BWAPI::Position start,
             BWAPI::Position end,
             BWAPI::UnitType unitType = BWAPI::UnitTypes::Protoss_Dragoon,

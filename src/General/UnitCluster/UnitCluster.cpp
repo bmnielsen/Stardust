@@ -2,29 +2,27 @@
 #include "PathFinding.h"
 #include "Units.h"
 #include "UnitUtil.h"
-#include "Players.h"
-#include "Geo.h"
 
 #define DEBUG_CLUSTER_MEMBERSHIP true
 
-void UnitCluster::addUnit(BWAPI::Unit unit)
+void UnitCluster::addUnit(const MyUnit &unit)
 {
     if (units.find(unit) != units.end()) return;
 
     units.insert(unit);
 
     center = BWAPI::Position(
-            ((center.x * (units.size() - 1)) + unit->getPosition().x) / units.size(),
-            ((center.y * (units.size() - 1)) + unit->getPosition().y) / units.size());
+            ((center.x * (units.size() - 1)) + unit->lastPosition.x) / units.size(),
+            ((center.y * (units.size() - 1)) + unit->lastPosition.y) / units.size());
 
-    area += unit->getType().width() * unit->getType().height();
+    area += unit->type.width() * unit->type.height();
 
 #if DEBUG_CLUSTER_MEMBERSHIP
-    CherryVis::log(unit) << "Added to cluster @ " << BWAPI::WalkPosition(center);
+    CherryVis::log(unit->id) << "Added to cluster @ " << BWAPI::WalkPosition(center);
 #endif
 }
 
-void UnitCluster::removeUnit(BWAPI::Unit unit)
+void UnitCluster::removeUnit(const MyUnit &unit)
 {
     auto unitIt = units.find(unit);
     if (unitIt == units.end()) return;
@@ -32,11 +30,11 @@ void UnitCluster::removeUnit(BWAPI::Unit unit)
     removeUnit(unitIt);
 
 #if DEBUG_CLUSTER_MEMBERSHIP
-    CherryVis::log(unit) << "Removed from cluster @ " << BWAPI::WalkPosition(center);
+    CherryVis::log(unit->id) << "Removed from cluster @ " << BWAPI::WalkPosition(center);
 #endif
 }
 
-std::set<BWAPI::Unit>::iterator UnitCluster::removeUnit(std::set<BWAPI::Unit>::iterator unitIt)
+std::set<MyUnit>::iterator UnitCluster::removeUnit(std::set<MyUnit>::iterator unitIt)
 {
     auto unit = *unitIt;
 
@@ -44,10 +42,10 @@ std::set<BWAPI::Unit>::iterator UnitCluster::removeUnit(std::set<BWAPI::Unit>::i
     if (units.empty()) return newUnitIt;
 
     center = BWAPI::Position(
-            ((center.x * (units.size() + 1)) - unit->getPosition().x) / units.size(),
-            ((center.y * (units.size() + 1)) - unit->getPosition().y) / units.size());
+            ((center.x * (units.size() + 1)) - unit->lastPosition.x) / units.size(),
+            ((center.y * (units.size() + 1)) - unit->lastPosition.y) / units.size());
 
-    area -= unit->getType().width() * unit->getType().height();
+    area -= unit->type.width() * unit->type.height();
 
     return newUnitIt;
 }
@@ -56,7 +54,7 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
 {
     int sumX = 0;
     int sumY = 0;
-    BWAPI::Unit closestToTarget = nullptr;
+    MyUnit closestToTarget = nullptr;
     int closestToTargetDist = INT_MAX;
     for (auto unitIt = units.begin(); unitIt != units.end();)
     {
@@ -68,10 +66,10 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
             continue;
         }
 
-        sumX += unit->getPosition().x;
-        sumY += unit->getPosition().y;
+        sumX += unit->lastPosition.x;
+        sumY += unit->lastPosition.y;
 
-        int dist = PathFinding::GetGroundDistance(targetPosition, unit->getPosition(), unit->getType());
+        int dist = PathFinding::GetGroundDistance(targetPosition, unit->lastPosition, unit->type);
         if (dist != -1 && dist < closestToTargetDist)
         {
             closestToTargetDist = dist;
@@ -95,14 +93,14 @@ void UnitCluster::setActivity(UnitCluster::Activity newActivity)
     lastActivityChange = BWAPI::Broodwar->getFrameCount();
 }
 
-std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>>
-UnitCluster::selectTargets(std::set<std::shared_ptr<Unit>> &targets, BWAPI::Position targetPosition)
+std::vector<std::pair<MyUnit, Unit>>
+UnitCluster::selectTargets(std::set<Unit> &targets, BWAPI::Position targetPosition)
 {
-    std::vector<std::pair<BWAPI::Unit, std::shared_ptr<Unit>>> result;
+    std::vector<std::pair<MyUnit, Unit>> result;
 
-    for (auto unit : units)
+    for (auto &unit : units)
     {
-        result.emplace_back(std::make_pair(unit, UnitUtil::IsRangedUnit(unit->getType())
+        result.emplace_back(std::make_pair(unit, UnitUtil::IsRangedUnit(unit->type)
                                                  ? ChooseRangedTarget(unit, targets, targetPosition)
                                                  : ChooseMeleeTarget(unit, targets, targetPosition)));
     }

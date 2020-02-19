@@ -2,7 +2,7 @@
 
 #include "CherryVis.h"
 
-void Play::addUnit(BWAPI::Unit unit)
+void Play::addUnit(MyUnit unit)
 {
     if (getSquad() != nullptr)
     {
@@ -13,10 +13,10 @@ void Play::addUnit(BWAPI::Unit unit)
         Log::Get() << "WARNING: Adding unit to play without a Squad";
     }
 
-    CherryVis::log(unit) << "Added to play: " << label();
+    CherryVis::log(unit->id) << "Added to play: " << label();
 }
 
-void Play::removeUnit(BWAPI::Unit unit)
+void Play::removeUnit(MyUnit unit)
 {
     if (getSquad() != nullptr)
     {
@@ -27,5 +27,5 @@ void Play::removeUnit(BWAPI::Unit unit)
         Log::Get() << "WARNING: Removing unit from play without a Squad";
     }
 
-    CherryVis::log(unit) << "Removed from play: " << label();
+    CherryVis::log(unit->id) << "Removed from play: " << label();
 }

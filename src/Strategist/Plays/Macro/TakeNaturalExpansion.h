@@ -8,7 +8,7 @@ class TakeNaturalExpansion : public Play
 public:
     TakeNaturalExpansion();
 
-    const char *label() const override { return "TakeNaturalExpansion"; }
+    [[nodiscard]] const char *label() const override { return "TakeNaturalExpansion"; }
 
     void update() override;
 

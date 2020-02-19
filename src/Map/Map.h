@@ -12,11 +12,13 @@ namespace Map
 {
     void initialize();
 
+    void onUnitCreated(const Unit &unit);
+
     void onUnitDiscover(BWAPI::Unit unit);
 
-    void onUnitDestroy(BWAPI::Unit unit);
+    void onUnitDestroy(const Unit &unit);
 
-    void onUnitMorph(BWAPI::Unit unit);
+    void onUnitDestroy(BWAPI::Unit unit);
 
     void onBuildingLifted(BWAPI::UnitType type, BWAPI::TilePosition tile);
 

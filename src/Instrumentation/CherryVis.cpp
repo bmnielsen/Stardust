@@ -219,11 +219,6 @@ namespace CherryVis
         return LogWrapper(unitId);
     }
 
-    LogWrapper log(BWAPI::Unit unit)
-    {
-        return LogWrapper(unit->getID());
-    }
-
     void addHeatmap(const std::string &key, const std::vector<long> &data, int sizeX, int sizeY)
     {
 #if CHERRYVIS_ENABLED

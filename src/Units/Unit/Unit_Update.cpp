@@ -1,15 +1,42 @@
 #include "Unit.h"
 
-#include "UnitUtil.h"
 #include "Geo.h"
 #include "Players.h"
 #include "Map.h"
 
-Unit::Unit(BWAPI::Unit unit)
-        : unit(unit)
+namespace
+{
+    bool isUndetected(BWAPI::Unit unit)
+    {
+        return (unit->isBurrowed() || unit->isCloaked() || unit->getType().hasPermanentCloak()) && !unit->isDetected();
+    }
+
+    int estimateCompletionFrame(BWAPI::Unit unit)
+    {
+        if (!unit->getType().isBuilding() || unit->isCompleted()) return -1;
+
+        int remainingHitPoints = unit->getType().maxHitPoints() - unit->getHitPoints();
+        double hitPointsPerFrame = (unit->getType().maxHitPoints() * 0.9) / unit->getType().buildTime();
+        return BWAPI::Broodwar->getFrameCount() + (int) (remainingHitPoints / hitPointsPerFrame);
+    }
+
+    BWAPI::TilePosition computeBuildTile(BWAPI::Unit unit)
+    {
+        if (unit->getType().isBuilding() && !unit->isFlying())
+        {
+            return unit->getTilePosition();
+        }
+
+        return BWAPI::TilePositions::Invalid;
+    }
+}
+
+UnitImpl::UnitImpl(BWAPI::Unit unit)
+        : bwapiUnit(unit)
         , player(unit->getPlayer())
         , tilePositionX(unit->getPosition().x >> 5U)
         , tilePositionY(unit->getPosition().y >> 5U)
+        , buildTile(computeBuildTile(unit))
         , lastSeen(BWAPI::Broodwar->getFrameCount())
         , type(unit->getType())
         , id(unit->getID())
@@ -22,7 +49,7 @@ Unit::Unit(BWAPI::Unit unit)
         , isFlying(unit->isFlying())
         , cooldownUntil(BWAPI::Broodwar->getFrameCount() + std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown()))
         , stimmedUntil(BWAPI::Broodwar->getFrameCount() + unit->getStimTimer())
-        , undetected(UnitUtil::IsUndetected(unit))
+        , undetected(isUndetected(unit))
         , burrowed(unit->isBurrowed())
         , lastBurrowing(unit->getOrder() == BWAPI::Orders::Burrowing ? BWAPI::Broodwar->getFrameCount() : 0)
         , doomed(false)
@@ -31,13 +58,13 @@ Unit::Unit(BWAPI::Unit unit)
 
     Players::grid(player).unitCreated(type, lastPosition, completed);
 #if DEBUG_GRID_UPDATES
-    CherryVis::log(unit) << "Grid::unitCreated " << lastPosition;
+    CherryVis::log(id) << "Grid::unitCreated " << lastPosition;
 #endif
 
     if (unit->isCompleted() || unit->getType().isBuilding()) CherryVis::unitFirstSeen(unit);
 }
 
-void Unit::update(BWAPI::Unit unit)
+void UnitImpl::update(BWAPI::Unit unit)
 {
     if (!unit || !unit->exists()) return;
 
@@ -48,11 +75,13 @@ void Unit::update(BWAPI::Unit unit)
     type = unit->getType();
 
     lastSeen = BWAPI::Broodwar->getFrameCount();
+    tilePositionX = unit->getPosition().x >> 5U;
+    tilePositionY = unit->getPosition().y >> 5U;
     lastPosition = unit->getPosition();
     lastPositionValid = true;
 
     // Cloaked units show up with 0 hit points and shields, so default to max and otherwise don't touch them
-    undetected = UnitUtil::IsUndetected(unit);
+    undetected = isUndetected(unit);
     if (!undetected)
     {
         lastHealth = unit->getHitPoints();
@@ -68,7 +97,7 @@ void Unit::update(BWAPI::Unit unit)
     lastBurrowing = unit->getOrder() == BWAPI::Orders::Burrowing ? BWAPI::Broodwar->getFrameCount() : 0;
 
     completed = unit->isCompleted();
-    computeCompletionFrame(unit);
+    estimatedCompletionFrame = estimateCompletionFrame(unit);
 
     // TODO: Track lifted buildings
     isFlying = unit->isFlying();
@@ -92,16 +121,16 @@ void Unit::update(BWAPI::Unit unit)
         }
 
             // Clear if the attacker is dead, no longer visible, or out of range
-        else if (!it->attacker || !it->attacker->exists() || !it->attacker->isVisible() || !UnitUtil::IsInWeaponRange(it->attacker, unit))
+        else if (!it->attacker || !it->attacker->exists() || !it->attacker->bwapiUnit->isVisible() || !isInEnemyWeaponRange(it->attacker))
         {
             it = upcomingAttacks.erase(it);
             continue;
         }
 
             // Clear when the attacker has finished making an attack
-        else if ((isFlying ? it->attacker->getAirWeaponCooldown() : it->attacker->getGroundWeaponCooldown())
+        else if ((isFlying ? it->attacker->bwapiUnit->getAirWeaponCooldown() : it->attacker->bwapiUnit->getGroundWeaponCooldown())
                  > BWAPI::Broodwar->getRemainingLatencyFrames()
-                 && !it->attacker->isAttackFrame())
+                 && !it->attacker->bwapiUnit->isAttackFrame())
         {
             it = upcomingAttacks.erase(it);
             continue;
@@ -115,16 +144,14 @@ void Unit::update(BWAPI::Unit unit)
     if (doomed) CherryVis::log(id) << "DOOMED!";
 }
 
-void Unit::updateLastPositionValidity()
+void UnitImpl::updateUnitInFog()
 {
+    // If we've already detected that this unit has moved from its last known location, skip it
     // Skip if not applicable
-    if (!lastPositionValid ||
-        !unit ||
-        unit->isVisible())
-        return;
+    if (!lastPositionValid) return;
 
     // If the last position is now visible, the unit is gone
-    if (BWAPI::Broodwar->isVisible(BWAPI::TilePosition(lastPosition)))
+    if (BWAPI::Broodwar->isVisible(tilePositionX, tilePositionY))
     {
         // Set burrowed if we saw the unit burrowing a frame ago
         if (lastBurrowing == BWAPI::Broodwar->getFrameCount() - 1) burrowed = true;
@@ -180,7 +207,7 @@ void Unit::updateLastPositionValidity()
     }
 }
 
-void Unit::addUpcomingAttack(BWAPI::Unit attacker, BWAPI::Bullet bullet)
+void UnitImpl::addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet)
 {
     // Remove any existing upcoming attack from this attacker
     for (auto it = upcomingAttacks.begin(); it != upcomingAttacks.end();)
@@ -196,7 +223,7 @@ void Unit::addUpcomingAttack(BWAPI::Unit attacker, BWAPI::Bullet bullet)
                                  Players::attackDamage(bullet->getSource()->getPlayer(), bullet->getSource()->getType(), player, type));
 }
 
-void Unit::updateGrid(BWAPI::Unit unit)
+void UnitImpl::updateGrid(BWAPI::Unit unit)
 {
     auto &grid = Players::grid(unit->getPlayer());
 
@@ -293,14 +320,4 @@ void Unit::updateGrid(BWAPI::Unit unit)
     }
 
     // TODO: Workers in a refinery
-}
-
-void Unit::computeCompletionFrame(BWAPI::Unit unit)
-{
-    if (!unit->getType().isBuilding() || unit->isCompleted())
-        estimatedCompletionFrame = -1;
-
-    int remainingHitPoints = unit->getType().maxHitPoints() - unit->getHitPoints();
-    double hitPointsPerFrame = (unit->getType().maxHitPoints() * 0.9) / unit->getType().buildTime();
-    estimatedCompletionFrame = BWAPI::Broodwar->getFrameCount() + (int) (remainingHitPoints / hitPointsPerFrame);
 }

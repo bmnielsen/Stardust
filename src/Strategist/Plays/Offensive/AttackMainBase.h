@@ -8,9 +8,9 @@ class AttackMainBase : public Play
 public:
     explicit AttackMainBase(Base *base);
 
-    const char *label() const override { return "AttackMainBase"; }
+    [[nodiscard]] const char *label() const override { return "AttackMainBase"; }
 
-    bool receivesUnassignedUnits() const override { return true; }
+    [[nodiscard]] bool receivesUnassignedUnits() const override { return true; }
 
     std::shared_ptr<Squad> getSquad() override { return squad; }
 

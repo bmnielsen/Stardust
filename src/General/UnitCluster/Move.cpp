@@ -43,21 +43,20 @@ void UnitCluster::move(BWAPI::Position targetPosition)
     if (grid)
     {
         centerNode = &(*grid)[BWAPI::TilePosition(center)];
-        while (centerNode && centerNode->cost == USHRT_MAX) centerNode = centerNode->nextNode;
+        while (centerNode && centerNode->cost == USHRT_MAX)
+        { centerNode = centerNode->nextNode; }
     }
 
     // Compute scaling factor for cohesion boid, based on the size of the squad
-    double cohesionFactor = cohesionWeight * pi / (double) sqrt(area);
+    double cohesionFactor = cohesionWeight * pi / sqrt(area);
 
-    for (auto unit : units)
+    for (const auto &unit : units)
     {
-        auto &myUnit = Units::getMine(unit);
-
         // If the unit is stuck, unstick it
-        if (myUnit.unstick()) continue;
+        if (unit->unstick()) continue;
 
         // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
-        if (!myUnit.isReady()) continue;
+        if (!unit->isReady()) continue;
 
         // Get the grid node to move towards
         // We attempt to move towards the third node ahead of us
@@ -76,9 +75,9 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         if (!node)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit) << "Move to target: Moving to " << BWAPI::WalkPosition(targetPosition);
+            CherryVis::log(unit->id) << "Move to target: Moving to " << BWAPI::WalkPosition(targetPosition);
 #endif
-            myUnit.moveTo(targetPosition);
+            unit->moveTo(targetPosition);
             continue;
         }
 
@@ -87,8 +86,8 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         // Goal
 
         // Initialize with the offset to the node
-        int goalX = (node->x - myUnit.tilePositionX) * 32;
-        int goalY = (node->y - myUnit.tilePositionY) * 32;
+        int goalX = (node->x - unit->tilePositionX) * 32;
+        int goalY = (node->y - unit->tilePositionY) * 32;
 
         // Then scale to the desired weight
         double goalScale = goalWeight / (double) Geo::ApproximateDistance(goalX, 0, goalY, 0);
@@ -104,14 +103,14 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         // between this unit and the rest of the cluster
         if (!centerNode || (node->cost < 150) || (centerNode->cost > (node->cost - 150)))
         {
-            cohesionX = (int) ((double) (center.x - unit->getPosition().x) * cohesionFactor);
-            cohesionY = (int) ((double) (center.y - unit->getPosition().y) * cohesionFactor);
+            cohesionX = (int) ((double) (center.x - unit->lastPosition.x) * cohesionFactor);
+            cohesionY = (int) ((double) (center.y - unit->lastPosition.y) * cohesionFactor);
 
             // For cases where we have no valid center node, check for unwalkable terrain directly
             if (!centerNode)
             {
                 std::vector<BWAPI::TilePosition> tiles;
-                Geo::FindTilesBetween(BWAPI::TilePosition(unit->getPosition()), BWAPI::TilePosition(center), tiles);
+                Geo::FindTilesBetween(BWAPI::TilePosition(unit->lastPosition), BWAPI::TilePosition(center), tiles);
                 for (auto tile : tiles)
                 {
                     if (!Map::isWalkable(tile))
@@ -127,21 +126,21 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         // Separation
         int separationX = 0;
         int separationY = 0;
-        for (auto other : units)
+        for (const auto &other : units)
         {
             if (other == unit) continue;
 
             auto dist = unit->getDistance(other);
-            double detectionLimit = std::max(unit->getType().width(), other->getType().width()) * separationDetectionLimitFactor;
+            double detectionLimit = std::max(unit->type.width(), other->type.width()) * separationDetectionLimitFactor;
             if (dist >= (int) detectionLimit) continue;
 
             // We are within the detection limit
             // Push away with maximum force at 0 distance, no force at detection limit
             double distFactor = 1.0 - (double) dist / detectionLimit;
-            int centerDist = Geo::ApproximateDistance(unit->getPosition().x, other->getPosition().x, unit->getPosition().y, other->getPosition().y);
+            int centerDist = Geo::ApproximateDistance(unit->lastPosition.x, other->lastPosition.x, unit->lastPosition.y, other->lastPosition.y);
             double scalingFactor = distFactor * distFactor * separationWeight / centerDist;
-            separationX -= (int) ((double) (other->getPosition().x - unit->getPosition().x) * scalingFactor);
-            separationY -= (int) ((double) (other->getPosition().y - unit->getPosition().y) * scalingFactor);
+            separationX -= (int) ((double) (other->lastPosition.x - unit->lastPosition.x) * scalingFactor);
+            separationY -= (int) ((double) (other->lastPosition.y - unit->lastPosition.y) * scalingFactor);
         }
 
         // Put them all together to get the target direction
@@ -157,7 +156,7 @@ void UnitCluster::move(BWAPI::Position targetPosition)
             totalY = (int) ((double) totalY * scale);
         }
 
-        auto pos = BWAPI::Position(unit->getPosition().x + totalX, unit->getPosition().y + totalY);
+        auto pos = BWAPI::Position(unit->lastPosition.x + totalX, unit->lastPosition.y + totalY);
 
         // If the target position is in unwalkable terrain, use the grid directly
         if (!Map::isWalkable(BWAPI::TilePosition(pos)))
@@ -166,14 +165,14 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         }
 
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(unit) << "Movement boids; cluster=" << BWAPI::WalkPosition(center)
-                             << ": goal=" << BWAPI::WalkPosition(unit->getPosition() + BWAPI::Position(goalX, goalY))
-                             << "; cohesion=" << BWAPI::WalkPosition(unit->getPosition() + BWAPI::Position(cohesionX, cohesionY))
-                             << "; separation=" << BWAPI::WalkPosition(unit->getPosition() + BWAPI::Position(separationX, separationY))
-                             << "; total=" << BWAPI::WalkPosition(unit->getPosition() + BWAPI::Position(totalX, totalY))
+        CherryVis::log(unit->id) << "Movement boids; cluster=" << BWAPI::WalkPosition(center)
+                             << ": goal=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(goalX, goalY))
+                             << "; cohesion=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(cohesionX, cohesionY))
+                             << "; separation=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(separationX, separationY))
+                             << "; total=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(totalX, totalY))
                              << "; target=" << BWAPI::WalkPosition(pos);
 #endif
 
-        myUnit.move(pos);
+        unit->move(pos);
     }
 }

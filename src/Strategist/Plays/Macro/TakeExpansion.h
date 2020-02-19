@@ -8,7 +8,7 @@ class TakeExpansion : public Play
 public:
     explicit TakeExpansion(BWAPI::TilePosition depotPosition);
 
-    const char *label() const override { return "TakeExpansion"; }
+    [[nodiscard]] const char *label() const override { return "TakeExpansion"; }
 
     void update() override;
 
@@ -17,5 +17,5 @@ public:
     BWAPI::TilePosition depotPosition;
 
 private:
-    BWAPI::Unit builder;
+    MyUnit builder;
 };

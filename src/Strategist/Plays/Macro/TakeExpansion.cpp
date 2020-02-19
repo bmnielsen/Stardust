@@ -7,8 +7,8 @@ TakeExpansion::TakeExpansion(BWAPI::TilePosition depotPosition) : depotPosition(
 
 void TakeExpansion::update()
 {
-    // If our builder is dead or renegaded, release it
-    if (builder && (!builder->exists() || builder->getPlayer() != BWAPI::Broodwar->self()))
+    // If our builder is dead, release it
+    if (builder && !builder->exists())
     {
         builder = nullptr;
     }

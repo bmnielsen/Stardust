@@ -1,5 +1,3 @@
-#include "Builder.h"
-
 #include "Building.h"
 #include "Workers.h"
 #include "Units.h"
@@ -11,7 +9,7 @@ namespace Builder
     namespace
     {
         std::vector<std::shared_ptr<Building>> pendingBuildings;
-        std::map<BWAPI::Unit, std::vector<std::shared_ptr<Building>>> builderQueues;
+        std::map<MyUnit, std::vector<std::shared_ptr<Building>>> builderQueues;
 
         // Ensures the worker is being ordered to build this building
         void build(Building &building)
@@ -20,17 +18,17 @@ namespace Builder
 
             // If the builder is constructing, we have already given it the build command and are waiting
             // for the building to appear
-            if (building.builder->isConstructing()) return;
+            if (building.builder->bwapiUnit->isConstructing()) return;
 
             // TODO: Detect cases where we have already issued a build command that succeeded
             // (e.g. spider mine blocking)
 
             // If we are close to the build position and want to build now, issue the build command
-            int dist = Geo::EdgeToEdgeDistance(building.builder->getType(), building.builder->getPosition(), building.type, building.getPosition());
+            int dist = Geo::EdgeToEdgeDistance(building.builder->type, building.builder->lastPosition, building.type, building.getPosition());
             if (dist <= 64 && building.desiredStartFrame - BWAPI::Broodwar->getFrameCount() <= BWAPI::Broodwar->getRemainingLatencyFrames())
             {
                 // Return immediately if issuing the build command succeeded
-                if (Units::getMine(building.builder).build(building.type, building.tile)) return;
+                if (building.builder->build(building.type, building.tile)) return;
 
                 // The build command failed
                 // TODO: Look for blocking units
@@ -38,9 +36,9 @@ namespace Builder
 
             // Move towards the build position
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(building.builder) << "moveTo: Build location";
+            CherryVis::log(building.builder->id) << "moveTo: Build location";
 #endif
-            Units::getMine(building.builder).moveTo(building.getPosition());
+            building.builder->moveTo(building.getPosition());
         }
 
         // Releases the builder from constructing the given building
@@ -91,8 +89,8 @@ namespace Builder
             // - The building has died while under construction
             // - The builder has died before starting construction
             // TODO: Cancel dying buildings
-            if ((building.unit && (!building.unit->exists() || building.unit->isCompleted()))
-                || (!building.unit && (!building.builder->exists() || building.builder->getPlayer() != BWAPI::Broodwar->self())))
+            if ((building.unit && (!building.unit->exists() || building.unit->completed))
+                || (!building.unit && !building.builder->exists()))
             {
                 releaseBuilder(building);
                 it = pendingBuildings.erase(it);
@@ -105,13 +103,13 @@ namespace Builder
         // TODO: Flip this around and only check the unit list when we have sent the build order
         if (!pendingBuildings.empty())
         {
-            for (auto &unit : BWAPI::Broodwar->self()->getUnits())
+            for (auto &unit : Units::allMine())
             {
-                if (!unit->getType().isBuilding() || unit->isCompleted()) continue;
+                if (!unit->type.isBuilding() || unit->completed) continue;
                 for (auto &pendingBuilding : pendingBuildings)
                 {
                     if (pendingBuilding->unit) continue;
-                    if (pendingBuilding->type != unit->getType()) continue;
+                    if (pendingBuilding->type != unit->type) continue;
                     if (pendingBuilding->tile != unit->getTilePosition()) continue;
 
                     pendingBuilding->constructionStarted(unit);
@@ -124,7 +122,7 @@ namespace Builder
         // The buildings themselves are pruned earlier
         for (auto it = builderQueues.begin(); it != builderQueues.end();)
         {
-            if (!it->first->exists() || it->first->getPlayer() != BWAPI::Broodwar->self())
+            if (!it->first->exists())
             {
                 it = builderQueues.erase(it);
                 continue;
@@ -142,7 +140,7 @@ namespace Builder
         }
     }
 
-    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, BWAPI::Unit builder, int startFrame)
+    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, MyUnit builder, int startFrame)
     {
         auto building = std::make_shared<Building>(type, tile, builder, startFrame);
         pendingBuildings.push_back(building);
@@ -150,7 +148,7 @@ namespace Builder
 
         Workers::reserveWorker(builder);
 
-        Log::Debug() << "Queued " << **pendingBuildings.rbegin() << " to start at " << startFrame << " for builder " << builder->getID()
+        Log::Debug() << "Queued " << **pendingBuildings.rbegin() << " to start at " << startFrame << " for builder " << builder->id
                      << "; builder queue length: " << builderQueues[builder].size();
     }
 
@@ -163,7 +161,7 @@ namespace Builder
             // If construction has started, cancel it
             if ((*it)->unit)
             {
-                Log::Get() << "Cancelling construction of " << (*it)->unit->getType() << " @ " << (*it)->tile;
+                Log::Get() << "Cancelling construction of " << (*it)->unit->type << " @ " << (*it)->tile;
                 (*it)->unit->cancelConstruction();
             }
 
@@ -173,13 +171,13 @@ namespace Builder
         }
     }
 
-    BWAPI::Unit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int *expectedArrivalFrame)
+    MyUnit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int *expectedArrivalFrame)
     {
         BWAPI::Position buildPosition = BWAPI::Position(tile) + BWAPI::Position(type.tileWidth() * 16, type.tileHeight() * 16);
 
         // First get the closest worker currently available for reassignment
         int bestTravelTime = INT_MAX;
-        BWAPI::Unit bestWorker = Workers::getClosestReassignableWorker(buildPosition, true, &bestTravelTime);
+        MyUnit bestWorker = Workers::getClosestReassignableWorker(buildPosition, true, &bestTravelTime);
 
         // Next see if any existing builder will be finished in time to reach the desired position faster
         for (auto &builderAndQueue : builderQueues)
@@ -190,13 +188,13 @@ namespace Builder
             int totalTravelTime = 0;
 
             // Sum up the travel time between the existing queued buildings
-            BWAPI::Position lastPosition = builderAndQueue.first->getPosition();
+            BWAPI::Position lastPosition = builderAndQueue.first->lastPosition;
             for (const auto &building : builderAndQueue.second)
             {
                 totalTravelTime +=
                         PathFinding::ExpectedTravelTime(lastPosition,
                                                         building->getPosition(),
-                                                        builderAndQueue.first->getType(),
+                                                        builderAndQueue.first->type,
                                                         PathFinding::PathFindingOptions::UseNearestBWEMArea);
                 lastPosition = building->getPosition();
             }
@@ -205,7 +203,7 @@ namespace Builder
             totalTravelTime +=
                     PathFinding::ExpectedTravelTime(lastPosition,
                                                     buildPosition,
-                                                    builderAndQueue.first->getType(),
+                                                    builderAndQueue.first->type,
                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea);
 
             // Give a bonus to already-building workers, as we don't want to take a lot of workers off minerals

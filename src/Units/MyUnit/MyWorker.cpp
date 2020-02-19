@@ -3,7 +3,7 @@
 #include "PathFinding.h"
 
 MyWorker::MyWorker(BWAPI::Unit unit)
-        : MyUnit(unit)
+        : MyUnitImpl(unit)
         , mineralWalkingPatch(nullptr)
         , mineralWalkingTargetArea(nullptr)
         , mineralWalkingStartPosition(BWAPI::Positions::Invalid)
@@ -12,7 +12,7 @@ MyWorker::MyWorker(BWAPI::Unit unit)
 
 void MyWorker::resetMoveData()
 {
-    MyUnit::resetMoveData();
+    MyUnitImpl::resetMoveData();
     mineralWalkingPatch = nullptr;
     mineralWalkingTargetArea = nullptr;
     mineralWalkingStartPosition = BWAPI::Positions::Invalid;
@@ -68,17 +68,17 @@ bool MyWorker::mineralWalk(const Choke *choke)
 
     // If we're close to the patch, or if the patch is null and we've moved beyond the choke,
     // we're done mineral walking
-    if ((mineralWalkingPatch && unit->getDistance(mineralWalkingPatch) < 32) ||
+    if ((mineralWalkingPatch && bwapiUnit->getDistance(mineralWalkingPatch) < 32) ||
         (!mineralWalkingPatch &&
-         BWEM::Map::Instance().GetArea(unit->getTilePosition()) == mineralWalkingTargetArea &&
-         unit->getDistance(BWAPI::Position(chokePath[0]->Center())) > 100))
+         BWEM::Map::Instance().GetArea(getTilePosition()) == mineralWalkingTargetArea &&
+         getDistance(BWAPI::Position(chokePath[0]->Center())) > 100))
     {
         mineralWalkingPatch = nullptr;
         mineralWalkingTargetArea = nullptr;
         mineralWalkingStartPosition = BWAPI::Positions::Invalid;
 
         // Remove the choke we just mineral walk and reset the grid
-        chokePath.pop_front();
+        if (!chokePath.empty()) chokePath.pop_front();
         resetGrid();
 
         // Move to the next waypoint
@@ -99,9 +99,9 @@ bool MyWorker::mineralWalk(const Choke *choke)
 
             // The path to this mineral field should cross the choke we're mineral walking
             for (auto pathChoke : PathFinding::GetChokePointPath(
-                    unit->getPosition(),
+                    lastPosition,
                     staticNeutral->getInitialPosition(),
-                    unit->getType(),
+                    type,
                     PathFinding::PathFindingOptions::UseNearestBWEMArea))
             {
                 if (pathChoke == *chokePath.begin())
