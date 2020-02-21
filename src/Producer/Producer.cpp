@@ -1044,11 +1044,12 @@ namespace Producer
                         shiftOne(committedItems, *refineryIt, -delta);
 
                         // Restart the iteration as the iterator may have been invalidated
-                        if (gasFramesNeeded > 0) refineryIt = committedItems.begin();
+                        refineryIt = committedItems.begin();
+                        continue;
                     }
                 }
-                else
-                    refineryIt++;
+
+                refineryIt++;
             }
 
             // If we've resolved the gas block, return
