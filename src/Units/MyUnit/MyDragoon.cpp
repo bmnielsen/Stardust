@@ -14,7 +14,6 @@ MyDragoon::MyDragoon(BWAPI::Unit unit)
         , lastPosition(BWAPI::Positions::Invalid)
         , lastAttackStartedAt(0)
         , potentiallyStuckSince(0)
-        , lastUnstickFrame(0)
 {
 }
 
@@ -74,11 +73,7 @@ void MyDragoon::typeSpecificUpdate()
 
 bool MyDragoon::unstick()
 {
-    // If we recently sent a command meant to unstick the unit, give it a bit of time to kick in
-    if (BWAPI::Broodwar->getFrameCount() - lastUnstickFrame < BWAPI::Broodwar->getLatencyFrames())
-    {
-        return true;
-    }
+    if (MyUnitImpl::unstick()) return true;
 
     // This checks for the case of cancelled attacks sticking a dragoon
     if (bwapiUnit->isMoving() && potentiallyStuckSince > 0
@@ -89,33 +84,7 @@ bool MyDragoon::unstick()
         return true;
     }
 
-    // This checks for a dragoon stuck on a building
-    // Condition is:
-    // - The last command is a valid move command
-    // - The last command was issued more than 3+LF frames ago
-    // - The dragoon is not moving
-    BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
-    if (currentCommand.getType() == BWAPI::UnitCommandTypes::Move && currentCommand.getTargetPosition().isValid()
-        && (BWAPI::Broodwar->getFrameCount() - bwapiUnit->getLastCommandFrame()) >= (BWAPI::Broodwar->getLatencyFrames() + 3)
-        && (!bwapiUnit->isMoving() || (abs(bwapiUnit->getVelocityX()) < 0.001 && abs(bwapiUnit->getVelocityY()) < 0.001)))
-    {
-        for (const auto &building : BWAPI::Broodwar->self()->getUnits())
-        {
-            if (!building->getType().isBuilding()) continue;
-
-            if (bwapiUnit->getDistance(building) < 2)
-            {
-                // FIXME: This can target invalid positions
-                auto delta = bwapiUnit->getPosition() - building->getPosition();
-                auto pos = bwapiUnit->getPosition() + (delta / 2);
-                move(pos);
-                lastUnstickFrame = BWAPI::Broodwar->getFrameCount();
-                return true;
-            }
-        }
-    }
-
-    return MyUnitImpl::unstick();
+    return false;
 }
 
 bool MyDragoon::isReady() const

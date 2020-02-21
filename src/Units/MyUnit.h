@@ -59,6 +59,7 @@ protected:
     std::deque<const BWEM::ChokePoint *> chokePath;
     const NavigationGrid::GridNode *gridNode;
     int lastMoveFrame;
+    int lastUnstickFrame;       // frame we last sent a command to unstick the unit
 
     virtual void typeSpecificUpdate() {}
 
