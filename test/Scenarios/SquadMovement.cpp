@@ -82,7 +82,7 @@ TEST(SquadMovement, UnitsStayTogether_Dragoons)
     };
 
     // Verify the units are now moving as a cohesive unit
-    test.onEndMine = [&baseToAttack]()
+    test.onEndMine = [&baseToAttack](bool won)
     {
         assertUnitDistances(BWAPI::UnitTypes::Protoss_Dragoon, 128);
 
@@ -132,7 +132,7 @@ TEST(SquadMovement, UnitsStayTogether_Zealots)
     };
 
     // Verify the units are now moving as a cohesive unit
-    test.onEndMine = [&baseToAttack]()
+    test.onEndMine = [&baseToAttack](bool won)
     {
         assertUnitDistances(BWAPI::UnitTypes::Protoss_Zealot, 96);
 
@@ -188,7 +188,7 @@ TEST(SquadMovement, UnitsStayTogether_Mixed)
     };
 
     // Verify the units are now moving as a cohesive unit
-    test.onEndMine = [&baseToAttack]()
+    test.onEndMine = [&baseToAttack](bool won)
     {
         assertUnitDistances(BWAPI::UnitTypes::Protoss_Dragoon, 200);
         assertUnitDistances(BWAPI::UnitTypes::Protoss_Zealot, 200);
@@ -242,7 +242,7 @@ TEST(SquadMovement, OrphanedUnit)
     };
 
     // Verify the units are all closer
-    test.onEndMine = [&baseToAttack]()
+    test.onEndMine = [&baseToAttack](bool won)
     {
         int avg, min, max;
         computeDistances(BWAPI::UnitTypes::Protoss_Zealot, baseToAttack->getPosition(), &avg, &min, &max);
@@ -312,7 +312,7 @@ TEST(SquadMovement, DragoonBall)
     };
 
     // Verify the units have moved efficiently
-    test.onEndMine = [&baseToAttack]()
+    test.onEndMine = [&baseToAttack](bool won)
     {
         // Without flocking the distances are avg=1913; min=1411; max=2386
         // default: 2018;1773;2187

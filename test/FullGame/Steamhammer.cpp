@@ -19,7 +19,7 @@ TEST(Steamhammer, RunUntilLoss)
                 strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
             }
         };
-        test.onEndMine = [&test]()
+        test.onEndMine = [&test](bool won)
         {
             if (test.sharedMemory)
             {
@@ -29,6 +29,49 @@ TEST(Steamhammer, RunUntilLoss)
         test.run();
 
         if (::testing::UnitTest::GetInstance()->current_test_info()->result()->Failed()) break;
+    }
+}
+
+TEST(Steamhammer, RunForever)
+{
+    int count = 0;
+    int lost = 0;
+    while (true)
+    {
+        BWTest test;
+        test.opponentRace = BWAPI::Races::Zerg;
+        test.opponentModule = []()
+        {
+            return new UAlbertaBot::UAlbertaBotModule();
+        };
+        test.onStartOpponent = [&test]()
+        {
+            std::cout << "Steamhammer strategy: " << Config::Strategy::StrategyName << std::endl;
+            if (test.sharedMemory)
+            {
+                strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
+            }
+        };
+        test.onEndMine = [&](bool won)
+        {
+            std::ostringstream replayName;
+            replayName << "Steamhammer";
+            if (!won)
+            {
+                replayName << "_LOSS";
+                lost++;
+            }
+            if (test.sharedMemory) replayName << "_" << test.sharedMemory;
+            test.replayName = replayName.str();
+
+            count++;
+            std::cout << "---------------------------------------------" << std::endl;
+            std::cout << "STATUS AFTER " << count << " GAME" << (count == 1 ? "" : "S") << ": "
+                      << (count - lost) << " won; " << lost << " lost" << std::endl;
+            std::cout << "---------------------------------------------" << std::endl;
+        };
+        test.expectWin = false;
+        test.run();
     }
 }
 
@@ -171,7 +214,7 @@ TEST(Steamhammer, Anything)
             strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
         }
     };
-    test.onEndMine = [&test]()
+    test.onEndMine = [&test](bool won)
     {
         if (test.sharedMemory)
         {

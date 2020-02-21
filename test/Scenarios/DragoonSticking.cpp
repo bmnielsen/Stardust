@@ -40,7 +40,7 @@ TEST(DragoonSticking, StuckOnGateway)
     };
 
     // Verify the dragoon got past the gateway
-    test.onEndMine = []()
+    test.onEndMine = [](bool won)
     {
         for (auto unit : BWAPI::Broodwar->self()->getUnits())
         {

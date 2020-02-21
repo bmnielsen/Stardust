@@ -374,11 +374,11 @@ void BWTest::runGame(bool opponent)
 
     if (opponent)
     {
-        if (onEndOpponent) onEndOpponent();
+        if (onEndOpponent) onEndOpponent(gameOwner.getGame().won());
     }
     else
     {
-        if (onEndMine) onEndMine();
+        if (onEndMine) onEndMine(gameOwner.getGame().won());
     }
 
     try

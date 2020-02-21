@@ -24,7 +24,7 @@ TEST(TakeNaturalExpansion, CanTakeNaturalExpansionImmediately)
         Strategist::setOpening(openingPlays);
     };
 
-    test.onEndMine = []()
+    test.onEndMine = [](bool won)
     {
         EXPECT_EQ(Map::getMyNatural()->owner, BWAPI::Broodwar->self());
         EXPECT_FALSE(Map::getMyNatural()->resourceDepot == nullptr);

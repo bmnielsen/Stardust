@@ -49,8 +49,8 @@ public:
     std::function<void()> onFrameMine = nullptr;
     std::function<void()> onFrameOpponent = nullptr;
 
-    std::function<void()> onEndMine = nullptr;
-    std::function<void()> onEndOpponent = nullptr;
+    std::function<void(bool)> onEndMine = nullptr;
+    std::function<void(bool)> onEndOpponent = nullptr;
 
     std::vector<UnitTypeAndPosition> myInitialUnits;
     std::vector<UnitTypeAndPosition> opponentInitialUnits;

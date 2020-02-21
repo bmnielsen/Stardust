@@ -88,7 +88,7 @@ namespace
             EXPECT_TRUE(validateGrid(*grid));
         };
 
-        test.onEndMine = [&]()
+        test.onEndMine = [&](bool won)
         {
             CherryVis::gameEnd();
 
