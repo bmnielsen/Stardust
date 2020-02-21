@@ -8,6 +8,7 @@
 #include <execinfo.h>
 #include <filesystem>
 #include <sys/shm.h>
+#include <random>
 
 #include "Geo.h"
 
@@ -15,6 +16,32 @@
 
 namespace
 {
+    std::vector<std::string> allMaps = {
+            "maps/sscai/(2)Benzene.scx",
+            "maps/sscai/(2)Destination.scx",
+            "maps/sscai/(2)Heartbreak Ridge.scx",
+            "maps/sscai/(3)Neo Moon Glaive.scx",
+            "maps/sscai/(3)Tau Cross.scx",
+            "maps/sscai/(4)Andromeda.scx",
+            "maps/sscai/(4)Circuit Breaker.scx",
+            "maps/sscai/(4)Empire of the Sun.scm",
+            "maps/sscai/(4)Fighting Spirit.scx",
+            "maps/sscai/(4)Icarus.scm",
+            "maps/sscai/(4)Jade.scx",
+            "maps/sscai/(4)La Mancha1.1.scx",
+            "maps/sscai/(4)Python.scx",
+            "maps/sscai/(4)Roadrunner.scx"
+    };
+
+    std::mt19937 rng((std::random_device())());
+
+    template<typename It>
+    It randomElement(It start, It end) {
+        std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
+        std::advance(start, dis(rng));
+        return start;
+    }
+
     int scheduleInitialUnitCreation(std::vector<UnitTypeAndPosition> &initialUnits,
                                     std::unordered_map<int, std::vector<UnitTypeAndPosition>> &initialUnitsByFrame)
     {
@@ -130,6 +157,21 @@ BWAPI::Position UnitTypeAndPosition::getCenterPosition()
 
 void BWTest::run()
 {
+    // If the map is empty, pick a random one
+    if (map.empty())
+    {
+        map = *randomElement(allMaps.begin(), allMaps.end());
+        std::cout << "Selected map " << map << std::endl;
+    }
+
+    // If the random seed is -1, generate one
+    if (randomSeed == -1)
+    {
+        std::uniform_int_distribution<> distribution(1, 100000);
+        randomSeed = distribution(rng);
+        std::cout << "Selected random seed " << randomSeed << std::endl;
+    }
+
     initialUnitFrames = std::max(
             scheduleInitialUnitCreation(myInitialUnits, myInitialUnitsByFrame),
             scheduleInitialUnitCreation(opponentInitialUnits, opponentInitialUnitsByFrame));
