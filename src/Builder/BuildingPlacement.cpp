@@ -243,8 +243,20 @@ namespace BuildingPlacement
             {
                 for (int x = tile.x; x < tile.x + width; x++)
                 {
+                    if (x > BWAPI::Broodwar->mapWidth() - 1)
+                    {
+                        Log::Get() << "BUILD LOCATION OUT OF BOUNDS @ " << tile;
+                        continue;
+                    }
+
                     for (int y = tile.y; y < tile.y + height; y++)
                     {
+                        if (y > BWAPI::Broodwar->mapHeight() - 1)
+                        {
+                            Log::Get() << "BUILD LOCATION OUT OF BOUNDS @ " << tile;
+                            continue;
+                        }
+
                         blocks[x + y * BWAPI::Broodwar->mapWidth()] = value;
                     }
                 }
