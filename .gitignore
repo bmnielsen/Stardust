@@ -9,3 +9,5 @@ cmake-build-debug
 cmake-build-release
 cmake-build-relwithdebinfo
 msvc
+out
+CMakeSettings.json
