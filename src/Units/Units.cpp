@@ -178,17 +178,19 @@ namespace Units
         {
             if (unit->lastSeen == BWAPI::Broodwar->getFrameCount()) continue;
 
-            // If the unit is a building, check if it has been destroyed
-            if (unit->type.isBuilding() && !unit->type.isFlyingBuilding() && BWAPI::Broodwar->isVisible(unit->tilePositionX, unit->tilePositionY))
+            unit->updateUnitInFog();
+
+            // If a building that can't be lifted has disappeared from its last position, treat it as destroyed
+            if (!unit->lastPositionValid && unit->type.isBuilding() && !unit->type.isFlyingBuilding())
             {
                 destroyedEnemyUnits.push_back(unit);
                 continue;
             }
-
-            unit->updateUnitInFog();
         }
         for (auto &unit : destroyedEnemyUnits)
-        { enemyUnitDestroyed(unit); }
+        {
+            enemyUnitDestroyed(unit);
+        }
 
         // Output debug info for our own units
         for (auto &unit : myUnits)

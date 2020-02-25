@@ -39,6 +39,7 @@ public:
 
     BWAPI::Position lastPosition;               // Position of the unit when last seen
     bool lastPositionValid;          // Whether this position is still valid, i.e. we haven't seen the position empty later
+    bool lastPositionVisible;       // Whether the last position was visible on the previous frame
 
     int lastHealth;                 // Health when last seen
     int lastShields;                // Shields when last seen

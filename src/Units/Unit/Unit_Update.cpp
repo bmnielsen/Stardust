@@ -42,6 +42,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , id(unit->getID())
         , lastPosition(unit->getPosition())
         , lastPositionValid(true)
+        , lastPositionVisible(true)
         , lastHealth(unit->getHitPoints())
         , lastShields(unit->getShields())
         , completed(unit->isCompleted())
@@ -79,6 +80,7 @@ void UnitImpl::update(BWAPI::Unit unit)
     tilePositionY = unit->getPosition().y >> 5U;
     lastPosition = unit->getPosition();
     lastPositionValid = true;
+    lastPositionVisible = true;
 
     // Cloaked units show up with 0 hit points and shields, so default to max and otherwise don't touch them
     undetected = isUndetected(unit);
@@ -147,15 +149,19 @@ void UnitImpl::update(BWAPI::Unit unit)
 void UnitImpl::updateUnitInFog()
 {
     // If we've already detected that this unit has moved from its last known location, skip it
-    // Skip if not applicable
     if (!lastPositionValid) return;
 
-    // If the last position is now visible, the unit is gone
-    if (BWAPI::Broodwar->isVisible(tilePositionX, tilePositionY))
-    {
-        // Set burrowed if we saw the unit burrowing a frame ago
-        if (lastBurrowing == BWAPI::Broodwar->getFrameCount() - 1) burrowed = true;
+    bool positionVisible = BWAPI::Broodwar->isVisible(tilePositionX, tilePositionY);
 
+    // Detect burrowed units we have observed burrowing
+    if (positionVisible && lastBurrowing == BWAPI::Broodwar->getFrameCount() - 1)
+    {
+        burrowed = true;
+    }
+
+    // If the last position has been visible for two consecutive frames, the unit is gone
+    if (positionVisible && lastPositionVisible)
+    {
         // Leave units alone that were burrowed last time we "saw" them, unless they probably died in the fog
         if (burrowed && !doomed) return;
 
@@ -205,6 +211,8 @@ void UnitImpl::updateUnitInFog()
         CherryVis::log(id) << "Grid::unitCompleted (FOG) " << lastPosition;
 #endif
     }
+
+    lastPositionVisible = positionVisible;
 }
 
 void UnitImpl::addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet)
