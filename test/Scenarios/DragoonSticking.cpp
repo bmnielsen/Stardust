@@ -31,12 +31,11 @@ TEST(DragoonSticking, StuckOnGateway)
     test.onStartMine = [&baseToAttack]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 117)));
+        Map::setEnemyMain(baseToAttack);
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
         Strategist::setOpening(openingPlays);
-
-        std::cout << (int)BWAPI::UnitTypes::Protoss_Dragoon << std::endl;
     };
 
     // Verify the dragoon got past the gateway

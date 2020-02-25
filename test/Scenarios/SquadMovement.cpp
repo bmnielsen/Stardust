@@ -44,7 +44,10 @@ namespace
             count++;
         }
 
-        *avg /= count;
+        if (count > 0)
+        {
+            *avg /= count;
+        }
     }
 }
 
@@ -75,6 +78,7 @@ TEST(SquadMovement, UnitsStayTogether_Dragoons)
     test.onStartMine = [&baseToAttack]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
+        Map::setEnemyMain(baseToAttack);
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
@@ -84,7 +88,7 @@ TEST(SquadMovement, UnitsStayTogether_Dragoons)
     // Verify the units are now moving as a cohesive unit
     test.onEndMine = [&baseToAttack](bool won)
     {
-        assertUnitDistances(BWAPI::UnitTypes::Protoss_Dragoon, 128);
+        assertUnitDistances(BWAPI::UnitTypes::Protoss_Dragoon, 140);
 
         // Without flocking the distances are avg=2140; min=1940; max=2318
         // With flocking we accept the units to not be quite as close, but they should still move quickly
@@ -125,6 +129,7 @@ TEST(SquadMovement, UnitsStayTogether_Zealots)
     test.onStartMine = [&baseToAttack]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
+        Map::setEnemyMain(baseToAttack);
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
@@ -181,6 +186,7 @@ TEST(SquadMovement, UnitsStayTogether_Mixed)
     test.onStartMine = [&baseToAttack]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
+        Map::setEnemyMain(baseToAttack);
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
@@ -235,6 +241,7 @@ TEST(SquadMovement, OrphanedUnit)
     test.onStartMine = [&baseToAttack]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 117)));
+        Map::setEnemyMain(baseToAttack);
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
@@ -296,7 +303,7 @@ TEST(SquadMovement, DragoonBall)
             UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 20)),
             UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 21)),
             UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 22)),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 23)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 23))
     };
 
     Base *baseToAttack = nullptr;
@@ -305,6 +312,7 @@ TEST(SquadMovement, DragoonBall)
     test.onStartMine = [&baseToAttack]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 117)));
+        Map::setEnemyMain(baseToAttack);
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));

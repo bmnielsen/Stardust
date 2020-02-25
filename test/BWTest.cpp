@@ -302,7 +302,11 @@ void BWTest::runGame(bool opponent)
                                  }
                              });
 
-    std::cout << "Game started!" << std::endl;
+    std::cout << "Game started" << (opponent ? " (opponent)" : "") << "! "
+        << "framelimit=" << frameLimit
+        << "; timelimit=" << timeLimit
+        << "; map=" << map
+        << std::endl;
 
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -411,6 +415,8 @@ void BWTest::runGame(bool opponent)
             }
         }
     }
+
+    std::cout << "Game over " << (opponent ? "(opponent) " : "") << "after " << h->getFrameCount() << " frames" << std::endl;
 
     h->update();
 
