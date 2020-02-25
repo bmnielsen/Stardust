@@ -640,7 +640,8 @@ namespace Map
 
         // Units that affect tile walkability
         // Skip on frame 0, since we handle static neutrals and our base explicitly
-        if (BWAPI::Broodwar->getFrameCount() > 0 && unit->type.isBuilding())
+        // Skip refineries, since creation of a refinery does not affect tile walkability (there was already a geyser)
+        if (BWAPI::Broodwar->getFrameCount() > 0 && unit->type.isBuilding() && !unit->type.isRefinery())
         {
             tileWalkabilityUpdated = updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), false);
 
@@ -668,7 +669,8 @@ namespace Map
         inferBaseOwnershipFromUnitDestroyed(unit);
 
         // Units that affect tile walkability
-        if (unit->type.isBuilding())
+        // Skip refineries, since destruction of a refinery does not affect tile walkability (there will still be a geyser)
+        if (unit->type.isBuilding() && !unit->type.isRefinery())
         {
             tileWalkabilityUpdated = updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), true);
 
@@ -684,7 +686,7 @@ namespace Map
             BWEM::Map::Instance().OnStaticBuildingDestroyed(unit);
 
         // Units that affect tile walkability
-        if (unit->getType().isMineralField() || unit->getType().isBuilding())
+        if (unit->getType().isMineralField() || (unit->getType().isBuilding() && !unit->getType().isRefinery()))
         {
             tileWalkabilityUpdated = updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), true);
 
