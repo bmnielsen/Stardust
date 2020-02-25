@@ -145,7 +145,9 @@ namespace Map
             }
 
             auto playerLabel = [](BWAPI::Player player)
-            { return player ? player->getName() : "(none)"; };
+            {
+                return player ? player->getName() : "(none)";
+            };
             CherryVis::log() << "Changing base " << base->getTilePosition() << " owner from " << playerLabel(base->owner) << " to "
                              << playerLabel(owner);
 
@@ -962,5 +964,10 @@ namespace Map
     int unwalkableProximity(int x, int y)
     {
         return tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()];
+    }
+
+    void setEnemyMain(Base *base)
+    {
+        setBaseOwner(base, BWAPI::Broodwar->enemy());
     }
 }

@@ -24,16 +24,15 @@ namespace Units
         void unitCreated(const Unit &unit)
         {
             Map::onUnitCreated(unit);
-            // TODO: Send events
 
             if (unit->player == BWAPI::Broodwar->self())
             {
-                Log::Get() << "Unit created: " << unit->type << " @ " << unit->getTilePosition();
+                Log::Get() << "Unit created: " << *unit;
             }
 
             if (unit->player == BWAPI::Broodwar->enemy())
             {
-                Log::Get() << "Enemy discovered: " << unit->type << " @ " << unit->getTilePosition();
+                Log::Get() << "Enemy discovered: " << *unit;
             }
         }
 
@@ -49,14 +48,13 @@ namespace Units
 
             Map::onUnitDestroy(unit);
             Workers::onUnitDestroy(unit);
-            // TODO: Send events
 
             unit->bwapiUnit = nullptr; // Signals to all holding a copy of the pointer that this unit is dead
         }
 
         void myUnitDestroyed(const MyUnit &unit)
         {
-            Log::Get() << "Unit lost: " << unit->type << " @ " << unit->getTilePosition();
+            Log::Get() << "Unit lost: " << *unit;
 
             unitDestroyed(unit);
 
@@ -69,7 +67,7 @@ namespace Units
 
         void enemyUnitDestroyed(const Unit &unit)
         {
-            Log::Get() << "Enemy destroyed: " << unit->type << " @ " << unit->getTilePosition();
+            Log::Get() << "Enemy destroyed: " << *unit;
 
             unitDestroyed(unit);
 

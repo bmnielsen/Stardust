@@ -101,3 +101,5 @@ public:
 private:
     void updateGrid(BWAPI::Unit unit);
 };
+
+std::ostream &operator<<(std::ostream &os, const UnitImpl &unit);

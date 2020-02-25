@@ -202,11 +202,13 @@ void LocutusAIModule::onFrame()
     Builder::issueOrders();
     Timer::checkpoint("Builder::issueOrders");
 
+    // Called after the above to allow workers to be reassigned for combat, scouting, and building first
+    Workers::issueOrders();
+    Timer::checkpoint("Workers::issueOrders");
+
+    // Must be last, as this is what executes move orders queued earlier
     Units::issueOrders();
     Timer::checkpoint("Units::issueOrders");
-
-    Workers::issueOrders(); // Called last to allow workers to be taken or released for building, combat, etc. earlier
-    Timer::checkpoint("Workers::issueOrders");
 
     // Instrumentation
 #if COLLISION_HEATMAP_FREQUENCY

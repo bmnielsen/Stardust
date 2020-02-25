@@ -24,6 +24,10 @@ void MyUnitImpl::move(BWAPI::Position position, bool force)
     }
 
     issuedOrderThisFrame = bwapiUnit->move(position);
+    if (issuedOrderThisFrame)
+    {
+        lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+    }
 
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(id) << "Order: Move to " << BWAPI::WalkPosition(position) << (force ? " (forced)" : "");

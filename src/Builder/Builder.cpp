@@ -161,7 +161,7 @@ namespace Builder
             // If construction has started, cancel it
             if ((*it)->unit)
             {
-                Log::Get() << "Cancelling construction of " << (*it)->unit->type << " @ " << (*it)->tile;
+                Log::Get() << "Cancelling construction of " << *(*it)->unit;
                 (*it)->unit->cancelConstruction();
             }
 

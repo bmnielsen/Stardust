@@ -34,7 +34,7 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
-                                                << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
+                                                    << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
 #endif
             myUnit->attackUnit(unitAndTarget.second);
         }

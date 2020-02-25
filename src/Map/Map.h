@@ -67,4 +67,6 @@ namespace Map
     bool isWalkable(int x, int y);
 
     int unwalkableProximity(int x, int y);
+
+    void setEnemyMain(Base *base);
 }

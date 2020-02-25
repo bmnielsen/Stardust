@@ -16,9 +16,9 @@ public:
 
     void update(BWAPI::Unit unit) override;
 
-    void issueMoveOrders();
+    void moveTo(BWAPI::Position position, bool direct = false);
 
-    bool moveTo(BWAPI::Position position);
+    void issueMoveOrders();
 
     virtual void attackUnit(Unit target);
 
@@ -53,19 +53,49 @@ public:
 protected:
     bool issuedOrderThisFrame;
 
+    struct MoveCommand
+    {
+        BWAPI::Position targetPosition;
+        bool direct;
+
+        MoveCommand(BWAPI::Position targetPosition, bool direct) : targetPosition(targetPosition), direct(direct) {}
+    };
+
+    // The move command to be issued this frame.
+    std::unique_ptr<MoveCommand> moveCommand;
+
+    // The final target position of the current move. If invalid, the unit is not performing a move.
     BWAPI::Position targetPosition;
+
+    // For grid-based moves, the position of the grid node currently being moved towards.
+    // For choke-based moves, the position of the choke currently being moved towards.
+    // For direct moves, is set to targetPosition when the move command is issued.
     BWAPI::Position currentlyMovingTowards;
-    NavigationGrid *grid;
+
+    // The remaining choke points between the unit and its target.
     std::deque<const BWEM::ChokePoint *> chokePath;
+
+    // The current navigation grid being used for a move. May or may not apply all the way to targetPosition. For example, if a worker needs to
+    // do mineral walking, it may use a navigation grid to get to the mineral walk choke, then a different navigation grid to get from there to
+    // the target.
+    NavigationGrid *grid;
+
+    // The current grid node occupied by the unit in the above grid.
     const NavigationGrid::GridNode *gridNode;
+
+    // The last frame where we sent a move command to the unit.
     int lastMoveFrame;
-    int lastUnstickFrame;       // frame we last sent a command to unstick the unit
+
+    // The last frame where we sent a move command to the unit meant to "unstick" it.
+    int lastUnstickFrame;
 
     virtual void typeSpecificUpdate() {}
 
+    void initiateMove();
+
     virtual void resetMoveData();
 
-    virtual void moveToNextWaypoint();
+    void moveToNextWaypoint();
 
     void updateMoveWaypoints();
 

@@ -44,7 +44,9 @@ void UnitCluster::move(BWAPI::Position targetPosition)
     {
         centerNode = &(*grid)[BWAPI::TilePosition(center)];
         while (centerNode && centerNode->cost == USHRT_MAX)
-        { centerNode = centerNode->nextNode; }
+        {
+            centerNode = centerNode->nextNode;
+        }
     }
 
     // Compute scaling factor for cohesion boid, based on the size of the squad
@@ -166,13 +168,13 @@ void UnitCluster::move(BWAPI::Position targetPosition)
 
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(unit->id) << "Movement boids; cluster=" << BWAPI::WalkPosition(center)
-                             << ": goal=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(goalX, goalY))
-                             << "; cohesion=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(cohesionX, cohesionY))
-                             << "; separation=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(separationX, separationY))
-                             << "; total=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(totalX, totalY))
-                             << "; target=" << BWAPI::WalkPosition(pos);
+                                 << ": goal=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(goalX, goalY))
+                                 << "; cohesion=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(cohesionX, cohesionY))
+                                 << "; separation=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(separationX, separationY))
+                                 << "; total=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(totalX, totalY))
+                                 << "; target=" << BWAPI::WalkPosition(pos);
 #endif
 
-        unit->move(pos);
+        unit->moveTo(pos, true);
     }
 }

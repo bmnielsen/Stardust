@@ -3,6 +3,19 @@
 #include "PathFinding.h"
 #include "Map.h"
 
+/*
+ * In order to support multiple different triggers and forms of movement, it is done in two phases. First the move command is queued, then
+ * the most recent move command is issued at the end of the frame. This allows high-priority movement like evading storms to take priority.
+ *
+ * There are two modes of movement: moving towards a goal position and moving towards an intermediate position. The former is used for simple
+ * movements like sending a unit to a base or choke, and in this mode MyUnit manages following a grid or chokepoint path and handling mineral
+ * walking. The latter is used when more fine-grained micro is needed, like when flocking, and MyUnit does minimal work, as e.g. computing
+ * boids is done by the caller. The latter mode is set by specifying direct=true in the call to moveTo.
+ *
+ * In both modes, MyUnit handles detecting stuck units and unsticking them. This can also be triggered manually by callers before e.g. issuing
+ * an attack command.
+ */
+
 namespace
 {
     const NavigationGrid::GridNode *nextNode(const NavigationGrid::GridNode *currentNode)
@@ -10,43 +23,73 @@ namespace
         if (!currentNode || !currentNode->nextNode || !currentNode->nextNode->nextNode || !currentNode->nextNode->nextNode->nextNode) return nullptr;
         return currentNode->nextNode->nextNode->nextNode;
     }
+
+    bool isNextToUnwalkableTerrain(BWAPI::TilePosition pos)
+    {
+        for (int x = -1; x <= 1; x++)
+        {
+            for (int y = -1; y <= 1; y++)
+            {
+                auto here = pos + BWAPI::TilePosition(x, y);
+                if (here.isValid() && !Map::isWalkable(here)) return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+void MyUnitImpl::moveTo(BWAPI::Position position, bool direct)
+{
+    moveCommand = std::make_unique<MoveCommand>(position, direct);
 }
 
 void MyUnitImpl::issueMoveOrders()
 {
     if (issuedOrderThisFrame) return;
+
+    // Process a new move command
+    if (moveCommand && moveCommand->targetPosition != targetPosition)
+    {
+        initiateMove();
+        return;
+    }
+
+    // Jump out now if the unit is not currently doing a move
     if (!targetPosition.isValid()) return;
 
+    // Unstick the unit if it is stuck
+    // There are two forms of sticking: general stuck units that can't do anything, and units that are probably stuck on terrain or a building
+    if (unstick()) return;
     if (unstickMoveUnit()) return;
 
+    // If the unit has just been unstuck, reissue the command to move towards our current target position
+    if (BWAPI::Broodwar->getFrameCount() - lastUnstickFrame == BWAPI::Broodwar->getLatencyFrames())
+    {
+        move(currentlyMovingTowards);
+        return;
+    }
+
+    // Update the move
     updateMoveWaypoints();
 }
 
-bool MyUnitImpl::moveTo(BWAPI::Position position)
+void MyUnitImpl::initiateMove()
 {
-    // Fliers just move to the target
-    if (bwapiUnit->isFlying())
-    {
-        move(position);
-        return true;
-    }
-
-    // If the unit is already moving to this position, don't do anything
-    BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
-    if (position == targetPosition ||
-        (currentCommand.getType() == BWAPI::UnitCommandTypes::Move && currentCommand.getTargetPosition() == position))
-    {
-        return true;
-    }
-
-    // Clear any existing waypoints
     resetMoveData();
-    targetPosition = position;
+    targetPosition = moveCommand->targetPosition;
 
-    // Get the BWEM path
+    // No special pathing is required if the movement mode is direct or the unit is flying
+    if (moveCommand->direct || bwapiUnit->isFlying())
+    {
+        moveToNextWaypoint();
+        return;
+    }
+
+    // Get the choke path
     auto path = PathFinding::GetChokePointPath(
             bwapiUnit->getPosition(),
-            position,
+            targetPosition,
             bwapiUnit->getType(),
             PathFinding::PathFindingOptions::UseNearestBWEMArea);
     for (const BWEM::ChokePoint *chokepoint : path)
@@ -57,35 +100,15 @@ bool MyUnitImpl::moveTo(BWAPI::Position position)
     // Attempt to get an appropriate navigation grid
     resetGrid();
 
-    // Validate if we can perform the move and issue orders for trivial moves
-    if ((!gridNode || !nextNode(gridNode)) && chokePath.empty())
-    {
-        // If the unit is in the same area as the target position, move to it directly
-        auto unitArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(bwapiUnit->getPosition()));
-        auto targetArea = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(targetPosition));
-        if (!targetArea || targetArea == unitArea)
-        {
-            move(position);
-            return true;
-        }
-
-        // Otherwise we can't make the move - we don't have a choke path or a grid
-        targetPosition = BWAPI::Positions::Invalid;
-        return false;
-    }
-
-    // Start the move
 #if DEBUG_UNIT_ORDERS
     std::ostringstream log;
-    log << "Order: Starting move to " << BWAPI::WalkPosition(position);
+    log << "Order: Initiating move to " << BWAPI::WalkPosition(targetPosition);
     if (grid) log << "; grid target " << grid->goal;
     if (gridNode) log << "; initial grid node " << *gridNode;
     CherryVis::log(id) << log.str();
 #endif
 
-    targetPosition = position;
     moveToNextWaypoint();
-    return true;
 }
 
 void MyUnitImpl::resetMoveData()
@@ -120,8 +143,8 @@ void MyUnitImpl::moveToNextWaypoint()
             CherryVis::log(id) << "Order: Moving to target position " << BWAPI::WalkPosition(targetPosition);
 #endif
 
-            move(targetPosition);
-            lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+            currentlyMovingTowards = targetPosition;
+            move(currentlyMovingTowards);
             return;
         }
 
@@ -143,7 +166,6 @@ void MyUnitImpl::moveToNextWaypoint()
                     (next->x << 5U) + 16,
                     (next->y << 5U) + 16);
             move(currentlyMovingTowards);
-            lastMoveFrame = BWAPI::Broodwar->getFrameCount();
 
             return;
         }
@@ -161,8 +183,8 @@ void MyUnitImpl::moveToNextWaypoint()
         CherryVis::log(id) << "Order: No path; moving to target position " << BWAPI::WalkPosition(targetPosition);
 #endif
 
-        move(targetPosition);
-        lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+        currentlyMovingTowards = targetPosition;
+        move(currentlyMovingTowards);
         return;
     }
 
@@ -208,28 +230,16 @@ void MyUnitImpl::moveToNextWaypoint()
 #endif
 
     move(currentlyMovingTowards);
-    lastMoveFrame = BWAPI::Broodwar->getFrameCount();
 }
 
 void MyUnitImpl::updateMoveWaypoints()
 {
-    // Reset after latency frames when we're done navigating
-    if (!gridNode && chokePath.empty())
-    {
-        if (BWAPI::Broodwar->getFrameCount() - lastMoveFrame > BWAPI::Broodwar->getLatencyFrames())
-        {
-            resetMoveData();
-        }
-        return;
-    }
-
     if (mineralWalk(nullptr))
     {
         return;
     }
 
-    // If the unit command is no longer to move towards our current target, clear the waypoints
-    // This means we have ordered the unit to do something else in the meantime
+    // Check if the unit has been ordered to do something else and clear our move data
     BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
     if (currentCommand.getType() != BWAPI::UnitCommandTypes::Move || currentCommand.getTargetPosition() != currentlyMovingTowards)
     {
@@ -243,7 +253,7 @@ void MyUnitImpl::updateMoveWaypoints()
     // We have a grid we can use for navigation
     if (grid)
     {
-        auto inSameNode = bwapiUnit->getTilePosition().x == gridNode->x && bwapiUnit->getTilePosition().y == gridNode->y;
+        auto inSameNode = tilePositionX == gridNode->x && tilePositionY == gridNode->y;
         auto currentNodeValid = nextNode(gridNode) != nullptr;
 
         // If we are still in the same node, and the node is valid, then we just wait until the unit gets to a new node
@@ -254,7 +264,7 @@ void MyUnitImpl::updateMoveWaypoints()
 
         if (!inSameNode)
         {
-            gridNode = &(*grid)[bwapiUnit->getTilePosition()];
+            gridNode = &(*grid)[getTilePosition()];
 
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(id) << "Order: Path node set to " << *gridNode;
@@ -271,18 +281,25 @@ void MyUnitImpl::updateMoveWaypoints()
         // In all other cases fall through - we do not have a valid grid node so we are navigating using choke points
     }
 
-    // Wait until the unit is close enough to the current target
-    if (bwapiUnit->getDistance(currentlyMovingTowards) > 100) return;
+    // We have choke points we can use for navigation
+    if (!chokePath.empty())
+    {
+        // Wait until the unit is close enough to the current target
+        if (bwapiUnit->getDistance(currentlyMovingTowards) > 100) return;
 
-    // If the current target is a narrow ramp, wait until we can see the high elevation tile
-    // We want to make sure we go up the ramp far enough to see anything potentially blocking the ramp
-    auto choke = Map::choke(*chokePath.begin());
-    if (choke->width < 96 && choke->isRamp && !BWAPI::Broodwar->isVisible(choke->highElevationTile))
+        // If the current target is a narrow ramp, wait until we can see the high elevation tile
+        // We want to make sure we go up the ramp far enough to see anything potentially blocking the ramp
+        auto choke = Map::choke(*chokePath.begin());
+        if (choke->width < 96 && choke->isRamp && !BWAPI::Broodwar->isVisible(choke->highElevationTile))
+            return;
+
+        // Move to the next waypoint
+        chokePath.pop_front();
+        moveToNextWaypoint();
         return;
+    }
 
-    // Move to the next waypoint
-    if (!chokePath.empty()) chokePath.pop_front();
-    moveToNextWaypoint();
+    // We are doing a direct move - no update is required
 }
 
 void MyUnitImpl::resetGrid()
@@ -352,32 +369,79 @@ void MyUnitImpl::updateChokePath(const BWEM::Area *unitArea)
 
 bool MyUnitImpl::unstickMoveUnit()
 {
-    // Consider the unit to not be stuck if the last command was not a valid move command
+    // First validate that the last move command was issued more than 6+LF frames ago
+    if ((BWAPI::Broodwar->getFrameCount() - lastMoveFrame) < (BWAPI::Broodwar->getLatencyFrames() + 6))
+    {
+        return false;
+    }
+
+    // Now validate that the last move command matches the current move target
     BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
-    if (currentCommand.getType() != BWAPI::UnitCommandTypes::Move
-        || !currentCommand.getTargetPosition().isValid())
+    if (currentCommand.getType() != BWAPI::UnitCommandTypes::Move ||
+        !currentCommand.getTargetPosition().isValid() ||
+        currentCommand.getTargetPosition() != currentlyMovingTowards)
     {
         return false;
     }
 
-    // Consider the unit to not be stuck if it is close to its move target (it may be decelerating or have already arrived)
-    if (bwapiUnit->getDistance(currentCommand.getTargetPosition()) < 32)
+    // Don't consider the unit stuck if it is within 32 pixels of the target (it may be decelerating or have already arrived)
+    if (bwapiUnit->getDistance(currentlyMovingTowards) < 32)
     {
         return false;
     }
 
-    // Consider the unit to not be stuck if it is moving and the order is not Guard or PlayerGuard
+    // Don't consider the unit stuck if it is moving and the order is not Guard or PlayerGuard
     if (bwapiUnit->isMoving() && (abs(bwapiUnit->getVelocityX()) > 0.001 || abs(bwapiUnit->getVelocityY()) > 0.001)
         && bwapiUnit->getOrder() != BWAPI::Orders::Guard && bwapiUnit->getOrder() != BWAPI::Orders::PlayerGuard)
     {
         return false;
     }
 
-    // Otherwise force resend the last move command unless we recently did so
-    if ((BWAPI::Broodwar->getFrameCount() - bwapiUnit->getLastCommandFrame()) >= (BWAPI::Broodwar->getLatencyFrames() + 3))
+    // We are stuck. If we are close to unwalkable terrain, move along it to get us moving again.
+    if (isNextToUnwalkableTerrain(getTilePosition()))
     {
-        move(currentCommand.getTargetPosition(), true);
+        // Scores the distance from a neighbouring tile to the target position
+        BWAPI::Position best = BWAPI::Positions::Invalid;
+        int bestDist = INT_MAX;
+        auto scoreTile = [&currentCommand, &best, &bestDist](BWAPI::TilePosition tile)
+        {
+            if (!tile.isValid()) return;
+            if (!Map::isWalkable(tile)) return;
+
+            auto position = BWAPI::Position(tile) + BWAPI::Position(16, 16);
+            int dist = currentCommand.getTargetPosition().getApproxDistance(position);
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                best = position;
+            }
+        };
+
+        auto currentTile = getTilePosition();
+        scoreTile(currentTile + BWAPI::TilePosition(1, 0));
+        scoreTile(currentTile + BWAPI::TilePosition(-1, 0));
+        scoreTile(currentTile + BWAPI::TilePosition(0, 1));
+        scoreTile(currentTile + BWAPI::TilePosition(0, -1));
+
+        if (best.isValid())
+        {
+#ifdef DEBUG_UNIT_ORDERS
+            CherryVis::log(id) << "Unstick by moving to neighbouring walkable tile";
+#endif
+            move(best);
+            lastUnstickFrame = BWAPI::Broodwar->getFrameCount();
+            return true;
+        }
+
+        Log::Get() << *this << " likely stuck on terrain, but no valid unstick move location could be found";
     }
 
+#ifdef DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Unstick by resending previous move command";
+#endif
+
+    // Reissue the move command
+    move(currentlyMovingTowards, true);
+    lastUnstickFrame = BWAPI::Broodwar->getFrameCount();
     return true;
 }

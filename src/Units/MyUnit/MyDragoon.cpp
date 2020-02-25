@@ -1,10 +1,10 @@
 #include "MyDragoon.h"
 
-#include <BWEB.h>
 #include "UnitUtil.h"
 #include "Players.h"
 #include "Units.h"
 #include "Geo.h"
+#include "Map.h"
 
 const int DRAGOON_ATTACK_FRAMES = 6;
 const double pi = 3.14159265358979323846;
@@ -196,17 +196,12 @@ void MyDragoon::kiteFrom(BWAPI::Position position)
         // Valid
         if (!position.isValid()) return false;
 
-        // Not blocked by a building
-        if (BWEB::Map::getUsedTiles().find(BWAPI::TilePosition(position)) != BWEB::Map::getUsedTiles().end())
-            return false;
-
         // Walkable
-        BWAPI::WalkPosition walk(position);
-        if (!walk.isValid()) return false;
-        if (!BWAPI::Broodwar->isWalkable(walk)) return false;
+        // TODO: Should this be on walktile resolution?
+        if (!Map::isWalkable(BWAPI::TilePosition(position))) return false;
 
         // Not blocked by one of our own units
-        if (Players::grid(BWAPI::Broodwar->self()).collision(walk) > 0)
+        if (Players::grid(BWAPI::Broodwar->self()).collision(BWAPI::WalkPosition(position)) > 0)
         {
             return false;
         }
