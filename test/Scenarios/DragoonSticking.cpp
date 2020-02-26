@@ -4,7 +4,7 @@
 #include "Geo.h"
 #include "Map.h"
 #include "Strategist.h"
-#include "Plays/Offensive/AttackMainBase.h"
+#include "TestAttackBasePlay.h"
 
 TEST(DragoonSticking, StuckOnGateway)
 {
@@ -31,10 +31,9 @@ TEST(DragoonSticking, StuckOnGateway)
     test.onStartMine = [&baseToAttack]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 117)));
-        Map::setEnemyMain(baseToAttack);
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 

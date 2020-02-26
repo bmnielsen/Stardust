@@ -33,10 +33,11 @@ namespace
             "maps/sscai/(4)Roadrunner.scx"
     };
 
-    std::mt19937 rng((std::random_device())());
+    std::mt19937 rng((std::random_device()) ());
 
     template<typename It>
-    It randomElement(It start, It end) {
+    It randomElement(It start, It end)
+    {
         std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
         std::advance(start, dis(rng));
         return start;
@@ -46,14 +47,34 @@ namespace
                                     std::unordered_map<int, std::vector<UnitTypeAndPosition>> &initialUnitsByFrame)
     {
         // Rules for creating units:
-        // - Create buildings before non-buildings
-        // - Create non-combat buildings before combat buildings
-        // - Create pylons before buildings requiring power
+        // - First create workers
+        // - Then create pylons
+        // - Then create non-combat buildings
+        // - Then create combat buildings
+        // - Then create remaining units
 
         bool changed = false;
         int frame = 0;
 
+        // Scan for workers
+        for (auto it = initialUnits.begin(); it != initialUnits.end();)
+        {
+            if (it->type.isWorker())
+            {
+                initialUnitsByFrame[frame].push_back(*it);
+                it = initialUnits.erase(it);
+                changed = true;
+            }
+            else
+            {
+                it++;
+            }
+        }
+
+        if (changed) frame++;
+
         // Scan for pylons
+        changed = false;
         for (auto it = initialUnits.begin(); it != initialUnits.end();)
         {
             if (it->type == BWAPI::UnitTypes::Protoss_Pylon)
@@ -303,10 +324,10 @@ void BWTest::runGame(bool opponent)
                              });
 
     std::cout << "Game started" << (opponent ? " (opponent)" : "") << "! "
-        << "framelimit=" << frameLimit
-        << "; timelimit=" << timeLimit
-        << "; map=" << map
-        << std::endl;
+              << "framelimit=" << frameLimit
+              << "; timelimit=" << timeLimit
+              << "; map=" << map
+              << std::endl;
 
     auto start = std::chrono::high_resolution_clock::now();
 

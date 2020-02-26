@@ -4,7 +4,7 @@
 #include "Map.h"
 #include "Strategist.h"
 #include "PathFinding.h"
-#include "Plays/Offensive/AttackMainBase.h"
+#include "TestAttackBasePlay.h"
 
 namespace
 {
@@ -78,10 +78,9 @@ TEST(SquadMovement, UnitsStayTogether_Dragoons)
     test.onStartMine = [&baseToAttack]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
-        Map::setEnemyMain(baseToAttack);
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -129,10 +128,9 @@ TEST(SquadMovement, UnitsStayTogether_Zealots)
     test.onStartMine = [&baseToAttack]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
-        Map::setEnemyMain(baseToAttack);
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -186,10 +184,9 @@ TEST(SquadMovement, UnitsStayTogether_Mixed)
     test.onStartMine = [&baseToAttack]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
-        Map::setEnemyMain(baseToAttack);
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -241,10 +238,9 @@ TEST(SquadMovement, OrphanedUnit)
     test.onStartMine = [&baseToAttack]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 117)));
-        Map::setEnemyMain(baseToAttack);
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -312,10 +308,9 @@ TEST(SquadMovement, DragoonBall)
     test.onStartMine = [&baseToAttack]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 117)));
-        Map::setEnemyMain(baseToAttack);
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackMainBase>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
