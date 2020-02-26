@@ -18,3 +18,8 @@ void RallyArmy::update()
         status.transitionTo = std::make_shared<AttackMainBase>(enemyMain);
     }
 }
+
+void RallyArmy::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+{
+    AttackMainBase::MainArmyProduction(prioritizedProductionGoals);
+}

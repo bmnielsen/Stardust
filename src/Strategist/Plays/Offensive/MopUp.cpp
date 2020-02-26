@@ -18,3 +18,8 @@ void MopUp::update()
         status.transitionTo = std::make_shared<AttackMainBase>(enemyMain);
     }
 }
+
+void MopUp::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+{
+    AttackMainBase::MainArmyProduction(prioritizedProductionGoals);
+}

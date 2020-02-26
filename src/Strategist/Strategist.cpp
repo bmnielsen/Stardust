@@ -200,23 +200,6 @@ namespace Strategist
             }
         }
 
-        void handleMainArmyProduction()
-        {
-            // TODO
-            int percentZealots = 0;
-
-            int currentZealots = Units::countAll(BWAPI::UnitTypes::Protoss_Zealot);
-            int currentDragoons = Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon);
-
-            int currentZealotRatio = (100 * currentZealots) / std::max(1, currentZealots + currentDragoons);
-
-            if (currentZealotRatio >= percentZealots)
-            {
-                productionGoals.emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Dragoon, -1, -1);
-            }
-            productionGoals.emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Zealot, -1, -1);
-        }
-
         void updateExpansions()
         {
             // Clear finished TakeExpansion plays
@@ -442,7 +425,6 @@ namespace Strategist
         updateUnitAssignments();
         updateProductionGoals();
         updateMineralReservations();
-        handleMainArmyProduction();
         handleUpgrades();
 
         updateScouting();

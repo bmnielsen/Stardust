@@ -16,6 +16,8 @@ public:
 
     void update() override;
 
+    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
+
 private:
     std::shared_ptr<DefendBaseSquad> squad;
 };
