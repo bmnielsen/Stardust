@@ -967,9 +967,4 @@ namespace Map
     {
         return tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()];
     }
-
-    void setEnemyMain(Base *base)
-    {
-        setBaseOwner(base, BWAPI::Broodwar->enemy());
-    }
 }
