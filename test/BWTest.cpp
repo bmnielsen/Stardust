@@ -182,7 +182,6 @@ void BWTest::run()
     if (map.empty())
     {
         map = *randomElement(allMaps.begin(), allMaps.end());
-        std::cout << "Selected map " << map << std::endl;
     }
 
     // If the random seed is -1, generate one
@@ -190,7 +189,6 @@ void BWTest::run()
     {
         std::uniform_int_distribution<> distribution(1, 100000);
         randomSeed = distribution(rng);
-        std::cout << "Selected random seed " << randomSeed << std::endl;
     }
 
     initialUnitFrames = std::max(
@@ -327,6 +325,7 @@ void BWTest::runGame(bool opponent)
               << "framelimit=" << frameLimit
               << "; timelimit=" << timeLimit
               << "; map=" << map
+              << "; seed=" << randomSeed
               << std::endl;
 
     auto start = std::chrono::high_resolution_clock::now();

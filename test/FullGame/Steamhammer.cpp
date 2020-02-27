@@ -39,6 +39,8 @@ TEST(Steamhammer, RunForever)
     while (true)
     {
         BWTest test;
+        test.map = "";
+        test.randomSeed = -1;
         test.opponentRace = BWAPI::Races::Zerg;
         test.opponentModule = []()
         {
@@ -54,8 +56,11 @@ TEST(Steamhammer, RunForever)
         };
         test.onEndMine = [&](bool won)
         {
+            std::string mapFilename = test.map.substr(test.map.rfind('/') + 1);
+            std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
+            
             std::ostringstream replayName;
-            replayName << "Steamhammer";
+            replayName << "Steamhammer_" << (mapFilename.substr(0, mapFilename.rfind('.')));
             if (!won)
             {
                 replayName << "_LOSS";
