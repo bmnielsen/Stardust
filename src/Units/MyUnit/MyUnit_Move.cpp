@@ -162,9 +162,7 @@ void MyUnitImpl::moveToNextWaypoint()
             CherryVis::log(id) << "Order: Moving towards next grid node " << *next;
 #endif
 
-            currentlyMovingTowards = BWAPI::Position(
-                    (next->x << 5U) + 16,
-                    (next->y << 5U) + 16);
+            currentlyMovingTowards = next->center();
             move(currentlyMovingTowards);
 
             return;
@@ -179,10 +177,6 @@ void MyUnitImpl::moveToNextWaypoint()
     // If there is no choke path, and we couldn't navigate using the grid, just move to the position
     if (chokePath.empty())
     {
-#if DEBUG_UNIT_ORDERS
-        CherryVis::log(id) << "Order: No path; moving to target position " << BWAPI::WalkPosition(targetPosition);
-#endif
-
         currentlyMovingTowards = targetPosition;
         move(currentlyMovingTowards);
         return;
@@ -253,29 +247,30 @@ void MyUnitImpl::updateMoveWaypoints()
     // We have a grid we can use for navigation
     if (grid)
     {
-        auto inSameNode = tilePositionX == gridNode->x && tilePositionY == gridNode->y;
-        auto currentNodeValid = nextNode(gridNode) != nullptr;
+        grid->update();
 
-        // If we are still in the same node, and the node is valid, then we just wait until the unit gets to a new node
-        if (inSameNode && currentNodeValid)
-        {
-            return;
-        }
-
-        if (!inSameNode)
+        // If we are no longer in the same node, update it and move to the next waypoint
+        if (tilePositionX != gridNode->x || tilePositionY != gridNode->y)
         {
             gridNode = &(*grid)[getTilePosition()];
 
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(id) << "Order: Path node set to " << *gridNode;
 #endif
+            moveToNextWaypoint();
+            return;
+        }
 
-            // If we were navigating using the previous node, or can navigate using the new node, update the waypoint
-            if (currentNodeValid || nextNode(gridNode))
+        // Check if the waypoint we are currently using is still valid
+        auto next = nextNode(gridNode);
+        if (next != nullptr)
+        {
+            // React if a grid update has changed the desired waypoint
+            if (currentlyMovingTowards != next->center())
             {
                 moveToNextWaypoint();
-                return;
             }
+            return;
         }
 
         // In all other cases fall through - we do not have a valid grid node so we are navigating using choke points

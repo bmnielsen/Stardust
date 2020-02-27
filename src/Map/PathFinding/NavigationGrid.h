@@ -22,6 +22,11 @@ public:
             if (node.nextNode) os << "->(" << node.nextNode->x << "," << node.nextNode->y << ":" << node.nextNode->cost << ")";
             return os;
         }
+
+        BWAPI::Position center() const
+        {
+            return BWAPI::Position((x << 5U) + 16, (y << 5U) + 16);
+        }
     };
 
     typedef std::tuple<unsigned short, GridNode *, bool> QueueItem;
