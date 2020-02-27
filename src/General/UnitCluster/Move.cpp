@@ -161,7 +161,7 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         auto pos = BWAPI::Position(unit->lastPosition.x + totalX, unit->lastPosition.y + totalY);
 
         // If the target position is in unwalkable terrain, use the grid directly
-        if (!Map::isWalkable(BWAPI::TilePosition(pos)))
+        if (!pos.isValid() || !Map::isWalkable(BWAPI::TilePosition(pos)))
         {
             pos = BWAPI::Position((node->x << 5U) + 16, (node->y << 5U) + 16);
         }
