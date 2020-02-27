@@ -106,7 +106,7 @@ bool MyDragoon::isReady() const
         // Allow switching targets if the current target no longer exists
         if (!target || !target->exists() || !target->isVisible() || !target->getPosition().isValid()) return true;
 
-        // ALso allow switching targets if we don't have a unit entry for it
+        // Also allow switching targets if we don't have a unit entry for it
         Unit targetUnit = Units::get(target);
         if (!targetUnit) return true;
 
