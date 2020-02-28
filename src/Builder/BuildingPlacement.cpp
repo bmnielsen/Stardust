@@ -1,11 +1,41 @@
 #include "BuildingPlacement.h"
 
-#include <BWEB.h>
-
 #include "Map.h"
 #include "Builder.h"
 #include "PathFinding.h"
 #include "UnitUtil.h"
+#include "Block.h"
+
+#include "Blocks/StartNormalLeft.h"
+#include "Blocks/StartNormalRight.h"
+#include "Blocks/StartCompactLeft.h"
+#include "Blocks/StartCompactRight.h"
+#include "Blocks/StartBottomLeft.h"
+
+#include "Blocks/18x6.h"
+#include "Blocks/16x8.h"
+#include "Blocks/17x6.h"
+#include "Blocks/14x6.h"
+#include "Blocks/12x8.h"
+#include "Blocks/16x5.h"
+#include "Blocks/18x3.h"
+#include "Blocks/13x6.h"
+#include "Blocks/10x6.h"
+#include "Blocks/8x8.h"
+#include "Blocks/14x3.h"
+#include "Blocks/12x5.h"
+#include "Blocks/10x3.h"
+#include "Blocks/8x5.h"
+#include "Blocks/4x8.h"
+#include "Blocks/6x3.h"
+#include "Blocks/4x5.h"
+#include "Blocks/8x2.h"
+#include "Blocks/5x4.h"
+#include "Blocks/5x2.h"
+#include "Blocks/4x4.h"
+#include "Blocks/4x2.h"
+#include "Blocks/2x4.h"
+#include "Blocks/2x2.h"
 
 namespace BuildingPlacement
 {
@@ -13,42 +43,164 @@ namespace BuildingPlacement
     {
         std::vector<Neighbourhood> ALL_NEIGHBOURHOODS = {Neighbourhood::MainBase};
 
+        // Stores a bitmask for each tile
+        // 1: not buildable
+        // 2: adjacent to not buildable
+        // 4: reserved for block
+        // 8: adjacent to reserved for block
+        std::vector<unsigned int> tileAvailability;
+
+        std::shared_ptr<Block> startBlock;
+        std::vector<std::shared_ptr<Block>> blocks;
+
+        bool updateRequired;
         std::map<Neighbourhood, BWAPI::Position> neighbourhoodOrigins;
         std::map<Neighbourhood, std::map<int, BuildLocationSet>> availableBuildLocations;
 
         BuildLocationSet _availableGeysers;
 
-        // Checks if a building with the given type can be built at the given position.
-        // If the building requires psi, this method will verify the position has power, unless skipPsiCheck is true.
-        bool canBuildHere(
-                BWAPI::UnitType type,
-                BWAPI::TilePosition tile,
-                bool skipPsiCheck = false,
-                std::set<BWAPI::TilePosition> *reservedPositions = nullptr)
+        void initializeTileAvailability()
         {
-            if (!skipPsiCheck && type.requiresPsi() && !BWAPI::Broodwar->hasPower(tile, type)) return false;
-            if (type.isResourceDepot() && !BWAPI::Broodwar->canBuildHere(tile, type)) return false;
+            tileAvailability.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
 
-            for (auto x = tile.x; x < tile.x + type.tileWidth(); x++)
+            auto markAdjacent = [](int tileX, int tileY)
             {
-                for (auto y = tile.y; y < tile.y + type.tileHeight(); y++)
+                if (tileX < 0 || tileY < 0 || tileX >= BWAPI::Broodwar->mapWidth() || tileY >= BWAPI::Broodwar->mapHeight()) return;
+
+                tileAvailability[tileX + tileY * BWAPI::Broodwar->mapWidth()] |= 2U;
+            };
+
+            for (int tileX = 0; tileX < BWAPI::Broodwar->mapWidth(); tileX++)
+            {
+                for (int tileY = 0; tileY < BWAPI::Broodwar->mapHeight(); tileY++)
                 {
-                    BWAPI::TilePosition currentTile(x, y);
-                    if (!currentTile.isValid()) return false;
-                    if (reservedPositions && reservedPositions->find(currentTile) != reservedPositions->end()) return false;
-                    if (!BWAPI::Broodwar->isBuildable(currentTile)) return false;
-                    if (BWEB::Map::isUsed(currentTile)) return false;
-                    if (BWAPI::Broodwar->hasCreep(currentTile)) return false;
+                    if (!Map::isWalkable(tileX, tileY) || !BWAPI::Broodwar->isBuildable(tileX, tileY))
+                    {
+                        tileAvailability[tileX + tileY * BWAPI::Broodwar->mapWidth()] = 1;
+                        markAdjacent(tileX - 1, tileY - 1);
+                        markAdjacent(tileX + 0, tileY - 1);
+                        markAdjacent(tileX + 1, tileY - 1);
+                        markAdjacent(tileX + 1, tileY + 0);
+                        markAdjacent(tileX + 1, tileY + 1);
+                        markAdjacent(tileX + 0, tileY + 1);
+                        markAdjacent(tileX - 1, tileY + 1);
+                        markAdjacent(tileX - 1, tileY + 0);
+                    }
                 }
             }
 
-            return true;
+            for (auto base : Map::allBases())
+            {
+                for (int tileX = base->getTilePosition().x - 1; tileX <= base->getTilePosition().x + 4; tileX++)
+                {
+                    for (int tileY = base->getTilePosition().y - 1; tileY <= base->getTilePosition().y + 3; tileY++)
+                    {
+                        if (tileX < 0 || tileY < 0 || tileX >= BWAPI::Broodwar->mapWidth() || tileY >= BWAPI::Broodwar->mapHeight()) continue;
+
+                        if (tileX == base->getTilePosition().x - 1 || tileY == base->getTilePosition().y - 1 || tileX == base->getTilePosition().x + 4
+                            || tileY == base->getTilePosition().y + 3)
+                        {
+                            tileAvailability[tileX + tileY * BWAPI::Broodwar->mapWidth()] = 2;
+                        }
+                        else
+                        {
+                            tileAvailability[tileX + tileY * BWAPI::Broodwar->mapWidth()] = 1;
+                        }
+                    }
+                }
+            }
         }
 
-        bool canBuildHere(BWAPI::UnitType type, BWAPI::TilePosition tile, std::set<BWAPI::TilePosition> *reservedPositions)
+        void findStartBlock()
         {
-            return canBuildHere(type, tile, false, reservedPositions);
+            std::vector<std::shared_ptr<Block>> startBlocks = {
+                    std::make_shared<StartNormalLeft>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<StartNormalRight>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<StartCompactLeft>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<StartCompactRight>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<StartBottomLeft>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+            };
+
+            for (const auto &blockType : startBlocks)
+            {
+                auto block = blockType->tryCreate(BWAPI::Broodwar->self()->getStartLocation(), tileAvailability);
+                if (block)
+                {
+                    startBlock = block;
+                    blocks.push_back(block);
+                    return;
+                }
+            }
         }
+
+        void findBlocks()
+        {
+            std::vector<std::shared_ptr<Block>> normalBlocks = {
+                    std::make_shared<Block18x6>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block16x8>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block17x6>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block14x6>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block12x8>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block16x5>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block18x3>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block13x6>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block10x6>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block8x8>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block14x3>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block12x5>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block10x3>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block8x5>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block4x8>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block6x3>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block4x5>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block8x2>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block5x4>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block5x2>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block4x4>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block4x2>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block2x4>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<Block2x2>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+            };
+
+            for (const auto &blockType : normalBlocks)
+            {
+                BWAPI::TilePosition center = BWAPI::TilePosition(
+                        (BWAPI::Broodwar->mapWidth() - blockType->width()) / 2,
+                        (BWAPI::Broodwar->mapHeight() - blockType->height()) / 2);
+
+                for (int tileX = 0; tileX <= center.x; tileX++)
+                {
+                    for (int tileY = 0; tileY <= center.y; tileY++)
+                    {
+                        if (auto block = blockType->tryCreate(BWAPI::TilePosition(tileX, tileY), tileAvailability)) blocks.push_back(block);
+                    }
+                }
+
+                for (int tileX = BWAPI::Broodwar->mapWidth() - blockType->width(); tileX > center.x; tileX--)
+                {
+                    for (int tileY = 0; tileY <= center.y; tileY++)
+                    {
+                        if (auto block = blockType->tryCreate(BWAPI::TilePosition(tileX, tileY), tileAvailability)) blocks.push_back(block);
+                    }
+                }
+
+                for (int tileX = 0; tileX <= center.x; tileX++)
+                {
+                    for (int tileY = BWAPI::Broodwar->mapHeight() - blockType->height(); tileY > center.y; tileY--)
+                    {
+                        if (auto block = blockType->tryCreate(BWAPI::TilePosition(tileX, tileY), tileAvailability)) blocks.push_back(block);
+                    }
+                }
+
+                for (int tileX = BWAPI::Broodwar->mapWidth() - blockType->width(); tileX > center.x; tileX--)
+                {
+                    for (int tileY = BWAPI::Broodwar->mapHeight() - blockType->height(); tileY > center.y; tileY--)
+                    {
+                        if (auto block = blockType->tryCreate(BWAPI::TilePosition(tileX, tileY), tileAvailability)) blocks.push_back(block);
+                    }
+                }
+            }
+        };
 
         // At how many frames from now will the build position given by the tile and type be powered
         // If the position is already powered, returns 0
@@ -76,18 +228,10 @@ namespace BuildingPlacement
         {
             std::map<Neighbourhood, std::map<int, BuildLocationSet>> result;
 
-            // Examine our pending buildings to get:
-            // - build locations that are about to be used
-            // - incomplete pylons
-            std::set<BWAPI::TilePosition> reservedTiles;
+            // Gather our pending pylons
             std::vector<Building *> pendingPylons;
             for (auto building : Builder::allPendingBuildings())
             {
-                if (!building->isConstructionStarted())
-                {
-                    reservedTiles.insert(building->tile);
-                }
-
                 if (building->type == BWAPI::UnitTypes::Protoss_Pylon)
                 {
                     pendingPylons.push_back(building);
@@ -95,64 +239,44 @@ namespace BuildingPlacement
             }
 
             // Scan blocks to:
-            // - Collect the powered (or soon-to-be-powered) medium and large build locations we already have available
+            // - Collect the powered (or soon-to-be-powered) medium and large build locations we have available
             // - Collect the next pylon to be built in each block
-            for (auto &block : BWEB::Blocks::getBlocks())
+            for (auto &block : blocks)
             {
                 // Consider medium building positions
-                std::vector<std::tuple<BWAPI::TilePosition, int>> poweredMedium;
-                std::vector<BWAPI::TilePosition> unpoweredMedium;
-                for (auto tile : block.MediumTiles())
+                std::vector<std::tuple<Block::Location, int>> poweredMedium;
+                std::vector<Block::Location> unpoweredMedium;
+                for (auto placement : block->medium)
                 {
-                    if (canBuildHere(BWAPI::UnitTypes::Protoss_Forge, tile, true, &reservedTiles))
+                    int framesToPower = poweredAfter(placement.tile, BWAPI::UnitTypes::Protoss_Forge, pendingPylons);
+                    if (framesToPower == -1)
                     {
-                        int framesToPower = poweredAfter(tile, BWAPI::UnitTypes::Protoss_Forge, pendingPylons);
-                        if (framesToPower == -1)
-                        {
-                            unpoweredMedium.push_back(tile);
-                        }
-                        else
-                        {
-                            poweredMedium.emplace_back(tile, framesToPower);
-                        }
+                        unpoweredMedium.push_back(placement);
+                    }
+                    else
+                    {
+                        poweredMedium.emplace_back(placement, framesToPower);
                     }
                 }
 
                 // Consider large building positions
-                std::vector<std::tuple<BWAPI::TilePosition, int>> poweredLarge;
-                std::vector<BWAPI::TilePosition> unpoweredLarge;
-                for (auto tile : block.LargeTiles())
+                std::vector<std::tuple<Block::Location, int>> poweredLarge;
+                std::vector<Block::Location> unpoweredLarge;
+                for (auto placement : block->large)
                 {
-                    if (canBuildHere(BWAPI::UnitTypes::Protoss_Gateway, tile, true, &reservedTiles))
+                    int framesToPower = poweredAfter(placement.tile, BWAPI::UnitTypes::Protoss_Gateway, pendingPylons);
+                    if (framesToPower == -1)
                     {
-                        int framesToPower = poweredAfter(tile, BWAPI::UnitTypes::Protoss_Gateway, pendingPylons);
-                        if (framesToPower == -1)
-                        {
-                            unpoweredLarge.push_back(tile);
-                        }
-                        else
-                        {
-                            poweredLarge.emplace_back(tile, framesToPower);
-                        }
+                        unpoweredLarge.push_back(placement);
+                    }
+                    else
+                    {
+                        poweredLarge.emplace_back(placement, framesToPower);
                     }
                 }
 
-                // Find the next pylon to build in this block
-                // It is the available small tile location closest to the center of the block
-                BWAPI::TilePosition blockCenter = block.Location() + BWAPI::TilePosition(block.width() / 2, block.height() / 2);
-                int distBestToBlockCenter = INT_MAX;
-                BWAPI::TilePosition pylonTile = BWAPI::TilePositions::Invalid;
-                for (auto tile : block.SmallTiles())
-                {
-                    if (!canBuildHere(BWAPI::UnitTypes::Protoss_Pylon, tile, &reservedTiles)) continue;
-
-                    int distToBlockCenter = tile.getApproxDistance(blockCenter);
-                    if (distToBlockCenter < distBestToBlockCenter)
-                        distBestToBlockCenter = distToBlockCenter, pylonTile = tile;
-                }
-
                 // If the block is full, continue now
-                if (!pylonTile.isValid() && poweredMedium.empty() && poweredLarge.empty())
+                if (block->small.empty() && poweredMedium.empty() && poweredLarge.empty())
                 {
                     continue;
                 }
@@ -163,27 +287,33 @@ namespace BuildingPlacement
                     // Make sure we don't die if we for some reason have an unconfigured neighbourhood
                     if (neighbourhoodOrigins.find(neighbourhood) == neighbourhoodOrigins.end()) continue;
 
-                    // Get distance to the block
-                    int dist = PathFinding::GetGroundDistance(
-                            neighbourhoodOrigins[neighbourhood],
-                            BWAPI::Position(blockCenter) + BWAPI::Position(16, 16),
-                            BWAPI::Broodwar->self()->getRace().getWorker(),
-                            PathFinding::PathFindingOptions::UseNearestBWEMArea);
-
-                    // If the block is not connected or is too far away from the neighbourhood, skip it
-                    if (dist == -1 || dist > 2000) continue;
-
-                    if (pylonTile.isValid())
+                    if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(neighbourhoodOrigins[neighbourhood])) !=
+                        BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center())))
                     {
-                        BuildLocation pylon(pylonTile, builderFrames(neighbourhood, pylonTile, BWAPI::UnitTypes::Protoss_Pylon), 0);
-                        for (auto &tile : unpoweredMedium)
+                        continue;
+                    }
+
+                    // Add pylons
+                    for (auto pylonLocation : block->small)
+                    {
+                        BuildLocation pylon(pylonLocation,
+                                            builderFrames(neighbourhood, block->small.begin()->tile, BWAPI::UnitTypes::Protoss_Pylon),
+                                            0);
+
+                        if (pylonLocation.tile == block->powerPylon)
                         {
-                            pylon.powersMedium.emplace(tile, builderFrames(neighbourhood, tile, BWAPI::UnitTypes::Protoss_Forge), 0);
+                            for (auto &location : unpoweredMedium)
+                            {
+                                pylon.powersMedium.emplace(location, builderFrames(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Forge), 0);
+                            }
+                            for (auto &location : unpoweredLarge)
+                            {
+                                pylon.powersLarge.emplace(location,
+                                                          builderFrames(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Gateway),
+                                                          0);
+                            }
                         }
-                        for (auto &tile : unpoweredLarge)
-                        {
-                            pylon.powersLarge.emplace(tile, builderFrames(neighbourhood, tile, BWAPI::UnitTypes::Protoss_Gateway), 0);
-                        }
+
                         result[neighbourhood][2].insert(pylon);
                     }
 
@@ -191,7 +321,7 @@ namespace BuildingPlacement
                     {
                         result[neighbourhood][3].emplace(
                                 std::get<0>(tileAndPoweredAt),
-                                builderFrames(neighbourhood, std::get<0>(tileAndPoweredAt), BWAPI::UnitTypes::Protoss_Forge),
+                                builderFrames(neighbourhood, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Forge),
                                 std::get<1>(tileAndPoweredAt));
                     }
 
@@ -199,7 +329,7 @@ namespace BuildingPlacement
                     {
                         result[neighbourhood][4].emplace(
                                 std::get<0>(tileAndPoweredAt),
-                                builderFrames(neighbourhood, std::get<0>(tileAndPoweredAt), BWAPI::UnitTypes::Protoss_Gateway),
+                                builderFrames(neighbourhood, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Gateway),
                                 std::get<1>(tileAndPoweredAt));
                     }
                 }
@@ -222,7 +352,7 @@ namespace BuildingPlacement
                     if (Builder::isPendingHere(geyser->getInitialTilePosition())) continue;
 
                     // TODO: Order in some logical way
-                    _availableGeysers.emplace(geyser->getInitialTilePosition(), 0, 0);
+                    _availableGeysers.emplace(Block::Location(geyser->getInitialTilePosition()), 0, 0);
                 }
             }
         }
@@ -237,9 +367,9 @@ namespace BuildingPlacement
             // - Pylon: 4
             // - Defensive location: 5
 
-            std::vector<long> blocks(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
+            std::vector<long> blocksHeatmap(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
 
-            auto addLocation = [&blocks](BWAPI::TilePosition tile, int width, int height, int value)
+            auto addLocation = [&blocksHeatmap](BWAPI::TilePosition tile, int width, int height, int value)
             {
                 for (int x = tile.x; x < tile.x + width; x++)
                 {
@@ -257,28 +387,28 @@ namespace BuildingPlacement
                             continue;
                         }
 
-                        blocks[x + y * BWAPI::Broodwar->mapWidth()] = value;
+                        blocksHeatmap[x + y * BWAPI::Broodwar->mapWidth()] = value;
                     }
                 }
             };
 
-            for (const auto &block : BWEB::Blocks::getBlocks())
+            for (const auto &block : blocks)
             {
-                for (auto large : block.LargeTiles())
-                { addLocation(large, 4, 3, 2); }
-                for (auto medium : block.MediumTiles())
-                { addLocation(medium, 3, 2, 3); }
-                for (auto small : block.SmallTiles())
-                { addLocation(small, 2, 2, 4); }
+                for (auto placement : block->large)
+                {
+                    if (!placement.converted) addLocation(placement.tile, 4, 3, 2);
+                }
+                for (auto placement : block->medium)
+                {
+                    if (!placement.converted) addLocation(placement.tile, 3, 2, 3);
+                }
+                for (auto placement : block->small)
+                {
+                    if (!placement.converted) addLocation(placement.tile, 2, 2, 4);
+                }
             }
 
-            for (const auto &station : BWEB::Stations::getStations())
-            {
-                for (auto small : station.DefenseLocations())
-                { addLocation(small, 2, 2, 5); }
-            }
-
-            CherryVis::addHeatmap("Blocks", blocks, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+            CherryVis::addHeatmap("Blocks", blocksHeatmap, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 #endif
         }
     }
@@ -286,46 +416,65 @@ namespace BuildingPlacement
     void initialize()
     {
         neighbourhoodOrigins.clear();
+        tileAvailability.clear();
+        startBlock = nullptr;
+        blocks.clear();
+        updateRequired = true;
         availableBuildLocations.clear();
         _availableGeysers.clear();
 
-        BWEB::Map::onStart();
+        neighbourhoodOrigins[Neighbourhood::MainBase] = Map::getMyMain()->mineralLineCenter;
 
-        // FIXME: Create wall
-        // FIXME: Create proxy blocks
-        // FIXME: Look into other BWEB changes that may affect us, like start blocks
-
-        BWEB::Blocks::findBlocks();
+        initializeTileAvailability();
+        findStartBlock();
+        findBlocks();
 
         dumpHeatmap();
-
-        neighbourhoodOrigins[Neighbourhood::MainBase] = Map::getMyMain()->mineralLineCenter;
     }
 
-    void onUnitDestroy(BWAPI::Unit unit)
+    void onBuildingQueued(const Building *building)
     {
-        BWEB::Map::onUnitDestroy(unit);
+        for (auto &block : blocks)
+        {
+            updateRequired = block->tilesUsed(building->tile, building->type.tileSize()) || updateRequired;
+        }
     }
 
-    void onUnitMorph(BWAPI::Unit unit)
+    void onBuildingCancelled(const Building *building)
     {
-        BWEB::Map::onUnitMorph(unit);
+        for (auto &block : blocks)
+        {
+            updateRequired = block->tilesFreed(building->tile, building->type.tileSize()) || updateRequired;
+        }
     }
 
-    void onUnitCreate(BWAPI::Unit unit)
+    void onUnitCreate(const Unit &unit)
     {
-        BWEB::Map::onUnitDiscover(unit);
+        if (!unit->type.isBuilding()) return;
+
+        for (auto &block : blocks)
+        {
+            updateRequired = block->tilesUsed(unit->getTilePosition(), unit->type.tileSize()) || updateRequired;
+        }
     }
 
-    void onUnitDiscover(BWAPI::Unit unit)
+    void onUnitDestroy(const Unit &unit)
     {
-        BWEB::Map::onUnitDiscover(unit);
+        if (!unit->type.isBuilding()) return;
+
+        for (auto &block : blocks)
+        {
+            updateRequired = block->tilesFreed(unit->getTilePosition(), unit->type.tileSize()) || updateRequired;
+        }
     }
 
     void update()
     {
-        // TODO: Only update locations when it is needed
-        updateAvailableBuildLocations();
+        if (updateRequired)
+        {
+            updateAvailableBuildLocations();
+            updateRequired = false;
+        }
 
         updateAvailableGeysers();
     }
@@ -342,9 +491,29 @@ namespace BuildingPlacement
 
     bool BuildLocationCmp::operator()(const BuildLocation &a, const BuildLocation &b) const
     {
-        return a.framesUntilPowered < b.framesUntilPowered
-               || (b.framesUntilPowered >= a.framesUntilPowered && a.builderFrames < b.builderFrames)
-               || (b.framesUntilPowered >= a.framesUntilPowered && b.builderFrames >= a.builderFrames && a.tile < b.tile);
+        // Always sort the start block pylon before everything else
+        if (startBlock && startBlock->powerPylon == a.location.tile) return true;
+        if (startBlock && startBlock->powerPylon == b.location.tile) return false;
+
+        // Prioritize locations that will be powered first
+        if (a.framesUntilPowered < b.framesUntilPowered) return true;
+        if (a.framesUntilPowered > b.framesUntilPowered) return false;
+
+        // For medium locations, prioritize locations without an exit first - the producer will keep looking if it needs to place a building
+        // with an exit
+        if (!a.location.hasExit && b.location.hasExit) return true;
+        if (a.location.hasExit && !b.location.hasExit) return false;
+
+        // Then prioritize locations that have not been converted from a larger position
+        if (!a.location.converted && b.location.converted) return true;
+        if (a.location.converted && !b.location.converted) return false;
+
+        // Finally prioritize by distance the builder will need to travel
+        if (a.builderFrames < b.builderFrames) return true;
+        if (a.builderFrames > b.builderFrames) return false;
+
+        // Default case if everything else is equal
+        return a.location.tile < b.location.tile;
     }
 
     // Approximately how many frames it will take a builder to reach the given build position

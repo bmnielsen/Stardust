@@ -30,9 +30,9 @@ if ((CMAKE_BUILD_TYPE MATCHES Debug) OR (CMAKE_BUILD_TYPE MATCHES RelWithDebInfo
 endif ()
 
 IF (MSVC)
-    target_link_libraries(Locutus BWAPILIB BWEM BWEB FAP libzstd_static)
+    target_link_libraries(Locutus BWAPILIB BWEM FAP libzstd_static)
 ELSE (MSVC)
-    target_link_libraries(Locutus -L/usr/local/Cellar/llvm/8.0.0/lib BWAPILIB BWEM BWEB FAP libzstd_static c++fs)
+    target_link_libraries(Locutus -L/usr/local/Cellar/llvm/8.0.0/lib BWAPILIB BWEM FAP libzstd_static c++fs)
 ENDIF (MSVC)
 
 target_include_directories(Locutus PUBLIC ${LOCUTUS_INCLUDES})

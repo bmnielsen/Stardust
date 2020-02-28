@@ -39,7 +39,7 @@ void TakeNaturalExpansion::addPrioritizedProductionGoals(std::map<int, std::vect
     }
     if (!unitIsAwayFromHome) return;
 
-    auto buildLocation = BuildingPlacement::BuildLocation(depotPosition,
+    auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(depotPosition),
                                                           BuildingPlacement::builderFrames(BuildingPlacement::Neighbourhood::MainBase,
                                                                                            depotPosition,
                                                                                            BWAPI::UnitTypes::Protoss_Nexus),

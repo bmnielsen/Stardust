@@ -24,7 +24,6 @@ ELSE(MSVC)
 ENDIF(MSVC)
 
 add_subdirectory(3rdparty/BWEM)
-add_subdirectory(3rdparty/BWEB)
 add_subdirectory(3rdparty/FAP)
 add_subdirectory(3rdparty/zstd/build/cmake)
 add_subdirectory(src)

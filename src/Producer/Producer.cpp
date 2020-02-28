@@ -42,7 +42,7 @@ namespace Producer
         std::map<BuildingPlacement::Neighbourhood, std::map<int, BuildingPlacement::BuildLocationSet>> buildLocations;
         BuildingPlacement::BuildLocationSet availableGeysers;
 
-        const BuildingPlacement::BuildLocation InvalidBuildLocation(BWAPI::TilePositions::Invalid, 0, 0);
+        const BuildingPlacement::BuildLocation InvalidBuildLocation(Block::Location(BWAPI::TilePositions::Invalid), 0, 0);
 
         using Type = std::variant<BWAPI::UnitType, BWAPI::UpgradeType>;
 
@@ -189,7 +189,7 @@ namespace Producer
                            { labelstream << arg; }, item->type);
                 if (item->queuedBuilding && item->queuedBuilding->isConstructionStarted()) labelstream << "^";
                 if (item->queuedBuilding && !item->queuedBuilding->isConstructionStarted()) labelstream << "*";
-                if (item->buildLocation.tile.isValid()) labelstream << "(" << item->buildLocation.tile.x << ":" << item->buildLocation.tile.y << ")";
+                if (item->buildLocation.location.tile.isValid()) labelstream << "(" << item->buildLocation.location.tile.x << ":" << item->buildLocation.location.tile.y << ")";
                 return labelstream.str();
             };
 
@@ -410,7 +410,7 @@ namespace Producer
             auto base = std::get_if<Base *>(&location);
             if (!base) return true;
 
-            return producerItem.buildLocation.tile == (*base)->getTilePosition();
+            return producerItem.buildLocation.location.tile == (*base)->getTilePosition();
         }
 
         // For buildings, whether this building can produce an item at the given location
@@ -533,7 +533,7 @@ namespace Producer
 
         void choosePylonBuildLocation(const ProductionItem &pylon, bool tentative = false, int requiredWidth = 0)
         {
-            if (pylon.buildLocation.tile.isValid()) return;
+            if (pylon.buildLocation.location.tile.isValid()) return;
 
             auto fixedNeighbourhood = std::get_if<BuildingPlacement::Neighbourhood>(&pylon.location);
             auto neighbourhood = fixedNeighbourhood ? *fixedNeighbourhood : BuildingPlacement::Neighbourhood::MainBase;
@@ -544,6 +544,8 @@ namespace Producer
             // All else being equal, try to keep two of each location type powered
             int desiredMedium = std::max(0, 2 - (int) buildLocations[neighbourhood][3].size());
             int desiredLarge = std::max(0, 2 - (int) buildLocations[neighbourhood][4].size());
+
+            // Find the first pylon that meets the requirements
 
             // Score the locations based on distance and what they will power
             int bestScore = INT_MAX;
@@ -557,14 +559,8 @@ namespace Producer
                     continue;
                 }
 
-                // Base score is the distance
-                int score = pylonLocation.builderFrames;
-
-                // Penalize locations that don't power locations we need
-                score *= (int) std::pow(2, std::max(0, desiredMedium - (int) pylonLocation.powersMedium.size()));
-                score *= (int) std::pow(2, std::max(0, desiredLarge - (int) pylonLocation.powersLarge.size()));
-
-                // Set if better than current
+                int score = std::max(0, desiredMedium - (int) pylonLocation.powersMedium.size())
+                        + std::max(0, desiredLarge - (int) pylonLocation.powersLarge.size());
                 if (score < bestScore)
                 {
                     bestScore = score;
@@ -584,9 +580,7 @@ namespace Producer
                 return;
             }
 
-            // That failed, so we can't satisfy our hard requirement
-            // Just return the first one
-            // TODO: Handle this situation
+            // We couldn't satisfy our hard requirement, so just return the first one
             pylon.estimatedWorkerMovementTime = pylonLocations.begin()->builderFrames;
             if (!tentative)
             {
@@ -602,7 +596,7 @@ namespace Producer
                 auto &item = **it;
 
                 if (item.queuedBuilding) continue;
-                if (item.buildLocation.tile.isValid()) continue;
+                if (item.buildLocation.location.tile.isValid()) continue;
 
                 // Choose a tentative build location for pylons that don't already have one
                 // It may be made concrete later to account for psi requirements
@@ -639,7 +633,7 @@ namespace Producer
                 {
                     if (!committedItem->is(BWAPI::UnitTypes::Protoss_Pylon)) continue;
                     if (committedItem->queuedBuilding) continue;
-                    if (committedItem->buildLocation.tile.isValid()) continue;
+                    if (committedItem->buildLocation.location.tile.isValid()) continue;
 
                     pylon = committedItem;
                     break;
@@ -689,13 +683,13 @@ namespace Producer
                     // Might make sense to move the build location stuff after minerals, etc. too
                     for (auto &poweredBuildLocation : pylon->buildLocation.powersMedium)
                     {
-                        buildLocations[neighbourhood][3].emplace(poweredBuildLocation.tile,
+                        buildLocations[neighbourhood][3].emplace(poweredBuildLocation.location,
                                                                  poweredBuildLocation.builderFrames,
                                                                  pylon->completionFrame);
                     }
                     for (auto &poweredBuildLocation : pylon->buildLocation.powersLarge)
                     {
-                        buildLocations[neighbourhood][4].emplace(poweredBuildLocation.tile,
+                        buildLocations[neighbourhood][4].emplace(poweredBuildLocation.location,
                                                                  poweredBuildLocation.builderFrames,
                                                                  pylon->completionFrame);
                     }
@@ -1718,7 +1712,7 @@ namespace Producer
                     (item->startFrame - item->buildLocation.builderFrames) <= BWAPI::Broodwar->getRemainingLatencyFrames())
                 {
                     // TODO: Should be resolved earlier
-                    if (!item->buildLocation.tile.isValid()) continue;
+                    if (!item->buildLocation.location.tile.isValid()) continue;
 
                     // Special case: never try to build a prerequisite cybernetics core before the assimilator has been queued
                     // This may happen because a worker needs to travel further to the core build location
@@ -1731,10 +1725,10 @@ namespace Producer
                     }
 
                     int arrivalFrame;
-                    auto builder = Builder::getBuilderUnit(item->buildLocation.tile, *unitType, &arrivalFrame);
+                    auto builder = Builder::getBuilderUnit(item->buildLocation.location.tile, *unitType, &arrivalFrame);
                     if (builder && arrivalFrame >= item->startFrame)
                     {
-                        Builder::build(*unitType, item->buildLocation.tile, builder, BWAPI::Broodwar->getFrameCount() + item->startFrame);
+                        Builder::build(*unitType, item->buildLocation.location.tile, builder, BWAPI::Broodwar->getFrameCount() + item->startFrame);
 
                         // TODO: This needs to be handled better
                         if (*unitType == BWAPI::Broodwar->self()->getRace().getRefinery())

@@ -3,6 +3,7 @@
 #include "Players.h"
 #include "Workers.h"
 #include "Map.h"
+#include "BuildingPlacement.h"
 #include "MyDragoon.h"
 #include "MyWorker.h"
 
@@ -24,6 +25,7 @@ namespace Units
         void unitCreated(const Unit &unit)
         {
             Map::onUnitCreated(unit);
+            BuildingPlacement::onUnitCreate(unit);
 
             if (unit->player == BWAPI::Broodwar->self())
             {
@@ -48,6 +50,7 @@ namespace Units
 
             Map::onUnitDestroy(unit);
             Workers::onUnitDestroy(unit);
+            BuildingPlacement::onUnitDestroy(unit);
 
             unit->bwapiUnit = nullptr; // Signals to all holding a copy of the pointer that this unit is dead
         }

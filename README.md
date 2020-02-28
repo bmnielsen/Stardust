@@ -4,7 +4,7 @@ AI for StarCraft: Brood War
 ## About
 Locutus is a Protoss bot. From the initial release on SSCAIT in April 2018 to AIIDE 2018, Locutus was a fork of Steamhammer. It has since been rebuilt from the ground up, incorporating many of the concepts introduced while Locutus was a Steamhammer fork, but built on an entirely new foundation.
 
-Locutus uses [BWEM](http://bwem.sourceforge.net/) for terrain analysis, [BWEB](https://github.com/Cmccrave/BWEB) for building placement, and [FAP](https://github.com/N00byEdge/FAP) for combat simulation.
+Locutus uses [BWEM](http://bwem.sourceforge.net/) for terrain analysis and a modified version of [FAP](https://github.com/N00byEdge/FAP) for combat simulation.
 
 ## License
 

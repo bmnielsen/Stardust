@@ -49,26 +49,22 @@ namespace
 {
     void handleUnitDiscover(BWAPI::Unit unit)
     {
-        BuildingPlacement::onUnitDiscover(unit);
         Map::onUnitDiscover(unit);
     }
 
     void handleUnitCreate(BWAPI::Unit unit)
     {
-        BuildingPlacement::onUnitCreate(unit);
     }
 
     void handleUnitDestroy(BWAPI::Unit unit)
     {
         Map::onUnitDestroy(unit);
-        BuildingPlacement::onUnitDestroy(unit);
         Units::onUnitDestroy(unit);
         Workers::onUnitDestroy(unit);
     }
 
     void handleUnitMorph(BWAPI::Unit unit)
     {
-        BuildingPlacement::onUnitMorph(unit);
     }
 }
 

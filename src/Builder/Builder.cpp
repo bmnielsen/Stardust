@@ -3,6 +3,7 @@
 #include "Units.h"
 #include "PathFinding.h"
 #include "Geo.h"
+#include "BuildingPlacement.h"
 
 namespace Builder
 {
@@ -92,6 +93,8 @@ namespace Builder
             if ((building.unit && (!building.unit->exists() || building.unit->completed))
                 || (!building.unit && !building.builder->exists()))
             {
+                BuildingPlacement::onBuildingCancelled(&building);
+
                 releaseBuilder(building);
                 it = pendingBuildings.erase(it);
             }
@@ -150,6 +153,8 @@ namespace Builder
 
         Log::Debug() << "Queued " << **pendingBuildings.rbegin() << " to start at " << startFrame << " for builder " << builder->id
                      << "; builder queue length: " << builderQueues[builder].size();
+
+        BuildingPlacement::onBuildingQueued(building.get());
     }
 
     void cancel(BWAPI::TilePosition tile)
@@ -164,6 +169,8 @@ namespace Builder
                 Log::Get() << "Cancelling construction of " << *(*it)->unit;
                 (*it)->unit->cancelConstruction();
             }
+
+            BuildingPlacement::onBuildingCancelled(it->get());
 
             releaseBuilder(**it);
             pendingBuildings.erase(it);
