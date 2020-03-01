@@ -150,6 +150,8 @@ namespace Units
         // Update visible enemy units
         for (auto bwapiUnit : BWAPI::Broodwar->enemy()->getUnits())
         {
+            if (!bwapiUnit->isVisible()) continue;
+
             // If the enemy just mind controlled one of our units, consider our unit destroyed
             auto myIt = unitIdToMyUnit.find(bwapiUnit->getID());
             if (myIt != unitIdToMyUnit.end())
@@ -158,21 +160,25 @@ namespace Units
             }
 
             // Create or update
-            Unit unit;
             auto it = unitIdToEnemyUnit.find(bwapiUnit->getID());
-            if (it == unitIdToEnemyUnit.end())
+            if (it != unitIdToEnemyUnit.end())
             {
-                unit = std::make_shared<UnitImpl>(bwapiUnit);
-                enemyUnits.insert(unit);
-                unitIdToEnemyUnit.emplace(unit->id, unit);
+                // If the type is still the same, update and continue
+                if (it->second->type == bwapiUnit->getType())
+                {
+                    it->second->update(bwapiUnit);
+                    continue;
+                }
 
-                unitCreated(unit);
+                // The unit has morphed - for simplicity consider the old one as destroyed and the new one created
+                enemyUnitDestroyed(it->second);
             }
-            else
-            {
-                unit = it->second;
-                unit->update(bwapiUnit);
-            }
+
+            auto unit = std::make_shared<UnitImpl>(bwapiUnit);
+            enemyUnits.insert(unit);
+            unitIdToEnemyUnit.emplace(unit->id, unit);
+
+            unitCreated(unit);
         }
 
         // Update enemy units in the fog
