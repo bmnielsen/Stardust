@@ -384,7 +384,7 @@ namespace Map
             visit(tileX, tileY - 2, 2, &result) ||
             visit(tileX, tileY + 2, 2, &result);
 
-            tileUnwalkableProximity[tileX + tileY * BWAPI::Broodwar->mapWidth()] = result;
+            if (tileValid(tileX, tileY)) tileUnwalkableProximity[tileX + tileY * BWAPI::Broodwar->mapWidth()] = result;
         }
 
         // Updates the tile walkability grid based on appearance or disappearance of a building, mineral field, etc.
@@ -429,6 +429,8 @@ namespace Map
         void computeTileWalkability()
         {
             tileWalkability.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+
+            // Start by checking the normal BWAPI walkability
             for (int tileX = 0; tileX < BWAPI::Broodwar->mapWidth(); tileX++)
             {
                 for (int tileY = 0; tileY < BWAPI::Broodwar->mapHeight(); tileY++)
@@ -450,6 +452,19 @@ namespace Map
                 }
             }
 
+            // Add all mineral lines
+            for (auto &base : allBases())
+            {
+                for (auto mineralLineTile : base->mineralLineTiles)
+                {
+                    tileWalkability[mineralLineTile.x + mineralLineTile.y * BWAPI::Broodwar->mapWidth()] = false;
+                }
+            }
+
+            // TODO: Consider map-specific overrides for maps with very narrow ramps, like Plasma
+
+            // Compute proximity to unwalkable tiles
+            // We use this to prioritize pathing
             tileUnwalkableProximity.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
             for (int tileX = 0; tileX < BWAPI::Broodwar->mapWidth(); tileX++)
             {
@@ -459,14 +474,14 @@ namespace Map
                 }
             }
 
-            // Also remove our start position and neutrals
+            // Add our start position
             updateTileWalkability(BWAPI::Broodwar->self()->getStartLocation(), BWAPI::UnitTypes::Protoss_Nexus.tileSize(), false);
+
+            // Add static neutrals
             for (auto neutral : BWAPI::Broodwar->getStaticNeutralUnits())
             {
                 updateTileWalkability(neutral->getInitialTilePosition(), neutral->getType().tileSize(), false);
             }
-
-            // TODO: Consider map-specific overrides for maps with very narrow ramps, like Plasma
 
             dumpTileWalkability();
         }

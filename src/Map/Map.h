@@ -62,6 +62,10 @@ namespace Map
 
     void dumpVisibilityHeatmap();
 
+    // Walkable tiles are defined here as:
+    // - All of its contained walk positions are walkable according to BWAPI
+    // - It is not occupied by a building
+    // - It is not part of a mineral line (i.e. located between minerals and their associated resource depot)
     bool isWalkable(BWAPI::TilePosition pos);
 
     bool isWalkable(int x, int y);

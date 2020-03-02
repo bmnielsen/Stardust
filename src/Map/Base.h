@@ -19,6 +19,7 @@ public:
     bool requiresMineralWalkFromEnemyStartLocations; // Does this base require mineral walking for the enemy to reach it
     BWAPI::Position mineralLineCenter; // Approximate center of the mineral line
     BWAPI::Unit workerDefenseRallyPatch; // Mineral patch where workers should rally when doing worker defense
+    std::set<BWAPI::TilePosition> mineralLineTiles; // All tiles considered to be part of the mineral line
 
     Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase);
 
@@ -48,8 +49,6 @@ private:
 
     BWAPI::TilePosition tile;
     const BWEM::Base *bwemBase;
-
-    std::set<BWAPI::TilePosition> mineralLineTiles;
 
     void analyzeMineralLine();
 };
