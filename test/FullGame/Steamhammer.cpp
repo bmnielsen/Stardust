@@ -6,6 +6,8 @@ TEST(Steamhammer, RunUntilLoss)
     while (true)
     {
         BWTest test;
+        test.map = "";
+        test.randomSeed = -1;
         test.opponentRace = BWAPI::Races::Zerg;
         test.opponentModule = []()
         {
@@ -197,6 +199,21 @@ TEST(Steamhammer, OverhatchExpoLing)
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
         Config::LocutusTestStrategyName = "OverhatchExpoLing";
+        return module;
+    };
+
+    test.run();
+}
+
+TEST(Steamhammer, 9HatchExpo9Pool9Gas)
+{
+    BWTest test;
+    test.map = "maps/sscai/(2)Destination.scx";
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::LocutusTestStrategyName = "9HatchExpo9Pool9Gas";
         return module;
     };
 
