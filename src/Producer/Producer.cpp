@@ -616,14 +616,23 @@ namespace Producer
                 auto &locations = buildLocations[neighbourhood][unitType->tileWidth()];
 
                 // Get the frame when the next available build location will be powered
-                int availableAt = locations.empty() ? INT_MAX : locations.begin()->framesUntilPowered;
+                int availableAt = INT_MAX;
+                auto location = locations.begin();
+                while (location != locations.end())
+                {
+                    if (*unitType != BWAPI::UnitTypes::Protoss_Robotics_Facility || location->location.hasExit)
+                    {
+                        availableAt = location->framesUntilPowered;
+                        break;
+                    }
+                }
 
                 // If there is an available location now, just take it
                 if (availableAt <= item.startFrame)
                 {
-                    item.estimatedWorkerMovementTime = locations.begin()->builderFrames;
-                    item.buildLocation = *locations.begin();
-                    locations.erase(locations.begin());
+                    item.estimatedWorkerMovementTime = location->builderFrames;
+                    item.buildLocation = *location;
+                    locations.erase(location);
                     continue;
                 }
 
@@ -697,13 +706,22 @@ namespace Producer
                     }
                 }
 
+                location = locations.begin();
+                while (location != locations.end())
+                {
+                    if (*unitType != BWAPI::UnitTypes::Protoss_Robotics_Facility || location->location.hasExit)
+                    {
+                        break;
+                    }
+                }
+
                 // TODO: Cancel everything if there are no build locations
-                if (locations.empty()) return;
+                if (location == locations.end()) return;
 
                 // Take the best build location
-                item.estimatedWorkerMovementTime = locations.begin()->builderFrames;
-                item.buildLocation = *locations.begin();
-                locations.erase(locations.begin());
+                item.estimatedWorkerMovementTime = location->builderFrames;
+                item.buildLocation = *location;
+                locations.erase(location);
 
                 // If it is first powered later, shift the remaining items in the queue
                 shiftAll(items, it, item.buildLocation.framesUntilPowered - item.startFrame);
