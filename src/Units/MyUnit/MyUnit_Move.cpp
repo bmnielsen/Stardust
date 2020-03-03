@@ -427,8 +427,6 @@ bool MyUnitImpl::unstickMoveUnit()
             lastUnstickFrame = BWAPI::Broodwar->getFrameCount();
             return true;
         }
-
-        Log::Get() << *this << " likely stuck on terrain, but no valid unstick move location could be found";
     }
 
 #ifdef DEBUG_UNIT_ORDERS
