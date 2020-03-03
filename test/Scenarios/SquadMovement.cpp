@@ -330,3 +330,103 @@ TEST(SquadMovement, DragoonBall)
 
     test.run();
 }
+
+// TODO: Improve flocking behaviour of large groups and add some assertions to this test
+TEST(SquadMovement, DragoonBallThroughChoke)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 600;
+    test.expectWin = false;
+
+    // Start the dragoons in a tight ball
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(88, 19)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(88, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(88, 21)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(88, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(88, 23)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(89, 19)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(89, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(89, 21)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(89, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(89, 23)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(90, 19)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(90, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(90, 21)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(90, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(90, 23)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(91, 19)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(91, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(91, 21)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(91, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(91, 23)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(92, 19)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(92, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(92, 21)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(92, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(92, 23)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 19)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 21)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(93, 23))
+    };
+
+    Base *baseToAttack = nullptr;
+
+    // Order them to attack the bottom-right base
+    test.onStartMine = [&baseToAttack]()
+    {
+        baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 10)));
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        Strategist::setOpening(openingPlays);
+    };
+
+    int frameWhenAllDragoonsArrive = -1;
+
+    // On each frame check to see if all of the dragoons have reached the base area
+    test.onFrameMine = [&baseToAttack, &frameWhenAllDragoonsArrive]()
+    {
+        if (frameWhenAllDragoonsArrive > -1) return;
+
+        auto baseArea = baseToAttack->getArea();
+
+        bool dragoonOutsideArea = false;
+        bool dragoonInsideArea = false;
+        for (auto unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (unit->getType() != BWAPI::UnitTypes::Protoss_Dragoon) continue;
+
+            auto area = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(unit->getPosition()));
+            if (area != baseArea)
+            {
+                dragoonOutsideArea = true;
+            }
+            else
+            {
+                dragoonInsideArea = true;
+            }
+        }
+
+        if (dragoonInsideArea && !dragoonOutsideArea)
+        {
+            frameWhenAllDragoonsArrive = BWAPI::Broodwar->getFrameCount();
+        }
+    };
+
+    // Verify the units have moved efficiently
+    test.onEndMine = [&frameWhenAllDragoonsArrive](bool won)
+    {
+        EXPECT_FALSE(frameWhenAllDragoonsArrive == -1);
+
+        std::cout << "Dragoons arrived at frame " << frameWhenAllDragoonsArrive << std::endl;
+    };
+
+    test.run();
+}
