@@ -929,6 +929,23 @@ namespace Map
                : it->second;
     }
 
+    Choke *getMyMainChoke()
+    {
+        auto main = getMyMain();
+        auto natural = getMyNatural();
+        if (!main || !natural) return nullptr;
+
+        // Main choke is defined as the last choke traversed in a path from the main to the natural
+        auto path = PathFinding::GetChokePointPath(
+                main->getPosition(),
+                natural->getPosition(),
+                BWAPI::UnitTypes::Protoss_Dragoon,
+                PathFinding::PathFindingOptions::UseNearestBWEMArea);
+        if (path.empty()) return nullptr;
+
+        return choke(*path.rbegin());
+    }
+
     bool nearNarrowChokepoint(BWAPI::Position position)
     {
         for (auto choke : chokes)

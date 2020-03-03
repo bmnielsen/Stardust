@@ -8,22 +8,10 @@ void DefendBaseSquad::setTargetPosition()
     // If the base is our main, defend at the single main choke (if there is one)
     if (base == Map::getMyMain())
     {
-        // Find a single unblocked choke out of the main
-        Choke *choke = nullptr;
-        for (auto bwemChoke : base->getArea()->ChokePoints())
+        auto mainChoke = Map::getMyMainChoke();
+        if (mainChoke)
         {
-            if (bwemChoke->Blocked()) continue;
-            if (choke)
-            {
-                choke = nullptr;
-                break;
-            }
-            choke = Map::choke(bwemChoke);
-        }
-
-        if (choke)
-        {
-            targetPosition = choke->Center();
+            targetPosition = mainChoke->Center();
             return;
         }
     }

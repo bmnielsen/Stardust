@@ -42,7 +42,7 @@ namespace Producer
         std::map<BuildingPlacement::Neighbourhood, std::map<int, BuildingPlacement::BuildLocationSet>> buildLocations;
         BuildingPlacement::BuildLocationSet availableGeysers;
 
-        const BuildingPlacement::BuildLocation InvalidBuildLocation(Block::Location(BWAPI::TilePositions::Invalid), 0, 0);
+        const BuildingPlacement::BuildLocation InvalidBuildLocation(Block::Location(BWAPI::TilePositions::Invalid), 0, 0, 0);
 
         using Type = std::variant<BWAPI::UnitType, BWAPI::UpgradeType>;
 
@@ -685,13 +685,15 @@ namespace Producer
                     {
                         buildLocations[neighbourhood][3].emplace(poweredBuildLocation.location,
                                                                  poweredBuildLocation.builderFrames,
-                                                                 pylon->completionFrame);
+                                                                 pylon->completionFrame,
+                                                                 poweredBuildLocation.distanceToExit);
                     }
                     for (auto &poweredBuildLocation : pylon->buildLocation.powersLarge)
                     {
                         buildLocations[neighbourhood][4].emplace(poweredBuildLocation.location,
                                                                  poweredBuildLocation.builderFrames,
-                                                                 pylon->completionFrame);
+                                                                 pylon->completionFrame,
+                                                                 poweredBuildLocation.distanceToExit);
                     }
                 }
 

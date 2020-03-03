@@ -55,6 +55,7 @@ namespace BuildingPlacement
 
         bool updateRequired;
         std::map<Neighbourhood, BWAPI::Position> neighbourhoodOrigins;
+        std::map<Neighbourhood, BWAPI::Position> neighbourhoodExits;
         std::map<Neighbourhood, std::map<int, BuildLocationSet>> availableBuildLocations;
 
         BuildLocationSet _availableGeysers;
@@ -200,7 +201,19 @@ namespace BuildingPlacement
                     }
                 }
             }
-        };
+        }
+
+        int distanceToExit(Neighbourhood location, BWAPI::TilePosition tile, BWAPI::UnitType type)
+        {
+            if (neighbourhoodExits.find(location) == neighbourhoodExits.end()) return 0;
+            if (!type.canProduce()) return 0;
+
+            return PathFinding::GetGroundDistance(
+                    BWAPI::Position(tile) + (BWAPI::Position(type.tileSize()) / 2),
+                    neighbourhoodExits[location],
+                    BWAPI::UnitTypes::Protoss_Dragoon,
+                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
+        }
 
         // At how many frames from now will the build position given by the tile and type be powered
         // If the position is already powered, returns 0
@@ -286,6 +299,7 @@ namespace BuildingPlacement
                 {
                     // Make sure we don't die if we for some reason have an unconfigured neighbourhood
                     if (neighbourhoodOrigins.find(neighbourhood) == neighbourhoodOrigins.end()) continue;
+                    if (neighbourhoodExits.find(neighbourhood) == neighbourhoodExits.end()) continue;
 
                     if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(neighbourhoodOrigins[neighbourhood])) !=
                         BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center())))
@@ -298,19 +312,24 @@ namespace BuildingPlacement
                     {
                         BuildLocation pylon(pylonLocation,
                                             builderFrames(neighbourhood, block->small.begin()->tile, BWAPI::UnitTypes::Protoss_Pylon),
-                                            0);
+                                            0,
+                                            distanceToExit(neighbourhood, block->small.begin()->tile, BWAPI::UnitTypes::Protoss_Pylon));
 
                         if (pylonLocation.tile == block->powerPylon)
                         {
                             for (auto &location : unpoweredMedium)
                             {
-                                pylon.powersMedium.emplace(location, builderFrames(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Forge), 0);
+                                pylon.powersMedium.emplace(location,
+                                                           builderFrames(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Forge),
+                                                           0,
+                                                           distanceToExit(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Forge));
                             }
                             for (auto &location : unpoweredLarge)
                             {
                                 pylon.powersLarge.emplace(location,
                                                           builderFrames(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Gateway),
-                                                          0);
+                                                          0,
+                                                          distanceToExit(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Gateway));
                             }
                         }
 
@@ -322,7 +341,8 @@ namespace BuildingPlacement
                         result[neighbourhood][3].emplace(
                                 std::get<0>(tileAndPoweredAt),
                                 builderFrames(neighbourhood, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Forge),
-                                std::get<1>(tileAndPoweredAt));
+                                std::get<1>(tileAndPoweredAt),
+                                distanceToExit(neighbourhood, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Forge));
                     }
 
                     for (auto &tileAndPoweredAt : poweredLarge)
@@ -330,7 +350,8 @@ namespace BuildingPlacement
                         result[neighbourhood][4].emplace(
                                 std::get<0>(tileAndPoweredAt),
                                 builderFrames(neighbourhood, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Gateway),
-                                std::get<1>(tileAndPoweredAt));
+                                std::get<1>(tileAndPoweredAt),
+                                distanceToExit(neighbourhood, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Gateway));
                     }
                 }
             }
@@ -352,7 +373,7 @@ namespace BuildingPlacement
                     if (Builder::isPendingHere(geyser->getInitialTilePosition())) continue;
 
                     // TODO: Order in some logical way
-                    _availableGeysers.emplace(Block::Location(geyser->getInitialTilePosition()), 0, 0);
+                    _availableGeysers.emplace(Block::Location(geyser->getInitialTilePosition()), 0, 0, 0);
                 }
             }
         }
@@ -416,6 +437,7 @@ namespace BuildingPlacement
     void initialize()
     {
         neighbourhoodOrigins.clear();
+        neighbourhoodExits.clear();
         tileAvailability.clear();
         startBlock = nullptr;
         blocks.clear();
@@ -424,6 +446,16 @@ namespace BuildingPlacement
         _availableGeysers.clear();
 
         neighbourhoodOrigins[Neighbourhood::MainBase] = Map::getMyMain()->mineralLineCenter;
+
+        auto mainChoke = Map::getMyMainChoke();
+        if (mainChoke)
+        {
+            neighbourhoodExits[Neighbourhood::MainBase] = mainChoke->Center();
+        }
+        else
+        {
+            neighbourhoodExits[Neighbourhood::MainBase] = Map::getMyMain()->getPosition();
+        }
 
         initializeTileAvailability();
         findStartBlock();
@@ -508,9 +540,9 @@ namespace BuildingPlacement
         if (!a.location.converted && b.location.converted) return true;
         if (a.location.converted && !b.location.converted) return false;
 
-        // Finally prioritize by distance the builder will need to travel
-        if (a.builderFrames < b.builderFrames) return true;
-        if (a.builderFrames > b.builderFrames) return false;
+        // Finally prioritize by combined builder frames and distance to exit
+        if ((a.builderFrames + a.distanceToExit) < (b.builderFrames + b.distanceToExit)) return true;
+        if ((a.builderFrames + a.distanceToExit) > (b.builderFrames + b.distanceToExit)) return false;
 
         // Default case if everything else is equal
         return a.location.tile < b.location.tile;

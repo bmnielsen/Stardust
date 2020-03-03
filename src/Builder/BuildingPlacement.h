@@ -39,13 +39,15 @@ namespace BuildingPlacement
         Block::Location location;
         int builderFrames;         // Approximately how many frames the builder will take to get to this location
         int framesUntilPowered;    // Approximately how many frames will elapse before this position is powered
+        int distanceToExit;        // Approximate ground distance from this build location to the neighbourhood exit
         BuildLocationSet powersMedium;          // For a pylon, what medium build locations would be powered by it
         BuildLocationSet powersLarge;           // For a pylon, what large build locations would be powered by it
 
-        BuildLocation(Block::Location location, int builderFrames, int framesUntilPowered)
+        BuildLocation(Block::Location location, int builderFrames, int framesUntilPowered, int distanceToExit)
                 : location(location)
                 , builderFrames(builderFrames)
-                , framesUntilPowered(framesUntilPowered) {}
+                , framesUntilPowered(framesUntilPowered)
+                , distanceToExit(distanceToExit) {}
     };
 
     enum class Neighbourhood

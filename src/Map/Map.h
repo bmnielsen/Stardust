@@ -56,6 +56,8 @@ namespace Map
 
     Choke *choke(const BWEM::ChokePoint *bwemChoke);
 
+    Choke *getMyMainChoke();
+
     bool nearNarrowChokepoint(BWAPI::Position position);
 
     int minChokeWidth();
