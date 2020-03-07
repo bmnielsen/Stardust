@@ -19,4 +19,10 @@ namespace UnitUtil
     bool IsRangedUnit(BWAPI::UnitType type);
 
     bool IsCombatUnit(BWAPI::UnitType type);
+
+    std::pair<BWAPI::UnitType, int> MorphsFrom(BWAPI::UnitType type);
+
+    int MineralCost(BWAPI::UnitType type);
+
+    int GasCost(BWAPI::UnitType type);
 }

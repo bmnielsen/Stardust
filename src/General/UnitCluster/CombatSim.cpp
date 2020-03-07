@@ -3,6 +3,7 @@
 #include <fap.h>
 #include "Players.h"
 #include "Units.h"
+#include "UnitUtil.h"
 
 namespace
 {
@@ -89,7 +90,7 @@ namespace CombatSim
     {
         for (auto type : BWAPI::UnitTypes::allUnitTypes())
         {
-            int score = type.mineralPrice() + type.gasPrice() * 2;
+            int score = UnitUtil::MineralCost(type) + UnitUtil::GasCost(type) * 2;
             baseScore[type] = score >> 2U;
             scaledScore[type] = score - baseScore[type];
         }

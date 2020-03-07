@@ -114,4 +114,56 @@ namespace UnitUtil
                 type == BWAPI::UnitTypes::Protoss_Dark_Archon ||
                 (type.isFlyer() && type.spaceProvided() > 0);
     }
+
+std::pair<BWAPI::UnitType, int> MorphsFrom(BWAPI::UnitType type)
+{
+    // Anything built by a drone is a morph
+    if (type.whatBuilds().first == BWAPI::UnitTypes::Zerg_Drone) return type.whatBuilds();
+
+    // A building "built" by another building is a morph, unless it is an add-on
+    if (type.isBuilding() && !type.isAddon() && type.whatBuilds().first.isBuilding()) return type.whatBuilds();
+
+    // A unit "built" by another unit is a morph unless it is an interceptor or scarab
+    if (!type.isBuilding() && !type.whatBuilds().first.isBuilding() &&
+        type != BWAPI::UnitTypes::Protoss_Interceptor && type != BWAPI::UnitTypes::Protoss_Scarab)
+    {
+        return type.whatBuilds();
+    }
+
+    return std::make_pair(BWAPI::UnitTypes::None, 0);
+}
+
+    int MineralCost(BWAPI::UnitType type)
+    {
+        if (type == BWAPI::UnitTypes::None || type == BWAPI::UnitTypes::Unknown) return 0;
+
+        int minerals = type.mineralPrice();
+
+        // BWAPI lists some units as having mineral cost 1 instead of 0, e.g. Larva
+        if (minerals == 1) minerals = 0;
+
+        if (type.isTwoUnitsInOneEgg()) minerals /= 2;
+
+        auto morphsFrom = MorphsFrom(type);
+        if (morphsFrom.second > 0) minerals += morphsFrom.second * MineralCost(morphsFrom.first);
+
+        return minerals;
+    }
+
+    int GasCost(BWAPI::UnitType type)
+    {
+        if (type == BWAPI::UnitTypes::None || type == BWAPI::UnitTypes::Unknown || type == BWAPI::UnitTypes::Zerg_Larva) return 0;
+
+        int gas = type.gasPrice();
+
+        // BWAPI lists some units as having gas cost 1 instead of 0, e.g. Larva
+        if (gas == 1) gas = 0;
+
+        if (type.isTwoUnitsInOneEgg()) gas /= 2;
+
+        auto morphsFrom = MorphsFrom(type);
+        if (morphsFrom.second > 0) gas += morphsFrom.second * GasCost(morphsFrom.first);
+
+        return gas;
+    }
 }
