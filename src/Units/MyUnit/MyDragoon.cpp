@@ -158,7 +158,7 @@ bool MyDragoon::shouldKite(const Unit &target)
 
     // Don't kite if the enemy's range is longer than ours.
     int range = Players::weaponRange(BWAPI::Broodwar->self(), getWeapon(target));
-    int targetRange = Players::weaponDamage(target->player, UnitUtil::GetGroundWeapon(target->type));
+    int targetRange = Players::weaponRange(target->player, UnitUtil::GetGroundWeapon(target->type));
     if (range < targetRange)
     {
         return false;
