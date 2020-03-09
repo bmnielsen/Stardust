@@ -335,7 +335,7 @@ namespace Units
         auto enemyIt = unitIdToEnemyUnit.find(unit->getID());
         if (enemyIt != unitIdToEnemyUnit.end())
         {
-            return it->second;
+            return enemyIt->second;
         }
 
         return nullptr;
