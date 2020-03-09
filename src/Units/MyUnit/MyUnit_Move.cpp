@@ -324,10 +324,13 @@ void MyUnitImpl::resetGrid()
         grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
 
         // If that failed, try to get a grid to the furthest choke we can
-        for (auto it = chokePath.rbegin(); it != chokePath.rend(); it++)
+        if (!grid)
         {
-            grid = PathFinding::getNavigationGrid(BWAPI::TilePosition((*it)->Center()));
-            if (grid) break;
+            for (auto it = chokePath.rbegin(); it != chokePath.rend(); it++)
+            {
+                grid = PathFinding::getNavigationGrid(BWAPI::TilePosition((*it)->Center()));
+                if (grid) break;
+            }
         }
     }
 
