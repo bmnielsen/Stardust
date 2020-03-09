@@ -33,6 +33,7 @@ public:
     BWAPI::TilePosition buildTile; // For landed buildings, the tile position of the build tile (top-left tile)
 
     int lastSeen;                   // Frame the unit was last updated
+    int lastSeenAttacking;          // Frame when the unit was last seen making an attack
 
     BWAPI::UnitType type;                       // Type of the unit
     int id;                         // Unit ID

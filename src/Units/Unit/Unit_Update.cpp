@@ -38,6 +38,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , tilePositionY(unit->getPosition().y >> 5U)
         , buildTile(computeBuildTile(unit))
         , lastSeen(BWAPI::Broodwar->getFrameCount())
+        , lastSeenAttacking(-1)
         , type(unit->getType())
         , id(unit->getID())
         , lastPosition(unit->getPosition())
@@ -76,6 +77,8 @@ void UnitImpl::update(BWAPI::Unit unit)
     type = unit->getType();
 
     lastSeen = BWAPI::Broodwar->getFrameCount();
+    if (unit->isAttacking()) lastSeenAttacking = BWAPI::Broodwar->getFrameCount();
+
     tilePositionX = unit->getPosition().x >> 5U;
     tilePositionY = unit->getPosition().y >> 5U;
     lastPosition = unit->getPosition();
