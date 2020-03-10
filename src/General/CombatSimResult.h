@@ -6,27 +6,50 @@ class CombatSimResult
 {
 public:
     int frame;
+    int myUnitCount;
+    int enemyUnitCount;
 
-    CombatSimResult(int initialMine, int initialEnemy, int finalMine, int finalEnemy)
-            : frame(BWAPI::Broodwar->getFrameCount()), initialMine(initialMine), initialEnemy(initialEnemy), finalMine(finalMine), finalEnemy(
-            finalEnemy) {}
+    CombatSimResult(int myUnitCount, int enemyUnitCount, int initialMine, int initialEnemy, int finalMine, int finalEnemy)
+            : frame(BWAPI::Broodwar->getFrameCount()), myUnitCount(myUnitCount), enemyUnitCount(enemyUnitCount), initialMine(initialMine)
+            , initialEnemy(initialEnemy), finalMine(finalMine), finalEnemy(
+                    finalEnemy) {}
 
-    CombatSimResult() : CombatSimResult(0, 0, 0, 0) {};
+    CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0) {};
 
     // What percentage of my army value was lost during the sim
-    double myPercentLost() const;
+    [[nodiscard]] double myPercentLost() const;
 
     // What percentage of the enemy's army value was lost during the sim
-    double enemyPercentLost() const;
+    [[nodiscard]] double enemyPercentLost() const;
 
     // How much relative value was gained by my army during the sim (i.e. if positive, the value the enemy lost more than mine)
-    int valueGain() const;
+    [[nodiscard]] int valueGain() const;
 
     // Similar to valueGain, but dealing in percentages (i.e. if positive, the enemy lost a higher percentage of their army than we lost of ours)
-    double percentGain() const;
+    [[nodiscard]] double percentGain() const;
 
     // What percentage of the total army value is ours
-    double myPercentageOfTotal() const;
+    [[nodiscard]] double myPercentageOfTotal() const;
+
+    CombatSimResult& operator+=(const CombatSimResult& other)
+    {
+        initialMine += other.initialMine;
+        initialEnemy += other.initialEnemy;
+        finalMine += other.finalMine;
+        finalEnemy += other.finalEnemy;
+
+        return *this;
+    }
+
+    CombatSimResult& operator/=(int divisor)
+    {
+        initialMine /= divisor;
+        initialEnemy /= divisor;
+        finalMine /= divisor;
+        finalEnemy /= divisor;
+
+        return *this;
+    }
 
 private:
     int initialMine;

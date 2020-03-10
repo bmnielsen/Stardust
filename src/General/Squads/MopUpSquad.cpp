@@ -43,7 +43,7 @@ void MopUpSquad::execute(UnitCluster &cluster)
     // If we found one, move towards it
     if (closestPosition.isValid())
     {
-        cluster.setActivity(UnitCluster::Activity::Default);
+        cluster.setActivity(UnitCluster::Activity::Moving);
 
         auto base = Map::baseNear(closestPosition);
         cluster.move(base ? base->getPosition() : closestPosition);
@@ -66,7 +66,7 @@ void MopUpSquad::execute(UnitCluster &cluster)
 
     if (bestBase)
     {
-        cluster.setActivity(UnitCluster::Activity::Default);
+        cluster.setActivity(UnitCluster::Activity::Moving);
         cluster.move(bestBase->getPosition());
         return;
     }

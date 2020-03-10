@@ -113,6 +113,13 @@ void Squad::updateClusters()
 
             (*firstIt)->units.insert((*secondIt)->units.begin(), (*secondIt)->units.end());
             (*firstIt)->updatePositions(targetPosition);
+
+            // If two clusters are combined where one is regrouping, treat the new combined cluster as regrouping
+            if ((*secondIt)->currentActivity == UnitCluster::Regrouping)
+            {
+                (*firstIt)->setActivity((*secondIt)->currentActivity, (*secondIt)->currentSubActivity);
+            }
+
             secondIt = clusters.erase(secondIt);
         }
     }

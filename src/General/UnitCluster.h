@@ -9,7 +9,11 @@ class UnitCluster
 public:
     enum Activity
     {
-        Default, Attacking, Regrouping //, Exploding, Flanking, PerformingRunBy
+        Moving, Attacking, Regrouping //, Exploding, Flanking, PerformingRunBy
+    };
+    enum SubActivity
+    {
+        None, Contain, Flee
     };
 
     BWAPI::Position center;
@@ -17,12 +21,16 @@ public:
     std::set<MyUnit> units;
 
     Activity currentActivity;
+    SubActivity currentSubActivity;
     int lastActivityChange;
+
+    std::deque<std::pair<CombatSimResult, bool>> recentSimResults;
 
     explicit UnitCluster(const MyUnit &unit)
             : center(unit->lastPosition)
             , vanguard(unit)
-            , currentActivity(Activity::Default)
+            , currentActivity(Activity::Moving)
+            , currentSubActivity(SubActivity::None)
             , lastActivityChange(0)
             , area(unit->type.width() * unit->type.height())
     {
@@ -39,11 +47,11 @@ public:
 
     void updatePositions(BWAPI::Position targetPosition);
 
-    void setActivity(Activity newActivity);
+    void setActivity(Activity newActivity, SubActivity newSubActivity = SubActivity::None);
 
     virtual void move(BWAPI::Position targetPosition);
 
-    virtual void regroup(BWAPI::Position regroupPosition);
+    virtual void regroup(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
 
     std::vector<std::pair<MyUnit, Unit>>
     selectTargets(std::set<Unit> &targets, BWAPI::Position targetPosition);
@@ -52,6 +60,10 @@ public:
 
     CombatSimResult
     runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &targets);
+
+    void addSimResult(CombatSimResult &simResult, bool attack);
+
+    CombatSimResult averageRecentSimResults(int maxDepth);
 
 protected:
     static Unit ChooseMeleeTarget(const MyUnit &attacker, std::set<Unit> &targets, BWAPI::Position targetPosition);

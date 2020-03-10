@@ -85,11 +85,16 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     vanguard = closestToTarget;
 }
 
-void UnitCluster::setActivity(UnitCluster::Activity newActivity)
+void UnitCluster::setActivity(UnitCluster::Activity newActivity, SubActivity newSubActivity)
 {
     if (currentActivity == newActivity) return;
 
+#if DEBUG_COMBATSIM
+    CherryVis::log() << BWAPI::WalkPosition(center) << ": Changed activity from " << currentActivity << " to " << newActivity;
+#endif
+
     currentActivity = newActivity;
+    currentSubActivity = newSubActivity;
     lastActivityChange = BWAPI::Broodwar->getFrameCount();
 }
 

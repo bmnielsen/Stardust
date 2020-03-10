@@ -9,7 +9,8 @@
 // The overall CHERRYVIS_ENABLED define is in CherryVis.h
 
 #define DEBUG_GRID_UPDATES false // Writes a log message whenever a grid is updated
-#define DEBUG_COMBATSIM false    // Writes log messages for each sim result
+#define DEBUG_COMBATSIM true    // Writes log messages for each sim result
+#define DEBUG_COMBATSIM_CSV false  // Writes a CSV file for each cluster with detailed sim information
 #define DEBUG_UNIT_ORDERS true   // Writes a log message for each order sent to a unit
 
 // These defines configure a per-frame summary of various unit type's orders, commands, etc.

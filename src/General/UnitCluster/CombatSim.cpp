@@ -105,16 +105,72 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         return CombatSimResult();
     }
 
+#if DEBUG_COMBATSIM_CSV
+    int minUnitId = INT_MAX;
+#endif
+
     FAP::FastAPproximation sim;
     for (auto &unitAndTarget : unitsAndTargets)
     {
         auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
         sim.addIfCombatUnitPlayer1(makeUnit(unitAndTarget.first, target));
+
+#if DEBUG_COMBATSIM_CSV
+        if (unitAndTarget.first->id < minUnitId) minUnitId = unitAndTarget.first->id;
+#endif
     }
     for (auto &unit : targets)
     {
-        sim.addIfCombatUnitPlayer2(makeUnit(unit));
+        // Only include workers if they have been seen attacking recently
+        // TODO: Handle worker rushes
+        if (!unit->type.isWorker() || (BWAPI::Broodwar->getFrameCount() - unit->lastSeenAttacking) < 120)
+        {
+            sim.addIfCombatUnitPlayer2(makeUnit(unit));
+        }
     }
+
+#if DEBUG_COMBATSIM_CSV
+    std::string simCsvLabel = (std::ostringstream() << "clustersim-" << minUnitId).str();
+    std::string actualCsvLabel = (std::ostringstream() << "clustersimactuals-" << minUnitId).str();
+    auto writeSimCsvLine = [&simCsvLabel](const auto &unit, int simFrame)
+    {
+        auto csv = Log::Csv(simCsvLabel);
+        csv << BWAPI::Broodwar->getFrameCount();
+        csv << simFrame;
+        csv << BWAPI::Broodwar->getFrameCount() + simFrame;
+        csv << unit.unitType;
+        csv << unit.id;
+        csv << unit.x;
+        csv << unit.y;
+        csv << unit.health;
+        csv << unit.shields;
+        csv << unit.attackCooldownRemaining;
+    };
+
+    auto writeActualCsvLine = [&actualCsvLabel](const Unit &unit)
+    {
+        auto csv = Log::Csv(actualCsvLabel);
+        csv << BWAPI::Broodwar->getFrameCount();
+        csv << "-";
+        csv << BWAPI::Broodwar->getFrameCount();
+        csv << unit->type;
+        csv << unit->id;
+        csv << unit->lastPosition.x;
+        csv << unit->lastPosition.y;
+        csv << unit->lastHealth;
+        csv << unit->lastShields;
+        csv << std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
+    };
+
+    for (auto &unitAndTarget : unitsAndTargets)
+    {
+        writeActualCsvLine(unitAndTarget.first);
+    }
+    for (auto &target : targets)
+    {
+        writeActualCsvLine(target);
+    }
+#endif
 
     int initialMine = score(sim.getState().first);
     int initialEnemy = score(sim.getState().second);
@@ -123,23 +179,16 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
     {
         sim.simulate(1);
 
-        /*
-
-        auto first = sim.getState().first;
-        auto second = sim.getState().second;
-
-        std::ostringstream log;
-        log << BWAPI::WalkPosition(center) << " (" << (i+1) << ")" << ": " << score(first) << "," << score(second);
-        for (auto unit : *first)
+#if DEBUG_COMBATSIM_CSV
+        for (auto unit : *sim.getState().first)
         {
-            log << "\n" << unit.unitType << " @ (" << unit.x << "," << unit.y << "): h=" << unit.health << ";s=" << unit.shields << ";cd=" << unit.attackCooldownRemaining << ";dmg=" << unit.groundDamage;
+            writeSimCsvLine(unit, i);
         }
-        for (auto unit : *second)
+        for (auto unit : *sim.getState().second)
         {
-            log << "\n" << unit.unitType << " @ (" << unit.x << "," << unit.y << "): h=" << unit.health << ";s=" << unit.shields << ";cd=" << unit.attackCooldownRemaining << ";dmg=" << unit.groundDamage;
+            writeSimCsvLine(unit, i);
         }
-        Log::Debug() << log.str();
-         */
+#endif
     }
 
     int finalMine = score(sim.getState().first);
@@ -151,5 +200,31 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                      << "-" << finalMine << "," << finalEnemy;
 #endif
 
-    return CombatSimResult(initialMine, initialEnemy, finalMine, finalEnemy);
+    return CombatSimResult(unitsAndTargets.size(), targets.size(), initialMine, initialEnemy, finalMine, finalEnemy);
+}
+
+void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
+{
+    // Reset recent sim results if it hasn't been run on the last frame
+    if (!recentSimResults.empty() && recentSimResults.rbegin()->first.frame != BWAPI::Broodwar->getFrameCount() - 1)
+    {
+        recentSimResults.clear();
+    }
+
+    recentSimResults.emplace_back(std::make_pair(simResult, attack));
+}
+
+CombatSimResult UnitCluster::averageRecentSimResults(int maxDepth)
+{
+    CombatSimResult result;
+    int count = 0;
+    for (auto it = recentSimResults.rbegin(); it != recentSimResults.rend() && count < maxDepth; it++)
+    {
+        result += it->first;
+        count++;
+    }
+
+    if (count > 1) result /= count;
+
+    return result;
 }
