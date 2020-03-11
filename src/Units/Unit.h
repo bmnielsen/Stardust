@@ -5,7 +5,6 @@
 #include "Common.h"
 
 class UnitImpl;
-
 typedef std::shared_ptr<UnitImpl> Unit;
 
 struct UpcomingAttack

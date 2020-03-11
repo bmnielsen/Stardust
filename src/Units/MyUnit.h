@@ -7,6 +7,9 @@
 #include "PathFinding.h"
 #include "Unit.h"
 
+class MyUnitImpl;
+typedef std::shared_ptr<MyUnitImpl> MyUnit;
+
 class MyUnitImpl : public UnitImpl
 {
 public:
@@ -20,7 +23,7 @@ public:
 
     void issueMoveOrders();
 
-    virtual void attackUnit(Unit target);
+    virtual void attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets);
 
     [[nodiscard]] virtual bool isReady() const { return true; };
 
@@ -107,7 +110,5 @@ protected:
 
     virtual bool mineralWalk(const Choke *choke) { return false; }
 };
-
-typedef std::shared_ptr<MyUnitImpl> MyUnit;
 
 std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit);

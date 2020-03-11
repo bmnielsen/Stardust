@@ -51,7 +51,7 @@ void MyUnitImpl::update(BWAPI::Unit unit)
     }
 }
 
-void MyUnitImpl::attackUnit(Unit target)
+void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets)
 {
     int cooldown = target->isFlying ? bwapiUnit->getAirWeaponCooldown() : bwapiUnit->getGroundWeaponCooldown();
     int range = Players::weaponRange(player, getWeapon(target));
@@ -80,6 +80,7 @@ void MyUnitImpl::attackUnit(Unit target)
     // Plot an intercept course
     auto interceptPosition = intercept(target);
     if (!interceptPosition.isValid()) interceptPosition = target->predictPosition(5);
+    if (!interceptPosition.isValid()) interceptPosition = target->lastPosition;
     move(interceptPosition);
 }
 

@@ -20,9 +20,5 @@ private:
 
     bool unstick() override;
 
-    void attackUnit(Unit target) override;
-
-    bool shouldKite(const Unit &target);
-
-    void kiteFrom(BWAPI::Position position);
+    void attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets) override;
 };

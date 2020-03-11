@@ -125,7 +125,7 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
             CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
                                                     << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
 #endif
-            unit->attackUnit(target);
+            unit->attackUnit(target, unitsAndTargets);
             continue;
         }
 

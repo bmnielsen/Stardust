@@ -6,8 +6,17 @@
 #include "Geo.h"
 #include "Map.h"
 
-const int DRAGOON_ATTACK_FRAMES = 6;
-const double pi = 3.14159265358979323846;
+namespace
+{
+    const int DRAGOON_ATTACK_FRAMES = 6;
+
+    // Boid parameters for kiting
+    // TODO: These parameters need to be tuned
+    const double targetWeight = 32.0;
+    const double separationDetectionLimitFactor = 1.5;
+    const double separationWeight = 96.0;
+}
+
 
 MyDragoon::MyDragoon(BWAPI::Unit unit)
         : MyUnitImpl(unit)
@@ -120,126 +129,112 @@ bool MyDragoon::isReady() const
     return true;
 }
 
-void MyDragoon::attackUnit(Unit target)
+void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets)
 {
-    // Special case for sieged tanks: kite them in the opposite direction, so we get within their minimum range
-    // TODO: Use threat grid to determine whether it is actually safer close to the tank
-    if (target->type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode)
-    {
-        if (bwapiUnit->getGroundWeaponCooldown() > BWAPI::Broodwar->getRemainingLatencyFrames())
-        {
-            move(target->lastPosition);
-        }
-        else
-        {
-            MyUnitImpl::attackUnit(target);
-        }
+    int cooldown = target->isFlying ? bwapiUnit->getAirWeaponCooldown() : bwapiUnit->getGroundWeaponCooldown();
 
+    // If we are not on cooldown, defer to normal unit attack
+    if (cooldown <= BWAPI::Broodwar->getRemainingLatencyFrames() + 2)
+    {
+        MyUnitImpl::attackUnit(target, unitsAndTargets);
         return;
     }
 
-    if (shouldKite(target))
+    int range = Players::weaponRange(player, getWeapon(target));
+    int targetRange = Players::weaponRange(target->player, UnitUtil::GetGroundWeapon(target->type));
+    BWAPI::Position predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+    int currentDistanceToTarget = getDistance(target);
+    int predictedDistanceToTarget = getDistance(target, predictedTargetPosition);
+
+    // Compute our preferred distance to the target
+    int desiredDistance;
+
+    // Sieged tanks or targets that can't attack us: desire to be close to them
+    if (target->type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode || !canBeAttackedBy(target))
     {
-        kiteFrom(target->lastPosition);
+        desiredDistance = 0;
+    }
+
+        // For targets moving away from us, desire to be closer so we don't kite out of range and never catch them
+    else if (currentDistanceToTarget < predictedDistanceToTarget)
+    {
+        desiredDistance = std::min(range - 48, targetRange + 16);
+    }
+
+        // The target is stationary or moving towards us, so kite it if we can
+    else if (range >= targetRange)
+    {
+        int cooldownDistance = (int) ((double) (cooldown - BWAPI::Broodwar->getRemainingLatencyFrames() - 2) * type.topSpeed());
+        desiredDistance = std::min(range, range + (cooldownDistance - (predictedDistanceToTarget - range)) / 2);
+        CherryVis::log(id) << "Kiting: cdwn=" << cooldown << "; dist=" << predictedDistanceToTarget << "; range=" << range << "; des="
+                           << desiredDistance;
+
+        // If the target's range is much lower than ours, keep a bit closer
+        if (targetRange <= (range - 64)) desiredDistance -= 32;
+    }
+
+        // All others: desire to be at our range
+    else
+    {
+        desiredDistance = range;
+    }
+
+    // Compute boids
+
+    // Target boid: tries to get us to our desired distance from the target
+    int targetX = predictedTargetPosition.x - lastPosition.x;
+    int targetY = predictedTargetPosition.y - lastPosition.y;
+    if (targetX != 0 || targetY != 0)
+    {
+        double targetScale = std::max(-targetWeight, std::min(targetWeight, (double) predictedDistanceToTarget - desiredDistance))
+                             / (double) Geo::ApproximateDistance(targetX, 0, targetY, 0);
+        targetX = (int) ((double) targetX * targetScale);
+        targetY = (int) ((double) targetY * targetScale);
+    }
+
+    // Separation boid: don't block friendly units that are not in range of their targets
+    int separationX = 0;
+    int separationY = 0;
+    for (const auto &other : unitsAndTargets)
+    {
+        if (other.first->id == id) continue;
+        if (!other.second) continue;
+
+        // Check if the other unit is within our detection limit
+        auto dist = getDistance(other.first);
+        double detectionLimit = std::max(type.width(), other.first->type.width()) * separationDetectionLimitFactor;
+        if (dist >= (int) detectionLimit) continue;
+
+        // Check if the other unit is in range of its target
+        if (other.first->isInOurWeaponRange(other.second)) continue;
+
+        // Push away with maximum force at 0 distance, no force at detection limit
+        double distFactor = 1.0 - (double) dist / detectionLimit;
+        int centerDist = Geo::ApproximateDistance(lastPosition.x, other.first->lastPosition.x, lastPosition.y, other.first->lastPosition.y);
+        double scalingFactor = distFactor * distFactor * separationWeight / centerDist;
+        separationX -= (int) ((double) (other.first->lastPosition.x - lastPosition.x) * scalingFactor);
+        separationY -= (int) ((double) (other.first->lastPosition.y - lastPosition.y) * scalingFactor);
+    }
+
+    // TODO: Collision with buildings / terrain
+
+    // Put them all together to get the target direction
+    int totalX = targetX + separationX;
+    int totalY = targetY + separationY;
+
+    auto pos = BWAPI::Position(lastPosition.x + totalX, lastPosition.y + totalY);
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Kiting boids; target=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(targetX, targetY))
+                       << "; separation=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(separationX, separationY))
+                       << "; target=" << BWAPI::WalkPosition(pos);
+#endif
+
+    if (pos.isValid())
+    {
+        moveTo(pos, true);
     }
     else
     {
-        MyUnitImpl::attackUnit(target);
-    }
-}
-
-bool MyDragoon::shouldKite(const Unit &target)
-{
-    // Don't kite if the target can't attack back
-    if (!canBeAttackedBy(target))
-    {
-        return false;
-    }
-
-    // Don't kite if the enemy's range is longer than ours.
-    int range = Players::weaponRange(BWAPI::Broodwar->self(), getWeapon(target));
-    int targetRange = Players::weaponRange(target->player, UnitUtil::GetGroundWeapon(target->type));
-    if (range < targetRange)
-    {
-        return false;
-    }
-
-    // Don't kite if we are soon ready to shoot
-    int cooldown = target->isFlying ? bwapiUnit->getAirWeaponCooldown() : bwapiUnit->getGroundWeaponCooldown();
-    int dist = getDistance(target);
-    int framesToFiringRange = (int) ((double) std::max(0, dist - range) / type.topSpeed());
-    if ((cooldown - BWAPI::Broodwar->getRemainingLatencyFrames() - 2) <= framesToFiringRange)
-    {
-        return false;
-    }
-
-    // Don't kite if the enemy is moving away from us
-    BWAPI::Position predictedPosition = target->predictPosition(1);
-    if (predictedPosition.isValid() && getDistance(predictedPosition) > getDistance(target->lastPosition))
-    {
-        return false;
-    }
-
-    return true;
-}
-
-void MyDragoon::kiteFrom(BWAPI::Position position)
-{
-    // TODO: Use a threat matrix, maybe it's actually best to move towards the position sometimes
-
-    // Our current angle relative to the target
-    BWAPI::Position delta(position - lastPosition);
-    double angleToTarget = atan2(delta.y, delta.x);
-
-    const auto verifyPosition = [](BWAPI::Position position)
-    {
-        // Valid
-        if (!position.isValid()) return false;
-
-        // Walkable
-        // TODO: Should this be on walktile resolution?
-        if (!Map::isWalkable(BWAPI::TilePosition(position))) return false;
-
-        // Not blocked by one of our own units
-        if (Players::grid(BWAPI::Broodwar->self()).collision(BWAPI::WalkPosition(position)) > 0)
-        {
-            return false;
-        }
-
-        return true;
-    };
-
-    // Find a valid position to move to that is two tiles further away from the given position
-    // Start by considering fleeing directly away, falling back to other angles if blocked
-    BWAPI::Position bestPosition = BWAPI::Positions::Invalid;
-    for (int i = 0; i <= 3; i++)
-    {
-        for (int sign = -1; i == 0 ? sign == -1 : sign <= 1; sign += 2)
-        {
-            // Compute the position two tiles away
-            double a = angleToTarget + (i * sign * pi / 6);
-            BWAPI::Position currentPosition(
-                    lastPosition.x - (int) std::round(64.0 * std::cos(a)),
-                    lastPosition.y - (int) std::round(64.0 * std::sin(a)));
-
-            // Verify it and positions around it
-            if (!verifyPosition(currentPosition) ||
-                !verifyPosition(currentPosition + BWAPI::Position(-16, -16)) ||
-                !verifyPosition(currentPosition + BWAPI::Position(16, -16)) ||
-                !verifyPosition(currentPosition + BWAPI::Position(16, 16)) ||
-                !verifyPosition(currentPosition + BWAPI::Position(-16, 16)))
-            {
-                continue;
-            }
-
-            bestPosition = currentPosition;
-            goto breakOuterLoop;
-        }
-    }
-    breakOuterLoop:;
-
-    if (bestPosition.isValid())
-    {
-        move(bestPosition);
+        MyUnitImpl::attackUnit(target, unitsAndTargets);
     }
 }
