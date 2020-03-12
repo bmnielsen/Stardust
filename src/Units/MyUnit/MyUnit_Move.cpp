@@ -294,7 +294,13 @@ void MyUnitImpl::updateMoveWaypoints()
         return;
     }
 
-    // We are doing a direct move - no update is required
+    // We are doing a direct move - update if the unit has started doing something else
+    // This happens if a unit has moved to its final location
+    if (lastMoveFrame < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()) &&
+        (bwapiUnit->getOrder() != BWAPI::Orders::Move || bwapiUnit->getOrderTargetPosition() != currentlyMovingTowards))
+    {
+        move(currentlyMovingTowards, true);
+    }
 }
 
 void MyUnitImpl::resetGrid()
