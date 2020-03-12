@@ -88,9 +88,16 @@ namespace CombatSim
 {
     void initialize()
     {
+        // TODO: This only considers economic value, should we consider effectiveness as well?
         for (auto type : BWAPI::UnitTypes::allUnitTypes())
         {
             int score = UnitUtil::MineralCost(type) + UnitUtil::GasCost(type) * 2;
+
+            if (type == BWAPI::UnitTypes::Terran_Bunker)
+            {
+                score += 4 * UnitUtil::MineralCost(BWAPI::UnitTypes::Terran_Marine);
+            }
+
             baseScore[type] = score >> 2U;
             scaledScore[type] = score - baseScore[type];
         }
