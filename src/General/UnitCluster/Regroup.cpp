@@ -4,6 +4,7 @@
 #include "Players.h"
 #include "Map.h"
 #include "Geo.h"
+#include "General.h"
 
 /*
  * Orders a cluster to regroup.
@@ -19,87 +20,70 @@
 
 namespace
 {
-    // TODO: These parameters need to be tuned
-//    const double goalWeight = 128.0;
-}
-
-void UnitCluster::regroup(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition)
-{
-    auto &grid = Players::grid(BWAPI::Broodwar->enemy());
-
-    // Temporary logic: regroup to either the unit closest to or furthest from to the order position that isn't under threat
-    MyUnit closest = nullptr;
-    MyUnit furthest = nullptr;
-    int closestDist = INT_MAX;
-    int furthestDist = 0;
-    bool unitUnderThreat = false;
-    for (auto &unit : units)
+    bool isStaticDefense(BWAPI::UnitType type)
     {
-        if (grid.groundThreat(unit->lastPosition) > 0)
-        {
-            unitUnderThreat = true;
-            continue;
-        }
-
-        int dist = PathFinding::GetGroundDistance(unit->lastPosition, targetPosition, unit->type);
-        if (dist < closestDist)
-        {
-            closestDist = dist;
-            closest = unit;
-        }
-        if (dist > furthestDist)
-        {
-            furthestDist = dist;
-            furthest = unit;
-        }
+        return type == BWAPI::UnitTypes::Protoss_Photon_Cannon ||
+               type == BWAPI::UnitTypes::Zerg_Sunken_Colony ||
+               type == BWAPI::UnitTypes::Terran_Bunker ||
+               type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode;
     }
 
-    auto regroupPosition = Map::getMyMain()->getPosition();
-    if (unitUnderThreat && furthest) regroupPosition = furthest->lastPosition;
-    else if (!unitUnderThreat && closest) regroupPosition = closest->lastPosition;
-
-    for (const auto &unit : units)
+    bool hasStaticDefense(std::set<Unit> &enemyUnits)
     {
-        // If the unit is stuck, unstick it
-        if (unit->unstick()) continue;
+        for (const auto &unit : enemyUnits)
+        {
+            if (isStaticDefense(unit->type))
+            {
+                return true;
+            }
+        }
 
-        // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
-        if (!unit->isReady()) continue;
+        return false;
+    }
 
-#if DEBUG_UNIT_ORDERS
-        CherryVis::log(unit->id) << "Regroup: Moving to " << BWAPI::WalkPosition(regroupPosition);
+    bool shouldContain(UnitCluster& cluster, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &enemyUnits)
+    {
+        if (!hasStaticDefense(enemyUnits)) return false;
+
+        // Run a combat sim excluding the enemy static defense
+        std::vector<std::pair<MyUnit, Unit>> filteredUnitsAndTargets;
+        std::set<Unit> filteredEnemyUnits;
+        for (const auto& pair : unitsAndTargets)
+        {
+            if (pair.second && !isStaticDefense(pair.second->type))
+            {
+                filteredUnitsAndTargets.emplace_back(pair);
+            }
+            else
+            {
+                filteredUnitsAndTargets.emplace_back(std::make_pair(pair.first, nullptr));
+            }
+        }
+        for (auto &unit : enemyUnits)
+        {
+            if (!isStaticDefense(unit->type)) filteredEnemyUnits.insert(unit);
+        }
+
+        auto simResult = cluster.runCombatSim(filteredUnitsAndTargets, filteredEnemyUnits);
+
+        bool contain = simResult.myPercentLost() <= 0.001 ||
+                       (simResult.valueGain() > 0 && simResult.percentGain() > -0.05) ||
+                       simResult.percentGain() > 0.2;
+
+#if DEBUG_COMBATSIM
+        CherryVis::log() << BWAPI::WalkPosition(cluster.center)
+                         << ": %l=" << simResult.myPercentLost()
+                         << "; vg=" << simResult.valueGain()
+                         << "; %g=" << simResult.percentGain()
+                         << (contain ? "; CONTAIN" : "; FLEE");
 #endif
-        unit->moveTo(regroupPosition);
+
+        return contain;
     }
 
-    /*
-
-    // First determine what type of regroup strategy we want to use
-
-
-    auto &grid = Players::grid(BWAPI::Broodwar->enemy());
-
-    // First try to find one of our units that is close to the order position but isn't under threat
-    MyUnit best = nullptr;
-    int bestDist = INT_MAX;
-    for (auto &unit : units)
+    void regroupToPosition(UnitCluster &cluster, BWAPI::Position position)
     {
-        if (grid.groundThreat(unit->lastPosition) > 0) continue;
-
-        int dist = PathFinding::GetGroundDistance(unit->lastPosition, targetPosition, unit->type);
-        if (dist < bestDist)
-        {
-            bestDist = dist;
-            best = unit;
-        }
-    }
-
-    // If such a unit did not exist, retreat to our main base
-    // TODO: Avoid retreating through enemy army, proper pathing, link up with other clusters, etc.
-    if (!best)
-    {
-        auto regroupPosition = Map::getMyMain()->getPosition();
-        for (const auto &unit : units)
+        for (const auto &unit : cluster.units)
         {
             // If the unit is stuck, unstick it
             if (unit->unstick()) continue;
@@ -108,123 +92,70 @@ void UnitCluster::regroup(std::set<Unit> &enemyUnits, BWAPI::Position targetPosi
             if (!unit->isReady()) continue;
 
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit->id) << "Regroup: Moving to " << BWAPI::WalkPosition(regroupPosition);
+            CherryVis::log(unit->id) << "Regroup: Moving to " << BWAPI::WalkPosition(position);
 #endif
-            unit->moveTo(regroupPosition);
+            unit->moveTo(position);
         }
+    }
+}
 
+void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &enemyUnits, BWAPI::Position targetPosition)
+{
+    // Consider whether to contain (or continue a contain)
+    if (currentSubActivity == SubActivity::None || currentSubActivity == SubActivity::Contain)
+    {
+        if (shouldContain(*this, unitsAndTargets, enemyUnits))
+        {
+            setSubActivity(SubActivity::Contain);
+        }
+        else
+        {
+            setSubActivity(SubActivity::Flee);
+        }
+    }
+
+    if (currentSubActivity == SubActivity::Flee)
+    {
+        // TODO: Support fleeing elsewhere
+        regroupToPosition(*this, Map::getMyMain()->getPosition());
         return;
     }
 
-    // Move our units towards the found location
-    // Use boids to have the units keep distance from each other, but stay on non-threatened tiles
-
-    for (const auto &unit : units)
+    if (currentSubActivity == SubActivity::Contain)
     {
-        // If the unit is stuck, unstick it
-        if (unit->unstick()) continue;
+        auto &grid = Players::grid(BWAPI::Broodwar->enemy());
 
-        // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
-        if (!unit->isReady()) continue;
-
-        // If the unit is not close to the target position, just move towards it
-        // We get the choke path here since we may need it later anyway
-        int dist;
-        auto chokePath = PathFinding::GetChokePointPath(unit->lastPosition,
-                                                        best->lastPosition,
-                                                        unit->type,
-                                                        PathFinding::PathFindingOptions::UseNearestBWEMArea,
-                                                        &dist);
-        if (dist > 128)
+        // Temporary logic: regroup to either the unit closest to or furthest from to the order position that isn't under threat
+        MyUnit closest = nullptr;
+        MyUnit furthest = nullptr;
+        int closestDist = INT_MAX;
+        int furthestDist = 0;
+        bool unitUnderThreat = false;
+        for (auto &unit : units)
         {
-#if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit->id) << "Regroup: Moving to " << BWAPI::WalkPosition(best->lastPosition);
-#endif
-            unit->moveTo(best->lastPosition);
-            continue;
+            if (grid.groundThreat(unit->lastPosition) > 0)
+            {
+                unitUnderThreat = true;
+                continue;
+            }
+
+            int dist = PathFinding::GetGroundDistance(unit->lastPosition, targetPosition, unit->type);
+            if (dist < closestDist)
+            {
+                closestDist = dist;
+                closest = unit;
+            }
+            if (dist > furthestDist)
+            {
+                furthestDist = dist;
+                furthest = unit;
+            }
         }
 
-        // Goal
+        auto regroupPosition = Map::getMyMain()->getPosition();
+        if (unitUnderThreat && furthest) regroupPosition = furthest->lastPosition;
+        else if (!unitUnderThreat && closest) regroupPosition = closest->lastPosition;
 
-        // The position we want to move to is either the best unit's position or the first narrow choke on the way to it
-        auto goalPos = best->lastPosition;
-        if (!chokePath.empty())
-        {
-            auto choke = Map::choke(*chokePath.begin());
-            if (choke->width < 96 && unit->getDistance(choke->Center()) > 32) goalPos = choke->Center();
-        }
-
-        // Initialize the goal vector to the difference between the positions
-        int goalX = goalPos.x - unit->lastPosition.x;
-        int goalY = goalPos.y - unit->lastPosition.y;
-
-        // Then scale to the desired weight
-        double goalScale = goalWeight / (double) Geo::ApproximateDistance(goalX, 0, goalY, 0);
-        goalX = (int) ((double) goalX * goalScale);
-        goalY = (int) ((double) goalY * goalScale);
-
-        // Separation
-
-        int separationX = 0;
-        int separationY = 0;
-        for (const auto &other : units)
-        {
-            if (other == unit) continue;
-
-            auto dist = unit->getDistance(other);
-            double detectionLimit = std::max(unit->type.width(), other->type.width()) * separationDetectionLimitFactor;
-            if (dist >= (int) detectionLimit) continue;
-
-            // We are within the detection limit
-            // Push away with maximum force at 0 distance, no force at detection limit
-            double distFactor = 1.0 - (double) dist / detectionLimit;
-            int centerDist = Geo::ApproximateDistance(unit->lastPosition.x, other->lastPosition.x, unit->lastPosition.y, other->lastPosition.y);
-            double scalingFactor = distFactor * distFactor * separationWeight / centerDist;
-            separationX -= (int) ((double) (other->lastPosition.x - unit->lastPosition.x) * scalingFactor);
-            separationY -= (int) ((double) (other->lastPosition.y - unit->lastPosition.y) * scalingFactor);
-        }
-
-        // Put them all together to get the target direction
-        int totalX = goalX + cohesionX + separationX;
-        int totalY = goalY + cohesionY + separationY;
-
+        regroupToPosition(*this, regroupPosition);
     }
-
-
-
-    // Find a suitable retreat location:
-    // - Unit furthest from the order position that is not under threat
-    // - If no such unit exists, our main base
-    // TODO: Avoid retreating through enemy army, proper pathing, link up with other clusters, etc.
-    BWAPI::Position rallyPoint = Map::getMyMain()->getPosition();
-    int bestDist = 0;
-    for (auto &unit : cluster.units)
-    {
-        if (grid.groundThreat(unit->lastPosition) > 0) continue;
-
-        int dist = PathFinding::GetGroundDistance(unit->lastPosition, targetPosition, unit->type);
-        if (dist > bestDist)
-        {
-            bestDist = dist;
-            rallyPoint = unit->lastPosition;
-        }
-    }
-
-    cluster.regroup(rallyPoint);
-
-    for (const auto &unit : units)
-    {
-        // If the unit is stuck, unstick it
-        if (unit->unstick()) continue;
-
-        // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
-        if (!unit->isReady()) continue;
-
-#if DEBUG_UNIT_ORDERS
-        CherryVis::log(unit->id) << "Regroup: Moving to " << BWAPI::WalkPosition(regroupPosition);
-#endif
-        unit->moveTo(regroupPosition);
-    }
-
-     */
 }

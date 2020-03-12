@@ -102,6 +102,12 @@ namespace CombatSim
             scaledScore[type] = score - baseScore[type];
         }
     }
+
+    int unitValue(const Unit &unit)
+    {
+        return baseScore[unit->type]
+               + scaledScore[unit->type] * (unit->lastHealth * 3 + unit->lastShields) / (unit->type.maxHitPoints() * 3 + unit->type.maxShields());
+    }
 }
 
 CombatSimResult

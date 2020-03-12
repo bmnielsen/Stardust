@@ -49,9 +49,11 @@ public:
 
     void setActivity(Activity newActivity, SubActivity newSubActivity = SubActivity::None);
 
+    void setSubActivity(SubActivity newSubActivity);
+
     virtual void move(BWAPI::Position targetPosition);
 
-    virtual void regroup(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
+    virtual void regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
 
     std::vector<std::pair<MyUnit, Unit>>
     selectTargets(std::set<Unit> &targets, BWAPI::Position targetPosition);

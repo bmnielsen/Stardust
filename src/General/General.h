@@ -64,4 +64,6 @@ namespace General
 namespace CombatSim
 {
     void initialize();
+
+    int unitValue(const Unit &unit);
 }

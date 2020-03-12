@@ -176,5 +176,5 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     // TODO: Run retreat sim?
 
     cluster.setActivity(UnitCluster::Activity::Regrouping);
-    cluster.regroup(enemyUnits, targetPosition);
+    cluster.regroup(unitsAndTargets, enemyUnits, targetPosition);
 }

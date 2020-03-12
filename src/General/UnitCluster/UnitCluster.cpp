@@ -5,6 +5,12 @@
 
 #define DEBUG_CLUSTER_MEMBERSHIP true
 
+namespace
+{
+    std::vector<std::string> ActivityNames = {"Moving", "Attacking", "Regrouping"};
+    std::vector<std::string> SubActivityNames = {"None", "Contain", "Flee"};
+}
+
 void UnitCluster::addUnit(const MyUnit &unit)
 {
     if (units.find(unit) != units.end()) return;
@@ -90,12 +96,25 @@ void UnitCluster::setActivity(UnitCluster::Activity newActivity, SubActivity new
     if (currentActivity == newActivity) return;
 
 #if DEBUG_COMBATSIM
-    CherryVis::log() << BWAPI::WalkPosition(center) << ": Changed activity from " << currentActivity << " to " << newActivity;
+    CherryVis::log() << BWAPI::WalkPosition(center) << ": Changed activity from " << ActivityNames[currentActivity] << " to "
+                     << ActivityNames[newActivity];
 #endif
 
     currentActivity = newActivity;
     currentSubActivity = newSubActivity;
     lastActivityChange = BWAPI::Broodwar->getFrameCount();
+}
+
+void UnitCluster::setSubActivity(SubActivity newSubActivity)
+{
+    if (currentSubActivity == newSubActivity) return;
+
+#if DEBUG_COMBATSIM
+    CherryVis::log() << BWAPI::WalkPosition(center) << ": Changed sub-activity from " << SubActivityNames[currentSubActivity] << " to "
+                     << SubActivityNames[newSubActivity];
+#endif
+
+    currentSubActivity = newSubActivity;
 }
 
 std::vector<std::pair<MyUnit, Unit>>
