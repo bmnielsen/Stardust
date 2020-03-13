@@ -294,10 +294,8 @@ void MyUnitImpl::updateMoveWaypoints()
         return;
     }
 
-    // We are doing a direct move - update if the unit has started doing something else
-    // This happens if a unit has moved to its final location
-    if (lastMoveFrame < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()) &&
-        (bwapiUnit->getOrder() != BWAPI::Orders::Move || bwapiUnit->getOrderTargetPosition() != currentlyMovingTowards))
+    // For a direct move, resend the move command frequently to avoid units doing weird stuff because of collisions
+    if (lastMoveFrame < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 12))
     {
         move(currentlyMovingTowards, true);
     }
