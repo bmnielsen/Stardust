@@ -403,6 +403,7 @@ bool MyUnitImpl::unstickMoveUnit()
     if (isNextToUnwalkableTerrain(getTilePosition()))
     {
         // Scores the distance from a neighbouring tile to the target position
+        // Prefers tiles that are farther away from unwalkable terrain
         BWAPI::Position best = BWAPI::Positions::Invalid;
         int bestDist = INT_MAX;
         auto scoreTile = [&currentCommand, &best, &bestDist](BWAPI::TilePosition tile)
@@ -412,6 +413,7 @@ bool MyUnitImpl::unstickMoveUnit()
 
             auto position = BWAPI::Position(tile) + BWAPI::Position(16, 16);
             int dist = currentCommand.getTargetPosition().getApproxDistance(position);
+            dist /= Map::unwalkableProximity(tile.x, tile.y) + 1;
             if (dist < bestDist)
             {
                 bestDist = dist;
@@ -424,6 +426,14 @@ bool MyUnitImpl::unstickMoveUnit()
         scoreTile(currentTile + BWAPI::TilePosition(-1, 0));
         scoreTile(currentTile + BWAPI::TilePosition(0, 1));
         scoreTile(currentTile + BWAPI::TilePosition(0, -1));
+
+        if (!best.isValid())
+        {
+            scoreTile(currentTile + BWAPI::TilePosition(2, 0));
+            scoreTile(currentTile + BWAPI::TilePosition(-2, 0));
+            scoreTile(currentTile + BWAPI::TilePosition(0, 2));
+            scoreTile(currentTile + BWAPI::TilePosition(0, -2));
+        }
 
         if (best.isValid())
         {
