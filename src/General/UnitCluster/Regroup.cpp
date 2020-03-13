@@ -117,7 +117,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
     if (currentSubActivity == SubActivity::Flee)
     {
         // TODO: Support fleeing elsewhere
-        regroupToPosition(*this, Map::getMyMain()->getPosition());
+        move(Map::getMyMain()->getPosition());
         return;
     }
 
