@@ -163,6 +163,22 @@ TEST(Steamhammer, 4HatchBeforeLair)
     test.run();
 }
 
+TEST(Steamhammer, 9PoolSpeed)
+{
+    BWTest test;
+    test.map = "maps/sscai/(4)Python.scx";
+    test.randomSeed = 30841;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::LocutusTestStrategyName = "9PoolSpeed";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, 9PoolSpeedAllIn)
 {
     BWTest test;
