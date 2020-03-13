@@ -231,6 +231,8 @@ void Choke::computeRampHighGroundPosition()
         }
     }
 
+    if (!highElevationTile.isValid()) highElevationTile = BWAPI::TilePosition(chokeCenter);
+
     computeScoutBlockingPositions(bestPos, BWAPI::UnitTypes::Protoss_Probe, probeBlockScoutPositions);
     computeScoutBlockingPositions(bestPos, BWAPI::UnitTypes::Protoss_Zealot, zealotBlockScoutPositions);
 }
