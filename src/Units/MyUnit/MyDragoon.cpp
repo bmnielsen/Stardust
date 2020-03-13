@@ -152,7 +152,13 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
     // Sieged tanks or targets that can't attack us: desire to be close to them
     if (target->type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode || !canBeAttackedBy(target))
     {
-        desiredDistance = 0;
+        // Just short-circuit and move towards the target
+        // TODO: Consider other threats
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(id) << "Skipping kiting and moving towards " << target->type;
+#endif
+        move(target->lastPosition);
+        return;
     }
 
         // For targets moving away from us, desire to be closer so we don't kite out of range and never catch them
