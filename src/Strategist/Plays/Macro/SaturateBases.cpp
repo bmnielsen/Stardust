@@ -9,7 +9,7 @@ namespace
 {
     bool isTraining(const Unit &resourceDepot)
     {
-        if (!resourceDepot || !resourceDepot->completed) return false;
+        if (!resourceDepot || !resourceDepot->completed || !resourceDepot->exists()) return false;
         if (resourceDepot->bwapiUnit->isTraining()) return true;
 
         if (resourceDepot->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
