@@ -5,6 +5,8 @@
 class LocutusAIModule : public BWAPI::AIModule
 {
 public:
+    int frameSkip = 0;
+
     void onStart() override;
 
     void onEnd(bool isWinner) override;

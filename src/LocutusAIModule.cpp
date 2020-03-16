@@ -121,6 +121,8 @@ void LocutusAIModule::onEnd(bool isWinner)
 
 void LocutusAIModule::onFrame()
 {
+    if (BWAPI::BroodwarPtr->getFrameCount() < frameSkip) return;
+
     if (BWAPI::Broodwar->getFrameCount() > 30000)
     {
         BWAPI::Broodwar->leaveGame();
