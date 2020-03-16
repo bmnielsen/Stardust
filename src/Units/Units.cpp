@@ -266,8 +266,12 @@ namespace Units
 
             if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon)
             {
+                debug << "\n";
+
                 auto myDragoon = std::dynamic_pointer_cast<MyDragoon>(unit);
-                debug << ";atckf=" << (BWAPI::Broodwar->getFrameCount() - myDragoon->getLastAttackStartedAt());
+                debug << ";atkf=" << unit->bwapiUnit->isAttackFrame();
+                debug << ";lstatk=" << myDragoon->getLastAttackStartedAt();
+                debug << ";stkf=" << myDragoon->getPotentiallyStuckSince();
             }
 
             CherryVis::log(unit->id) << debug.str();

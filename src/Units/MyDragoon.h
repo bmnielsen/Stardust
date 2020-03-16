@@ -9,6 +9,8 @@ public:
 
     [[nodiscard]] int getLastAttackStartedAt() const { return lastAttackStartedAt; }
 
+    [[nodiscard]] int getPotentiallyStuckSince() const { return potentiallyStuckSince; }
+
 private:
     BWAPI::Position lastPosition;
     int lastAttackStartedAt;
