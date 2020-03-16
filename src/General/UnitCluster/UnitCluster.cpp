@@ -3,12 +3,27 @@
 #include "Units.h"
 #include "UnitUtil.h"
 
-#define DEBUG_CLUSTER_MEMBERSHIP true
+#define DEBUG_CLUSTER_MEMBERSHIP true // Also in Squad.cpp
 
 namespace
 {
     std::vector<std::string> ActivityNames = {"Moving", "Attacking", "Regrouping"};
     std::vector<std::string> SubActivityNames = {"None", "Contain", "Flee"};
+}
+
+UnitCluster::UnitCluster(const MyUnit &unit)
+        : center(unit->lastPosition)
+        , vanguard(unit)
+        , currentActivity(Activity::Moving)
+        , currentSubActivity(SubActivity::None)
+        , lastActivityChange(0)
+        , area(unit->type.width() * unit->type.height())
+{
+    units.insert(unit);
+
+#if DEBUG_CLUSTER_MEMBERSHIP
+    CherryVis::log(unit->id) << "Added to new cluster @ " << BWAPI::WalkPosition(center);
+#endif
 }
 
 void UnitCluster::addUnit(const MyUnit &unit)

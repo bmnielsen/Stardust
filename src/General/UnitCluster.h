@@ -26,16 +26,7 @@ public:
 
     std::deque<std::pair<CombatSimResult, bool>> recentSimResults;
 
-    explicit UnitCluster(const MyUnit &unit)
-            : center(unit->lastPosition)
-            , vanguard(unit)
-            , currentActivity(Activity::Moving)
-            , currentSubActivity(SubActivity::None)
-            , lastActivityChange(0)
-            , area(unit->type.width() * unit->type.height())
-    {
-        units.insert(unit);
-    }
+    explicit UnitCluster(const MyUnit &unit);
 
     virtual ~UnitCluster() = default;
 

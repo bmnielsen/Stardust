@@ -1,7 +1,7 @@
 #include "Squad.h"
 #include "PathFinding.h"
 
-#define DEBUG_CLUSTER_MEMBERSHIP false
+#define DEBUG_CLUSTER_MEMBERSHIP true // Also in UnitCluster.cpp
 
 namespace
 {
@@ -42,18 +42,12 @@ void Squad::addUnitToBestCluster(const MyUnit &unit)
     {
         best->addUnit(unit);
         unitToCluster[unit] = best;
-#if DEBUG_CLUSTER_MEMBERSHIP
-        CherryVis::log(unit->id) << "Added to cluster " << BWAPI::WalkPosition(best->center);
-#endif
         return;
     }
 
     auto newCluster = createCluster(unit);
     clusters.insert(newCluster);
     unitToCluster[unit] = newCluster;
-#if DEBUG_CLUSTER_MEMBERSHIP
-    CherryVis::log(unit->id) << "Added to new cluster " << BWAPI::WalkPosition(newCluster->center);
-#endif
 }
 
 void Squad::removeUnit(const MyUnit &unit)
@@ -120,7 +114,20 @@ void Squad::updateClusters()
                 (*firstIt)->setActivity((*secondIt)->currentActivity, (*secondIt)->currentSubActivity);
             }
 
+            // Update cluster of the second units
+            for (const auto &secondUnit : (*secondIt)->units)
+            {
+                unitToCluster[secondUnit] = *firstIt;
+            }
+
             secondIt = clusters.erase(secondIt);
+
+#if DEBUG_CLUSTER_MEMBERSHIP
+            for (const auto &unit : (*firstIt)->units)
+            {
+                CherryVis::log(unit->id) << "Combined into cluster @ " << BWAPI::WalkPosition((*firstIt)->center);
+            }
+#endif
         }
     }
 
@@ -137,9 +144,6 @@ void Squad::updateClusters()
 
             auto unit = *unitIt;
             unitIt = cluster->removeUnit(unitIt);
-#if DEBUG_CLUSTER_MEMBERSHIP
-            CherryVis::log(unit->id) << "Removed from cluster " << BWAPI::WalkPosition(cluster->center);
-#endif
             addUnitToBestCluster(unit);
         }
     }
