@@ -322,7 +322,17 @@ void BWTest::runGame(bool opponent)
     }
     else
     {
-        auto module = myModule ? myModule() : new LocutusAIModule();
+        BWAPI::AIModule *module;
+        if (myModule)
+        {
+            module = myModule();
+        }
+        else
+        {
+            auto locutusModule = new LocutusAIModule();
+            if (initialUnitFrames > 0) locutusModule->frameSkip = initialUnitFrames + BWAPI::Broodwar->getLatencyFrames();
+            module = locutusModule;
+        }
         module->afterOnStart = [this, &h]()
         {
             h->setLocalSpeed(0);
@@ -338,23 +348,10 @@ void BWTest::runGame(bool opponent)
     {
         if (frame > 0) h->update();
 
-        if (opponent)
+        auto &initialUnits = opponent ? opponentInitialUnitsByFrame[frame] : myInitialUnitsByFrame[frame];
+        for (auto &unitAndPosition : initialUnits)
         {
-            for (auto &unitAndPosition : opponentInitialUnitsByFrame[frame])
-            {
-                h->createUnit(h->getPlayer(1), unitAndPosition.type, unitAndPosition.getCenterPosition());
-            }
-
-            if (onFrameOpponent) onFrameOpponent();
-        }
-        else
-        {
-            for (auto &unitAndPosition : myInitialUnitsByFrame[frame])
-            {
-                h->createUnit(h->getPlayer(0), unitAndPosition.type, unitAndPosition.getCenterPosition());
-            }
-
-            if (onFrameMine) onFrameMine();
+            h->createUnit(h->self(), unitAndPosition.type, unitAndPosition.getCenterPosition());
         }
 
         gameOwner.getGame().nextFrame();
