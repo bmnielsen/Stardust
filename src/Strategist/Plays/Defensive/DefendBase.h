@@ -3,7 +3,6 @@
 #include "Play.h"
 #include "Squads/DefendBaseSquad.h"
 
-
 class DefendBase : public Play
 {
 public:
@@ -15,13 +14,11 @@ public:
 
     void update() override;
 
-    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
-
-private:
+protected:
     Base *base;
     std::shared_ptr<DefendBaseSquad> squad;
 
     std::vector<MyUnit> reservedWorkers;
 
-    void mineralLineWorkerDefense();
+    void mineralLineWorkerDefense(std::set<Unit> &enemiesInBase);
 };

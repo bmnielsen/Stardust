@@ -9,7 +9,7 @@
 #include "Workers.h"
 #include "UnitUtil.h"
 
-#define DEBUG_WRITE_SUBGOALS false
+#define DEBUG_WRITE_SUBGOALS true
 
 /*
 TODOs:

@@ -261,6 +261,7 @@ namespace Units
             }
 
             debug << ";mvng=" << unit->bwapiUnit->isMoving() << ";rdy=" << unit->isReady()
+                  << ";stk=" << unit->bwapiUnit->isStuck()
                   << ";cdn=" << (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
 
             if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon)

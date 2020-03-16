@@ -21,6 +21,8 @@ public:
 
     std::vector<MyUnit> getUnits();
 
+    bool hasClusterWithActivity(UnitCluster::Activity activity);
+
     explicit Squad(std::string label) : label(std::move(label)), targetPosition(BWAPI::Positions::Invalid) {}
 
 protected:

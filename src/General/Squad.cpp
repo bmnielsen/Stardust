@@ -164,3 +164,13 @@ std::vector<MyUnit> Squad::getUnits()
 
     return result;
 }
+
+bool Squad::hasClusterWithActivity(UnitCluster::Activity activity)
+{
+    for (const auto &cluster : clusters)
+    {
+        if (cluster->currentActivity == activity) return true;
+    }
+
+    return false;
+}

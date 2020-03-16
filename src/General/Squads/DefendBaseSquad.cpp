@@ -1,7 +1,110 @@
 #include "DefendBaseSquad.h"
 
 #include "Units.h"
+#include "Players.h"
 #include "UnitUtil.h"
+
+namespace
+{
+    bool shouldStartAttack(UnitCluster &cluster, CombatSimResult simResult)
+    {
+        // Don't start an attack until we have 24 frames of recommending attack with the same number of friendly units
+
+        // First ensure the sim has recommended attack with the same number of friendly units for the past 24 frames
+        int count = 0;
+        for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 24; it++)
+        {
+            if (!it->second)
+            {
+#if DEBUG_COMBATSIM
+                CherryVis::log() << BWAPI::WalkPosition(cluster.center)
+                                 << ": aborting as the sim has recommended regrouping within the past 24 frames";
+#endif
+                return false;
+            }
+
+            if (simResult.myUnitCount != it->first.myUnitCount)
+            {
+#if DEBUG_COMBATSIM
+                CherryVis::log() << BWAPI::WalkPosition(cluster.center)
+                                 << ": aborting as the number of friendly units has changed within the past 24 frames";
+#endif
+                return false;
+            }
+
+            count++;
+        }
+
+        if (count < 24)
+        {
+#if DEBUG_COMBATSIM
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center)
+                             << ": aborting as we have fewer than 24 frames of sim data";
+#endif
+            return false;
+        }
+
+        // TODO: check that the sim result has been stable
+
+#if DEBUG_COMBATSIM
+        CherryVis::log() << BWAPI::WalkPosition(cluster.center)
+                         << ": starting attack as the sim has recommended doing so for the past 24 frames";
+#endif
+        return true;
+    }
+
+    bool shouldAbortAttack(UnitCluster &cluster, CombatSimResult simResult)
+    {
+        // If this is the first run of the combat sim for this fight, always abort immediately
+        if (cluster.recentSimResults.size() < 2)
+        {
+#if DEBUG_COMBATSIM
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": aborting as this is the first sim result";
+#endif
+            return true;
+        }
+
+        CombatSimResult previousSimResult = cluster.recentSimResults.rbegin()[1].first;
+
+        // If the number of enemy units has increased, abort the attack: the enemy has reinforced or we have discovered previously-unseen enemy units
+        if (simResult.enemyUnitCount > previousSimResult.enemyUnitCount)
+        {
+#if DEBUG_COMBATSIM
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": aborting as there are now more enemy units";
+#endif
+            return true;
+        }
+
+        // Otherwise only abort the attack when the sim has been stable for a number of frames
+        if (cluster.recentSimResults.size() < 12)
+        {
+#if DEBUG_COMBATSIM
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing as we have fewer than 12 frames of sim data";
+#endif
+            return false;
+        }
+
+        int count = 0;
+        for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 12; it++)
+        {
+            if (it->second)
+            {
+#if DEBUG_COMBATSIM
+                CherryVis::log() << BWAPI::WalkPosition(cluster.center)
+                                 << ": continuing as a sim result within the past 12 frames recommended attacking";
+#endif
+                return false;
+            }
+            count++;
+        }
+
+#if DEBUG_COMBATSIM
+        CherryVis::log() << BWAPI::WalkPosition(cluster.center)
+                         << ": aborting as the sim has recommended regrouping for the past 12 frames";
+#endif
+        return true;
+    }
+}
 
 void DefendBaseSquad::setTargetPosition()
 {
@@ -57,11 +160,14 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
 
     bool enemyInOurBase = !enemyUnits.empty();
 
-    // Get enemy combat units very close to the target position
-    Units::enemyInRadius(enemyUnits, targetPosition, 64);
+    // Get enemy combat units very close to the default target position
+    Units::enemyInRadius(enemyUnits, defaultTargetPosition, 64);
 
     // Select targets
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
+
+    // Consider enemy units in a bit larger radius to the default target position for the combat sim
+    Units::enemyInRadius(enemyUnits, defaultTargetPosition, 192);
 
     // Run combat sim
     auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits);
@@ -72,14 +178,42 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
             (simResult.valueGain() > 0 && simResult.percentGain() > -0.05) ||
             simResult.percentGain() > 0.2;
 
+#if DEBUG_COMBATSIM
+    CherryVis::log() << BWAPI::WalkPosition(cluster.center)
+                     << ": %l=" << simResult.myPercentLost()
+                     << "; vg=" << simResult.valueGain()
+                     << "; %g=" << simResult.percentGain()
+                     << (attack ? "; ATTACK" : "; RETREAT");
+#endif
+
+    cluster.addSimResult(simResult, attack);
+
+    // Make the final decision based on what state we are currently in
+
+    // Currently regrouping, but want to attack: do so once the sim has stabilized
+    if (attack && cluster.currentActivity == UnitCluster::Activity::Regrouping)
+    {
+        attack = shouldStartAttack(cluster, simResult);
+    }
+
+    // Currently attacking, but want to regroup: make sure regrouping is safe
+    if (!attack && cluster.currentActivity == UnitCluster::Activity::Attacking)
+    {
+        attack = !shouldAbortAttack(cluster, simResult);
+    }
+
     if (attack)
     {
+        cluster.setActivity(UnitCluster::Activity::Attacking);
+
         // Reset our defensive position when all enemy units are out of our base
         if (!enemyInOurBase) targetPosition = defaultTargetPosition;
 
         cluster.attack(unitsAndTargets, targetPosition);
         return;
     }
+
+    cluster.setActivity(UnitCluster::Activity::Regrouping);
 
     // Ensure the target position is set to the mineral line center
     // This allows our workers to help with the defense
@@ -90,10 +224,7 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
     // - If the unit's target is far out of its attack range, move towards it
     //   Rationale: we want to encourage our enemies to get distracted and chase us
     // - Otherwise move towards the mineral line center
-
-    // TODO: This probably doesn't make sense against ranged units
-
-    // For each of our units, move it towards the mineral line center if it is not in the mineral line, otherwise attack
+    // TODO: Do something else against ranged units
     for (auto &unitAndTarget : unitsAndTargets)
     {
         auto &unit = unitAndTarget.first;
@@ -126,6 +257,17 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
                                                     << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
 #endif
             unit->attackUnit(target, unitsAndTargets);
+            continue;
+        }
+
+        // Move towards the enemy if we are well out of their attack range
+        int enemyRange = Players::weaponRange(target->player, target->getWeapon(unit));
+        if (enemyPosition.isValid() && unit->getDistance(target, enemyPosition) > (enemyRange + 64))
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(unitAndTarget.first->id) << "Retreating: stay close to enemy @ " << BWAPI::WalkPosition(enemyPosition);
+#endif
+            unit->moveTo(enemyPosition);
             continue;
         }
 

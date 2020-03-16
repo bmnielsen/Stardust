@@ -6,7 +6,7 @@
 #include "Workers.h"
 
 #include "Play.h"
-#include "Plays/Defensive/DefendBase.h"
+#include "Plays/Defensive/DefendMainBase.h"
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/Macro/TakeNaturalExpansion.h"
 #include "Plays/Macro/TakeExpansion.h"
@@ -146,6 +146,8 @@ namespace Strategist
                          it != reassignableUnits.end() && unitRequirement.count > 0;
                          it = reassignableUnits.erase(it))
                     {
+                        if (it->currentPlay == play) continue;
+
                         if (it->currentPlay != nullptr) it->currentPlay->removeUnit(it->unit);
                         play->addUnit(it->unit);
                         unitToPlay[it->unit] = play;
@@ -284,6 +286,10 @@ namespace Strategist
             if (BWAPI::Broodwar->self()->getUpgradeLevel(upgradeType) > 0) return;
             if (Units::isBeingUpgraded(upgradeType)) return;
 
+            // Keep track of whether we have started teching
+            // We don't want to upgrade anything if we are in an emergency and have an unlimited zealot goal near the top
+            bool tech = Units::countAll(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0;
+
             int units = Units::countCompleted(unitType);
 
             // Iterate the goals until we exceed the desired unit count
@@ -292,12 +298,18 @@ namespace Strategist
             {
                 auto unitProductionGoal = std::get_if<UnitProductionGoal>(&*it);
                 if (!unitProductionGoal) continue;
+
+                if (unitProductionGoal->unitType().gasPrice() > 0) tech = true;
+
                 if (unitProductionGoal->unitType() != unitType) continue;
 
                 // Special case: unit production goal for unlimited units
                 // In this case we split the production goal and put the upgrade in the middle
                 if (unitProductionGoal->countToProduce() == -1)
                 {
+                    // Except in the case where we haven't yet taken tech
+                    if (!tech) return;
+
                     it = productionGoals.emplace(it, UpgradeProductionGoal(upgradeType));
                     productionGoals.emplace(it,
                                             std::in_place_type<UnitProductionGoal>,
@@ -312,7 +324,7 @@ namespace Strategist
             }
 
             // If we have counted enough units, insert the upgrade goal now
-            if (units >= unitCount)
+            if (units >= unitCount && tech)
             {
                 productionGoals.emplace(it, UpgradeProductionGoal(upgradeType));
                 return;
@@ -441,7 +453,7 @@ namespace Strategist
         productionGoals.clear();
         mineralReservations.clear();
 
-        plays.emplace_back(std::make_shared<DefendBase>(Map::getMyMain()));
+        plays.emplace_back(std::make_shared<DefendMainBase>());
         plays.emplace_back(std::make_shared<SaturateBases>());
         plays.emplace_back(std::make_shared<TakeNaturalExpansion>());
         plays.emplace_back(std::make_shared<RallyArmy>());

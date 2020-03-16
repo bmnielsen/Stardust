@@ -12,15 +12,10 @@
  *
  * - If the mineral line is under attack, do worker defense
  * - Otherwise, determine the level of risk to the base.
+ * - If the base cannot be saved, evacuate workers
  * - If high risk (enemy units are here or expected to come soon), reserve some units for protection
  * - If at medium risk, get some static defense
  * - If at low risk, do nothing
- *
- * Main base:
- * - Keep some zealots for safety until we have scouting information
- * - If under pressure, produce infinite zealots -> triggers Producer to remove workers from gas
- * - Ensure some workers keep mining to allow us to produce
- * - Zealots should stay close to enemy units to draw their attention until we have sufficient numbers to engage
  */
 
 DefendBase::DefendBase(Base *base) : base(base), squad(std::make_shared<DefendBaseSquad>(base))
@@ -30,54 +25,10 @@ DefendBase::DefendBase(Base *base) : base(base), squad(std::make_shared<DefendBa
 
 void DefendBase::update()
 {
-    mineralLineWorkerDefense();
-
-    // Temporary early game logic: keeps four zealots in main
-    bool protectionNeeded = false;
-    if (base == Map::getMyMain() && BWAPI::Broodwar->getFrameCount() < 7000)
-    {
-        protectionNeeded = true;
-        if ((Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) + Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon)) > 4)
-        {
-            // Get enemy combat units in our base
-            std::set<Unit> enemyCombatUnits;
-            Units::enemyInArea(enemyCombatUnits, Map::getMyMain()->getArea(), [](const Unit &unit)
-            {
-                return UnitUtil::IsCombatUnit(unit->type) && unit->type.canAttack();
-            });
-            if (enemyCombatUnits.empty()) protectionNeeded = false;
-        }
-    }
-
-    if (protectionNeeded)
-    {
-        int zealotsNeeded = 4 - squad->getUnits().size();
-        if (zealotsNeeded > 0)
-        {
-            status.unitRequirements.emplace_back(zealotsNeeded, BWAPI::UnitTypes::Protoss_Zealot, squad->getTargetPosition());
-        }
-    }
-    else
-    {
-        status.removedUnits = squad->getUnits();
-        status.complete = true;
-    }
+    // TODO
 }
 
-void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
-{
-    // TODO: Use higher priority in emergencies
-    for (auto &unitRequirement : status.unitRequirements)
-    {
-        if (unitRequirement.count < 1) continue;
-        prioritizedProductionGoals[20].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                    unitRequirement.type,
-                                                    unitRequirement.count,
-                                                    (unitRequirement.count + 1) / 2);
-    }
-}
-
-void DefendBase::mineralLineWorkerDefense()
+void DefendBase::mineralLineWorkerDefense(std::set<Unit> &enemiesInBase)
 {
     // Check if there are enemy melee units in our mineral line
     std::set<Unit> enemyUnits;
