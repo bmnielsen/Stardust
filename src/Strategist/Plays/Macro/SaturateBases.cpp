@@ -5,6 +5,23 @@
 #include "Map.h"
 #include "PathFinding.h"
 
+namespace
+{
+    bool isTraining(const Unit &resourceDepot)
+    {
+        if (!resourceDepot || !resourceDepot->completed) return false;
+        if (resourceDepot->bwapiUnit->isTraining()) return true;
+
+        if (resourceDepot->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
+            (BWAPI::Broodwar->getFrameCount() - resourceDepot->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+        {
+            return true;
+        }
+
+        return false;
+    }
+}
+
 void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
     // Hard cap of 75 workers
@@ -27,11 +44,16 @@ void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
         {
             if (base->owner != BWAPI::Broodwar->self()) continue;
             int desiredWorkers = Workers::availableMineralAssignments(base);
+
+            // Reduce by one if this base is already building a worker
+            // It's OK if this base goes to a negative number of workers
+            if (isTraining(base->resourceDepot)) desiredWorkers--;
+
             totalWorkers += desiredWorkers;
             basesAndWorkers.insert(std::make_pair(base, desiredWorkers));
         }
 
-        if (totalWorkers == 0) continue;
+        if (totalWorkers <= 0) continue;
 
         // Balance the production amongst the bases
         int desiredProductionPerBase = totalWorkers / basesAndWorkers.size();
