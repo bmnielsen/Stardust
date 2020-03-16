@@ -222,9 +222,6 @@ void BWTest::run()
         _exit(EXIT_SUCCESS);
     }
 
-    // Unless we are debugging, we run our bot in a separate process to ensure we
-    // get all of our globals reset if multiple tests are being run
-#ifdef DEBUG
     auto handler = [](int sig)
     {
         signalHandler(sig, false);
@@ -235,27 +232,6 @@ void BWTest::run()
     signal(SIGABRT, handler);
 
     runGame(false);
-#else
-    auto selfPid = fork();
-    if (selfPid == 0)
-    {
-        auto handler = [](int sig)
-        {
-            signalHandler(sig, false);
-        };
-        signal(SIGFPE, handler);
-        signal(SIGSEGV, handler);
-        signal(SIGABRT, handler);
-
-        runGame(false);
-
-        _exit(::testing::Test::HasFailure() ? EXIT_FAILURE : EXIT_SUCCESS);
-    }
-
-    int result;
-    waitpid(selfPid, &result, 0);
-    EXPECT_EQ(result, 0);
-#endif
 
     // Give the opponent 5 seconds to exit
     int tries = 0;
