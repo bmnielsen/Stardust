@@ -9,6 +9,8 @@
 #include "Workers.h"
 #include "UnitUtil.h"
 
+#define DEBUG_WRITE_SUBGOALS false
+
 /*
 TODOs:
 - Dynamic prediction window based on how many prerequisites are needed
@@ -201,7 +203,7 @@ namespace Producer
                 values.push_back(value.str());
             }
 
-            CherryVis::setBoardListValue("producer", values);
+            CherryVis::setBoardListValue(label, values);
 #endif
 
             /*
@@ -1680,6 +1682,11 @@ namespace Producer
 
         initializeResources();
 
+#if DEBUG_WRITE_SUBGOALS
+        int count = 0;
+        write(committedItems, (std::ostringstream() << "producergoal" << count).str());
+#endif
+
         for (auto goal : Strategist::currentProductionGoals())
         {
             if (auto unitProductionGoal = std::get_if<UnitProductionGoal>(&goal))
@@ -1691,13 +1698,20 @@ namespace Producer
             }
             else if (auto upgradeProductionGoal = std::get_if<UpgradeProductionGoal>(&goal))
             {
-                if (upgradeProductionGoal->isFulfilled()) continue;
-                handleGoal(upgradeProductionGoal->upgradeType(), std::monostate(), 1, 1, upgradeProductionGoal->prerequisiteForNextLevel());
+                if (!upgradeProductionGoal->isFulfilled())
+                {
+                    handleGoal(upgradeProductionGoal->upgradeType(), std::monostate(), 1, 1, upgradeProductionGoal->prerequisiteForNextLevel());
+                }
             }
             else
             {
                 Log::Get() << "ERROR: Unknown variant type for ProductionGoal";
             }
+
+#if DEBUG_WRITE_SUBGOALS
+            count++;
+            write(committedItems, (std::ostringstream() << "producergoal" << count).str());
+#endif
         }
 
         // Disabled for now as it is too aggressive (most likely because we are slightly too optimistic about how many minerals we will have)
