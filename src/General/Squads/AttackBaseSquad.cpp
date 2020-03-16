@@ -128,6 +128,27 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     // Run combat sim
     auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits);
 
+    // If the sim result is nothing, and none of our units have a target, move instead of attacking
+    if (simResult.myPercentLost() <= 0.001 && simResult.enemyPercentLost() <= 0.001)
+    {
+        bool hasTarget = false;
+        for (const auto &unitAndTarget : unitsAndTargets)
+        {
+            if (unitAndTarget.second)
+            {
+                hasTarget = true;
+                break;
+            }
+        }
+
+        if (!hasTarget)
+        {
+            cluster.setActivity(UnitCluster::Activity::Moving);
+            cluster.move(targetPosition);
+            return;
+        }
+    }
+
     // TODO: If our units can't do any damage (e.g. ground-only vs. air, melee vs. kiting ranged units), do something else
 
     // For now, decide to attack if one of these holds:
