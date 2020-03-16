@@ -1601,7 +1601,7 @@ namespace Producer
                     // - We are producing an unlimited number of units
                     //   - We want to saturate production from existing producers before adding new ones
                     // - We are already at our producer limit
-                    bool commitImmediately = !prerequisiteItems.empty() || producers.size() == producerLimit || toProduce == -1;
+                    bool commitImmediately = !prerequisiteItems.empty() || producers.size() >= producerLimit || toProduce == -1;
 
                     // Create the item and resolve resource blocks
                     bestProducerItem = std::make_shared<ProductionItem>(type, bestFrame, location, bestProducer);
@@ -1631,11 +1631,12 @@ namespace Producer
 
                     // If we wanted to commit the item but couldn't, continue only if we are producing an unlimited number of units
                     // In the other two cases we can't produce the unit
-                    if (commitImmediately && toProduce != -1) break;
+                    if (commitImmediately && (!prerequisiteItems.empty() || producers.size() >= producerLimit)) break;
 
                     // If the item could not be created, clear it
                     if (!result) bestProducerItem = nullptr;
                 }
+                else if (producers.size() >= producerLimit) break;
 
                 // Create a new producer
                 ProductionItemSet newProducerPrerequisites;
