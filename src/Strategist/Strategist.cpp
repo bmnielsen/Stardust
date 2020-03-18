@@ -248,7 +248,7 @@ namespace Strategist
                 }
             }
 
-            // TODO: Checks that depend on what the enemy is doing whether the enemy is contained, etc.
+            // TODO: Checks that depend on what the enemy is doing, whether the enemy is contained, etc.
 
             if (wantToExpand)
             {
