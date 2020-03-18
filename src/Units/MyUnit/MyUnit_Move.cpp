@@ -64,7 +64,7 @@ void MyUnitImpl::issueMoveOrders()
     if (unstickMoveUnit()) return;
 
     // If the unit has just been unstuck, reissue the command to move towards our current target position
-    if (BWAPI::Broodwar->getFrameCount() - lastUnstickFrame == BWAPI::Broodwar->getLatencyFrames())
+    if (unstickUntil == BWAPI::Broodwar->getFrameCount())
     {
         move(currentlyMovingTowards);
         return;
@@ -413,7 +413,7 @@ bool MyUnitImpl::unstickMoveUnit()
 
             auto position = BWAPI::Position(tile) + BWAPI::Position(16, 16);
             int dist = currentCommand.getTargetPosition().getApproxDistance(position);
-            dist /= Map::unwalkableProximity(tile.x, tile.y) + 1;
+            if (Map::unwalkableProximity(tile.x, tile.y) > 0) dist /= 2;
             if (dist < bestDist)
             {
                 bestDist = dist;
@@ -426,6 +426,10 @@ bool MyUnitImpl::unstickMoveUnit()
         scoreTile(currentTile + BWAPI::TilePosition(-1, 0));
         scoreTile(currentTile + BWAPI::TilePosition(0, 1));
         scoreTile(currentTile + BWAPI::TilePosition(0, -1));
+        scoreTile(currentTile + BWAPI::TilePosition(1, 1));
+        scoreTile(currentTile + BWAPI::TilePosition(-1, -1));
+        scoreTile(currentTile + BWAPI::TilePosition(-1, 1));
+        scoreTile(currentTile + BWAPI::TilePosition(1, -1));
 
         if (!best.isValid())
         {
@@ -441,7 +445,7 @@ bool MyUnitImpl::unstickMoveUnit()
             CherryVis::log(id) << "Unstick by moving to neighbouring walkable tile";
 #endif
             move(best);
-            lastUnstickFrame = BWAPI::Broodwar->getFrameCount();
+            unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames() + 4;
             return true;
         }
     }
@@ -452,6 +456,6 @@ bool MyUnitImpl::unstickMoveUnit()
 
     // Reissue the move command
     move(currentlyMovingTowards, true);
-    lastUnstickFrame = BWAPI::Broodwar->getFrameCount();
+    unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames();
     return true;
 }

@@ -89,8 +89,8 @@ protected:
     // The last frame where we sent a move command to the unit.
     int lastMoveFrame;
 
-    // The last frame where we sent a move command to the unit meant to "unstick" it.
-    int lastUnstickFrame;
+    // If we have sent a command to the unit to unstick it, when we should next send a normal command again.
+    int unstickUntil;
 
     virtual void typeSpecificUpdate() {}
 

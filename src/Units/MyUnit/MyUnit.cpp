@@ -14,7 +14,7 @@ MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         , grid(nullptr)
         , gridNode(nullptr)
         , lastMoveFrame(0)
-        , lastUnstickFrame(0)
+        , unstickUntil(-1)
 {
 }
 
@@ -87,8 +87,16 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
 bool MyUnitImpl::unstick()
 {
     // If we recently sent a command meant to unstick the unit, give it a bit of time to kick in
-    if (BWAPI::Broodwar->getFrameCount() - lastUnstickFrame < BWAPI::Broodwar->getLatencyFrames())
+    if (unstickUntil > BWAPI::Broodwar->getFrameCount())
     {
+        return true;
+    }
+
+    // If the unit is listed as stuck, send a stop command
+    if (bwapiUnit->isStuck())
+    {
+        stop();
+        unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames();
         return true;
     }
 

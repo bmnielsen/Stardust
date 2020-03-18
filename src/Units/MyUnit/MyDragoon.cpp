@@ -89,7 +89,7 @@ bool MyDragoon::unstick()
         && potentiallyStuckSince < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 10))
     {
         stop();
-        lastUnstickFrame = BWAPI::Broodwar->getFrameCount();
+        unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames();
         return true;
     }
 
