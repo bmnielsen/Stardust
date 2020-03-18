@@ -219,8 +219,9 @@ namespace Strategist
 
             // The natural is always our first expansion, so until it is taken, don't expand anywhere else
             // The logic for taking our natural is special and is contained in TakeNaturalExpansion
+            // If our natural has been taken at one point and lost again, it will be treated as a normal expansion
             auto natural = Map::getMyNatural();
-            if (natural->owner != BWAPI::Broodwar->self()) return;
+            if (natural->ownedSince == -1) return;
 
             // Determine whether we want to expand now
             bool wantToExpand = true;
