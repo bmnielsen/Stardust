@@ -387,7 +387,7 @@ namespace Map
             visit(tileX, tileY - 2, 2, &result) ||
             visit(tileX, tileY + 2, 2, &result);
 
-            if (tileValid(tileX, tileY)) tileUnwalkableProximity[tileX + tileY * BWAPI::Broodwar->mapWidth()] = result;
+            tileUnwalkableProximity[tileX + tileY * BWAPI::Broodwar->mapWidth()] = result;
         }
 
         // Updates the tile walkability grid based on appearance or disappearance of a building, mineral field, etc.
@@ -407,21 +407,68 @@ namespace Map
                 }
             }
 
-            if (updated)
+            // Update walkability proximity for unwalkable
+            if (updated && !walkable)
+            {
+                auto tileValid = [](int x, int y)
+                {
+                    return x >= 0 && y >= 0 && x < BWAPI::Broodwar->mapWidth() && y < BWAPI::Broodwar->mapHeight();
+                };
+
+                // Zero the tiles in and directly touching
+                for (int x = -1; x <= size.x; x++)
+                {
+                    for (int y = (x == -1 || x == size.x ? 0 : -1); y < (x == -1 || x == size.x ? size.y : (size.y + 1)); y++)
+                    {
+                        if (tileValid(tile.x + x, tile.y + y))
+                        {
+                            tileUnwalkableProximity[(tile.x + x) + (tile.y + y) * BWAPI::Broodwar->mapWidth()] = 0;
+                        }
+                    }
+                }
+
+                auto visit = [&tileValid](int x, int y, int val)
+                {
+                    if (!tileValid(x, y)) return;
+
+                    tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()] =
+                            std::min(tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()], val);
+                };
+
+                // Corners
+                visit(tile.x - 1, tile.y - 1, 1);
+                visit(tile.x - 1, tile.y + size.y, 1);
+                visit(tile.x + size.x, tile.y - 1, 1);
+                visit(tile.x + size.x, tile.y + size.y, 1);
+
+                // Left and right sides two tiles away
+                for (int x = -2; x < size.x + 2; x++)
+                {
+                    for (int y = 0; y < size.y; y++)
+                    {
+                        visit(tile.x + x, tile.y + y, 2);
+                    }
+                }
+
+                // Top and bottom sides two tiles away
+                for (int y = -2; y < size.y + 2; y++)
+                {
+                    for (int x = 0; x < size.x; x++)
+                    {
+                        visit(tile.x + x, tile.y + y, 2);
+                    }
+                }
+            }
+
+            // Walkable is more difficult, so reprocess each tile individually
+            if (updated && walkable)
             {
                 for (int x = -2; x < size.x + 2; x++)
                 {
-                    updateWalkabilityProximity(tile.x + x, tile.y - 2);
-                    updateWalkabilityProximity(tile.x + x, tile.y - 1);
-                    updateWalkabilityProximity(tile.x + x, tile.y + size.y);
-                    updateWalkabilityProximity(tile.x + x, tile.y + size.y + 1);
-                }
-                for (int y = -1; y < size.y + 1; y++)
-                {
-                    updateWalkabilityProximity(tile.x - 2, tile.y + y);
-                    updateWalkabilityProximity(tile.x - 1, tile.y + y);
-                    updateWalkabilityProximity(tile.x + size.x, tile.y + y);
-                    updateWalkabilityProximity(tile.x + size.x + 1, tile.y + y);
+                    for (int y = -2; y < size.y + 2; y++)
+                    {
+                        updateWalkabilityProximity(tile.x + x, tile.y + y);
+                    }
                 }
             }
 
@@ -750,9 +797,11 @@ namespace Map
         // Skip refineries, since creation of a refinery does not affect tile walkability (there was already a geyser)
         if (BWAPI::Broodwar->getFrameCount() > 0 && unit->type.isBuilding() && !unit->type.isRefinery())
         {
-            tileWalkabilityUpdated = updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), false);
-
-            if (tileWalkabilityUpdated) PathFinding::addBlockingObject(unit->type, unit->getTilePosition());
+            if (updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), false))
+            {
+                PathFinding::addBlockingObject(unit->type, unit->getTilePosition());
+                tileWalkabilityUpdated = true;
+            }
         }
 
         // FIXME: Check tile walkability for mineral fields
@@ -764,9 +813,11 @@ namespace Map
         // TODO: Is this even needed?
         if (BWAPI::Broodwar->getFrameCount() > 0 && unit->getType().isMineralField())
         {
-            tileWalkabilityUpdated = updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), false);
-
-            if (tileWalkabilityUpdated) PathFinding::addBlockingObject(unit->getType(), unit->getTilePosition());
+            if (updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), false))
+            {
+                PathFinding::addBlockingObject(unit->getType(), unit->getTilePosition());
+                tileWalkabilityUpdated = true;
+            }
         }
     }
 
@@ -779,9 +830,11 @@ namespace Map
         // Skip refineries, since destruction of a refinery does not affect tile walkability (there will still be a geyser)
         if (unit->type.isBuilding() && !unit->type.isRefinery())
         {
-            tileWalkabilityUpdated = updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), true);
-
-            if (tileWalkabilityUpdated) PathFinding::removeBlockingObject(unit->type, unit->getTilePosition());
+            if (updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), true))
+            {
+                PathFinding::removeBlockingObject(unit->type, unit->getTilePosition());
+                tileWalkabilityUpdated = true;
+            }
         }
     }
 
@@ -795,24 +848,30 @@ namespace Map
         // Units that affect tile walkability
         if (unit->getType().isMineralField() || (unit->getType().isBuilding() && !unit->getType().isRefinery()))
         {
-            tileWalkabilityUpdated = updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), true);
-
-            if (tileWalkabilityUpdated) PathFinding::removeBlockingObject(unit->getType(), unit->getTilePosition());
+            if (updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), true))
+            {
+                PathFinding::removeBlockingObject(unit->getType(), unit->getTilePosition());
+                tileWalkabilityUpdated = true;
+            }
         }
     }
 
     void onBuildingLifted(BWAPI::UnitType type, BWAPI::TilePosition tile)
     {
-        tileWalkabilityUpdated = updateTileWalkability(tile, type.tileSize(), true);
-
-        if (tileWalkabilityUpdated) PathFinding::removeBlockingObject(type, tile);
+        if (updateTileWalkability(tile, type.tileSize(), true))
+        {
+            PathFinding::removeBlockingObject(type, tile);
+            tileWalkabilityUpdated = true;
+        }
     }
 
     void onBuildingLanded(BWAPI::UnitType type, BWAPI::TilePosition tile)
     {
-        tileWalkabilityUpdated = updateTileWalkability(tile, type.tileSize(), false);
-
-        if (tileWalkabilityUpdated) PathFinding::addBlockingObject(type, tile);
+        if (updateTileWalkability(tile, type.tileSize(), false))
+        {
+            PathFinding::addBlockingObject(type, tile);
+            tileWalkabilityUpdated = true;
+        }
     }
 
     void update()
