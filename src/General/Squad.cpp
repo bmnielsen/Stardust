@@ -13,7 +13,7 @@ namespace
 
     // Units are removed from a cluster if they are further than this distance from the cluster center
     // This is deliberately large to try to avoid too much reshuffling of clusters
-    const int REMOVE_THRESHOLD = COMBINE_THRESHOLD + ADD_THRESHOLD * 2;
+    const int REMOVE_THRESHOLD = COMBINE_THRESHOLD + ADD_THRESHOLD;
 }
 
 void Squad::addUnit(const MyUnit &unit)
