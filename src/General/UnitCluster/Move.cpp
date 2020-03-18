@@ -25,32 +25,50 @@ namespace
     // TODO: These parameters need to be tuned
     const double goalWeight = 128.0;
     const double cohesionWeight = 64.0 / sqrt(5.0);
+    const int cohesionIgnoreDistance = 300;
     const double separationDetectionLimitFactor = 2.0;
     const double separationWeight = 96.0;
 }
 
 void UnitCluster::move(BWAPI::Position targetPosition)
 {
-    auto grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
-    if (!grid)
+    // If any units are either in a leaf area or a narrow choke, do not do flocking
+    // In these cases it is very likely for parts of the cluster to get stuck on buildings or terrain, which is not handled well
+    bool shouldFlock = true;
+    for (const auto &unit : units)
     {
-        Log::Get() << "WARNING: Cluster @ " << BWAPI::WalkPosition(center) << " moving towards position without grid @ "
-                   << BWAPI::TilePosition(targetPosition);
-    }
-
-    // Get the node at the cluster center
-    NavigationGrid::GridNode *centerNode = nullptr;
-    if (grid)
-    {
-        centerNode = &(*grid)[BWAPI::TilePosition(center)];
-        while (centerNode && centerNode->cost == USHRT_MAX)
+        auto pos = unit->getTilePosition();
+        if (Map::isInNarrowChoke(pos) || Map::isInLeafArea(pos))
         {
-            centerNode = centerNode->nextNode;
+            shouldFlock = false;
+            break;
         }
     }
 
-    // Compute scaling factor for cohesion boid, based on the size of the squad
-    double cohesionFactor = cohesionWeight * pi / sqrt(area);
+    // Initialize flocking
+    NavigationGrid *grid = nullptr;
+    NavigationGrid::GridNode *centerNode = nullptr;
+    double cohesionFactor;
+    if (shouldFlock)
+    {
+        grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
+        if (grid)
+        {
+            centerNode = &(*grid)[BWAPI::TilePosition(center)];
+            while (centerNode && centerNode->cost == USHRT_MAX)
+            {
+                centerNode = centerNode->nextNode;
+            }
+
+            // Scaling factor for cohesion boid is based on the size of the squad
+            cohesionFactor = cohesionWeight * pi / sqrt(area);
+        }
+        else
+        {
+            Log::Get() << "WARNING: Cluster @ " << BWAPI::WalkPosition(center) << " moving towards position without grid @ "
+                       << BWAPI::TilePosition(targetPosition);
+        }
+    }
 
     for (const auto &unit : units)
     {
@@ -103,7 +121,7 @@ void UnitCluster::move(BWAPI::Position targetPosition)
 
         // We ignore the cohesion boid if the center grid node is at a greatly lower cost, as this indicates a probable cliff
         // between this unit and the rest of the cluster
-        if (!centerNode || (node->cost < 150) || (centerNode->cost > (node->cost - 150)))
+        if (!centerNode || (node->cost < cohesionIgnoreDistance) || (centerNode->cost > (node->cost - cohesionIgnoreDistance)))
         {
             cohesionX = (int) ((double) (center.x - unit->lastPosition.x) * cohesionFactor);
             cohesionY = (int) ((double) (center.y - unit->lastPosition.y) * cohesionFactor);

@@ -73,4 +73,8 @@ namespace Map
     bool isWalkable(int x, int y);
 
     int unwalkableProximity(int x, int y);
+
+    bool isInNarrowChoke(BWAPI::TilePosition pos);
+
+    bool isInLeafArea(BWAPI::TilePosition pos);
 }

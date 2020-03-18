@@ -29,6 +29,9 @@ namespace Map
         std::vector<int> tileUnwalkableProximity;
         bool tileWalkabilityUpdated;
 
+        std::vector<bool> narrowChokeTiles;
+        std::vector<bool> leafAreaTiles;
+
 #if CHERRYVIS_ENABLED
         std::vector<long> visibility;
 #endif
@@ -486,6 +489,91 @@ namespace Map
             dumpTileWalkability();
         }
 
+        void computeNarrowChokeTiles()
+        {
+            narrowChokeTiles.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+
+            for (const auto &pair : chokes)
+            {
+                if (pair.second->width > 96) continue;
+
+                BWAPI::TilePosition chokeCenter(pair.second->Center());
+
+                for (int x = -5; x <= 5; x++)
+                {
+                    for (int y = -5; y <= 5; y++)
+                    {
+                        BWAPI::TilePosition here(chokeCenter.x + x, chokeCenter.y + y);
+                        if (!here.isValid()) continue;
+
+                        narrowChokeTiles[here.x + here.y * BWAPI::Broodwar->mapWidth()] = true;
+                    }
+                }
+            }
+
+#if CHERRYVIS_ENABLED
+            // Dump to CherryVis
+            std::vector<long> narrowChokeTilesCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            {
+                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                {
+                    narrowChokeTilesCVis[x + y * BWAPI::Broodwar->mapWidth()] = narrowChokeTiles[x + y * BWAPI::Broodwar->mapWidth()];
+                }
+            }
+
+            CherryVis::addHeatmap("NarrowChokeTiles", narrowChokeTilesCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+#endif
+        }
+
+        void computeLeafAreaTiles()
+        {
+            // Gather all "leaf" areas, which we define as areas that are only connected by narrow chokes
+            std::set<const BWEM::Area *> leafAreas;
+            for (const auto &area : BWEM::Map::Instance().Areas())
+            {
+                for (const auto &bwemChoke : area.ChokePoints())
+                {
+                    auto choke = Map::choke(bwemChoke);
+                    if (!choke) continue;
+                    if (choke->width > 96) goto NextArea;
+                }
+
+                leafAreas.insert(&area);
+
+                NextArea:;
+            }
+
+            leafAreaTiles.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            {
+                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                {
+                    BWAPI::TilePosition here(x, y);
+                    auto area = BWEM::Map::Instance().GetArea(here);
+                    if (area && leafAreas.find(area) != leafAreas.end())
+                    {
+                        leafAreaTiles[here.x + here.y * BWAPI::Broodwar->mapWidth()] = true;
+                    }
+                }
+            }
+
+#if CHERRYVIS_ENABLED
+            // Dump to CherryVis
+            std::vector<long> leafAreaTilesCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            {
+                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                {
+                    leafAreaTilesCVis[x + y * BWAPI::Broodwar->mapWidth()] = leafAreaTiles[x + y * BWAPI::Broodwar->mapWidth()];
+                }
+            }
+
+            CherryVis::addHeatmap("LeafAreaTiles", leafAreaTilesCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+#endif
+        }
+
         // Dumps heatmaps for static map things like ground height
         void dumpStaticHeatmaps()
         {
@@ -540,6 +628,8 @@ namespace Map
         tileWalkability.clear();
         tileUnwalkableProximity.clear();
         tileWalkabilityUpdated = false;
+        narrowChokeTiles.clear();
+        leafAreaTiles.clear();
 #if CHERRYVIS_ENABLED
         visibility.clear();
 #endif
@@ -643,6 +733,8 @@ namespace Map
         }
 
         computeTileWalkability();
+        computeNarrowChokeTiles();
+        computeLeafAreaTiles();
         dumpStaticHeatmaps();
 
         update();
@@ -998,5 +1090,15 @@ namespace Map
     int unwalkableProximity(int x, int y)
     {
         return tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()];
+    }
+
+    bool isInNarrowChoke(BWAPI::TilePosition pos)
+    {
+        return narrowChokeTiles[pos.x + pos.y * BWAPI::Broodwar->mapWidth()];
+    }
+
+    bool isInLeafArea(BWAPI::TilePosition pos)
+    {
+        return leafAreaTiles[pos.x + pos.y * BWAPI::Broodwar->mapWidth()];
     }
 }
