@@ -91,6 +91,15 @@ void UpgradeTracker::update(Grid &grid)
             unitAndArmor.second = current;
         }
     }
+
+    for (auto &techAndResearched : _hasResearched)
+    {
+        bool current = player->hasResearched(techAndResearched.first);
+        if (current && !techAndResearched.second)
+        {
+            techAndResearched.second = current;
+        }
+    }
 }
 
 int UpgradeTracker::weaponDamage(BWAPI::WeaponType wpn)
@@ -156,5 +165,18 @@ int UpgradeTracker::unitArmor(BWAPI::UnitType type)
 
     int current = player->armor(type);
     _unitArmor[type] = current;
+    return current;
+}
+
+bool UpgradeTracker::hasResearched(BWAPI::TechType type)
+{
+    auto hasResearchedIt = _hasResearched.find(type);
+    if (hasResearchedIt != _hasResearched.end())
+    {
+        return hasResearchedIt->second;
+    }
+
+    bool current = player->hasResearched(type);
+    _hasResearched[type] = current;
     return current;
 }

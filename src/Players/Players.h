@@ -23,4 +23,6 @@ namespace Players
     int unitArmor(BWAPI::Player player, BWAPI::UnitType type);
 
     int attackDamage(BWAPI::Player firstPlayer, BWAPI::UnitType firstUnit, BWAPI::Player secondPlayer, BWAPI::UnitType secondUnit);
+
+    bool hasResearched(BWAPI::Player player, BWAPI::TechType type);
 }

@@ -17,6 +17,8 @@ void MopUpSquad::execute(UnitCluster &cluster)
     Units::enemyInRadius(enemyUnits, cluster.center, 480);
     if (!enemyUnits.empty())
     {
+        updateNeedsDetection(enemyUnits);
+
         auto unitsAndTargets = cluster.selectTargets(enemyUnits, cluster.center);
         cluster.attack(unitsAndTargets, cluster.center);
         return;

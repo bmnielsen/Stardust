@@ -104,4 +104,9 @@ namespace Players
 
         return std::max(128, damage);
     }
+
+    bool hasResearched(BWAPI::Player player, BWAPI::TechType type)
+    {
+        return getUpgradeTracker(player)->hasResearched(type);
+    }
 }

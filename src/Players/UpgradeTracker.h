@@ -22,6 +22,8 @@ public:
 
     int unitArmor(BWAPI::UnitType type);
 
+    bool hasResearched(BWAPI::TechType type);
+
 private:
     BWAPI::Player player;
 
@@ -30,4 +32,6 @@ private:
     std::map<BWAPI::UnitType, int> _unitCooldown;
     std::map<BWAPI::UnitType, double> _unitTopSpeed;
     std::map<BWAPI::UnitType, int> _unitArmor;
+
+    std::map<BWAPI::TechType, bool> _hasResearched;
 };

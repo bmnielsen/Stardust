@@ -1,5 +1,6 @@
 #include "Squad.h"
 #include "PathFinding.h"
+#include "Players.h"
 
 #define DEBUG_CLUSTER_MEMBERSHIP true // Also in UnitCluster.cpp
 
@@ -14,6 +15,17 @@ namespace
     // Units are removed from a cluster if they are further than this distance from the cluster center
     // This is deliberately large to try to avoid too much reshuffling of clusters
     const int REMOVE_THRESHOLD = COMBINE_THRESHOLD + ADD_THRESHOLD;
+
+    // Determines whether we need detection to effectively fight the given unit.
+    bool unitNeedsDetection(const Unit &unit)
+    {
+        if (unit->type == BWAPI::UnitTypes::Zerg_Lurker || unit->type == BWAPI::UnitTypes::Zerg_Lurker_Egg) return true;
+        if (unit->type.hasPermanentCloak()) return true;
+        if (unit->type.isCloakable() && Players::hasResearched(unit->player, unit->type.cloakingTech())) return true;
+        if (unit->type.isBurrowable() && Players::hasResearched(unit->player, BWAPI::TechTypes::Burrowing)) return true;
+
+        return false;
+    }
 }
 
 void Squad::addUnit(const MyUnit &unit)
@@ -151,6 +163,8 @@ void Squad::updateClusters()
 
 void Squad::execute()
 {
+    needsDetection = false;
+
     for (const auto &cluster : clusters)
     {
         execute(*cluster);
@@ -177,4 +191,18 @@ bool Squad::hasClusterWithActivity(UnitCluster::Activity activity)
     }
 
     return false;
+}
+
+void Squad::updateNeedsDetection(std::set<Unit> &enemyUnits)
+{
+    for (const auto &unit : enemyUnits)
+    {
+        if (!unit->canAttackAir() && !unit->canAttackGround()) continue;
+
+        if (unitNeedsDetection(unit))
+        {
+            needsDetection = true;
+            return;
+        }
+    }
 }
