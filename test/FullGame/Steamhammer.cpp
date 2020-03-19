@@ -236,6 +236,23 @@ TEST(Steamhammer, 9HatchExpo9Pool9Gas)
     test.run();
 }
 
+TEST(Steamhammer, GasSteal)
+{
+    BWTest test;
+    test.map = "maps/sscai/(4)Python.scx";
+    test.randomSeed = 1234;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::LocutusTestForceGasSteal = true;
+        Config::LocutusTestStrategyName = "11Gas10PoolLurker";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, Anything)
 {
     BWTest test;
