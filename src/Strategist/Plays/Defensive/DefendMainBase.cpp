@@ -35,6 +35,7 @@ void DefendMainBase::update()
     std::set<Unit> enemyCombatUnits;
     std::set<Unit> enemyWorkers;
     bool enemyFlyingUnit = false;
+    bool gasSteal = false;
     for (const Unit &unit : Units::allEnemy())
     {
         if (!unit->lastPositionValid) continue;
@@ -49,6 +50,10 @@ void DefendMainBase::update()
         {
             enemyCombatUnits.insert(unit);
             if (unit->isFlying) enemyFlyingUnit = true;
+        }
+        else if (unit->type.isRefinery())
+        {
+            gasSteal = true;
         }
     }
 
@@ -86,7 +91,7 @@ void DefendMainBase::update()
 
     // If there are no enemy units and we have a large enough army, disband the squad
     // TODO: Consider scouting information and matchup to determine what a "large enough" army is - currently using 4 units
-    if (!enemyUnitsInBase &&
+    if (!enemyUnitsInBase && !gasSteal &&
         (Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) + Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon)) >= 4)
     {
         status.removedUnits = squad->getUnits();
@@ -98,6 +103,7 @@ void DefendMainBase::update()
     }
 
     // Order base production of what we want in the squad until our army is large enough
+    // TODO: Remember gas steals when this is changed
     int zealotsNeeded = 4 - squad->getUnits().size();
     if (zealotsNeeded > 0)
     {

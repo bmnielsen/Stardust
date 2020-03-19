@@ -153,15 +153,25 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
     std::set<Unit> enemyUnits;
 
     // Get enemy combat units in our base
-    Units::enemyInArea(enemyUnits, Map::getMyMain()->getArea(), [](const Unit &unit)
+    auto combatUnitPredicate = [](const Unit &unit)
     {
         return UnitUtil::IsCombatUnit(unit->type) && UnitUtil::CanAttackGround(unit->type);
-    });
+    };
+    Units::enemyInArea(enemyUnits, Map::getMyMain()->getArea(), combatUnitPredicate);
 
     bool enemyInOurBase = !enemyUnits.empty();
 
     // Get enemy combat units very close to the default target position
-    Units::enemyInRadius(enemyUnits, defaultTargetPosition, 64);
+    Units::enemyInRadius(enemyUnits, defaultTargetPosition, 64, combatUnitPredicate);
+
+    // If there are no enemy combat units, include enemy buildings to defend against gas steals or other cheese
+    if (enemyUnits.empty())
+    {
+        Units::enemyInArea(enemyUnits, Map::getMyMain()->getArea(), [](const Unit &unit)
+        {
+            return unit->type.isBuilding() && !unit->isFlying;
+        });
+    }
 
     updateDetectionNeeds(enemyUnits);
 
