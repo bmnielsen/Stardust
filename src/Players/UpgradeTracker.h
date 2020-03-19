@@ -22,6 +22,8 @@ public:
 
     int unitArmor(BWAPI::UnitType type);
 
+    int unitSightRange(BWAPI::UnitType type);
+
     bool hasResearched(BWAPI::TechType type);
 
 private:
@@ -32,6 +34,7 @@ private:
     std::map<BWAPI::UnitType, int> _unitCooldown;
     std::map<BWAPI::UnitType, double> _unitTopSpeed;
     std::map<BWAPI::UnitType, int> _unitArmor;
+    std::map<BWAPI::UnitType, int> _unitSightRange;
 
     std::map<BWAPI::TechType, bool> _hasResearched;
 };

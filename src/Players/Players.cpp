@@ -70,6 +70,11 @@ namespace Players
         return getUpgradeTracker(player)->unitArmor(type);
     }
 
+    int unitSightRange(BWAPI::Player player, BWAPI::UnitType type)
+    {
+        return getUpgradeTracker(player)->unitSightRange(type);
+    }
+
     int attackDamage(BWAPI::Player attackingPlayer, BWAPI::UnitType attackingUnit, BWAPI::Player targetPlayer, BWAPI::UnitType targetUnit)
     {
         auto weapon = targetUnit.isFlyer() ? attackingUnit.airWeapon() : attackingUnit.groundWeapon();

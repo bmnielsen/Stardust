@@ -92,6 +92,15 @@ void UpgradeTracker::update(Grid &grid)
         }
     }
 
+    for (auto &unitAndSightRange : _unitSightRange)
+    {
+        int current = player->sightRange(unitAndSightRange.first);
+        if (current > unitAndSightRange.second)
+        {
+            unitAndSightRange.second = current;
+        }
+    }
+
     for (auto &techAndResearched : _hasResearched)
     {
         bool current = player->hasResearched(techAndResearched.first);
@@ -165,6 +174,19 @@ int UpgradeTracker::unitArmor(BWAPI::UnitType type)
 
     int current = player->armor(type);
     _unitArmor[type] = current;
+    return current;
+}
+
+int UpgradeTracker::unitSightRange(BWAPI::UnitType type)
+{
+    auto unitSightRangeIt = _unitSightRange.find(type);
+    if (unitSightRangeIt != _unitSightRange.end())
+    {
+        return unitSightRangeIt->second;
+    }
+
+    int current = player->sightRange(type);
+    _unitSightRange[type] = current;
     return current;
 }
 
