@@ -92,8 +92,6 @@ protected:
     // If we have sent a command to the unit to unstick it, when we should next send a normal command again.
     int unstickUntil;
 
-    virtual void typeSpecificUpdate() {}
-
     void initiateMove();
 
     virtual void resetMoveData();

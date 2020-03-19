@@ -7,16 +7,18 @@ class MyDragoon : public MyUnitImpl
 public:
     explicit MyDragoon(BWAPI::Unit unit);
 
+    void update(BWAPI::Unit unit) override;
+
     [[nodiscard]] int getLastAttackStartedAt() const { return lastAttackStartedAt; }
+
+    [[nodiscard]] int getNextAttackPredictedAt() const { return nextAttackPredictedAt; }
 
     [[nodiscard]] int getPotentiallyStuckSince() const { return potentiallyStuckSince; }
 
 private:
-    BWAPI::Position lastPosition;
     int lastAttackStartedAt;
+    int nextAttackPredictedAt;
     int potentiallyStuckSince;  // frame the unit might have been stuck since, or 0 if it isn't stuck
-
-    void typeSpecificUpdate() override;
 
     [[nodiscard]] bool isReady() const override;
 

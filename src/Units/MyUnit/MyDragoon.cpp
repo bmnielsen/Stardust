@@ -20,64 +20,48 @@ namespace
 
 MyDragoon::MyDragoon(BWAPI::Unit unit)
         : MyUnitImpl(unit)
-        , lastPosition(BWAPI::Positions::Invalid)
         , lastAttackStartedAt(0)
+        , nextAttackPredictedAt(0)
         , potentiallyStuckSince(0)
 {
 }
 
-void MyDragoon::typeSpecificUpdate()
+void MyDragoon::update(BWAPI::Unit unit)
 {
-    // If we're not currently in an attack, determine the frame when the next attack will start
-    if (lastAttackStartedAt >= BWAPI::Broodwar->getFrameCount() ||
-        BWAPI::Broodwar->getFrameCount() - lastAttackStartedAt > DRAGOON_ATTACK_FRAMES - BWAPI::Broodwar->getRemainingLatencyFrames())
+    if (!unit || !unit->exists()) return;
+
+    // Set lastAttackStartedAt on the frame where our cooldown starts
+    int cooldown = std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown());
+    if (BWAPI::Broodwar->getFrameCount() + cooldown - cooldownUntil > 1)
     {
-        lastAttackStartedAt = 0;
+        lastAttackStartedAt = BWAPI::Broodwar->getFrameCount();
+        potentiallyStuckSince = BWAPI::Broodwar->getFrameCount() + DRAGOON_ATTACK_FRAMES;
+    }
 
-        // If this is the start of the attack, set it to now
-        if (bwapiUnit->isStartingAttack())
-            lastAttackStartedAt = BWAPI::Broodwar->getFrameCount();
+    // Clear potentiallyStuckSince if the unit has moved this frame or has stopped
+    if (potentiallyStuckSince <= BWAPI::Broodwar->getFrameCount() &&
+        (!unit->isMoving() || unit->getPosition() != lastPosition))
+    {
+        potentiallyStuckSince = 0;
+    }
 
-            // Otherwise predict when an attack command might result in the start of an attack
-        else if (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit &&
+    MyUnitImpl::update(unit);
+
+    // If we're not currently in an attack, predict the frame when the next attack will start
+    if (BWAPI::Broodwar->getFrameCount() - lastAttackStartedAt > DRAGOON_ATTACK_FRAMES - BWAPI::Broodwar->getRemainingLatencyFrames())
+    {
+        nextAttackPredictedAt = 0;
+
+        if (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit &&
                  bwapiUnit->getLastCommand().getTarget() && bwapiUnit->getLastCommand().getTarget()->exists() &&
                  bwapiUnit->getLastCommand().getTarget()->isVisible() && bwapiUnit->getLastCommand().getTarget()->getPosition().isValid())
         {
-            lastAttackStartedAt = std::max(BWAPI::Broodwar->getFrameCount() + 1, std::max(
+            nextAttackPredictedAt = std::max(
+                    BWAPI::Broodwar->getFrameCount() + 1, std::max(
                     bwapiUnit->getLastCommandFrame() + BWAPI::Broodwar->getLatencyFrames(),
-                    BWAPI::Broodwar->getFrameCount() + bwapiUnit->getGroundWeaponCooldown()));
+                    cooldownUntil));
         }
     }
-
-    // Determine if this unit is stuck
-
-    // If isMoving==false, the unit isn't stuck
-    if (!bwapiUnit->isMoving())
-    {
-        potentiallyStuckSince = 0;
-    }
-
-        // If the unit's position has changed after potentially being stuck, it is no longer stuck
-    else if (potentiallyStuckSince > 0 && bwapiUnit->getPosition() != lastPosition)
-    {
-        potentiallyStuckSince = 0;
-    }
-
-        // If we have issued a stop command to the unit on the last turn, it will no longer be stuck after the command is executed
-    else if (potentiallyStuckSince > 0 &&
-             bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Stop &&
-             BWAPI::Broodwar->getRemainingLatencyFrames() == BWAPI::Broodwar->getLatencyFrames())
-    {
-        potentiallyStuckSince = 0;
-    }
-
-        // Otherwise it might have been stuck since the last frame where isAttackFrame==true
-    else if (bwapiUnit->isAttackFrame())
-    {
-        potentiallyStuckSince = BWAPI::Broodwar->getFrameCount();
-    }
-
-    lastPosition = bwapiUnit->getPosition();
 }
 
 bool MyDragoon::unstick()
@@ -90,6 +74,7 @@ bool MyDragoon::unstick()
     {
         stop();
         unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames();
+        potentiallyStuckSince = 0;
         return true;
     }
 
@@ -98,17 +83,15 @@ bool MyDragoon::unstick()
 
 bool MyDragoon::isReady() const
 {
-    // Compute delta between current frame and when the last attack started / will start
-    int attackFrameDelta = BWAPI::Broodwar->getFrameCount() - lastAttackStartedAt;
-
-    // Always give the dragoon some frames to perform their attack before getting another order
-    if (attackFrameDelta >= 0 && attackFrameDelta <= DRAGOON_ATTACK_FRAMES - BWAPI::Broodwar->getRemainingLatencyFrames())
+    // If the last attack has just started, give the dragoon some frames to complete it
+    if (BWAPI::Broodwar->getFrameCount() - lastAttackStartedAt + BWAPI::Broodwar->getRemainingLatencyFrames() <= DRAGOON_ATTACK_FRAMES)
     {
         return false;
     }
 
-    // The unit might attack within our remaining latency frames
-    if (attackFrameDelta < 0 && attackFrameDelta > -BWAPI::Broodwar->getRemainingLatencyFrames())
+    // If the next attack is predicted to happen within remaining latency frames, we may want to leave the dragoon alone
+    int framesToNextAttack = nextAttackPredictedAt - BWAPI::Broodwar->getFrameCount();
+    if (framesToNextAttack > 0 && framesToNextAttack < BWAPI::Broodwar->getRemainingLatencyFrames())
     {
         BWAPI::Unit target = bwapiUnit->getLastCommand().getTarget();
 
@@ -120,8 +103,8 @@ bool MyDragoon::isReady() const
         if (!targetUnit) return true;
 
         // Otherwise only allow switching targets if the current one is expected to be too far away to attack
-        BWAPI::Position myPredictedPosition = predictPosition(-attackFrameDelta);
-        BWAPI::Position targetPredictedPosition = targetUnit->predictPosition(-attackFrameDelta);
+        BWAPI::Position myPredictedPosition = predictPosition(framesToNextAttack);
+        BWAPI::Position targetPredictedPosition = targetUnit->predictPosition(framesToNextAttack);
         int predictedDistance = Geo::EdgeToEdgeDistance(type, myPredictedPosition, targetUnit->type, targetPredictedPosition);
         return predictedDistance > Players::weaponRange(player, getWeapon(targetUnit));
     }

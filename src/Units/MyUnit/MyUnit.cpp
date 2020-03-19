@@ -26,14 +26,12 @@ std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit)
 
 void MyUnitImpl::update(BWAPI::Unit unit)
 {
-    UnitImpl::update(unit);
-
     if (!unit || !unit->exists()) return;
+
+    UnitImpl::update(unit);
 
     issuedOrderThisFrame = false;
     moveCommand = nullptr;
-
-    typeSpecificUpdate();
 
     // Guard against buildings having a deep training queue
     if (unit->getTrainingQueue().size() > 1 && unit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))

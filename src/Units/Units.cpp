@@ -269,8 +269,8 @@ namespace Units
                 debug << "\n";
 
                 auto myDragoon = std::dynamic_pointer_cast<MyDragoon>(unit);
-                debug << ";atkf=" << unit->bwapiUnit->isAttackFrame();
                 debug << ";lstatk=" << myDragoon->getLastAttackStartedAt();
+                debug << ";nxtatk=" << myDragoon->getNextAttackPredictedAt();
                 debug << ";stkf=" << myDragoon->getPotentiallyStuckSince();
             }
 
