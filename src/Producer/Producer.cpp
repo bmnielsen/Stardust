@@ -620,7 +620,7 @@ namespace Producer
                 // Get the frame when the next available build location will be powered
                 int availableAt = INT_MAX;
                 auto location = locations.begin();
-                while (location != locations.end())
+                for (; location != locations.end(); location++)
                 {
                     if (*unitType != BWAPI::UnitTypes::Protoss_Robotics_Facility || location->location.hasExit)
                     {
