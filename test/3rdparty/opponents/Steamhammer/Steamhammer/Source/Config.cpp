@@ -9,6 +9,7 @@
 namespace Config
 {
     std::string LocutusTestStrategyName = "";
+    bool LocutusTestForceGasSteal = false;
 
     namespace ConfigFile
     {

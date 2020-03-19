@@ -176,6 +176,12 @@ void ParseUtils::ParseConfigFile(const std::string & filename)
         JSONTools::ReadInt("MaxInfestedTerrans", skills, Config::Skills::MaxInfestedTerrans);
     }
 
+    if (Config::LocutusTestForceGasSteal)
+    {
+        Config::Skills::AutoGasSteal = false;
+        Config::Skills::RandomGasStealRate = 1.0;
+    }
+
     // Are we running under SCHNAIL?
     {
         // Do this in braces so the stream object gets destroyed right away.

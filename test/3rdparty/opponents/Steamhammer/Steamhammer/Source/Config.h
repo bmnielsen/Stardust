@@ -6,6 +6,7 @@
 namespace Config
 {
     extern std::string LocutusTestStrategyName;
+    extern bool LocutusTestForceGasSteal;
 
     namespace ConfigFile
     {
