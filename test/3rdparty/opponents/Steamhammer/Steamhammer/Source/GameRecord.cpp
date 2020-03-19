@@ -181,26 +181,38 @@ void GameRecord::skipToEnd(std::istream & input)
 // will be read correctly. But there is not much error checking.
 void GameRecord::read(std::istream & input)
 {
-	try
-	{
 		std::string formatStr;
 		if (!std::getline(input, formatStr) || formatStr != fileFormatVersion)
 		{
-			throw game_record_read_error();
+            skipToEnd(input);
+            valid = false;
+            return;
 		}
 
-		std::string matchupStr;
+
+        std::string matchupStr;
 		if (std::getline(input, matchupStr))
 		{
 			parseMatchup(matchupStr);
 		}
 		else
 		{
-			throw game_record_read_error();
-		}
-		
-		if (!std::getline(input, mapName))     { throw game_record_read_error(); }
-		if (!std::getline(input, openingName)) { throw game_record_read_error(); }
+            skipToEnd(input);
+            valid = false;
+            return;
+
+        }
+
+        if (!std::getline(input, mapName))     {
+            skipToEnd(input);
+            valid = false;
+            return;
+        }
+		if (!std::getline(input, openingName)) {
+		    skipToEnd(input);
+            valid = false;
+            return;
+        }
 		expectedEnemyPlan = readOpeningPlan(input);
 		enemyPlan = readOpeningPlan(input);
 		win = readNumber(input) != 0;
@@ -221,12 +233,6 @@ void GameRecord::read(std::istream & input)
 		{
 			snapshots.push_back(snap);
 		}
-	}
-	catch (const game_record_read_error &)
-	{
-		skipToEnd(input);      // end of the game record
-		valid = false;
-	}
 }
 
 void GameRecord::writePlayerSnapshot(std::ostream & output, const PlayerSnapshot & snap)
