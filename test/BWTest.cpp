@@ -147,23 +147,34 @@ namespace
         // print out all the frames to stderr
         backtrace_symbols_fd(array, size, STDERR_FILENO);
     }
-}
 
-void signalHandler(int sig, bool opponent)
-{
-    if (opponent)
+    void moveFileToReadIfExists(const std::string &filename)
     {
-        std::cerr << "Opponent crashed with signal " << sig << std::endl;
-    }
-    else
-    {
-        EXPECT_FALSE(true);
-        std::cerr << "Crashed with signal " << sig << std::endl;
+        if (!std::filesystem::exists(filename)) return;
+
+        std::filesystem::create_directories("bwapi-data/read");
+
+        std::filesystem::rename(
+                filename,
+                (std::ostringstream() << "bwapi-data/read/" << filename.substr(filename.rfind('/') + 1)).str());
     }
 
-    fprintf(stderr, "Error: signal %d:\n", sig);
-    printBacktrace();
-    exit(1);
+    void signalHandler(int sig, bool opponent)
+    {
+        if (opponent)
+        {
+            std::cerr << "Opponent crashed with signal " << sig << std::endl;
+        }
+        else
+        {
+            EXPECT_FALSE(true);
+            std::cerr << "Crashed with signal " << sig << std::endl;
+        }
+
+        fprintf(stderr, "Error: signal %d:\n", sig);
+        printBacktrace();
+        exit(1);
+    }
 }
 
 BWAPI::Position UnitTypeAndPosition::getCenterPosition()
@@ -217,7 +228,7 @@ void BWTest::run()
         signal(SIGSEGV, handler);
         signal(SIGABRT, handler);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
         runGame(true);
         _exit(EXIT_SUCCESS);
     }
@@ -501,6 +512,11 @@ void BWTest::runGame(bool opponent)
                 std::filesystem::remove_all("bwapi-data/write/cvis");
             }
         }
+    }
+    else
+    {
+        // Move opponent learning files to read
+        moveFileToReadIfExists("bwapi-data/write/om_Testcutus.txt"); // Steamhammer
     }
     h->bwgame.leaveGame();
 }
