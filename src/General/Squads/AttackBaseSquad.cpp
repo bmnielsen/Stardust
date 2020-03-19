@@ -122,7 +122,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
         return;
     }
 
-    updateNeedsDetection(enemyUnits);
+    updateDetectionNeeds(enemyUnits);
 
     // Select targets
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);

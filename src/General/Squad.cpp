@@ -32,7 +32,14 @@ void Squad::addUnit(const MyUnit &unit)
 {
     CherryVis::log(unit->id) << "Added to squad: " << label;
 
-    addUnitToBestCluster(unit);
+    if (unit->type.isDetector())
+    {
+        detectors.insert(unit);
+    }
+    else
+    {
+        addUnitToBestCluster(unit);
+    }
 }
 
 void Squad::addUnitToBestCluster(const MyUnit &unit)
@@ -64,6 +71,17 @@ void Squad::addUnitToBestCluster(const MyUnit &unit)
 
 void Squad::removeUnit(const MyUnit &unit)
 {
+    if (unit->type.isDetector())
+    {
+        auto detectorIt = detectors.find(unit);
+        if (detectorIt == detectors.end()) return;
+
+        CherryVis::log(unit->id) << "Removed from squad: " << label;
+
+        detectors.erase(detectorIt);
+        return;
+    }
+
     auto clusterIt = unitToCluster.find(unit);
     if (clusterIt == unitToCluster.end()) return;
 
@@ -86,6 +104,19 @@ void Squad::updateClusters()
     {
         Log::Get() << "ERROR: Trying to update clusters of a squad with no target position. Squad: " << label;
         return;
+    }
+
+    // Remove dead detectors
+    for (auto detectorIt = detectors.begin(); detectorIt != detectors.end();)
+    {
+        if (!(*detectorIt)->exists())
+        {
+            detectorIt = detectors.erase(detectorIt);
+        }
+        else
+        {
+            detectorIt++;
+        }
     }
 
     // Update the clusters: remove dead units, recompute position data
@@ -163,17 +194,19 @@ void Squad::updateClusters()
 
 void Squad::execute()
 {
-    needsDetection = false;
+    enemiesNeedingDetection.clear();
 
     for (const auto &cluster : clusters)
     {
         execute(*cluster);
     }
+
+    executeDetectors();
 }
 
-std::vector<MyUnit> Squad::getUnits()
+std::vector<MyUnit> Squad::getUnits() const
 {
-    std::vector<MyUnit> result;
+    std::vector<MyUnit> result(detectors.begin(), detectors.end());
 
     for (auto &unitAndCluster : unitToCluster)
     {
@@ -183,7 +216,7 @@ std::vector<MyUnit> Squad::getUnits()
     return result;
 }
 
-bool Squad::hasClusterWithActivity(UnitCluster::Activity activity)
+bool Squad::hasClusterWithActivity(UnitCluster::Activity activity) const
 {
     for (const auto &cluster : clusters)
     {
@@ -193,7 +226,7 @@ bool Squad::hasClusterWithActivity(UnitCluster::Activity activity)
     return false;
 }
 
-void Squad::updateNeedsDetection(std::set<Unit> &enemyUnits)
+void Squad::updateDetectionNeeds(std::set<Unit> &enemyUnits)
 {
     for (const auto &unit : enemyUnits)
     {
@@ -201,8 +234,7 @@ void Squad::updateNeedsDetection(std::set<Unit> &enemyUnits)
 
         if (unitNeedsDetection(unit))
         {
-            needsDetection = true;
-            return;
+            enemiesNeedingDetection.insert(unit);
         }
     }
 }

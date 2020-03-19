@@ -17,15 +17,17 @@ public:
 
     void execute();
 
-    BWAPI::Position getTargetPosition() { return targetPosition; }
+    [[nodiscard]] BWAPI::Position getTargetPosition() const { return targetPosition; }
 
-    bool getNeedsDetection() { return needsDetection; }
+    [[nodiscard]] bool needsDetection() const { return !enemiesNeedingDetection.empty(); }
 
-    std::vector<MyUnit> getUnits();
+    std::set<MyUnit> &getDetectors() { return detectors; }
 
-    bool hasClusterWithActivity(UnitCluster::Activity activity);
+    [[nodiscard]] std::vector<MyUnit> getUnits() const;
 
-    explicit Squad(std::string label) : label(std::move(label)), targetPosition(BWAPI::Positions::Invalid), needsDetection(false) {}
+    [[nodiscard]] bool hasClusterWithActivity(UnitCluster::Activity activity) const;
+
+    explicit Squad(std::string label) : label(std::move(label)), targetPosition(BWAPI::Positions::Invalid) {}
 
 protected:
     BWAPI::Position targetPosition;
@@ -33,13 +35,17 @@ protected:
     std::set<std::shared_ptr<UnitCluster>> clusters;
     std::map<MyUnit, std::shared_ptr<UnitCluster>> unitToCluster;
 
-    bool needsDetection;
-
     void addUnitToBestCluster(const MyUnit &unit);
 
     virtual std::shared_ptr<UnitCluster> createCluster(MyUnit unit) { return std::make_shared<UnitCluster>(unit); }
 
     virtual void execute(UnitCluster &cluster) = 0;
 
-    void updateNeedsDetection(std::set<Unit> &enemyUnits);
+    void updateDetectionNeeds(std::set<Unit> &enemyUnits);
+
+private:
+    std::set<MyUnit> detectors;
+    std::set<Unit> enemiesNeedingDetection;
+
+    void executeDetectors();
 };

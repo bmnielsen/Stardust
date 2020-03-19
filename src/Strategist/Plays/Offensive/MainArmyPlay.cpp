@@ -8,19 +8,12 @@ void MainArmyPlay::update()
     auto squad = getSquad();
     if (squad)
     {
-        bool hasDetection = false;
-        for (const auto &unit : squad->getUnits())
+        auto &detectors = squad->getDetectors();
+        if (!squad->needsDetection() && !detectors.empty())
         {
-            if (!unit->type.isDetector()) continue;
-
-            hasDetection = true;
-            if (!squad->getNeedsDetection())
-            {
-                status.removedUnits.push_back(unit);
-            }
+            status.removedUnits.insert(status.removedUnits.end(), detectors.begin(), detectors.end());
         }
-
-        if (squad->getNeedsDetection() && !hasDetection)
+        else if (squad->needsDetection() && detectors.empty())
         {
             status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Observer, squad->getTargetPosition());
         }

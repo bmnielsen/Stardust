@@ -27,4 +27,6 @@ namespace Geo
     BWAPI::Position CenterOfUnit(BWAPI::TilePosition topLeft, BWAPI::UnitType type);
 
     BWAPI::Position CenterOfUnit(BWAPI::Position topLeft, BWAPI::UnitType type);
+
+    BWAPI::Position ScaleVector(BWAPI::Position vector, int length);
 }

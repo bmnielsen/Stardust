@@ -163,7 +163,7 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
     // Get enemy combat units very close to the default target position
     Units::enemyInRadius(enemyUnits, defaultTargetPosition, 64);
 
-    updateNeedsDetection(enemyUnits);
+    updateDetectionNeeds(enemyUnits);
 
     // Select targets
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
