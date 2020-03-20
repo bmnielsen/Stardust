@@ -90,8 +90,8 @@ bool MyUnitImpl::unstick()
         return true;
     }
 
-    // If the unit is listed as stuck, send a stop command
-    if (bwapiUnit->isStuck())
+    // If the unit is listed as stuck, send a stop command unless we have done so recently
+    if (bwapiUnit->isStuck() && unstickUntil < (BWAPI::Broodwar->getFrameCount() - 10))
     {
         stop();
         unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames();
