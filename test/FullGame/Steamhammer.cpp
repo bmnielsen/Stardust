@@ -236,6 +236,22 @@ TEST(Steamhammer, 9HatchExpo9Pool9Gas)
     test.run();
 }
 
+TEST(Steamhammer, 11HatchTurtleLurker)
+{
+    BWTest test;
+    test.map = "maps/sscai/(2)Benzene.scx";
+    test.randomSeed=54776;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::LocutusTestStrategyName = "11HatchTurtleLurker";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, GasSteal)
 {
     BWTest test;
