@@ -165,6 +165,14 @@ void UnitImpl::updateUnitInFog()
     // If the last position has been visible for two consecutive frames, the unit is gone
     if (positionVisible && lastPositionVisible)
     {
+        // Units that we know have been burrowed at this position might still be there
+        if (burrowed)
+        {
+            // Assume the unit is still burrowed here unless we have detection on the position or the unit was doomed before it burrowed
+            auto grid = Players::grid(BWAPI::Broodwar->self());
+            if (!doomed && grid.detection(lastPosition) == 0) return;
+        }
+
         // Leave units alone that were burrowed last time we "saw" them, unless they probably died in the fog
         if (burrowed && !doomed) return;
 
