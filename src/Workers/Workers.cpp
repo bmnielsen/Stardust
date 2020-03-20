@@ -174,8 +174,6 @@ namespace Workers
             BWAPI::Unit bestMineralPatch = nullptr;
             for (auto mineralPatch : workerBase[unit]->mineralPatches())
             {
-                if (!mineralPatch->exists()) continue;
-
                 int workers = mineralPatchWorkers[mineralPatch].size();
                 if (workers >= 2) continue;
 
@@ -345,7 +343,7 @@ namespace Workers
                 {
                     // If the worker is already assigned to a mineral patch, we don't need to do any more
                     auto mineralPatch = workerMineralPatch[worker];
-                    if (mineralPatch && mineralPatch->exists()) continue;
+                    if (mineralPatch) continue;
 
                     // Release from assigned base if it is mined out
                     auto base = workerBase[worker];
@@ -510,7 +508,7 @@ namespace Workers
 
                     // Handle mining from an assigned mineral patch
                     auto mineralPatch = workerMineralPatch[worker];
-                    if (mineralPatch && mineralPatch->exists())
+                    if (mineralPatch)
                     {
                         if (WorkerOrderTimer::optimizeMineralWorker(worker, mineralPatch)) continue;
 
@@ -523,6 +521,13 @@ namespace Workers
 
                         // If the unit is returning cargo, leave it alone
                         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnMinerals) continue;
+
+                        // If we don't have vision on the mineral patch, move towards it
+                        if (!mineralPatch->exists())
+                        {
+                            worker->moveTo(mineralPatch->getInitialPosition());
+                            continue;
+                        }
 
                         // Check if another worker is currently mining this patch
                         MyUnit otherWorker = nullptr;
@@ -690,37 +695,15 @@ namespace Workers
 
     int availableMineralAssignments(Base *base)
     {
-        auto countForBase = [](Base *base)
-        {
-            int count = 0;
-
-            if (!base->resourceDepot || !base->resourceDepot->exists()) return 0;
-
-            for (auto mineralPatch : base->mineralPatches())
-            {
-                if (!mineralPatch->exists()) continue;
-
-                int workers = mineralPatchWorkers[mineralPatch].size();
-                if (workers < 2) count += 2 - workers;
-            }
-
-            return count;
-        };
-
-        if (base) return countForBase(base);
+        if (base) return availableMineralAssignmentsAtBase(base);
 
         int count = 0;
         for (auto &myBase : Map::getMyBases())
         {
-            count += countForBase(myBase);
+            count += availableMineralAssignmentsAtBase(myBase);
         }
 
         return count;
-    }
-
-    int availableGasAssignments()
-    {
-        return 0;
     }
 
     void setDesiredGasWorkers(int gasWorkers)
@@ -738,7 +721,7 @@ namespace Workers
         int mineralWorkers = 0;
         for (auto &workerAndAssignedPatch : workerMineralPatch)
         {
-            if (workerAndAssignedPatch.first->exists() && workerAndAssignedPatch.second && workerAndAssignedPatch.second->exists() &&
+            if (workerAndAssignedPatch.first->exists() && workerAndAssignedPatch.second &&
                 workerAndAssignedPatch.first->bwapiUnit->getDistance(workerAndAssignedPatch.second)
                 < 200) // Don't count workers that are on a long journey towards the patch
             {

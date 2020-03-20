@@ -30,8 +30,6 @@ namespace Workers
     // How many mineral patches are currently available for assignment
     int availableMineralAssignments(Base *base = nullptr);
 
-    int availableGasAssignments();
-
     void setDesiredGasWorkers(int gasWorkers);
 
     int desiredGasWorkers();
