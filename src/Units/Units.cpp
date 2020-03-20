@@ -204,6 +204,8 @@ namespace Units
         // Output debug info for our own units
         for (auto &unit : myUnits)
         {
+            if (!unit->completed) continue;
+
             bool output = false;
 #if DEBUG_PROBE_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Probe;
@@ -216,6 +218,9 @@ namespace Units
 #endif
 #if DEBUG_SHUTTLE_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Shuttle;
+#endif
+#if DEBUG_OBSERVER_STATUS
+            output = output || unit->type == BWAPI::UnitTypes::Protoss_Observer;
 #endif
 
             if (!output) continue;

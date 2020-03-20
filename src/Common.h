@@ -18,11 +18,15 @@
 #define DEBUG_ZEALOT_STATUS true
 #define DEBUG_DRAGOON_STATUS true
 #define DEBUG_SHUTTLE_STATUS false
+#define DEBUG_OBSERVER_STATUS true
 
 // Heatmaps are quite large, so we don't always want to write them every frame
 // These defines configure what frequency to dump them, or 0 to disable them
 #define COLLISION_HEATMAP_FREQUENCY 0
 #define GROUND_THREAT_HEATMAP_FREQUENCY 0
-#define AIR_THREAT_HEATMAP_FREQUENCY 0
-#define DETECTION_HEATMAP_FREQUENCY 0
+#define AIR_THREAT_HEATMAP_FREQUENCY 240
+#define DETECTION_HEATMAP_FREQUENCY 240
 #define VISIBILITY_HEATMAP_FREQUENCY 0
+
+// Navigation grid heatmaps are either on or off
+#define NAVIGATION_HEATMAP_ENABLED false

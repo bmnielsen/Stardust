@@ -171,38 +171,4 @@ void Base::analyzeMineralLine()
             }
         }
     }
-
-#if CHERRYVIS_ENABLED
-    // Dump to CherryVis
-    std::vector<long> mineralLineCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-    for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
-    {
-        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
-        {
-            BWAPI::TilePosition here(x, y);
-
-            if (workerDefenseRallyPatch && workerDefenseRallyPatch->getTilePosition() == here)
-            {
-                mineralLineCvis[x + y * BWAPI::Broodwar->mapWidth()] = 10;
-            }
-            else if (BWAPI::TilePosition(mineralLineCenter) == here)
-            {
-                mineralLineCvis[x + y * BWAPI::Broodwar->mapWidth()] = 10;
-            }
-            else if (isInMineralLine(here))
-            {
-                mineralLineCvis[x + y * BWAPI::Broodwar->mapWidth()] = -10;
-            }
-            else
-            {
-                mineralLineCvis[x + y * BWAPI::Broodwar->mapWidth()] = 0;
-            }
-        }
-    }
-
-    CherryVis::addHeatmap((std::ostringstream() << "MineralLine@" << tile).str(),
-                          mineralLineCvis,
-                          BWAPI::Broodwar->mapWidth(),
-                          BWAPI::Broodwar->mapHeight());
-#endif
 }

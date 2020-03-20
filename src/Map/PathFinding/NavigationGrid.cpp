@@ -199,7 +199,9 @@ void NavigationGrid::update()
     Log::Get() << "Update navigation grid " << goal << ": " << std::chrono::duration_cast<std::chrono::microseconds>(now - start).count() << "us";
 #endif
 
+#if NAVIGATION_HEATMAP_ENABLED
     dumpHeatmap();
+#endif
 }
 
 void NavigationGrid::addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size)

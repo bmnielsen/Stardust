@@ -19,9 +19,16 @@ namespace
         auto behind = Geo::ScaleVector(detector->lastPosition - target, 64);
         if (behind.isValid())
         {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(detector->id) << "Moving away from target @ " << BWAPI::WalkPosition(target);
+#endif
             detector->moveTo(behind);
             return;
         }
+
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(detector->id) << "Cannot move away from target @ " << BWAPI::WalkPosition(target) << "; default to main";
+#endif
 
         // Default to main base location when we don't have anywhere better to go
         detector->moveTo(Map::getMyMain()->getPosition());
@@ -36,10 +43,16 @@ namespace
             auto grid = Players::grid(BWAPI::Broodwar->enemy());
             if (grid.airThreat(ahead) > 0 && grid.detection(ahead) > 0)
             {
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(detector->id) << "Threat detected, moving away from target @ " << BWAPI::WalkPosition(target);
+#endif
                 moveAwayFrom(detector, target);
             }
         }
 
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(detector->id) << "Moving towards target @ " << BWAPI::WalkPosition(target);
+#endif
         detector->moveTo(target);
     }
 }

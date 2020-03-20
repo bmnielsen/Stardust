@@ -660,6 +660,34 @@ namespace Map
             }
 
             CherryVis::addHeatmap("Walkable", walkability, BWAPI::Broodwar->mapWidth() * 4, BWAPI::Broodwar->mapHeight() * 4);
+
+            // Mineral lines from all bases
+            std::vector<long> mineralLineCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            for (auto &base : bases)
+            {
+                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+                {
+                    for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                    {
+                        BWAPI::TilePosition here(x, y);
+
+                        if (base->workerDefenseRallyPatch && base->workerDefenseRallyPatch->getTilePosition() == here)
+                        {
+                            mineralLineCvis[x + y * BWAPI::Broodwar->mapWidth()] = 10;
+                        }
+                        else if (BWAPI::TilePosition(base->mineralLineCenter) == here)
+                        {
+                            mineralLineCvis[x + y * BWAPI::Broodwar->mapWidth()] = 10;
+                        }
+                        else if (base->isInMineralLine(here))
+                        {
+                            mineralLineCvis[x + y * BWAPI::Broodwar->mapWidth()] = -10;
+                        }
+                    }
+                }
+            }
+
+            CherryVis::addHeatmap("MineralLines", mineralLineCvis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 #endif
         }
     }

@@ -7,7 +7,7 @@
 #include "UnitUtil.h"
 #include "Workers.h"
 
-#define DEBUG_PLAY_STATE true
+#define DEBUG_PLAY_STATE false
 
 /*
  * Main base defense:
