@@ -13,11 +13,16 @@ void UpgradeTracker::update(Grid &grid)
             // Update the grid for all known units with this weapon type
             auto updateGrid = [&](const Unit &unit)
             {
-                if (unit->lastPositionValid &&
+                if (unit->lastPositionValid && !unit->beingManufacturedOrCarried &&
                     (unit->type.groundWeapon() == weaponAndDamage.first ||
                      unit->type.airWeapon() == weaponAndDamage.first))
                 {
                     grid.unitWeaponDamageUpgraded(unit->type, unit->lastPosition, weaponAndDamage.first, weaponAndDamage.second, current);
+
+#if DEBUG_GRID_UPDATES
+                    CherryVis::log(unit->id) << "Grid::weaponDamageUpgraded from " << weaponAndDamage.second << " to " << current;
+                    Log::Debug() << *unit << ": Grid::weaponDamageUpgraded from " << weaponAndDamage.second << " to " << current;
+#endif
                 }
             };
             if (player == BWAPI::Broodwar->self())
@@ -43,11 +48,16 @@ void UpgradeTracker::update(Grid &grid)
             // Update the grid for all known units with this weapon type
             auto updateGrid = [&](const Unit &unit)
             {
-                if (unit->lastPositionValid &&
+                if (unit->lastPositionValid && !unit->beingManufacturedOrCarried &&
                     (unit->type.groundWeapon() == weaponAndRange.first ||
                      unit->type.airWeapon() == weaponAndRange.first))
                 {
                     grid.unitWeaponRangeUpgraded(unit->type, unit->lastPosition, weaponAndRange.first, weaponAndRange.second, current);
+
+#if DEBUG_GRID_UPDATES
+                    CherryVis::log(unit->id) << "Grid::weaponRangeUpgraded from " << weaponAndRange.second << " to " << current;
+                    Log::Debug() << *unit << ": Grid::weaponRangeUpgraded from " << weaponAndRange.second << " to " << current;
+#endif
                 }
             };
             if (player == BWAPI::Broodwar->self())
@@ -97,6 +107,30 @@ void UpgradeTracker::update(Grid &grid)
         int current = player->sightRange(unitAndSightRange.first);
         if (current > unitAndSightRange.second)
         {
+            // Update the grid for all known units with this type
+            auto updateGrid = [&](const Unit &unit)
+            {
+                if (unit->lastPositionValid && !unit->beingManufacturedOrCarried && unit->type == unitAndSightRange.first)
+                {
+                    grid.unitSightRangeUpgraded(unit->type, unit->lastPosition, unitAndSightRange.second, current);
+
+#if DEBUG_GRID_UPDATES
+                    CherryVis::log(unit->id) << "Grid::sightRangeUpgraded from " << unitAndSightRange.second << " to " << current;
+                    Log::Debug() << *unit << ": Grid::sightRangeUpgraded from " << unitAndSightRange.second << " to " << current;
+#endif
+                }
+            };
+            if (player == BWAPI::Broodwar->self())
+            {
+                for (auto &unit : Units::allMine())
+                { updateGrid(unit); }
+            }
+            else
+            {
+                for (auto &unit : Units::allEnemy())
+                { updateGrid(unit); }
+            }
+
             unitAndSightRange.second = current;
         }
     }

@@ -49,6 +49,18 @@ void MyUnitImpl::update(BWAPI::Unit unit)
     }
 }
 
+bool MyUnitImpl::isBeingManufacturedOrCarried() const
+{
+    if (!exists()) return false;
+
+    // For Protoss, anything incomplete that isn't a building is currently being manufactured
+    // Will need to change if we ever support building Zerg units
+    if (!bwapiUnit->isCompleted() && !bwapiUnit->getType().isBuilding()) return true;
+
+    // Otherwise look at whether it is loaded
+    return bwapiUnit->isLoaded();
+}
+
 void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets)
 {
     int cooldown = target->isFlying ? bwapiUnit->getAirWeaponCooldown() : bwapiUnit->getGroundWeaponCooldown();

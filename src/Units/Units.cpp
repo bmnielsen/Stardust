@@ -13,6 +13,7 @@
 #define DEBUG_DRAGOON_STATUS true
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS true
+#define DEBUG_ENEMY_STATUS true
 
 namespace Units
 {
@@ -39,7 +40,7 @@ namespace Units
                 Log::Get() << "Unit created: " << *unit;
             }
 
-            if (unit->player == BWAPI::Broodwar->enemy())
+            if (unit->player == BWAPI::Broodwar->enemy() && unit->type != BWAPI::UnitTypes::Zerg_Larva && unit->type != BWAPI::UnitTypes::Zerg_Egg)
             {
                 Log::Get() << "Enemy discovered: " << *unit;
             }
@@ -47,11 +48,12 @@ namespace Units
 
         void unitDestroyed(const Unit &unit)
         {
-            if (unit->lastPositionValid)
+            if (unit->lastPositionValid && !unit->beingManufacturedOrCarried)
             {
                 Players::grid(unit->player).unitDestroyed(unit->type, unit->lastPosition, unit->completed);
 #if DEBUG_GRID_UPDATES
                 CherryVis::log(unit->id) << "Grid::unitDestroyed " << unit->lastPosition;
+                Log::Debug() << *unit << ": Grid::unitDestroyed " << unit->lastPosition;
 #endif
             }
 
@@ -77,7 +79,10 @@ namespace Units
 
         void enemyUnitDestroyed(const Unit &unit)
         {
-            Log::Get() << "Enemy destroyed: " << *unit;
+            if (unit->type != BWAPI::UnitTypes::Zerg_Larva && unit->type != BWAPI::UnitTypes::Zerg_Egg)
+            {
+                Log::Get() << "Enemy destroyed: " << *unit;
+            }
 
             unitDestroyed(unit);
 
@@ -120,14 +125,17 @@ namespace Units
                 if (bwapiUnit->getType().isWorker())
                 {
                     unit = std::make_shared<MyWorker>(bwapiUnit);
+                    unit->created();
                 }
                 else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Dragoon)
                 {
                     unit = std::make_shared<MyDragoon>(bwapiUnit);
+                    unit->created();
                 }
                 else
                 {
                     unit = std::make_shared<MyUnitImpl>(bwapiUnit);
+                    unit->created();
                 }
                 myUnits.insert(unit);
                 unitIdToMyUnit.emplace(unit->id, unit);
@@ -159,6 +167,10 @@ namespace Units
         {
             if (!bwapiUnit->isVisible()) continue;
 
+#if DEBUG_ENEMY_STATUS
+            CherryVis::log(bwapiUnit->getID()) << "VIS;cmpl=" << bwapiUnit->isCompleted();
+#endif
+
             // If the enemy just mind controlled one of our units, consider our unit destroyed
             auto myIt = unitIdToMyUnit.find(bwapiUnit->getID());
             if (myIt != unitIdToMyUnit.end())
@@ -182,6 +194,7 @@ namespace Units
             }
 
             auto unit = std::make_shared<UnitImpl>(bwapiUnit);
+            unit->created();
             enemyUnits.insert(unit);
             unitIdToEnemyUnit.emplace(unit->id, unit);
 
@@ -202,6 +215,10 @@ namespace Units
                 destroyedEnemyUnits.push_back(unit);
                 continue;
             }
+
+#if DEBUG_ENEMY_STATUS
+            CherryVis::log(unit->id) << "FOG;cmpl=" << unit->completed << ";lpv=" << unit->lastPositionValid;
+#endif
         }
         for (auto &unit : destroyedEnemyUnits)
         {

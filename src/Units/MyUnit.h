@@ -19,6 +19,8 @@ public:
 
     void update(BWAPI::Unit unit) override;
 
+    [[nodiscard]] bool isBeingManufacturedOrCarried() const override;
+
     void moveTo(BWAPI::Position position, bool direct = false);
 
     void issueMoveOrders();

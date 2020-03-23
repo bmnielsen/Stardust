@@ -40,6 +40,7 @@ public:
     BWAPI::Position lastPosition;               // Position of the unit when last seen
     bool lastPositionValid;          // Whether this position is still valid, i.e. we haven't seen the position empty later
     bool lastPositionVisible;       // Whether the last position was visible on the previous frame
+    bool beingManufacturedOrCarried; // Whether the unit is currently being manufactured or carried
 
     int lastHealth;                 // Health when last seen
     int lastShields;                // Shields when last seen
@@ -63,6 +64,8 @@ public:
 
     virtual ~UnitImpl() = default;
 
+    void created();
+
     virtual void update(BWAPI::Unit unit);
 
     void updateUnitInFog();
@@ -74,6 +77,8 @@ public:
     [[nodiscard]] BWAPI::TilePosition getTilePosition() const;
 
     [[nodiscard]] bool exists() const { return bwapiUnit != nullptr; };
+
+    virtual bool isBeingManufacturedOrCarried() const { return false; };
 
     [[nodiscard]] bool isAttackable() const;
 

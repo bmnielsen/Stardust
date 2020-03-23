@@ -2,6 +2,8 @@
 #include <utility>
 #include "Geo.h"
 
+#define ASSERT_NEGATIVE_VALUES true
+
 // We add a buffer on detection and threat ranges
 // Generally this is more useful as it forces our units to keep their distance
 const int RANGE_BUFFER = 48;
@@ -37,7 +39,26 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
         int x = startX + pos.x;
         int y = startY + pos.y;
         if (x >= 0 && x < maxX && y >= 0 && y < maxY)
+        {
             data[x + y * maxX] += delta;
+
+#if ASSERT_NEGATIVE_VALUES
+            if (data[x + y * maxX] < 0)
+            {
+                Log::Get() << "Negative value @ " << BWAPI::Position(x, y) << "\n"
+                << "start=" << BWAPI::WalkPosition(position)
+                << ";type=" << type
+                << ";range=" << range;
+
+                Log::Debug() << "Negative value @ " << BWAPI::Position(x, y) << "\n"
+                << "start=" << BWAPI::WalkPosition(position)
+                << ";type=" << type
+                << ";range=" << range;
+
+                BWAPI::Broodwar->leaveGame();
+            }
+#endif
+        }
     }
 
     frameLastUpdated = BWAPI::Broodwar->getFrameCount();
@@ -92,7 +113,14 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position)
 
     if (type.isDetector())
     {
-        _detection.add(type, (type.isBuilding() ? (7 * 32) : (11 * 32)) + RANGE_BUFFER, position, 1);
+        if (type.isBuilding())
+        {
+            _detection.add(type, 7 * 32 + RANGE_BUFFER, position, 1);
+        }
+        else
+        {
+            _detection.add(type, upgradeTracker->unitSightRange(type) + RANGE_BUFFER, position, 1);
+        }
     }
 }
 
@@ -142,7 +170,14 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
 
     if (type.isDetector())
     {
-        _detection.add(type, (type.isBuilding() ? (7 * 32) : (11 * 32)) + RANGE_BUFFER, position, -1);
+        if (type.isBuilding())
+        {
+            _detection.add(type, 7 * 32 + RANGE_BUFFER, position, -1);
+        }
+        else
+        {
+            _detection.add(type, upgradeTracker->unitSightRange(type) + RANGE_BUFFER, position, -1);
+        }
     }
 }
 
@@ -200,4 +235,13 @@ void Grid::unitWeaponRangeUpgraded(BWAPI::UnitType type, BWAPI::Position positio
                 position,
                 upgradeTracker->weaponDamage(type.airWeapon()) * type.maxAirHits() * type.airWeapon().damageFactor());
     }
+}
+
+void Grid::unitSightRangeUpgraded(BWAPI::UnitType type, BWAPI::Position position, int formerRange, int newRange)
+{
+    // Only mobile detectors are handled here
+    if (!type.isDetector() || type.isBuilding()) return;
+
+    _detection.add(type, formerRange + RANGE_BUFFER, position, -1);
+    _detection.add(type, newRange + RANGE_BUFFER, position, 1);
 }

@@ -52,6 +52,8 @@ public:
 
     void unitWeaponRangeUpgraded(BWAPI::UnitType type, BWAPI::Position position, BWAPI::WeaponType weapon, int formerRange, int newRange);
 
+    void unitSightRangeUpgraded(BWAPI::UnitType type, BWAPI::Position position, int formerRange, int newRange);
+
     long collision(BWAPI::Position position) const { return _collision[position]; };
 
     long collision(BWAPI::WalkPosition position) const { return _collision[position]; };
