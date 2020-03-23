@@ -3,6 +3,7 @@
 #include <queue>
 #include "Map.h"
 
+#define NAVIGATION_HEATMAP_ENABLED false
 #define OUTPUT_GRID_TIMING false
 
 NavigationGrid::NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize) : goal(goal)

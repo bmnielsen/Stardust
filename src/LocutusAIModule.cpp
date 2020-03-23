@@ -45,6 +45,20 @@ Tasks:
 #include "Bullets.h"
 #include "Players.h"
 
+// Heatmaps are quite large, so we don't always want to write them every frame
+// These defines configure what frequency to dump them, or 0 to disable them
+#define COLLISION_HEATMAP_FREQUENCY_ENEMY 0
+#define GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY 0
+#define AIR_THREAT_HEATMAP_FREQUENCY_ENEMY 0
+#define DETECTION_HEATMAP_FREQUENCY_ENEMY 0
+
+#define COLLISION_HEATMAP_FREQUENCY_MINE 0
+#define GROUND_THREAT_HEATMAP_FREQUENCY_MINE 0
+#define AIR_THREAT_HEATMAP_FREQUENCY_MINE 0
+#define DETECTION_HEATMAP_FREQUENCY_MINE 0
+
+#define VISIBILITY_HEATMAP_FREQUENCY 1 // Only tracked for self
+
 namespace
 {
     void handleUnitDiscover(BWAPI::Unit unit)
@@ -209,28 +223,52 @@ void LocutusAIModule::onFrame()
     Timer::checkpoint("Units::issueOrders");
 
     // Instrumentation
-#if COLLISION_HEATMAP_FREQUENCY
-    if (BWAPI::Broodwar->getFrameCount() % COLLISION_HEATMAP_FREQUENCY == 0)
+#if COLLISION_HEATMAP_FREQUENCY_ENEMY
+    if (BWAPI::Broodwar->getFrameCount() % COLLISION_HEATMAP_FREQUENCY_ENEMY == 0)
     {
-        Players::grid(BWAPI::Broodwar->self()).dumpCollisionHeatmapIfChanged("Collision");
+        Players::grid(BWAPI::Broodwar->enemy()).dumpCollisionHeatmapIfChanged("CollisionEnemy");
     }
 #endif
-#if GROUND_THREAT_HEATMAP_FREQUENCY
-    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_HEATMAP_FREQUENCY == 0)
+#if COLLISION_HEATMAP_FREQUENCY_MINE
+    if (BWAPI::Broodwar->getFrameCount() % COLLISION_HEATMAP_FREQUENCY_MINE == 0)
     {
-        Players::grid(BWAPI::Broodwar->enemy()).dumpGroundThreatHeatmapIfChanged("GroundThreat");
+        Players::grid(BWAPI::Broodwar->self()).dumpCollisionHeatmapIfChanged("CollisionMine");
     }
 #endif
-#if AIR_THREAT_HEATMAP_FREQUENCY
-    if (BWAPI::Broodwar->getFrameCount() % AIR_THREAT_HEATMAP_FREQUENCY == 0)
+#if GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY
+    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY == 0)
     {
-        Players::grid(BWAPI::Broodwar->enemy()).dumpAirThreatHeatmapIfChanged("AirThreat");
+        Players::grid(BWAPI::Broodwar->enemy()).dumpGroundThreatHeatmapIfChanged("GroundThreatEnemy");
     }
 #endif
-#if DETECTION_HEATMAP_FREQUENCY
-    if (BWAPI::Broodwar->getFrameCount() % DETECTION_HEATMAP_FREQUENCY == 0)
+#if GROUND_THREAT_HEATMAP_FREQUENCY_MINE
+    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_HEATMAP_FREQUENCY_MINE == 0)
     {
-        Players::grid(BWAPI::Broodwar->enemy()).dumpDetectionHeatmapIfChanged("Detection");
+        Players::grid(BWAPI::Broodwar->self()).dumpGroundThreatHeatmapIfChanged("GroundThreatMine");
+    }
+#endif
+#if AIR_THREAT_HEATMAP_FREQUENCY_ENEMY
+    if (BWAPI::Broodwar->getFrameCount() % AIR_THREAT_HEATMAP_FREQUENCY_ENEMY == 0)
+    {
+        Players::grid(BWAPI::Broodwar->enemy()).dumpAirThreatHeatmapIfChanged("AirThreatEnemy");
+    }
+#endif
+#if AIR_THREAT_HEATMAP_FREQUENCY_MINE
+    if (BWAPI::Broodwar->getFrameCount() % AIR_THREAT_HEATMAP_FREQUENCY_MINE == 0)
+    {
+        Players::grid(BWAPI::Broodwar->self()).dumpAirThreatHeatmapIfChanged("AirThreatMine");
+    }
+#endif
+#if DETECTION_HEATMAP_FREQUENCY_ENEMY
+    if (BWAPI::Broodwar->getFrameCount() % DETECTION_HEATMAP_FREQUENCY_ENEMY == 0)
+    {
+        Players::grid(BWAPI::Broodwar->enemy()).dumpDetectionHeatmapIfChanged("DetectionEnemy");
+    }
+#endif
+#if DETECTION_HEATMAP_FREQUENCY_MINE
+    if (BWAPI::Broodwar->getFrameCount() % DETECTION_HEATMAP_FREQUENCY_MINE == 0)
+    {
+        Players::grid(BWAPI::Broodwar->self()).dumpDetectionHeatmapIfChanged("DetectionMine");
     }
 #endif
 #if VISIBILITY_HEATMAP_FREQUENCY

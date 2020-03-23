@@ -7,6 +7,13 @@
 #include "MyDragoon.h"
 #include "MyWorker.h"
 
+// These defines configure a per-frame summary of various unit type's orders, commands, etc.
+#define DEBUG_PROBE_STATUS false
+#define DEBUG_ZEALOT_STATUS true
+#define DEBUG_DRAGOON_STATUS true
+#define DEBUG_SHUTTLE_STATUS false
+#define DEBUG_OBSERVER_STATUS true
+
 namespace Units
 {
     namespace

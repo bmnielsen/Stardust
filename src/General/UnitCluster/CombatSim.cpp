@@ -5,6 +5,8 @@
 #include "Units.h"
 #include "UnitUtil.h"
 
+#define DEBUG_COMBATSIM_CSV false  // Writes a CSV file for each cluster with detailed sim information
+
 namespace
 {
     // Cache of unit scores
