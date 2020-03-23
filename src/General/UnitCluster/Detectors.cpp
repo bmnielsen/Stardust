@@ -1,6 +1,7 @@
 #include "Squad.h"
 
 #include "Players.h"
+#include "PathFinding.h"
 #include "Map.h"
 #include "Geo.h"
 
@@ -13,10 +14,18 @@
 
 namespace
 {
+    BWAPI::Position scaledPosition(BWAPI::Position currentPosition, BWAPI::Position vector, int length)
+    {
+        auto scaledVector = Geo::ScaleVector(vector, length);
+        if (scaledVector == BWAPI::Positions::Invalid) return BWAPI::Positions::Invalid;
+
+        return currentPosition + scaledVector;
+    }
+
     void moveAwayFrom(MyUnit &detector, BWAPI::Position target)
     {
         // Move towards two tiles in the opposite direction
-        auto behind = Geo::ScaleVector(detector->lastPosition - target, 64);
+        auto behind = scaledPosition(detector->lastPosition, detector->lastPosition - target, 64);
         if (behind.isValid())
         {
 #if DEBUG_UNIT_ORDERS
@@ -34,19 +43,23 @@ namespace
         detector->moveTo(Map::getMyMain()->getPosition());
     }
 
-    void moveTowards(MyUnit &detector, BWAPI::Position target)
+    void moveTowards(MyUnit &detector, BWAPI::Position target, BWAPI::Position threatDirection)
     {
         // Check for threats one-and-a-half tiles ahead
-        auto ahead = Geo::ScaleVector(target - detector->lastPosition, 48);
+        auto ahead = scaledPosition(detector->lastPosition, target - detector->lastPosition, 48);
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(detector->id) << "Me " << detector->lastPosition << "; target " << target
+            << "; diff " << (target - detector->lastPosition) << "; scaled " << ahead;
+#endif
         if (ahead.isValid())
         {
             auto grid = Players::grid(BWAPI::Broodwar->enemy());
             if (grid.airThreat(ahead) > 0 && grid.detection(ahead) > 0)
             {
 #if DEBUG_UNIT_ORDERS
-                CherryVis::log(detector->id) << "Threat detected, moving away from target @ " << BWAPI::WalkPosition(target);
+                CherryVis::log(detector->id) << "Threat detected, moving away from threat direction @ " << BWAPI::WalkPosition(threatDirection);
 #endif
-                moveAwayFrom(detector, target);
+                moveAwayFrom(detector, threatDirection);
             }
         }
 
@@ -59,7 +72,7 @@ namespace
 
 void Squad::executeDetectors()
 {
-    Unit vanguard = nullptr;
+    std::shared_ptr<UnitCluster> bestCluster = nullptr;
 
     for (auto detector : detectors)
     {
@@ -82,7 +95,7 @@ void Squad::executeDetectors()
             int sightRange = Players::unitSightRange(BWAPI::Broodwar->self(), detector->type);
             if (closestDist > sightRange - 32)
             {
-                moveTowards(detector, closest->lastPosition);
+                moveTowards(detector, closest->lastPosition, closest->lastPosition);
             }
             else
             {
@@ -92,28 +105,29 @@ void Squad::executeDetectors()
             continue;
         }
 
-        // There is no enemy unit we need to detect, so try to stay at the front
-        if (!vanguard)
+        // There is no enemy unit we need to detect, so try to stay with the frontmost cluster
+        if (!bestCluster)
         {
             closestDist = INT_MAX;
             for (auto &cluster : clusters)
             {
-                int dist = cluster->vanguard->getDistance(targetPosition);
+                int dist = PathFinding::GetGroundDistance(cluster->vanguard->lastPosition, targetPosition);
+                if (dist == -1) dist = cluster->center.getApproxDistance(targetPosition);
                 if (dist < closestDist)
                 {
-                    vanguard = cluster->vanguard;
                     closestDist = dist;
+                    bestCluster = cluster;
                 }
             }
         }
-        if (vanguard)
+        if (bestCluster)
         {
-            moveTowards(detector, vanguard->lastPosition);
+            moveTowards(detector, bestCluster->center, bestCluster->vanguard->lastPosition);
             continue;
         }
 
         // This is the default case where there are no units requiring detection and no friendly units, so just hang out at our base
         // The detector should get assigned to a different play by the strategist
-        moveTowards(detector, Map::getMyMain()->getPosition());
+        moveTowards(detector, Map::getMyMain()->getPosition(), targetPosition);
     }
 }
