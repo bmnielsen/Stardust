@@ -4,6 +4,8 @@
 #include "PathFinding.h"
 #include "Map.h"
 
+#define DEBUG_SQUAD_TARGET true
+
 MopUpSquad::MopUpSquad() : Squad("Mop Up")
 {
     targetPosition = Map::getMyMain()->getPosition();
@@ -20,8 +22,27 @@ void MopUpSquad::execute(UnitCluster &cluster)
         updateDetectionNeeds(enemyUnits);
 
         auto unitsAndTargets = cluster.selectTargets(enemyUnits, cluster.center);
-        cluster.attack(unitsAndTargets, cluster.center);
-        return;
+
+        // If any of our units has a target, attack
+        bool hasTarget = false;
+        for (const auto &unitAndTarget : unitsAndTargets)
+        {
+            if (unitAndTarget.second)
+            {
+                hasTarget = true;
+                break;
+            }
+        }
+        if (hasTarget)
+        {
+#if DEBUG_SQUAD_TARGET
+            CherryVis::log() << "MopUp cluster " << BWAPI::WalkPosition(cluster.center) << ": attacking enemy units near cluster";
+            CherryVis::log() << "First unit: " << **enemyUnits.begin();
+#endif
+
+            cluster.attack(unitsAndTargets, cluster.center);
+            return;
+        }
     }
 
     // Search for the closest known enemy building to the cluster
@@ -45,6 +66,11 @@ void MopUpSquad::execute(UnitCluster &cluster)
     // If we found one, move towards it
     if (closestPosition.isValid())
     {
+#if DEBUG_SQUAD_TARGET
+        CherryVis::log() << "MopUp cluster " << BWAPI::WalkPosition(cluster.center)
+            << ": attacking known building @ " << BWAPI::WalkPosition(closestPosition);
+#endif
+
         cluster.setActivity(UnitCluster::Activity::Moving);
 
         auto base = Map::baseNear(closestPosition);
@@ -68,8 +94,17 @@ void MopUpSquad::execute(UnitCluster &cluster)
 
     if (bestBase)
     {
+#if DEBUG_SQUAD_TARGET
+        CherryVis::log() << "MopUp cluster " << BWAPI::WalkPosition(cluster.center)
+            << ": moving to next base @ " << BWAPI::WalkPosition(bestBase->getPosition());
+#endif
+
         cluster.setActivity(UnitCluster::Activity::Moving);
         cluster.move(bestBase->getPosition());
         return;
     }
+
+#if DEBUG_SQUAD_TARGET
+    CherryVis::log() << "MopUp cluster " << BWAPI::WalkPosition(cluster.center) << ": Nothing to do!";
+#endif
 }
