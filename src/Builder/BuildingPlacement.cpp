@@ -379,7 +379,7 @@ namespace BuildingPlacement
                     if (sizeAndLocations.first == 3 || sizeAndLocations.first == 4)
                     {
                         std::vector<BuildLocation> updatedLocations;
-                        for (auto it = sizeAndLocations.second.begin(); it != sizeAndLocations.second.end(); )
+                        for (auto it = sizeAndLocations.second.begin(); it != sizeAndLocations.second.end();)
                         {
                             if (it->framesUntilPowered > 0)
                             {

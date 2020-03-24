@@ -53,13 +53,13 @@ void MyDragoon::update(BWAPI::Unit unit)
         nextAttackPredictedAt = 0;
 
         if (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit &&
-                 bwapiUnit->getLastCommand().getTarget() && bwapiUnit->getLastCommand().getTarget()->exists() &&
-                 bwapiUnit->getLastCommand().getTarget()->isVisible() && bwapiUnit->getLastCommand().getTarget()->getPosition().isValid())
+            bwapiUnit->getLastCommand().getTarget() && bwapiUnit->getLastCommand().getTarget()->exists() &&
+            bwapiUnit->getLastCommand().getTarget()->isVisible() && bwapiUnit->getLastCommand().getTarget()->getPosition().isValid())
         {
             nextAttackPredictedAt = std::max(
                     BWAPI::Broodwar->getFrameCount() + 1, std::max(
-                    bwapiUnit->getLastCommandFrame() + BWAPI::Broodwar->getLatencyFrames(),
-                    cooldownUntil));
+                            bwapiUnit->getLastCommandFrame() + BWAPI::Broodwar->getLatencyFrames(),
+                            cooldownUntil));
         }
     }
 }

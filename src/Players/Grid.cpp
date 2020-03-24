@@ -46,14 +46,14 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
             if (data[x + y * maxX] < 0)
             {
                 Log::Get() << "Negative value @ " << BWAPI::Position(x, y) << "\n"
-                << "start=" << BWAPI::WalkPosition(position)
-                << ";type=" << type
-                << ";range=" << range;
+                           << "start=" << BWAPI::WalkPosition(position)
+                           << ";type=" << type
+                           << ";range=" << range;
 
                 Log::Debug() << "Negative value @ " << BWAPI::Position(x, y) << "\n"
-                << "start=" << BWAPI::WalkPosition(position)
-                << ";type=" << type
-                << ";range=" << range;
+                             << "start=" << BWAPI::WalkPosition(position)
+                             << ";type=" << type
+                             << ";range=" << range;
 
                 BWAPI::Broodwar->leaveGame();
             }

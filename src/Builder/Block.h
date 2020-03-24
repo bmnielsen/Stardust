@@ -52,8 +52,8 @@ protected:
     bool place(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvailability);
 
     bool placeStartBlock(std::vector<BWAPI::TilePosition> &usedTiles,
-                                std::vector<BWAPI::TilePosition> &borderTiles,
-                                std::vector<unsigned int> &tileAvailability);
+                         std::vector<BWAPI::TilePosition> &borderTiles,
+                         std::vector<unsigned int> &tileAvailability);
 
     virtual void placeLocations() = 0;
 

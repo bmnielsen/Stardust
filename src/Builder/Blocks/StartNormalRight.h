@@ -42,7 +42,8 @@ public:
             }
         }
 
-        if (placeStartBlock(usedTiles, borderTiles, tileAvailability))        {
+        if (placeStartBlock(usedTiles, borderTiles, tileAvailability))
+        {
             return std::make_shared<StartNormalRight>(blockTile, blockTile + BWAPI::TilePosition(0, 2));
         }
 

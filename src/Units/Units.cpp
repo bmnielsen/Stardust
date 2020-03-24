@@ -13,7 +13,7 @@
 #define DEBUG_DRAGOON_STATUS true
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS true
-#define DEBUG_ENEMY_STATUS true
+#define DEBUG_ENEMY_STATUS false
 
 namespace Units
 {

@@ -41,14 +41,14 @@ namespace
         return false;
     }
 
-    bool shouldContain(UnitCluster& cluster, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &enemyUnits)
+    bool shouldContain(UnitCluster &cluster, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &enemyUnits)
     {
         if (!hasStaticDefense(enemyUnits)) return false;
 
         // Run a combat sim excluding the enemy static defense
         std::vector<std::pair<MyUnit, Unit>> filteredUnitsAndTargets;
         std::set<Unit> filteredEnemyUnits;
-        for (const auto& pair : unitsAndTargets)
+        for (const auto &pair : unitsAndTargets)
         {
             if (pair.second && !isStaticDefense(pair.second->type))
             {

@@ -8,6 +8,7 @@
 #include "Unit.h"
 
 class MyUnitImpl;
+
 typedef std::shared_ptr<MyUnitImpl> MyUnit;
 
 class MyUnitImpl : public UnitImpl

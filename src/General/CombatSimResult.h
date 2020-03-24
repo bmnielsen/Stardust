@@ -31,7 +31,7 @@ public:
     // What percentage of the total army value is ours
     [[nodiscard]] double myPercentageOfTotal() const;
 
-    CombatSimResult& operator+=(const CombatSimResult& other)
+    CombatSimResult &operator+=(const CombatSimResult &other)
     {
         initialMine += other.initialMine;
         initialEnemy += other.initialEnemy;
@@ -41,7 +41,7 @@ public:
         return *this;
     }
 
-    CombatSimResult& operator/=(int divisor)
+    CombatSimResult &operator/=(int divisor)
     {
         initialMine /= divisor;
         initialEnemy /= divisor;

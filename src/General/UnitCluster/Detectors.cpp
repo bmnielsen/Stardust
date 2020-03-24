@@ -49,7 +49,7 @@ namespace
         auto ahead = scaledPosition(detector->lastPosition, target - detector->lastPosition, 48);
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(detector->id) << "Me " << detector->lastPosition << "; target " << target
-            << "; diff " << (target - detector->lastPosition) << "; scaled " << ahead;
+                                     << "; diff " << (target - detector->lastPosition) << "; scaled " << ahead;
 #endif
         if (ahead.isValid())
         {

@@ -4,7 +4,7 @@
 #include "PathFinding.h"
 #include "Map.h"
 
-#define DEBUG_SQUAD_TARGET true
+#define DEBUG_SQUAD_TARGET false
 
 MopUpSquad::MopUpSquad() : Squad("Mop Up")
 {
@@ -68,7 +68,7 @@ void MopUpSquad::execute(UnitCluster &cluster)
     {
 #if DEBUG_SQUAD_TARGET
         CherryVis::log() << "MopUp cluster " << BWAPI::WalkPosition(cluster.center)
-            << ": attacking known building @ " << BWAPI::WalkPosition(closestPosition);
+                         << ": attacking known building @ " << BWAPI::WalkPosition(closestPosition);
 #endif
 
         cluster.setActivity(UnitCluster::Activity::Moving);
@@ -96,7 +96,7 @@ void MopUpSquad::execute(UnitCluster &cluster)
     {
 #if DEBUG_SQUAD_TARGET
         CherryVis::log() << "MopUp cluster " << BWAPI::WalkPosition(cluster.center)
-            << ": moving to next base @ " << BWAPI::WalkPosition(bestBase->getPosition());
+                         << ": moving to next base @ " << BWAPI::WalkPosition(bestBase->getPosition());
 #endif
 
         cluster.setActivity(UnitCluster::Activity::Moving);

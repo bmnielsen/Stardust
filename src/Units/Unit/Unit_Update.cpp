@@ -56,8 +56,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , undetected(isUndetected(unit))
         , burrowed(unit->isBurrowed())
         , lastBurrowing(unit->getOrder() == BWAPI::Orders::Burrowing ? BWAPI::Broodwar->getFrameCount() : 0)
-        , doomed(false)
-{}
+        , doomed(false) {}
 
 void UnitImpl::created()
 {

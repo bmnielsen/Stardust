@@ -25,7 +25,8 @@ public:
             {
                 return std::make_shared<Block12x8>(tile, tile + BWAPI::TilePosition(6, 3));
             }
-            else {
+            else
+            {
                 return std::make_shared<Block12x8>(tile, tile + BWAPI::TilePosition(4, 3));
             }
         }

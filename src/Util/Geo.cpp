@@ -179,7 +179,7 @@ namespace Geo
         auto magnitude = ApproximateDistance(vector.x, 0, vector.y, 0);
         if (magnitude == 0) return BWAPI::Positions::Invalid;
 
-        double scale = (double)length / (double)magnitude;
-        return BWAPI::Position((int)((double)vector.x * scale), (int)((double)vector.y * scale));
+        double scale = (double) length / (double) magnitude;
+        return BWAPI::Position((int) ((double) vector.x * scale), (int) ((double) vector.y * scale));
     }
 }

@@ -115,23 +115,23 @@ namespace UnitUtil
                 (type.isFlyer() && type.spaceProvided() > 0);
     }
 
-std::pair<BWAPI::UnitType, int> MorphsFrom(BWAPI::UnitType type)
-{
-    // Anything built by a drone is a morph
-    if (type.whatBuilds().first == BWAPI::UnitTypes::Zerg_Drone) return type.whatBuilds();
-
-    // A building "built" by another building is a morph, unless it is an add-on
-    if (type.isBuilding() && !type.isAddon() && type.whatBuilds().first.isBuilding()) return type.whatBuilds();
-
-    // A unit "built" by another unit is a morph unless it is an interceptor or scarab
-    if (!type.isBuilding() && !type.whatBuilds().first.isBuilding() &&
-        type != BWAPI::UnitTypes::Protoss_Interceptor && type != BWAPI::UnitTypes::Protoss_Scarab)
+    std::pair<BWAPI::UnitType, int> MorphsFrom(BWAPI::UnitType type)
     {
-        return type.whatBuilds();
-    }
+        // Anything built by a drone is a morph
+        if (type.whatBuilds().first == BWAPI::UnitTypes::Zerg_Drone) return type.whatBuilds();
 
-    return std::make_pair(BWAPI::UnitTypes::None, 0);
-}
+        // A building "built" by another building is a morph, unless it is an add-on
+        if (type.isBuilding() && !type.isAddon() && type.whatBuilds().first.isBuilding()) return type.whatBuilds();
+
+        // A unit "built" by another unit is a morph unless it is an interceptor or scarab
+        if (!type.isBuilding() && !type.whatBuilds().first.isBuilding() &&
+            type != BWAPI::UnitTypes::Protoss_Interceptor && type != BWAPI::UnitTypes::Protoss_Scarab)
+        {
+            return type.whatBuilds();
+        }
+
+        return std::make_pair(BWAPI::UnitTypes::None, 0);
+    }
 
     int MineralCost(BWAPI::UnitType type)
     {

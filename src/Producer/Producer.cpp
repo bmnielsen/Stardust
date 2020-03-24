@@ -9,7 +9,7 @@
 #include "Workers.h"
 #include "UnitUtil.h"
 
-#define DEBUG_WRITE_SUBGOALS true
+#define DEBUG_WRITE_SUBGOALS false
 
 /*
 TODOs:
@@ -25,11 +25,13 @@ Ideas:
 */
 namespace Producer
 {
+#ifndef DEBUG
     namespace
     {
+#endif
         // How many frames in the future to consider when predicting future production needs
 #ifdef DEBUG
-        const int PREDICT_FRAMES = 24 * 60 * 2; // 2 minutes
+        const int PREDICT_FRAMES = 24 * 60 * 3; // 2 minutes
 #else
         const int PREDICT_FRAMES = 24 * 60 * 3; // 3 minutes
 #endif
@@ -191,7 +193,8 @@ namespace Producer
                            { labelstream << arg; }, item->type);
                 if (item->queuedBuilding && item->queuedBuilding->isConstructionStarted()) labelstream << "^";
                 if (item->queuedBuilding && !item->queuedBuilding->isConstructionStarted()) labelstream << "*";
-                if (item->buildLocation.location.tile.isValid()) labelstream << "(" << item->buildLocation.location.tile.x << ":" << item->buildLocation.location.tile.y << ")";
+                if (item->buildLocation.location.tile.isValid())
+                    labelstream << "(" << item->buildLocation.location.tile.x << ":" << item->buildLocation.location.tile.y << ")";
                 return labelstream.str();
             };
 
@@ -562,7 +565,7 @@ namespace Producer
                 }
 
                 int score = std::max(0, desiredMedium - (int) pylonLocation.powersMedium.size())
-                        + std::max(0, desiredLarge - (int) pylonLocation.powersLarge.size());
+                            + std::max(0, desiredLarge - (int) pylonLocation.powersLarge.size());
                 if (score < bestScore)
                 {
                     bestScore = score;
@@ -1672,7 +1675,10 @@ namespace Producer
                 if (toProduce > 0) toProduce--;
             }
         }
+
+#ifndef DEBUG
     }
+#endif
 
     void update()
     {
