@@ -3,15 +3,20 @@
 
 TEST(Steamhammer, RunUntilLoss)
 {
+    int count = 0;
     while (true)
     {
         BWTest test;
-        test.map = "";
-        test.randomSeed = -1;
+        test.map = "maps/sscai/(2)Benzene.scx";
+        test.randomSeed = 54776;
+//        test.map = "";
+//        test.randomSeed = -1;
         test.opponentRace = BWAPI::Races::Zerg;
         test.opponentModule = []()
         {
-            return new UAlbertaBot::UAlbertaBotModule();
+            auto module = new UAlbertaBot::UAlbertaBotModule();
+            Config::LocutusTestStrategyName = "11HatchTurtleLurker";
+            return module;
         };
         test.onStartOpponent = [&test]()
         {
@@ -21,12 +26,24 @@ TEST(Steamhammer, RunUntilLoss)
                 strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
             }
         };
-        test.onEndMine = [&test](bool won)
+        test.onEndMine = [&](bool won)
         {
-            if (test.sharedMemory)
+            std::string mapFilename = test.map.substr(test.map.rfind('/') + 1);
+            std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
+
+            std::ostringstream replayName;
+            replayName << "Steamhammer_" << (mapFilename.substr(0, mapFilename.rfind('.')));
+            if (!won)
             {
-                test.replayName = (std::ostringstream() << "Steamhammer_" << test.sharedMemory).str();
+                replayName << "_LOSS";
             }
+            if (test.sharedMemory) replayName << "_" << test.sharedMemory;
+            test.replayName = replayName.str();
+
+            count++;
+            std::cout << "---------------------------------------------" << std::endl;
+            std::cout << "PLAYED " << count << " GAME(S)" << std::endl;
+            std::cout << "---------------------------------------------" << std::endl;
         };
         test.run();
 
@@ -60,7 +77,7 @@ TEST(Steamhammer, RunForever)
         {
             std::string mapFilename = test.map.substr(test.map.rfind('/') + 1);
             std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
-            
+
             std::ostringstream replayName;
             replayName << "Steamhammer_" << (mapFilename.substr(0, mapFilename.rfind('.')));
             if (!won)
@@ -239,8 +256,10 @@ TEST(Steamhammer, 9HatchExpo9Pool9Gas)
 TEST(Steamhammer, 11HatchTurtleLurker)
 {
     BWTest test;
-    test.map = "maps/sscai/(2)Benzene.scx";
-    test.randomSeed=54776;
+    test.map = "maps/sscai/(2)Heartbreak Ridge.scx";
+    test.randomSeed = 9020;
+//    test.map = "maps/sscai/(2)Benzene.scx";
+//    test.randomSeed = 54776;
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
