@@ -359,6 +359,51 @@ namespace BuildingPlacement
             availableBuildLocations = result;
         }
 
+        void updateFramesUntilPowered()
+        {
+            // Gather our pending pylons
+            std::vector<Building *> pendingPylons;
+            for (auto building : Builder::allPendingBuildings())
+            {
+                if (building->type == BWAPI::UnitTypes::Protoss_Pylon)
+                {
+                    pendingPylons.push_back(building);
+                }
+            }
+
+            // Loop and update every location with a current framesUntilPowered value
+            for (auto &neighbourhoodAndLocations : availableBuildLocations)
+            {
+                for (auto &sizeAndLocations : neighbourhoodAndLocations.second)
+                {
+                    if (sizeAndLocations.first == 3 || sizeAndLocations.first == 4)
+                    {
+                        std::vector<BuildLocation> updatedLocations;
+                        for (auto it = sizeAndLocations.second.begin(); it != sizeAndLocations.second.end(); )
+                        {
+                            if (it->framesUntilPowered > 0)
+                            {
+                                updatedLocations.push_back(*it);
+                                updatedLocations.rbegin()->framesUntilPowered = poweredAfter(
+                                        it->location.tile,
+                                        sizeAndLocations.first == 3 ? BWAPI::UnitTypes::Protoss_Forge : BWAPI::UnitTypes::Protoss_Gateway,
+                                        pendingPylons);
+                                it = sizeAndLocations.second.erase(it);
+                            }
+                            else
+                            {
+                                it++;
+                            }
+                        }
+
+                        sizeAndLocations.second.insert(
+                                std::make_move_iterator(updatedLocations.begin()),
+                                std::make_move_iterator(updatedLocations.end()));
+                    }
+                }
+            }
+        }
+
         void updateAvailableGeysers()
         {
             _availableGeysers.clear();
@@ -506,6 +551,11 @@ namespace BuildingPlacement
         {
             updateAvailableBuildLocations();
             updateRequired = false;
+        }
+        else
+        {
+            // We still need to update framesUntilPowered each frame
+            updateFramesUntilPowered();
         }
 
         updateAvailableGeysers();
