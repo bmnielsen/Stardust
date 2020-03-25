@@ -73,6 +73,21 @@ namespace
 
         if (changed) frame++;
 
+        // Scan for buildings where we want to wait for creep
+        for (auto it = initialUnits.begin(); it != initialUnits.end();)
+        {
+            if (it->waitForCreep)
+            {
+                initialUnitsByFrame[frame].push_back(*it);
+                it = initialUnits.erase(it);
+                frame += 1000;
+            }
+            else
+            {
+                it++;
+            }
+        }
+
         // Scan for pylons
         changed = false;
         for (auto it = initialUnits.begin(); it != initialUnits.end();)
@@ -367,6 +382,8 @@ void BWTest::runGame(bool opponent)
 
         gameOwner.getGame().nextFrame();
     }
+
+    frameLimit += initialUnitFrames;
 
     bool leftGame = false;
     auto startTime = std::chrono::high_resolution_clock::now();

@@ -8,12 +8,16 @@ struct UnitTypeAndPosition
 {
 public:
     BWAPI::UnitType type;
+    bool waitForCreep;
 
     UnitTypeAndPosition(BWAPI::UnitType type, BWAPI::Position position)
-            : type(type), position(position), tilePosition(BWAPI::TilePositions::Invalid) {}
+            : type(type), waitForCreep(false), position(position), tilePosition(BWAPI::TilePositions::Invalid) {}
 
-    UnitTypeAndPosition(BWAPI::UnitType type, BWAPI::TilePosition tilePosition)
-            : type(type), position(BWAPI::Positions::Invalid), tilePosition(tilePosition) {}
+    UnitTypeAndPosition(BWAPI::UnitType type, BWAPI::WalkPosition position)
+            : UnitTypeAndPosition(type, BWAPI::Position(position) + BWAPI::Position(2, 2)) {}
+
+    UnitTypeAndPosition(BWAPI::UnitType type, BWAPI::TilePosition tilePosition, bool waitForCreep = false)
+            : type(type), waitForCreep(waitForCreep), position(BWAPI::Positions::Invalid), tilePosition(tilePosition) {}
 
     BWAPI::Position getCenterPosition();
 
