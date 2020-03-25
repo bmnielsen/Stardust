@@ -2,7 +2,7 @@
 #include <utility>
 #include "Geo.h"
 
-#define ASSERT_NEGATIVE_VALUES true
+#define ASSERT_NEGATIVE_VALUES false
 
 // We add a buffer on detection and threat ranges
 // Generally this is more useful as it forces our units to keep their distance

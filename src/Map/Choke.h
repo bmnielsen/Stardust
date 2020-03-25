@@ -2,7 +2,6 @@
 
 #include "Common.h"
 
-#include <set>
 #include <bwem.h>
 
 class Choke

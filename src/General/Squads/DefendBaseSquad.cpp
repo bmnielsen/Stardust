@@ -183,6 +183,7 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
 
     // Run combat sim
     auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits);
+    simResult.setAttacking(false);
 
     // TODO: Needs tuning
     bool attack =

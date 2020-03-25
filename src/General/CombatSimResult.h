@@ -1,6 +1,6 @@
 #pragma once
 
-#include <BWAPI/Game.h>
+#include "Choke.h"
 
 class CombatSimResult
 {
@@ -9,12 +9,33 @@ public:
     int myUnitCount;
     int enemyUnitCount;
 
-    CombatSimResult(int myUnitCount, int enemyUnitCount, int initialMine, int initialEnemy, int finalMine, int finalEnemy)
-            : frame(BWAPI::Broodwar->getFrameCount()), myUnitCount(myUnitCount), enemyUnitCount(enemyUnitCount), initialMine(initialMine)
-            , initialEnemy(initialEnemy), finalMine(finalMine), finalEnemy(
-                    finalEnemy) {}
+    Choke *narrowChoke;
 
-    CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0) {};
+    CombatSimResult(int myUnitCount,
+                    int enemyUnitCount,
+                    int initialMine,
+                    int initialEnemy,
+                    int finalMine,
+                    int finalEnemy,
+                    Choke *narrowChoke,
+                    double narrowChokeGain,
+                    double elevationGain)
+            : frame(BWAPI::Broodwar->getFrameCount())
+            , myUnitCount(myUnitCount)
+            , enemyUnitCount(enemyUnitCount)
+            , narrowChoke(narrowChoke)
+            , initialMine(initialMine)
+            , initialEnemy(initialEnemy)
+            , finalMine(finalMine)
+            , finalEnemy(finalEnemy)
+            , narrowChokeGain(narrowChokeGain)
+            , elevationGain(elevationGain) {}
+
+    CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0, nullptr, 1.0, 0.0) {};
+
+    // Sets whether or not we are simulating an attack
+    // This controls how the sim interprets data about narrow chokes - if we are attacking they are a detriment and vice versa
+    void setAttacking(bool attacking);
 
     // What percentage of my army value was lost during the sim
     [[nodiscard]] double myPercentLost() const;
@@ -56,4 +77,7 @@ private:
     int initialEnemy;
     int finalMine;
     int finalEnemy;
+
+    double narrowChokeGain;
+    double elevationGain;
 };

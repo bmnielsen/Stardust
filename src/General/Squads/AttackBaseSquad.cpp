@@ -129,6 +129,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
 
     // Run combat sim
     auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits);
+    simResult.setAttacking(true);
 
     // If the sim result is nothing, and none of our units have a target, move instead of attacking
     if (simResult.myPercentLost() <= 0.001 && simResult.enemyPercentLost() <= 0.001)

@@ -28,24 +28,9 @@ namespace
                type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode;
     }
 
-    bool hasStaticDefense(std::set<Unit> &enemyUnits)
-    {
-        for (const auto &unit : enemyUnits)
-        {
-            if (isStaticDefense(unit->type))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     bool shouldContain(UnitCluster &cluster, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &enemyUnits)
     {
-        if (!hasStaticDefense(enemyUnits)) return false;
-
-        // Run a combat sim excluding the enemy static defense
+        // Run a combat sim excluding enemy static defense
         std::vector<std::pair<MyUnit, Unit>> filteredUnitsAndTargets;
         std::set<Unit> filteredEnemyUnits;
         for (const auto &pair : unitsAndTargets)
@@ -65,6 +50,7 @@ namespace
         }
 
         auto simResult = cluster.runCombatSim(filteredUnitsAndTargets, filteredEnemyUnits);
+        simResult.setAttacking(false);
 
         bool contain = simResult.myPercentLost() <= 0.001 ||
                        (simResult.valueGain() > 0 && simResult.percentGain() > -0.05) ||

@@ -2,13 +2,17 @@
 
 #include <fap.h>
 #include "Players.h"
+#include "PathFinding.h"
 #include "Units.h"
+#include "Map.h"
 #include "UnitUtil.h"
 
 #define DEBUG_COMBATSIM_CSV false  // Writes a CSV file for each cluster with detailed sim information
 
 namespace
 {
+    const double pi = 3.14159265358979323846;
+
     // Cache of unit scores
     int baseScore[BWAPI::UnitTypes::Enum::MAX];
     int scaledScore[BWAPI::UnitTypes::Enum::MAX];
@@ -125,22 +129,44 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
 #endif
 
     FAP::FastAPproximation sim;
+
+    // Add our units with initial target
+    int myGroundHeightAccumulator = 0;
+    int myCount = 0;
+    int myRangedCount = 0;
     for (auto &unitAndTarget : unitsAndTargets)
     {
         auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
-        sim.addIfCombatUnitPlayer1(makeUnit(unitAndTarget.first, target));
+        if (sim.addIfCombatUnitPlayer1(makeUnit(unitAndTarget.first, target)) && !unitAndTarget.first->isFlying)
+        {
+            myGroundHeightAccumulator += BWAPI::Broodwar->getGroundHeight(unitAndTarget.first->tilePositionX, unitAndTarget.first->tilePositionY);
+            myCount++;
+            if (unitAndTarget.first->type == BWAPI::UnitTypes::Protoss_Dragoon) myRangedCount++;
 
 #if DEBUG_COMBATSIM_CSV
-        if (unitAndTarget.first->id < minUnitId) minUnitId = unitAndTarget.first->id;
+            if (unitAndTarget.first->id < minUnitId) minUnitId = unitAndTarget.first->id;
 #endif
+        }
     }
+
+    // Add enemy units
+    int enemyGroundHeightAccumulator = 0;
+    int enemyPositionXAccumulator = 0;
+    int enemyPositionYAccumulator = 0;
+    int enemyCount = 0;
     for (auto &unit : targets)
     {
         // Only include workers if they have been seen attacking recently
         // TODO: Handle worker rushes
         if (!unit->type.isWorker() || (BWAPI::Broodwar->getFrameCount() - unit->lastSeenAttacking) < 120)
         {
-            sim.addIfCombatUnitPlayer2(makeUnit(unit));
+            if (sim.addIfCombatUnitPlayer2(makeUnit(unit)) && !unit->isFlying)
+            {
+                enemyGroundHeightAccumulator += BWAPI::Broodwar->getGroundHeight(unit->tilePositionX, unit->tilePositionY);
+                enemyPositionXAccumulator += unit->lastPosition.x;
+                enemyPositionYAccumulator += unit->lastPosition.y;
+                enemyCount++;
+            }
         }
     }
 
@@ -209,13 +235,58 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
     int finalMine = score(sim.getState().first);
     int finalEnemy = score(sim.getState().second);
 
+    // Check if the armies are separated by a narrow choke
+    Choke *narrowChoke = nullptr;
+    double narrowChokeGain = 1.0;
+    if (enemyCount > 0)
+    {
+        auto clusterDiameterSquared = (double)area * 4.0 / pi;
+        BWAPI::Position enemyCenter(enemyPositionXAccumulator / enemyCount, enemyPositionYAccumulator / enemyCount);
+
+        for (auto &bwemChoke : PathFinding::GetChokePointPath(center,
+                                                          enemyCenter,
+                                                          BWAPI::UnitTypes::Protoss_Dragoon,
+                                                          PathFinding::PathFindingOptions::UseNearestBWEMArea))
+        {
+            auto choke = Map::choke(bwemChoke);
+            auto chokeWidthSquared = choke->width * choke->width;
+            if (chokeWidthSquared < clusterDiameterSquared)
+            {
+                // The gain is scaled from 1.0 (approximately same size) to 0.5 (cluster is 4+ times wider)
+                narrowChokeGain = std::min(narrowChokeGain, 0.25 + 0.75 * std::max(0.25, (double)choke->width / sqrt(clusterDiameterSquared)));
+                narrowChoke = choke;
+            }
+        }
+    }
+
+    // If the armies are separated by a narrow choke, compute the elevation gain
+    double elevationGain = 0.0;
+    if (narrowChoke && myCount > 0)
+    {
+        double myAvgElevation = (double)myGroundHeightAccumulator / (double)myCount;
+        double enemyAvgElevation = (double)enemyGroundHeightAccumulator / (double)enemyCount;
+
+        // If both armies are at completely different elevations, the difference will be 2
+        // We scale this to give a gain between 0.5 (my army is on high ground) to -0.5 (my army is on low ground)
+        elevationGain = (myAvgElevation - enemyAvgElevation) / 4.0;
+
+        // Now we adjust for what percentage of our army is ranged
+        elevationGain *= ((double)myRangedCount / (double)myCount);
+    }
+
 #if DEBUG_COMBATSIM
-    CherryVis::log() << BWAPI::WalkPosition(center)
-                     << ": " << initialMine << "," << initialEnemy
-                     << "-" << finalMine << "," << finalEnemy;
+    std::ostringstream debug;
+    debug << BWAPI::WalkPosition(center)
+          << ": " << initialMine << "," << initialEnemy
+          << "-" << finalMine << "," << finalEnemy;
+    if (narrowChoke)
+    {
+        debug << "; narrowGain=" << narrowChokeGain << "; elevationGain=" << elevationGain;
+    }
+    CherryVis::log() << debug.str();
 #endif
 
-    return CombatSimResult(unitsAndTargets.size(), targets.size(), initialMine, initialEnemy, finalMine, finalEnemy);
+    return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, narrowChoke, narrowChokeGain, elevationGain);
 }
 
 void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
