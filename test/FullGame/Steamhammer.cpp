@@ -271,6 +271,21 @@ TEST(Steamhammer, 11HatchTurtleLurker)
     test.run();
 }
 
+TEST(Steamhammer, Over10Hatch1Sunk)
+{
+    BWTest test;
+    test.map = "maps/sscai/(4)La Mancha1.1.scx";
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::LocutusTestStrategyName = "Over10Hatch1Sunk";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, GasSteal)
 {
     BWTest test;
