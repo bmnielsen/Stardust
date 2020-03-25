@@ -90,7 +90,6 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
     // Plot an intercept course
     auto interceptPosition = intercept(target);
     if (!interceptPosition.isValid()) interceptPosition = target->predictPosition(5);
-    if (!interceptPosition.isValid()) interceptPosition = target->lastPosition;
     move(interceptPosition);
 }
 

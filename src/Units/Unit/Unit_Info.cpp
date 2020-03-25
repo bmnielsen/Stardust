@@ -74,7 +74,7 @@ int UnitImpl::getDistance(const Unit &other, BWAPI::Position predictedOtherPosit
 
 BWAPI::Position UnitImpl::predictPosition(int frames) const
 {
-    if (!bwapiUnit || !bwapiUnit->exists() || !bwapiUnit->isVisible()) return BWAPI::Positions::Invalid;
+    if (!bwapiUnit || !bwapiUnit->exists() || !bwapiUnit->isVisible() || type.topSpeed() < 0.001) return lastPosition;
 
     return bwapiUnit->getPosition() + BWAPI::Position((int) (frames * bwapiUnit->getVelocityX()), (int) (frames * bwapiUnit->getVelocityY()));
 }
@@ -85,6 +85,11 @@ BWAPI::Position UnitImpl::predictPosition(int frames) const
 // Uses the formula derived here: http://jaran.de/goodbits/2011/07/17/calculating-an-intercept-course-to-a-target-with-constant-direction-and-velocity-in-a-2-dimensional-plane/
 BWAPI::Position UnitImpl::intercept(const Unit &target) const
 {
+    if (!target->bwapiUnit || !target->bwapiUnit->exists() || !target->bwapiUnit->isVisible() || target->type.topSpeed() < 0.001)
+    {
+        return lastPosition;
+    }
+
     double speed = type.topSpeed();
 
     double diffX = (double) target->lastPosition.x - lastPosition.x;
