@@ -25,7 +25,7 @@ namespace FAP {
      * \param fu The FAPUnit to add
      */
     template<UnitValues uv>
-    void addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu);
+    bool addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu);
     /**
      * \brief Adds the unit to the simulator for player 2
      * \param fu The FAPUnit to add
@@ -37,7 +37,7 @@ namespace FAP {
      * \param fu The FAPUnit to add
      */
     template<UnitValues uv>
-    void addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu);
+    bool addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu);
 
     /**
      * \brief Starts the simulation. You can run this function multiple times. Feel free to run once, get the state and keep running.
@@ -161,9 +161,12 @@ namespace FAP {
 
   template<typename UnitExtension>
   template<UnitValues uv>
-  void FastAPproximation<UnitExtension>::addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu) {
-    if (isCombatUnit(fu.unit))
+  bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu) {
+    if (isCombatUnit(fu.unit)) {
       addUnitPlayer1(std::move(fu));
+      return true;
+    }
+    return false;
   }
 
   template<typename UnitExtension>
@@ -179,9 +182,12 @@ namespace FAP {
 
   template<typename UnitExtension>
   template<UnitValues uv>
-  void FastAPproximation<UnitExtension>::addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu) {
-    if (isCombatUnit(fu.unit))
+  bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu) {
+    if (isCombatUnit(fu.unit)) {
       addUnitPlayer2(std::move(fu));
+      return true;
+    }
+    return false;
   }
 
   template<typename UnitExtension>
