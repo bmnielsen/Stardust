@@ -43,6 +43,7 @@ namespace Producer
         std::array<int, PREDICT_FRAMES> minerals;
         std::array<int, PREDICT_FRAMES> gas;
         std::array<int, PREDICT_FRAMES> supply;
+        std::array<int, PREDICT_FRAMES> totalSupply;
         std::map<BuildingPlacement::Neighbourhood, std::map<int, BuildingPlacement::BuildLocationSet>> buildLocations;
         BuildingPlacement::BuildLocationSet availableGeysers;
 
@@ -255,11 +256,79 @@ namespace Producer
             }
         }
 
-        void spendResource(std::array<int, PREDICT_FRAMES> &resource, int fromFrame, int amount)
+        void spendResource(std::array<int, PREDICT_FRAMES> &resource, int amount, int fromFrame, int toFrame = PREDICT_FRAMES)
         {
-            for (int f = fromFrame; f < PREDICT_FRAMES; f++)
+            for (int f = fromFrame; f < toFrame; f++)
             {
                 resource[f] -= amount;
+            }
+        }
+
+        void moveResourceSpend(std::array<int, PREDICT_FRAMES> &resource, int amount, int fromFrame, int delta)
+        {
+            // If the delta is positive, add back the resource into the future, otherwise subtract it into the past
+            if (delta > 0)
+            {
+                spendResource(resource, -amount, fromFrame, fromFrame + delta);
+            }
+            else
+            {
+                spendResource(resource, amount, fromFrame + delta, fromFrame);
+            }
+        }
+
+        void addProvidedSupply(int amount, int fromFrame, int toFrame = PREDICT_FRAMES)
+        {
+            // Start by adding the supply to the total
+            spendResource(totalSupply, -amount, fromFrame, toFrame);
+
+            // If the final supply does not exceed the max, we can just add the provided supply
+            // We only need to check the last frame, as total supply only increases over time
+            if (totalSupply[toFrame - 1] <= 400)
+            {
+                spendResource(supply, -amount, fromFrame, toFrame);
+                return;
+            }
+
+            // Add provided supply up to max supply
+            for (int f = fromFrame; f < toFrame; f++)
+            {
+                // We can short-circuit if at any point we were already maxed before this provider was added
+                if (totalSupply[f] >= 400 + amount) return;
+
+                supply[f] += 400 + amount - totalSupply[f];
+            }
+        }
+
+        void moveProvidedSupply(int amount, int fromFrame, int delta)
+        {
+            // Moving back is the same as adding supply in the changed frames
+            if (delta < 0)
+            {
+                addProvidedSupply(amount, fromFrame + delta, fromFrame);
+                return;
+            }
+
+            // Moving forward requires us to adjust whenever we capped for max supply earlier
+
+            // Start by removing the total supply
+            spendResource(totalSupply, amount, fromFrame, fromFrame + delta);
+
+            // Now loop backwards through the available supply
+            for (int f = fromFrame + delta - 1; f >= fromFrame; f--)
+            {
+                // If we were not maxed here, the rest of the frames were not capped and can be handled directly
+                if (totalSupply[f] <= 400 - amount)
+                {
+                    spendResource(supply, amount, fromFrame, f + 1);
+                    return;
+                }
+
+                // If we were already maxed here without this provider, move to the next frame
+                if (totalSupply[f] >= 400) continue;
+
+                // Remove the supply, respecting the cap
+                supply[f] -= 400 - totalSupply[f];
             }
         }
 
@@ -276,8 +345,9 @@ namespace Producer
                 gas[f] = currentGas + (int) (gasRate * f);
             }
 
-            // Fill supply with current supply count
+            // Fill supply with available and provided supply
             supply.fill(BWAPI::Broodwar->self()->supplyTotal() - BWAPI::Broodwar->self()->supplyUsed());
+            totalSupply.fill(BWAPI::Broodwar->self()->supplyTotal());
 
             // Assume workers being built will go to minerals
             for (const auto &unit : Units::allMine())
@@ -301,14 +371,14 @@ namespace Producer
                 auto item = *committedItems.emplace(std::make_shared<ProductionItem>(pendingBuilding));
                 if (!pendingBuilding->isConstructionStarted())
                 {
-                    spendResource(minerals, item->startFrame, pendingBuilding->type.mineralPrice());
-                    spendResource(gas, item->startFrame, pendingBuilding->type.gasPrice());
+                    spendResource(minerals, pendingBuilding->type.mineralPrice(), item->startFrame);
+                    spendResource(gas, pendingBuilding->type.gasPrice(), item->startFrame);
                 }
 
                 // Supply providers
                 if (pendingBuilding->type.supplyProvided() > 0)
                 {
-                    spendResource(supply, item->completionFrame, -pendingBuilding->type.supplyProvided());
+                    addProvidedSupply(pendingBuilding->type.supplyProvided(), item->completionFrame);
                 }
 
                 // Refineries are assumed to move three workers to gas on completion
@@ -338,7 +408,7 @@ namespace Producer
                 if (frame >= PREDICT_FRAMES) continue;
 
                 // Spend the minerals at the detected frame
-                spendResource(minerals, frame, amount);
+                spendResource(minerals, amount, frame);
             }
 
             buildLocations = BuildingPlacement::getBuildLocations();
@@ -440,18 +510,15 @@ namespace Producer
 
             if (item->supplyProvided() > 0)
             {
-                spendResource(supply, item->completionFrame, item->supplyProvided());
-                spendResource(supply, item->completionFrame + delta, -item->supplyProvided());
+                moveProvidedSupply(item->supplyProvided(), item->completionFrame, delta);
             }
 
             if (item->gasPrice() > 0)
             {
-                spendResource(gas, item->startFrame, -item->gasPrice());
-                spendResource(gas, item->startFrame + delta, item->gasPrice());
+                moveResourceSpend(gas, item->gasPrice(), item->startFrame, delta);
             }
 
-            spendResource(minerals, item->startFrame, -item->mineralPrice());
-            spendResource(minerals, item->startFrame + delta, item->mineralPrice());
+            moveResourceSpend(minerals, item->mineralPrice(), item->startFrame, delta);
 
             // We assume a refinery causes three workers to move from minerals to gas
             if (item->is(BWAPI::Broodwar->self()->getRace().getRefinery()))
@@ -913,7 +980,7 @@ namespace Producer
                     if (prerequisiteItem->isPrerequisite && prerequisiteItem->is(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
                     {
                         // Spend minerals
-                        spendResource(minerals, prerequisiteItem->startFrame, BWAPI::UnitTypes::Protoss_Assimilator.mineralPrice());
+                        spendResource(minerals, BWAPI::UnitTypes::Protoss_Assimilator.mineralPrice(), prerequisiteItem->startFrame);
 
                         // Update mineral and gas collection
                         int completionFrame = prerequisiteItem->startFrame + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator);
@@ -1112,7 +1179,7 @@ namespace Producer
                     if (commit)
                     {
                         // Spend minerals
-                        spendResource(minerals, actualStartFrame, refineryType.mineralPrice());
+                        spendResource(minerals, refineryType.mineralPrice(), actualStartFrame);
 
                         // Update mineral and gas collection
                         updateResourceCollection(minerals, completionFrame, -3, MINERALS_PER_WORKER_FRAME);
@@ -1163,7 +1230,13 @@ namespace Producer
             {
                 if (supply[f] < item.supplyRequired())
                 {
-                    if (!blocked) supplyBlockFrames.push_back(f);
+                    if (!blocked)
+                    {
+                        // Break out if we are at max supply
+                        if (totalSupply[f] >= 400) return false;
+
+                        supplyBlockFrames.push_back(f);
+                    }
                     blocked = true;
                 }
                 else
@@ -1307,8 +1380,8 @@ namespace Producer
                 if (commit)
                 {
                     committedItems.emplace(std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Pylon, mineralFrame));
-                    spendResource(supply, completionFrame, -BWAPI::UnitTypes::Protoss_Pylon.supplyProvided());
-                    spendResource(minerals, mineralFrame, BWAPI::UnitTypes::Protoss_Pylon.mineralPrice());
+                    addProvidedSupply(BWAPI::UnitTypes::Protoss_Pylon.supplyProvided(), completionFrame);
+                    spendResource(minerals, BWAPI::UnitTypes::Protoss_Pylon.mineralPrice(), mineralFrame);
                 }
 
                 // If the block could not be resolved completely, shift the item to start when the supply provider completes
@@ -1330,9 +1403,9 @@ namespace Producer
         void commitItem(const std::shared_ptr<ProductionItem> &item)
         {
             // Spend the resources
-            spendResource(minerals, item->startFrame, item->mineralPrice());
-            if (item->gasPrice() > 0) spendResource(gas, item->startFrame, item->gasPrice());
-            if (item->supplyRequired() > 0) spendResource(supply, item->startFrame, item->supplyRequired());
+            spendResource(minerals, item->mineralPrice(), item->startFrame);
+            if (item->gasPrice() > 0) spendResource(gas, item->gasPrice(), item->startFrame);
+            if (item->supplyRequired() > 0) spendResource(supply, item->supplyRequired(), item->startFrame);
 
             // If the item is a worker, assume it will go on minerals when complete
             if (item->is(BWAPI::Broodwar->self()->getRace().getWorker()))
@@ -1348,7 +1421,7 @@ namespace Producer
 
             // If the item provides supply, add it
             if (item->supplyProvided() > 0)
-                spendResource(supply, item->startFrame, -item->supplyProvided());
+                addProvidedSupply(item->supplyProvided(), item->startFrame);
 
             // Commit
             committedItems.insert(item);
