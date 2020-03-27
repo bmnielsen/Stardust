@@ -22,11 +22,11 @@ void MainArmyPlay::update()
 
 void MainArmyPlay::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    // Otherwise produce to fulfill our unit requirements
+    // Produce to fulfill any unit requirements
     for (auto &unitRequirement : status.unitRequirements)
     {
         if (unitRequirement.count < 1) continue;
-        prioritizedProductionGoals[25].emplace_back(std::in_place_type<UnitProductionGoal>,
+        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                     unitRequirement.type,
                                                     unitRequirement.count,
                                                     (unitRequirement.count + 1) / 2);
@@ -42,7 +42,7 @@ void MainArmyPlay::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
 
     if (currentZealotRatio >= percentZealots)
     {
-        prioritizedProductionGoals[30].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Dragoon, -1, -1);
+        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Dragoon, -1, -1);
     }
-    prioritizedProductionGoals[30].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Zealot, -1, -1);
+    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Zealot, -1, -1);
 }

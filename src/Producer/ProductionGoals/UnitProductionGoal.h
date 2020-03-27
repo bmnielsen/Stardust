@@ -26,19 +26,19 @@ public:
             , location(location) {}
 
     // The unit type
-    BWAPI::UnitType unitType() { return type; }
+    [[nodiscard]] BWAPI::UnitType unitType() const { return type; }
 
     // Maximum cap of how many producers of the item we should create
     // May be -1 if we do not want to limit it
-    int getProducerLimit() { return producerLimit; }
+    [[nodiscard]] int getProducerLimit() const { return producerLimit; }
 
     // The number of items that should be produced
     // May be -1 if we want constant production
-    int countToProduce() { return count; };
+    [[nodiscard]] int countToProduce() const { return count; };
 
     // The location to produce the item
     // Will either be a neighbourhood for the building placer, or, if the item is a building, potentially a specific tile position
-    ProductionLocation getLocation() { return location; };
+    [[nodiscard]] ProductionLocation getLocation() const { return location; };
 
     friend std::ostream &operator<<(std::ostream &os, const UnitProductionGoal &goal)
     {

@@ -234,7 +234,12 @@ namespace Producer
              */
         }
 
-        int getRemainingBuildTime(const MyUnit &producer, int baseRemainingTrainTime, BWAPI::UnitCommandType buildCommandType, const Type &itemType)
+        int getRemainingBuildTime(
+                const MyUnit &producer,
+                bool isBuilding,
+                int baseRemainingBuildTime,
+                BWAPI::UnitCommandType buildCommandType,
+                const Type &itemType)
         {
             if (producer->bwapiUnit->getLastCommand().getType() == buildCommandType &&
                 (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
@@ -242,9 +247,9 @@ namespace Producer
                 return buildTime(itemType);
             }
 
-            if (!producer->bwapiUnit->isTraining()) return -1;
+            if (!isBuilding) return -1;
 
-            return baseRemainingTrainTime;
+            return baseRemainingBuildTime;
         }
 
         void updateResourceCollection(std::array<int, PREDICT_FRAMES> &resource, int fromFrame, int workerChange, double baseRate)
@@ -356,6 +361,7 @@ namespace Producer
                 if (!unit->type.isResourceDepot()) continue;
 
                 int remainingTrainTime = getRemainingBuildTime(unit,
+                                                               unit->bwapiUnit->isTraining(),
                                                                unit->bwapiUnit->getRemainingTrainTime(),
                                                                BWAPI::UnitCommandTypes::Train,
                                                                BWAPI::Broodwar->self()->getRace().getWorker());
@@ -1626,11 +1632,16 @@ namespace Producer
                 int remainingTrainTime = -1;
                 if (unitType)
                 {
-                    remainingTrainTime = getRemainingBuildTime(unit, unit->bwapiUnit->getRemainingTrainTime(), BWAPI::UnitCommandTypes::Train, type);
+                    remainingTrainTime = getRemainingBuildTime(unit,
+                                                               unit->bwapiUnit->isTraining(),
+                                                               unit->bwapiUnit->getRemainingTrainTime(),
+                                                               BWAPI::UnitCommandTypes::Train,
+                                                               type);
                 }
                 else if (upgradeType)
                 {
                     remainingTrainTime = getRemainingBuildTime(unit,
+                                                               unit->bwapiUnit->isUpgrading(),
                                                                unit->bwapiUnit->getRemainingUpgradeTime(),
                                                                BWAPI::UnitCommandTypes::Upgrade,
                                                                type);
@@ -1778,10 +1789,11 @@ namespace Producer
             }
             else if (auto upgradeProductionGoal = std::get_if<UpgradeProductionGoal>(&goal))
             {
-                if (!upgradeProductionGoal->isFulfilled())
-                {
-                    handleGoal(upgradeProductionGoal->upgradeType(), std::monostate(), 1, 1, upgradeProductionGoal->prerequisiteForNextLevel());
-                }
+                handleGoal(upgradeProductionGoal->upgradeType(),
+                           std::monostate(),
+                           1,
+                           upgradeProductionGoal->getProducerLimit(),
+                           upgradeProductionGoal->prerequisiteForNextLevel());
             }
             else
             {
@@ -1875,7 +1887,8 @@ namespace Producer
                 {
                     if (item->producer->existing->upgrade(*upgradeType))
                     {
-                        Log::Get() << "Started upgrade: " << *upgradeType;
+                        Log::Get() << "Started upgrade: " << *upgradeType
+                                   << " (" << (BWAPI::Broodwar->self()->getUpgradeLevel(*upgradeType) + 1) << ")";
                     }
                 }
             }

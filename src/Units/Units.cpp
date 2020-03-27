@@ -40,7 +40,7 @@ namespace Units
                 Log::Get() << "Unit created: " << *unit;
             }
 
-            if (unit->player == BWAPI::Broodwar->enemy() && unit->type != BWAPI::UnitTypes::Zerg_Larva && unit->type != BWAPI::UnitTypes::Zerg_Egg)
+            if (unit->player == BWAPI::Broodwar->enemy() && unit->type.isBuilding())
             {
                 Log::Get() << "Enemy discovered: " << *unit;
             }
@@ -79,7 +79,7 @@ namespace Units
 
         void enemyUnitDestroyed(const Unit &unit)
         {
-            if (unit->type != BWAPI::UnitTypes::Zerg_Larva && unit->type != BWAPI::UnitTypes::Zerg_Egg)
+            if (unit->type.isBuilding())
             {
                 Log::Get() << "Enemy destroyed: " << *unit;
             }

@@ -4,6 +4,13 @@
 #include "Squad.h"
 #include "ProductionGoal.h"
 
+#define PRIORITY_EMERGENCY 1
+#define PRIORITY_WORKERS 2
+#define PRIORITY_DEPOTS 3
+#define PRIORITY_BASEDEFENSE 4
+#define PRIORITY_NORMAL 5
+#define PRIORITY_MAINARMY 6
+
 class Play;
 
 struct PlayUnitRequirement

@@ -44,5 +44,5 @@ void TakeNaturalExpansion::addPrioritizedProductionGoals(std::map<int, std::vect
                                                                                            depotPosition,
                                                                                            BWAPI::UnitTypes::Protoss_Nexus),
                                                           0, 0);
-    prioritizedProductionGoals[15].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Nexus, buildLocation);
+    prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Nexus, buildLocation);
 }

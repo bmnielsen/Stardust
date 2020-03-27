@@ -87,7 +87,7 @@ void TakeIslandExpansion::addPrioritizedProductionGoals(std::map<int, std::vecto
     for (auto &unitRequirement : status.unitRequirements)
     {
         if (unitRequirement.count < 1) continue;
-        prioritizedProductionGoals[20].emplace_back(std::in_place_type<UnitProductionGoal>, unitRequirement.type, unitRequirement.count, 1);
+        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>, unitRequirement.type, unitRequirement.count, 1);
     }
 }
 

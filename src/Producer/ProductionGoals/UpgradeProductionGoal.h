@@ -5,16 +5,20 @@
 class UpgradeProductionGoal
 {
 public:
-    explicit UpgradeProductionGoal(BWAPI::UpgradeType type, int level = 1) : type(type), level(level) {}
+    explicit UpgradeProductionGoal(BWAPI::UpgradeType type, int level = 1, int producerLimit = 1)
+            : type(type)
+            , level(level)
+            , producerLimit(producerLimit) {}
 
     // The upgrade type
-    BWAPI::UpgradeType upgradeType() { return type; }
-
-    // Whether or not the production goal is currently fulfilled
-    bool isFulfilled();
+    [[nodiscard]] BWAPI::UpgradeType upgradeType() const { return type; }
 
     // Prerequisite for the next upgrade level
-    BWAPI::UnitType prerequisiteForNextLevel();
+    [[nodiscard]] BWAPI::UnitType prerequisiteForNextLevel() const;
+
+    // Maximum cap of how many producers of the item we should create
+    // May be -1 if we do not want to limit it
+    [[nodiscard]] int getProducerLimit() const { return producerLimit; }
 
     friend std::ostream &operator<<(std::ostream &os, const UpgradeProductionGoal &goal)
     {
@@ -25,4 +29,5 @@ public:
 private:
     BWAPI::UpgradeType type;
     int level;
+    int producerLimit;
 };

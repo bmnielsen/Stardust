@@ -172,36 +172,6 @@ namespace Strategist
             }
         }
 
-        void updateProductionGoals()
-        {
-            // Ask all of the plays for their production goals
-            std::map<int, std::vector<ProductionGoal>> prioritizedProductionGoals;
-            for (auto &play : plays)
-            {
-                play->addPrioritizedProductionGoals(prioritizedProductionGoals);
-            }
-
-            // Flatten the production goals into a vector ordered by priority
-            productionGoals.clear();
-            for (auto &priorityAndProductionGoals : prioritizedProductionGoals)
-            {
-                productionGoals.reserve(productionGoals.size() + priorityAndProductionGoals.second.size());
-                std::move(priorityAndProductionGoals.second.begin(), priorityAndProductionGoals.second.end(), std::back_inserter(productionGoals));
-            }
-        }
-
-        void updateMineralReservations()
-        {
-            // Ask all of the plays for their mineral reservations
-            // We are not prioritizing them right now, as the expectation is that not many plays will need mineral reservations, but this can be
-            // added later.
-            mineralReservations.clear();
-            for (auto &play : plays)
-            {
-                play->addMineralReservations(mineralReservations);
-            }
-        }
-
         void updateExpansions()
         {
             // Clear finished TakeExpansion plays
@@ -281,63 +251,163 @@ namespace Strategist
             }
         }
 
-        void upgradeAtCount(BWAPI::UpgradeType upgradeType, BWAPI::UnitType unitType, int unitCount)
+        void upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                            BWAPI::UpgradeType upgradeType,
+                            BWAPI::UnitType unitType,
+                            int unitCount)
         {
             // First bail out if the upgrade is already done or queued
             if (BWAPI::Broodwar->self()->getUpgradeLevel(upgradeType) > 0) return;
             if (Units::isBeingUpgraded(upgradeType)) return;
 
-            // Keep track of whether we have started teching
-            // We don't want to upgrade anything if we are in an emergency and have an unlimited zealot goal near the top
-            bool tech = Units::countAll(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0;
-
+            // Now loop through all of the prioritized production goals, keeping track of how many of the desired unit we have
             int units = Units::countCompleted(unitType);
-
-            // Iterate the goals until we exceed the desired unit count
-            auto it = productionGoals.begin();
-            for (; units < unitCount && it != productionGoals.end(); it++)
+            for (auto &priorityAndProductionGoals : prioritizedProductionGoals)
             {
-                auto unitProductionGoal = std::get_if<UnitProductionGoal>(&*it);
-                if (!unitProductionGoal) continue;
-
-                if (unitProductionGoal->unitType().gasPrice() > 0) tech = true;
-
-                if (unitProductionGoal->unitType() != unitType) continue;
-
-                // Special case: unit production goal for unlimited units
-                // In this case we split the production goal and put the upgrade in the middle
-                if (unitProductionGoal->countToProduce() == -1)
+                for (auto it = priorityAndProductionGoals.second.begin(); it != priorityAndProductionGoals.second.end(); it++)
                 {
-                    // Except in the case where we haven't yet taken tech
-                    if (!tech) return;
+                    // Bail out if this upgrade is already queued
+                    auto upgradeProductionGoal = std::get_if<UpgradeProductionGoal>(&*it);
+                    if (upgradeProductionGoal && upgradeProductionGoal->upgradeType() == upgradeType) return;
 
-                    it = productionGoals.emplace(it, UpgradeProductionGoal(upgradeType));
-                    productionGoals.emplace(it,
-                                            std::in_place_type<UnitProductionGoal>,
-                                            unitType,
-                                            unitCount - units,
-                                            unitProductionGoal->getProducerLimit(),
-                                            unitProductionGoal->getLocation());
-                    return;
+                    auto unitProductionGoal = std::get_if<UnitProductionGoal>(&*it);
+                    if (!unitProductionGoal) continue;
+
+                    if (unitProductionGoal->countToProduce() == -1)
+                    {
+                        // If we are producing an unlimited number of a different unit type first, bail out
+                        if (unitProductionGoal->unitType() != unitType) return;
+
+                        // If this isn't the main army production, bail out - we don't want to upgrade in emergencies
+                        if (priorityAndProductionGoals.first != PRIORITY_MAINARMY) return;
+
+                        // Insert the upgrade here
+                        it = priorityAndProductionGoals.second.emplace(it, UpgradeProductionGoal(upgradeType));
+
+                        // Insert remaining units beforehand
+                        if (units < unitCount)
+                        {
+                            priorityAndProductionGoals.second.emplace(it,
+                                                                      std::in_place_type<UnitProductionGoal>,
+                                                                      unitType,
+                                                                      unitCount - units,
+                                                                      unitProductionGoal->getProducerLimit(),
+                                                                      unitProductionGoal->getLocation());
+                        }
+
+                        return;
+                    }
+
+                    if (unitProductionGoal->unitType() == unitType) units += unitProductionGoal->countToProduce();
                 }
-
-                units += unitProductionGoal->countToProduce();
-            }
-
-            // If we have counted enough units, insert the upgrade goal now
-            if (units >= unitCount && tech)
-            {
-                productionGoals.emplace(it, UpgradeProductionGoal(upgradeType));
-                return;
             }
         }
 
-        void handleUpgrades()
+        void upgradeWhenUnitStarted(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                    BWAPI::UpgradeType upgradeType,
+                                    BWAPI::UnitType unitType,
+                                    bool requireProducer = false)
         {
-            upgradeAtCount(BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 6);
-            upgradeAtCount(BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+            // First bail out if the upgrade is already done or queued
+            if (BWAPI::Broodwar->self()->getUpgradeLevel(upgradeType) > 0) return;
+            if (Units::isBeingUpgraded(upgradeType)) return;
 
-            // TODO: Normal upgrades
+            // Now check if we have at least one of the unit
+            if (Units::countIncomplete(unitType) == 0 && Units::countCompleted(unitType) == 0) return;
+
+            // Now check if we have the required producer, if specified
+            if (requireProducer &&
+                Units::countIncomplete(upgradeType.whatUpgrades()) == 0 &&
+                Units::countCompleted(upgradeType.whatUpgrades()) == 0)
+            {
+                return;
+            }
+
+            prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(UpgradeProductionGoal(upgradeType));
+        }
+
+        void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+        {
+            // Basic infantry skill upgrades are queued when we have enough of them and are still building them
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 6);
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+
+            // Cases where we want the upgrade as soon as we start building one of the units
+            upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
+            upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, true);
+            upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier);
+
+            // Ground upgrades
+            // Start when we have completed our second nexus
+            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
+            {
+                // Upgrade past 1 and on two forges when we have completed our third gas
+                int maxLevel, forgeCount;
+                if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 3)
+                {
+                    maxLevel = 3;
+                    forgeCount = 2;
+                }
+                else
+                {
+                    maxLevel = 1;
+                    forgeCount = 1;
+                }
+
+                int weaponLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons);
+                int armorLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Armor);
+
+                // Weapons -> 1, Armor -> 1, Weapons -> 3, Armor -> 3
+                if ((weaponLevel == 0 || armorLevel >= 1) && weaponLevel <= maxLevel &&
+                    !Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
+                {
+                    prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+                                                                             BWAPI::UpgradeTypes::Protoss_Ground_Weapons,
+                                                                             weaponLevel + 1,
+                                                                             forgeCount);
+                }
+                if (!Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Armor) && armorLevel <= maxLevel)
+                {
+                    prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+                                                                             BWAPI::UpgradeTypes::Protoss_Ground_Armor,
+                                                                             armorLevel + 1,
+                                                                             forgeCount);
+                }
+                if (weaponLevel > 0 && armorLevel == 0 && weaponLevel <= maxLevel &&
+                    !Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
+                {
+                    prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+                                                                             BWAPI::UpgradeTypes::Protoss_Ground_Weapons,
+                                                                             weaponLevel + 1,
+                                                                             forgeCount);
+                }
+
+                // TODO: Upgrade shields when maxed
+            }
+
+            // TODO: Air upgrades
+        }
+
+        void handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+        {
+            // The main army play will reactively request mobile detection when it sees a cloaked enemy unit
+            // The logic here is to look ahead to make sure we already have detection available when we need it
+
+            // Break out if we already have an observer
+            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) > 0 || Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observer) > 0)
+            {
+                return;
+            }
+
+            // TODO: Use scouting information
+
+            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1)
+            {
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         BWAPI::UnitTypes::Protoss_Observer,
+                                                                         1,
+                                                                         1);
+            }
         }
 
         void writeInstrumentation()
@@ -433,12 +503,37 @@ namespace Strategist
             }
         }
 
-        // TODO: Logic engine to add and remove plays based on scouting information, etc.
-
         updateUnitAssignments();
-        updateProductionGoals();
-        updateMineralReservations();
-        handleUpgrades();
+
+        // Ask all of the plays for their mineral reservations
+        // We are not prioritizing them right now, as the expectation is that not many plays will need mineral reservations, but this can be
+        // added later.
+        mineralReservations.clear();
+        for (auto &play : plays)
+        {
+            play->addMineralReservations(mineralReservations);
+        }
+
+        // Ask all of the plays for their production goals
+        std::map<int, std::vector<ProductionGoal>> prioritizedProductionGoals;
+        for (auto &play : plays)
+        {
+            play->addPrioritizedProductionGoals(prioritizedProductionGoals);
+        }
+
+        // Add various high-levelthings to the production goals
+        handleUpgrades(prioritizedProductionGoals);
+        handleDetection(prioritizedProductionGoals);
+
+        // Flatten the production goals into a vector ordered by priority
+        productionGoals.clear();
+        for (auto &priorityAndProductionGoals : prioritizedProductionGoals)
+        {
+            productionGoals.reserve(productionGoals.size() + priorityAndProductionGoals.second.size());
+            std::move(priorityAndProductionGoals.second.begin(), priorityAndProductionGoals.second.end(), std::back_inserter(productionGoals));
+        }
+
+        // TODO: Logic engine to add and remove plays based on scouting information, etc.
 
         updateScouting();
 
