@@ -155,8 +155,10 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
     {
         int cooldownDistance = (int) ((double) (cooldown - BWAPI::Broodwar->getRemainingLatencyFrames() - 2) * type.topSpeed());
         desiredDistance = std::min(range, range + (cooldownDistance - (predictedDistanceToTarget - range)) / 2);
+#if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Kiting: cdwn=" << cooldown << "; dist=" << predictedDistanceToTarget << "; range=" << range << "; des="
                            << desiredDistance;
+#endif
 
         // If the target's range is much lower than ours, keep a bit closer
         if (targetRange <= (range - 64)) desiredDistance -= 32;

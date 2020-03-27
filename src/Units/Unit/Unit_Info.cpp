@@ -87,7 +87,7 @@ BWAPI::Position UnitImpl::intercept(const Unit &target) const
 {
     if (!target->bwapiUnit || !target->bwapiUnit->exists() || !target->bwapiUnit->isVisible() || target->type.topSpeed() < 0.001)
     {
-        return lastPosition;
+        return target->lastPosition;
     }
 
     double speed = type.topSpeed();
