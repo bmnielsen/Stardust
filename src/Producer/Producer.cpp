@@ -1501,6 +1501,27 @@ namespace Producer
         }
          */
 
+        // Pulls pylons earlier if there are minerals available to do so
+        void pullPylons()
+        {
+            for (const auto &item : committedItems)
+            {
+                if (!item->is(BWAPI::UnitTypes::Protoss_Pylon)) continue;
+                if (item->queuedBuilding) continue;
+                if (item->completionFrame >= PREDICT_FRAMES) continue;
+
+                int mineralCost = item->mineralPrice();
+
+                // Find the earliest frame up to 48 frames earlier where we have the minerals to build the pylon
+                int f = item->startFrame - 1;
+                for (; f >= 0; f--)
+                {
+                    if (minerals[f] < mineralCost) break;
+                }
+                item->startFrame = f + 1;
+            }
+        }
+
         void handleGoal(Type type,
                         const ProductionLocation &location,
                         int countToProduce,
@@ -1808,6 +1829,10 @@ namespace Producer
 
         // Disabled for now as it is too aggressive (most likely because we are slightly too optimistic about how many minerals we will have)
         //pullRefineries(committedItems);
+
+        // Pylons are often built a bit too late, since we don't accurately simulate mineral collection and the build worker
+        // can be delayed. So pull pylons a bit earlier whenever we have the resources for it.
+        pullPylons();
 
         write(committedItems, "producer");
 
