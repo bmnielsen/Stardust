@@ -3,7 +3,9 @@
 #include "Units.h"
 #include "UnitUtil.h"
 
-#define DEBUG_CLUSTER_MEMBERSHIP true // Also in Squad.cpp
+#if INSTRUMENTATION_ENABLED
+    #define DEBUG_CLUSTER_MEMBERSHIP true // Also in Squad.cpp
+#endif
 
 namespace
 {

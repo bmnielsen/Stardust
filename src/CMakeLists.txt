@@ -29,6 +29,10 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(Locutus PUBLIC DEBUG=1)
 endif ()
 
+if (NOT CMAKE_BUILD_TYPE MATCHES Release)
+    target_compile_definitions(Locutus PUBLIC INSTRUMENTATION_ENABLED=true)
+endif ()
+
 IF (MSVC)
     target_link_libraries(Locutus BWAPILIB BWEM FAP libzstd_static)
 ELSE (MSVC)

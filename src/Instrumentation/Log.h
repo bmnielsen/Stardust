@@ -2,33 +2,44 @@
 
 #include <BWAPI.h>
 
+#if INSTRUMENTATION_ENABLED
+    #define LOGGING_ENABLED true
+#endif
+
 namespace Log
 {
     class LogWrapper
     {
     protected:
+#if LOGGING_ENABLED
         std::ostringstream *os;
         int *refCount;
         std::ofstream *logFile;
         bool outputToConsole;
         bool csv;
         bool first;
+#endif
 
     public:
+
+#if LOGGING_ENABLED
         LogWrapper(std::ofstream *logFile, bool outputToConsole, bool csv = false);
 
         LogWrapper(const LogWrapper &other);
 
         ~LogWrapper();
+#endif
 
         template<typename T> LogWrapper &operator<<(T const &value)
         {
+#if LOGGING_ENABLED
             if (logFile)
             {
                 if (csv && !first) (*os) << ',';
                 (*os) << value;
                 first = false;
             }
+#endif
             return *this;
         }
 

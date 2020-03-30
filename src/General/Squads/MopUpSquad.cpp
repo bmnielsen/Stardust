@@ -4,7 +4,9 @@
 #include "PathFinding.h"
 #include "Map.h"
 
-#define DEBUG_SQUAD_TARGET false
+#if INSTRUMENTATION_ENABLED
+    #define DEBUG_SQUAD_TARGET false
+#endif
 
 MopUpSquad::MopUpSquad() : Squad("Mop Up")
 {

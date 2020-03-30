@@ -45,19 +45,21 @@ Tasks:
 #include "Bullets.h"
 #include "Players.h"
 
-// Heatmaps are quite large, so we don't always want to write them every frame
-// These defines configure what frequency to dump them, or 0 to disable them
-#define COLLISION_HEATMAP_FREQUENCY_ENEMY 0
-#define GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY 0
-#define AIR_THREAT_HEATMAP_FREQUENCY_ENEMY 0
-#define DETECTION_HEATMAP_FREQUENCY_ENEMY 0
+#if INSTRUMENTATION_ENABLED
+    // Heatmaps are quite large, so we don't always want to write them every frame
+    // These defines configure what frequency to dump them, or 0 to disable them
+    #define COLLISION_HEATMAP_FREQUENCY_ENEMY 0
+    #define GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY 0
+    #define AIR_THREAT_HEATMAP_FREQUENCY_ENEMY 0
+    #define DETECTION_HEATMAP_FREQUENCY_ENEMY 0
 
-#define COLLISION_HEATMAP_FREQUENCY_MINE 0
-#define GROUND_THREAT_HEATMAP_FREQUENCY_MINE 0
-#define AIR_THREAT_HEATMAP_FREQUENCY_MINE 0
-#define DETECTION_HEATMAP_FREQUENCY_MINE 0
+    #define COLLISION_HEATMAP_FREQUENCY_MINE 0
+    #define GROUND_THREAT_HEATMAP_FREQUENCY_MINE 0
+    #define AIR_THREAT_HEATMAP_FREQUENCY_MINE 0
+    #define DETECTION_HEATMAP_FREQUENCY_MINE 0
 
-#define VISIBILITY_HEATMAP_FREQUENCY 0 // Only tracked for self
+    #define VISIBILITY_HEATMAP_FREQUENCY 0 // Only tracked for self
+#endif
 
 namespace
 {

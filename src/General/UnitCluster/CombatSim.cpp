@@ -7,7 +7,9 @@
 #include "Map.h"
 #include "UnitUtil.h"
 
-#define DEBUG_COMBATSIM_CSV false  // Writes a CSV file for each cluster with detailed sim information
+#if INSTRUMENTATION_ENABLED
+    #define DEBUG_COMBATSIM_CSV false  // Writes a CSV file for each cluster with detailed sim information
+#endif
 
 namespace
 {

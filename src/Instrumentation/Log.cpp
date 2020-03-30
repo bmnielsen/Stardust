@@ -8,6 +8,7 @@
 
 namespace Log
 {
+#if LOGGING_ENABLED
     namespace
     {
         bool isOutputtingToConsole = false;
@@ -174,4 +175,44 @@ namespace Log
     {
         return logFiles;
     }
+
+#else
+
+    namespace
+    {
+        std::vector<std::string> logFiles;
+    }
+
+    void initialize()
+    {
+    }
+
+    void SetDebug(bool)
+    {
+    }
+
+    void SetOutputToConsole(bool)
+    {
+    }
+
+    LogWrapper Get()
+    {
+        return LogWrapper();
+    }
+
+    LogWrapper Debug()
+    {
+        return LogWrapper();
+    }
+
+    LogWrapper Csv(const std::string &)
+    {
+        return LogWrapper();
+    }
+
+    std::vector<std::string> &LogFiles()
+    {
+        return logFiles;
+    }
+#endif
 }
