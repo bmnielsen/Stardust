@@ -14,7 +14,7 @@ namespace
             {
                 auto &node = grid[BWAPI::TilePosition(x, y)];
 
-                if (node.cost > 0 && node.cost < SHRT_MAX && !node.nextNode)
+                if (node.cost > 0 && node.cost < USHRT_MAX && !node.nextNode)
                 {
                     std::cout << "Node with no next node " << node << std::endl;
                     return false;
@@ -26,7 +26,8 @@ namespace
                     return false;
                 }
 
-                if (Map::isWalkable(node.x, node.y) && node.cost == SHRT_MAX &&
+                // Doesn't work as there are walkable areas behind doodads that can't be reached
+                if (Map::unwalkableProximity(node.x, node.y) >= 2 && node.cost == USHRT_MAX &&
                     PathFinding::GetGroundDistance(BWAPI::Position(BWAPI::TilePosition(x, y)), BWAPI::Position(grid.goal)) != -1)
                 {
                     std::cout << "Should be path from " << node << std::endl;
@@ -220,6 +221,37 @@ TEST(UpdateNavigationGrid, ManyBuildings)
         if (BWAPI::Broodwar->getFrameCount() == 34) removeBuilding(grid, BWAPI::UnitTypes::Zerg_Hydralisk_Den, BWAPI::TilePosition(113, 115));
 
         if (BWAPI::Broodwar->getFrameCount() == 40) grid->update();
+
+        CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
+    };
+
+    test.run();
+}
+
+TEST(UpdateNavigationGrid, EnemyStaticDefense)
+{
+    BWTest test;
+    NavigationGrid *grid;
+
+    setupGridTest(test, BWAPI::TilePosition(117, 117), grid);
+
+    test.onFrameMine = [&]()
+    {
+        if (BWAPI::Broodwar->getFrameCount() == 1)
+        {
+            addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(116, 114));
+            addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(118, 114));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+        if (BWAPI::Broodwar->getFrameCount() == 2)
+        {
+            addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(120, 114));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
 
         CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
     };
