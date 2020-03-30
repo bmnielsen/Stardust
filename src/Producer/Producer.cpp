@@ -1514,11 +1514,13 @@ namespace Producer
 
                 // Find the earliest frame up to 48 frames earlier where we have the minerals to build the pylon
                 int f = item->startFrame - 1;
-                for (; f >= 0; f--)
+                for (; f >= 0 && f >= item->startFrame - 48; f--)
                 {
                     if (minerals[f] < mineralCost) break;
                 }
                 item->startFrame = f + 1;
+
+                // This runs after everything has been scheduled, so we don't need to bother with updating minerals, completion frame, etc.
             }
         }
 
