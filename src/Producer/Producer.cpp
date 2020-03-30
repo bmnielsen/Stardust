@@ -627,9 +627,11 @@ namespace Producer
 
             // Score the locations based on distance and what they will power
             int bestScore = INT_MAX;
-            const BuildingPlacement::BuildLocation *best = nullptr;
-            for (const auto &pylonLocation : pylonLocations)
+            auto best = pylonLocations.end();
+            for (auto it = pylonLocations.begin(); it != pylonLocations.end(); it++)
             {
+                auto &pylonLocation = *it;
+
                 // If we have a hard requirement, don't consider anything that doesn't satisfy it
                 if ((requiredWidth == 3 && pylonLocation.powersMedium.empty()) ||
                     (requiredWidth == 4 && pylonLocation.powersLarge.empty()))
@@ -642,18 +644,18 @@ namespace Producer
                 if (score < bestScore)
                 {
                     bestScore = score;
-                    best = &pylonLocation;
+                    best = it;
                 }
             }
 
             // If we found a match, use it
-            if (best)
+            if (best != pylonLocations.end())
             {
                 pylon.estimatedWorkerMovementTime = best->builderFrames;
                 if (!tentative)
                 {
                     pylon.buildLocation = *best;
-                    pylonLocations.erase(*best);
+                    pylonLocations.erase(best);
                 }
                 return;
             }
