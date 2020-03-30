@@ -785,7 +785,7 @@ namespace Producer
                 }
 
                 location = locations.begin();
-                while (location != locations.end())
+                for (; location != locations.end(); location++)
                 {
                     if (*unitType != BWAPI::UnitTypes::Protoss_Robotics_Facility || location->location.hasExit)
                     {
