@@ -14,9 +14,15 @@
  * - Pull back: Retreat to a location that is more easily defensible (choke, high ground) and set up appropriately.
  * - Flee: Move back towards our main base until we are reinforced.
  * - Explode: Send the cluster units in multiple directions to confuse the enemy.
- *
- * TODO: Consider how a fleeing cluster should move (does it make sense to use flocking?)
  */
+
+namespace
+{
+    const int goalWeight = 64;
+    const int goalWeightInStaticDefense = 128;
+    const double separationDetectionLimitFactor = 1.5;
+    const double separationWeight = 96.0;
+}
 
 namespace
 {
@@ -66,23 +72,6 @@ namespace
 
         return contain;
     }
-
-    void regroupToPosition(UnitCluster &cluster, BWAPI::Position position)
-    {
-        for (const auto &unit : cluster.units)
-        {
-            // If the unit is stuck, unstick it
-            if (unit->unstick()) continue;
-
-            // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
-            if (!unit->isReady()) continue;
-
-#if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit->id) << "Regroup: Moving to " << BWAPI::WalkPosition(position);
-#endif
-            unit->moveTo(position);
-        }
-    }
 }
 
 void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &enemyUnits, BWAPI::Position targetPosition)
@@ -107,41 +96,157 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         return;
     }
 
+    // TODO: Separate logic for containing a choke
+
     if (currentSubActivity == SubActivity::Contain)
     {
         auto &grid = Players::grid(BWAPI::Broodwar->enemy());
+        auto navigationGrid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
 
-        // Temporary logic: regroup to either the unit closest to or furthest from to the order position that isn't under threat
-        MyUnit closest = nullptr;
-        MyUnit furthest = nullptr;
-        int closestDist = INT_MAX;
-        int furthestDist = 0;
-        bool unitUnderThreat = false;
-        for (auto &unit : units)
+        for (const auto &unitAndTarget : unitsAndTargets)
         {
-            if (grid.groundThreat(unit->lastPosition) > 0)
+            auto &myUnit = unitAndTarget.first;
+
+            // If the unit is stuck, unstick it
+            if (myUnit->unstick()) continue;
+
+            // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
+            if (!myUnit->isReady()) continue;
+
+            // TODO: Reuse filtering of static defense from earlier
+            bool inRangeOfStaticDefense = false;
+            int closestStaticDefenseDist = INT_MAX;
+            Unit closestStaticDefense = nullptr;
+            for (auto &unit : enemyUnits)
             {
-                unitUnderThreat = true;
+                if (!isStaticDefense(unit->type)) continue;
+
+                int dist = myUnit->getDistance(unit);
+                if (dist < closestStaticDefenseDist)
+                {
+                    closestStaticDefenseDist = dist;
+                    closestStaticDefense = unit;
+                }
+
+                if (myUnit->isInEnemyWeaponRange(unit)) inRangeOfStaticDefense = true;
+            }
+
+            // If this unit is not in range of static defense and is in range of its target, attack
+            if (unitAndTarget.second && !inRangeOfStaticDefense && myUnit->isInOurWeaponRange(unitAndTarget.second))
+            {
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(myUnit->id) << "Contain: Attacking " << *unitAndTarget.second;
+#endif
+                myUnit->attackUnit(unitAndTarget.second, unitsAndTargets);
                 continue;
             }
 
-            int dist = PathFinding::GetGroundDistance(unit->lastPosition, targetPosition, unit->type);
-            if (dist < closestDist)
+            // Move to maintain the contain
+
+            // Goal boid: stay just out of range of enemy threats, oriented towards the target position
+            bool pullingBack = false;
+            int goalX = 0;
+            int goalY = 0;
+
+            // If in range of static defense, just move away from it
+            if (inRangeOfStaticDefense)
             {
-                closestDist = dist;
-                closest = unit;
+                auto scaled = Geo::ScaleVector(myUnit->lastPosition - closestStaticDefense->lastPosition, goalWeightInStaticDefense);
+                if (scaled != BWAPI::Positions::Invalid)
+                {
+                    goalX = scaled.x;
+                    goalY = scaled.y;
+                }
+                pullingBack = true;
             }
-            if (dist > furthestDist)
+            else
             {
-                furthestDist = dist;
-                furthest = unit;
+                // Get grid nodes if they are available
+                auto node = navigationGrid ? &(*navigationGrid)[myUnit->getTilePosition()] : nullptr;
+                auto nextNode = node ? node->nextNode : nullptr;
+                auto secondNode = nextNode ? nextNode->nextNode : nullptr;
+
+                if (secondNode)
+                {
+                    // Move towards the second node if none are under threat
+                    // Move away from the second node if the next node is under threat
+                    // Do nothing if the first node is not under threat and the second node is
+                    int length = goalWeight;
+                    if (grid.groundThreat(nextNode->center()) > 0)
+                    {
+                        length = -goalWeight;
+                        pullingBack = true;
+                    }
+                    else if (grid.groundThreat(secondNode->center()) > 0)
+                    {
+                        length = 0;
+                    }
+                    if (length != 0)
+                    {
+                        auto scaled = Geo::ScaleVector(secondNode->center() - myUnit->lastPosition, length);
+                        if (scaled != BWAPI::Positions::Invalid)
+                        {
+                            goalX = scaled.x;
+                            goalY = scaled.y;
+                        }
+                    }
+                }
+                else
+                {
+                    // TODO: Implement a fallback if needed (use next choke?)
+                    Log::Get() << "WARNING: Trying to do contain movement without navigation grid! "
+                               << *myUnit << "; targetPosition=" << BWAPI::WalkPosition(targetPosition);
+                }
+            }
+
+            // Separation boid
+            int separationX = 0;
+            int separationY = 0;
+            for (const auto &otherUnitAndTarget : unitsAndTargets)
+            {
+                if (otherUnitAndTarget.first == myUnit) continue;
+
+                auto other = otherUnitAndTarget.first;
+
+                auto dist = myUnit->getDistance(other);
+                double detectionLimit = std::max(myUnit->type.width(), other->type.width()) * separationDetectionLimitFactor;
+                if (dist >= (int) detectionLimit) continue;
+
+                // We are within the detection limit
+                // Push away with maximum force at 0 distance, no force at detection limit
+                double distFactor = 1.0 - (double) dist / detectionLimit;
+                auto vector = Geo::ScaleVector(myUnit->lastPosition - other->lastPosition, (int) (distFactor * distFactor * separationWeight));
+                if (vector != BWAPI::Positions::Invalid)
+                {
+                    separationX += vector.x;
+                    separationY += vector.y;
+                }
+            }
+
+            // Put them all together to get the target direction
+            int totalX = goalX + separationX;
+            int totalY = goalY + separationY;
+            auto total = Geo::ScaleVector(BWAPI::Position(totalX, totalY), 80);
+            auto pos = total == BWAPI::Positions::Invalid ? myUnit->lastPosition : (myUnit->lastPosition + total);
+
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(myUnit->id) << "Contain boids towards " << BWAPI::WalkPosition(targetPosition)
+                                       << "; cluster=" << BWAPI::WalkPosition(center)
+                                       << ": goal=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX, goalY))
+                                       << "; separation=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(separationX, separationY))
+                                       << "; total=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(totalX, totalY))
+                                       << "; target=" << BWAPI::WalkPosition(pos);
+#endif
+
+            // If the position is invalid or unwalkable, either move towards the target or towards our main depending on whether we are pulling back
+            if (!pos.isValid() || !Map::isWalkable(BWAPI::TilePosition(pos)))
+            {
+                myUnit->moveTo(pullingBack ? Map::getMyMain()->getPosition() : targetPosition);
+            }
+            else
+            {
+                myUnit->move(pos, true);
             }
         }
-
-        auto regroupPosition = Map::getMyMain()->getPosition();
-        if (unitUnderThreat && furthest) regroupPosition = furthest->lastPosition;
-        else if (!unitUnderThreat && closest) regroupPosition = closest->lastPosition;
-
-        regroupToPosition(*this, regroupPosition);
     }
 }
