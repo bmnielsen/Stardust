@@ -265,6 +265,7 @@ TEST(Steamhammer, 11HatchTurtleLurker)
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
         Config::LocutusTestStrategyName = "11HatchTurtleLurker";
+        Config::LocutusTestForceGasSteal = true;
         return module;
     };
 
