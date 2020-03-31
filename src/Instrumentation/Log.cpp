@@ -12,11 +12,13 @@ namespace Log
     namespace
     {
         bool isOutputtingToConsole = false;
-        bool isDebugLogging;
         std::chrono::system_clock::time_point startTime;
         std::ofstream *log;
+#if DEBUG_LOGGING_ENABLED
+        bool isDebugLogging;
         std::ofstream *debugLog;
         std::map<std::string, std::ofstream *> csvFiles;
+#endif
         std::vector<std::string> logFiles;
 
         std::string logFileName(const std::string &base, bool csv = false)
@@ -90,7 +92,6 @@ namespace Log
 
     void initialize()
     {
-        isDebugLogging = false;
         startTime = std::chrono::system_clock::now();
 
         try
@@ -101,6 +102,8 @@ namespace Log
                 log = nullptr;
             }
 
+#if DEBUG_LOGGING_ENABLED
+            isDebugLogging = false;
             if (debugLog)
             {
                 debugLog->close();
@@ -114,19 +117,23 @@ namespace Log
                     csvFile.second->close();
                 }
             }
+
+            csvFiles.clear();
+#endif
         }
         catch (std::exception &ex)
         {
             // Ignore
         }
 
-        csvFiles.clear();
         logFiles.clear();
     }
 
     void SetDebug(bool debug)
     {
+#if DEBUG_LOGGING_ENABLED
         isDebugLogging = debug;
+#endif
     }
 
     void SetOutputToConsole(bool outputToConsole)
@@ -147,6 +154,7 @@ namespace Log
 
     LogWrapper Debug()
     {
+#if DEBUG_LOGGING_ENABLED
         if (!isDebugLogging) return LogWrapper(nullptr, false);
 
         if (!debugLog)
@@ -156,10 +164,14 @@ namespace Log
         }
 
         return LogWrapper(debugLog, false);
+#else
+        return LogWrapper(nullptr, false);
+#endif
     }
 
     LogWrapper Csv(const std::string &name)
     {
+#if DEBUG_LOGGING_ENABLED
         if (!isDebugLogging) return LogWrapper(nullptr, false);
 
         if (!csvFiles[name])
@@ -169,6 +181,9 @@ namespace Log
         }
 
         return LogWrapper(csvFiles[name], false, true);
+#else
+        return LogWrapper(nullptr, false);
+#endif
     }
 
     std::vector<std::string> &LogFiles()
