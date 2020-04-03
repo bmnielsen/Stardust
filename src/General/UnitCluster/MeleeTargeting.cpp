@@ -68,7 +68,7 @@ namespace
             return 11;
         }
         if (targetType.isWorker()
-            && (target->bwapiUnit->isRepairing() || target->bwapiUnit->isConstructing() || Map::nearNarrowChokepoint(target->lastPosition)))
+            && (target->bwapiUnit->isRepairing() || target->bwapiUnit->isConstructing() || Map::isInNarrowChoke(target->getTilePosition())))
         {
             return 11;
         }

@@ -26,7 +26,7 @@ namespace PathFinding
         {
             if (choke->width >= 128) continue;
 
-            auto tile = choke->highElevationTile.isValid() ? choke->highElevationTile : BWAPI::TilePosition(choke->Center());
+            auto tile = choke->highElevationTile.isValid() ? choke->highElevationTile : BWAPI::TilePosition(choke->center);
             createNavigationGrid(tile);
         }
     }

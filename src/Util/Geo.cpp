@@ -2,6 +2,11 @@
 
 #include <set>
 
+namespace
+{
+    const double pi = 3.14159265358979323846;
+}
+
 namespace Geo
 {
     int ApproximateDistance(int x1, int x2, int y1, int y2)
@@ -94,10 +99,11 @@ namespace Geo
         return true;
     }
 
-    BWAPI::Position FindClosestUnwalkablePosition(BWAPI::Position start, BWAPI::Position closeTo, int searchRadius)
+    BWAPI::Position FindClosestUnwalkablePosition(BWAPI::Position start, BWAPI::Position closeTo, int searchRadius, BWAPI::Position furtherFrom)
     {
         BWAPI::Position bestPos = BWAPI::Positions::Invalid;
         int bestDist = INT_MAX;
+        double furtherFromAngle = furtherFrom == BWAPI::Positions::Invalid ? 0.0 : atan2(start.y - furtherFrom.y, start.x - furtherFrom.x);
         for (int x = start.x - searchRadius; x <= start.x + searchRadius; x++)
         {
             for (int y = start.y - searchRadius; y <= start.y + searchRadius; y++)
@@ -105,7 +111,16 @@ namespace Geo
                 BWAPI::Position current(x, y);
                 if (!current.isValid()) continue;
                 if (BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(current))) continue;
+
                 int dist = current.getApproxDistance(closeTo);
+
+                // If this is defined, we expect this position to be opposite the one we find here
+                if (furtherFrom != BWAPI::Positions::Invalid)
+                {
+                    double angle = atan2(current.y - start.y, current.x - start.x);
+                    if (std::abs(angle - furtherFromAngle) > (pi / 2.0)) continue;
+                }
+
                 if (dist < bestDist)
                 {
                     bestPos = current;

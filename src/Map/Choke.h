@@ -9,11 +9,14 @@ class Choke
 public:
     explicit Choke(const BWEM::ChokePoint *_choke);
 
-    [[nodiscard]] BWAPI::Position Center() const { return BWAPI::Position(choke->Center()) + BWAPI::Position(4, 4); }
-
     const BWEM::ChokePoint *choke;
 
     int width;
+    BWAPI::Position center;
+
+    bool isNarrowChoke;
+    BWAPI::Position end1Center;
+    BWAPI::Position end2Center;
 
     bool isRamp;
     BWAPI::TilePosition highElevationTile;
@@ -27,6 +30,8 @@ public:
     BWAPI::Position secondAreaStartPosition;    // Start location to move to that should give visibility of secondAreaMineralPatch
 
 private:
+    void analyzeNarrowChoke();
+
     void computeRampHighGroundPosition();
 
     static void computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitType type, std::set<BWAPI::Position> &result);

@@ -542,20 +542,27 @@ namespace Map
 
             for (const auto &pair : chokes)
             {
-                if (pair.second->width > 96) continue;
+                if (!pair.second->isNarrowChoke) continue;
 
-                BWAPI::TilePosition chokeCenter(pair.second->Center());
-
-                for (int x = -5; x <= 5; x++)
+                auto addTilesNear = [](BWAPI::Position pos)
                 {
-                    for (int y = -5; y <= 5; y++)
-                    {
-                        BWAPI::TilePosition here(chokeCenter.x + x, chokeCenter.y + y);
-                        if (!here.isValid()) continue;
+                    if (!pos.isValid()) return;
 
-                        narrowChokeTiles[here.x + here.y * BWAPI::Broodwar->mapWidth()] = true;
+                    BWAPI::TilePosition tile(pos);
+                    for (int x = -3; x <= 3; x++)
+                    {
+                        for (int y = -3; y <= 3; y++)
+                        {
+                            BWAPI::TilePosition here(tile.x + x, tile.y + y);
+                            if (!here.isValid()) continue;
+
+                            narrowChokeTiles[here.x + here.y * BWAPI::Broodwar->mapWidth()] = true;
+                        }
                     }
-                }
+                };
+                addTilesNear(pair.second->center);
+                addTilesNear(pair.second->end1Center);
+                addTilesNear(pair.second->end2Center);
             }
 
 #if CHERRYVIS_ENABLED
@@ -583,7 +590,7 @@ namespace Map
                 {
                     auto choke = Map::choke(bwemChoke);
                     if (!choke) continue;
-                    if (choke->width > 96) goto NextArea;
+                    if (!choke->isNarrowChoke) goto NextArea;
                 }
 
                 leafAreas.insert(&area);
@@ -688,6 +695,36 @@ namespace Map
             }
 
             CherryVis::addHeatmap("MineralLines", mineralLineCvis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+
+            // Chokes
+            std::vector<long> chokesCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 16);
+            for (auto &bwemChokeAndChoke : chokes)
+            {
+                for (auto pos : bwemChokeAndChoke.first->Geometry())
+                {
+                    chokesCvis[pos.x + pos.y * BWAPI::Broodwar->mapWidth() * 4] = 1;
+                }
+
+                BWAPI::WalkPosition center(bwemChokeAndChoke.second->center);
+                chokesCvis[center.x + center.y * BWAPI::Broodwar->mapWidth() * 4] = 30;
+
+                if (bwemChokeAndChoke.second->isNarrowChoke)
+                {
+                    BWAPI::WalkPosition end1Center(bwemChokeAndChoke.second->end1Center);
+                    BWAPI::WalkPosition end2Center(bwemChokeAndChoke.second->end2Center);
+
+                    chokesCvis[end1Center.x + end1Center.y * BWAPI::Broodwar->mapWidth() * 4] = 20;
+                    chokesCvis[end2Center.x + end2Center.y * BWAPI::Broodwar->mapWidth() * 4] = 20;
+                }
+
+                if (bwemChokeAndChoke.second->highElevationTile.isValid())
+                {
+                    auto highTile = BWAPI::WalkPosition(bwemChokeAndChoke.second->highElevationTile) + BWAPI::WalkPosition(2, 2);
+                    chokesCvis[highTile.x + highTile.y * BWAPI::Broodwar->mapWidth() * 4] = 30;
+                }
+            }
+
+            CherryVis::addHeatmap("Chokes", chokesCvis, BWAPI::Broodwar->mapWidth() * 4, BWAPI::Broodwar->mapHeight() * 4);
 #endif
         }
     }
@@ -1123,19 +1160,6 @@ namespace Map
         if (path.empty()) return nullptr;
 
         return choke(*path.rbegin());
-    }
-
-    bool nearNarrowChokepoint(BWAPI::Position position)
-    {
-        for (auto choke : chokes)
-        {
-            if (choke.second->width < 64 && choke.second->Center().getApproxDistance(position) < 64)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     int minChokeWidth()

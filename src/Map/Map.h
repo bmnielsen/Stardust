@@ -58,8 +58,6 @@ namespace Map
 
     Choke *getMyMainChoke();
 
-    bool nearNarrowChokepoint(BWAPI::Position position);
-
     int minChokeWidth();
 
     void dumpVisibilityHeatmap();

@@ -172,7 +172,7 @@ namespace
                 return 11;
             }
             // Blocking a narrow choke makes you critical.
-            if (Map::nearNarrowChokepoint(target->lastPosition))
+            if (Map::isInNarrowChoke(target->getTilePosition()))
             {
                 return 11;
             }

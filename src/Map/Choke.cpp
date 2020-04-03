@@ -2,8 +2,49 @@
 
 #include "Geo.h"
 
+#if INSTRUMENTATION_ENABLED
+#define DUMP_NARROW_CHOKE_HEATMAPS false
+#define DEBUG_NARROW_CHOKE_ANALYSIS false
+#endif
+
+#define NARROW_CHOKE_THRESHOLD 128
+
 namespace
 {
+    const double pi = 3.14159265358979323846;
+    const double chokeSideAngleThreshold = pi / 6.0; // 30 degrees
+    const double chokeCrossAngleThreshold = pi / 12.0; // 15 degrees
+
+    double angleDiff(double first, double second)
+    {
+        double diff = std::abs(first - second);
+        while (diff > pi)
+        {
+            diff -= pi;
+        }
+
+        return std::min(diff, pi - diff);
+    }
+
+    std::vector<BWAPI::Position> walkPositionBorder(BWAPI::WalkPosition pos)
+    {
+        BWAPI::Position initial(pos);
+        return std::vector<BWAPI::Position>{
+                initial,
+                initial + BWAPI::Position(1, 0),
+                initial + BWAPI::Position(2, 0),
+                initial + BWAPI::Position(3, 0),
+                initial + BWAPI::Position(3, 1),
+                initial + BWAPI::Position(3, 2),
+                initial + BWAPI::Position(3, 3),
+                initial + BWAPI::Position(2, 3),
+                initial + BWAPI::Position(1, 3),
+                initial + BWAPI::Position(0, 3),
+                initial + BWAPI::Position(0, 2),
+                initial + BWAPI::Position(0, 1)
+        };
+    }
+
     // Does a unit of the given type at the given position block the choke?
     bool blocksChoke(BWAPI::Position pos, BWAPI::UnitType type)
     {
@@ -102,6 +143,10 @@ namespace
 Choke::Choke(const BWEM::ChokePoint *_choke)
         : choke(_choke)
         , width(0)
+        , center(BWAPI::Position(choke->Center()) + BWAPI::Position(4, 4))
+        , isNarrowChoke(false)
+        , end1Center(BWAPI::Positions::Invalid)
+        , end2Center(BWAPI::Positions::Invalid)
         , isRamp(false)
         , highElevationTile(BWAPI::TilePositions::Invalid)
         , requiresMineralWalk(false)
@@ -110,59 +155,398 @@ Choke::Choke(const BWEM::ChokePoint *_choke)
         , secondAreaMineralPatch(nullptr)
         , secondAreaStartPosition(BWAPI::Positions::Invalid)
 {
-    // Compute the choke width
+    // Estimate the choke width
     // Because the ends are themselves walkable tiles, we need to add a bit of padding to estimate the actual walkable width of the choke
+    // We do further refinement of narrow chokes later
     width = (int) BWAPI::Position(choke->Pos(choke->end1)).getDistance(BWAPI::Position(choke->Pos(choke->end2))) + 15;
 
-    // BWEM tends to not set the endpoints of blocked chokes properly
-    // So bump up the width in these cases
-    // If there is a map with a narrow blocked choke it will break
-    if (choke->Blocked() && width == 15) width = 32;
-
     // Check if the choke is a ramp
+    // TODO: This could technically fail if the "top" tile is at a different height than the end of the choke
     int firstAreaElevation = BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(choke->GetAreas().first->Top()));
     int secondAreaElevation = BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(choke->GetAreas().second->Top()));
     if (firstAreaElevation != secondAreaElevation)
     {
         isRamp = true;
-
-        // For narrow ramps, compute the tile nearest the center where the elevation
-        // changes from low to high ground
-        if (width < 128) computeRampHighGroundPosition();
     }
 
-    // If the choke is narrow, generate positions where we can block the enemy worker scout
-    if (width < 128)
+    // BWEM doesn't give us the information we need to properly fight at narrow chokes, so do some extra analysis
+    // Outputs:
+    // - Accurate choke width
+    // - Actual middle of the choke (BWEM can put the center at weird places sometimes)
+    // - Lengthwise ends of the choke (i.e. entrance and exit)
+    // - Positions where we can block a worker scout from getting through the choke
+    // - For ramps, position nearest the center where high ground begins
+    if (width < NARROW_CHOKE_THRESHOLD)
     {
-        // Initial center position using the BWEM data
-        BWAPI::Position centerPoint = BWAPI::Position(choke->Center()) + BWAPI::Position(4, 4);
-        BWAPI::Position end1 = Geo::FindClosestUnwalkablePosition(centerPoint, centerPoint, 64);
-        BWAPI::Position end2 = Geo::FindClosestUnwalkablePosition(BWAPI::Position(centerPoint.x + centerPoint.x - end1.x,
-                                                                                  centerPoint.y + centerPoint.y - end1.y), centerPoint, 32);
-        if (!end1.isValid() || !end2.isValid())
-        {
-            end1 = BWAPI::Position(choke->Pos(choke->end1)) + BWAPI::Position(4, 4);
-            end2 = BWAPI::Position(choke->Pos(choke->end2)) + BWAPI::Position(4, 4);
-        }
+        analyzeNarrowChoke();
 
-        // If the center is not really in the center, move it
-        double end1Dist = end1.getDistance(centerPoint);
-        double end2Dist = end2.getDistance(centerPoint);
-        if (std::abs(end1Dist - end2Dist) > 2.0)
+        if (isNarrowChoke)
         {
-            centerPoint = BWAPI::Position((end1.x + end2.x) / 2, (end1.y + end2.y) / 2);
-            end1Dist = end1.getDistance(centerPoint);
-            end2Dist = end2.getDistance(centerPoint);
-        }
+            if (isRamp)
+            {
+                computeRampHighGroundPosition();
+            }
 
-        computeScoutBlockingPositions(centerPoint, BWAPI::UnitTypes::Protoss_Probe, probeBlockScoutPositions);
-        computeScoutBlockingPositions(centerPoint, BWAPI::UnitTypes::Protoss_Zealot, zealotBlockScoutPositions);
+            computeScoutBlockingPositions(center, BWAPI::UnitTypes::Protoss_Probe, probeBlockScoutPositions);
+            computeScoutBlockingPositions(center, BWAPI::UnitTypes::Protoss_Zealot, zealotBlockScoutPositions);
+        }
     }
+}
+
+void Choke::analyzeNarrowChoke()
+{
+    // TODO: This approach does not work for chokes where one of the sides is a map edge
+
+    // Start by getting the sides closest to BWEM's center
+    BWAPI::Position side1 = Geo::FindClosestUnwalkablePosition(center, center, 64);
+    if (!side1.isValid()) return;
+
+    BWAPI::Position side2 = Geo::FindClosestUnwalkablePosition(center, center, 64, side1);
+    if (!side2.isValid()) return;
+
+#if DEBUG_NARROW_CHOKE_ANALYSIS
+    Log::Debug() << "Analyzing choke with initial center @ " << BWAPI::WalkPosition(center);
+#endif
+
+    // Compute the approximately angle of the choke
+    double angle = atan2(side1.y - side2.y, side1.x - side2.x) + (pi / 2.0);
+    while (angle < 0)
+    {
+        angle += pi;
+    }
+
+    // Now find the walls of the choke by tracing along each side, collecting walk positions that follow the approximate choke angle
+    auto traceChokeSide = [&angle](std::set<BWAPI::WalkPosition> &positions, BWAPI::WalkPosition initialPosition)
+    {
+#if DEBUG_NARROW_CHOKE_ANALYSIS
+        Log::Debug() << "Tracing choke side from " << initialPosition;
+#endif
+        positions.insert(initialPosition);
+
+        std::set<BWAPI::WalkPosition> visited;
+        std::deque<BWAPI::WalkPosition> queue;
+
+        auto visit = [&](BWAPI::WalkPosition pos)
+        {
+            if (visited.find(pos) != visited.end()) return;
+            visited.insert(pos);
+
+#if DEBUG_NARROW_CHOKE_ANALYSIS
+            Log::Debug() << "Visiting " << pos;
+#endif
+
+            // Find the closest position to this one that is already part of the choke side
+            int closestDist = INT_MAX;
+            BWAPI::WalkPosition closest = BWAPI::WalkPositions::Invalid;
+            for (auto other : positions)
+            {
+                auto dist = other.getApproxDistance(pos);
+                if (dist > 0 && dist < closestDist)
+                {
+                    closestDist = dist;
+                    closest = other;
+                }
+            }
+
+            // Compare the angle of this position to the closest existing position to the expected angle of the choke
+            if (closest != BWAPI::WalkPositions::Invalid)
+            {
+                double angleHere = atan2(pos.y - closest.y, pos.x - closest.x);
+                double diff = angleDiff(angleHere, angle);
+                if (diff < chokeSideAngleThreshold)
+                {
+                    positions.insert(pos);
+#if DEBUG_NARROW_CHOKE_ANALYSIS
+                    Log::Debug() << "Added part of choke side, angle diff vs. " << closest << " is " << (diff * 180.0 / pi);
+#endif
+                }
+                else
+                {
+#if DEBUG_NARROW_CHOKE_ANALYSIS
+                    Log::Debug() << "Not part of choke side, angle diff vs. " << closest << " is " << (diff * 180.0 / pi);
+#endif
+                }
+            }
+
+            // Add potential next positions depending on what neighbouring positions are walkable
+            // We go around all positions around this one and add the unwalkable positions that are next to a walkable position
+            auto createNeighbour = [&pos](int x, int y)
+            {
+                BWAPI::WalkPosition here(pos.x + x, pos.y + y);
+                if (!here.isValid())
+                {
+                    return std::make_pair(BWAPI::WalkPositions::Invalid, false);
+                }
+                return std::make_pair(here, BWAPI::Broodwar->isWalkable(here));
+            };
+
+            std::pair<BWAPI::WalkPosition, bool> neighbours[] = {
+                    createNeighbour(1, 0),
+                    createNeighbour(1, 1),
+                    createNeighbour(0, 1),
+                    createNeighbour(-1, 1),
+                    createNeighbour(-1, 0),
+                    createNeighbour(-1, -1),
+                    createNeighbour(0, -1),
+                    createNeighbour(1, -1),
+                    createNeighbour(1, 0),
+                    createNeighbour(1, 1)
+            };
+
+            for (int i = 1; i < 9; i++)
+            {
+                if (neighbours[i].first == BWAPI::WalkPositions::Invalid) continue;
+                if (neighbours[i].second) continue;
+                if (!neighbours[i - 1].second && !neighbours[i + 1].second) continue;
+                queue.push_back(neighbours[i].first);
+#if DEBUG_NARROW_CHOKE_ANALYSIS
+                Log::Debug() << "Pushed to queue " << neighbours[i].first;
+#endif
+            }
+        };
+
+        visit(initialPosition);
+
+        int lastSize = positions.size();
+        int visitsSinceLastSizeChange = 0;
+        while (!queue.empty())
+        {
+            visitsSinceLastSizeChange++;
+
+            auto here = queue.front();
+            queue.pop_front();
+
+            visit(here);
+
+            if (positions.size() > lastSize)
+            {
+                lastSize = positions.size();
+                visitsSinceLastSizeChange = 0;
+            }
+
+            if (visitsSinceLastSizeChange > 20) break;
+        }
+    };
+    std::set<BWAPI::WalkPosition> side1Positions, side2Positions;
+    traceChokeSide(side1Positions, BWAPI::WalkPosition(side1));
+    traceChokeSide(side2Positions, BWAPI::WalkPosition(side2));
+
+    // Get the choke width at each point on each side
+    auto addWidthIfSmaller = [](std::map<BWAPI::WalkPosition, std::pair<int, BWAPI::WalkPosition>> &widths,
+                                BWAPI::WalkPosition pos,
+                                BWAPI::WalkPosition other,
+                                int widthHere)
+    {
+        auto it = widths.find(pos);
+        if (it == widths.end() || it->second.first > widthHere) widths[pos] = std::make_pair(widthHere, other);
+    };
+    std::map<BWAPI::WalkPosition, std::pair<int, BWAPI::WalkPosition>> side1Width, side2Width;
+    std::map<BWAPI::WalkPosition, double> side1Angle, side2Angle;
+    int minWidth = INT_MAX;
+    for (auto side1Pos : side1Positions)
+    {
+        for (auto side2Pos : side2Positions)
+        {
+            int widthHere = (int) BWAPI::Position(side1Pos).getDistance(BWAPI::Position(side2Pos));
+            addWidthIfSmaller(side1Width, side1Pos, side2Pos, widthHere);
+            addWidthIfSmaller(side2Width, side2Pos, side1Pos, widthHere);
+            if (widthHere < minWidth) minWidth = widthHere;
+        }
+    }
+
+    // Trim positions where the width is much longer than the minimum width
+    auto trimWidePositions = [&minWidth](std::map<BWAPI::WalkPosition, std::pair<int, BWAPI::WalkPosition>> &widths,
+                                         std::set<BWAPI::WalkPosition> &positions)
+    {
+        int widthCutoff = (int) ((double) minWidth * 1.3);
+        for (auto it = positions.begin(); it != positions.end();)
+        {
+            if (widths[*it].first > widthCutoff)
+            {
+#if DEBUG_NARROW_CHOKE_ANALYSIS
+                Log::Debug() << "Removed " << *it << "; width: " << widths[*it].first << "; cutoff: " << widthCutoff;
+#endif
+                it = positions.erase(it);
+            }
+            else
+            {
+                it++;
+            }
+        }
+    };
+    trimWidePositions(side1Width, side1Positions);
+    trimWidePositions(side2Width, side2Positions);
+
+    // Find the angle at the minimum width
+    double angleAccumulator = 0.0;
+    int angleCount = 0;
+    int widthCutoff = (int) ((double) minWidth * 1.05);
+    for (auto posAndWidthAndOther : side1Width)
+    {
+        if (posAndWidthAndOther.second.first <= widthCutoff)
+        {
+#if DEBUG_NARROW_CHOKE_ANALYSIS
+            Log::Debug() << "Min width angle taken from " << posAndWidthAndOther.first << " to " << posAndWidthAndOther.second.second;
+#endif
+
+            angleAccumulator += atan2(posAndWidthAndOther.first.y - posAndWidthAndOther.second.second.y,
+                                      posAndWidthAndOther.first.x - posAndWidthAndOther.second.second.x);
+            angleCount++;
+        }
+    }
+    angle = angleAccumulator / (double) angleCount;
+    while (angle < 0)
+    {
+        angle += pi;
+    }
+
+    // Trim positions where the angle is much different than the minimum width angle
+    auto trimCrookedPositions = [&angle](std::map<BWAPI::WalkPosition, std::pair<int, BWAPI::WalkPosition>> &widths,
+                                         std::set<BWAPI::WalkPosition> &positions)
+    {
+        for (auto it = positions.begin(); it != positions.end();)
+        {
+            auto other = widths[*it].second;
+            double angleHere = atan2(it->y - other.y, it->x - other.x);
+            if (angleDiff(angle, angleHere) > chokeCrossAngleThreshold)
+            {
+#if DEBUG_NARROW_CHOKE_ANALYSIS
+                Log::Debug() << "Removed " << *it << " to " << other
+                             << "; angle: " << (angle * 180.0 / pi)
+                             << "; angleHere: " << (angleHere * 180.0 / pi)
+                             << "; angleDiff: " << (angleDiff(angle, angleHere) * 180.0 / pi);
+#endif
+                it = positions.erase(it);
+            }
+            else
+            {
+                it++;
+            }
+        }
+    };
+    trimCrookedPositions(side1Width, side1Positions);
+    trimCrookedPositions(side2Width, side2Positions);
+
+    if (side1Positions.empty() || side2Positions.empty())
+    {
+        Log::Get() << "ERROR: Trimmed all positions from choke @ " << BWAPI::WalkPosition(center);
+        return;
+    }
+
+    // At this point we know we have sufficient data to call this a narrow choke
+    isNarrowChoke = true;
+
+    // Now find the corners by getting the pairs of positions on each side that are furthest from each other
+    auto findFurthestPositions = [](std::set<BWAPI::WalkPosition> &positions, BWAPI::WalkPosition (&corners)[2])
+    {
+        int maxDist = -1;
+        for (auto pos : positions)
+        {
+            for (auto other : positions)
+            {
+                auto dist = pos.getApproxDistance(other);
+                if (dist > maxDist)
+                {
+                    maxDist = dist;
+                    corners[0] = pos;
+                    corners[1] = other;
+                }
+            }
+        }
+    };
+    BWAPI::WalkPosition wpSide1Ends[2], wpSide2Ends[2];
+    findFurthestPositions(side1Positions, wpSide1Ends);
+    findFurthestPositions(side2Positions, wpSide2Ends);
+
+    // Align the ends
+    double end1Angle = atan2(wpSide1Ends[0].y - wpSide2Ends[0].y, wpSide1Ends[0].x - wpSide2Ends[0].x);
+    double end2Angle = atan2(wpSide1Ends[0].y - wpSide2Ends[1].y, wpSide1Ends[0].x - wpSide2Ends[1].x);
+    if (angleDiff(angle, end1Angle) > angleDiff(angle, end2Angle))
+    {
+        BWAPI::WalkPosition tmp = wpSide2Ends[0];
+        wpSide2Ends[0] = wpSide2Ends[1];
+        wpSide2Ends[1] = tmp;
+    }
+
+    // Convert to positions by taking the closest points
+    auto findClosestPositions = [](BWAPI::WalkPosition wpFirst, BWAPI::WalkPosition wpSecond, BWAPI::Position *first, BWAPI::Position *second)
+    {
+        int minDist = INT_MAX;
+        for (auto firstPos : walkPositionBorder(wpFirst))
+        {
+            for (auto secondPos : walkPositionBorder(wpSecond))
+            {
+                int dist = firstPos.getApproxDistance(secondPos);
+                if (dist < minDist)
+                {
+                    minDist = dist;
+                    *first = firstPos;
+                    *second = secondPos;
+                }
+            }
+        }
+    };
+    BWAPI::Position side1Ends[2], side2Ends[2];
+    findClosestPositions(wpSide1Ends[0], wpSide2Ends[0], &side1Ends[0], &side2Ends[0]);
+    findClosestPositions(wpSide1Ends[1], wpSide2Ends[1], &side1Ends[1], &side2Ends[1]);
+
+    // Now that we have the corners, compute the center at each end
+    end1Center = (side1Ends[0] + side2Ends[0]) / 2;
+    end2Center = (side1Ends[1] + side2Ends[1]) / 2;
+
+    // The minimum width computed earlier is done with walk tiles, so adjust it a bit to approximate the actual width
+    width = minWidth - 8;
+
+    // Initialize the center as the centroid of the corners, then pull it to the center of the choke at that location
+    center = (side1Ends[0] + side1Ends[1] + side2Ends[0] + side2Ends[1]) / 4;
+    BWAPI::Position centerSide1 = Geo::FindClosestUnwalkablePosition(center, center, 64);
+    if (centerSide1.isValid())
+    {
+        BWAPI::Position centerSide2 = Geo::FindClosestUnwalkablePosition(BWAPI::Position(center.x + center.x - centerSide1.x,
+                                                                                         center.y + center.y - centerSide1.y),
+                                                                         center,
+                                                                         64,
+                                                                         centerSide1);
+        if (centerSide2.isValid()) center = (centerSide1 + centerSide2) / 2;
+    }
+
+#if DUMP_NARROW_CHOKE_HEATMAPS
+    std::vector<long> chokeData(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 16);
+
+    // Sides
+    for (auto pos : side1Positions)
+    {
+        chokeData[pos.x + pos.y * BWAPI::Broodwar->mapWidth() * 4] = 1;
+    }
+    for (auto pos : side2Positions)
+    {
+        chokeData[pos.x + pos.y * BWAPI::Broodwar->mapWidth() * 4] = 1;
+    }
+
+    // Ends
+    chokeData[wpSide1Ends[0].x + wpSide1Ends[0].y * BWAPI::Broodwar->mapWidth() * 4] = 100;
+    chokeData[wpSide1Ends[1].x + wpSide1Ends[1].y * BWAPI::Broodwar->mapWidth() * 4] = 100;
+    chokeData[wpSide2Ends[0].x + wpSide2Ends[0].y * BWAPI::Broodwar->mapWidth() * 4] = 100;
+    chokeData[wpSide2Ends[1].x + wpSide2Ends[1].y * BWAPI::Broodwar->mapWidth() * 4] = 100;
+
+    // Centers
+    BWAPI::WalkPosition wpCenter(center);
+    BWAPI::WalkPosition wpEnd1Center(end1Center);
+    BWAPI::WalkPosition wpEnd2Center(end2Center);
+    chokeData[wpCenter.x + wpCenter.y * BWAPI::Broodwar->mapWidth() * 4] = 100;
+    chokeData[wpEnd1Center.x + wpEnd1Center.y * BWAPI::Broodwar->mapWidth() * 4] = 100;
+    chokeData[wpEnd2Center.x + wpEnd2Center.y * BWAPI::Broodwar->mapWidth() * 4] = 100;
+
+    CherryVis::addHeatmap((std::ostringstream() << "Choke@" << wpCenter).str(),
+                          chokeData,
+                          BWAPI::Broodwar->mapWidth() * 4,
+                          BWAPI::Broodwar->mapHeight() * 4);
+#endif
 }
 
 void Choke::computeRampHighGroundPosition()
 {
-    BWAPI::Position chokeCenter = Center();
+    BWAPI::Position chokeCenter = center;
 
     int firstAreaElevation = BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(choke->GetAreas().first->Top()));
     int secondAreaElevation = BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(choke->GetAreas().second->Top()));
@@ -230,8 +614,6 @@ void Choke::computeRampHighGroundPosition()
             }
         }
     }
-
-    if (!highElevationTile.isValid()) highElevationTile = BWAPI::TilePosition(chokeCenter);
 
     computeScoutBlockingPositions(bestPos, BWAPI::UnitTypes::Protoss_Probe, probeBlockScoutPositions);
     computeScoutBlockingPositions(bestPos, BWAPI::UnitTypes::Protoss_Zealot, zealotBlockScoutPositions);

@@ -495,7 +495,7 @@ namespace BuildingPlacement
         auto mainChoke = Map::getMyMainChoke();
         if (mainChoke)
         {
-            neighbourhoodExits[Neighbourhood::MainBase] = mainChoke->Center();
+            neighbourhoodExits[Neighbourhood::MainBase] = mainChoke->center;
         }
         else
         {

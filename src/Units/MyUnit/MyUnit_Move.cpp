@@ -195,7 +195,7 @@ void MyUnitImpl::moveToNextWaypoint()
 
     // If it is a narrow ramp, move towards the point with highest elevation
     // We do this to make sure we explore the higher elevation part of the ramp before bugging out if it is blocked
-    if (choke->width < 96 && choke->isRamp)
+    if (choke->isNarrowChoke && choke->isRamp)
     {
         currentlyMovingTowards = BWAPI::Position(choke->highElevationTile) + BWAPI::Position(16, 16);
     }
@@ -285,7 +285,7 @@ void MyUnitImpl::updateMoveWaypoints()
         // If the current target is a narrow ramp, wait until we can see the high elevation tile
         // We want to make sure we go up the ramp far enough to see anything potentially blocking the ramp
         auto choke = Map::choke(*chokePath.begin());
-        if (choke->width < 96 && choke->isRamp && !BWAPI::Broodwar->isVisible(choke->highElevationTile))
+        if (choke->isNarrowChoke && choke->isRamp && !BWAPI::Broodwar->isVisible(choke->highElevationTile))
             return;
 
         // Move to the next waypoint
@@ -320,7 +320,7 @@ void MyUnitImpl::resetGrid()
 
     if (mineralWalkingChoke)
     {
-        grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(mineralWalkingChoke->Center()));
+        grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(mineralWalkingChoke->center));
     }
     else
     {
