@@ -6,7 +6,7 @@
 
 namespace
 {
-    bool shouldStartAttack(UnitCluster &cluster, CombatSimResult simResult)
+    bool shouldStartAttack(UnitCluster &cluster, const CombatSimResult &simResult)
     {
         // Don't start an attack until we have 48 frames of recommending attack with the same number of friendly units
 
@@ -53,7 +53,7 @@ namespace
         return true;
     }
 
-    bool shouldAbortAttack(UnitCluster &cluster, CombatSimResult simResult)
+    bool shouldAbortAttack(UnitCluster &cluster, const CombatSimResult &simResult)
     {
         // TODO: Would probably be a good idea to run a retreat sim to see what the consequences of retreating are
 
@@ -129,7 +129,6 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
 
     // Run combat sim
     auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits);
-    simResult.setAttacking(true);
 
     // If the sim result is nothing, and none of our units have a target, move instead of attacking
     if (simResult.myPercentLost() <= 0.001 && simResult.enemyPercentLost() <= 0.001)
@@ -154,6 +153,8 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
 
     // TODO: If our units can't do any damage (e.g. ground-only vs. air, melee vs. kiting ranged units), do something else
 
+    auto adjustedSimResult = simResult.adjustForChoke(true);
+
     // For now, decide to attack if one of these holds:
     // - Attacking does not cost us anything
     // - We gain value without losing too much of our army
@@ -162,32 +163,32 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     // TODO: Make this more dynamic, integrate more of the logic from old Locutus
     // TODO: Consider whether it is even more beneficial to wait for nearby reinforcements
     bool attack =
-            simResult.myPercentLost() <= 0.001 ||
-            (simResult.valueGain() > 0 && (simResult.percentGain() > -0.05 || simResult.myPercentageOfTotal() > 0.9)) ||
-            simResult.percentGain() > 0.2;
+            adjustedSimResult.myPercentLost() <= 0.001 ||
+            (adjustedSimResult.valueGain() > 0 && (adjustedSimResult.percentGain() > -0.05 || adjustedSimResult.myPercentageOfTotal() > 0.9)) ||
+            adjustedSimResult.percentGain() > 0.2;
 
 #if DEBUG_COMBATSIM
     CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                     << ": %l=" << simResult.myPercentLost()
-                     << "; vg=" << simResult.valueGain()
-                     << "; %g=" << simResult.percentGain()
+                     << ": %l=" << adjustedSimResult.myPercentLost()
+                     << "; vg=" << adjustedSimResult.valueGain()
+                     << "; %g=" << adjustedSimResult.percentGain()
                      << (attack ? "; ATTACK" : "; RETREAT");
 #endif
 
-    cluster.addSimResult(simResult, attack);
+    cluster.addSimResult(adjustedSimResult, attack);
 
     // Make the final decision based on what state we are currently in
 
     // Currently regrouping, but want to attack: do so once the sim has stabilized
     if (attack && cluster.currentActivity == UnitCluster::Activity::Regrouping)
     {
-        attack = shouldStartAttack(cluster, simResult);
+        attack = shouldStartAttack(cluster, adjustedSimResult);
     }
 
     // Currently attacking, but want to regroup: make sure regrouping is safe
     if (!attack && cluster.currentActivity == UnitCluster::Activity::Attacking)
     {
-        attack = !shouldAbortAttack(cluster, simResult);
+        attack = !shouldAbortAttack(cluster, adjustedSimResult);
     }
 
     if (attack)
@@ -200,5 +201,5 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     // TODO: Run retreat sim?
 
     cluster.setActivity(UnitCluster::Activity::Regrouping);
-    cluster.regroup(unitsAndTargets, enemyUnits, targetPosition);
+    cluster.regroup(unitsAndTargets, enemyUnits, simResult, targetPosition);
 }

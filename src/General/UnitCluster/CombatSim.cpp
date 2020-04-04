@@ -8,13 +8,11 @@
 #include "UnitUtil.h"
 
 #if INSTRUMENTATION_ENABLED
-    #define DEBUG_COMBATSIM_CSV false  // Writes a CSV file for each cluster with detailed sim information
+#define DEBUG_COMBATSIM_CSV false  // Writes a CSV file for each cluster with detailed sim information
 #endif
 
 namespace
 {
-    const double pi = 3.14159265358979323846;
-
     // Cache of unit scores
     int baseScore[BWAPI::UnitTypes::Enum::MAX];
     int scaledScore[BWAPI::UnitTypes::Enum::MAX];
@@ -156,6 +154,7 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
     int enemyPositionXAccumulator = 0;
     int enemyPositionYAccumulator = 0;
     int enemyCount = 0;
+    int enemyArea = 0;
     for (auto &unit : targets)
     {
         // Only include workers if they have been seen attacking recently
@@ -168,6 +167,7 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                 enemyPositionXAccumulator += unit->lastPosition.x;
                 enemyPositionYAccumulator += unit->lastPosition.y;
                 enemyCount++;
+                enemyArea += unit->type.width() * unit->type.height();
             }
         }
     }
@@ -239,24 +239,19 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
 
     // Check if the armies are separated by a narrow choke
     Choke *narrowChoke = nullptr;
-    double narrowChokeGain = 1.0;
     if (enemyCount > 0)
     {
-        auto clusterDiameterSquared = (double)area * 4.0 / pi;
         BWAPI::Position enemyCenter(enemyPositionXAccumulator / enemyCount, enemyPositionYAccumulator / enemyCount);
-
         for (auto &bwemChoke : PathFinding::GetChokePointPath(center,
-                                                          enemyCenter,
-                                                          BWAPI::UnitTypes::Protoss_Dragoon,
-                                                          PathFinding::PathFindingOptions::UseNearestBWEMArea))
+                                                              enemyCenter,
+                                                              BWAPI::UnitTypes::Protoss_Dragoon,
+                                                              PathFinding::PathFindingOptions::UseNearestBWEMArea))
         {
             auto choke = Map::choke(bwemChoke);
-            auto chokeWidthSquared = choke->width * choke->width;
-            if (chokeWidthSquared < clusterDiameterSquared)
+            if (choke->isNarrowChoke)
             {
-                // The gain is scaled from 1.0 (approximately same size) to 0.5 (cluster is 4+ times wider)
-                narrowChokeGain = std::min(narrowChokeGain, 0.25 + 0.75 * std::max(0.25, (double)choke->width / sqrt(clusterDiameterSquared)));
                 narrowChoke = choke;
+                break;
             }
         }
     }
@@ -283,12 +278,12 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
           << "-" << finalMine << "," << finalEnemy;
     if (narrowChoke)
     {
-        debug << "; narrowGain=" << narrowChokeGain << "; elevationGain=" << elevationGain;
+        debug << "; narrow choke @ " << BWAPI::WalkPosition(narrowChoke->center) << "; elevationGain=" << elevationGain;
     }
     CherryVis::log() << debug.str();
 #endif
 
-    return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, narrowChoke, narrowChokeGain, elevationGain);
+    return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, narrowChoke, area, enemyArea, elevationGain);
 }
 
 void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
@@ -302,17 +297,13 @@ void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
     recentSimResults.emplace_back(std::make_pair(simResult, attack));
 }
 
-CombatSimResult UnitCluster::averageRecentSimResults(int maxDepth)
+void UnitCluster::addRegroupSimResult(CombatSimResult &simResult, bool contain)
 {
-    CombatSimResult result;
-    int count = 0;
-    for (auto it = recentSimResults.rbegin(); it != recentSimResults.rend() && count < maxDepth; it++)
+    // Reset recent sim results if it hasn't been run on the last frame
+    if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->first.frame != BWAPI::Broodwar->getFrameCount() - 1)
     {
-        result += it->first;
-        count++;
+        recentRegroupSimResults.clear();
     }
 
-    if (count > 1) result /= count;
-
-    return result;
+    recentRegroupSimResults.emplace_back(std::make_pair(simResult, contain));
 }

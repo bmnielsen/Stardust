@@ -293,12 +293,17 @@ namespace Units
                   << ";stk=" << unit->bwapiUnit->isStuck()
                   << ";cdn=" << (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
 
+            if (unit->getUnstickUntil() >= BWAPI::Broodwar->getFrameCount())
+            {
+                debug << ";unstck=" << (unit->getUnstickUntil() - BWAPI::Broodwar->getFrameCount());
+            }
+
             if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon)
             {
                 debug << "\n";
 
                 auto myDragoon = std::dynamic_pointer_cast<MyDragoon>(unit);
-                debug << ";lstatk=" << myDragoon->getLastAttackStartedAt();
+                debug << "lstatk=" << myDragoon->getLastAttackStartedAt();
                 debug << ";nxtatk=" << myDragoon->getNextAttackPredictedAt();
                 debug << ";stkf=" << myDragoon->getPotentiallyStuckSince();
             }

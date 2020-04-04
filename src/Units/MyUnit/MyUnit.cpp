@@ -98,12 +98,20 @@ bool MyUnitImpl::unstick()
     // If we recently sent a command meant to unstick the unit, give it a bit of time to kick in
     if (unstickUntil > BWAPI::Broodwar->getFrameCount())
     {
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(id) << "Unstick pending until " << unstickUntil;
+#endif
+
         return true;
     }
 
     // If the unit is listed as stuck, send a stop command unless we have done so recently
     if (bwapiUnit->isStuck() && unstickUntil < (BWAPI::Broodwar->getFrameCount() - 10))
     {
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(id) << "Sending stop command to unstick";
+#endif
+
         stop();
         unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames();
         return true;

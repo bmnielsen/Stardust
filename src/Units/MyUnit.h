@@ -32,6 +32,8 @@ public:
 
     virtual bool unstick();
 
+    [[nodiscard]] int getUnstickUntil() const { return unstickUntil; };
+
     void move(BWAPI::Position position, bool force = false);
 
     void attack(BWAPI::Unit target);

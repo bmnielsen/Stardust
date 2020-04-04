@@ -10,7 +10,7 @@
 namespace
 {
     std::vector<std::string> ActivityNames = {"Moving", "Attacking", "Regrouping"};
-    std::vector<std::string> SubActivityNames = {"None", "Contain", "Flee"};
+    std::vector<std::string> SubActivityNames = {"None", "ContainStaticDefense", "ContainChoke", "Flee"};
 }
 
 UnitCluster::UnitCluster(const MyUnit &unit)

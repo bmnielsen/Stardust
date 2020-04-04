@@ -7,13 +7,14 @@
 class UnitCluster
 {
 public:
+    // Remember to update name vectors in UnitCluster.cpp when changing these
     enum Activity
     {
         Moving, Attacking, Regrouping //, Exploding, Flanking, PerformingRunBy
     };
     enum SubActivity
     {
-        None, Contain, Flee
+        None, ContainStaticDefense, ContainChoke, Flee
     };
 
     BWAPI::Position center;
@@ -25,6 +26,7 @@ public:
     int lastActivityChange;
 
     std::deque<std::pair<CombatSimResult, bool>> recentSimResults;
+    std::deque<std::pair<CombatSimResult, bool>> recentRegroupSimResults;
 
     explicit UnitCluster(const MyUnit &unit);
 
@@ -44,19 +46,30 @@ public:
 
     virtual void move(BWAPI::Position targetPosition);
 
-    virtual void regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
+    virtual void regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                         std::set<Unit> &enemyUnits,
+                         const CombatSimResult &simResult,
+                         BWAPI::Position targetPosition);
 
     std::vector<std::pair<MyUnit, Unit>>
     selectTargets(std::set<Unit> &targets, BWAPI::Position targetPosition);
 
     virtual void attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition);
 
+    void containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                     std::set<Unit> &enemyUnits,
+                     BWAPI::Position targetPosition);
+
+    void holdChoke(Choke *choke,
+                   std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                   BWAPI::Position targetPosition);
+
     CombatSimResult
     runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &targets);
 
     void addSimResult(CombatSimResult &simResult, bool attack);
 
-    CombatSimResult averageRecentSimResults(int maxDepth);
+    void addRegroupSimResult(CombatSimResult &simResult, bool contain);
 
 protected:
     static Unit ChooseMeleeTarget(const MyUnit &attacker, std::set<Unit> &targets, BWAPI::Position targetPosition);

@@ -6,7 +6,7 @@
 
 namespace
 {
-    bool shouldStartAttack(UnitCluster &cluster, CombatSimResult simResult)
+    bool shouldStartAttack(UnitCluster &cluster, const CombatSimResult &simResult)
     {
         // Don't start an attack until we have 24 frames of recommending attack with the same number of friendly units
 
@@ -53,7 +53,7 @@ namespace
         return true;
     }
 
-    bool shouldAbortAttack(UnitCluster &cluster, CombatSimResult simResult)
+    bool shouldAbortAttack(UnitCluster &cluster, const CombatSimResult &simResult)
     {
         // If this is the first run of the combat sim for this fight, always abort immediately
         if (cluster.recentSimResults.size() < 2)
@@ -114,7 +114,7 @@ void DefendBaseSquad::setTargetPosition()
         auto mainChoke = Map::getMyMainChoke();
         if (mainChoke)
         {
-            targetPosition = mainChoke->Center();
+            targetPosition = mainChoke->center;
             return;
         }
     }
@@ -139,7 +139,7 @@ void DefendBaseSquad::setTargetPosition()
 
         if (choke)
         {
-            targetPosition = choke->Center();
+            targetPosition = choke->center;
             return;
         }
     }
@@ -183,36 +183,36 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
 
     // Run combat sim
     auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits);
-    simResult.setAttacking(false);
+    auto adjustedSimResult = simResult.adjustForChoke(false);
 
     // TODO: Needs tuning
     bool attack =
-            simResult.myPercentLost() <= 0.001 ||
-            (simResult.valueGain() > 0 && simResult.percentGain() > -0.05) ||
-            simResult.percentGain() > 0.2;
+            adjustedSimResult.myPercentLost() <= 0.001 ||
+            (adjustedSimResult.valueGain() > 0 && adjustedSimResult.percentGain() > -0.05) ||
+            adjustedSimResult.percentGain() > 0.2;
 
 #if DEBUG_COMBATSIM
     CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                     << ": %l=" << simResult.myPercentLost()
-                     << "; vg=" << simResult.valueGain()
-                     << "; %g=" << simResult.percentGain()
+                     << ": %l=" << adjustedSimResult.myPercentLost()
+                     << "; vg=" << adjustedSimResult.valueGain()
+                     << "; %g=" << adjustedSimResult.percentGain()
                      << (attack ? "; ATTACK" : "; RETREAT");
 #endif
 
-    cluster.addSimResult(simResult, attack);
+    cluster.addSimResult(adjustedSimResult, attack);
 
     // Make the final decision based on what state we are currently in
 
     // Currently regrouping, but want to attack: do so once the sim has stabilized
     if (attack && cluster.currentActivity == UnitCluster::Activity::Regrouping)
     {
-        attack = shouldStartAttack(cluster, simResult);
+        attack = shouldStartAttack(cluster, adjustedSimResult);
     }
 
     // Currently attacking, but want to regroup: make sure regrouping is safe
     if (!attack && cluster.currentActivity == UnitCluster::Activity::Attacking)
     {
-        attack = !shouldAbortAttack(cluster, simResult);
+        attack = !shouldAbortAttack(cluster, adjustedSimResult);
     }
 
     if (attack)
