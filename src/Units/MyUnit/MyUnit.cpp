@@ -15,6 +15,7 @@ MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         , gridNode(nullptr)
         , lastMoveFrame(0)
         , unstickUntil(-1)
+        , frameLastMoved(0)
 {
 }
 
@@ -27,6 +28,8 @@ std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit)
 void MyUnitImpl::update(BWAPI::Unit unit)
 {
     if (!unit || !unit->exists()) return;
+
+    if (unit->getPosition() != lastPosition) frameLastMoved = BWAPI::Broodwar->getFrameCount();
 
     UnitImpl::update(unit);
 

@@ -399,6 +399,17 @@ bool MyUnitImpl::unstickMoveUnit()
         return false;
     }
 
+    // If we haven't moved for the past 48 frames, assume previous attempts to unstick the unit have failed and try to reset completely
+    if (lastMoveFrame < (BWAPI::Broodwar->getFrameCount() - 48))
+    {
+#ifdef DEBUG_UNIT_ORDERS
+        CherryVis::log(id) << "Unstick by sending stop command";
+#endif
+        stop();
+        unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames();
+        return true;
+    }
+
     // We are stuck. If we are close to unwalkable terrain, move along it to get us moving again.
     if (isNextToUnwalkableTerrain(getTilePosition()))
     {

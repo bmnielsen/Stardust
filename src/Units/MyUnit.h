@@ -34,6 +34,8 @@ public:
 
     [[nodiscard]] int getUnstickUntil() const { return unstickUntil; };
 
+    [[nodiscard]] int getLastMoveFrame() const { return lastMoveFrame; };
+
     void move(BWAPI::Position position, bool force = false);
 
     void attack(BWAPI::Unit target);
@@ -96,6 +98,9 @@ protected:
 
     // If we have sent a command to the unit to unstick it, when we should next send a normal command again.
     int unstickUntil;
+
+    // The frame when the unit last changed position
+    int frameLastMoved;
 
     void initiateMove();
 

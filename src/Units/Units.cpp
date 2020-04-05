@@ -291,6 +291,7 @@ namespace Units
 
             debug << ";mvng=" << unit->bwapiUnit->isMoving() << ";rdy=" << unit->isReady()
                   << ";stk=" << unit->bwapiUnit->isStuck()
+                  << ";lstmv=" << (unit->getLastMoveFrame() - BWAPI::Broodwar->getFrameCount())
                   << ";cdn=" << (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
 
             if (unit->getUnstickUntil() >= BWAPI::Broodwar->getFrameCount())
