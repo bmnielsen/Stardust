@@ -101,36 +101,56 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
             auto nextNode = node ? node->nextNode : nullptr;
             auto secondNode = nextNode ? nextNode->nextNode : nullptr;
 
+            BWAPI::Position nextNodeCenter, secondNodeCenter;
             if (secondNode)
             {
-                // Move towards the second node if none are under threat
-                // Move away from the second node if the next node is under threat
-                // Do nothing if the first node is not under threat and the second node is
-                int length = goalWeight;
-                if (grid.groundThreat(nextNode->center()) > 0)
-                {
-                    length = -goalWeight;
-                    pullingBack = true;
-                }
-                else if (grid.groundThreat(secondNode->center()) > 0)
-                {
-                    length = 0;
-                }
-                if (length != 0)
-                {
-                    auto scaled = Geo::ScaleVector(secondNode->center() - myUnit->lastPosition, length);
-                    if (scaled != BWAPI::Positions::Invalid)
-                    {
-                        goalX = scaled.x;
-                        goalY = scaled.y;
-                    }
-                }
+                nextNodeCenter = nextNode->center();
+                secondNodeCenter = secondNode->center();
             }
             else
             {
-                // TODO: Implement a fallback if needed (use next choke?)
-                Log::Get() << "WARNING: Trying to do contain movement without navigation grid! "
-                           << *myUnit << "; targetPosition=" << BWAPI::WalkPosition(targetPosition);
+                // We hit this if we have no valid path to the base we are attacking, which might happen if the enemy walls it off
+                // So we use a vector towards the next choke instead
+                // If the next choke is very close, use the one after that instead
+                auto path = PathFinding::GetChokePointPath(myUnit->lastPosition, targetPosition, myUnit->type);
+                BWAPI::Position waypoint = BWAPI::Positions::Invalid;
+                for (const auto &bwemChoke : PathFinding::GetChokePointPath(myUnit->lastPosition, targetPosition, myUnit->type))
+                {
+                    auto chokeCenter = Map::choke(bwemChoke)->center;
+                    if (myUnit->getDistance(chokeCenter) > 128)
+                    {
+                        waypoint = chokeCenter;
+                        break;
+                    }
+                }
+                if (!waypoint.isValid()) waypoint = targetPosition;
+
+                auto vector = waypoint - myUnit->lastPosition;
+                nextNodeCenter = Geo::ScaleVector(vector, 32);
+                secondNodeCenter = Geo::ScaleVector(vector, 64);
+            }
+
+            // Move towards the second node if none are under threat
+            // Move away from the second node if the next node is under threat
+            // Do nothing if the first node is not under threat and the second node is
+            int length = goalWeight;
+            if (grid.groundThreat(nextNodeCenter) > 0)
+            {
+                length = -goalWeight;
+                pullingBack = true;
+            }
+            else if (grid.groundThreat(secondNodeCenter) > 0)
+            {
+                length = 0;
+            }
+            if (length != 0)
+            {
+                auto scaled = Geo::ScaleVector(secondNodeCenter - myUnit->lastPosition, length);
+                if (scaled != BWAPI::Positions::Invalid)
+                {
+                    goalX = scaled.x;
+                    goalY = scaled.y;
+                }
             }
         }
 
