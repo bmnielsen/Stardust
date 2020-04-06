@@ -38,6 +38,7 @@ TEST(Steamhammer, RunUntilLoss)
                 replayName << "_LOSS";
             }
             if (test.sharedMemory) replayName << "_" << test.sharedMemory;
+            replayName << "_" << test.randomSeed;
             test.replayName = replayName.str();
 
             count++;
@@ -86,6 +87,7 @@ TEST(Steamhammer, RunForever)
                 lost++;
             }
             if (test.sharedMemory) replayName << "_" << test.sharedMemory;
+            replayName << "_" << test.randomSeed;
             test.replayName = replayName.str();
 
             count++;
