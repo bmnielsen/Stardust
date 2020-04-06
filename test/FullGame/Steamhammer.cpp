@@ -196,6 +196,22 @@ TEST(Steamhammer, 9PoolSpeed)
     test.run();
 }
 
+TEST(Steamhammer, 8Hatch7Pool)
+{
+    BWTest test;
+    test.map = "maps/sscai/(4)Circuit Breaker.scx";
+    test.randomSeed = 59756;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::LocutusTestStrategyName = "8Hatch7Pool";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, 9PoolSpeedAllIn)
 {
     BWTest test;
