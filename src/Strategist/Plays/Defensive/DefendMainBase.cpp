@@ -105,6 +105,7 @@ void DefendMainBase::update()
     // Order base production of what we want in the squad until our army is large enough
     // TODO: Remember gas steals when this is changed
     int zealotsNeeded = 4 - squad->getUnits().size();
+    if (gasSteal) zealotsNeeded = 1000;
     if (zealotsNeeded > 0)
     {
         status.unitRequirements.emplace_back(zealotsNeeded, BWAPI::UnitTypes::Protoss_Zealot, squad->getTargetPosition());

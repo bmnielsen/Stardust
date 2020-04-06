@@ -7,21 +7,13 @@
 class DefendBaseSquad : public Squad
 {
 public:
-    explicit DefendBaseSquad(Base *base)
-            : Squad((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
-            , base(base)
-    {
-        setTargetPosition();
-        defaultTargetPosition = targetPosition;
-    }
+    explicit DefendBaseSquad(Base *base);
 
     virtual ~DefendBaseSquad() = default;
 
 private:
     Base *base;
-    BWAPI::Position defaultTargetPosition;
-
-    void setTargetPosition();
+    Choke *choke;
 
     void execute(UnitCluster &cluster) override;
 };

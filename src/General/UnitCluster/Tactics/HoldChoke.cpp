@@ -4,7 +4,6 @@
 #include "Players.h"
 #include "Map.h"
 #include "Geo.h"
-#include "General.h"
 #include "UnitUtil.h"
 
 /*
@@ -99,29 +98,37 @@ void UnitCluster::holdChoke(Choke *choke,
         }
 
         // This unit should move, so add it to the vector
+
+        // Determine the position this unit is keeping its distance from
         BWAPI::Position targetPos;
-        int desiredDist;
-        if (UnitUtil::IsRangedUnit(myUnit->type))
+        int distDiff;
+
+        // If the unit is on the wrong side of the choke, it moves through it first
+        int closeEndDist = myUnit->getDistance(closeEnd);
+        if (myUnit->getDistance(farEnd) < closeEndDist)
         {
-            // Ranged units try to keep rangedTarget in weapon range
+            targetPos = closeEnd;
+            distDiff = closeEndDist;
+        }
+        else if (UnitUtil::IsRangedUnit(myUnit->type))
+        {
             targetPos = rangedTarget;
-            desiredDist = Players::weaponRange(myUnit->player, myUnit->type.groundWeapon());
+            distDiff = myUnit->getDistance(targetPos) - Players::weaponRange(myUnit->player, myUnit->type.groundWeapon());
         }
         else
         {
-            // Melee units try to keep centerDist from the choke center
             targetPos = choke->center;
-            desiredDist = centerDist;
+            distDiff = myUnit->getDistance(targetPos) - centerDist;
         }
 
         unitsAndMoveTargets.emplace_back(std::make_tuple(myUnit,
                                                          myUnit->predictPosition(BWAPI::Broodwar->getLatencyFrames()),
-                                                         myUnit->getDistance(targetPos) - desiredDist,
+                                                         distDiff,
                                                          targetPos));
     }
 
     // Now execute move orders
-    auto navigationGrid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
+    auto navigationGrid = PathFinding::getNavigationGrid(BWAPI::TilePosition(choke->center));
     for (auto &moveUnit : unitsAndMoveTargets)
     {
         auto &myUnit = std::get<0>(moveUnit);
@@ -245,7 +252,8 @@ void UnitCluster::holdChoke(Choke *choke,
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(myUnit->id) << "Target not walkable; pulling back";
 #endif
-            myUnit->move(Map::getMyMain()->getPosition());
+            // This isn't really correct for ranged units, but we don't expect them to be getting invalid positions often
+            myUnit->move(closeEnd, true);
         }
         else
         {

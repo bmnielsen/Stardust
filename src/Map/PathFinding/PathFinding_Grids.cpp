@@ -24,10 +24,9 @@ namespace PathFinding
         }
         for (auto choke : Map::allChokes())
         {
-            if (choke->width >= 128) continue;
+            if (!choke->isNarrowChoke) continue;
 
-            auto tile = choke->highElevationTile.isValid() ? choke->highElevationTile : BWAPI::TilePosition(choke->center);
-            createNavigationGrid(tile);
+            createNavigationGrid(BWAPI::TilePosition(choke->center));
         }
     }
 

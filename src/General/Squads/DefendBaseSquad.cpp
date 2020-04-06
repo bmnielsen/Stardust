@@ -106,25 +106,18 @@ namespace
     }
 }
 
-void DefendBaseSquad::setTargetPosition()
+DefendBaseSquad::DefendBaseSquad(Base *base)
+        : Squad((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
+        , base(base)
 {
-    // If the base is our main, defend at the single main choke (if there is one)
     if (base == Map::getMyMain())
     {
-        auto mainChoke = Map::getMyMainChoke();
-        if (mainChoke)
-        {
-            targetPosition = mainChoke->center;
-            return;
-        }
+        choke = Map::getMyMainChoke();
     }
-
-    // If this base is our natural, defend at the single natural choke (if there is one)
-    if (base == Map::getMyNatural())
+    else if (base == Map::getMyNatural())
     {
         // Find a single unblocked choke out of the natural that doesn't go to our main
         auto mainArea = Map::getMyMain()->getArea();
-        Choke *choke = nullptr;
         for (auto bwemChoke : base->getArea()->ChokePoints())
         {
             if (bwemChoke->Blocked()) continue;
@@ -136,16 +129,16 @@ void DefendBaseSquad::setTargetPosition()
             }
             choke = Map::choke(bwemChoke);
         }
-
-        if (choke)
-        {
-            targetPosition = choke->center;
-            return;
-        }
     }
 
-    // By default we defend at the center of the mineral line
-    targetPosition = base->mineralLineCenter;
+    if (choke)
+    {
+        targetPosition = choke->center;
+    }
+    else
+    {
+        targetPosition = base->mineralLineCenter;
+    }
 }
 
 void DefendBaseSquad::execute(UnitCluster &cluster)
@@ -153,16 +146,20 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
     std::set<Unit> enemyUnits;
 
     // Get enemy combat units in our base
-    auto combatUnitPredicate = [](const Unit &unit)
+    auto combatUnitSeenRecentlyPredicate = [](const Unit &unit)
     {
-        return UnitUtil::IsCombatUnit(unit->type) && UnitUtil::CanAttackGround(unit->type);
+        return UnitUtil::IsCombatUnit(unit->type) && UnitUtil::CanAttackGround(unit->type)
+               && unit->lastSeen > (BWAPI::Broodwar->getFrameCount() - 48);
     };
-    Units::enemyInArea(enemyUnits, Map::getMyMain()->getArea(), combatUnitPredicate);
+    Units::enemyInArea(enemyUnits, Map::getMyMain()->getArea(), combatUnitSeenRecentlyPredicate);
 
     bool enemyInOurBase = !enemyUnits.empty();
 
-    // Get enemy combat units very close to the default target position
-    Units::enemyInRadius(enemyUnits, defaultTargetPosition, 64, combatUnitPredicate);
+    // If there is a choke, get enemy combat units very close to the default target position
+    if (choke)
+    {
+        Units::enemyInRadius(enemyUnits, choke->center, 64, combatUnitSeenRecentlyPredicate);
+    }
 
     // If there are no enemy combat units, include enemy buildings to defend against gas steals or other cheese
     if (enemyUnits.empty())
@@ -171,6 +168,8 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
         {
             return unit->type.isBuilding() && !unit->isFlying;
         });
+
+        enemyInOurBase = !enemyUnits.empty();
     }
 
     updateDetectionNeeds(enemyUnits);
@@ -178,8 +177,11 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
     // Select targets
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
 
-    // Consider enemy units in a bit larger radius to the default target position for the combat sim
-    Units::enemyInRadius(enemyUnits, defaultTargetPosition, 192);
+    // Consider enemy units in a bit larger radius to the choke for the combat sim
+    if (choke)
+    {
+        Units::enemyInRadius(enemyUnits, choke->center, 192, combatUnitSeenRecentlyPredicate);
+    }
 
     // Run combat sim
     auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits);
@@ -188,8 +190,7 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
     // TODO: Needs tuning
     bool attack =
             adjustedSimResult.myPercentLost() <= 0.001 ||
-            (adjustedSimResult.valueGain() > 0 && adjustedSimResult.percentGain() > -0.05) ||
-            adjustedSimResult.percentGain() > 0.2;
+            adjustedSimResult.percentGain() > -0.1;
 
 #if DEBUG_COMBATSIM
     CherryVis::log() << BWAPI::WalkPosition(cluster.center)
@@ -219,10 +220,19 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
     {
         cluster.setActivity(UnitCluster::Activity::Attacking);
 
-        // Reset our defensive position when all enemy units are out of our base
-        if (!enemyInOurBase) targetPosition = defaultTargetPosition;
+        // Reset our defensive position to the choke when all enemy units are out of our base
+        if (!enemyInOurBase && choke) targetPosition = choke->center;
 
-        cluster.attack(unitsAndTargets, targetPosition);
+        // If defending at a narrow choke, use hold choke micro, otherwise just attack
+        if (!enemyInOurBase && choke && choke->isNarrowChoke)
+        {
+            cluster.holdChoke(choke, unitsAndTargets, targetPosition);
+        }
+        else
+        {
+            cluster.attack(unitsAndTargets, targetPosition);
+        }
+
         return;
     }
 
