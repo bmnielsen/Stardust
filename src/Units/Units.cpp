@@ -225,6 +225,58 @@ namespace Units
             enemyUnitDestroyed(unit);
         }
 
+        // Occasionally check for any inconsistencies in the enemy unit collections
+        if (BWAPI::Broodwar->getFrameCount() % 48 == 0)
+        {
+            for (auto it = enemyUnits.begin(); it != enemyUnits.end(); )
+            {
+                auto &unit = *it;
+                if (!unit->exists())
+                {
+                    Log::Get() << "ERROR: " << *unit << " in enemyUnits does not exist!";
+                    it = enemyUnits.erase(it);
+                }
+                else if (unit->player != BWAPI::Broodwar->enemy())
+                {
+                    Log::Get() << "ERROR: " << *unit << " in enemyUnits not owned by enemy!";
+                    it = enemyUnits.erase(it);
+                }
+                else if (unit->bwapiUnit->isVisible() && unit->bwapiUnit->getPlayer() != BWAPI::Broodwar->enemy())
+                {
+                    Log::Get() << "ERROR: " << *unit << " in enemyUnits not owned by enemy (bwapiUnit)!";
+                    it = enemyUnits.erase(it);
+                }
+                else
+                {
+                    it++;
+                }
+            }
+
+            for (auto it = unitIdToEnemyUnit.begin(); it != unitIdToEnemyUnit.end(); )
+            {
+                auto &unit = it->second;
+                if (!unit->exists())
+                {
+                    Log::Get() << "ERROR: " << *unit << " in unitIdToEnemyUnit does not exist!";
+                    it = unitIdToEnemyUnit.erase(it);
+                }
+                else if (unit->player != BWAPI::Broodwar->enemy())
+                {
+                    Log::Get() << "ERROR: " << *unit << " in unitIdToEnemyUnit not owned by enemy!";
+                    it = unitIdToEnemyUnit.erase(it);
+                }
+                else if (unit->bwapiUnit->isVisible() && unit->bwapiUnit->getPlayer() != BWAPI::Broodwar->enemy())
+                {
+                    Log::Get() << "ERROR: " << *unit << " in unitIdToEnemyUnit not owned by enemy (bwapiUnit)!";
+                    it = unitIdToEnemyUnit.erase(it);
+                }
+                else
+                {
+                    it++;
+                }
+            }
+        }
+
         // Output debug info for our own units
         for (auto &unit : myUnits)
         {
