@@ -46,6 +46,9 @@ Tasks:
 #include "Players.h"
 
 #if INSTRUMENTATION_ENABLED
+    // While instrumenting we have a global frame limit to ensure we get data if the game locks up
+    #define FRAME_LIMIT 30000
+
     // Heatmaps are quite large, so we don't always want to write them every frame
     // These defines configure what frequency to dump them, or 0 to disable them
     #define COLLISION_HEATMAP_FREQUENCY_ENEMY 0
@@ -68,19 +71,11 @@ namespace
         Map::onUnitDiscover(unit);
     }
 
-    void handleUnitCreate(BWAPI::Unit unit)
-    {
-    }
-
     void handleUnitDestroy(BWAPI::Unit unit)
     {
         Map::onUnitDestroy(unit);
         Units::onUnitDestroy(unit);
         Workers::onUnitDestroy(unit);
-    }
-
-    void handleUnitMorph(BWAPI::Unit unit)
-    {
     }
 }
 
@@ -138,12 +133,15 @@ void LocutusAIModule::onEnd(bool isWinner)
 void LocutusAIModule::onFrame()
 {
     if (BWAPI::BroodwarPtr->getFrameCount() < frameSkip) return;
+    if (gameFinished) return;
 
-    if (BWAPI::Broodwar->getFrameCount() > 30000)
+#ifdef FRAME_LIMIT
+    if (BWAPI::Broodwar->getFrameCount() > FRAME_LIMIT)
     {
         BWAPI::Broodwar->leaveGame();
         return;
     }
+#endif
 
     Timer::start("Frame");
 
@@ -159,14 +157,20 @@ void LocutusAIModule::onFrame()
             case BWAPI::EventType::UnitDiscover:
                 handleUnitDiscover(event.getUnit());
                 break;
-            case BWAPI::EventType::UnitCreate:
-                handleUnitCreate(event.getUnit());
-                break;
             case BWAPI::EventType::UnitDestroy:
                 handleUnitDestroy(event.getUnit());
                 break;
-            case BWAPI::EventType::UnitMorph:
-                handleUnitMorph(event.getUnit());
+            case BWAPI::EventType::PlayerLeft:
+                if (event.getPlayer() == BWAPI::Broodwar->enemy())
+                {
+                    Log::Get() << "Opponent has left the game";
+                    BWAPI::Broodwar->sendText("gg");
+                    gameFinished = true;
+                    return;
+                }
+                break;
+            case BWAPI::EventType::ReceiveText:
+                Log::Get() << "Received text: " << event.getText();
                 break;
             default:
                 break;
