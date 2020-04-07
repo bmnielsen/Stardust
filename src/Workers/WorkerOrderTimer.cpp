@@ -7,6 +7,13 @@ namespace WorkerOrderTimer
 {
     namespace
     {
+        std::vector<std::string> dataLoadPaths = {
+                "bwapi-data/AI/",
+                "bwapi-data/read/",
+                "bwapi-data/write/"
+        };
+        std::string dataWritePath = "bwapi-data/write/";
+
         struct PositionAndVelocity
         {
             BWAPI::Position position;
@@ -38,11 +45,20 @@ namespace WorkerOrderTimer
         std::map<BWAPI::Unit, std::set<PositionAndVelocity>> resourceToOptimalOrderPositions;
         std::map<MyUnit, std::map<int, PositionAndVelocity>> workerPositionHistory;
 
-        std::string resourceOptimalOrderPositionsFilename()
+        std::string resourceOptimalOrderPositionsFilename(bool writing = false)
         {
-            std::ostringstream filename;
-            filename << "bwapi-data/write/" << BWAPI::Broodwar->mapHash() << "_resourceOptimalOrderPositions.csv";
-            return filename.str();
+            if (writing)
+            {
+                return (std::ostringstream() << dataWritePath << BWAPI::Broodwar->mapHash() << "_resourceOptimalOrderPositions.csv").str();
+            }
+
+            for (auto &path : dataLoadPaths)
+            {
+                auto filename = (std::ostringstream() << path << BWAPI::Broodwar->mapHash() << "_resourceOptimalOrderPositions.csv").str();
+                if (std::filesystem::exists(filename)) return filename;
+            }
+
+            return "";
         }
 
         std::vector<int> readCsvLine(std::istream &str)
@@ -113,7 +129,7 @@ namespace WorkerOrderTimer
     void write()
     {
         std::ofstream file;
-        file.open(resourceOptimalOrderPositionsFilename(), std::ofstream::trunc);
+        file.open(resourceOptimalOrderPositionsFilename(true), std::ofstream::trunc);
 
         for (auto &resourceAndOptimalOrderPositions : resourceToOptimalOrderPositions)
         {
