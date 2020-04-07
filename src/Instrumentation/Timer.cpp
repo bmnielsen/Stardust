@@ -10,9 +10,12 @@ namespace Timer
 #ifdef DEBUG
         const int LOG_CUTOFF = 10000;
         const int DEBUG_CUTOFF = 10000;
+#elif defined(INSTRUMENTATION_ENABLED)
+        const int LOG_CUTOFF = 1000;
+        const int DEBUG_CUTOFF = 35;
 #else
         const int LOG_CUTOFF = 35;
-        const int DEBUG_CUTOFF = 25;
+        const int DEBUG_CUTOFF = 35;
 #endif
 
         std::string overallLabel;
