@@ -5,6 +5,7 @@
 #include "PathFinding.h"
 #include "Map.h"
 #include "WorkerOrderTimer.h"
+#include "Geo.h"
 
 namespace Workers
 {
@@ -90,6 +91,19 @@ namespace Workers
         {
             auto base = Map::getMyMain();
 
+            // Sort the mineral patches by proximity to the nexus
+            auto mineralPatches = base->mineralPatches();
+            std::sort(mineralPatches.begin(), mineralPatches.end(), [&](const BWAPI::Unit &a, const BWAPI::Unit &b) -> bool
+            {
+                return base->resourceDepot->bwapiUnit->getDistance(a) < base->resourceDepot->bwapiUnit->getDistance(b);
+            });
+
+            // We are only interested in the first four
+            mineralPatches.resize(4);
+            std::set<BWAPI::Unit> availablePatches(mineralPatches.begin(), mineralPatches.end());
+
+            // Greedily take the closest matches until all probes are assigned
+            // TODO: Should really be optimizing for 7th collection
             for (int i = 0; i < 4; i++)
             {
                 int bestDist = INT_MAX;
@@ -101,11 +115,9 @@ namespace Workers
                     if (!worker->completed) continue;
                     if (workerMineralPatch[worker]) continue;
 
-                    for (auto &patch : base->mineralPatches())
+                    for (auto &patch : availablePatches)
                     {
-                        if (!mineralPatchWorkers[patch].empty()) continue;
-
-                        int dist = worker->bwapiUnit->getDistance(patch) + (base->resourceDepot->bwapiUnit->getDistance(patch) * 2);
+                        int dist = worker->bwapiUnit->getDistance(patch);
                         if (dist < bestDist)
                         {
                             bestDist = dist;
@@ -123,6 +135,7 @@ namespace Workers
                     baseWorkers[base].insert(bestWorker);
                     workerMineralPatch[bestWorker] = bestPatch;
                     mineralPatchWorkers[bestPatch].insert(bestWorker);
+                    availablePatches.erase(bestPatch);
                 }
             }
         }
@@ -170,30 +183,39 @@ namespace Workers
         {
             if (!workerBase[unit]) return nullptr;
 
-            int bestDist = INT_MAX;
-            BWAPI::Unit bestMineralPatch = nullptr;
+            int closestDist = INT_MAX;
+            int furthestDist = 0;
+            BWAPI::Unit closest = nullptr;
+            BWAPI::Unit furthest = nullptr;
             for (auto mineralPatch : workerBase[unit]->mineralPatches())
             {
                 int workers = mineralPatchWorkers[mineralPatch].size();
                 if (workers >= 2) continue;
 
-                int dist = unit->bwapiUnit->getDistance(mineralPatch);
-                if (workers > 0) dist += 1000;
-
-                if (dist < bestDist)
+                int dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Nexus,
+                                                   workerBase[unit]->getPosition(),
+                                                   mineralPatch->getType(),
+                                                   mineralPatch->getInitialPosition());
+                if (workers == 0 && dist < closestDist)
                 {
-                    bestDist = dist;
-                    bestMineralPatch = mineralPatch;
+                    closestDist = dist;
+                    closest = mineralPatch;
+                }
+                else if (workers == 1 && dist > furthestDist)
+                {
+                    furthestDist = dist;
+                    furthest = mineralPatch;
                 }
             }
 
-            if (bestMineralPatch)
+            BWAPI::Unit best = closest ? closest : furthest;
+            if (best)
             {
-                workerMineralPatch[unit] = bestMineralPatch;
-                mineralPatchWorkers[bestMineralPatch].insert(unit);
+                workerMineralPatch[unit] = best;
+                mineralPatchWorkers[best].insert(unit);
             }
 
-            return bestMineralPatch;
+            return best;
         }
 
         // Assign a worker to a refinery in its current base
