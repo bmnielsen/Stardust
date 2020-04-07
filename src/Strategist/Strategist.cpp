@@ -114,18 +114,6 @@ namespace Strategist
                 for (auto &unitRequirement : play->status.unitRequirements)
                 {
                     if (unitRequirement.count < 1) continue;
-                    if (typeToReassignableUnits.find(unitRequirement.type) == typeToReassignableUnits.end())
-                    {
-                        // "Reserve" incomplete units if possible
-                        auto incompleteUnits = typeToIncompleteUnits.find(unitRequirement.type);
-                        while (incompleteUnits != typeToIncompleteUnits.end() && incompleteUnits->second > 0 && unitRequirement.count > 0)
-                        {
-                            unitRequirement.count--;
-                            incompleteUnits->second--;
-                        }
-
-                        continue;
-                    }
 
                     auto &reassignableUnits = typeToReassignableUnits[unitRequirement.type];
 
@@ -152,6 +140,14 @@ namespace Strategist
                         play->addUnit(it->unit);
                         unitToPlay[it->unit] = play;
                         unitRequirement.count--;
+                    }
+
+                    // "Reserve" incomplete units if possible
+                    auto incompleteUnits = typeToIncompleteUnits.find(unitRequirement.type);
+                    while (incompleteUnits != typeToIncompleteUnits.end() && incompleteUnits->second > 0 && unitRequirement.count > 0)
+                    {
+                        unitRequirement.count--;
+                        incompleteUnits->second--;
                     }
                 }
             }
