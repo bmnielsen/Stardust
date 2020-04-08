@@ -20,8 +20,17 @@ namespace
 {
     const NavigationGrid::GridNode *nextNode(const NavigationGrid::GridNode *currentNode)
     {
-        if (!currentNode || !currentNode->nextNode || !currentNode->nextNode->nextNode || !currentNode->nextNode->nextNode->nextNode) return nullptr;
-        return currentNode->nextNode->nextNode->nextNode;
+        if (!currentNode || !currentNode->nextNode) return nullptr;
+
+        // We prefer to go 5 tiles ahead, but accept an earlier tile if a later one is invalid
+        auto node = currentNode;
+        for (int i=0; i<5; i++)
+        {
+            if (!node->nextNode) return node;
+            node = node->nextNode;
+        }
+
+        return node;
     }
 
     bool isNextToUnwalkableTerrain(BWAPI::TilePosition pos)
