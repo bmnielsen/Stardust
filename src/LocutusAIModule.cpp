@@ -145,6 +145,18 @@ void LocutusAIModule::onFrame()
 
     Timer::start("Frame");
 
+    // Before doing anything else, check if the opponent has left or been eliminated
+    for (auto &event : BWAPI::Broodwar->getEvents())
+    {
+        if (event.getType() == BWAPI::EventType::PlayerLeft && event.getPlayer() == BWAPI::Broodwar->enemy())
+        {
+            Log::Get() << "Opponent has left the game";
+            BWAPI::Broodwar->sendText("gg");
+            gameFinished = true;
+            return;
+        }
+    }
+
     // We update units as the first thing, since we want to use our own abstraction over BWAPI::Unit everywhere
     Units::update();
     Timer::checkpoint("Units::update");
@@ -159,15 +171,6 @@ void LocutusAIModule::onFrame()
                 break;
             case BWAPI::EventType::UnitDestroy:
                 handleUnitDestroy(event.getUnit());
-                break;
-            case BWAPI::EventType::PlayerLeft:
-                if (event.getPlayer() == BWAPI::Broodwar->enemy())
-                {
-                    Log::Get() << "Opponent has left the game";
-                    BWAPI::Broodwar->sendText("gg");
-                    gameFinished = true;
-                    return;
-                }
                 break;
             case BWAPI::EventType::ReceiveText:
                 Log::Get() << "Received text: " << event.getText();
