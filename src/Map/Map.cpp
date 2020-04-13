@@ -32,6 +32,8 @@ namespace Map
         std::vector<bool> narrowChokeTiles;
         std::vector<bool> leafAreaTiles;
 
+        std::vector<int> tileLastSeen;
+
 #if CHERRYVIS_ENABLED
         std::vector<long> visibility;
 #endif
@@ -742,6 +744,8 @@ namespace Map
         tileWalkabilityUpdated = false;
         narrowChokeTiles.clear();
         leafAreaTiles.clear();
+        tileLastSeen.clear();
+        tileLastSeen.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
 #if CHERRYVIS_ENABLED
         visibility.clear();
 #endif
@@ -979,6 +983,18 @@ namespace Map
             dumpTileWalkability();
             tileWalkabilityUpdated = false;
         }
+
+        // Update the last seen frame for all visible tiles
+        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        {
+            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            {
+                if (BWAPI::Broodwar->isVisible(x, y))
+                {
+                    tileLastSeen[x + y * BWAPI::Broodwar->mapWidth()] = BWAPI::Broodwar->getFrameCount();
+                }
+            }
+        }
     }
 
     MapSpecificOverride *mapSpecificOverride()
@@ -1211,5 +1227,15 @@ namespace Map
     bool isInLeafArea(BWAPI::TilePosition pos)
     {
         return leafAreaTiles[pos.x + pos.y * BWAPI::Broodwar->mapWidth()];
+    }
+
+    int lastSeen(BWAPI::TilePosition tile)
+    {
+        return tileLastSeen[tile.x + tile.y * BWAPI::Broodwar->mapWidth()];
+    }
+
+    int lastSeen(int x, int y)
+    {
+        return tileLastSeen[x + y * BWAPI::Broodwar->mapWidth()];
     }
 }

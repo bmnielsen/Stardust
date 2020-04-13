@@ -41,7 +41,6 @@ Tasks:
 #include "Units.h"
 #include "Workers.h"
 #include "WorkerOrderTimer.h"
-#include "Scout.h"
 #include "Bullets.h"
 #include "Players.h"
 
@@ -89,7 +88,6 @@ void LocutusAIModule::onStart()
     Units::initialize();
     Workers::initialize();
     Bullets::initialize();
-    Scout::initialize();
     Players::initialize();
 
     Log::SetDebug(true);
@@ -213,9 +211,6 @@ void LocutusAIModule::onFrame()
     // Update stuff that issues orders
     General::issueOrders();
     Timer::checkpoint("General::issueOrders");
-
-    Scout::update();
-    Timer::checkpoint("Scout::update");
 
     Producer::update();
     Timer::checkpoint("Producer::update");

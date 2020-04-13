@@ -1,5 +1,4 @@
 #include <utility>
-#include "Scout.h"
 #include "Units.h"
 #include "PathFinding.h"
 #include "General.h"
@@ -11,6 +10,7 @@
 #include "Plays/Macro/TakeNaturalExpansion.h"
 #include "Plays/Macro/TakeExpansion.h"
 #include "Plays/Offensive/RallyArmy.h"
+#include "Plays/Scouting/EarlyGameWorkerScout.h"
 
 /*
  * Broadly, the Strategist decides on a prioritized list of plays to run, each of which can order units from the producer
@@ -46,22 +46,11 @@ namespace Strategist
 {
     namespace
     {
-        bool startedScouting = false;
         std::unordered_map<MyUnit, std::shared_ptr<Play>> unitToPlay;
         std::vector<std::shared_ptr<Play>> plays;
         std::unordered_set<std::shared_ptr<TakeExpansion>> takeExpansionPlays;
         std::vector<ProductionGoal> productionGoals;
         std::vector<std::pair<int, int>> mineralReservations;
-
-        void updateScouting()
-        {
-            // For now always start scouting when our first pylon has been started
-            if (!startedScouting && Units::countIncomplete(BWAPI::UnitTypes::Protoss_Pylon) > 0)
-            {
-                startedScouting = true;
-                Scout::setScoutingMode(Scout::ScoutingMode::Location);
-            }
-        }
 
         void updateUnitAssignments()
         {
@@ -531,14 +520,11 @@ namespace Strategist
 
         // TODO: Logic engine to add and remove plays based on scouting information, etc.
 
-        updateScouting();
-
         writeInstrumentation();
     }
 
     void initialize()
     {
-        startedScouting = false;
         unitToPlay.clear();
         plays.clear();
         takeExpansionPlays.clear();
@@ -547,6 +533,7 @@ namespace Strategist
 
         plays.emplace_back(std::make_shared<DefendMainBase>());
         plays.emplace_back(std::make_shared<SaturateBases>());
+        plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
         plays.emplace_back(std::make_shared<TakeNaturalExpansion>());
         plays.emplace_back(std::make_shared<RallyArmy>());
 

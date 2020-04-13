@@ -75,4 +75,8 @@ namespace Map
     bool isInNarrowChoke(BWAPI::TilePosition pos);
 
     bool isInLeafArea(BWAPI::TilePosition pos);
+
+    int lastSeen(BWAPI::TilePosition tile);
+
+    int lastSeen(int x, int y);
 }
