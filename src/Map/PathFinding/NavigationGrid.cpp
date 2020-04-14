@@ -8,6 +8,14 @@
     #define OUTPUT_GRID_TIMING false
 #endif
 
+namespace
+{
+    bool walkableAndNotMineralLine(int x, int y)
+    {
+        return Map::isWalkable(x, y) && !Map::isInOwnMineralLine(x, y);
+    }
+}
+
 NavigationGrid::NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize) : goal(goal)
 {
     // Create each grid cell with its x,y coordinates
@@ -108,7 +116,7 @@ void NavigationGrid::update()
         if (node.cost <= cost) return;
 
         // Don't allow diagonal connections through blocked tiles
-        if (direction % 2 == 1 && !Map::isWalkable(x, current->y) && !Map::isWalkable(current->x, y)) return;
+        if (direction % 2 == 1 && !walkableAndNotMineralLine(x, current->y) && !walkableAndNotMineralLine(current->x, y)) return;
 
         // If the target node is already connected, remove the reverse connection
         if (node.nextNode)
@@ -162,7 +170,7 @@ void NavigationGrid::update()
         current->prevNodes |= 1U << direction;
 
         // Queue the node if it is walkable
-        if (Map::isWalkable(x, y))
+        if (walkableAndNotMineralLine(x, y))
         {
             nodeQueue.push(std::make_tuple(node.cost + 10, &node, false));
             nodeQueue.push(std::make_tuple(node.cost + 14, &node, true));
@@ -176,7 +184,7 @@ void NavigationGrid::update()
 
         auto node = std::get<1>(current);
 
-        if (!Map::isWalkable(node->x, node->y) || node->cost == USHRT_MAX) continue;
+        if (!walkableAndNotMineralLine(node->x, node->y) || node->cost == USHRT_MAX) continue;
 
         // Boolean controls whether we are considering diagonal edges or straight edges
         if (std::get<2>(current))
@@ -209,18 +217,29 @@ void NavigationGrid::update()
 
 void NavigationGrid::addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size)
 {
-    // First, invalidate every path that goes through the object
-    // Then push all still-valid tiles bordering an invalidated tile to the update queue
-    // When the grid is updated, all of the invalidated tiles will receive a new path from these bordering tiles
-
-    std::queue<GridNode *> queue;
+    std::set<BWAPI::TilePosition> tiles;
     for (int x = tile.x; x < tile.x + size.x; x++)
     {
         for (int y = tile.y; y < tile.y + size.y; y++)
         {
-            auto &node = grid[x + y * BWAPI::Broodwar->mapWidth()];
-            queue.push(&node);
+            tiles.insert(BWAPI::TilePosition(x, y));
         }
+    }
+
+    addBlockingTiles(tiles);
+}
+
+void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
+{
+    // First, invalidate every path that goes through the tiles
+    // Then push all still-valid tiles bordering an invalidated tile to the update queue
+    // When the grid is updated, all of the invalidated tiles will receive a new path from these bordering tiles
+
+    std::queue<GridNode *> queue;
+    for (const auto &tile : tiles)
+    {
+        auto &node = grid[tile.x + tile.y * BWAPI::Broodwar->mapWidth()];
+        queue.push(&node);
     }
 
     std::vector<GridNode *> bordering;
@@ -283,41 +302,63 @@ void NavigationGrid::addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosi
 
 void NavigationGrid::removeBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size)
 {
-    // Reset the cost of the nodes inside the building
+    std::set<BWAPI::TilePosition> tiles;
     for (int x = tile.x; x < tile.x + size.x; x++)
     {
         for (int y = tile.y; y < tile.y + size.y; y++)
         {
-            auto &node = grid[x + y * BWAPI::Broodwar->mapWidth()];
-            node.cost = USHRT_MAX;
+            tiles.insert(BWAPI::TilePosition(x, y));
         }
     }
 
-    // Push all valid nodes around the building to the update queue
-    auto pushInitialTile = [&](unsigned short x, unsigned short y)
+    removeBlockingTiles(tiles);
+}
+
+void NavigationGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
+{
+    // Reset the cost of all nodes corresponding to the blocking tiles being removed
+    // While doing this, gather tiles that potentially border these blocking tiles
+    // Finally add the valid border tiles to the update queue
+
+    std::vector<GridNode *> bordering;
+    auto addBordering = [&](unsigned short x, unsigned short y)
     {
         if (x >= BWAPI::Broodwar->mapWidth() || y >= BWAPI::Broodwar->mapHeight())
         {
             return;
         }
 
-        auto &node = grid[x + y * BWAPI::Broodwar->mapWidth()];
-        if (node.nextNode)
-        {
-            nodeQueue.push(std::make_tuple(node.cost + 10, &node, false));
-            nodeQueue.push(std::make_tuple(node.cost + 14, &node, true));
-        }
+        bordering.push_back(&grid[x + y * BWAPI::Broodwar->mapWidth()]);
     };
 
-    for (int x = tile.x - 1; x <= tile.x + size.x; x++)
+    auto visit = [&](unsigned short x, unsigned short y)
     {
-        pushInitialTile(x, tile.y - 1);
-        pushInitialTile(x, tile.y + size.y);
+        auto &node = grid[x + y * BWAPI::Broodwar->mapWidth()];
+
+        node.cost = USHRT_MAX;
+        node.nextNode = nullptr;
+
+        addBordering(x + 1, y);
+        addBordering(x - 1, y);
+        addBordering(x, y + 1);
+        addBordering(x, y - 1);
+        addBordering(x - 1, y - 1);
+        addBordering(x + 1, y - 1);
+        addBordering(x - 1, y + 1);
+        addBordering(x + 1, y + 1);
+    };
+    for (const auto &tile : tiles)
+    {
+        visit(tile.x, tile.y);
     }
-    for (int y = tile.y; y < tile.y + size.y; y++)
+
+    for (auto node : bordering)
     {
-        pushInitialTile(tile.x - 1, y);
-        pushInitialTile(tile.x + size.x, y);
+        if (node->nextNode)
+        {
+            nodeQueue.push(std::make_tuple(node->cost + 10, node, false));
+            nodeQueue.push(std::make_tuple(node->cost + 14, node, true));
+        }
     }
 }
 

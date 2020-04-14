@@ -29,6 +29,8 @@ namespace Map
         std::vector<int> tileUnwalkableProximity;
         bool tileWalkabilityUpdated;
 
+        std::vector<bool> inOwnMineralLine;
+
         std::vector<bool> narrowChokeTiles;
         std::vector<bool> leafAreaTiles;
 
@@ -147,6 +149,16 @@ namespace Map
                         }
                     }
                 }
+
+                // If this was our base, remove the mineral line tiles
+                if (base->owner == BWAPI::Broodwar->self())
+                {
+                    for (auto tile : base->mineralLineTiles)
+                    {
+                        inOwnMineralLine[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = false;
+                    }
+                    PathFinding::removeBlockingTiles(base->mineralLineTiles);
+                }
             }
 
             auto playerLabel = [](BWAPI::Player player)
@@ -179,6 +191,16 @@ namespace Map
                 if (ownerBases.startingMain && !ownerBases.main)
                 {
                     ownerBases.main = base;
+                }
+
+                // If this is our base, add the mineral line tiles as blocking the navigation grids
+                if (owner == BWAPI::Broodwar->self())
+                {
+                    for (auto tile : base->mineralLineTiles)
+                    {
+                        inOwnMineralLine[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = true;
+                    }
+                    PathFinding::addBlockingTiles(base->mineralLineTiles);
                 }
             }
 
@@ -504,15 +526,6 @@ namespace Map
                 }
             }
 
-            // Add all mineral lines
-            for (auto &base : allBases())
-            {
-                for (auto mineralLineTile : base->mineralLineTiles)
-                {
-                    tileWalkability[mineralLineTile.x + mineralLineTile.y * BWAPI::Broodwar->mapWidth()] = false;
-                }
-            }
-
             // TODO: Consider map-specific overrides for maps with very narrow ramps, like Plasma
 
             // Compute proximity to unwalkable tiles
@@ -742,6 +755,8 @@ namespace Map
         tileWalkability.clear();
         tileUnwalkableProximity.clear();
         tileWalkabilityUpdated = false;
+        inOwnMineralLine.clear();
+        inOwnMineralLine.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
         narrowChokeTiles.clear();
         leafAreaTiles.clear();
         tileLastSeen.clear();
@@ -1219,6 +1234,16 @@ namespace Map
         return tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()];
     }
 
+    bool isInOwnMineralLine(BWAPI::TilePosition tile)
+    {
+        return isInOwnMineralLine(tile.x, tile.y);
+    }
+
+    bool isInOwnMineralLine(int x, int y)
+    {
+        return inOwnMineralLine[x + y * BWAPI::Broodwar->mapWidth()];
+    }
+
     bool isInNarrowChoke(BWAPI::TilePosition pos)
     {
         return narrowChokeTiles[pos.x + pos.y * BWAPI::Broodwar->mapWidth()];
@@ -1232,10 +1257,5 @@ namespace Map
     int lastSeen(BWAPI::TilePosition tile)
     {
         return tileLastSeen[tile.x + tile.y * BWAPI::Broodwar->mapWidth()];
-    }
-
-    int lastSeen(int x, int y)
-    {
-        return tileLastSeen[x + y * BWAPI::Broodwar->mapWidth()];
     }
 }

@@ -59,7 +59,11 @@ public:
 
     void addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size);
 
+    void addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles);
+
     void removeBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size);
+
+    void removeBlockingTiles(const std::set<BWAPI::TilePosition> &tiles);
 
 private:
     std::vector<GridNode> grid;

@@ -52,11 +52,27 @@ namespace PathFinding
         }
     }
 
+    void addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
+    {
+        for (auto &goalAndNavigationGrid : goalToNavigationGrid)
+        {
+            goalAndNavigationGrid.second.addBlockingTiles(tiles);
+        }
+    }
+
     void removeBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile)
     {
         for (auto &goalAndNavigationGrid : goalToNavigationGrid)
         {
             goalAndNavigationGrid.second.removeBlockingObject(tile, type.tileSize());
+        }
+    }
+
+    void removeBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
+    {
+        for (auto &goalAndNavigationGrid : goalToNavigationGrid)
+        {
+            goalAndNavigationGrid.second.removeBlockingTiles(tiles);
         }
     }
 }

@@ -15,8 +15,14 @@ namespace PathFinding
     // An object that affects pathfinding (e.g. a building) has been added
     void addBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile);
 
+    // Tiles that affect pathfinding (e.g. a mineral line) have been added
+    void addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles);
+
     // An object that affects pathfinding (e.g. a building) has been removed
     void removeBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile);
+
+    // Tiles that affect pathfinding (e.g. a mineral line) have been removed
+    void removeBlockingTiles(const std::set<BWAPI::TilePosition> &tiles);
 
     // Options for use in the BWEM-based pathfinding methods
     enum class PathFindingOptions

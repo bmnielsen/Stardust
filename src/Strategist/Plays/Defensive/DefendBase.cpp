@@ -32,13 +32,13 @@ void DefendBase::mineralLineWorkerDefense(std::set<Unit> &enemiesInBase)
 {
     // Check if there are enemy melee units in our mineral line
     std::set<Unit> enemyUnits;
-    Units::enemy(enemyUnits, [this](const Unit &unit)
+    Units::enemy(enemyUnits, [](const Unit &unit)
     {
         if (!unit->lastPositionValid) return false;
         if (!UnitUtil::IsCombatUnit(unit->type) || UnitUtil::IsRangedUnit(unit->type) || !UnitUtil::CanAttackGround(unit->type)) return false;
 
         auto comingPosition = unit->predictPosition(24);
-        return base->isInMineralLine(BWAPI::TilePosition(comingPosition));
+        return Map::isInOwnMineralLine(BWAPI::TilePosition(comingPosition));
     });
 
     if (enemyUnits.empty())

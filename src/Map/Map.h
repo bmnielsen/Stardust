@@ -65,18 +65,19 @@ namespace Map
     // Walkable tiles are defined here as:
     // - All of its contained walk positions are walkable according to BWAPI
     // - It is not occupied by a building
-    // - It is not part of a mineral line (i.e. located between minerals and their associated resource depot)
     bool isWalkable(BWAPI::TilePosition pos);
 
     bool isWalkable(int x, int y);
 
     int unwalkableProximity(int x, int y);
 
+    bool isInOwnMineralLine(BWAPI::TilePosition tile);
+
+    bool isInOwnMineralLine(int x, int y);
+
     bool isInNarrowChoke(BWAPI::TilePosition pos);
 
     bool isInLeafArea(BWAPI::TilePosition pos);
 
     int lastSeen(BWAPI::TilePosition tile);
-
-    int lastSeen(int x, int y);
 }

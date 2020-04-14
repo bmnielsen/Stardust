@@ -272,7 +272,7 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
         auto enemyPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames());
 
         // Attack the enemy if we are in the mineral line and in range of the enemy (or the enemy is in range of us)
-        if (base->isInMineralLine(BWAPI::TilePosition(unit->tilePositionX, unit->tilePositionY)) &&
+        if (Map::isInOwnMineralLine(unit->tilePositionX, unit->tilePositionY) &&
             (unit->isInOurWeaponRange(target, enemyPosition) || unit->isInEnemyWeaponRange(target, enemyPosition)))
         {
 #if DEBUG_UNIT_ORDERS
