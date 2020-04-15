@@ -4,7 +4,7 @@
 #include "UnitUtil.h"
 
 #if INSTRUMENTATION_ENABLED
-    #define ASSERT_NEGATIVE_VALUES false
+#define ASSERT_NEGATIVE_VALUES false
 #endif
 
 // We add a buffer on detection and threat ranges
@@ -78,15 +78,16 @@ void Grid::dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &
 #endif
 }
 
-void Grid::unitCreated(BWAPI::UnitType type, BWAPI::Position position, bool completed)
+void Grid::unitCreated(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed)
 {
-    if (!type.isFlyer()) _collision.add(type, 0, position, 1);
-    if (completed) unitCompleted(type, position);
+    if (!type.isFlyer() && !burrowed) _collision.add(type, 0, position, 1);
+    if (completed) unitCompleted(type, position, burrowed);
 }
 
-void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position)
+void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool burrowed)
 {
-    if (type.groundWeapon() != BWAPI::WeaponTypes::None)
+    if (type.groundWeapon() != BWAPI::WeaponTypes::None &&
+        ((burrowed && type == BWAPI::UnitTypes::Zerg_Lurker) || (!burrowed && type != BWAPI::UnitTypes::Zerg_Lurker)))
     {
         _groundThreat.add(
                 type,
@@ -120,7 +121,7 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position)
         }
     }
 
-    if (type.airWeapon() != BWAPI::WeaponTypes::None)
+    if (type.airWeapon() != BWAPI::WeaponTypes::None && !burrowed)
     {
         _airThreat.add(
                 type,
@@ -142,23 +143,31 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position)
     }
 }
 
-void Grid::unitMoved(BWAPI::UnitType type, BWAPI::Position position, BWAPI::UnitType fromType, BWAPI::Position fromPosition)
+void Grid::unitMoved(BWAPI::UnitType type,
+                     BWAPI::Position position,
+                     bool burrowed,
+                     BWAPI::UnitType fromType,
+                     BWAPI::Position fromPosition,
+                     bool fromBurrowed)
 {
-    if (type == fromType && ((position.x >> 3U) == (fromPosition.x >> 3U)) && ((position.y >> 3U) == (fromPosition.y >> 3U))) return;
+    if (type == fromType && burrowed == fromBurrowed &&
+        ((position.x >> 3U) == (fromPosition.x >> 3U)) && ((position.y >> 3U) == (fromPosition.y >> 3U)))
+        return;
 
-    unitDestroyed(fromType, fromPosition, true);
-    unitCreated(type, position, true);
+    unitDestroyed(fromType, fromPosition, true, fromBurrowed);
+    unitCreated(type, position, true, burrowed);
 }
 
-void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool completed)
+void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed)
 {
-    if (!type.isFlyer()) _collision.add(type, 0, position, -1);
+    if (!type.isFlyer() && !burrowed) _collision.add(type, 0, position, -1);
 
     // If the unit was a building that was destroyed or cancelled before being completed, we only
     // need to update the collision grid
     if (!completed) return;
 
-    if (type.groundWeapon() != BWAPI::WeaponTypes::None)
+    if (type.groundWeapon() != BWAPI::WeaponTypes::None &&
+        ((burrowed && type == BWAPI::UnitTypes::Zerg_Lurker) || (!burrowed && type != BWAPI::UnitTypes::Zerg_Lurker)))
     {
         _groundThreat.add(
                 type,
@@ -192,7 +201,7 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
         }
     }
 
-    if (type.airWeapon() != BWAPI::WeaponTypes::None)
+    if (type.airWeapon() != BWAPI::WeaponTypes::None && !burrowed)
     {
         _airThreat.add(
                 type,

@@ -50,7 +50,7 @@ namespace Units
         {
             if (unit->lastPositionValid && !unit->beingManufacturedOrCarried)
             {
-                Players::grid(unit->player).unitDestroyed(unit->type, unit->lastPosition, unit->completed);
+                Players::grid(unit->player).unitDestroyed(unit->type, unit->lastPosition, unit->completed, unit->burrowed);
 #if DEBUG_GRID_UPDATES
                 CherryVis::log(unit->id) << "Grid::unitDestroyed " << unit->lastPosition;
                 Log::Debug() << *unit << ": Grid::unitDestroyed " << unit->lastPosition;

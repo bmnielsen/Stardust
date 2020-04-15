@@ -40,13 +40,18 @@ public:
 
     explicit Grid(std::shared_ptr<UpgradeTracker> upgradeTracker) : upgradeTracker(std::move(upgradeTracker)) {}
 
-    void unitCreated(BWAPI::UnitType type, BWAPI::Position position, bool completed);
+    void unitCreated(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed);
 
-    void unitCompleted(BWAPI::UnitType type, BWAPI::Position position);
+    void unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool burrowed);
 
-    void unitMoved(BWAPI::UnitType type, BWAPI::Position position, BWAPI::UnitType fromType, BWAPI::Position fromPosition);
+    void unitMoved(BWAPI::UnitType type,
+                   BWAPI::Position position,
+                   bool burrowed,
+                   BWAPI::UnitType fromType,
+                   BWAPI::Position fromPosition,
+                   bool fromBurrowed);
 
-    void unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool completed);
+    void unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed);
 
     void unitWeaponDamageUpgraded(BWAPI::UnitType type, BWAPI::Position position, BWAPI::WeaponType weapon, int formerDamage, int newDamage);
 
@@ -74,15 +79,15 @@ public:
 
     long detection(BWAPI::WalkPosition position) const { return _detection[position]; };
 
-    void dumpCollisionHeatmapIfChanged(const std::string& heatmapName) const { dumpHeatmapIfChanged(heatmapName, _collision); };
+    void dumpCollisionHeatmapIfChanged(const std::string &heatmapName) const { dumpHeatmapIfChanged(heatmapName, _collision); };
 
-    void dumpGroundThreatHeatmapIfChanged(const std::string& heatmapName) const { dumpHeatmapIfChanged(heatmapName, _groundThreat); };
+    void dumpGroundThreatHeatmapIfChanged(const std::string &heatmapName) const { dumpHeatmapIfChanged(heatmapName, _groundThreat); };
 
-    void dumpStaticGroundThreatHeatmapIfChanged(const std::string& heatmapName) const { dumpHeatmapIfChanged(heatmapName, _staticGroundThreat); };
+    void dumpStaticGroundThreatHeatmapIfChanged(const std::string &heatmapName) const { dumpHeatmapIfChanged(heatmapName, _staticGroundThreat); };
 
-    void dumpAirThreatHeatmapIfChanged(const std::string& heatmapName) const { dumpHeatmapIfChanged(heatmapName, _airThreat); };
+    void dumpAirThreatHeatmapIfChanged(const std::string &heatmapName) const { dumpHeatmapIfChanged(heatmapName, _airThreat); };
 
-    void dumpDetectionHeatmapIfChanged(const std::string& heatmapName) const { dumpHeatmapIfChanged(heatmapName, _detection); };
+    void dumpDetectionHeatmapIfChanged(const std::string &heatmapName) const { dumpHeatmapIfChanged(heatmapName, _detection); };
 
 private:
     std::shared_ptr<UpgradeTracker> upgradeTracker;

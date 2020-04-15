@@ -66,7 +66,7 @@ void UnitImpl::created()
 
     if (!beingManufacturedOrCarried)
     {
-        Players::grid(player).unitCreated(type, lastPosition, completed);
+        Players::grid(player).unitCreated(type, lastPosition, completed, burrowed);
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitCreated " << lastPosition;
         Log::Debug() << *this << ": Grid::unitCreated " << lastPosition;
@@ -213,7 +213,7 @@ void UnitImpl::updateUnitInFog()
     // For the grid, treat units with invalid last position as destroyed
     if (!lastPositionValid)
     {
-        Players::grid(player).unitDestroyed(type, lastPosition, completed);
+        Players::grid(player).unitDestroyed(type, lastPosition, completed, burrowed);
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitDestroyed (!LPV) " << lastPosition;
         Log::Debug() << *this << ": Grid::unitDestroyed (!LPV) " << lastPosition;
@@ -225,7 +225,7 @@ void UnitImpl::updateUnitInFog()
     {
         completed = true;
         estimatedCompletionFrame = -1;
-        Players::grid(player).unitCompleted(type, lastPosition);
+        Players::grid(player).unitCompleted(type, lastPosition, burrowed);
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitCompleted (FOG) " << lastPosition;
         Log::Debug() << *this << ": Grid::unitCompleted (FOG) " << lastPosition;
@@ -258,8 +258,8 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
     // Units that have renegaded
     if (unit->getPlayer() != player)
     {
-        Players::grid(player).unitDestroyed(type, lastPosition, completed);
-        grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted());
+        Players::grid(player).unitDestroyed(type, lastPosition, completed, burrowed);
+        grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted(), unit->isBurrowed());
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitDestroyed (renegade) " << lastPosition;
         CherryVis::log(id) << "Grid::unitCreated (renegade) " << unit->getPosition();
@@ -272,8 +272,8 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
     // Units that have morphed
     if (type != unit->getType())
     {
-        grid.unitDestroyed(type, lastPosition, completed);
-        grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted());
+        grid.unitDestroyed(type, lastPosition, completed, burrowed);
+        grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted(), unit->isBurrowed());
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitDestroyed (morph) " << lastPosition;
         CherryVis::log(id) << "Grid::unitCreated (morph) " << unit->getPosition();
@@ -289,7 +289,7 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
         // If no longer being manufactured or carried, treat as a new unit
         if (beingManufacturedOrCarried)
         {
-            grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted());
+            grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted(), unit->isBurrowed());
 #if DEBUG_GRID_UPDATES
             CherryVis::log(id) << "Grid::unitCreated (manufactured) " << unit->getPosition();
             Log::Debug() << *this << ": Grid::unitCreated (manufactured) " << unit->getPosition();
@@ -305,7 +305,7 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
         }
 
         // Otherwise treat it as destroyed until it shows up again
-        grid.unitDestroyed(type, lastPosition, completed);
+        grid.unitDestroyed(type, lastPosition, completed, burrowed);
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitDestroyed (carried) " << lastPosition;
         Log::Debug() << *this << ": Grid::unitDestroyed (carried) " << lastPosition;
@@ -317,7 +317,7 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
     // Units that have completed
     if (!completed && unit->isCompleted())
     {
-        grid.unitCompleted(type, lastPosition);
+        grid.unitCompleted(type, lastPosition, burrowed);
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitCompleted " << unit->getPosition();
         Log::Debug() << *this << ": Grid::unitCompleted " << unit->getPosition();
@@ -331,8 +331,8 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
     // In either case we just recreate the unit in the grid
     if (completed && !unit->isCompleted())
     {
-        grid.unitDestroyed(type, lastPosition, true);
-        grid.unitCreated(unit->getType(), unit->getPosition(), false);
+        grid.unitDestroyed(type, lastPosition, true, burrowed);
+        grid.unitCreated(unit->getType(), unit->getPosition(), false, unit->isBurrowed());
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitDestroyed (incomplete) " << lastPosition;
         CherryVis::log(id) << "Grid::unitCreated (incomplete) " << unit->getPosition();
@@ -345,7 +345,7 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
     // Units that moved while in the fog and have now reappeared
     if (!lastPositionValid)
     {
-        grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted());
+        grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted(), unit->isBurrowed());
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitCreated (LPV) " << unit->getPosition();
         Log::Debug() << *this << ": Grid::unitCreated (LPV) " << unit->getPosition();
@@ -357,7 +357,7 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
     // We can just treat them as destroyed, as nothing that can take off has an attack
     if (!isFlying && unit->isFlying())
     {
-        grid.unitDestroyed(type, lastPosition, completed);
+        grid.unitDestroyed(type, lastPosition, completed, burrowed);
 
         // Also affects navigation grids, so tell the map when a building has lifted
         if (type.isBuilding())
@@ -376,7 +376,7 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
     // Units that have landed
     if (isFlying && !unit->isFlying())
     {
-        grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted());
+        grid.unitCreated(unit->getType(), unit->getPosition(), unit->isCompleted(), unit->isBurrowed());
 
         // Also affects navigation grids, so tell the map the unit has landed
         if (type.isBuilding())
@@ -394,7 +394,7 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
     // Units that have moved
     if (lastPosition != unit->getPosition())
     {
-        grid.unitMoved(unit->getType(), unit->getPosition(), type, lastPosition);
+        grid.unitMoved(unit->getType(), unit->getPosition(), unit->isBurrowed(), type, lastPosition, burrowed);
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitMoved " << lastPosition << " to " << unit->getPosition();
         Log::Debug() << *this << ": Grid::unitMoved " << lastPosition << " to " << unit->getPosition();
