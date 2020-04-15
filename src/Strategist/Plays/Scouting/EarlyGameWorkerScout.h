@@ -13,6 +13,7 @@ private:
     MyUnit scout;
     Base *targetBase;
     std::map<int, std::set<BWAPI::TilePosition>> scoutTiles;
+    std::set<const BWEM::Area *> scoutAreas;
 
     bool reserveScout();
 
