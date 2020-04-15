@@ -176,7 +176,7 @@ void ParseUtils::ParseConfigFile(const std::string & filename)
         JSONTools::ReadInt("MaxInfestedTerrans", skills, Config::Skills::MaxInfestedTerrans);
     }
 
-    if (Config::LocutusTestForceGasSteal)
+    if (Config::StardustTestForceGasSteal)
     {
         Config::Skills::AutoGasSteal = false;
         Config::Skills::RandomGasStealRate = 1.0;
@@ -294,10 +294,10 @@ void ParseUtils::ParseConfigFile(const std::string & filename)
 			}
 		}
 
-		// Special for use as a unit test for Locutus: use the strategy set on the module
-        if (Config::LocutusTestStrategyName != "")
+		// Special for use as a unit test for Stardust: use the strategy set on the module
+        if (Config::StardustTestStrategyName != "")
         {
-            Config::Strategy::StrategyName = Config::LocutusTestStrategyName;
+            Config::Strategy::StrategyName = Config::StardustTestStrategyName;
             openingStrategyDecided = true;
         }
 

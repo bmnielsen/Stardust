@@ -8,8 +8,8 @@
 
 namespace Config
 {
-    std::string LocutusTestStrategyName = "";
-    bool LocutusTestForceGasSteal = false;
+    std::string StardustTestStrategyName = "";
+    bool StardustTestForceGasSteal = false;
 
     namespace ConfigFile
     {
