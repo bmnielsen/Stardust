@@ -708,7 +708,7 @@ TEST(EncryptWindowsBinary, Encrypt)
     std::vector<unsigned char> key = plusaes::key_from_string(&key_str);
 
     // Load the file data
-    std::ifstream stream("/Users/bmnielsen/Locutus.dll", std::ios::in | std::ios::binary);
+    std::ifstream stream("/Users/bmnielsen/Stardust.dll", std::ios::in | std::ios::binary);
     std::vector<unsigned char> data((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
 
     // Encrypt in memory
@@ -716,7 +716,7 @@ TEST(EncryptWindowsBinary, Encrypt)
     plusaes::encrypt_ecb((unsigned char*)data.data(), (unsigned long)data.size(), &key[0], (int)key.size(), &encrypted[0], (unsigned long)encrypted.size(), false);
 
     // Write the encrypted file data
-    std::ofstream file("/Users/bmnielsen/Locutus.dll.aes", std::ios::out|std::ios::binary);
+    std::ofstream file("/Users/bmnielsen/Stardust.dll.aes", std::ios::out|std::ios::binary);
     std::copy(encrypted.cbegin(), encrypted.cend(),
               std::ostream_iterator<unsigned char>(file));
 }

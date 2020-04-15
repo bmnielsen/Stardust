@@ -15,7 +15,7 @@ TEST(Steamhammer, RunUntilLoss)
         test.opponentModule = []()
         {
             auto module = new UAlbertaBot::UAlbertaBotModule();
-            Config::LocutusTestStrategyName = "11HatchTurtleLurker";
+            Config::StardustTestStrategyName = "11HatchTurtleLurker";
             return module;
         };
         test.onStartOpponent = [&test]()
@@ -108,7 +108,7 @@ TEST(Steamhammer, 4PoolHard)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "4PoolHard";
+        Config::StardustTestStrategyName = "4PoolHard";
         return module;
     };
     test.run();
@@ -121,7 +121,7 @@ TEST(Steamhammer, 4PoolSoft)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "4PoolSoft";
+        Config::StardustTestStrategyName = "4PoolSoft";
         return module;
     };
     test.run();
@@ -134,7 +134,7 @@ TEST(Steamhammer, OverhatchExpoMuta)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "OverhatchExpoMuta";
+        Config::StardustTestStrategyName = "OverhatchExpoMuta";
         return module;
     };
     test.run();
@@ -147,7 +147,7 @@ TEST(Steamhammer, OverpoolSpeed)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "OverpoolSpeed";
+        Config::StardustTestStrategyName = "OverpoolSpeed";
         return module;
     };
 
@@ -161,7 +161,7 @@ TEST(Steamhammer, 11Gas10PoolLurker)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "11Gas10PoolLurker";
+        Config::StardustTestStrategyName = "11Gas10PoolLurker";
         return module;
     };
 
@@ -175,7 +175,7 @@ TEST(Steamhammer, 4HatchBeforeLair)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "4HatchBeforeLair";
+        Config::StardustTestStrategyName = "4HatchBeforeLair";
         return module;
     };
 
@@ -191,7 +191,7 @@ TEST(Steamhammer, 9PoolSpeed)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "9PoolSpeed";
+        Config::StardustTestStrategyName = "9PoolSpeed";
         return module;
     };
 
@@ -207,7 +207,7 @@ TEST(Steamhammer, 8Hatch7Pool)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "8Hatch7Pool";
+        Config::StardustTestStrategyName = "8Hatch7Pool";
         return module;
     };
 
@@ -221,7 +221,7 @@ TEST(Steamhammer, 9PoolSpeedAllIn)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "9PoolSpeedAllIn";
+        Config::StardustTestStrategyName = "9PoolSpeedAllIn";
         return module;
     };
 
@@ -235,7 +235,7 @@ TEST(Steamhammer, 2HatchLurkerAllIn)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "2HatchLurkerAllIn";
+        Config::StardustTestStrategyName = "2HatchLurkerAllIn";
         return module;
     };
 
@@ -249,7 +249,7 @@ TEST(Steamhammer, OverhatchExpoLing)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "OverhatchExpoLing";
+        Config::StardustTestStrategyName = "OverhatchExpoLing";
         return module;
     };
 
@@ -264,7 +264,7 @@ TEST(Steamhammer, 9HatchExpo9Pool9Gas)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "9HatchExpo9Pool9Gas";
+        Config::StardustTestStrategyName = "9HatchExpo9Pool9Gas";
         return module;
     };
 
@@ -282,8 +282,8 @@ TEST(Steamhammer, 11HatchTurtleLurker)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "11HatchTurtleLurker";
-        Config::LocutusTestForceGasSteal = true;
+        Config::StardustTestStrategyName = "11HatchTurtleLurker";
+        Config::StardustTestForceGasSteal = true;
         return module;
     };
 
@@ -298,7 +298,7 @@ TEST(Steamhammer, Over10Hatch1Sunk)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestStrategyName = "Over10Hatch1Sunk";
+        Config::StardustTestStrategyName = "Over10Hatch1Sunk";
         return module;
     };
 
@@ -314,8 +314,8 @@ TEST(Steamhammer, GasSteal)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::LocutusTestForceGasSteal = true;
-        Config::LocutusTestStrategyName = "11Gas10PoolLurker";
+        Config::StardustTestForceGasSteal = true;
+        Config::StardustTestStrategyName = "11Gas10PoolLurker";
         return module;
     };
 

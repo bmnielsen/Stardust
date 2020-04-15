@@ -1,7 +1,7 @@
 #include "BWTest.h"
 
 #include "BW/BWData.h"
-#include "LocutusAIModule.h"
+#include "StardustAIModule.h"
 #include <chrono>
 #include <thread>
 #include <signal.h>
@@ -292,7 +292,7 @@ void BWTest::runGame(bool opponent)
 {
     BW::GameOwner gameOwner;
     BWAPI::BroodwarImpl_handle h(gameOwner.getGame());
-    h->setCharacterName(opponent ? "Opponent" : "Testcutus");
+    h->setCharacterName(opponent ? "Opponent" : "Startest");
     h->setGameType(BWAPI::GameTypes::Melee);
     BWAPI::BroodwarImpl.bwgame.setMapFileName(map);
     BWAPI::Race race = opponent ? opponentRace : BWAPI::Races::Protoss;
@@ -355,9 +355,9 @@ void BWTest::runGame(bool opponent)
         }
         else
         {
-            auto locutusModule = new LocutusAIModule();
-            if (initialUnitFrames > 0) locutusModule->frameSkip = initialUnitFrames + BWAPI::Broodwar->getLatencyFrames();
-            module = locutusModule;
+            auto stardustModule = new StardustAIModule();
+            if (initialUnitFrames > 0) stardustModule->frameSkip = initialUnitFrames + BWAPI::Broodwar->getLatencyFrames();
+            module = stardustModule;
         }
         module->afterOnStart = [this, &h]()
         {
@@ -533,7 +533,7 @@ void BWTest::runGame(bool opponent)
     else
     {
         // Move opponent learning files to read
-        moveFileToReadIfExists("bwapi-data/write/om_Testcutus.txt"); // Steamhammer
+        moveFileToReadIfExists("bwapi-data/write/om_Startest.txt"); // Steamhammer
     }
     h->bwgame.leaveGame();
 }

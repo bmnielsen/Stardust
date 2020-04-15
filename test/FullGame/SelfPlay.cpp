@@ -1,6 +1,6 @@
 #include "BWTest.h"
 
-#include "LocutusAIModule.h"
+#include "StardustAIModule.h"
 
 TEST(SelfPlay, ATest)
 {
@@ -9,7 +9,7 @@ TEST(SelfPlay, ATest)
     test.expectWin = false;
     test.opponentModule = []()
     {
-        return new LocutusAIModule();
+        return new StardustAIModule();
     };
 
     test.run();
