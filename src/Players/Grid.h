@@ -27,7 +27,7 @@ public:
 
         long operator[](BWAPI::Position pos) const
         {
-            return data[(pos.x >> 3) + (pos.y >> 3) * maxX];
+            return data[(pos.x >> 3U) + (pos.y >> 3U) * maxX];
         }
 
         long operator[](BWAPI::WalkPosition pos) const
@@ -70,13 +70,13 @@ public:
 
     long detection(BWAPI::WalkPosition position) const { return _detection[position]; };
 
-    void dumpCollisionHeatmapIfChanged(std::string heatmapName) const { dumpHeatmapIfChanged(std::move(heatmapName), _collision); };
+    void dumpCollisionHeatmapIfChanged(const std::string& heatmapName) const { dumpHeatmapIfChanged(heatmapName, _collision); };
 
-    void dumpGroundThreatHeatmapIfChanged(std::string heatmapName) const { dumpHeatmapIfChanged(std::move(heatmapName), _groundThreat); };
+    void dumpGroundThreatHeatmapIfChanged(const std::string& heatmapName) const { dumpHeatmapIfChanged(heatmapName, _groundThreat); };
 
-    void dumpAirThreatHeatmapIfChanged(std::string heatmapName) const { dumpHeatmapIfChanged(std::move(heatmapName), _airThreat); };
+    void dumpAirThreatHeatmapIfChanged(const std::string& heatmapName) const { dumpHeatmapIfChanged(heatmapName, _airThreat); };
 
-    void dumpDetectionHeatmapIfChanged(std::string heatmapName) const { dumpHeatmapIfChanged(std::move(heatmapName), _detection); };
+    void dumpDetectionHeatmapIfChanged(const std::string& heatmapName) const { dumpHeatmapIfChanged(heatmapName, _detection); };
 
 private:
     std::shared_ptr<UpgradeTracker> upgradeTracker;

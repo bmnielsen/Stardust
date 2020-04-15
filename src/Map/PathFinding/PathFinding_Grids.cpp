@@ -14,7 +14,7 @@ namespace PathFinding
         }
     }
 
-    void initialize()
+    void initializeGrids()
     {
         goalToNavigationGrid.clear();
 

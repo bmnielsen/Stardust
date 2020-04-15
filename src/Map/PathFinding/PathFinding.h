@@ -7,7 +7,7 @@
 namespace PathFinding
 {
     // Initializes the navigation grids
-    void initialize();
+    void initializeGrids();
 
     // Gets the navigation grid to a specific goal position
     NavigationGrid *getNavigationGrid(BWAPI::TilePosition goal);
@@ -64,4 +64,16 @@ namespace PathFinding
             BWAPI::Position end,
             BWAPI::UnitType unitType,
             PathFindingOptions options = PathFindingOptions::Default);
+
+    // Initializes the path finding search
+    void initializeSearch();
+
+    // Searches for the shortest walkable path from start to end
+    // By default, any walkable tile (as determined by Map::isWalkable) can be part of the returned path
+    // If a tileValidator is passed, only tiles for which it returns true can be part of the returned path
+    // If an endRadius is specified, the search will stop as soon as a node is found within that radius (pixels) of the end tile
+    std::vector<BWAPI::TilePosition> Search(BWAPI::TilePosition start,
+                                            BWAPI::TilePosition end,
+                                            const std::function<bool(const BWAPI::TilePosition &)> &tileValidator = nullptr,
+                                            const std::function<bool(const BWAPI::TilePosition &)> &closeEnoughToEnd = nullptr);
 }

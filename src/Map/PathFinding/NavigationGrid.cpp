@@ -116,7 +116,7 @@ void NavigationGrid::update()
         if (node.cost <= cost) return;
 
         // Don't allow diagonal connections through blocked tiles
-        if (direction % 2 == 1 && !walkableAndNotMineralLine(x, current->y) && !walkableAndNotMineralLine(current->x, y)) return;
+        if (direction % 2 == 1 && (!walkableAndNotMineralLine(x, current->y) || !walkableAndNotMineralLine(current->x, y))) return;
 
         // If the target node is already connected, remove the reverse connection
         if (node.nextNode)

@@ -98,7 +98,8 @@ void LocutusAIModule::onStart()
     Map::initialize();
     Timer::checkpoint("Map::initialize");
 
-    PathFinding::initialize();
+    PathFinding::initializeGrids();
+    PathFinding::initializeSearch();
     Timer::checkpoint("PathFinding::initialize");
 
     BuildingPlacement::initialize();
