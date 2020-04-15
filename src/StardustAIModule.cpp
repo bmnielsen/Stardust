@@ -27,7 +27,7 @@ Tasks:
 */
 
 
-#include "LocutusAIModule.h"
+#include "StardustAIModule.h"
 
 #include "Timer.h"
 #include "Map.h"
@@ -78,7 +78,7 @@ namespace
     }
 }
 
-void LocutusAIModule::onStart()
+void StardustAIModule::onStart()
 {
     // Initialize globals that just need to make sure their global data is reset
     Log::initialize();
@@ -119,17 +119,17 @@ void LocutusAIModule::onStart()
     BWAPI::Broodwar->setLocalSpeed(0);
     BWAPI::Broodwar->setFrameSkip(0);
 
-    Log::Get() << "I am Locutus of Borg, you are " << Opponent::getName() << ", we're in " << BWAPI::Broodwar->mapFileName();
+    Log::Get() << "Initialized game against " << Opponent::getName() << " on " << BWAPI::Broodwar->mapFileName();
     //Log::Debug() << "Seed: " << BWAPI::Broodwar->getRandomSeed();
 }
 
-void LocutusAIModule::onEnd(bool isWinner)
+void StardustAIModule::onEnd(bool isWinner)
 {
     WorkerOrderTimer::write();
     CherryVis::gameEnd();
 }
 
-void LocutusAIModule::onFrame()
+void StardustAIModule::onFrame()
 {
     if (BWAPI::BroodwarPtr->getFrameCount() < frameSkip) return;
     if (gameFinished) return;
@@ -288,58 +288,58 @@ void LocutusAIModule::onFrame()
     Timer::stop();
 }
 
-void LocutusAIModule::onSendText(std::string)
+void StardustAIModule::onSendText(std::string)
 {
 }
 
-void LocutusAIModule::onReceiveText(BWAPI::Player, std::string)
+void StardustAIModule::onReceiveText(BWAPI::Player, std::string)
 {
 }
 
-void LocutusAIModule::onPlayerLeft(BWAPI::Player)
+void StardustAIModule::onPlayerLeft(BWAPI::Player)
 {
 }
 
-void LocutusAIModule::onNukeDetect(BWAPI::Position)
+void StardustAIModule::onNukeDetect(BWAPI::Position)
 {
 }
 
-void LocutusAIModule::onUnitDiscover(BWAPI::Unit)
+void StardustAIModule::onUnitDiscover(BWAPI::Unit)
 {
 }
 
-void LocutusAIModule::onUnitEvade(BWAPI::Unit)
+void StardustAIModule::onUnitEvade(BWAPI::Unit)
 {
 }
 
-void LocutusAIModule::onUnitShow(BWAPI::Unit)
+void StardustAIModule::onUnitShow(BWAPI::Unit)
 {
 }
 
-void LocutusAIModule::onUnitHide(BWAPI::Unit)
+void StardustAIModule::onUnitHide(BWAPI::Unit)
 {
 }
 
-void LocutusAIModule::onUnitCreate(BWAPI::Unit)
+void StardustAIModule::onUnitCreate(BWAPI::Unit)
 {
 }
 
-void LocutusAIModule::onUnitDestroy(BWAPI::Unit)
+void StardustAIModule::onUnitDestroy(BWAPI::Unit)
 {
 }
 
-void LocutusAIModule::onUnitMorph(BWAPI::Unit)
+void StardustAIModule::onUnitMorph(BWAPI::Unit)
 {
 }
 
-void LocutusAIModule::onUnitRenegade(BWAPI::Unit)
+void StardustAIModule::onUnitRenegade(BWAPI::Unit)
 {
 }
 
-void LocutusAIModule::onSaveGame(std::string)
+void StardustAIModule::onSaveGame(std::string)
 {
 }
 
-void LocutusAIModule::onUnitComplete(BWAPI::Unit)
+void StardustAIModule::onUnitComplete(BWAPI::Unit)
 {
 }

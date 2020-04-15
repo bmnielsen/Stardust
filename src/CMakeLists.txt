@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.14)
-project(Locutus)
+project(Stardust)
 
 set(CMAKE_CXX_STANDARD 17)
 
 include_directories(${CMAKE_SOURCE_DIR}/3rdparty)
 
-set(LOCUTUS_INCLUDES
+set(STARDUST_INCLUDES
         ${PROJECT_SOURCE_DIR}
         ${PROJECT_SOURCE_DIR}/Builder
         ${PROJECT_SOURCE_DIR}/General
@@ -19,28 +19,28 @@ set(LOCUTUS_INCLUDES
         ${PROJECT_SOURCE_DIR}/Util
         ${PROJECT_SOURCE_DIR}/Workers
         )
-include_directories(${LOCUTUS_INCLUDES})
+include_directories(${STARDUST_INCLUDES})
 
 file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR} *.cpp)
 
-add_library(Locutus SHARED ${SRC_FILES})
+add_library(Stardust SHARED ${SRC_FILES})
 
 if (CMAKE_BUILD_TYPE MATCHES Debug)
-    target_compile_definitions(Locutus PUBLIC DEBUG=1)
+    target_compile_definitions(Stardust PUBLIC DEBUG=1)
 endif ()
 
 if (NOT CMAKE_BUILD_TYPE MATCHES Release)
-    target_compile_definitions(Locutus PUBLIC INSTRUMENTATION_ENABLED=true)
+    target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
 endif ()
 
 IF (MSVC)
-    target_link_libraries(Locutus BWAPILIB BWEM FAP libzstd_static)
+    target_link_libraries(Stardust BWAPILIB BWEM FAP libzstd_static)
 ELSE (MSVC)
-    target_link_libraries(Locutus -L/usr/local/Cellar/llvm/8.0.0/lib BWAPILIB BWEM FAP libzstd_static c++fs)
+    target_link_libraries(Stardust -L/usr/local/Cellar/llvm/8.0.0/lib BWAPILIB BWEM FAP libzstd_static c++fs)
 ENDIF (MSVC)
 
-target_include_directories(Locutus PUBLIC ${LOCUTUS_INCLUDES})
+target_include_directories(Stardust PUBLIC ${STARDUST_INCLUDES})
 
 IF (NOT MSVC)
-    target_compile_options(Locutus PRIVATE -Wall -Werror)
+    target_compile_options(Stardust PRIVATE -Wall -Werror)
 ENDIF (NOT MSVC)

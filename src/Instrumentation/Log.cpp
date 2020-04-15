@@ -146,7 +146,7 @@ namespace Log
         if (!log)
         {
             log = new std::ofstream();
-            log->open(logFileName("Locutus_log"), std::ofstream::trunc);
+            log->open(logFileName("Stardust_log"), std::ofstream::trunc);
         }
 
         return LogWrapper(log, isOutputtingToConsole);
@@ -160,7 +160,7 @@ namespace Log
         if (!debugLog)
         {
             debugLog = new std::ofstream();
-            debugLog->open(logFileName("Locutus_debug"), std::ofstream::trunc);
+            debugLog->open(logFileName("Stardust_debug"), std::ofstream::trunc);
         }
 
         return LogWrapper(debugLog, false);

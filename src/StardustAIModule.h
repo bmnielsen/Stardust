@@ -2,7 +2,7 @@
 
 #include "Common.h"
 
-class LocutusAIModule : public BWAPI::AIModule
+class StardustAIModule : public BWAPI::AIModule
 {
 public:
     int frameSkip = 0;
