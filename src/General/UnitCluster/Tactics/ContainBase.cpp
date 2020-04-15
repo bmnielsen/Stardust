@@ -19,17 +19,6 @@ namespace
     const double separationWeight = 96.0;
 }
 
-namespace
-{
-    bool isStaticDefense(BWAPI::UnitType type)
-    {
-        return type == BWAPI::UnitTypes::Protoss_Photon_Cannon ||
-               type == BWAPI::UnitTypes::Zerg_Sunken_Colony ||
-               type == BWAPI::UnitTypes::Terran_Bunker ||
-               type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode;
-    }
-}
-
 void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                               std::set<Unit> &enemyUnits,
                               BWAPI::Position targetPosition)
@@ -47,13 +36,12 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
         // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
         if (!myUnit->isReady()) continue;
 
-        // TODO: Reuse filtering of static defense from earlier
         bool inRangeOfStaticDefense = false;
         int closestStaticDefenseDist = INT_MAX;
         Unit closestStaticDefense = nullptr;
         for (auto &unit : enemyUnits)
         {
-            if (!isStaticDefense(unit->type)) continue;
+            if (!unit->isStaticGroundDefense()) continue;
 
             int dist = myUnit->getDistance(unit);
             if (dist < closestStaticDefenseDist)
@@ -134,12 +122,12 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
             // Move away from the second node if the next node is under threat
             // Do nothing if the first node is not under threat and the second node is
             int length = goalWeight;
-            if (grid.groundThreat(nextNodeCenter) > 0)
+            if (grid.staticGroundThreat(nextNodeCenter) > 0)
             {
                 length = -goalWeight;
                 pullingBack = true;
             }
-            else if (grid.groundThreat(secondNodeCenter) > 0)
+            else if (grid.staticGroundThreat(secondNodeCenter) > 0)
             {
                 length = 0;
             }

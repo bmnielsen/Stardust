@@ -79,7 +79,7 @@ public:
 
     [[nodiscard]] bool exists() const { return bwapiUnit != nullptr; };
 
-    virtual bool isBeingManufacturedOrCarried() const { return false; };
+    [[nodiscard]] virtual bool isBeingManufacturedOrCarried() const { return false; };
 
     [[nodiscard]] bool isAttackable() const;
 
@@ -90,6 +90,8 @@ public:
     [[nodiscard]] bool canAttackGround() const;
 
     [[nodiscard]] bool canAttackAir() const;
+
+    [[nodiscard]] bool isStaticGroundDefense() const;
 
     [[nodiscard]] BWAPI::WeaponType getWeapon(const Unit &target) const;
 

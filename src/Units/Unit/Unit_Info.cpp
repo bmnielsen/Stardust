@@ -45,6 +45,15 @@ bool UnitImpl::canAttackAir() const
     return UnitUtil::CanAttackAir(type);
 }
 
+bool UnitImpl::isStaticGroundDefense() const
+{
+    if (!UnitUtil::IsStationaryAttacker(type)) return false;
+    if (!UnitUtil::CanAttackGround(type)) return false;
+    if (type == BWAPI::UnitTypes::Zerg_Lurker && !burrowed) return false;
+
+    return true;
+}
+
 BWAPI::WeaponType UnitImpl::getWeapon(const Unit &target) const
 {
     return target->isFlying ? UnitUtil::GetAirWeapon(type) : UnitUtil::GetGroundWeapon(type);

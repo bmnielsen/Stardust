@@ -115,6 +115,16 @@ namespace UnitUtil
                 (type.isFlyer() && type.spaceProvided() > 0);
     }
 
+    bool IsStationaryAttacker(BWAPI::UnitType type)
+    {
+        return type == BWAPI::UnitTypes::Protoss_Photon_Cannon ||
+               type == BWAPI::UnitTypes::Zerg_Sunken_Colony ||
+               type == BWAPI::UnitTypes::Zerg_Lurker ||
+               type == BWAPI::UnitTypes::Terran_Missile_Turret ||
+               type == BWAPI::UnitTypes::Terran_Bunker ||
+               type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode;
+    }
+
     std::pair<BWAPI::UnitType, int> MorphsFrom(BWAPI::UnitType type)
     {
         // Anything built by a drone is a morph

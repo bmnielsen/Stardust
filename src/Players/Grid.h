@@ -62,6 +62,10 @@ public:
 
     long groundThreat(BWAPI::WalkPosition position) const { return _groundThreat[position]; };
 
+    long staticGroundThreat(BWAPI::Position position) const { return _staticGroundThreat[position]; };
+
+    long staticGroundThreat(BWAPI::WalkPosition position) const { return _staticGroundThreat[position]; };
+
     long airThreat(BWAPI::Position position) const { return _airThreat[position]; };
 
     long airThreat(BWAPI::WalkPosition position) const { return _airThreat[position]; };
@@ -74,6 +78,8 @@ public:
 
     void dumpGroundThreatHeatmapIfChanged(const std::string& heatmapName) const { dumpHeatmapIfChanged(heatmapName, _groundThreat); };
 
+    void dumpStaticGroundThreatHeatmapIfChanged(const std::string& heatmapName) const { dumpHeatmapIfChanged(heatmapName, _staticGroundThreat); };
+
     void dumpAirThreatHeatmapIfChanged(const std::string& heatmapName) const { dumpHeatmapIfChanged(heatmapName, _airThreat); };
 
     void dumpDetectionHeatmapIfChanged(const std::string& heatmapName) const { dumpHeatmapIfChanged(heatmapName, _detection); };
@@ -83,6 +89,7 @@ private:
 
     GridData _collision;
     GridData _groundThreat;
+    GridData _staticGroundThreat;
     GridData _airThreat;
     GridData _detection;
 

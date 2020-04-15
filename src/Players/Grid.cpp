@@ -1,6 +1,7 @@
 #include "Grid.h"
 #include <utility>
 #include "Geo.h"
+#include "UnitUtil.h"
 
 #if INSTRUMENTATION_ENABLED
     #define ASSERT_NEGATIVE_VALUES false
@@ -24,7 +25,7 @@ namespace
                 for (int y = -type.dimensionUp() - range; y <= type.dimensionDown() + range; y++)
                 {
                     if (Geo::EdgeToPointDistance(type, BWAPI::Positions::Origin, BWAPI::Position(x, y)) <= range)
-                        positions.insert(BWAPI::WalkPosition(x >> 3, y >> 3));
+                        positions.insert(BWAPI::WalkPosition(x >> 3U, y >> 3U));
                 }
             }
 
@@ -34,8 +35,8 @@ namespace
 
 void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position position, int delta)
 {
-    int startX = position.x >> 3;
-    int startY = position.y >> 3;
+    int startX = position.x >> 3U;
+    int startY = position.y >> 3U;
     for (auto pos : getPositionsInRange(type, range))
     {
         int x = startX + pos.x;
@@ -93,10 +94,25 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position)
                 position,
                 upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
 
+        if (UnitUtil::IsStationaryAttacker(type))
+        {
+            _staticGroundThreat.add(
+                    type,
+                    upgradeTracker->weaponRange(type.groundWeapon()) + RANGE_BUFFER,
+                    position,
+                    upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
+        }
+
         // For sieged tanks, subtract the area close to the tank
         if (type.groundWeapon().minRange() > 0)
         {
             _groundThreat.add(
+                    type,
+                    type.groundWeapon().minRange() - RANGE_BUFFER,
+                    position,
+                    -upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
+
+            _staticGroundThreat.add(
                     type,
                     type.groundWeapon().minRange() - RANGE_BUFFER,
                     position,
@@ -128,7 +144,7 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position)
 
 void Grid::unitMoved(BWAPI::UnitType type, BWAPI::Position position, BWAPI::UnitType fromType, BWAPI::Position fromPosition)
 {
-    if (type == fromType && ((position.x >> 3) == (fromPosition.x >> 3)) && ((position.y >> 3) == (fromPosition.y >> 3))) return;
+    if (type == fromType && ((position.x >> 3U) == (fromPosition.x >> 3U)) && ((position.y >> 3U) == (fromPosition.y >> 3U))) return;
 
     unitDestroyed(fromType, fromPosition, true);
     unitCreated(type, position, true);
@@ -150,10 +166,25 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
                 position,
                 -upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
 
+        if (UnitUtil::IsStationaryAttacker(type))
+        {
+            _staticGroundThreat.add(
+                    type,
+                    upgradeTracker->weaponRange(type.groundWeapon()) + RANGE_BUFFER,
+                    position,
+                    -upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
+        }
+
         // For sieged tanks, add back the area close to the tank
         if (type.groundWeapon().minRange() > 0)
         {
             _groundThreat.add(
+                    type,
+                    type.groundWeapon().minRange() - RANGE_BUFFER,
+                    position,
+                    upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
+
+            _staticGroundThreat.add(
                     type,
                     type.groundWeapon().minRange() - RANGE_BUFFER,
                     position,
@@ -192,6 +223,15 @@ void Grid::unitWeaponDamageUpgraded(BWAPI::UnitType type, BWAPI::Position positi
                 upgradeTracker->weaponRange(type.groundWeapon()),
                 position,
                 newDamage - formerDamage);
+
+        if (UnitUtil::IsStationaryAttacker(type))
+        {
+            _staticGroundThreat.add(
+                    type,
+                    upgradeTracker->weaponRange(type.groundWeapon()),
+                    position,
+                    newDamage - formerDamage);
+        }
     }
 
     if (weapon.targetsAir())
@@ -221,6 +261,21 @@ void Grid::unitWeaponRangeUpgraded(BWAPI::UnitType type, BWAPI::Position positio
                 newRange + RANGE_BUFFER,
                 position,
                 upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
+
+        if (UnitUtil::IsStationaryAttacker(type))
+        {
+            _staticGroundThreat.add(
+                    type,
+                    formerRange + RANGE_BUFFER,
+                    position,
+                    -upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
+
+            _staticGroundThreat.add(
+                    type,
+                    newRange + RANGE_BUFFER,
+                    position,
+                    upgradeTracker->weaponDamage(type.groundWeapon()) * type.maxGroundHits() * type.groundWeapon().damageFactor());
+        }
     }
 
     if (weapon.targetsAir())

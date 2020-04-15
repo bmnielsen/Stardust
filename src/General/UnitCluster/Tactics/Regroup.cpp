@@ -16,14 +16,6 @@
 
 namespace
 {
-    bool isStaticDefense(BWAPI::UnitType type)
-    {
-        return type == BWAPI::UnitTypes::Protoss_Photon_Cannon ||
-               type == BWAPI::UnitTypes::Zerg_Sunken_Colony ||
-               type == BWAPI::UnitTypes::Terran_Bunker ||
-               type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode;
-    }
-
     bool shouldContainStaticDefense(UnitCluster &cluster, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &enemyUnits)
     {
         // Run a combat sim excluding enemy static defense
@@ -31,7 +23,7 @@ namespace
         std::set<Unit> filteredEnemyUnits;
         for (const auto &pair : unitsAndTargets)
         {
-            if (pair.second && !isStaticDefense(pair.second->type))
+            if (pair.second && !pair.second->isStaticGroundDefense())
             {
                 filteredUnitsAndTargets.emplace_back(pair);
             }
@@ -42,7 +34,7 @@ namespace
         }
         for (auto &unit : enemyUnits)
         {
-            if (!isStaticDefense(unit->type)) filteredEnemyUnits.insert(unit);
+            if (!unit->isStaticGroundDefense()) filteredEnemyUnits.insert(unit);
         }
 
         auto simResult = cluster.runCombatSim(filteredUnitsAndTargets, filteredEnemyUnits);
@@ -132,7 +124,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         bool staticDefense = false;
         for (const auto &unit : enemyUnits)
         {
-            if (isStaticDefense(unit->type))
+            if (unit->isStaticGroundDefense())
             {
                 staticDefense = true;
                 break;

@@ -67,9 +67,9 @@ namespace
         if (natural)
         {
             int naturalElevation = BWAPI::Broodwar->getGroundHeight(natural->getTilePosition());
-            for (int x = -6; x < 10; x++)
+            for (int x = -3; x < 7; x++)
             {
-                for (int y = -6; y < 9; y++)
+                for (int y = -3; y < 6; y++)
                 {
                     auto here = natural->getTilePosition() + BWAPI::TilePosition(x, y);
                     if (!tileValid(here, naturalElevation)) continue;
@@ -166,7 +166,7 @@ void EarlyGameWorkerScout::update()
         {
             for (int y = 0; y < 4; y++)
             {
-                if (grid.groundThreat(walk + BWAPI::WalkPosition(x, y)) > 0) return false;
+                if (grid.staticGroundThreat(walk + BWAPI::WalkPosition(x, y)) > 0) return false;
             }
         }
         return true;
