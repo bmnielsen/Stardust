@@ -14,10 +14,13 @@ namespace PathFinding
         }
     }
 
-    void initializeGrids()
+    void clearGrids()
     {
         goalToNavigationGrid.clear();
+    }
 
+    void initializeGrids()
+    {
         for (auto base : Map::allBases())
         {
             createNavigationGrid(base->getTilePosition(), BWAPI::UnitTypes::Protoss_Nexus.tileSize());

@@ -35,6 +35,7 @@ namespace PathFinding
 {
     void initializeSearch()
     {
+        parents.clear();
         parents.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
     }
 

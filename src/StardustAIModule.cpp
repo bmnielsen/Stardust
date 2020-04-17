@@ -89,6 +89,8 @@ void StardustAIModule::onStart()
     Workers::initialize();
     Bullets::initialize();
     Players::initialize();
+    PathFinding::clearGrids();
+    PathFinding::initializeSearch();
 
     Log::SetDebug(true);
     CherryVis::initialize();
@@ -99,7 +101,6 @@ void StardustAIModule::onStart()
     Timer::checkpoint("Map::initialize");
 
     PathFinding::initializeGrids();
-    PathFinding::initializeSearch();
     Timer::checkpoint("PathFinding::initialize");
 
     BuildingPlacement::initialize();

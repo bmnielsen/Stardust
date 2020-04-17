@@ -6,6 +6,9 @@
 
 namespace PathFinding
 {
+    // Clears grids, call at start before initializing Map
+    void clearGrids();
+
     // Initializes the navigation grids
     void initializeGrids();
 
