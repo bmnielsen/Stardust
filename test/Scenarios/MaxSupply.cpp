@@ -15,7 +15,8 @@ TEST(MaxSupply, StopsProduction)
     {
         return new DoNothingModule();
     };
-    test.map = "maps/sscai/(4)Fighting Spirit.scx";
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
     test.frameLimit = 15000;
 
     // Kick-start our economy with lots of probes and some basic buildings

@@ -16,7 +16,8 @@ TEST(BlockStuckUnits, ZealotInLargeBlock)
         return new DoNothingModule();
     };
     test.opponentRace = BWAPI::Races::Zerg;
-    test.map = "maps/sscai/(4)Fighting Spirit.scx";
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
     test.frameLimit = 3000;
     test.expectWin = false;
 

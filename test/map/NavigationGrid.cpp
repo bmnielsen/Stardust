@@ -75,7 +75,8 @@ namespace
         {
             return new DoNothingModule();
         };
-        test.map = "maps/sscai/(4)Fighting Spirit.scx";
+        test.map = Maps::GetOne("Fighting Spirit");
+        test.randomSeed = 42;
         test.frameLimit = 40;
         test.expectWin = false;
         test.writeReplay = true;

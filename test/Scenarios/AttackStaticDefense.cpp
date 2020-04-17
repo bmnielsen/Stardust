@@ -14,7 +14,8 @@ TEST(AttackStaticDefense, ContainsWhileOutmatched)
     {
         return new DoNothingModule();
     };
-    test.map = "maps/sscai/(4)Fighting Spirit.scx";
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
     test.frameLimit = 1000;
 
     // We have a few dragoons on their way into the enemy base and more on the way
@@ -59,7 +60,8 @@ TEST(AttackStaticDefense, AttacksWhenOverpowered)
     {
         return new DoNothingModule();
     };
-    test.map = "maps/sscai/(4)Fighting Spirit.scx";
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
     test.frameLimit = 2000;
     test.expectWin = true;
 

@@ -55,7 +55,8 @@ TEST(DragoonKiting, DragoonVsZergling)
     {
         return new AttackNearestUnitModule();
     };
-    test.map = "maps/sscai/(4)Fighting Spirit.scx";
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
     test.frameLimit = 500;
     test.expectWin = false;
 

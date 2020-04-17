@@ -1,57 +1,6 @@
 #include "BWTest.h"
 #include "UAlbertaBotModule.h"
 
-TEST(Steamhammer, RunUntilLoss)
-{
-    int count = 0;
-    while (true)
-    {
-        BWTest test;
-        test.map = "maps/sscai/(2)Benzene.scx";
-        test.randomSeed = 54776;
-//        test.map = "";
-//        test.randomSeed = -1;
-        test.opponentRace = BWAPI::Races::Zerg;
-        test.opponentModule = []()
-        {
-            auto module = new UAlbertaBot::UAlbertaBotModule();
-            Config::StardustTestStrategyName = "11HatchTurtleLurker";
-            return module;
-        };
-        test.onStartOpponent = [&test]()
-        {
-            std::cout << "Steamhammer strategy: " << Config::Strategy::StrategyName << std::endl;
-            if (test.sharedMemory)
-            {
-                strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
-            }
-        };
-        test.onEndMine = [&](bool won)
-        {
-            std::string mapFilename = test.map.substr(test.map.rfind('/') + 1);
-            std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
-
-            std::ostringstream replayName;
-            replayName << "Steamhammer_" << (mapFilename.substr(0, mapFilename.rfind('.')));
-            if (!won)
-            {
-                replayName << "_LOSS";
-            }
-            if (test.sharedMemory) replayName << "_" << test.sharedMemory;
-            replayName << "_" << test.randomSeed;
-            test.replayName = replayName.str();
-
-            count++;
-            std::cout << "---------------------------------------------" << std::endl;
-            std::cout << "PLAYED " << count << " GAME(S)" << std::endl;
-            std::cout << "---------------------------------------------" << std::endl;
-        };
-        test.run();
-
-        if (::testing::UnitTest::GetInstance()->current_test_info()->result()->Failed()) break;
-    }
-}
-
 TEST(Steamhammer, RunForever)
 {
     int count = 0;
@@ -59,8 +8,6 @@ TEST(Steamhammer, RunForever)
     while (true)
     {
         BWTest test;
-        test.map = "";
-        test.randomSeed = -1;
         test.opponentRace = BWAPI::Races::Zerg;
         test.opponentModule = []()
         {
@@ -76,7 +23,7 @@ TEST(Steamhammer, RunForever)
         };
         test.onEndMine = [&](bool won)
         {
-            std::string mapFilename = test.map.substr(test.map.rfind('/') + 1);
+            std::string mapFilename = test.map->shortname();
             std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
 
             std::ostringstream replayName;
@@ -99,6 +46,40 @@ TEST(Steamhammer, RunForever)
         test.expectWin = false;
         test.run();
     }
+}
+
+TEST(Steamhammer, RunOne)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        return new UAlbertaBot::UAlbertaBotModule();
+    };
+    test.onStartOpponent = [&test]()
+    {
+        std::cout << "Steamhammer strategy: " << Config::Strategy::StrategyName << std::endl;
+        if (test.sharedMemory)
+        {
+            strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
+        }
+    };
+    test.onEndMine = [&test](bool won)
+    {
+        std::string mapFilename = test.map->shortname();
+        std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
+
+        std::ostringstream replayName;
+        replayName << "Steamhammer_" << (mapFilename.substr(0, mapFilename.rfind('.')));
+        if (!won)
+        {
+            replayName << "_LOSS";
+        }
+        if (test.sharedMemory) replayName << "_" << test.sharedMemory;
+        replayName << "_" << test.randomSeed;
+        test.replayName = replayName.str();
+    };
+    test.run();
 }
 
 TEST(Steamhammer, 4PoolHard)
@@ -185,7 +166,7 @@ TEST(Steamhammer, 4HatchBeforeLair)
 TEST(Steamhammer, 9PoolSpeed)
 {
     BWTest test;
-    test.map = "maps/sscai/(4)Python.scx";
+    test.map = Maps::GetOne("Python");
     test.randomSeed = 30841;
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
@@ -201,7 +182,7 @@ TEST(Steamhammer, 9PoolSpeed)
 TEST(Steamhammer, 8Hatch7Pool)
 {
     BWTest test;
-    test.map = "maps/sscai/(4)Circuit Breaker.scx";
+    test.map = Maps::GetOne("Circuit Breaker");
     test.randomSeed = 59756;
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
@@ -259,7 +240,7 @@ TEST(Steamhammer, OverhatchExpoLing)
 TEST(Steamhammer, 9HatchExpo9Pool9Gas)
 {
     BWTest test;
-    test.map = "maps/sscai/(2)Destination.scx";
+    test.map = Maps::GetOne("Destination");
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
@@ -274,10 +255,8 @@ TEST(Steamhammer, 9HatchExpo9Pool9Gas)
 TEST(Steamhammer, 11HatchTurtleLurker)
 {
     BWTest test;
-    test.map = "maps/sscai/(2)Heartbreak Ridge.scx";
+    test.map = Maps::GetOne("Heartbreak Ridge");
     test.randomSeed = 9020;
-//    test.map = "maps/sscai/(2)Benzene.scx";
-//    test.randomSeed = 54776;
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
@@ -293,7 +272,7 @@ TEST(Steamhammer, 11HatchTurtleLurker)
 TEST(Steamhammer, Over10Hatch1Sunk)
 {
     BWTest test;
-    test.map = "maps/sscai/(4)La Mancha1.1.scx";
+    test.map = Maps::GetOne("La Mancha");
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
@@ -308,7 +287,7 @@ TEST(Steamhammer, Over10Hatch1Sunk)
 TEST(Steamhammer, GasSteal)
 {
     BWTest test;
-    test.map = "maps/sscai/(4)Python.scx";
+    test.map = Maps::GetOne("Python");
     test.randomSeed = 1234;
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
@@ -319,31 +298,5 @@ TEST(Steamhammer, GasSteal)
         return module;
     };
 
-    test.run();
-}
-
-TEST(Steamhammer, Anything)
-{
-    BWTest test;
-    test.opponentRace = BWAPI::Races::Zerg;
-    test.opponentModule = []()
-    {
-        return new UAlbertaBot::UAlbertaBotModule();
-    };
-    test.onStartOpponent = [&test]()
-    {
-        std::cout << "Steamhammer strategy: " << Config::Strategy::StrategyName << std::endl;
-        if (test.sharedMemory)
-        {
-            strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
-        }
-    };
-    test.onEndMine = [&test](bool won)
-    {
-        if (test.sharedMemory)
-        {
-            test.replayName = (std::ostringstream() << "Steamhammer_" << test.sharedMemory).str();
-        }
-    };
     test.run();
 }

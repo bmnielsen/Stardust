@@ -43,7 +43,8 @@ TEST(ContainAtChoke, DragoonsVsDragoonsOnBridge)
     {
         return new AttackAtFrameModule(BWAPI::Position(BWAPI::TilePosition(7, 7)), 500);
     };
-    test.map = "maps/sscai/(4)La Mancha1.1.scx";
+    test.map = Maps::GetOne("La Mancha");
+    test.randomSeed = 42;
     test.frameLimit = 2000;
     test.expectWin = false;
 
@@ -106,7 +107,8 @@ TEST(ContainAtChoke, ZealotsAndDragoonsVsZerglingsOnBridge)
     {
         return new AttackAtFrameModule(BWAPI::Position(BWAPI::TilePosition(7, 7)), 500);
     };
-    test.map = "maps/sscai/(4)La Mancha1.1.scx";
+    test.map = Maps::GetOne("La Mancha");
+    test.randomSeed = 42;
     test.frameLimit = 2000;
     test.expectWin = false;
 

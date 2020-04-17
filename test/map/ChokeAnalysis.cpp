@@ -15,7 +15,7 @@ void run(const std::string &map, BWAPI::TilePosition chokeLocation, std::functio
     {
         return new DoNothingModule();
     };
-    test.map = map;
+    test.map = Maps::GetOne(map);
     test.frameLimit = 10;
     test.expectWin = false;
     test.writeReplay = false;
@@ -47,7 +47,7 @@ void run(const std::string &map, BWAPI::TilePosition chokeLocation, std::functio
 
 TEST(ChokeAnalysis, Python)
 {
-    run("maps/sscai/(4)Python.scx", BWAPI::TilePosition(66, 121), [](const BWEM::ChokePoint *bwemChoke)
+    run("Python", BWAPI::TilePosition(66, 121), [](const BWEM::ChokePoint *bwemChoke)
     {
         auto choke = new Choke(bwemChoke);
 
@@ -55,7 +55,7 @@ TEST(ChokeAnalysis, Python)
 
         std::cout << "Choke found" << std::endl;
     });
-    run("maps/sscai/(4)Python.scx", BWAPI::TilePosition(66, 121), [](const BWEM::ChokePoint *bwemChoke)
+    run("Python", BWAPI::TilePosition(66, 121), [](const BWEM::ChokePoint *bwemChoke)
     {
         auto choke = new Choke(bwemChoke);
 
@@ -67,7 +67,7 @@ TEST(ChokeAnalysis, Python)
 
 TEST(ChokeAnalysis, Benzene)
 {
-    run("maps/sscai/(2)Benzene.scx", BWAPI::TilePosition(96, 54), [](const BWEM::ChokePoint *bwemChoke)
+    run("Benzene", BWAPI::TilePosition(96, 54), [](const BWEM::ChokePoint *bwemChoke)
     {
         auto choke = new Choke(bwemChoke);
 
@@ -76,7 +76,7 @@ TEST(ChokeAnalysis, Benzene)
         std::cout << "Choke found" << std::endl;
     });
     /*
-    run("maps/sscai/(2)Benzene.scx", BWAPI::TilePosition(20, 78), [](const BWEM::ChokePoint *bwemChoke)
+    run("maps/sscai/(2)Benzene", BWAPI::TilePosition(20, 78), [](const BWEM::ChokePoint *bwemChoke)
     {
         auto choke = new Choke(bwemChoke);
 
@@ -84,7 +84,7 @@ TEST(ChokeAnalysis, Benzene)
 
         std::cout << "Choke found" << std::endl;
     });
-    run("maps/sscai/(2)Benzene.scx", BWAPI::TilePosition(107, 33), [](const BWEM::ChokePoint *bwemChoke)
+    run("maps/sscai/(2)Benzene", BWAPI::TilePosition(107, 33), [](const BWEM::ChokePoint *bwemChoke)
     {
         auto choke = new Choke(bwemChoke);
 
@@ -98,7 +98,7 @@ TEST(ChokeAnalysis, Benzene)
 TEST(ChokeAnalysis, AnalyzeAll_Python)
 {
     BWTest test;
-    test.map = "maps/sscai/(4)Python.scx";
+    test.map = Maps::GetOne("Python");
     test.frameLimit = 10;
     test.expectWin = false;
     test.opponentModule = []()
@@ -112,7 +112,7 @@ TEST(ChokeAnalysis, AnalyzeAll_Python)
 TEST(ChokeAnalysis, AnalyzeAll_Benzene)
 {
     BWTest test;
-    test.map = "maps/sscai/(2)Benzene.scx";
+    test.map = Maps::GetOne("Benzene");
     test.frameLimit = 10;
     test.expectWin = false;
     test.opponentModule = []()
@@ -126,7 +126,7 @@ TEST(ChokeAnalysis, AnalyzeAll_Benzene)
 TEST(ChokeAnalysis, AnalyzeAll_TauCross)
 {
     BWTest test;
-    test.map = "maps/sscai/(3)Tau Cross.scx";
+    test.map = Maps::GetOne("Tau Cross");
     test.frameLimit = 10;
     test.expectWin = false;
     test.opponentModule = []()
@@ -140,7 +140,7 @@ TEST(ChokeAnalysis, AnalyzeAll_TauCross)
 TEST(ChokeAnalysis, AnalyzeAll_LaMancha)
 {
     BWTest test;
-    test.map = "maps/sscai/(4)La Mancha1.1.scx";
+    test.map = Maps::GetOne("La Mancha");
     test.frameLimit = 10;
     test.expectWin = false;
     test.opponentModule = []()
@@ -154,7 +154,7 @@ TEST(ChokeAnalysis, AnalyzeAll_LaMancha)
 TEST(ChokeAnalysis, AnalyzeAll_Destination)
 {
     BWTest test;
-    test.map = "maps/sscai/(2)Destination.scx";
+    test.map = Maps::GetOne("Destination");
     test.frameLimit = 10;
     test.expectWin = false;
     test.opponentModule = []()

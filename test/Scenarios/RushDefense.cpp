@@ -7,7 +7,7 @@
 TEST(RushDefense, Steamhammer9PoolSpeed)
 {
     BWTest test;
-    test.map = "maps/sscai/(4)Python.scx";
+    test.map = Maps::GetOne("Python");
     test.randomSeed = 30841;
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()

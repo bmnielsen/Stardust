@@ -10,6 +10,8 @@ TEST(PathFindingSearch, FindPath_NonOptimalWhenDiagonal)
     {
         return new DoNothingModule();
     };
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
     test.frameLimit = 10;
     test.expectWin = false;
     test.writeReplay = false;
@@ -31,6 +33,8 @@ TEST(PathFindingSearch, FindPath_ExplodingComplexity)
     {
         return new DoNothingModule();
     };
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
     test.frameLimit = 10;
     test.expectWin = false;
     test.writeReplay = false;

@@ -15,7 +15,8 @@ TEST(TakeIslandExpansion, CanTakeIslandExpansion)
     {
         return new DoNothingModule();
     };
-    test.map = "maps/sscai/(4)Python.scx";
+    test.map = Maps::GetOne("Python");
+    test.randomSeed = 42;
     test.frameLimit = 12000;
     test.expectWin = false;
 

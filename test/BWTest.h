@@ -3,6 +3,7 @@
 #include <BWAPI.h>
 #include "BWAPI/GameImpl.h"
 #include "gtest/gtest.h"
+#include "Maps.h"
 
 struct UnitTypeAndPosition
 {
@@ -30,11 +31,12 @@ private:
 struct BWTest
 {
 public:
-    std::string map = "maps/sscai/(4)Fighting Spirit.scx";
+    std::shared_ptr<Maps::MapMetadata> map;
+    std::vector<Maps::MapMetadata> maps;
 
     int frameLimit = 25000;
     int timeLimit = 600;
-    int randomSeed = 42;
+    int randomSeed = -1;
     bool expectWin = true;
     bool writeReplay = true;
 

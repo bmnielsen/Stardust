@@ -13,7 +13,8 @@ TEST(DragoonSticking, StuckOnGateway)
     {
         return new DoNothingModule();
     };
-    test.map = "maps/sscai/(4)Fighting Spirit.scx";
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
     test.frameLimit = 400;
     test.expectWin = false;
 

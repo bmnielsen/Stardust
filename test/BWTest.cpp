@@ -4,7 +4,7 @@
 #include "StardustAIModule.h"
 #include <chrono>
 #include <thread>
-#include <signal.h>
+#include <csignal>
 #include <execinfo.h>
 #include <filesystem>
 #include <sys/shm.h>
@@ -12,27 +12,8 @@
 
 #include "Geo.h"
 
-// Clear orphaned shared memory: ipcs | grep 0x00000000 | tr -s ' ' | cut -d' ' -f2 | xargs -n1 ipcrm -m
-
 namespace
 {
-    std::vector<std::string> allMaps = {
-            "maps/sscai/(2)Benzene.scx",
-            "maps/sscai/(2)Destination.scx",
-            "maps/sscai/(2)Heartbreak Ridge.scx",
-            "maps/sscai/(3)Neo Moon Glaive.scx",
-            "maps/sscai/(3)Tau Cross.scx",
-            "maps/sscai/(4)Andromeda.scx",
-            "maps/sscai/(4)Circuit Breaker.scx",
-            "maps/sscai/(4)Empire of the Sun.scm",
-            "maps/sscai/(4)Fighting Spirit.scx",
-            "maps/sscai/(4)Icarus.scm",
-            "maps/sscai/(4)Jade.scx",
-            "maps/sscai/(4)La Mancha1.1.scx",
-            "maps/sscai/(4)Python.scx",
-            "maps/sscai/(4)Roadrunner.scx"
-    };
-
     std::mt19937 rng((std::random_device()) ());
 
     template<typename It>
@@ -204,10 +185,16 @@ BWAPI::Position UnitTypeAndPosition::getCenterPosition()
 
 void BWTest::run()
 {
-    // If the map is empty, pick a random one
-    if (map.empty())
+    // Ensure a map is selected
+    if (!map)
     {
-        map = *randomElement(allMaps.begin(), allMaps.end());
+        // If no map set is defined on the test, default to all SSCAIT maps
+        if (maps.empty())
+        {
+            maps = Maps::Get("sscai");
+        }
+
+        map = std::make_shared<Maps::MapMetadata>(*randomElement(maps.begin(), maps.end()));
     }
 
     // If the random seed is -1, generate one
@@ -224,7 +211,7 @@ void BWTest::run()
     auto shmid = shmget(IPC_PRIVATE, 256, IPC_CREAT | 0666);
     if (shmid < 0)
     {
-        std::cout << "Unable to create shared memory: " << errno << std::endl;
+        std::cerr << "Unable to create shared memory: " << errno << std::endl;
     }
     else
     {
@@ -294,7 +281,7 @@ void BWTest::runGame(bool opponent)
     BWAPI::BroodwarImpl_handle h(gameOwner.getGame());
     h->setCharacterName(opponent ? "Opponent" : "Startest");
     h->setGameType(BWAPI::GameTypes::Melee);
-    BWAPI::BroodwarImpl.bwgame.setMapFileName(map);
+    BWAPI::BroodwarImpl.bwgame.setMapFileName(map->filename);
     BWAPI::Race race = opponent ? opponentRace : BWAPI::Races::Protoss;
     h->createMultiPlayerGame([&]()
                              {
@@ -326,7 +313,7 @@ void BWTest::runGame(bool opponent)
     std::cout << "Game started" << (opponent ? " (opponent)" : "") << "! "
               << "framelimit=" << frameLimit
               << "; timelimit=" << timeLimit
-              << "; map=" << map
+              << "; map=" << map->filename
               << "; seed=" << randomSeed
               << std::endl;
 
@@ -427,7 +414,7 @@ void BWTest::runGame(bool opponent)
         }
         catch (std::exception &ex)
         {
-            std::cout << "Exception caught in frame (" << (opponent ? "opponent" : "mine") << "): " << ex.what() << std::endl;
+            std::cerr << "Exception caught in frame (" << (opponent ? "opponent" : "mine") << "): " << ex.what() << std::endl;
             printBacktrace();
             if (!leftGame)
             {
@@ -456,7 +443,7 @@ void BWTest::runGame(bool opponent)
     }
     catch (std::exception &ex)
     {
-        std::cout << "Exception caught in game end (" << (opponent ? "opponent" : "mine") << "): " << ex.what() << std::endl;
+        std::cerr << "Exception caught in game end (" << (opponent ? "opponent" : "mine") << "): " << ex.what() << std::endl;
         printBacktrace();
     }
 

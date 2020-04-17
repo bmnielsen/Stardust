@@ -13,7 +13,8 @@ TEST(TakeNaturalExpansion, CanTakeNaturalExpansionImmediately)
     {
         return new DoNothingModule();
     };
-    test.map = "maps/sscai/(4)Andromeda.scx";
+    test.map = Maps::GetOne("Andromeda");
+    test.randomSeed = 42;
     test.frameLimit = 2500;
     test.expectWin = false;
 

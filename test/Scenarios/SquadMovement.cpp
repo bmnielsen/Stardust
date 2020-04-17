@@ -58,7 +58,8 @@ TEST(SquadMovement, UnitsStayTogether_Dragoons)
     {
         return new DoNothingModule();
     };
-    test.map = "maps/sscai/(3)Tau Cross.scx";
+    test.map = Maps::GetOne("Tau Cross");
+    test.randomSeed = 42;
     test.frameLimit = 400;
     test.expectWin = false;
 
@@ -108,7 +109,8 @@ TEST(SquadMovement, UnitsStayTogether_Zealots)
     {
         return new DoNothingModule();
     };
-    test.map = "maps/sscai/(3)Tau Cross.scx";
+    test.map = Maps::GetOne("Tau Cross");
+    test.randomSeed = 42;
     test.frameLimit = 400;
     test.expectWin = false;
 
@@ -158,7 +160,8 @@ TEST(SquadMovement, UnitsStayTogether_Mixed)
     {
         return new DoNothingModule();
     };
-    test.map = "maps/sscai/(3)Tau Cross.scx";
+    test.map = Maps::GetOne("Tau Cross");
+    test.randomSeed = 42;
     test.frameLimit = 400;
     test.expectWin = false;
 
@@ -222,6 +225,8 @@ TEST(SquadMovement, OrphanedUnit)
     {
         return new DoNothingModule();
     };
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
     test.frameLimit = 400;
     test.expectWin = false;
 
@@ -265,6 +270,8 @@ TEST(SquadMovement, DragoonBall)
     {
         return new DoNothingModule();
     };
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
     test.frameLimit = 600;
     test.expectWin = false;
 
@@ -339,6 +346,8 @@ TEST(SquadMovement, DragoonBallThroughChoke)
     {
         return new DoNothingModule();
     };
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
     test.frameLimit = 600;
     test.expectWin = false;
 

@@ -66,7 +66,8 @@ TEST(DefendBase, WorkerDefenseZerglings)
         return new AttackMineralLineModule();
     };
     test.opponentRace = BWAPI::Races::Zerg;
-    test.map = "maps/sscai/(4)Fighting Spirit.scx";
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
     test.frameLimit = 2000;
 
     // Simulate a short rush distance 4-pool where the zerglings arrive as we have 11 probes
@@ -115,7 +116,8 @@ TEST(DefendBase, WorkerDefenseZealots)
         return new AttackMineralLineModule();
     };
     test.opponentRace = BWAPI::Races::Protoss;
-    test.map = "maps/sscai/(4)Fighting Spirit.scx";
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
     test.frameLimit = 2000;
 
     // Simulate a short rush distance 4-pool where the zerglings arrive as we have 11 probes

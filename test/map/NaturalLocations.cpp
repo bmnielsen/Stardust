@@ -14,7 +14,7 @@ void verifyNaturalLocations(const std::string &map, std::map<BWAPI::TilePosition
     {
         return new DoNothingModule();
     };
-    test.map = map;
+    test.map = Maps::GetOne(map);
     test.frameLimit = 10;
     test.expectWin = false;
     test.writeReplay = false;
@@ -41,7 +41,7 @@ TEST(NaturalLocations, Andromeda)
             {BWAPI::TilePosition(7, 6),     BWAPI::TilePosition(21, 21)}
     };
 
-    verifyNaturalLocations("maps/sscai/(4)Andromeda.scx", expectedNaturalLocations);
+    verifyNaturalLocations("Andromeda", expectedNaturalLocations);
 }
 
 TEST(NaturalLocations, Python)
@@ -53,7 +53,7 @@ TEST(NaturalLocations, Python)
             {BWAPI::TilePosition(83, 6),   BWAPI::TilePosition(47, 6)}
     };
 
-    verifyNaturalLocations("maps/sscai/(4)Python.scx", expectedNaturalLocations);
+    verifyNaturalLocations("Python", expectedNaturalLocations);
 }
 
 TEST(NaturalLocations, EmpireOfTheSun)
@@ -65,7 +65,7 @@ TEST(NaturalLocations, EmpireOfTheSun)
             {BWAPI::TilePosition(7, 6),     BWAPI::TilePosition(31, 6)}
     };
 
-    verifyNaturalLocations("maps/sscai/(4)Empire of the Sun.scm", expectedNaturalLocations);
+    verifyNaturalLocations("Empire of the Sun.scm", expectedNaturalLocations);
 }
 
 TEST(NaturalLocations, FightingSpirit)
@@ -77,7 +77,7 @@ TEST(NaturalLocations, FightingSpirit)
             {BWAPI::TilePosition(7, 116),   BWAPI::TilePosition(36, 112)}
     };
 
-    verifyNaturalLocations("maps/sscai/(4)Fighting Spirit.scx", expectedNaturalLocations);
+    verifyNaturalLocations("Fighting Spirit", expectedNaturalLocations);
 }
 
 TEST(NaturalLocations, LaMancha)
@@ -89,7 +89,7 @@ TEST(NaturalLocations, LaMancha)
             {BWAPI::TilePosition(8, 117),   BWAPI::TilePosition(32, 117)}
     };
 
-    verifyNaturalLocations("maps/sscai/(4)La Mancha1.1.scx", expectedNaturalLocations);
+    verifyNaturalLocations("La Mancha1.1", expectedNaturalLocations);
 }
 
 TEST(NaturalLocations, Destination)
@@ -99,7 +99,7 @@ TEST(NaturalLocations, Destination)
             {BWAPI::TilePosition(31, 7),   BWAPI::TilePosition(63, 19)}
     };
 
-    verifyNaturalLocations("maps/sscai/(2)Destination.scx", expectedNaturalLocations);
+    verifyNaturalLocations("Destination", expectedNaturalLocations);
 }
 
 TEST(NaturalLocations, NeoMoonGlaive)
@@ -110,7 +110,7 @@ TEST(NaturalLocations, NeoMoonGlaive)
             {BWAPI::TilePosition(67, 6),   BWAPI::TilePosition(39, 14)}
     };
 
-    verifyNaturalLocations("maps/sscai/(3)Neo Moon Glaive.scx", expectedNaturalLocations);
+    verifyNaturalLocations("Neo Moon Glaive", expectedNaturalLocations);
 }
 
 TEST(NaturalLocations, HeartbreakRidge)
@@ -120,7 +120,7 @@ TEST(NaturalLocations, HeartbreakRidge)
             {BWAPI::TilePosition(7, 37),   BWAPI::TilePosition(13, 66)}
     };
 
-    verifyNaturalLocations("maps/sscai/(2)Heartbreak Ridge.scx", expectedNaturalLocations);
+    verifyNaturalLocations("Heartbreak Ridge", expectedNaturalLocations);
 }
 
 TEST(NaturalLocations, TauCross)
@@ -131,7 +131,7 @@ TEST(NaturalLocations, TauCross)
             {BWAPI::TilePosition(7, 44),   BWAPI::TilePosition(14, 13)}
     };
 
-    verifyNaturalLocations("maps/sscai/(3)Tau Cross.scx", expectedNaturalLocations);
+    verifyNaturalLocations("Tau Cross", expectedNaturalLocations);
 }
 
 TEST(NaturalLocations, CircuitBreaker)
@@ -143,7 +143,7 @@ TEST(NaturalLocations, CircuitBreaker)
             {BWAPI::TilePosition(7, 9),     BWAPI::TilePosition(7, 34)}
     };
 
-    verifyNaturalLocations("maps/sscai/(4)Circuit Breaker.scx", expectedNaturalLocations);
+    verifyNaturalLocations("Circuit Breaker", expectedNaturalLocations);
 }
 
 TEST(NaturalLocations, Roadrunner)
@@ -155,7 +155,7 @@ TEST(NaturalLocations, Roadrunner)
             {BWAPI::TilePosition(27, 6),   BWAPI::TilePosition(53, 6)}
     };
 
-    verifyNaturalLocations("maps/sscai/(4)Roadrunner.scx", expectedNaturalLocations);
+    verifyNaturalLocations("Roadrunner", expectedNaturalLocations);
 }
 
 TEST(NaturalLocations, Jade)
@@ -167,7 +167,7 @@ TEST(NaturalLocations, Jade)
             {BWAPI::TilePosition(117, 117), BWAPI::TilePosition(89, 118)}
     };
 
-    verifyNaturalLocations("maps/sscai/(4)Jade.scx", expectedNaturalLocations);
+    verifyNaturalLocations("Jade", expectedNaturalLocations);
 }
 
 TEST(NaturalLocations, Icarus)
@@ -179,7 +179,7 @@ TEST(NaturalLocations, Icarus)
             {BWAPI::TilePosition(116, 47), BWAPI::TilePosition(117, 77)}
     };
 
-    verifyNaturalLocations("maps/sscai/(4)Icarus.scm", expectedNaturalLocations);
+    verifyNaturalLocations("Icarus.scm", expectedNaturalLocations);
 }
 
 TEST(NaturalLocations, Benzene)
@@ -189,5 +189,5 @@ TEST(NaturalLocations, Benzene)
             {BWAPI::TilePosition(117, 13), BWAPI::TilePosition(113, 40)}
     };
 
-    verifyNaturalLocations("maps/sscai/(2)Benzene.scx", expectedNaturalLocations);
+    verifyNaturalLocations("Benzene", expectedNaturalLocations);
 }
