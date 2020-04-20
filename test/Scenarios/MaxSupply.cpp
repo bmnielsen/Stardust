@@ -5,7 +5,6 @@
 #include "Strategist.h"
 #include "TestMainArmyAttackBasePlay.h"
 #include "Plays/Macro/SaturateBases.h"
-#include "Plays/Macro/TakeNaturalExpansion.h"
 
 TEST(MaxSupply, StopsProduction)
 {
@@ -50,7 +49,6 @@ TEST(MaxSupply, StopsProduction)
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<SaturateBases>());
-        openingPlays.emplace_back(std::make_shared<TakeNaturalExpansion>());
         openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
