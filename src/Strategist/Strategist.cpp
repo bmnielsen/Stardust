@@ -52,7 +52,6 @@ namespace Strategist
         std::unique_ptr<StrategyEngine> engine;
         std::unordered_map<MyUnit, std::shared_ptr<Play>> unitToPlay;
         std::vector<std::shared_ptr<Play>> plays;
-        std::unordered_set<std::shared_ptr<TakeExpansion>> takeExpansionPlays;
         std::vector<ProductionGoal> productionGoals;
         std::vector<std::pair<int, int>> mineralReservations;
 
@@ -183,85 +182,6 @@ namespace Strategist
             }
         }
 
-        void updateExpansions()
-        {
-            // Clear finished TakeExpansion plays
-            for (auto it = takeExpansionPlays.begin(); it != takeExpansionPlays.end();)
-            {
-                if ((*it)->status.complete)
-                {
-                    it = takeExpansionPlays.erase(it);
-                }
-                else
-                {
-                    it++;
-                }
-            }
-
-            // The natural is always our first expansion, so until it is taken, don't expand anywhere else
-            // The logic for taking our natural is special and is contained in TakeNaturalExpansion
-            // If our natural has been taken at one point and lost again, it will be treated as a normal expansion
-            auto natural = Map::getMyNatural();
-            if (natural->ownedSince == -1) return;
-
-            // Determine whether we want to expand now
-            bool wantToExpand = true;
-
-            // Count our completed basic gateway units
-            int army = Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) + Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon);
-
-            // Never expand if we don't have a reasonable-sized army
-            if (army < 5) wantToExpand = false;
-
-            // Expand if we have no bases with more than 3 available mineral assignments
-            if (wantToExpand)
-            {
-                // Adjust by the number of pending expansions to avoid instability when a build worker is reserved for the expansion
-                int availableMineralAssignmentsThreshold = 3 + takeExpansionPlays.size();
-
-                for (auto base : Map::getMyBases())
-                {
-                    if (Workers::availableMineralAssignments(base) > availableMineralAssignmentsThreshold)
-                    {
-                        wantToExpand = false;
-                        break;
-                    }
-                }
-            }
-
-            // TODO: Checks that depend on what the enemy is doing, whether the enemy is contained, etc.
-
-            if (wantToExpand)
-            {
-                // TODO: Logic for when we should queue multiple expansions simultaneously
-                if (takeExpansionPlays.empty())
-                {
-                    // Create a TakeExpansion play for the next expansion
-                    // TODO: Take island expansions where appropriate
-                    auto &untakenExpansions = Map::getUntakenExpansions();
-                    if (!untakenExpansions.empty())
-                    {
-                        auto play = std::make_shared<TakeExpansion>((*untakenExpansions.begin())->getTilePosition());
-                        takeExpansionPlays.insert(play);
-                        plays.emplace(plays.begin(), play);
-
-                        Log::Get() << "Queued expansion to " << play->depotPosition;
-                    }
-                }
-            }
-            else
-            {
-                // Cancel any active TakeExpansion plays
-                for (auto &takeExpansionPlay : takeExpansionPlays)
-                {
-                    takeExpansionPlay->cancel();
-
-                    Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition;
-                }
-                takeExpansionPlays.clear();
-            }
-        }
-
         void writeInstrumentation()
         {
 #if CHERRYVIS_ENABLED
@@ -288,7 +208,6 @@ namespace Strategist
     {
         unitToPlay.clear();
         plays.clear();
-        takeExpansionPlays.clear();
         productionGoals.clear();
         mineralReservations.clear();
 
@@ -325,9 +244,6 @@ namespace Strategist
             play->status.removedUnits.clear();
             play->update();
         }
-
-        // Updating expansions goes next, as this may also cause some changes to existing TakeExpansion plays
-        updateExpansions();
 
         // Process the changes signalled by the PlayStatus objects
         for (auto it = plays.begin(); it != plays.end();)

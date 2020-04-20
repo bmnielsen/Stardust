@@ -6,9 +6,9 @@
 #include "Geo.h"
 #include "Map.h"
 
-TakeIslandExpansion::TakeIslandExpansion(BWAPI::TilePosition
-                                         depotPosition) :
-        depotPosition(depotPosition), shuttle(nullptr), builder(nullptr) {}
+TakeIslandExpansion::TakeIslandExpansion(BWAPI::TilePosition depotPosition)
+        : TakeExpansion(depotPosition)
+        , shuttle(nullptr) {}
 
 void TakeIslandExpansion::update()
 {
@@ -82,12 +82,22 @@ void TakeIslandExpansion::update()
     }
 }
 
+void TakeIslandExpansion::cancel()
+{
+    // TODO: Avoid orphaning the worker
+    Builder::cancel(depotPosition);
+    status.complete = true;
+}
+
 void TakeIslandExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
     for (auto &unitRequirement : status.unitRequirements)
     {
         if (unitRequirement.count < 1) continue;
-        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>, unitRequirement.type, unitRequirement.count, 1);
+        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 unitRequirement.type,
+                                                                 unitRequirement.count,
+                                                                 1);
     }
 }
 

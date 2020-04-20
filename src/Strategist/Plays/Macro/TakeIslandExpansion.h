@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Play.h"
+#include "TakeExpansion.h"
 
 // Takes the next expansion.
-class TakeIslandExpansion : public Play
+class TakeIslandExpansion : public TakeExpansion
 {
 public:
     explicit TakeIslandExpansion(BWAPI::TilePosition depotPosition);
@@ -12,6 +12,8 @@ public:
 
     void update() override;
 
+    void cancel() override;
+
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 
     void addUnit(MyUnit unit) override;
@@ -19,7 +21,5 @@ public:
     void removeUnit(MyUnit unit) override;
 
 private:
-    BWAPI::TilePosition depotPosition;
     MyUnit shuttle;
-    MyUnit builder;
 };

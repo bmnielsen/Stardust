@@ -27,4 +27,6 @@ protected:
                                 bool requireProducer = false);
 
     static void defaultGroundUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+
+    static void defaultExpansions(std::vector<std::shared_ptr<Play>> &plays);
 };

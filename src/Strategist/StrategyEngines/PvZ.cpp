@@ -1,10 +1,11 @@
 #include "PvZ.h"
 
 #include "Units.h"
+#include "Map.h"
+#include "Builder.h"
 
 #include "Plays/Defensive/DefendMainBase.h"
 #include "Plays/Macro/SaturateBases.h"
-#include "Plays/Macro/TakeNaturalExpansion.h"
 #include "Plays/Offensive/RallyArmy.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 
@@ -13,20 +14,57 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<DefendMainBase>());
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
-    plays.emplace_back(std::make_shared<TakeNaturalExpansion>());
     plays.emplace_back(std::make_shared<RallyArmy>());
 }
 
 void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 {
-
+    defaultExpansions(plays);
 }
 
 void PvZ::updateProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                      std::vector<std::pair<int, int>> &mineralReservations)
+                           std::vector<std::pair<int, int>> &mineralReservations)
 {
+    handleNaturalExpansion(prioritizedProductionGoals);
+
     handleUpgrades(prioritizedProductionGoals);
     handleDetection(prioritizedProductionGoals);
+}
+
+void PvZ::handleNaturalExpansion(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+{
+    // Hop out if the natural has already been (or is being) taken
+    auto natural = Map::getMyNatural();
+    if (natural->ownedSince != -1) return;
+    if (Builder::isPendingHere(natural->getTilePosition())) return;
+
+    // Currently we do this as soon as we have at least 5 combat units and one of them is 2000 units of ground distance away from our main
+    // TODO: More nuanced approach
+    int army = Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) + Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon);
+    if (army < 5) return;
+
+    bool unitIsAwayFromHome = false;
+    for (const auto &unit : Units::allMine())
+    {
+        if (unit->type != BWAPI::UnitTypes::Protoss_Zealot && unit->type != BWAPI::UnitTypes::Protoss_Dragoon) continue;
+        if (!unit->completed) continue;
+        if (!unit->exists()) continue;
+
+        int dist = PathFinding::GetGroundDistance(unit->lastPosition, Map::getMyMain()->getPosition(), unit->type);
+        if (dist > 2000)
+        {
+            unitIsAwayFromHome = true;
+            break;
+        }
+    }
+    if (!unitIsAwayFromHome) return;
+
+    auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(natural->getTilePosition()),
+                                                          BuildingPlacement::builderFrames(BuildingPlacement::Neighbourhood::MainBase,
+                                                                                           natural->getTilePosition(),
+                                                                                           BWAPI::UnitTypes::Protoss_Nexus),
+                                                          0, 0);
+    prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Nexus, buildLocation);
 }
 
 void PvZ::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)

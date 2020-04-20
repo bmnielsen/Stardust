@@ -12,10 +12,12 @@ public:
 
     void update() override;
 
-    void cancel();
+    bool constructionStarted() const;
+
+    virtual void cancel();
 
     BWAPI::TilePosition depotPosition;
 
-private:
+protected:
     MyUnit builder;
 };

@@ -13,6 +13,8 @@ public:
                           std::vector<std::pair<int, int>> &mineralReservations) override;
 
 private:
+    static void handleNaturalExpansion(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+
     static void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
     static void handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);

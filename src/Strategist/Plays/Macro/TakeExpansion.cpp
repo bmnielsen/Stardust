@@ -27,14 +27,24 @@ void TakeExpansion::update()
         // TODO: Support escorting the worker
     }
 
-    // Treat the play as complete when the nexus has been created
+    // TODO: Create DefendBase play when nexus is started? Or transition to it when nexus finishes?
+
+    // Treat the play as complete when the nexus is finished
     auto pendingBuilding = Builder::pendingHere(depotPosition);
-    if (pendingBuilding && pendingBuilding->isConstructionStarted())
+    if (!pendingBuilding)
     {
         status.complete = true;
-
-        // TODO: Transition to DefendBase play
     }
+}
+
+bool TakeExpansion::constructionStarted() const
+{
+    if (!builder) return false;
+
+    auto pendingBuilding = Builder::pendingHere(depotPosition);
+    if (!pendingBuilding) return true; // completed
+
+    return pendingBuilding->isConstructionStarted();
 }
 
 void TakeExpansion::cancel()
