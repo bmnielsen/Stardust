@@ -3,14 +3,17 @@
 #include "PathFinding.h"
 #include "General.h"
 #include "Workers.h"
+#include "Opponent.h"
+
+#include "StrategyEngine.h"
+#include "StrategyEngines/PvP.h"
+#include "StrategyEngines/PvT.h"
+#include "StrategyEngines/PvZ.h"
+#include "StrategyEngines/PvU.h"
 
 #include "Play.h"
 #include "Plays/Defensive/DefendMainBase.h"
-#include "Plays/Macro/SaturateBases.h"
-#include "Plays/Macro/TakeNaturalExpansion.h"
 #include "Plays/Macro/TakeExpansion.h"
-#include "Plays/Offensive/RallyArmy.h"
-#include "Plays/Scouting/EarlyGameWorkerScout.h"
 
 /*
  * Broadly, the Strategist decides on a prioritized list of plays to run, each of which can order units from the producer
@@ -46,11 +49,34 @@ namespace Strategist
 {
     namespace
     {
+        std::unique_ptr<StrategyEngine> engine;
         std::unordered_map<MyUnit, std::shared_ptr<Play>> unitToPlay;
         std::vector<std::shared_ptr<Play>> plays;
         std::unordered_set<std::shared_ptr<TakeExpansion>> takeExpansionPlays;
         std::vector<ProductionGoal> productionGoals;
         std::vector<std::pair<int, int>> mineralReservations;
+
+        void setStrategyEngine()
+        {
+            if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss)
+            {
+                engine = std::make_unique<PvP>();
+            }
+            else if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran)
+            {
+                engine = std::make_unique<PvT>();
+            }
+            else if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
+            {
+                engine = std::make_unique<PvZ>();
+            }
+            else
+            {
+                engine = std::make_unique<PvU>();
+            }
+
+            engine->initialize(plays);
+        }
 
         void updateUnitAssignments()
         {
@@ -236,165 +262,6 @@ namespace Strategist
             }
         }
 
-        void upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                            BWAPI::UpgradeType upgradeType,
-                            BWAPI::UnitType unitType,
-                            int unitCount)
-        {
-            // First bail out if the upgrade is already done or queued
-            if (BWAPI::Broodwar->self()->getUpgradeLevel(upgradeType) > 0) return;
-            if (Units::isBeingUpgraded(upgradeType)) return;
-
-            // Now loop through all of the prioritized production goals, keeping track of how many of the desired unit we have
-            int units = Units::countCompleted(unitType);
-            for (auto &priorityAndProductionGoals : prioritizedProductionGoals)
-            {
-                for (auto it = priorityAndProductionGoals.second.begin(); it != priorityAndProductionGoals.second.end(); it++)
-                {
-                    // Bail out if this upgrade is already queued
-                    auto upgradeProductionGoal = std::get_if<UpgradeProductionGoal>(&*it);
-                    if (upgradeProductionGoal && upgradeProductionGoal->upgradeType() == upgradeType) return;
-
-                    auto unitProductionGoal = std::get_if<UnitProductionGoal>(&*it);
-                    if (!unitProductionGoal) continue;
-
-                    if (unitProductionGoal->countToProduce() == -1)
-                    {
-                        // If we are producing an unlimited number of a different unit type first, bail out
-                        if (unitProductionGoal->unitType() != unitType) return;
-
-                        // If this isn't the main army production, bail out - we don't want to upgrade in emergencies
-                        if (priorityAndProductionGoals.first != PRIORITY_MAINARMY) return;
-
-                        // Insert the upgrade here
-                        it = priorityAndProductionGoals.second.emplace(it, UpgradeProductionGoal(upgradeType));
-
-                        // Insert remaining units beforehand
-                        if (units < unitCount)
-                        {
-                            priorityAndProductionGoals.second.emplace(it,
-                                                                      std::in_place_type<UnitProductionGoal>,
-                                                                      unitType,
-                                                                      unitCount - units,
-                                                                      unitProductionGoal->getProducerLimit(),
-                                                                      unitProductionGoal->getLocation());
-                        }
-
-                        return;
-                    }
-
-                    if (unitProductionGoal->unitType() == unitType) units += unitProductionGoal->countToProduce();
-                }
-            }
-        }
-
-        void upgradeWhenUnitStarted(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                                    BWAPI::UpgradeType upgradeType,
-                                    BWAPI::UnitType unitType,
-                                    bool requireProducer = false)
-        {
-            // First bail out if the upgrade is already done or queued
-            if (BWAPI::Broodwar->self()->getUpgradeLevel(upgradeType) > 0) return;
-            if (Units::isBeingUpgraded(upgradeType)) return;
-
-            // Now check if we have at least one of the unit
-            if (Units::countIncomplete(unitType) == 0 && Units::countCompleted(unitType) == 0) return;
-
-            // Now check if we have the required producer, if specified
-            if (requireProducer &&
-                Units::countIncomplete(upgradeType.whatUpgrades()) == 0 &&
-                Units::countCompleted(upgradeType.whatUpgrades()) == 0)
-            {
-                return;
-            }
-
-            prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(UpgradeProductionGoal(upgradeType));
-        }
-
-        void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
-        {
-            // Basic infantry skill upgrades are queued when we have enough of them and are still building them
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 6);
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
-
-            // Cases where we want the upgrade as soon as we start building one of the units
-            upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
-            upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, true);
-            upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier);
-
-            // Ground upgrades
-            // Start when we have completed our second nexus
-            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
-            {
-                // Upgrade past 1 and on two forges when we have completed our third gas
-                int maxLevel, forgeCount;
-                if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 3)
-                {
-                    maxLevel = 3;
-                    forgeCount = 2;
-                }
-                else
-                {
-                    maxLevel = 1;
-                    forgeCount = 1;
-                }
-
-                int weaponLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons);
-                int armorLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Armor);
-
-                // Weapons -> 1, Armor -> 1, Weapons -> 3, Armor -> 3
-                if ((weaponLevel == 0 || armorLevel >= 1) && weaponLevel <= maxLevel &&
-                    !Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
-                {
-                    prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
-                                                                             BWAPI::UpgradeTypes::Protoss_Ground_Weapons,
-                                                                             weaponLevel + 1,
-                                                                             forgeCount);
-                }
-                if (!Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Armor) && armorLevel <= maxLevel)
-                {
-                    prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
-                                                                             BWAPI::UpgradeTypes::Protoss_Ground_Armor,
-                                                                             armorLevel + 1,
-                                                                             forgeCount);
-                }
-                if (weaponLevel > 0 && armorLevel == 0 && weaponLevel <= maxLevel &&
-                    !Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
-                {
-                    prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
-                                                                             BWAPI::UpgradeTypes::Protoss_Ground_Weapons,
-                                                                             weaponLevel + 1,
-                                                                             forgeCount);
-                }
-
-                // TODO: Upgrade shields when maxed
-            }
-
-            // TODO: Air upgrades
-        }
-
-        void handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
-        {
-            // The main army play will reactively request mobile detection when it sees a cloaked enemy unit
-            // The logic here is to look ahead to make sure we already have detection available when we need it
-
-            // Break out if we already have an observer
-            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) > 0 || Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observer) > 0)
-            {
-                return;
-            }
-
-            // TODO: Use scouting information
-
-            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1)
-            {
-                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                         BWAPI::UnitTypes::Protoss_Observer,
-                                                                         1,
-                                                                         1);
-            }
-        }
-
         void writeInstrumentation()
         {
 #if CHERRYVIS_ENABLED
@@ -417,6 +284,17 @@ namespace Strategist
         }
     }
 
+    void initialize()
+    {
+        unitToPlay.clear();
+        plays.clear();
+        takeExpansionPlays.clear();
+        productionGoals.clear();
+        mineralReservations.clear();
+
+        setStrategyEngine();
+    }
+
     void update()
     {
         // Remove all dead or renegaded units from plays
@@ -432,6 +310,12 @@ namespace Strategist
             it->second->removeUnit(it->first);
             it = unitToPlay.erase(it);
         }
+
+        // Change the strategy engine when we discover the race of a random opponent
+        if (Opponent::hasRaceJustBeenDetermined()) setStrategyEngine();
+
+        // Allow the strategy engine to change our plays
+        engine->updatePlays(plays);
 
         // Update the plays
         // They signal interesting changes to the Strategist through their PlayStatus object.
@@ -506,9 +390,8 @@ namespace Strategist
             play->addPrioritizedProductionGoals(prioritizedProductionGoals);
         }
 
-        // Add various high-levelthings to the production goals
-        handleUpgrades(prioritizedProductionGoals);
-        handleDetection(prioritizedProductionGoals);
+        // Feed everything through the strategy engine
+        engine->updateProduction(prioritizedProductionGoals, mineralReservations);
 
         // Flatten the production goals into a vector ordered by priority
         productionGoals.clear();
@@ -518,90 +401,7 @@ namespace Strategist
             std::move(priorityAndProductionGoals.second.begin(), priorityAndProductionGoals.second.end(), std::back_inserter(productionGoals));
         }
 
-        // TODO: Logic engine to add and remove plays based on scouting information, etc.
-
         writeInstrumentation();
-    }
-
-    void initialize()
-    {
-        unitToPlay.clear();
-        plays.clear();
-        takeExpansionPlays.clear();
-        productionGoals.clear();
-        mineralReservations.clear();
-
-        plays.emplace_back(std::make_shared<DefendMainBase>());
-        plays.emplace_back(std::make_shared<SaturateBases>());
-        plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
-        plays.emplace_back(std::make_shared<TakeNaturalExpansion>());
-        plays.emplace_back(std::make_shared<RallyArmy>());
-
-        /*
-        if (BWAPI::Broodwar->self()->getName() == "Opponent") {
-
-            productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Dark_Templar, 2, 2));
-            productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Probe, -1, 1));
-            productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Dragoon, 1));
-            productionGoals.emplace_back(UpgradeProductionGoal(BWAPI::UpgradeTypes::Singularity_Charge));
-            productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Dragoon));
-            return;
-        }
-         */
-
-        /* dt rush 
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Dark_Templar, 2, 2));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Probe, -1, 1));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Dragoon, 1));
-        productionGoals.emplace_back(UpgradeProductionGoal(BWAPI::UpgradeTypes::Singularity_Charge));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Dragoon));
-        //productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Zealot));
-        */
-
-        /* dragoons
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Probe, -1, 1));
-        //productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Zealot, 1, 1));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Dragoon, 1));
-        //productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Zealot, 2, 1));
-        productionGoals.emplace_back(UpgradeProductionGoal(BWAPI::UpgradeTypes::Singularity_Charge));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Dragoon));
-        */
-
-        /* dragoons + obs
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Probe, -1, 1));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Zealot, 1, 1));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Dragoon, 1));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Zealot, 2, 1));
-        productionGoals.emplace_back(UpgradeProductionGoal(BWAPI::UpgradeTypes::Singularity_Charge));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Observer, 1));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Dragoon));
-        */
-
-        /* zealots into goons
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Probe, -1, 1));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Zealot, 8));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Dragoon, 4));
-        productionGoals.emplace_back(UpgradeProductionGoal(BWAPI::UpgradeTypes::Singularity_Charge));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Dragoon));
-        */
-
-        /* sair / zealot 
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Probe, -1, 1));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Zealot, 2, 1));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Corsair, 1, 1));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Zealot, 4, 2));
-        productionGoals.emplace_back(UpgradeProductionGoal(BWAPI::UpgradeTypes::Protoss_Ground_Weapons));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Corsair, 2, 1));
-        productionGoals.emplace_back(UpgradeProductionGoal(BWAPI::UpgradeTypes::Protoss_Air_Weapons));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Zealot, 6, 2));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Corsair, 8, 2));
-        productionGoals.emplace_back(UnitProductionGoal(BWAPI::UnitTypes::Protoss_Zealot));
-        */
-    }
-
-    void setOpening(std::vector<std::shared_ptr<Play>> openingPlays)
-    {
-        plays = std::move(openingPlays);
     }
 
     std::vector<ProductionGoal> &currentProductionGoals()
@@ -612,5 +412,17 @@ namespace Strategist
     std::vector<std::pair<int, int>> &currentMineralReservations()
     {
         return mineralReservations;
+    }
+
+    // Following methods are used by tests to force specific behaviour
+
+    void setOpening(std::vector<std::shared_ptr<Play>> openingPlays)
+    {
+        plays = std::move(openingPlays);
+    }
+
+    void setStrategyEngine(std::unique_ptr<StrategyEngine> strategyEngine)
+    {
+        engine = std::move(strategyEngine);
     }
 }
