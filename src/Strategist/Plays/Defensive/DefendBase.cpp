@@ -38,7 +38,7 @@ void DefendBase::mineralLineWorkerDefense(std::set<Unit> &enemiesInBase)
         if (!UnitUtil::IsCombatUnit(unit->type) || UnitUtil::IsRangedUnit(unit->type) || !UnitUtil::CanAttackGround(unit->type)) return false;
 
         auto comingPosition = unit->predictPosition(24);
-        return Map::isInOwnMineralLine(BWAPI::TilePosition(comingPosition));
+        return comingPosition.isValid() && Map::isInOwnMineralLine(BWAPI::TilePosition(comingPosition));
     });
 
     if (enemyUnits.empty())
