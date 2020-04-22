@@ -536,6 +536,8 @@
 
 		"Strategies" :
 		{
+			"Microwave_9PoolGasHatchSpeed7D": { "Race" : "Zerg", "OpeningBuildOrder" : ["5 x drone", "spawning pool", "drone", "overlord", "3 x zergling", "extractor", "go gas until 100", "hatchery @ macro", "2 x zergling", "metabolic boost", "35 x zergling"]},
+
 			"8RaxDefense"			: { "Race" : "Terran", "OpeningGroup" : "anti-rush", "OpeningBuildOrder" :
 				["go defensive", "4 x SCV", "barracks", "3 x SCV", "marine", "bunker @ front", "SCV", "marine", "go scout once around", "SCV", "marine", "SCV", "marine", "SCV", "marine"]},
             "8RaxAttack"			: { "Race" : "Terran", "OpeningGroup" : "bio", "OpeningBuildOrder" :

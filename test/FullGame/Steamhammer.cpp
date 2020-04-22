@@ -82,6 +82,19 @@ TEST(Steamhammer, RunOne)
     test.run();
 }
 
+TEST(Steamhammer, Microwave_9PoolGasHatchSpeed7D)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "Microwave_9PoolGasHatchSpeed7D";
+        return module;
+    };
+    test.run();
+}
+
 TEST(Steamhammer, 4PoolHard)
 {
     BWTest test;
