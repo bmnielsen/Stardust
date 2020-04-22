@@ -1,24 +1,25 @@
-#include "PvZ.h"
+#include "StrategyEngines/PvZ.h"
 
 #include "Units.h"
 #include "Map.h"
 #include "Builder.h"
 
-#include "Plays/Defensive/DefendMainBase.h"
 #include "Plays/Macro/SaturateBases.h"
-#include "Plays/Offensive/RallyArmy.h"
+#include "Plays/MainArmy/DefendMyMain.h"
+#include "Plays/MainArmy/AttackEnemyMain.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 
 void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays)
 {
-    plays.emplace_back(std::make_shared<DefendMainBase>());
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
-    plays.emplace_back(std::make_shared<RallyArmy>());
+    plays.emplace_back(std::make_shared<DefendMyMain>());
 }
 
 void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 {
+    updateStrategyRecognition();
+    handleMainArmy(plays);
     defaultExpansions(plays);
 }
 
@@ -29,6 +30,42 @@ void PvZ::updateProduction(std::map<int, std::vector<ProductionGoal>> &prioritiz
 
     handleUpgrades(prioritizedProductionGoals);
     handleDetection(prioritizedProductionGoals);
+
+    // Main army production
+    // TODO
+    int percentZealots = 0;
+
+    int currentZealots = Units::countAll(BWAPI::UnitTypes::Protoss_Zealot);
+    int currentDragoons = Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon);
+
+    int currentZealotRatio = (100 * currentZealots) / std::max(1, currentZealots + currentDragoons);
+
+    if (currentZealotRatio >= percentZealots)
+    {
+        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Dragoon, -1, -1);
+    }
+    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Zealot, -1, -1);
+}
+
+void PvZ::handleMainArmy(std::vector<std::shared_ptr<Play>> &plays)
+{
+    // TODO: Actually implement properly
+
+    auto enemyMain = Map::getEnemyMain();
+    if (enemyMain)
+    {
+        for (const auto& play : plays)
+        {
+            if (auto defendMyMain = std::dynamic_pointer_cast<DefendMyMain>(play))
+            {
+                if (defendMyMain->emergencyProduction == BWAPI::UnitTypes::None &&
+                    (Units::countAll(BWAPI::UnitTypes::Protoss_Zealot) + Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon)) > 3)
+                {
+                    defendMyMain->status.transitionTo = std::make_shared<AttackEnemyMain>(enemyMain);
+                }
+            }
+        }
+    }
 }
 
 void PvZ::handleNaturalExpansion(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)

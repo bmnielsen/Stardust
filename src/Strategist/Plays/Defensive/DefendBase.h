@@ -17,8 +17,4 @@ public:
 protected:
     Base *base;
     std::shared_ptr<DefendBaseSquad> squad;
-
-    std::vector<MyUnit> reservedWorkers;
-
-    void mineralLineWorkerDefense(std::set<Unit> &enemiesInBase);
 };

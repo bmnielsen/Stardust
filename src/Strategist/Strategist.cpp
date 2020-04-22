@@ -2,7 +2,6 @@
 #include "Units.h"
 #include "PathFinding.h"
 #include "General.h"
-#include "Workers.h"
 #include "Opponent.h"
 
 #include "StrategyEngine.h"
@@ -12,8 +11,6 @@
 #include "StrategyEngines/PvU.h"
 
 #include "Play.h"
-#include "Plays/Defensive/DefendMainBase.h"
-#include "Plays/Macro/TakeExpansion.h"
 
 /*
  * Broadly, the Strategist decides on a prioritized list of plays to run, each of which can order units from the producer

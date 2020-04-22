@@ -2,7 +2,7 @@
 
 #include "General.h"
 #include "Map.h"
-#include "AttackMainBase.h"
+#include "AttackEnemyMain.h"
 
 MopUp::MopUp() : squad(std::make_shared<MopUpSquad>())
 {
@@ -15,7 +15,7 @@ void MopUp::update()
     auto enemyMain = Map::getEnemyMain();
     if (enemyMain)
     {
-        status.transitionTo = std::make_shared<AttackMainBase>(enemyMain);
+        status.transitionTo = std::make_shared<AttackEnemyMain>(enemyMain);
         return;
     }
 

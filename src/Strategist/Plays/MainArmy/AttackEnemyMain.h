@@ -3,12 +3,12 @@
 #include "MainArmyPlay.h"
 #include "Squads/AttackBaseSquad.h"
 
-class AttackMainBase : public MainArmyPlay
+class AttackEnemyMain : public MainArmyPlay
 {
 public:
-    explicit AttackMainBase(Base *base);
+    explicit AttackEnemyMain(Base *base);
 
-    [[nodiscard]] const char *label() const override { return "AttackMainBase"; }
+    [[nodiscard]] const char *label() const override { return "AttackEnemyMain"; }
 
     std::shared_ptr<Squad> getSquad() override { return squad; }
 

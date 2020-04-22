@@ -8,7 +8,7 @@ class MainArmyPlay : public Play
 public:
     [[nodiscard]] bool receivesUnassignedUnits() const override { return true; }
 
-    virtual void update() override;
+    void update() override;
 
-    virtual void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
+    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 };

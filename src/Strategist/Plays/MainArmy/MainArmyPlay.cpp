@@ -31,18 +31,4 @@ void MainArmyPlay::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
                                                     unitRequirement.count,
                                                     (unitRequirement.count + 1) / 2);
     }
-
-    // TODO
-    int percentZealots = 0;
-
-    int currentZealots = Units::countAll(BWAPI::UnitTypes::Protoss_Zealot);
-    int currentDragoons = Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon);
-
-    int currentZealotRatio = (100 * currentZealots) / std::max(1, currentZealots + currentDragoons);
-
-    if (currentZealotRatio >= percentZealots)
-    {
-        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Dragoon, -1, -1);
-    }
-    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Zealot, -1, -1);
 }
