@@ -48,5 +48,8 @@ namespace Units
 
     std::map<BWAPI::UnitType, int> countIncompleteByType();
 
+    // TODO: This doesn't really fit here
     bool isBeingUpgraded(BWAPI::UpgradeType type);
+
+    std::vector<std::pair<int, int>> &getEnemyUnitTimings(BWAPI::UnitType type);
 }

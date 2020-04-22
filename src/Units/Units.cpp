@@ -6,14 +6,18 @@
 #include "BuildingPlacement.h"
 #include "MyDragoon.h"
 #include "MyWorker.h"
+#include "UnitUtil.h"
 
 // These defines configure a per-frame summary of various unit type's orders, commands, etc.
+#ifdef INSTRUMENTATION_ENABLED
 #define DEBUG_PROBE_STATUS false
 #define DEBUG_ZEALOT_STATUS true
 #define DEBUG_DRAGOON_STATUS true
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS true
 #define DEBUG_ENEMY_STATUS false
+#define DEBUG_ENEMY_TIMINGS true
+#endif
 
 namespace Units
 {
@@ -29,6 +33,8 @@ namespace Units
         std::map<BWAPI::UnitType, std::set<MyUnit>> myIncompleteUnitsByType;
 
         std::set<BWAPI::UpgradeType> upgradesInProgress;
+
+        std::map<BWAPI::UnitType, std::vector<std::pair<int, int>>> enemyUnitTimings;
 
         void unitCreated(const Unit &unit)
         {
@@ -88,6 +94,79 @@ namespace Units
 
             enemyUnits.erase(unit);
             unitIdToEnemyUnit.erase(unit->id);
+        }
+
+        void trackEnemyUnitTimings(const Unit &unit, bool includeMorphs)
+        {
+            // Don't track eggs or larva
+            if (unit->type == BWAPI::UnitTypes::Zerg_Larva ||
+                unit->type == BWAPI::UnitTypes::Zerg_Egg)
+            {
+                return;
+            }
+
+            // TODO: Do we need to handle the initial units?
+
+            // Estimate the frame the unit completed
+            int completionFrame;
+            if (unit->type.isBuilding())
+            {
+                completionFrame = unit->completed ? BWAPI::Broodwar->getFrameCount() : unit->estimatedCompletionFrame;
+            }
+            else
+            {
+                // Assume the unit came from the enemy main
+                // TODO: Do we need to make this more accurate and consider other known bases?
+
+                int framesToEnemyMain = INT_MAX;
+                auto enemyMain = Map::getEnemyMain();
+                if (!enemyMain) enemyMain = Map::getEnemyStartingMain();
+                if (!enemyMain)
+                {
+                    // Default to the closest unscouted starting position
+                    for (auto base : Map::unscoutedStartingLocations())
+                    {
+                        int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                                     base->getPosition(),
+                                                                     unit->type,
+                                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                        if (frames < framesToEnemyMain)
+                        {
+                            framesToEnemyMain = frames;
+                            enemyMain = base;
+                        }
+                    }
+                }
+
+                if (enemyMain && unit->type.topSpeed() > 0.001)
+                {
+                    if (framesToEnemyMain == INT_MAX)
+                    {
+                        framesToEnemyMain = PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                                            enemyMain->getPosition(),
+                                                                            unit->type,
+                                                                            PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                    }
+                    completionFrame = BWAPI::Broodwar->getFrameCount() - framesToEnemyMain;
+                }
+                else
+                {
+                    completionFrame = BWAPI::Broodwar->getFrameCount();
+                }
+            }
+
+            int startFrame = completionFrame - UnitUtil::BuildTime(unit->type);
+            enemyUnitTimings[unit->type].emplace_back(std::make_pair(startFrame, BWAPI::Broodwar->getFrameCount()));
+
+            if (unit->type.isBuilding() && includeMorphs)
+            {
+                auto morphsFrom = UnitUtil::MorphsFrom(unit->type);
+                if (morphsFrom.first != BWAPI::UnitTypes::Zerg_Drone)
+                {
+                    enemyUnitTimings[morphsFrom.first].emplace_back(std::make_pair(startFrame - UnitUtil::BuildTime(morphsFrom.first),
+                                                                                   BWAPI::Broodwar->getFrameCount()));
+                }
+            }
         }
     }
 
@@ -199,6 +278,8 @@ namespace Units
             unitIdToEnemyUnit.emplace(unit->id, unit);
 
             unitCreated(unit);
+
+            trackEnemyUnitTimings(unit, it == unitIdToEnemyUnit.end());
         }
 
         // Update enemy units in the fog
@@ -228,7 +309,7 @@ namespace Units
         // Occasionally check for any inconsistencies in the enemy unit collections
         if (BWAPI::Broodwar->getFrameCount() % 48 == 0)
         {
-            for (auto it = enemyUnits.begin(); it != enemyUnits.end(); )
+            for (auto it = enemyUnits.begin(); it != enemyUnits.end();)
             {
                 auto &unit = *it;
                 if (!unit->exists())
@@ -252,7 +333,7 @@ namespace Units
                 }
             }
 
-            for (auto it = unitIdToEnemyUnit.begin(); it != unitIdToEnemyUnit.end(); )
+            for (auto it = unitIdToEnemyUnit.begin(); it != unitIdToEnemyUnit.end();)
             {
                 auto &unit = it->second;
                 if (!unit->exists())
@@ -363,6 +444,32 @@ namespace Units
 
             CherryVis::log(unit->id) << debug.str();
         }
+
+#if DEBUG_ENEMY_TIMINGS
+        std::vector<std::string> values;
+        values.reserve(enemyUnitTimings.size());
+        for (auto &typeAndTimings : enemyUnitTimings)
+        {
+            std::ostringstream timings;
+            bool first = true;
+            for (auto timing : typeAndTimings.second)
+            {
+                if (first)
+                {
+                    timings << typeAndTimings.first << ": ";
+                    first = false;
+                }
+                else
+                {
+                    timings << ", ";
+                }
+                timings << timing.first << ":" << timing.second;
+            }
+
+            values.emplace_back(timings.str());
+        }
+        CherryVis::setBoardListValue("enemyUnitTimings", values);
+#endif
     }
 
     void issueOrders()
