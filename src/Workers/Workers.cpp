@@ -11,7 +11,7 @@ namespace Workers
 {
     namespace
     {
-        enum Job
+        enum class Job
         {
             None, Minerals, Gas, Reserved
         };
@@ -62,7 +62,7 @@ namespace Workers
             int count = base->mineralPatchCount() * 2;
             for (const auto &worker : baseWorkers[base])
             {
-                if (workerJob[worker] == Minerals) count--;
+                if (workerJob[worker] == Job::Minerals) count--;
             }
 
             return count;
@@ -81,7 +81,7 @@ namespace Workers
             }
             for (const auto &worker : baseWorkers[base])
             {
-                if (workerJob[worker] == Gas) count--;
+                if (workerJob[worker] == Job::Gas) count--;
             }
 
             return count;
@@ -150,8 +150,8 @@ namespace Workers
             Base *bestBase = nullptr;
             for (auto &base : Map::allBases())
             {
-                if (job == Minerals && availableMineralAssignmentsAtBase(base) <= 0) continue;
-                if (job == Gas && availableGasAssignmentsAtBase(base) <= 0) continue;
+                if (job == Job::Minerals && availableMineralAssignmentsAtBase(base) <= 0) continue;
+                if (job == Job::Gas && availableGasAssignmentsAtBase(base) <= 0) continue;
 
                 int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
                                                              base->getPosition(),
@@ -279,9 +279,9 @@ namespace Workers
 
             if (bestWorker)
             {
-                workerJob[bestWorker] = Gas;
+                workerJob[bestWorker] = Job::Gas;
                 removeFromResource(bestWorker, workerMineralPatch, mineralPatchWorkers);
-                assignBase(bestWorker, Gas);
+                assignBase(bestWorker, Job::Gas);
                 assignRefinery(bestWorker);
 
                 CherryVis::log(bestWorker->id) << "Assigned to Gas";
@@ -295,7 +295,7 @@ namespace Workers
             {
                 if (availableMineralAssignmentsAtBase(workerBase[workerAndRefinery.first]) > 0)
                 {
-                    workerJob[workerAndRefinery.first] = None;
+                    workerJob[workerAndRefinery.first] = Job::None;
                     removeFromResource(workerAndRefinery.first, workerRefinery, refineryWorkers);
                     return;
                 }
@@ -356,12 +356,12 @@ namespace Workers
 
             switch (workerJob[worker])
             {
-                case None:
+                case Job::None:
                     workerJob[worker] = Job::Minerals;
                     CherryVis::log(worker->id) << "Assigned to Minerals";
                     // Fall-through
 
-                case Minerals:
+                case Job::Minerals:
                 {
                     // If the worker is already assigned to a mineral patch, we don't need to do any more
                     auto mineralPatch = workerMineralPatch[worker];
@@ -379,7 +379,7 @@ namespace Workers
                     // If the worker doesn't have an assigned base, assign it one
                     if (!base || !base->resourceDepot || !base->resourceDepot->exists())
                     {
-                        base = assignBase(worker, Minerals);
+                        base = assignBase(worker, Job::Minerals);
 
                         // Maybe we have no more with available patches
                         if (!base)
@@ -397,7 +397,7 @@ namespace Workers
 
                     break;
                 }
-                case Gas:
+                case Job::Gas:
                 {
                     // If the worker is already assigned to a refinery, we don't need to do any more
                     auto refinery = workerRefinery[worker];
@@ -407,7 +407,7 @@ namespace Workers
                     auto base = workerBase[worker];
                     if (!base || !base->resourceDepot || !base->resourceDepot->exists())
                     {
-                        base = assignBase(worker, Gas);
+                        base = assignBase(worker, Job::Gas);
 
                         // Maybe we have no more with available gas
                         if (!base)
@@ -451,8 +451,8 @@ namespace Workers
             auto &worker = pair.first;
             switch (pair.second)
             {
-                case Minerals:
-                case Gas:
+                case Job::Minerals:
+                case Job::Gas:
                 {
                     // Skip if the worker doesn't have a valid base
                     auto base = workerBase[worker];

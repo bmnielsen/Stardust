@@ -8,11 +8,11 @@ class UnitCluster
 {
 public:
     // Remember to update name vectors in UnitCluster.cpp when changing these
-    enum Activity
+    enum class Activity
     {
         Moving, Attacking, Regrouping //, Exploding, Flanking, PerformingRunBy
     };
-    enum SubActivity
+    enum class SubActivity
     {
         None, ContainStaticDefense, ContainChoke, Flee
     };

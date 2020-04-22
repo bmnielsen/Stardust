@@ -154,7 +154,7 @@ void Squad::updateClusters()
             (*firstIt)->updatePositions(targetPosition);
 
             // If two clusters are combined where one is regrouping, treat the new combined cluster as regrouping
-            if ((*secondIt)->currentActivity == UnitCluster::Regrouping)
+            if ((*secondIt)->currentActivity == UnitCluster::Activity::Regrouping)
             {
                 (*firstIt)->setActivity((*secondIt)->currentActivity, (*secondIt)->currentSubActivity);
             }

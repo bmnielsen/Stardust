@@ -4,13 +4,22 @@
 #include "UnitUtil.h"
 
 #if INSTRUMENTATION_ENABLED
-    #define DEBUG_CLUSTER_MEMBERSHIP true // Also in Squad.cpp
+#define DEBUG_CLUSTER_MEMBERSHIP true // Also in Squad.cpp
 #endif
 
 namespace
 {
-    std::vector<std::string> ActivityNames = {"Moving", "Attacking", "Regrouping"};
-    std::vector<std::string> SubActivityNames = {"None", "ContainStaticDefense", "ContainChoke", "Flee"};
+    std::map<UnitCluster::Activity, std::string> ActivityNames = {
+            {UnitCluster::Activity::Moving,     "Moving"},
+            {UnitCluster::Activity::Attacking,  "Attacking"},
+            {UnitCluster::Activity::Regrouping, "Regrouping"}
+    };
+    std::map<UnitCluster::SubActivity, std::string> SubActivityNames = {
+            {UnitCluster::SubActivity::None,                 "None"},
+            {UnitCluster::SubActivity::ContainStaticDefense, "ContainStaticDefense"},
+            {UnitCluster::SubActivity::ContainChoke,         "ContainChoke"},
+            {UnitCluster::SubActivity::Flee,                 "Flee"}
+    };
 }
 
 UnitCluster::UnitCluster(const MyUnit &unit)
