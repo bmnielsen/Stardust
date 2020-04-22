@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Plays/Offensive/MainArmyPlay.h"
+#include "Plays/MainArmy/MainArmyPlay.h"
 #include "General.h"
 #include "Squads/AttackBaseSquad.h"
 
