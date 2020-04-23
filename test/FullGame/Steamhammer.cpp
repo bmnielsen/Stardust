@@ -297,6 +297,23 @@ TEST(Steamhammer, Over10Hatch1Sunk)
     test.run();
 }
 
+TEST(Steamhammer, 7PoolMid_GasSteal)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Circuit Breaker");
+    test.randomSeed = 42530;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "7PoolMid";
+        Config::StardustTestForceGasSteal = true;
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, GasSteal)
 {
     BWTest test;
