@@ -245,6 +245,28 @@ bool Squad::hasClusterWithActivity(UnitCluster::Activity activity) const
     return false;
 }
 
+std::shared_ptr<UnitCluster> Squad::vanguardCluster(int *distToTargetPosition)
+{
+    int minDist = INT_MAX;
+    std::shared_ptr<UnitCluster> vanguard = nullptr;
+    for (const auto &cluster : clusters)
+    {
+        int dist = PathFinding::GetGroundDistance(cluster->center, targetPosition);
+        if (dist < minDist)
+        {
+            minDist = dist;
+            vanguard = cluster;
+        }
+    }
+
+    if (distToTargetPosition)
+    {
+        *distToTargetPosition = minDist;
+    }
+
+    return vanguard;
+}
+
 void Squad::updateDetectionNeeds(std::set<Unit> &enemyUnits)
 {
     for (const auto &unit : enemyUnits)

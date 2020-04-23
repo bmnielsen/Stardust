@@ -7,24 +7,7 @@
 #include "UnitUtil.h"
 #include "Workers.h"
 
-/*
- * Thoughts about main base defense.
- *
- * Make it a decision at the strategy engine level on whether the main army participates in defending or not
- * Make it a decision at the strategy engine level what to produce
- * Play defines when and how to pull workers
- * Squad performs actual micro
- */
-
-
 #define DEBUG_PLAY_STATE false
-
-/*
- * Main base defense:
- * - Initially keep some zealots for safety until we have scouting information
- * - If under pressure, produce infinite zealots -> triggers Producer to remove workers from gas
- * - Workers do worker defense if enemy melee units enter the mineral line
- */
 
 namespace
 {
@@ -35,6 +18,7 @@ DefendMyMain::DefendMyMain()
         : emergencyProduction(BWAPI::UnitTypes::None)
         , squad(std::make_shared<DefendBaseSquad>(Map::getMyMain()))
         , lastRegroupFrame(0)
+        , reservedGasStealAttacker(nullptr)
 {
     General::addSquad(squad);
 }
@@ -45,7 +29,7 @@ void DefendMyMain::update()
     std::set<Unit> enemyCombatUnits;
     std::set<Unit> enemyWorkers;
     bool enemyFlyingUnit = false;
-    bool gasSteal = false;
+    Unit gasSteal = nullptr;
     for (const Unit &unit : Units::allEnemy())
     {
         if (!unit->lastPositionValid) continue;
@@ -63,8 +47,44 @@ void DefendMyMain::update()
         }
         else if (unit->type.isRefinery())
         {
-            gasSteal = true;
+            gasSteal = unit;
         }
+    }
+
+    if (gasSteal)
+    {
+        // Reserve a gas steal attacker if we have three units in the squad
+        auto units = (reservedGasStealAttacker ? 1 : 0) + squad->getUnits().size();
+        if (units > 2 && !reservedGasStealAttacker)
+        {
+            int minDist = INT_MAX;
+            for (const auto& unit : squad->getUnits())
+            {
+                int dist = unit->getDistance(gasSteal);
+                if (dist < minDist)
+                {
+                    minDist = dist;
+                    reservedGasStealAttacker = unit;
+                }
+            }
+
+            if (reservedGasStealAttacker)
+            {
+                squad->removeUnit(reservedGasStealAttacker);
+            }
+        }
+        else if (units < 3 && reservedGasStealAttacker)
+        {
+            // Release the reserved gas steal attacker if we need it for defense
+            squad->addUnit(reservedGasStealAttacker);
+            reservedGasStealAttacker = nullptr;
+        }
+    }
+    else if (reservedGasStealAttacker)
+    {
+        // Release the reserved gas steal attacker when it is no longer needed
+        squad->addUnit(reservedGasStealAttacker);
+        reservedGasStealAttacker = nullptr;
     }
 
     // If there are more than two workers, consider this to be a worker rush and add them to the set of combat units
@@ -91,16 +111,6 @@ void DefendMyMain::update()
         CherryVis::log() << "Defend base: emergency, producing " << emergencyProduction;
 #endif
         return;
-    }
-
-    // Get at least one zealot if the enemy is doing a gas steal
-    if (gasSteal && squad->getUnits().empty())
-    {
-        status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Zealot, squad->getTargetPosition());
-
-#if DEBUG_PLAY_STATE
-        CherryVis::log() << "Defend base: gas steal, ordering one zealot";
-#endif
     }
 }
 
@@ -235,4 +245,14 @@ void DefendMyMain::mineralLineWorkerDefense(std::set<Unit> &enemiesInBase)
             worker->gather(rallyPatch);
         }
     }
+}
+
+void DefendMyMain::removeUnit(MyUnit unit)
+{
+    if (unit == reservedGasStealAttacker)
+    {
+        reservedGasStealAttacker = nullptr;
+    }
+
+    Play::removeUnit(unit);
 }

@@ -18,10 +18,13 @@ public:
 
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 
+    void removeUnit(MyUnit unit) override;
+
 private:
     std::shared_ptr<DefendBaseSquad> squad;
     int lastRegroupFrame;
     std::vector<MyUnit> reservedWorkers;
+    MyUnit reservedGasStealAttacker;
 
     void mineralLineWorkerDefense(std::set<Unit> &enemiesInBase);
 };

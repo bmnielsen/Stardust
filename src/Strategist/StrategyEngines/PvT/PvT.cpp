@@ -10,8 +10,9 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
 }
 
-void PvT::updateProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                      std::vector<std::pair<int, int>> &mineralReservations)
+void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
+                           std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                           std::vector<std::pair<int, int>> &mineralReservations)
 {
 
 }

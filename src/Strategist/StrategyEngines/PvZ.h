@@ -5,13 +5,14 @@
 class PvZ : public StrategyEngine
 {
 public:
-    PvZ() : enemyStrategy(ZergStrategy::Unknown) {}
+    PvZ() : enemyStrategy(ZergStrategy::Unknown), ourStrategy(OurStrategy::EarlyGameDefense), enemyStrategyChanged(0) {}
 
     void initialize(std::vector<std::shared_ptr<Play>> &plays) override;
 
     void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override;
 
-    void updateProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+    void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
+                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                           std::vector<std::pair<int, int>> &mineralReservations) override;
 
 private:
@@ -19,22 +20,37 @@ private:
     {
         Unknown,
         ZerglingRush,           // Detected by seeing early pool or early lings
+        GasSteal,               // Extractor in our main
         PoolBeforeHatchery,     // e.g. 9-pool or overpool
         HatcheryBeforePool,     // e.g. 10 or 12 hatch
         ZerglingAllIn,          // Builds that get mass zerglings before other tech
         Turtle,                 // Mass sunkens
-        Lair,                   // Have seen lair but don't know what mid-game strategy will be played
-        MidGameMutalisks,       // Expect mid-game mutalisks, detected by seeing spire
-        MidGameLurkers,         // Expect mid-game lurkers, detected by seeing lurker or lurker egg
+        Lair,                   // Have seen lair, indicates possibility of mutas or lurkers
+        // TODO: Mid- and late game
     };
+    static std::map<ZergStrategy, std::string> ZergStrategyNames;
+
+    enum class OurStrategy
+    {
+        EarlyGameDefense,       // We don't have scouting data yet
+        AntiAllIn,              // For fast rushes or any serious early pressure, defends main until it can get tech out
+        FastExpansion,          // For when the opponent plays a greedy or turtle strategy
+        Defensive,              // Cautious opening, for when we don't know if the opponent could be going for an all-in
+        Normal,                 // Normal non-greedy and non-cautious opening
+        MidGame,                // When we have reached the mid-game
+        // TODO: Various mid-game and late-game strategies
+    };
+    static std::map<OurStrategy, std::string> OurStrategyNames;
 
     ZergStrategy enemyStrategy;
+    OurStrategy ourStrategy;
+    int enemyStrategyChanged;
 
-    void updateStrategyRecognition();
+    ZergStrategy recognizeEnemyStrategy();
 
-    void handleMainArmy(std::vector<std::shared_ptr<Play>> &plays);
+    OurStrategy chooseOurStrategy(ZergStrategy newEnemyStrategy, std::vector<std::shared_ptr<Play>> &plays);
 
-    static void handleNaturalExpansion(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    void handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
     static void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 

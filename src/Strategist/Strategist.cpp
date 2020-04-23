@@ -235,20 +235,21 @@ namespace Strategist
             it = unitToPlay.erase(it);
         }
 
-        // Change the strategy engine when we discover the race of a random opponent
-        if (Opponent::hasRaceJustBeenDetermined()) setStrategyEngine();
-
-        // Allow the strategy engine to change our plays
-        engine->updatePlays(plays);
-
         // Update the plays
         // They signal interesting changes to the Strategist through their PlayStatus object.
         for (auto &play : plays)
         {
             play->status.unitRequirements.clear();
             play->status.removedUnits.clear();
+            play->assignedIncompleteUnits.clear();
             play->update();
         }
+
+        // Change the strategy engine when we discover the race of a random opponent
+        if (Opponent::hasRaceJustBeenDetermined()) setStrategyEngine();
+
+        // Allow the strategy engine to change our plays
+        engine->updatePlays(plays);
 
         // Process the changes signalled by the PlayStatus objects
         for (auto it = plays.begin(); it != plays.end();)
@@ -312,7 +313,7 @@ namespace Strategist
         }
 
         // Feed everything through the strategy engine
-        engine->updateProduction(prioritizedProductionGoals, mineralReservations);
+        engine->updateProduction(plays, prioritizedProductionGoals, mineralReservations);
 
         // Flatten the production goals into a vector ordered by priority
         productionGoals.clear();
