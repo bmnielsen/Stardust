@@ -17,6 +17,11 @@ namespace Opponent
                 BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Zerg;
     }
 
+    bool isUnknownRace()
+    {
+        return raceUnknown;
+    }
+
     std::string &getName()
     {
         if (!name.empty()) return name;

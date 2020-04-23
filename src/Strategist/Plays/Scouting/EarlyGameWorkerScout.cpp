@@ -7,6 +7,7 @@
 #include "UnitUtil.h"
 #include "Players.h"
 #include "Geo.h"
+#include "Opponent.h"
 
 #include <bwem.h>
 
@@ -271,10 +272,17 @@ void EarlyGameWorkerScout::update()
 
 bool EarlyGameWorkerScout::reserveScout()
 {
-    // We take the worker that builds the first pylon
+    // Scout after the first gateway if playing a non-random opponent on a two-player map
+    // In all other cases scout after the first pylon
+    auto scoutAfterBuilding = BWAPI::UnitTypes::Protoss_Pylon;
+    if (Map::getEnemyStartingMain() && !Opponent::isUnknownRace())
+    {
+        scoutAfterBuilding = BWAPI::UnitTypes::Protoss_Gateway;
+    }
+
     for (auto &pendingBuilding : Builder::allPendingBuildings())
     {
-        if (pendingBuilding->builder && pendingBuilding->type == BWAPI::UnitTypes::Protoss_Pylon)
+        if (pendingBuilding->builder && pendingBuilding->type == scoutAfterBuilding)
         {
             scout = pendingBuilding->builder;
             return true;

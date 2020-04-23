@@ -8,5 +8,7 @@ namespace Opponent
 
     std::string &getName();
 
+    bool isUnknownRace();
+
     bool hasRaceJustBeenDetermined();
 }
