@@ -36,6 +36,7 @@ DefendMyMain::DefendMyMain()
         , squad(std::make_shared<DefendBaseSquad>(Map::getMyMain()))
         , lastRegroupFrame(0)
 {
+    General::addSquad(squad);
 }
 
 void DefendMyMain::update()
