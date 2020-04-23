@@ -25,6 +25,8 @@ public:
 
     [[nodiscard]] std::vector<MyUnit> getUnits() const;
 
+    [[nodiscard]] std::map<BWAPI::UnitType, int> getUnitCountByType() const;
+
     [[nodiscard]] bool hasClusterWithActivity(UnitCluster::Activity activity) const;
 
     explicit Squad(std::string label) : label(std::move(label)), targetPosition(BWAPI::Positions::Invalid) {}

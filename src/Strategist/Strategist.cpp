@@ -159,6 +159,7 @@ namespace Strategist
                     {
                         unitRequirement.count--;
                         incompleteUnits->second--;
+                        play->assignedIncompleteUnits[unitRequirement.type]++;
                     }
                 }
             }
@@ -174,6 +175,13 @@ namespace Strategist
 
                         playReceivingUnassignedUnits->addUnit(reassignableUnit.unit);
                         unitToPlay[reassignableUnit.unit] = playReceivingUnassignedUnits;
+                    }
+                }
+                for (const auto &typeAndIncompleteUnits : typeToIncompleteUnits)
+                {
+                    if (typeAndIncompleteUnits.second > 0)
+                    {
+                        playReceivingUnassignedUnits->assignedIncompleteUnits[typeAndIncompleteUnits.first] += typeAndIncompleteUnits.second;
                     }
                 }
             }

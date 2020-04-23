@@ -34,6 +34,7 @@ class Play
 {
 public:
     PlayStatus status;
+    std::map<BWAPI::UnitType, int> assignedIncompleteUnits;
 
     virtual ~Play() = default;
 

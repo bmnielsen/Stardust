@@ -218,6 +218,23 @@ std::vector<MyUnit> Squad::getUnits() const
     return result;
 }
 
+std::map<BWAPI::UnitType, int> Squad::getUnitCountByType() const
+{
+    std::map<BWAPI::UnitType, int> result;
+
+    for (const auto &unitAndCluster : unitToCluster)
+    {
+        result[unitAndCluster.first->type]++;
+    }
+    for (const auto &detector : detectors)
+    {
+        result[detector->type]++;
+    }
+
+    return result;
+}
+
+
 bool Squad::hasClusterWithActivity(UnitCluster::Activity activity) const
 {
     for (const auto &cluster : clusters)

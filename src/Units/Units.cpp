@@ -32,9 +32,10 @@ namespace Units
         std::map<BWAPI::UnitType, std::set<MyUnit>> myCompletedUnitsByType;
         std::map<BWAPI::UnitType, std::set<MyUnit>> myIncompleteUnitsByType;
 
-        std::set<BWAPI::UpgradeType> upgradesInProgress;
-
+        std::map<BWAPI::UnitType, std::set<Unit>> enemyUnitsByType;
         std::map<BWAPI::UnitType, std::vector<std::pair<int, int>>> enemyUnitTimings;
+
+        std::set<BWAPI::UpgradeType> upgradesInProgress;
 
         void unitCreated(const Unit &unit)
         {
@@ -94,6 +95,7 @@ namespace Units
 
             enemyUnits.erase(unit);
             unitIdToEnemyUnit.erase(unit->id);
+            enemyUnitsByType[unit->type].erase(unit);
         }
 
         void trackEnemyUnitTimings(const Unit &unit, bool includeMorphs)
@@ -178,6 +180,8 @@ namespace Units
         unitIdToEnemyUnit.clear();
         myCompletedUnitsByType.clear();
         myIncompleteUnitsByType.clear();
+        enemyUnitsByType.clear();
+        enemyUnitTimings.clear();
         upgradesInProgress.clear();
     }
 
@@ -279,6 +283,7 @@ namespace Units
 
             unitCreated(unit);
 
+            enemyUnitsByType[unit->type].insert(unit);
             trackEnemyUnitTimings(unit, it == unitIdToEnemyUnit.end());
         }
 
@@ -354,6 +359,33 @@ namespace Units
                 else
                 {
                     it++;
+                }
+            }
+
+            for (auto &typeAndEnemyUnits : enemyUnitsByType)
+            {
+                for (auto it = typeAndEnemyUnits.second.begin(); it != typeAndEnemyUnits.second.end();)
+                {
+                    auto &unit = *it;
+                    if (!unit->exists())
+                    {
+                        Log::Get() << "ERROR: " << *unit << " in enemyUnitsByType does not exist!";
+                        it = typeAndEnemyUnits.second.erase(it);
+                    }
+                    else if (unit->player != BWAPI::Broodwar->enemy())
+                    {
+                        Log::Get() << "ERROR: " << *unit << " in enemyUnitsByType not owned by enemy!";
+                        it = typeAndEnemyUnits.second.erase(it);
+                    }
+                    else if (unit->bwapiUnit->isVisible() && unit->bwapiUnit->getPlayer() != BWAPI::Broodwar->enemy())
+                    {
+                        Log::Get() << "ERROR: " << *unit << " in enemyUnitsByType not owned by enemy (bwapiUnit)!";
+                        it = typeAndEnemyUnits.second.erase(it);
+                    }
+                    else
+                    {
+                        it++;
+                    }
                 }
             }
         }
@@ -629,6 +661,16 @@ namespace Units
             result[typeAndUnits.first] = typeAndUnits.second.size();
         }
         return result;
+    }
+
+    int countEnemy(BWAPI::UnitType type)
+    {
+        return enemyUnitsByType[type].size();
+    }
+
+    std::vector<std::pair<int, int>> &getEnemyUnitTimings(BWAPI::UnitType type)
+    {
+        return enemyUnitTimings[type];
     }
 
     bool isBeingUpgraded(BWAPI::UpgradeType type)
