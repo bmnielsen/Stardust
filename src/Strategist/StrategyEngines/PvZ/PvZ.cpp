@@ -53,48 +53,48 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 #endif
 
         ourStrategy = newStrategy;
+    }
 
-        // Ensure we have the correct main army play
-        auto mainArmyPlay = getMainArmyPlay(plays);
-        if (mainArmyPlay)
+    // Ensure we have the correct main army play
+    auto mainArmyPlay = getMainArmyPlay(plays);
+    if (mainArmyPlay)
+    {
+        if (enemyStrategy == ZergStrategy::GasSteal)
         {
-            if (enemyStrategy == ZergStrategy::GasSteal)
+            setMainPlay<DefendMyMain>(mainArmyPlay);
+        }
+        else
+        {
+            switch (ourStrategy)
             {
-                setMainPlay<DefendMyMain>(mainArmyPlay);
-            }
-            else
-            {
-                switch (ourStrategy)
+                case OurStrategy::EarlyGameDefense:
+                case OurStrategy::AntiAllIn:
+                case OurStrategy::Defensive:
+                    setMainPlay<DefendMyMain>(mainArmyPlay);
+                    break;
+                case OurStrategy::FastExpansion:
+                case OurStrategy::Normal:
+                case OurStrategy::MidGame:
                 {
-                    case OurStrategy::EarlyGameDefense:
-                    case OurStrategy::AntiAllIn:
-                    case OurStrategy::Defensive:
-                        setMainPlay<DefendMyMain>(mainArmyPlay);
-                        break;
-                    case OurStrategy::FastExpansion:
-                    case OurStrategy::Normal:
-                    case OurStrategy::MidGame:
+                    // Transition from a defend squad when the vanguard cluster has 3 units
+                    if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
                     {
-                        // Transition from a defend squad when the vanguard cluster has 3 units
-                        if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                        auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
+                        if (vanguard && vanguard->units.size() >= 3)
                         {
-                            auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                            if (vanguard && vanguard->units.size() >= 3)
+                            auto enemyMain = Map::getEnemyMain();
+                            if (enemyMain)
                             {
-                                auto enemyMain = Map::getEnemyMain();
-                                if (enemyMain)
-                                {
-                                    setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
-                                }
-                                else
-                                {
-                                    setMainPlay<MopUp>(mainArmyPlay);
-                                }
+                                setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
+                            }
+                            else
+                            {
+                                setMainPlay<MopUp>(mainArmyPlay);
                             }
                         }
-
-                        break;
                     }
+
+                    break;
                 }
             }
         }
