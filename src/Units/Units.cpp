@@ -9,7 +9,7 @@
 #include "UnitUtil.h"
 
 // These defines configure a per-frame summary of various unit type's orders, commands, etc.
-#ifdef INSTRUMENTATION_ENABLED
+#if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_PROBE_STATUS false
 #define DEBUG_ZEALOT_STATUS true
 #define DEBUG_DRAGOON_STATUS true
@@ -479,9 +479,10 @@ namespace Units
 
 #if DEBUG_ENEMY_TIMINGS
         std::vector<std::string> values;
-        values.reserve(enemyUnitTimings.size());
         for (auto &typeAndTimings : enemyUnitTimings)
         {
+            if (typeAndTimings.second.empty()) continue;
+
             std::ostringstream timings;
             bool first = true;
             for (auto timing : typeAndTimings.second)

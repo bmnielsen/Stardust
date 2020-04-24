@@ -44,7 +44,7 @@ Tasks:
 #include "Bullets.h"
 #include "Players.h"
 
-#if INSTRUMENTATION_ENABLED
+#if INSTRUMENTATION_ENABLED_VERBOSE
     // While instrumenting we have a global frame limit to ensure we get data if the game locks up
     #define FRAME_LIMIT 30000
 

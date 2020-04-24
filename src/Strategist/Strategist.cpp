@@ -205,6 +205,12 @@ namespace Strategist
                 values.emplace_back((std::ostringstream() << productionGoal).str());
             }
             CherryVis::setBoardListValue("prodgoal", values);
+
+            if (engine)
+            {
+                CherryVis::setBoardValue("strategy", engine->getOurStrategy());
+                CherryVis::setBoardValue("strategyEnemy", engine->getEnemyStrategy());
+            }
 #endif
         }
     }

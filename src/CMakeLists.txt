@@ -36,6 +36,7 @@ endif ()
 IF (MSVC)
     target_link_libraries(Stardust BWAPILIB BWEM FAP libzstd_static)
 ELSE (MSVC)
+    target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED_VERBOSE=true)
     target_link_libraries(Stardust -L/usr/local/Cellar/llvm/8.0.0/lib BWAPILIB BWEM FAP libzstd_static c++fs)
 ENDIF (MSVC)
 

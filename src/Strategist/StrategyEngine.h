@@ -17,6 +17,9 @@ public:
                                   std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                   std::vector<std::pair<int, int>> &mineralReservations) = 0;
 
+    virtual std::string getEnemyStrategy() { return "Unknown"; }
+    virtual std::string getOurStrategy() { return "Unknown"; }
+
 protected:
     static void upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                BWAPI::UpgradeType upgradeType,

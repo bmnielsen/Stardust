@@ -15,6 +15,10 @@ public:
                           std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                           std::vector<std::pair<int, int>> &mineralReservations) override;
 
+    std::string getEnemyStrategy() override { return ZergStrategyNames[enemyStrategy]; }
+
+    std::string getOurStrategy() override { return OurStrategyNames[ourStrategy]; }
+
 private:
     enum class ZergStrategy
     {
