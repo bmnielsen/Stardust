@@ -16,6 +16,9 @@
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS true
 #define DEBUG_ENEMY_STATUS false
+#endif
+
+#if INSTRUMENTATION_ENABLED
 #define DEBUG_ENEMY_TIMINGS true
 #endif
 
