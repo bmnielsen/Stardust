@@ -75,15 +75,24 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     case OurStrategy::Normal:
                     case OurStrategy::MidGame:
                     {
-                        auto enemyMain = Map::getEnemyMain();
-                        if (enemyMain)
+                        // Transition from a defend squad when the vanguard cluster has 3 units
+                        if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
                         {
-                            setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
+                            auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
+                            if (vanguard && vanguard->units.size() >= 3)
+                            {
+                                auto enemyMain = Map::getEnemyMain();
+                                if (enemyMain)
+                                {
+                                    setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
+                                }
+                                else
+                                {
+                                    setMainPlay<MopUp>(mainArmyPlay);
+                                }
+                            }
                         }
-                        else
-                        {
-                            setMainPlay<MopUp>(mainArmyPlay);
-                        }
+
                         break;
                     }
                 }

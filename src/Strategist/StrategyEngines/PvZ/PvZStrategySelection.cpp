@@ -115,13 +115,14 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                     continue;
                 }
 
+                // Transition to normal when we either detect another Zerg opening or when there are six units in the vanguard cluster
+
                 if (newEnemyStrategy == ZergStrategy::Turtle || newEnemyStrategy == ZergStrategy::Lair)
                 {
                     strategy = OurStrategy::Normal;
                     continue;
                 }
 
-                // Transition to normal when we either detect another Zerg opening or when there are six units in the vanguard cluster
                 auto mainArmyPlay = getMainArmyPlay(plays);
                 if (mainArmyPlay && typeid(*mainArmyPlay) == typeid(DefendMyMain))
                 {
