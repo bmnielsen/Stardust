@@ -265,6 +265,28 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // TODO: Higher-tech units
 
+            // Keep some zealots in the mix if the opponent has a lot of lings
+            int requiredZealots = 0;
+            if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 6)
+            {
+                requiredZealots = std::min(10, Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 2);
+
+                auto mainArmyPlay = getMainArmyPlay(plays);
+                auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
+                auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
+
+                requiredZealots -= completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
+            }
+
+            if (requiredZealots > 0)
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           BWAPI::UnitTypes::Protoss_Zealot,
+                                                                           requiredZealots,
+                                                                           -1);
+            }
+
+            // Otherwise our default is to produce dragoons
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
