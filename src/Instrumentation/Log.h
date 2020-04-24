@@ -5,7 +5,7 @@
 #define LOGGING_ENABLED true
 
 #if INSTRUMENTATION_ENABLED
-    #define DEBUG_LOGGING_ENABLED true
+#define DEBUG_LOGGING_ENABLED true
 #endif
 
 namespace Log
@@ -25,11 +25,13 @@ namespace Log
     public:
 
 #if LOGGING_ENABLED
+
         LogWrapper(std::ofstream *logFile, bool outputToConsole, bool csv = false);
 
         LogWrapper(const LogWrapper &other);
 
         ~LogWrapper();
+
 #endif
 
         template<typename T> LogWrapper &operator<<(T const &value)

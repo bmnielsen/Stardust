@@ -3,7 +3,7 @@
 #include "Players.h"
 
 #if INSTRUMENTATION_ENABLED
-    #define DEBUG_CLUSTER_MEMBERSHIP true // Also in UnitCluster.cpp
+#define DEBUG_CLUSTER_MEMBERSHIP true // Also in UnitCluster.cpp
 #endif
 
 namespace

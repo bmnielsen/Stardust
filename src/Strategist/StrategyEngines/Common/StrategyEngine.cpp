@@ -1,6 +1,6 @@
 #include "StrategyEngine.h"
 
-MainArmyPlay* StrategyEngine::getMainArmyPlay(std::vector<std::shared_ptr<Play>> &plays)
+MainArmyPlay *StrategyEngine::getMainArmyPlay(std::vector<std::shared_ptr<Play>> &plays)
 {
     for (auto &play : plays)
     {

@@ -18,6 +18,7 @@ public:
                                   std::vector<std::pair<int, int>> &mineralReservations) = 0;
 
     virtual std::string getEnemyStrategy() { return "Unknown"; }
+
     virtual std::string getOurStrategy() { return "Unknown"; }
 
 protected:

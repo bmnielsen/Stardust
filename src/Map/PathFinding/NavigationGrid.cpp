@@ -4,8 +4,8 @@
 #include "Map.h"
 
 #if INSTRUMENTATION_ENABLED
-    #define NAVIGATION_HEATMAP_ENABLED false
-    #define OUTPUT_GRID_TIMING false
+#define NAVIGATION_HEATMAP_ENABLED false
+#define OUTPUT_GRID_TIMING false
 #endif
 
 namespace

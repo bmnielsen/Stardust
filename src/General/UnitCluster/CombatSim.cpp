@@ -260,15 +260,15 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
     double elevationGain = 0.0;
     if (narrowChoke && myCount > 0)
     {
-        double myAvgElevation = (double)myGroundHeightAccumulator / (double)myCount;
-        double enemyAvgElevation = (double)enemyGroundHeightAccumulator / (double)enemyCount;
+        double myAvgElevation = (double) myGroundHeightAccumulator / (double) myCount;
+        double enemyAvgElevation = (double) enemyGroundHeightAccumulator / (double) enemyCount;
 
         // If both armies are at completely different elevations, the difference will be 2
         // We scale this to give a gain between 0.5 (my army is on high ground) to -0.5 (my army is on low ground)
         elevationGain = (myAvgElevation - enemyAvgElevation) / 4.0;
 
         // Now we adjust for what percentage of our army is ranged
-        elevationGain *= ((double)myRangedCount / (double)myCount);
+        elevationGain *= ((double) myRangedCount / (double) myCount);
     }
 
 #if DEBUG_COMBATSIM

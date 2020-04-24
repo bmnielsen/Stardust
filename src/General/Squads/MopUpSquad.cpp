@@ -5,7 +5,7 @@
 #include "Map.h"
 
 #if INSTRUMENTATION_ENABLED
-    #define DEBUG_SQUAD_TARGET false
+#define DEBUG_SQUAD_TARGET false
 #endif
 
 MopUpSquad::MopUpSquad() : Squad("Mop Up")

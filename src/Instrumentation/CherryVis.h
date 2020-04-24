@@ -3,7 +3,7 @@
 #include <BWAPI.h>
 
 #if INSTRUMENTATION_ENABLED
-    #define CHERRYVIS_ENABLED true
+#define CHERRYVIS_ENABLED true
 #endif
 
 namespace CherryVis

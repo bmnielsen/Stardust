@@ -214,7 +214,7 @@ void EarlyGameWorkerScout::update()
         // Minimum force at detection limit, maximum force at detection limit - 64 (and closer)
         double distFactor = 1.0 - (double) std::max(0, dist - 64) / (double) (detectionLimit - 64);
         auto vector = BWAPI::Position(scout->lastPosition.x - unit->lastPosition.x, scout->lastPosition.y - unit->lastPosition.y);
-        auto scaled = Geo::ScaleVector(vector, (int)(distFactor * threatWeight));
+        auto scaled = Geo::ScaleVector(vector, (int) (distFactor * threatWeight));
 
         threatX += scaled.x;
         threatY += scaled.y;
@@ -261,10 +261,10 @@ void EarlyGameWorkerScout::update()
 
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(scout->id) << "Scouting boids towards " << BWAPI::WalkPosition(targetPos)
-                               << ": goal=" << BWAPI::WalkPosition(scout->lastPosition + BWAPI::Position(goalX, goalY))
-                               << "; threat=" << BWAPI::WalkPosition(scout->lastPosition + BWAPI::Position(threatX, threatY))
-                               << "; total=" << BWAPI::WalkPosition(scout->lastPosition + totalVector)
-                               << "; target=" << BWAPI::WalkPosition(pos);
+                              << ": goal=" << BWAPI::WalkPosition(scout->lastPosition + BWAPI::Position(goalX, goalY))
+                              << "; threat=" << BWAPI::WalkPosition(scout->lastPosition + BWAPI::Position(threatX, threatY))
+                              << "; total=" << BWAPI::WalkPosition(scout->lastPosition + totalVector)
+                              << "; target=" << BWAPI::WalkPosition(pos);
 #endif
 
     scout->moveTo(pos, true);

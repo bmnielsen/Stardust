@@ -58,7 +58,7 @@ void DefendMyMain::update()
         if (units > 2 && !reservedGasStealAttacker)
         {
             int minDist = INT_MAX;
-            for (const auto& unit : squad->getUnits())
+            for (const auto &unit : squad->getUnits())
             {
                 int dist = unit->getDistance(gasSteal);
                 if (dist < minDist)
@@ -128,9 +128,9 @@ void DefendMyMain::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
     {
         if (unitRequirement.count < 1) continue;
         prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                    unitRequirement.type,
-                                                    unitRequirement.count,
-                                                    (unitRequirement.count + 1) / 2);
+                                                                      unitRequirement.type,
+                                                                      unitRequirement.count,
+                                                                      (unitRequirement.count + 1) / 2);
     }
 }
 

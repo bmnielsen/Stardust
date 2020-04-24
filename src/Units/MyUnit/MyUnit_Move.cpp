@@ -24,7 +24,7 @@ namespace
 
         // We prefer to go 5 tiles ahead, but accept an earlier tile if a later one is invalid
         auto node = currentNode;
-        for (int i=0; i<5; i++)
+        for (int i = 0; i < 5; i++)
         {
             if (!node->nextNode) return node;
             node = node->nextNode;

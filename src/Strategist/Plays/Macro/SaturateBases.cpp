@@ -72,10 +72,10 @@ void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
             if (!pair.first->resourceDepot->completed) continue;
 
             prioritizedProductionGoals[PRIORITY_WORKERS].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                        BWAPI::UnitTypes::Protoss_Probe,
-                                                        count,
-                                                        1,
-                                                        pair.first);
+                                                                      BWAPI::UnitTypes::Protoss_Probe,
+                                                                      count,
+                                                                      1,
+                                                                      pair.first);
         }
     }
 }

@@ -3,9 +3,9 @@
 #include "Units.h"
 
 void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                    BWAPI::UpgradeType upgradeType,
-                    BWAPI::UnitType unitType,
-                    int unitCount)
+                                    BWAPI::UpgradeType upgradeType,
+                                    BWAPI::UnitType unitType,
+                                    int unitCount)
 {
     // First bail out if the upgrade is already done or queued
     if (BWAPI::Broodwar->self()->getUpgradeLevel(upgradeType) > 0) return;
@@ -55,9 +55,9 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
 }
 
 void StrategyEngine::upgradeWhenUnitStarted(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                            BWAPI::UpgradeType upgradeType,
-                            BWAPI::UnitType unitType,
-                            bool requireProducer)
+                                            BWAPI::UpgradeType upgradeType,
+                                            BWAPI::UnitType unitType,
+                                            bool requireProducer)
 {
     // First bail out if the upgrade is already done or queued
     if (BWAPI::Broodwar->self()->getUpgradeLevel(upgradeType) > 0) return;

@@ -15,7 +15,7 @@ namespace
     std::map<BWAPI::UnitType, int> emptyUnitCountMap;
 
     template<class T, class ...Args>
-    void setMainPlay(MainArmyPlay *current, Args&& ...args)
+    void setMainPlay(MainArmyPlay *current, Args &&...args)
     {
         if (typeid(*current) == typeid(T)) return;
         current->status.transitionTo = std::make_shared<T>(std::forward<Args>(args)...);

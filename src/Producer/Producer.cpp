@@ -10,7 +10,7 @@
 #include "UnitUtil.h"
 
 #if INSTRUMENTATION_ENABLED
-    #define DEBUG_WRITE_SUBGOALS false
+#define DEBUG_WRITE_SUBGOALS false
 #endif
 
 /*
