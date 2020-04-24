@@ -7,6 +7,7 @@
 #include "MyDragoon.h"
 #include "MyWorker.h"
 #include "UnitUtil.h"
+#include "Opponent.h"
 
 // These defines configure a per-frame summary of various unit type's orders, commands, etc.
 #if INSTRUMENTATION_ENABLED_VERBOSE
@@ -110,6 +111,14 @@ namespace Units
                 return;
             }
 
+            // If this is the opponent's initial depot, update the element we already added
+            if (unit->type.isResourceDepot() && !enemyUnitTimings[unit->type].empty() && Map::getEnemyStartingMain()
+                && unit->getTilePosition() == Map::getEnemyStartingMain()->getTilePosition())
+            {
+                enemyUnitTimings[unit->type].begin()->second = BWAPI::Broodwar->getFrameCount();
+                return;
+            }
+
             // TODO: Do we need to handle the initial units?
 
             // Estimate the frame the unit completed
@@ -186,6 +195,20 @@ namespace Units
         enemyUnitsByType.clear();
         enemyUnitTimings.clear();
         upgradesInProgress.clear();
+
+        // Add a placeholder for the enemy depot to the timings
+        if (Opponent::isUnknownRace())
+        {
+            // For a random opponent, we don't know what type of depot they have, so just add one of each
+            // The matchup-specific strategy engines will never query for offrace types anyway, so the extras are meaningless
+            enemyUnitTimings[BWAPI::UnitTypes::Protoss_Nexus].emplace_back(std::make_pair(0, INT_MAX));
+            enemyUnitTimings[BWAPI::UnitTypes::Terran_Command_Center].emplace_back(std::make_pair(0, INT_MAX));
+            enemyUnitTimings[BWAPI::UnitTypes::Zerg_Hatchery].emplace_back(std::make_pair(0, INT_MAX));
+        }
+        else
+        {
+            enemyUnitTimings[BWAPI::Broodwar->enemy()->getRace().getResourceDepot()].emplace_back(std::make_pair(0, INT_MAX));
+        }
     }
 
     void update()
