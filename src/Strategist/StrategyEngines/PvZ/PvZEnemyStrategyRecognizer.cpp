@@ -117,7 +117,7 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
                 if (isGasSteal()) return ZergStrategy::GasSteal;
 
                 // Default to something reasonable if our scouting completely fails
-                if (BWAPI::Broodwar->getFrameCount() > 3500)
+                if (BWAPI::Broodwar->getFrameCount() > 4000)
                 {
                     strategy = ZergStrategy::PoolBeforeHatchery;
                     continue;
