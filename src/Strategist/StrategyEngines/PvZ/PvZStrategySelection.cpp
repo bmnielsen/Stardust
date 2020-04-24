@@ -22,8 +22,26 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
     int enemyStrategyStableFor = 0;
     if (newEnemyStrategy == enemyStrategy) enemyStrategyStableFor = BWAPI::Broodwar->getFrameCount() - enemyStrategyChanged;
 
+    auto canTransitionFromAntiAllIn = [&]()
+    {
+        // Require Dragoon Range
+        // TODO: This is probably much too conservative
+        if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0) return false;
+
+        // Count total combat units
+        auto mainArmyPlay = getMainArmyPlay(plays);
+        auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
+        auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
+        int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
+                        completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+
+        // Transition when we have 15 units, or 10 if the enemy strategy is no longer recognized as an all-in
+        return unitCount >= 15 || (unitCount >= 10 && enemyStrategyStableFor > 480 && newEnemyStrategy != ZergStrategy::ZerglingRush
+                                   && newEnemyStrategy != ZergStrategy::ZerglingAllIn);
+    };
+
     auto strategy = ourStrategy;
-    while (true)
+    for (int i = 0; i < 10; i++)
     {
         switch (strategy)
         {
@@ -69,20 +87,7 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
             case PvZ::OurStrategy::AntiAllIn:
             {
                 // Transition to normal when we consider it safe to do so
-
-                // Require dragoon range
-                if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0) break;
-
-                auto mainArmyPlay = getMainArmyPlay(plays);
-                auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-                auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-                int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
-                                completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
-
-                // Transition when we have 15 units if we still have the enemy strategy recognized as an all-in, 10 otherwise
-                if (unitCount >= 15 || (unitCount >= 10 && enemyStrategyStableFor > 480 && newEnemyStrategy != ZergStrategy::ZerglingRush
-                                        && newEnemyStrategy != ZergStrategy::ZerglingAllIn))
+                if (canTransitionFromAntiAllIn())
                 {
                     strategy = OurStrategy::Normal;
                     continue;
@@ -131,8 +136,15 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
             }
             case PvZ::OurStrategy::Normal:
             {
+                if ((newEnemyStrategy == ZergStrategy::ZerglingRush || newEnemyStrategy == ZergStrategy::ZerglingAllIn) &&
+                    !canTransitionFromAntiAllIn())
+                {
+                    strategy = OurStrategy::AntiAllIn;
+                    continue;
+                }
+
                 // Transition to mid-game when the enemy has lair tech
-                // TODO: Also transition in other cases
+                // TODO: Also transition to mid-game in other cases
                 if (newEnemyStrategy == ZergStrategy::Lair)
                 {
                     strategy = OurStrategy::MidGame;
@@ -147,4 +159,7 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
 
         return strategy;
     }
+
+    Log::Get() << "ERROR: Loop in strategy selection, ended on " << OurStrategyNames[strategy];
+    return strategy;
 }

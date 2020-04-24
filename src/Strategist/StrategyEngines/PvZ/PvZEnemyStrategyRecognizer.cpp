@@ -108,8 +108,7 @@ namespace
 PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
 {
     auto strategy = enemyStrategy;
-
-    while (true)
+    for (int i = 0; i < 10; i++)
     {
         switch (strategy)
         {
@@ -232,4 +231,7 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
 
         return strategy;
     }
+
+    Log::Get() << "ERROR: Loop in strategy recognizer, ended on " << ZergStrategyNames[strategy];
+    return strategy;
 }
