@@ -28,7 +28,7 @@ namespace
                                     std::unordered_map<int, std::vector<UnitTypeAndPosition>> &initialUnitsByFrame)
     {
         // Rules for creating units:
-        // - First create workers
+        // - First create workers and overlords
         // - Then create pylons
         // - Then create non-combat buildings
         // - Then create combat buildings
@@ -40,7 +40,7 @@ namespace
         // Scan for workers
         for (auto it = initialUnits.begin(); it != initialUnits.end();)
         {
-            if (it->type.isWorker())
+            if (it->type.isWorker() || it->type == BWAPI::UnitTypes::Zerg_Overlord)
             {
                 initialUnitsByFrame[frame].push_back(*it);
                 it = initialUnits.erase(it);
