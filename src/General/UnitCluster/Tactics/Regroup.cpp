@@ -3,6 +3,7 @@
 #include "Units.h"
 #include "Map.h"
 #include "Geo.h"
+#include "Players.h"
 
 /*
  * Orders a cluster to regroup.
@@ -16,8 +17,24 @@
 
 namespace
 {
-    bool shouldContainStaticDefense(UnitCluster &cluster, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &enemyUnits)
+    bool shouldContainStaticDefense(UnitCluster &cluster,
+                                    std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                                    std::set<Unit> &enemyUnits,
+                                    const CombatSimResult &initialSimResult)
     {
+        // If there is a narrow choke between the armies, contain the choke instead unless it is fully covered by enemy static defense
+        // This effectively means that on maps like Destination we stay behind the bridges, while with static defense on top of a ramp we
+        // stay out of range of the static defense instead
+        if (initialSimResult.narrowChoke)
+        {
+            auto &grid = Players::grid(BWAPI::Broodwar->enemy());
+            if (grid.staticGroundThreat(initialSimResult.narrowChoke->end1Center) == 0 ||
+                grid.staticGroundThreat(initialSimResult.narrowChoke->end1Center) == 0)
+            {
+                return false;
+            }
+        }
+
         // Run a combat sim excluding enemy static defense
         std::vector<std::pair<MyUnit, Unit>> filteredUnitsAndTargets;
         std::set<Unit> filteredEnemyUnits;
@@ -131,7 +148,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             }
         }
 
-        if (staticDefense && shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits))
+        if (staticDefense && shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, simResult))
         {
             setSubActivity(SubActivity::ContainStaticDefense);
         }
@@ -144,8 +161,8 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             setSubActivity(SubActivity::Flee);
         }
     }
-    else if ((currentSubActivity == SubActivity::ContainStaticDefense && !shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits)) ||
-             (currentSubActivity == SubActivity::ContainChoke && !shouldContainChoke(*this, simResult)))
+    else if ((currentSubActivity == SubActivity::ContainStaticDefense && !shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, simResult))
+             || (currentSubActivity == SubActivity::ContainChoke && !shouldContainChoke(*this, simResult)))
     {
         setSubActivity(SubActivity::Flee);
     }
