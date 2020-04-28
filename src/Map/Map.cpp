@@ -560,25 +560,10 @@ namespace Map
             {
                 if (!pair.second->isNarrowChoke) continue;
 
-                auto addTilesNear = [](BWAPI::Position pos)
+                for (const auto &chokeTile : pair.second->chokeTiles)
                 {
-                    if (!pos.isValid()) return;
-
-                    BWAPI::TilePosition tile(pos);
-                    for (int x = -3; x <= 3; x++)
-                    {
-                        for (int y = -3; y <= 3; y++)
-                        {
-                            BWAPI::TilePosition here(tile.x + x, tile.y + y);
-                            if (!here.isValid()) continue;
-
-                            narrowChokeTiles[here.x + here.y * BWAPI::Broodwar->mapWidth()] = true;
-                        }
-                    }
-                };
-                addTilesNear(pair.second->center);
-                addTilesNear(pair.second->end1Center);
-                addTilesNear(pair.second->end2Center);
+                    narrowChokeTiles[chokeTile.x + chokeTile.y * BWAPI::Broodwar->mapWidth()] = true;
+                }
             }
 
 #if CHERRYVIS_ENABLED
@@ -782,6 +767,8 @@ namespace Map
         else
             _mapSpecificOverride = new MapSpecificOverride();
 
+        computeTileWalkability();
+
         // Analyze chokepoints
         for (const auto &area : BWEM::Map::Instance().Areas())
         {
@@ -864,7 +851,6 @@ namespace Map
             continueOuterLoop:;
         }
 
-        computeTileWalkability();
         computeNarrowChokeTiles();
         computeLeafAreaTiles();
         dumpStaticHeatmaps();

@@ -3,7 +3,7 @@
 #include "Geo.h"
 
 #if INSTRUMENTATION_ENABLED
-#define DUMP_NARROW_CHOKE_HEATMAPS false
+#define DUMP_NARROW_CHOKE_HEATMAPS true
 #define DEBUG_NARROW_CHOKE_ANALYSIS false
 #endif
 
@@ -12,7 +12,7 @@
 namespace
 {
     const double pi = 3.14159265358979323846;
-    const double chokeSideAngleThreshold = pi / 6.0; // 30 degrees
+    const double chokeSideAngleThreshold = pi / 4.0; // 45 degrees
     const double chokeCrossAngleThreshold = pi / 12.0; // 15 degrees
 
     double angleDiff(double first, double second)
@@ -184,7 +184,7 @@ Choke::Choke(const BWEM::ChokePoint *_choke)
         {
             if (isRamp)
             {
-                computeRampHighGroundPosition();
+                computeNarrowRampHighGroundPosition();
             }
 
             computeScoutBlockingPositions(center, BWAPI::UnitTypes::Protoss_Probe, probeBlockScoutPositions);
@@ -208,7 +208,7 @@ void Choke::analyzeNarrowChoke()
     Log::Debug() << "Analyzing choke with initial center @ " << BWAPI::WalkPosition(center);
 #endif
 
-    // Compute the approximately angle of the choke
+    // Compute the approximate angle of the choke
     double angle = atan2(side1.y - side2.y, side1.x - side2.x) + (pi / 2.0);
     while (angle < 0)
     {
@@ -510,6 +510,110 @@ void Choke::analyzeNarrowChoke()
         if (centerSide2.isValid()) center = (centerSide1 + centerSide2) / 2;
     }
 
+    // Now calculate the choke tiles
+    tileSide.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4);
+    std::vector<bool> visited(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4);
+
+    // We do this at half-tile resolution, as that is what the collision grid in the combat sim uses
+    struct HalfTile
+    {
+        HalfTile(unsigned int x, unsigned int y) : x(x), y(y) {}
+
+        explicit HalfTile(BWAPI::Position pos) : x(pos.x >> 4U), y(pos.y >> 4U) {}
+
+        unsigned int x;
+        unsigned int y;
+
+        bool isValid()
+        {
+            return x < (BWAPI::Broodwar->mapWidth() * 2) && y < (BWAPI::Broodwar->mapHeight() * 2);
+        }
+
+        bool isWalkable()
+        {
+            return BWAPI::Broodwar->isWalkable((x << 1U), (y << 1U)) &&
+                   BWAPI::Broodwar->isWalkable((x << 1U) + 1, (y << 1U)) &&
+                   BWAPI::Broodwar->isWalkable((x << 1U), (y << 1U) + 1) &&
+                   BWAPI::Broodwar->isWalkable((x << 1U) + 1, (y << 1U) + 1);
+        }
+
+        unsigned int index()
+        {
+            return x + y * BWAPI::Broodwar->mapWidth() * 2;
+        }
+
+        BWAPI::TilePosition toTilePosition()
+        {
+            return BWAPI::TilePosition(x >> 1U, y >> 1U);
+        }
+    };
+
+    // Add the initial tiles to the queue
+    std::deque<std::pair<int, HalfTile>> queue;
+    queue.emplace_back(std::make_pair(0, HalfTile(center)));
+    auto addHalfTilesBetween = [&](BWAPI::Position start, BWAPI::Position end, int side)
+    {
+        auto addInitialPosition = [&](BWAPI::Position pos)
+        {
+            auto tile = HalfTile(pos.x >> 4U, pos.y >> 4U);
+            if (visited[tile.index()]) return;
+
+            visited[tile.index()] = true;
+            if (tile.isWalkable()) queue.emplace_back(std::make_pair(side, tile));
+            chokeTiles.insert(tile.toTilePosition());
+        };
+
+        addInitialPosition(start);
+        BWAPI::Position diff = end - start;
+        int dist = start.getApproxDistance(end);
+        for (int d = 8; d < dist; d += 8)
+        {
+            auto v = Geo::ScaleVector(diff, d);
+            if (v == BWAPI::Positions::Invalid) continue;
+            addInitialPosition(start + v);
+        }
+        addInitialPosition(end);
+    };
+    addHalfTilesBetween(side1Ends[0], side2Ends[0], -2);
+    addHalfTilesBetween(side1Ends[1], side2Ends[1], 1);
+
+    // Now flood-fill
+    auto visit = [&](std::pair<int, HalfTile> &tile, int x, int y)
+    {
+        auto next = HalfTile(tile.second.x + x, tile.second.y + y);
+
+        if (!next.isValid() || visited[next.index()]) return;
+
+        tileSide[next.index()] = tile.first;
+        visited[next.index()] = true;
+        if (next.isWalkable())
+        {
+            if (tile.first == 0)
+            {
+                queue.emplace_front(std::make_pair(tile.first, next));
+            }
+            else
+            {
+                queue.emplace_back(std::make_pair(tile.first, next));
+            }
+        }
+
+        if (tileSide[tile.second.index()] == 0)
+        {
+            chokeTiles.insert(next.toTilePosition());
+        }
+    };
+    while (!queue.empty())
+    {
+        auto tile = queue.front();
+        queue.pop_front();
+
+        visit(tile, 1, 0);
+        visit(tile, -1, 0);
+        visit(tile, 0, 1);
+        visit(tile, 0, -1);
+    }
+
 #if DUMP_NARROW_CHOKE_HEATMAPS
     std::vector<long> chokeData(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 16);
 
@@ -541,10 +645,34 @@ void Choke::analyzeNarrowChoke()
                           chokeData,
                           BWAPI::Broodwar->mapWidth() * 4,
                           BWAPI::Broodwar->mapHeight() * 4);
+
+    std::vector<long> chokeSideData(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4);
+    for (int x = 0; x < BWAPI::Broodwar->mapWidth() * 2; x++)
+    {
+        for (int y = 0; y < BWAPI::Broodwar->mapHeight() * 2; y++)
+        {
+            chokeSideData[x + y * (BWAPI::Broodwar->mapWidth() * 2)] = tileSide[x + y * (BWAPI::Broodwar->mapWidth() * 2)];
+        }
+    }
+
+    CherryVis::addHeatmap((std::ostringstream() << "ChokeSides@" << wpCenter).str(),
+                          chokeSideData,
+                          BWAPI::Broodwar->mapWidth() * 2,
+                          BWAPI::Broodwar->mapHeight() * 2);
+
+    std::vector<long> chokeTileData(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+    for (const auto &chokeTile : chokeTiles)
+    {
+        chokeTileData[chokeTile.x + chokeTile.y * BWAPI::Broodwar->mapWidth()] = 100;
+    }
+    CherryVis::addHeatmap((std::ostringstream() << "ChokeTiles@" << wpCenter).str(),
+                          chokeTileData,
+                          BWAPI::Broodwar->mapWidth(),
+                          BWAPI::Broodwar->mapHeight());
 #endif
 }
 
-void Choke::computeRampHighGroundPosition()
+void Choke::computeNarrowRampHighGroundPosition()
 {
     BWAPI::Position chokeCenter = center;
 
