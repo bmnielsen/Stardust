@@ -58,7 +58,10 @@ namespace
                                    / std::max(unit->type.maxGroundHits() * unit->type.groundWeapon().damageFactor(), 1))
                 .setGroundDamage(groundDamage)
                 .setGroundMaxRange(Players::weaponRange(unit->player, weaponType.groundWeapon()))
+                .setAirCooldown(Players::unitCooldown(unit->player, unit->type)
+                                / std::max(unit->type.maxAirHits() * unit->type.airWeapon().damageFactor(), 1))
                 .setAirDamage(airDamage)
+                .setAirMaxRange(Players::weaponRange(unit->player, weaponType.airWeapon()))
 
                 .setElevation(BWAPI::Broodwar->getGroundHeight(unit->lastPosition.x << 3, unit->lastPosition.y << 3))
                 .setAttackerCount(unit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
