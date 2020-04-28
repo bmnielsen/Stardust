@@ -300,11 +300,8 @@ namespace FAP {
 
     auto constexpr setAirWeapon(BWAPI::WeaponType airWeapon, int airHits) && {
       return std::move(*this)
-        .setAirCooldown(airWeapon.damageCooldown()
-          / std::max(airHits * airWeapon.damageFactor(), 1))
         .setAirDamageType(airWeapon.damageType())
-        .setAirMinRange(airWeapon.minRange())
-        .setAirMaxRange(airWeapon.maxRange());
+        .setAirMinRange(airWeapon.minRange());
     }
     
     auto constexpr setUnitSize(BWAPI::UnitSizeType unitSize) && {
