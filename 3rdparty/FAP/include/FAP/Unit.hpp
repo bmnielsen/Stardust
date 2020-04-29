@@ -44,12 +44,16 @@ namespace FAP {
     undetected              = 1ull << 33,
     id                      = 1ull << 34,
     target                  = 1ull << 35,
+    collision               = 1ull << 36,
   };
 
   template<typename UnitExtension = std::tuple<>>
   struct FAPUnit {
     int x, y;
     int cell = 0; // current cell in collision grid
+    int collisionValue;
+    int collisionValueChoke;
+    int player = 0;
 
     int health;
     int maxHealth;
@@ -342,7 +346,13 @@ namespace FAP {
 
     auto setTarget(int target) && {
       unit.target = target;
-      return std::move(*this);
+      return std::move(*this).template addFlag<UnitValues::target>();;
+    }
+
+    auto setCollisionValues(int collisionValue, int collisionValueChoke) && {
+      unit.collisionValue = collisionValue;
+      unit.collisionValueChoke = collisionValueChoke;
+      return std::move(*this).template addFlag<UnitValues::collision>();;
     }
 
     template<typename T = UnitExtension>

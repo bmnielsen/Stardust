@@ -11,39 +11,47 @@ namespace FAP {
     return v;
   }
 
+  struct ChokeGeometry {
+    std::vector<int> &tileSide;
+    std::vector<BWAPI::Position> forward;
+    std::vector<BWAPI::Position> backwardVector;
+    ChokeGeometry(std::vector<int> &tileSide,
+                  BWAPI::Position end1Center,
+                  BWAPI::Position end2Center,
+                  BWAPI::Position end1Exit,
+                  BWAPI::Position end2Exit) : tileSide(tileSide) {
+      forward.resize(7);
+      forward[0] = forward[1] = end1Center;
+      forward[4] = forward[6] = end2Center;
+      forward[5] = end1Exit;
+      forward[2] = end2Exit;
+      backwardVector.resize(7);
+      backwardVector[0] = backwardVector[1] = backwardVector[5] = (end2Center - end1Center);
+      backwardVector[2] = backwardVector[4] = backwardVector[6] = (end1Center - end2Center);
+    }
+  };
+
   template<typename UnitExtension = std::tuple<>>
   struct FastAPproximation {
-    /**
-     * \brief Adds the unit to the simulator for player 1
-     * \param fu The FAPUnit to add
-     */
-    template<UnitValues uv>
-    [[deprecated]] void addUnitPlayer1(Unit<uv, UnitExtension> &&fu);
-
     /**
      * \brief Adds the unit to the simulator for player 1, only if it is a combat unit
      * \param fu The FAPUnit to add
      */
-    template<UnitValues uv>
+    template<UnitValues uv, bool choke = false>
     bool addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu);
-    /**
-     * \brief Adds the unit to the simulator for player 2
-     * \param fu The FAPUnit to add
-     */
-    template<UnitValues uv>
-    [[deprecated]] void addUnitPlayer2(Unit<uv, UnitExtension> &&fu);
+
     /**
      * \brief Adds the unit to the simulator for player 2, only if it is a combat unit
      * \param fu The FAPUnit to add
      */
-    template<UnitValues uv>
+    template<UnitValues uv, bool choke = false>
     bool addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu);
 
     /**
      * \brief Starts the simulation. You can run this function multiple times. Feel free to run once, get the state and keep running.
      * \param nFrames the number of frames to simulate. A negative number runs the sim until combat is over.
      */
-    template<bool tankSplash = false>
+    template<bool tankSplash = false, bool choke = false>
     void simulate(int nFrames = 96); // = 24*4, 4 seconds on fastest
 
     /**
@@ -57,41 +65,57 @@ namespace FAP {
      */
     void clear();
 
+    /**
+     * \brief Sets that this battle is happening through a choke and configures the choke geometry
+     */
+    void setChokeGeometry(std::vector<int> &tileSide,
+                          BWAPI::Position end1Center,
+                          BWAPI::Position end2Center,
+                          BWAPI::Position end1Exit,
+                          BWAPI::Position end2Exit);
+
   private:
     std::vector<FAPUnit<UnitExtension>> player1, player2;
+
+    std::unique_ptr<ChokeGeometry> chokeGeometry;
 
     // Current approach to collisions: allow two units to share the same grid cell, using half-tile resolution
     // This seems to strike a reasonable balance between improving how large melee armies are simmed and avoiding
     // expensive collision-based pathing calculations
-    unsigned char collision[262144] = {};
+    std::vector<unsigned char> collision = std::vector<unsigned char>(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
+    template<bool choke>
+    void initializeCollision(FAPUnit<UnitExtension> &fu);
+    template<bool choke = false>
     void updatePosition(FAPUnit<UnitExtension> &fu, int x, int y);
 
     bool didSomething = false;
     static void dealDamage(FAPUnit<UnitExtension> &fu, int damage, BWAPI::DamageType damageType);
-    static int distSquared(FAPUnit<UnitExtension> const &u1, const FAPUnit<UnitExtension> &u2);
+
+    template<bool choke = false>
+    int distSquared(FAPUnit<UnitExtension> const &u1, const FAPUnit<UnitExtension> &u2);
     static int isInRange(FAPUnit<UnitExtension> const &attacker, const FAPUnit<UnitExtension> &target, int range);
     static bool isSuicideUnit(BWAPI::UnitType ut);
 
-    template<bool tankSplash>
+    template<bool tankSplash, bool choke>
     void unitsim(
             FAPUnit<UnitExtension> &fu,
             std::vector<FAPUnit<UnitExtension>> &friendlyUnits,
             std::vector<FAPUnit<UnitExtension>> &enemyUnits);
 
-    static void medicsim(FAPUnit<UnitExtension> &fu, std::vector<FAPUnit<UnitExtension>> &friendlyUnits);
+    void medicsim(FAPUnit<UnitExtension> &fu, std::vector<FAPUnit<UnitExtension>> &friendlyUnits);
     bool suicideSim(
             FAPUnit<UnitExtension> &fu,
             std::vector<FAPUnit<UnitExtension>> &friendlyUnits,
             std::vector<FAPUnit<UnitExtension>> &enemyUnits);
-    
-    template<bool tankSplash>
+
+    template<bool tankSplash, bool choke>
     void isimulate();
 
     static void unitDeath(
             FAPUnit<UnitExtension> &&fu,
             std::vector<FAPUnit<UnitExtension>> &itsFriendlies,
             std::vector<FAPUnit<UnitExtension>> &itsEnemies);
-  
+
     static auto max(int a, int b) {
       int vars[2] = { a, b };
       return vars[b > a];
@@ -144,54 +168,40 @@ namespace FAP {
     static_assert(Unit<uv>::hasFlag(UnitValues::attackerCount));
     static_assert(Unit<uv>::hasFlag(UnitValues::undetected));
     static_assert(Unit<uv>::hasFlag(UnitValues::id));
+    static_assert(Unit<uv>::hasFlag(UnitValues::target));
+    static_assert(Unit<uv>::hasFlag(UnitValues::collision));
     static_assert(Unit<uv>::hasFlag(UnitValues::data));
     return true;
   }
 
   template<typename UnitExtension>
-  template<UnitValues uv>
-  void FastAPproximation<UnitExtension>::addUnitPlayer1(Unit<uv, UnitExtension> &&fu) {
-    static_assert(AssertValidUnit<uv>());
-    if (!fu.unit.flying && fu.unit.unitType != BWAPI::UnitTypes::Terran_Medic) {
-      fu.unit.cell = (fu.unit.x >> 4) + ((fu.unit.y >> 4) << 9);
-      collision[fu.unit.cell]++;
-    }
-    player1.emplace_back(fu.unit);
-  }
-
-  template<typename UnitExtension>
-  template<UnitValues uv>
+  template<UnitValues uv, bool choke>
   bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu) {
     if (isCombatUnit(fu.unit)) {
-      addUnitPlayer1(std::move(fu));
+      static_assert(AssertValidUnit<uv>());
+      initializeCollision<choke>(fu.unit);
+      fu.unit.player = 1;
+      player1.emplace_back(fu.unit);
       return true;
     }
     return false;
   }
 
   template<typename UnitExtension>
-  template<UnitValues uv>
-  void FastAPproximation<UnitExtension>::addUnitPlayer2(Unit<uv, UnitExtension> &&fu) {
-    static_assert(AssertValidUnit<uv>());
-    if (!fu.unit.flying && fu.unit.unitType != BWAPI::UnitTypes::Terran_Medic) {
-      fu.unit.cell = (fu.unit.x >> 4) + ((fu.unit.y >> 4) << 9);
-      collision[fu.unit.cell]++;
-    }
-    player2.emplace_back(fu.unit);
-  }
-
-  template<typename UnitExtension>
-  template<UnitValues uv>
+  template<UnitValues uv, bool choke>
   bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu) {
     if (isCombatUnit(fu.unit)) {
-      addUnitPlayer2(std::move(fu));
+      static_assert(AssertValidUnit<uv>());
+      initializeCollision<choke>(fu.unit);
+      fu.unit.player = 2;
+      player2.emplace_back(fu.unit);
       return true;
     }
     return false;
   }
 
   template<typename UnitExtension>
-  template<bool tankSplash>
+  template<bool tankSplash, bool choke>
   void FastAPproximation<UnitExtension>::simulate(int nFrames) {
     while (nFrames--) {
       if (player1.empty() || player2.empty())
@@ -199,7 +209,7 @@ namespace FAP {
 
       didSomething = false;
 
-      isimulate<tankSplash>();
+      isimulate<tankSplash, choke>();
 
       if (!didSomething)
         break;
@@ -214,7 +224,17 @@ namespace FAP {
   template<typename UnitExtension>
   void FastAPproximation<UnitExtension>::clear() {
     player1.clear(), player2.clear();
-    memset(&collision[0], 0, sizeof(unsigned char) * 262144);
+    std::fill(collision.begin(), collision.end(), 0);
+  }
+
+  template<typename UnitExtension>
+  void FastAPproximation<UnitExtension>::setChokeGeometry(std::vector<int> &tileSide,
+                                                          BWAPI::Position end1Center,
+                                                          BWAPI::Position end2Center,
+                                                          BWAPI::Position end1Exit,
+                                                          BWAPI::Position end2Exit)
+  {
+    chokeGeometry = std::make_unique<ChokeGeometry>(tileSide, end1Center, end2Center, end1Exit, end2Exit);
   }
 
   template<typename UnitExtension>
@@ -252,8 +272,20 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
+  template<bool choke>
   int FastAPproximation<UnitExtension>::distSquared(const FAPUnit<UnitExtension> &u1, const FAPUnit<UnitExtension> &u2) {
-    return (u1.x - u2.x) * (u1.x - u2.x) + (u1.y - u2.y) * (u1.y - u2.y);
+      if (choke && !u1.flying) {
+          auto sideDiff = chokeGeometry->tileSide[u1.cell] - chokeGeometry->tileSide[u2.cell];
+          if (sideDiff == 0) return (u1.x - u2.x) * (u1.x - u2.x) + (u1.y - u2.y) * (u1.y - u2.y);
+          return (u1.x - chokeGeometry->forward[3 + sideDiff].x) * (u1.x - chokeGeometry->forward[3 + sideDiff].x) +
+                 (u1.y - chokeGeometry->forward[3 + sideDiff].y) * (u1.y - chokeGeometry->forward[3 + sideDiff].y) +
+                 (chokeGeometry->forward[3 + sideDiff].x - chokeGeometry->forward[3 - sideDiff].x) * (chokeGeometry->forward[3 + sideDiff].x - chokeGeometry->forward[3 - sideDiff].x) +
+                 (chokeGeometry->forward[3 + sideDiff].y - chokeGeometry->forward[3 - sideDiff].y) * (chokeGeometry->forward[3 + sideDiff].y - chokeGeometry->forward[3 - sideDiff].y) +
+                 (u2.x - chokeGeometry->forward[3 - sideDiff].x) * (u2.x - chokeGeometry->forward[3 - sideDiff].x) +
+                 (u2.y - chokeGeometry->forward[3 - sideDiff].y) * (u2.y - chokeGeometry->forward[3 - sideDiff].y);
+      } else {
+          return (u1.x - u2.x) * (u1.x - u2.x) + (u1.y - u2.y) * (u1.y - u2.y);
+      }
   }
 
   template<typename UnitExtension>
@@ -296,37 +328,59 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
-  void FastAPproximation<UnitExtension>::updatePosition(FAPUnit<UnitExtension> &fu, int x, int y)
-  {
+  template<bool choke>
+  void FastAPproximation<UnitExtension>::initializeCollision(FAPUnit<UnitExtension> &fu) {
+    fu.cell = (fu.x >> 4) + ((fu.y >> 4) * BWAPI::Broodwar->mapWidth() * 2);
+    if constexpr (choke) {
+      collision[fu.cell] += (chokeGeometry->tileSide[fu.cell] == 0) ? fu.collisionValueChoke : fu.collisionValue;
+    } else {
+      collision[fu.cell] += fu.collisionValue;
+    }
+  }
+
+  template<typename UnitExtension>
+  template<bool choke>
+  void FastAPproximation<UnitExtension>::updatePosition(FAPUnit<UnitExtension> &fu, int x, int y) {
     if (fu.flying) {
       fu.x = x;
       fu.y = y;
       return;
     }
 
-    if (x < 0) x = 0;
-    if (y < 0) y = 0;
-    if (x > 8191) x = 8191;
-    if (y > 8191) y = 8191;
+    x = std::clamp(x, 0, BWAPI::Broodwar->mapWidth() * 32 - 1);
+    y = std::clamp(y, 0, BWAPI::Broodwar->mapHeight() * 32 - 1);
 
-    int cell = (x >> 4) + ((y >> 4) << 9);
+    int cell = (x >> 4) + (y >> 4) * BWAPI::Broodwar->mapWidth() * 2;
     if (cell == fu.cell) {
       fu.x = x;
       fu.y = y;
       return;
     }
 
-    if (collision[cell] > 1) return;
+    if constexpr (choke) {
+      int collisionValue = (chokeGeometry->tileSide[cell] == 0) ? fu.collisionValueChoke : fu.collisionValue;
+      if (collision[cell] + collisionValue > 12) return;
 
-    collision[fu.cell]--;
-    collision[cell]++;
+      collision[fu.cell] -= (chokeGeometry->tileSide[fu.cell] == 0) ? fu.collisionValueChoke : fu.collisionValue;
+      collision[cell] += collisionValue;
+      fu.x = x;
+      fu.y = y;
+      fu.cell = cell;
+
+      return;
+    }
+
+    if (collision[cell] + fu.collisionValue > 12) return;
+
+    collision[fu.cell] -= fu.collisionValue;
+    collision[cell] += fu.collisionValue;
     fu.x = x;
     fu.y = y;
     fu.cell = cell;
   }
 
   template<typename UnitExtension>
-  template<bool tankSplash>
+  template<bool tankSplash, bool choke>
   void FastAPproximation<UnitExtension>::unitsim(
           FAPUnit<UnitExtension> &fu,
           std::vector<FAPUnit<UnitExtension>> &friendlyUnits,
@@ -369,7 +423,7 @@ namespace FAP {
         if (enemyIt->undetected) continue;
         if (enemyIt->flying) {
           if (fu.airDamage) {
-            auto const d = distSquared(fu, *enemyIt);
+            auto const d = distSquared<choke>(fu, *enemyIt);
             if ((closestEnemy == enemyUnits.end() || d < closestDistSquared) &&
               d >= fu.airMinRangeSquared) {
               closestDistSquared = d;
@@ -379,7 +433,7 @@ namespace FAP {
         }
         else {
           if (fu.groundDamage) {
-            auto const d = distSquared(fu, *enemyIt);
+            auto const d = distSquared<choke>(fu, *enemyIt);
             if ((closestEnemy == enemyUnits.end() || d < closestDistSquared) &&
               d >= fu.groundMinRangeSquared) {
               closestDistSquared = d;
@@ -392,20 +446,92 @@ namespace FAP {
       if (closestEnemy != enemyUnits.end()) fu.target = closestEnemy->id;
     }
 
+    auto defendChoke = [this](FAPUnit<UnitExtension> &fu, FAPUnit<UnitExtension> &target) {
+      auto sideDiff = chokeGeometry->tileSide[fu.cell] - chokeGeometry->tileSide[target.cell];
+
+      int dx, dy;
+
+      // If the unit is inside the choke, it should move out using the backward vector
+      if (chokeGeometry->tileSide[fu.cell] == 0) {
+        dx = chokeGeometry->backwardVector[3 + sideDiff].x;
+        dy = chokeGeometry->backwardVector[3 + sideDiff].y;
+      } else {
+        // Otherwise the unit should move to keep its distance to the choke entrance
+        int maxRangeSquared = std::max((fu.flying ? target.airMaxRangeSquared : target.groundMaxRangeSquared),
+                                       (target.flying ? fu.airMaxRangeSquared : fu.groundMaxRangeSquared));
+        int distChokeEntranceSquared =
+              (fu.x - chokeGeometry->forward[3 + sideDiff].x) * (fu.x - chokeGeometry->forward[3 + sideDiff].x) +
+              (fu.y - chokeGeometry->forward[3 + sideDiff].y) * (fu.y - chokeGeometry->forward[3 + sideDiff].y);
+        if (distChokeEntranceSquared < maxRangeSquared) {
+          dx = fu.x - chokeGeometry->forward[3 + sideDiff].x;
+          dy = fu.y - chokeGeometry->forward[3 + sideDiff].y;
+        } else {
+          dx = chokeGeometry->forward[3 + sideDiff].x - fu.x;
+          dy = chokeGeometry->forward[3 + sideDiff].y - fu.y;
+        }
+      }
+      updatePosition(fu,
+                     fu.x + static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
+                     fu.y + static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
+    };
+
+    auto moveTowards = [this](FAPUnit<UnitExtension> &fu, FAPUnit<UnitExtension> &other) {
+      int dx, dy;
+
+      // Movement in chokes is handled differently, as we force the units to path through the choke ends
+      if constexpr (choke) {
+        if (fu.flying) {
+          dx = other.x - fu.x;
+          dy = other.y - fu.y;
+        } else {
+          auto sideDiff = chokeGeometry->tileSide[fu.cell] - chokeGeometry->tileSide[other.cell];
+          if (sideDiff == 0) {
+            dx = other.x - fu.x;
+            dy = other.y - fu.y;
+          } else {
+            dx = chokeGeometry->forward[3 + sideDiff].x - fu.x;
+            dy = chokeGeometry->forward[3 + sideDiff].y - fu.y;
+          }
+        }
+      } else {
+        dx = other.x - fu.x;
+        dy = other.y - fu.y;
+      }
+      updatePosition(fu,
+                     fu.x + static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
+                     fu.y + static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
+    };
+
     // Kite is true for dragoons and vultures that are on their attack cooldown.
+    // - If the unit is in a narrow choke, possibly do some special handling depending on where the unit and its target are.
     // - If the enemy is not in our attack range, move towards it (usual behaviour for units not on their attack cooldown).
     // - If the enemy is in our attack range, move away from it unless its range is equivalent or larger than ours
     //   or our attack cooldown is about to expire.
     if (kite) {
+      didSomething = true;
       if (closestEnemy != enemyUnits.end()) {
-        if (!isInRange(fu, *closestEnemy, (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange))) {
-          auto const dx = closestEnemy->x - fu.x;
-          auto const dy = closestEnemy->y - fu.y;
-          updatePosition(
-            fu,
-            fu.x + static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
-            fu.y + static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
-        } else if (fu.attackCooldownRemaining > 1 && closestEnemy->groundMaxRangeSquared < fu.groundMaxRangeSquared) {
+        if constexpr (choke) {
+          // Defending unit moves to defend the choke if it is not in the same side as its target or is not in its target's attack range
+          if (fu.player == 2 && (chokeGeometry->tileSide[fu.cell] != chokeGeometry->tileSide[closestEnemy->cell]
+                              || !isInRange(*closestEnemy, fu, (fu.flying ? closestEnemy->airMaxRange : closestEnemy->groundMaxRange)))) {
+            defendChoke(fu, *closestEnemy);
+            return;
+          }
+
+          // Attacking unit moves forward if it is in the choke
+          if (fu.player == 1 && chokeGeometry->tileSide[fu.cell] == 0) {
+            moveTowards(fu, *closestEnemy);
+            return;
+          }
+
+          // Otherwise fall through to normal kiting handling
+        }
+
+        // Move towards the enemy if it is out of range or is a sieged tank
+        if (!isInRange(fu, *closestEnemy, (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange)) ||
+          closestEnemy->unitType == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) {
+          moveTowards(fu, *closestEnemy);
+        } else if (fu.attackCooldownRemaining > 1) {
           auto const dx = closestEnemy->x - fu.x;
           auto const dy = closestEnemy->y - fu.y;
           updatePosition(
@@ -414,8 +540,6 @@ namespace FAP {
             fu.y - static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
         }
       }
-
-      didSomething = true;
       return;
     }
 
@@ -491,15 +615,37 @@ namespace FAP {
 
       didSomething = true;
     }
-    else if (closestEnemy != enemyUnits.end() && closestDistSquared > fu.speedSquared && fu.speed >= 1.0f) {
-      auto const dx = closestEnemy->x - fu.x;
-      auto const dy = closestEnemy->y - fu.y;
-      updatePosition(
-        fu,
-        fu.x + static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
-        fu.y + static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
-
+    else if (closestEnemy != enemyUnits.end() && closestDistSquared > 0 && fu.speed >= 1.0f) {
       didSomething = true;
+
+      if constexpr (choke) {
+        // Attacking units always moves forward
+        if (fu.player == 1) {
+          moveTowards(fu, *closestEnemy);
+        } else {
+          // Defending units move to attack when ready to "spring the trap"
+          // Criteria for this is one of the following:
+          // - The target is in the same "side" of the choke as this unit
+          // - This unit is in the target's attack range
+          // - The target is close to the near end of the choke
+          auto sideDiff = chokeGeometry->tileSide[fu.cell] - chokeGeometry->tileSide[closestEnemy->cell];
+          bool attack = sideDiff == 0 || isInRange(*closestEnemy, fu, (fu.flying ? closestEnemy->airMaxRange : closestEnemy->groundMaxRange));
+          if (!attack) {
+            int distChokeEntranceSquared =
+                  (closestEnemy->x - chokeGeometry->forward[3 + sideDiff].x) * (closestEnemy->x - chokeGeometry->forward[3 + sideDiff].x) +
+                  (closestEnemy->y - chokeGeometry->forward[3 + sideDiff].y) * (closestEnemy->y - chokeGeometry->forward[3 + sideDiff].y);
+            attack = distChokeEntranceSquared < 1024;
+          }
+
+          if (attack) {
+            moveTowards(fu, *closestEnemy);
+          } else {
+            defendChoke(fu, *closestEnemy);
+          }
+        }
+      } else {
+        moveTowards(fu, *closestEnemy);
+      }
     }
   }
 
@@ -592,7 +738,7 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
-  template<bool tankSplash>
+  template<bool tankSplash, bool choke>
   void FastAPproximation<UnitExtension>::isimulate() {
     const auto simUnit = [this](auto &unit, auto &friendly, auto &enemy) {
       if (isSuicideUnit(unit->unitType)) {
@@ -608,7 +754,7 @@ namespace FAP {
         if (unit->unitType == BWAPI::UnitTypes::Terran_Medic)
           medicsim(*unit, friendly);
         else
-          unitsim<tankSplash>(*unit, friendly, enemy);
+          unitsim<tankSplash, choke>(*unit, friendly, enemy);
         ++unit;
       }
     };
