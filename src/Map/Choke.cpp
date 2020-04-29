@@ -550,6 +550,7 @@ void Choke::analyzeNarrowChoke()
 
     // Add the initial tiles to the queue
     std::deque<std::pair<int, HalfTile>> queue;
+    std::deque<std::pair<int, HalfTile>> unwalkableQueue;
     queue.emplace_back(std::make_pair(0, HalfTile(center)));
     auto addHalfTilesBetween = [&](BWAPI::Position start, BWAPI::Position end, int side)
     {
@@ -559,7 +560,7 @@ void Choke::analyzeNarrowChoke()
             if (visited[tile.index()]) return;
 
             visited[tile.index()] = true;
-            if (tile.isWalkable()) queue.emplace_back(std::make_pair(side, tile));
+            (tile.isWalkable() ? queue : unwalkableQueue).emplace_back(std::make_pair(side, tile));
             chokeTiles.insert(tile.toTilePosition());
         };
 
@@ -586,16 +587,16 @@ void Choke::analyzeNarrowChoke()
 
         tileSide[next.index()] = tile.first;
         visited[next.index()] = true;
-        if (next.isWalkable())
+        if (tile.first == 0)
         {
-            if (tile.first == 0)
+            if (next.isWalkable())
             {
                 queue.emplace_front(std::make_pair(tile.first, next));
             }
-            else
-            {
-                queue.emplace_back(std::make_pair(tile.first, next));
-            }
+        }
+        else
+        {
+            ((tile.second.isWalkable() && next.isWalkable()) ? queue : unwalkableQueue).emplace_back(std::make_pair(tile.first, next));
         }
 
         if (tileSide[tile.second.index()] == 0)
@@ -603,10 +604,10 @@ void Choke::analyzeNarrowChoke()
             chokeTiles.insert(next.toTilePosition());
         }
     };
-    while (!queue.empty())
+    while (!queue.empty() || !unwalkableQueue.empty())
     {
-        auto tile = queue.front();
-        queue.pop_front();
+        auto tile = (queue.empty() ? unwalkableQueue : queue).front();
+        (queue.empty() ? unwalkableQueue : queue).pop_front();
 
         visit(tile, 1, 0);
         visit(tile, -1, 0);
