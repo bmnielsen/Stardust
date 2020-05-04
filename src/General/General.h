@@ -1,5 +1,7 @@
 #pragma once
 
+#include <fap.h>
+
 #include "Common.h"
 
 #include "Squad.h"
@@ -65,5 +67,5 @@ namespace CombatSim
 {
     void initialize();
 
-    int unitValue(const Unit &unit);
+    int unitValue(const FAP::FAPUnit<> &unit);
 }

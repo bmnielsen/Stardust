@@ -6,6 +6,7 @@
 #include "Units.h"
 #include "Map.h"
 #include "UnitUtil.h"
+#include "General.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_COMBATSIM_CSV false  // Writes a CSV file for each cluster with detailed sim information
@@ -44,6 +45,15 @@ namespace
             groundDamage = airDamage = 0;
         }
 
+        // In open terrain, collision values scale based on the unit range
+        // Rationale: melee units have a smaller area to maneuver in, so they interfere with each other more
+        int collisionValue = unit->isFlying ? 0 : std::max(0, 6 - Players::weaponRange(unit->player, weaponType.groundWeapon()) / 32);
+
+        // In a choke, collision values depend on unit size
+        // We allow no collision between full-size units and a stack of two smaller-size units
+        int collisionValueChoke = unit->isFlying ? 0 : 6;
+        if (unit->type.width() >= 32 || unit->type.height() >= 32) collisionValue = 12;
+
         return FAP::makeUnit<>()
                 .setUnitType(unit->type)
                 .setPosition(unit->lastPosition)
@@ -77,6 +87,8 @@ namespace
                 .setID(unit->id)
                 .setTarget(target)
 
+                .setCollisionValues(collisionValue, collisionValueChoke)
+
                 .setData({});
     }
 
@@ -85,8 +97,7 @@ namespace
         int result = 0;
         for (auto &unit : *units)
         {
-            result +=
-                    baseScore[unit.unitType] + scaledScore[unit.unitType] * (unit.health * 3 + unit.shields) / (unit.maxHealth * 3 + unit.maxShields);
+            result += CombatSim::unitValue(unit);
         }
 
         return result;
@@ -112,10 +123,9 @@ namespace CombatSim
         }
     }
 
-    int unitValue(const Unit &unit)
+    int unitValue(const FAP::FAPUnit<> &unit)
     {
-        return baseScore[unit->type]
-               + scaledScore[unit->type] * (unit->lastHealth * 3 + unit->lastShields) / (unit->type.maxHitPoints() * 3 + unit->type.maxShields());
+        return baseScore[unit.unitType] + scaledScore[unit.unitType] * (unit.health * 3 + unit.shields) / (unit.maxHealth * 3 + unit.maxShields);
     }
 }
 
