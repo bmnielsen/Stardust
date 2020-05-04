@@ -54,12 +54,12 @@ namespace
                         // For this next section, we have modified FAP to allow taking the upgraded values instead of the upgrade levels
                 .setSpeed(Players::unitTopSpeed(unit->player, unit->type))
                 .setArmor(Players::unitArmor(unit->player, unit->type))
-                .setGroundCooldown(Players::unitCooldown(unit->player, unit->type)
-                                   / std::max(unit->type.maxGroundHits() * unit->type.groundWeapon().damageFactor(), 1))
+                .setGroundCooldown(Players::unitCooldown(unit->player, weaponType)
+                                   / std::max(weaponType.maxGroundHits() * weaponType.groundWeapon().damageFactor(), 1))
                 .setGroundDamage(groundDamage)
                 .setGroundMaxRange(Players::weaponRange(unit->player, weaponType.groundWeapon()))
-                .setAirCooldown(Players::unitCooldown(unit->player, unit->type)
-                                / std::max(unit->type.maxAirHits() * unit->type.airWeapon().damageFactor(), 1))
+                .setAirCooldown(Players::unitCooldown(unit->player, weaponType)
+                                / std::max(weaponType.maxAirHits() * weaponType.airWeapon().damageFactor(), 1))
                 .setAirDamage(airDamage)
                 .setAirMaxRange(Players::weaponRange(unit->player, weaponType.airWeapon()))
 
