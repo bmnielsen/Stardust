@@ -17,7 +17,9 @@ public:
     bool isNarrowChoke;
     BWAPI::Position end1Center;
     BWAPI::Position end2Center;
-    std::vector<int> tileSide; // Assigns each map tile within a certain area of the choke a "side". -2 = side 1, 1 = side 2, 0 = inside choke or n/a
+    BWAPI::Position end1Exit;
+    BWAPI::Position end2Exit;
+    std::vector<int> tileSide; // Assigns each map tile within a certain area of the choke a "side". -2 = side 1, 1 = side 2, 0 = inside choke
     std::set<BWAPI::TilePosition> chokeTiles; // Tiles inside and close to the ends of the choke
 
     bool isRamp;

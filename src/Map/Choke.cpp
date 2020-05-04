@@ -494,6 +494,10 @@ void Choke::analyzeNarrowChoke()
     end1Center = (side1Ends[0] + side2Ends[0]) / 2;
     end2Center = (side1Ends[1] + side2Ends[1]) / 2;
 
+    // Compute the "exits", a position one tile further than the ends
+    end1Exit = end1Center + Geo::ScaleVector(end1Center - end2Center, 32);
+    end2Exit = end2Center + Geo::ScaleVector(end2Center - end1Center, 32);
+
     // The minimum width computed earlier is done with walk tiles, so adjust it a bit to approximate the actual width
     width = minWidth - 8;
 
