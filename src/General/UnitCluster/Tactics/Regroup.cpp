@@ -29,7 +29,7 @@ namespace
         {
             auto &grid = Players::grid(BWAPI::Broodwar->enemy());
             if (grid.staticGroundThreat(initialSimResult.narrowChoke->end1Center) == 0 ||
-                grid.staticGroundThreat(initialSimResult.narrowChoke->end1Center) == 0)
+                grid.staticGroundThreat(initialSimResult.narrowChoke->end2Center) == 0)
             {
                 return false;
             }
