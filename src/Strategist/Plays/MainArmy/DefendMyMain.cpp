@@ -134,6 +134,30 @@ void DefendMyMain::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
     }
 }
 
+
+void DefendMyMain::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
+                           const std::function<void(const MyUnit &)> &movableUnitCallback)
+{
+    Play::disband(removedUnitCallback, movableUnitCallback);
+
+    // Also move the reserved gas steal attacker if we have one
+    if (reservedGasStealAttacker)
+    {
+        movableUnitCallback(reservedGasStealAttacker);
+    }
+
+    // Make sure to release any workers that have been reserved
+    if (!reservedWorkers.empty())
+    {
+        for (const auto &worker : reservedWorkers)
+        {
+            Workers::releaseWorker(worker);
+        }
+
+        reservedWorkers.clear();
+    }
+}
+
 void DefendMyMain::mineralLineWorkerDefense(std::set<Unit> &enemiesInBase)
 {
     // Check if there are enemy melee units in our mineral line

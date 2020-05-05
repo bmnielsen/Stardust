@@ -20,6 +20,9 @@ public:
 
     void removeUnit(MyUnit unit) override;
 
+    void disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
+                 const std::function<void(const MyUnit&)> &movableUnitCallback) override;
+
 private:
     std::shared_ptr<DefendBaseSquad> squad;
     int lastRegroupFrame;

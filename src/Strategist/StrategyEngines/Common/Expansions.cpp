@@ -73,7 +73,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         {
             if (!takeExpansionPlay->constructionStarted())
             {
-                takeExpansionPlay->cancel();
+                takeExpansionPlay->status.complete = true;
 
                 Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition;
             }

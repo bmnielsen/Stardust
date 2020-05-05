@@ -61,4 +61,10 @@ public:
 
     // Runs at the end of the Strategist's frame and allows the play to reserve minerals at a specific future frame.
     virtual void addMineralReservations(std::vector<std::pair<int, int>> &mineralReservations) {}
+
+    // Called when a play is being disbanded (either removed completely or transitioned to a different play).
+    // It is the play's responsibility to call either removedUnitCallback or movableUnitCallback for all units that have been assigned
+    // to it via addUnit (and not removed earlier through status.removedUnits).
+    virtual void disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
+                         const std::function<void(const MyUnit&)> &movableUnitCallback);
 };

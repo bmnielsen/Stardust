@@ -47,8 +47,8 @@ bool TakeExpansion::constructionStarted() const
     return pendingBuilding->isConstructionStarted();
 }
 
-void TakeExpansion::cancel()
+void TakeExpansion::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
+                            const std::function<void(const MyUnit &)> &movableUnitCallback)
 {
     Builder::cancel(depotPosition);
-    status.complete = true;
 }

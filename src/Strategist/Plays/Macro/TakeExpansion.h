@@ -12,9 +12,10 @@ public:
 
     void update() override;
 
-    bool constructionStarted() const;
+    [[nodiscard]] bool constructionStarted() const;
 
-    virtual void cancel();
+    void disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
+                 const std::function<void(const MyUnit&)> &movableUnitCallback) override;
 
     BWAPI::TilePosition depotPosition;
 

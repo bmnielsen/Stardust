@@ -82,11 +82,12 @@ void TakeIslandExpansion::update()
     }
 }
 
-void TakeIslandExpansion::cancel()
+void TakeIslandExpansion::disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
+             const std::function<void(const MyUnit&)> &movableUnitCallback)
 {
-    // TODO: Avoid orphaning the worker
+    // TODO: Release worker and shuttle
+    // TODO: Avoid stranding the worker on the island
     Builder::cancel(depotPosition);
-    status.complete = true;
 }
 
 void TakeIslandExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)

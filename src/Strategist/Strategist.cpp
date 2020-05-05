@@ -260,29 +260,31 @@ namespace Strategist
         // Process the changes signalled by the PlayStatus objects
         for (auto it = plays.begin(); it != plays.end();)
         {
-            // Update our unit map for units released from the play
-            for (const auto &unit : (*it)->status.removedUnits)
+            auto removeUnit = [&](const MyUnit &unit)
             {
                 (*it)->removeUnit(unit);
                 unitToPlay.erase(unit);
+            };
+
+            // Update our unit map for units released from the play
+            for (const auto &unit : (*it)->status.removedUnits)
+            {
+                removeUnit(unit);
             }
 
             // Handle play transition
             // This replaces the current play with a new one, moving all units
             if ((*it)->status.transitionTo != nullptr)
             {
-                if ((*it)->getSquad() != nullptr)
+                auto moveUnit = [&](const MyUnit& unit)
                 {
-                    for (const auto &unit : (*it)->getSquad()->getUnits())
-                    {
-                        (*it)->status.transitionTo->addUnit(unit);
-                        unitToPlay[unit] = (*it)->status.transitionTo;
-                    }
+                    (*it)->status.transitionTo->addUnit(unit);
+                    unitToPlay[unit] = (*it)->status.transitionTo;
+                };
 
-                    General::removeSquad((*it)->getSquad());
+                (*it)->disband(removeUnit, moveUnit);
 
-                    CherryVis::log() << "Play transition: " << (*it)->label() << "->" << (*it)->status.transitionTo->label();
-                }
+                CherryVis::log() << "Play transition: " << (*it)->label() << "->" << (*it)->status.transitionTo->label();
 
                 *it = (*it)->status.transitionTo;
                 it++;
@@ -291,7 +293,7 @@ namespace Strategist
                 // Erase the play if it is marked complete
             else if ((*it)->status.complete)
             {
-                General::removeSquad((*it)->getSquad());
+                (*it)->disband(removeUnit, removeUnit);
                 it = plays.erase(it);
             }
             else

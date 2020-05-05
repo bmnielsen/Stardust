@@ -1,5 +1,6 @@
 #include "Play.h"
 
+#include "General.h"
 #include "CherryVis.h"
 
 void Play::addUnit(MyUnit unit)
@@ -28,4 +29,19 @@ void Play::removeUnit(MyUnit unit)
     }
 
     CherryVis::log(unit->id) << "Removed from play: " << label();
+}
+
+void Play::disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
+                   const std::function<void(const MyUnit&)> &movableUnitCallback)
+{
+    // By default. all units in the squad are considered movable
+    if (getSquad() != nullptr)
+    {
+        for (const auto &unit : getSquad()->getUnits())
+        {
+            movableUnitCallback(unit);
+        }
+
+        General::removeSquad(getSquad());
+    }
 }
