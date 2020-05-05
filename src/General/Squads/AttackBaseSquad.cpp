@@ -153,8 +153,6 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
 
     // TODO: If our units can't do any damage (e.g. ground-only vs. air, melee vs. kiting ranged units), do something else
 
-    auto adjustedSimResult = simResult.adjustForChoke(true);
-
     // For now, decide to attack if one of these holds:
     // - Attacking does not cost us anything
     // - We gain value without losing too much of our army
@@ -163,32 +161,32 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     // TODO: Make this more dynamic, integrate more of the logic from old Locutus
     // TODO: Consider whether it is even more beneficial to wait for nearby reinforcements
     bool attack =
-            adjustedSimResult.myPercentLost() <= 0.001 ||
-            (adjustedSimResult.valueGain() > 0 && (adjustedSimResult.percentGain() > -0.05 || adjustedSimResult.myPercentageOfTotal() > 0.9)) ||
-            adjustedSimResult.percentGain() > 0.2;
+            simResult.myPercentLost() <= 0.001 ||
+            (simResult.valueGain() > 0 && (simResult.percentGain() > -0.05 || simResult.myPercentageOfTotal() > 0.9)) ||
+            simResult.percentGain() > 0.2;
 
 #if DEBUG_COMBATSIM
     CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                     << ": %l=" << adjustedSimResult.myPercentLost()
-                     << "; vg=" << adjustedSimResult.valueGain()
-                     << "; %g=" << adjustedSimResult.percentGain()
+                     << ": %l=" << simResult.myPercentLost()
+                     << "; vg=" << simResult.valueGain()
+                     << "; %g=" << simResult.percentGain()
                      << (attack ? "; ATTACK" : "; RETREAT");
 #endif
 
-    cluster.addSimResult(adjustedSimResult, attack);
+    cluster.addSimResult(simResult, attack);
 
     // Make the final decision based on what state we are currently in
 
     // Currently regrouping, but want to attack: do so once the sim has stabilized
     if (attack && cluster.currentActivity == UnitCluster::Activity::Regrouping)
     {
-        attack = shouldStartAttack(cluster, adjustedSimResult);
+        attack = shouldStartAttack(cluster, simResult);
     }
 
     // Currently attacking, but want to regroup: make sure regrouping is safe
     if (!attack && cluster.currentActivity == UnitCluster::Activity::Attacking)
     {
-        attack = !shouldAbortAttack(cluster, adjustedSimResult);
+        attack = !shouldAbortAttack(cluster, simResult);
     }
 
     if (attack)

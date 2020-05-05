@@ -54,43 +54,45 @@ namespace
             if (!unit->isStaticGroundDefense()) filteredEnemyUnits.insert(unit);
         }
 
-        auto simResult = cluster.runCombatSim(filteredUnitsAndTargets, filteredEnemyUnits);
-        auto adjustedSimResult = simResult.adjustForChoke(false);
+        auto simResult = cluster.runCombatSim(filteredUnitsAndTargets, filteredEnemyUnits, false, initialSimResult.narrowChoke);
 
-        bool contain = adjustedSimResult.myPercentLost() <= 0.001 ||
-                       (adjustedSimResult.valueGain() > 0 && adjustedSimResult.percentGain() > -0.05) ||
-                       adjustedSimResult.percentGain() > 0.2;
+        bool contain = simResult.myPercentLost() <= 0.001 ||
+                       (simResult.valueGain() > 0 && simResult.percentGain() > -0.05) ||
+                       simResult.percentGain() > 0.2;
 
 #if DEBUG_COMBATSIM
         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                         << ": %l=" << adjustedSimResult.myPercentLost()
-                         << "; vg=" << adjustedSimResult.valueGain()
-                         << "; %g=" << adjustedSimResult.percentGain()
+                         << ": %l=" << simResult.myPercentLost()
+                         << "; vg=" << simResult.valueGain()
+                         << "; %g=" << simResult.percentGain()
                          << (contain ? "; CONTAIN_STATIC" : "; FLEE");
 #endif
 
         return contain;
     }
 
-    bool shouldContainChoke(UnitCluster &cluster, const CombatSimResult &simResult)
+    bool shouldContainChoke(UnitCluster &cluster,
+                            std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                            std::set<Unit> &enemyUnits,
+                            const CombatSimResult &initialSimResult)
     {
-        if (!simResult.narrowChoke) return false;
+        if (!initialSimResult.narrowChoke) return false;
 
-        auto adjustedSimResult = simResult.adjustForChoke(false);
+        auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, false, initialSimResult.narrowChoke);
 
-        bool contain = adjustedSimResult.myPercentLost() <= 0.001 ||
-                       (adjustedSimResult.valueGain() > 0 && adjustedSimResult.percentGain() > -0.3) ||
-                       adjustedSimResult.percentGain() > -0.2;
+        bool contain = simResult.myPercentLost() <= 0.001 ||
+                       (simResult.valueGain() > 0 && simResult.percentGain() > -0.3) ||
+                       simResult.percentGain() > -0.2;
 
 #if DEBUG_COMBATSIM
         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                         << ": %l=" << adjustedSimResult.myPercentLost()
-                         << "; vg=" << adjustedSimResult.valueGain()
-                         << "; %g=" << adjustedSimResult.percentGain()
+                         << ": %l=" << simResult.myPercentLost()
+                         << "; vg=" << simResult.valueGain()
+                         << "; %g=" << simResult.percentGain()
                          << (contain ? "; CONTAIN_CHOKE" : "; FLEE");
 #endif
 
-        cluster.addRegroupSimResult(adjustedSimResult, contain);
+        cluster.addRegroupSimResult(simResult, contain);
 
         // Always do a contain if the sim tells us to
         if (contain) return true;
@@ -152,7 +154,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         {
             setSubActivity(SubActivity::ContainStaticDefense);
         }
-        else if (shouldContainChoke(*this, simResult))
+        else if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, simResult))
         {
             setSubActivity(SubActivity::ContainChoke);
         }
@@ -162,7 +164,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
     }
     else if ((currentSubActivity == SubActivity::ContainStaticDefense && !shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, simResult))
-             || (currentSubActivity == SubActivity::ContainChoke && !shouldContainChoke(*this, simResult)))
+             || (currentSubActivity == SubActivity::ContainChoke && !shouldContainChoke(*this, unitsAndTargets, enemyUnits, simResult)))
     {
         setSubActivity(SubActivity::Flee);
     }

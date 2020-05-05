@@ -17,10 +17,7 @@ public:
                     int initialEnemy,
                     int finalMine,
                     int finalEnemy,
-                    Choke *narrowChoke,
-                    int myArea,
-                    int enemyArea,
-                    double elevationGain)
+                    Choke *narrowChoke)
             : frame(BWAPI::Broodwar->getFrameCount())
             , myUnitCount(myUnitCount)
             , enemyUnitCount(enemyUnitCount)
@@ -28,15 +25,9 @@ public:
             , initialMine(initialMine)
             , initialEnemy(initialEnemy)
             , finalMine(finalMine)
-            , finalEnemy(finalEnemy)
-            , myArea(myArea)
-            , enemyArea(enemyArea)
-            , elevationGain(elevationGain) {}
+            , finalEnemy(finalEnemy) {}
 
-    CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0, nullptr, 0, 0, 0.0) {};
-
-    // Return a new sim result adjusted for attacking or defending through a choke.
-    [[nodiscard]] CombatSimResult adjustForChoke(bool attacking) const;
+    CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0, nullptr) {};
 
     // What percentage of my army value was lost during the sim
     [[nodiscard]] double myPercentLost() const;
@@ -78,8 +69,4 @@ private:
     int initialEnemy;
     int finalMine;
     int finalEnemy;
-
-    int myArea;
-    int enemyArea;
-    double elevationGain;
 };

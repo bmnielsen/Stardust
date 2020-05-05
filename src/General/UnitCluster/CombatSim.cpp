@@ -130,7 +130,7 @@ namespace CombatSim
 }
 
 CombatSimResult
-UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &targets)
+UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &targets, bool attacking, Choke *choke)
 {
     if (unitsAndTargets.empty() || targets.empty())
     {
@@ -141,20 +141,57 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
     int minUnitId = INT_MAX;
 #endif
 
+    // Check if the armies are separated by a narrow choke
+    Choke *narrowChoke = choke;
+    if (!narrowChoke)
+    {
+        // Start by computing the enemy army center
+        int enemyPositionXAccumulator = 0;
+        int enemyPositionYAccumulator = 0;
+        for (const auto &unit : targets)
+        {
+            enemyPositionXAccumulator += unit->lastPosition.x;
+            enemyPositionYAccumulator += unit->lastPosition.y;
+        }
+        BWAPI::Position enemyCenter(enemyPositionXAccumulator / targets.size(), enemyPositionYAccumulator / targets.size());
+
+        // Now find a narrow choke on the path between the armies
+        for (auto &bwemChoke : PathFinding::GetChokePointPath(center,
+                                                              enemyCenter,
+                                                              BWAPI::UnitTypes::Protoss_Dragoon,
+                                                              PathFinding::PathFindingOptions::UseNearestBWEMArea))
+        {
+            auto thisChoke = Map::choke(bwemChoke);
+            if (thisChoke->isNarrowChoke)
+            {
+                narrowChoke = thisChoke;
+                break;
+            }
+        }
+    }
+
     FAP::FastAPproximation sim;
+    if (narrowChoke)
+    {
+        sim.setChokeGeometry(narrowChoke->tileSide,
+                             narrowChoke->end1Center,
+                             narrowChoke->end2Center,
+                             narrowChoke->end1Exit,
+                             narrowChoke->end2Exit);
+    }
 
     // Add our units with initial target
-    int myGroundHeightAccumulator = 0;
     int myCount = 0;
-    int myRangedCount = 0;
     for (auto &unitAndTarget : unitsAndTargets)
     {
         auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
-        if (sim.addIfCombatUnitPlayer1(makeUnit(unitAndTarget.first, target)) && !unitAndTarget.first->isFlying)
+        bool added = attacking
+                     ? sim.addIfCombatUnitPlayer1(makeUnit(unitAndTarget.first, target))
+                     : sim.addIfCombatUnitPlayer2(makeUnit(unitAndTarget.first, target));
+
+        if (added)
         {
-            myGroundHeightAccumulator += BWAPI::Broodwar->getGroundHeight(unitAndTarget.first->tilePositionX, unitAndTarget.first->tilePositionY);
             myCount++;
-            if (unitAndTarget.first->type == BWAPI::UnitTypes::Protoss_Dragoon) myRangedCount++;
 
 #if DEBUG_COMBATSIM_CSV
             if (unitAndTarget.first->id < minUnitId) minUnitId = unitAndTarget.first->id;
@@ -163,24 +200,20 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
     }
 
     // Add enemy units
-    int enemyGroundHeightAccumulator = 0;
-    int enemyPositionXAccumulator = 0;
-    int enemyPositionYAccumulator = 0;
     int enemyCount = 0;
-    int enemyArea = 0;
     for (auto &unit : targets)
     {
         // Only include workers if they have been seen attacking recently
         // TODO: Handle worker rushes
         if (!unit->type.isWorker() || (BWAPI::Broodwar->getFrameCount() - unit->lastSeenAttacking) < 120)
         {
-            if (sim.addIfCombatUnitPlayer2(makeUnit(unit)) && !unit->isFlying)
+            bool added = attacking
+                         ? sim.addIfCombatUnitPlayer2(makeUnit(unit))
+                         : sim.addIfCombatUnitPlayer1(makeUnit(unit));
+
+            if (added)
             {
-                enemyGroundHeightAccumulator += BWAPI::Broodwar->getGroundHeight(unit->tilePositionX, unit->tilePositionY);
-                enemyPositionXAccumulator += unit->lastPosition.x;
-                enemyPositionYAccumulator += unit->lastPosition.y;
                 enemyCount++;
-                enemyArea += unit->type.width() * unit->type.height();
             }
         }
     }
@@ -228,8 +261,8 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
     }
 #endif
 
-    int initialMine = score(sim.getState().first);
-    int initialEnemy = score(sim.getState().second);
+    int initialMine = score(attacking ? sim.getState().first : sim.getState().second);
+    int initialEnemy = score(attacking ? sim.getState().second : sim.getState().first);
 
     for (int i = 0; i < 144; i++)
     {
@@ -247,56 +280,26 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
 #endif
     }
 
-    int finalMine = score(sim.getState().first);
-    int finalEnemy = score(sim.getState().second);
-
-    // Check if the armies are separated by a narrow choke
-    Choke *narrowChoke = nullptr;
-    if (enemyCount > 0)
-    {
-        BWAPI::Position enemyCenter(enemyPositionXAccumulator / enemyCount, enemyPositionYAccumulator / enemyCount);
-        for (auto &bwemChoke : PathFinding::GetChokePointPath(center,
-                                                              enemyCenter,
-                                                              BWAPI::UnitTypes::Protoss_Dragoon,
-                                                              PathFinding::PathFindingOptions::UseNearestBWEMArea))
-        {
-            auto choke = Map::choke(bwemChoke);
-            if (choke->isNarrowChoke)
-            {
-                narrowChoke = choke;
-                break;
-            }
-        }
-    }
-
-    // If the armies are separated by a narrow choke, compute the elevation gain
-    double elevationGain = 0.0;
-    if (narrowChoke && myCount > 0)
-    {
-        double myAvgElevation = (double) myGroundHeightAccumulator / (double) myCount;
-        double enemyAvgElevation = (double) enemyGroundHeightAccumulator / (double) enemyCount;
-
-        // If both armies are at completely different elevations, the difference will be 2
-        // We scale this to give a gain between 0.5 (my army is on high ground) to -0.5 (my army is on low ground)
-        elevationGain = (myAvgElevation - enemyAvgElevation) / 4.0;
-
-        // Now we adjust for what percentage of our army is ranged
-        elevationGain *= ((double) myRangedCount / (double) myCount);
-    }
+    int finalMine = score(attacking ? sim.getState().first : sim.getState().second);
+    int finalEnemy = score(attacking ? sim.getState().second : sim.getState().first);
 
 #if DEBUG_COMBATSIM
     std::ostringstream debug;
-    debug << BWAPI::WalkPosition(center)
-          << ": " << initialMine << "," << initialEnemy
-          << "-" << finalMine << "," << finalEnemy;
-    if (narrowChoke)
+    debug << BWAPI::WalkPosition(center);
+    if (!attacking && narrowChoke)
     {
-        debug << "; narrow choke @ " << BWAPI::WalkPosition(narrowChoke->center) << "; elevationGain=" << elevationGain;
+        debug << " (defend " << BWAPI::WalkPosition(narrowChoke->center) << ")";
     }
+    else if (narrowChoke)
+    {
+        debug << " (through " << BWAPI::WalkPosition(narrowChoke->center) << ")";
+    }
+    debug << ": " << initialMine << "," << initialEnemy
+          << "-" << finalMine << "," << finalEnemy;
     CherryVis::log() << debug.str();
 #endif
 
-    return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, narrowChoke, area, enemyArea, elevationGain);
+    return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, narrowChoke);
 }
 
 void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)

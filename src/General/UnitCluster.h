@@ -65,7 +65,7 @@ public:
                    BWAPI::Position targetPosition);
 
     CombatSimResult
-    runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &targets);
+    runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &targets, bool attacking = true, Choke *choke = nullptr);
 
     void addSimResult(CombatSimResult &simResult, bool attack);
 

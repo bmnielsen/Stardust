@@ -184,36 +184,35 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
     }
 
     // Run combat sim
-    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits);
-    auto adjustedSimResult = simResult.adjustForChoke(false);
+    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, false);
 
     // TODO: Needs tuning
     bool attack =
-            adjustedSimResult.myPercentLost() <= 0.001 ||
-            adjustedSimResult.percentGain() > -0.1;
+            simResult.myPercentLost() <= 0.001 ||
+            simResult.percentGain() > -0.1;
 
 #if DEBUG_COMBATSIM
     CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                     << ": %l=" << adjustedSimResult.myPercentLost()
-                     << "; vg=" << adjustedSimResult.valueGain()
-                     << "; %g=" << adjustedSimResult.percentGain()
+                     << ": %l=" << simResult.myPercentLost()
+                     << "; vg=" << simResult.valueGain()
+                     << "; %g=" << simResult.percentGain()
                      << (attack ? "; ATTACK" : "; RETREAT");
 #endif
 
-    cluster.addSimResult(adjustedSimResult, attack);
+    cluster.addSimResult(simResult, attack);
 
     // Make the final decision based on what state we are currently in
 
     // Currently regrouping, but want to attack: do so once the sim has stabilized
     if (attack && cluster.currentActivity == UnitCluster::Activity::Regrouping)
     {
-        attack = shouldStartAttack(cluster, adjustedSimResult);
+        attack = shouldStartAttack(cluster, simResult);
     }
 
     // Currently attacking, but want to regroup: make sure regrouping is safe
     if (!attack && cluster.currentActivity == UnitCluster::Activity::Attacking)
     {
-        attack = !shouldAbortAttack(cluster, adjustedSimResult);
+        attack = !shouldAbortAttack(cluster, simResult);
     }
 
     if (attack)
