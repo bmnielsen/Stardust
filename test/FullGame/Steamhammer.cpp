@@ -314,6 +314,22 @@ TEST(Steamhammer, 7PoolMid_GasSteal)
     test.run();
 }
 
+TEST(Steamhammer, 11HatchTurtleMuta)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Empire");
+    test.randomSeed = 75376;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "11HatchTurtleMuta";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, GasSteal)
 {
     BWTest test;
