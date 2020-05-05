@@ -81,6 +81,10 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
                 goalY = scaled.y;
             }
             pullingBack = true;
+
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(myUnit->id) << "Contain (goal boid): Moving away from " << BWAPI::WalkPosition(closestStaticDefense->lastPosition);
+#endif
         }
         else
         {
@@ -114,8 +118,14 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
                 if (!waypoint.isValid()) waypoint = targetPosition;
 
                 auto vector = waypoint - myUnit->lastPosition;
-                nextNodeCenter = Geo::ScaleVector(vector, 32);
-                secondNodeCenter = Geo::ScaleVector(vector, 64);
+                nextNodeCenter = myUnit->lastPosition + Geo::ScaleVector(vector, 32);
+                secondNodeCenter = myUnit->lastPosition + Geo::ScaleVector(vector, 64);
+
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(myUnit->id) << "Contain (goal boid): No valid navigation path, moving relative to " << BWAPI::WalkPosition(waypoint)
+                                           << " nextNode=" << BWAPI::WalkPosition(nextNodeCenter)
+                                           << "; secondNode=" << BWAPI::WalkPosition(secondNodeCenter);
+#endif
             }
 
             // Move towards the second node if none are under threat
@@ -179,7 +189,8 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
                                    << ": goal=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX, goalY))
                                    << "; separation=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(separationX, separationY))
                                    << "; total=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(totalX, totalY))
-                                   << "; target=" << BWAPI::WalkPosition(pos);
+                                   << "; target=" << BWAPI::WalkPosition(pos)
+                                   << "; pullingBack=" << pullingBack;
 #endif
 
         // If the position is invalid or unwalkable, either move towards the target or towards our main depending on whether we are pulling back

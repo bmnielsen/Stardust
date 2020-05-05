@@ -51,12 +51,14 @@ Tasks:
 // Heatmaps are quite large, so we don't always want to write them every frame
 // These defines configure what frequency to dump them, or 0 to disable them
 #define COLLISION_HEATMAP_FREQUENCY_ENEMY 0
-#define GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY 0
+#define GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY 24
+#define GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_ENEMY 24
 #define AIR_THREAT_HEATMAP_FREQUENCY_ENEMY 0
 #define DETECTION_HEATMAP_FREQUENCY_ENEMY 0
 
 #define COLLISION_HEATMAP_FREQUENCY_MINE 0
 #define GROUND_THREAT_HEATMAP_FREQUENCY_MINE 0
+#define GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_MINE 0
 #define AIR_THREAT_HEATMAP_FREQUENCY_MINE 0
 #define DETECTION_HEATMAP_FREQUENCY_MINE 0
 
@@ -251,6 +253,18 @@ void StardustAIModule::onFrame()
     if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_HEATMAP_FREQUENCY_MINE == 0)
     {
         Players::grid(BWAPI::Broodwar->self()).dumpGroundThreatHeatmapIfChanged("GroundThreatMine");
+    }
+#endif
+#if GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_ENEMY
+    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_ENEMY == 0)
+    {
+        Players::grid(BWAPI::Broodwar->enemy()).dumpStaticGroundThreatHeatmapIfChanged("GroundThreatStaticEnemy");
+    }
+#endif
+#if GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_MINE
+    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_MINE == 0)
+    {
+        Players::grid(BWAPI::Broodwar->self()).dumpStaticGroundThreatHeatmapIfChanged("GroundThreatStaticMine");
     }
 #endif
 #if AIR_THREAT_HEATMAP_FREQUENCY_ENEMY
