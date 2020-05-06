@@ -15,6 +15,7 @@ public:
     BWAPI::Position center;
 
     bool isNarrowChoke;
+    int length;
     BWAPI::Position end1Center;
     BWAPI::Position end2Center;
     BWAPI::Position end1Exit;

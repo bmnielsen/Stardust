@@ -8,6 +8,10 @@ public:
     int frame;
     int myUnitCount;
     int enemyUnitCount;
+    int initialMine;
+    int initialEnemy;
+    int finalMine;
+    int finalEnemy;
 
     Choke *narrowChoke;
 
@@ -21,11 +25,11 @@ public:
             : frame(BWAPI::Broodwar->getFrameCount())
             , myUnitCount(myUnitCount)
             , enemyUnitCount(enemyUnitCount)
-            , narrowChoke(narrowChoke)
             , initialMine(initialMine)
             , initialEnemy(initialEnemy)
             , finalMine(finalMine)
-            , finalEnemy(finalEnemy) {}
+            , finalEnemy(finalEnemy)
+            , narrowChoke(narrowChoke) {}
 
     CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0, nullptr) {};
 
@@ -63,10 +67,4 @@ public:
 
         return *this;
     }
-
-private:
-    int initialMine;
-    int initialEnemy;
-    int finalMine;
-    int finalEnemy;
 };

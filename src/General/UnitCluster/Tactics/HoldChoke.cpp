@@ -47,7 +47,8 @@ void UnitCluster::holdChoke(Choke *choke,
         }
     }
 
-    int centerDist = std::max(choke->width / 2, choke->center.getApproxDistance(defendEnd));
+    int centerDist = choke->center.getApproxDistance(defendEnd);
+    int meleeDist = std::max(choke->width / 2, centerDist);
 
     // On the first pass, determine if we should attack
     // We do this if any of our units are in range of their target
@@ -68,6 +69,30 @@ void UnitCluster::holdChoke(Choke *choke,
     }
 
     // On the next pass, attack with any units that need to, and collect the units that need to move
+    auto shouldAttack = [&](const MyUnit &myUnit, const Unit &target)
+    {
+        // Dragoons don't attack while on cooldown
+        if (myUnit->type == BWAPI::UnitTypes::Protoss_Dragoon)
+        {
+            int cooldown = target->isFlying ? myUnit->bwapiUnit->getAirWeaponCooldown() : myUnit->bwapiUnit->getGroundWeaponCooldown();
+            if (cooldown > BWAPI::Broodwar->getRemainingLatencyFrames() + 2) return false;
+        }
+
+        int range = Players::weaponRange(myUnit->player, myUnit->type.groundWeapon());
+
+        // Always attack if the enemy is in range
+        // TODO: Should not attack if an orphaned unit caught in the middle or other end of the choke
+        if (myUnit->getDistance(target) <= range) return true;
+
+        // Ranged units attack if their target is in range of the defend end of the choke
+        if (UnitUtil::IsRangedUnit(myUnit->type))
+        {
+            return target->getDistance(defendEnd) <= range;
+        }
+
+        // Melee units attack if their target is close enough to the defend end
+        return target->getDistance(defendEnd) <= std::min(range, centerDist);
+    };
     std::vector<std::tuple<MyUnit, BWAPI::Position, int, BWAPI::Position>> unitsAndMoveTargets;
     for (const auto &unitAndTarget : unitsAndTargets)
     {
@@ -80,7 +105,7 @@ void UnitCluster::holdChoke(Choke *choke,
         if (!myUnit->isReady()) continue;
 
         // Attack
-        if (unitAndTarget.second && attack)
+        if (unitAndTarget.second && attack && shouldAttack(myUnit, unitAndTarget.second))
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(myUnit->id) << "HoldChoke: Attacking " << *unitAndTarget.second;
@@ -99,10 +124,10 @@ void UnitCluster::holdChoke(Choke *choke,
 
         if (UnitUtil::IsRangedUnit(myUnit->type))
         {
-            // Detect if unit is on the wrong side of the choke
             int targetDist = myUnit->getDistance(rangedTarget);
             if (targetDist < defendEndDist)
             {
+                // Unit is on the wrong side of the choke
                 targetPos = defendEnd;
                 distDiff = defendEndDist;
             }
@@ -114,16 +139,23 @@ void UnitCluster::holdChoke(Choke *choke,
         }
         else
         {
-            // Detect if unit is on the wrong side of the choke
             if (myUnit->getDistance(farEnd) < defendEndDist)
             {
+                // Unit is on the wrong side of the choke
                 targetPos = defendEnd;
                 distDiff = defendEndDist;
+            }
+            else if (unitAndTarget.second && unitAndTarget.second->isInOurWeaponRange(myUnit))
+            {
+                // Unit is in its target's attack range
+                targetPos = unitAndTarget.second->lastPosition;
+                distDiff = myUnit->getDistance(unitAndTarget.second)
+                           - Players::weaponRange(unitAndTarget.second->player, unitAndTarget.second->type.groundWeapon());
             }
             else
             {
                 targetPos = choke->center;
-                distDiff = myUnit->getDistance(targetPos) - centerDist;
+                distDiff = myUnit->getDistance(targetPos) - meleeDist;
             }
         }
 

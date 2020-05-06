@@ -145,8 +145,11 @@ Choke::Choke(const BWEM::ChokePoint *_choke)
         , width(0)
         , center(BWAPI::Position(choke->Center()) + BWAPI::Position(4, 4))
         , isNarrowChoke(false)
+        , length(false)
         , end1Center(BWAPI::Positions::Invalid)
         , end2Center(BWAPI::Positions::Invalid)
+        , end1Exit(BWAPI::Positions::Invalid)
+        , end2Exit(BWAPI::Positions::Invalid)
         , isRamp(false)
         , highElevationTile(BWAPI::TilePositions::Invalid)
         , requiresMineralWalk(false)
@@ -500,6 +503,9 @@ void Choke::analyzeNarrowChoke()
 
     // The minimum width computed earlier is done with walk tiles, so adjust it a bit to approximate the actual width
     width = minWidth - 8;
+
+    // Compute the length
+    length = (int)end1Center.getDistance(end2Center);
 
     // Initialize the center as the centroid of the corners, then pull it to the center of the choke at that location
     center = (side1Ends[0] + side1Ends[1] + side2Ends[0] + side2Ends[1]) / 4;
