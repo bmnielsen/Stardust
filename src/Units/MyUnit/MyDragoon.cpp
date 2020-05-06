@@ -132,8 +132,9 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
     // Compute our preferred distance to the target
     int desiredDistance;
 
-    // Sieged tanks or targets that can't attack us: desire to be close to them
-    if (target->type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode || !canBeAttackedBy(target))
+    // Sieged tanks or targets that can't attack us or in narrow choke: desire to be close to them
+    // TODO: Perhaps allow kiting in chokes if this unit doesn't block others
+    if (target->type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode || !canBeAttackedBy(target) || Map::isInNarrowChoke(getTilePosition()))
     {
         // Just short-circuit and move towards the target
         // TODO: Consider other threats
