@@ -312,6 +312,21 @@ TEST(Steamhammer, 11HatchTurtleLurker)
     test.run();
 }
 
+TEST(Steamhammer, 12HatchTurtle)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Destination");
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "12HatchTurtle";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, Over10Hatch1Sunk)
 {
     BWTest test;
