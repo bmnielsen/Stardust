@@ -60,6 +60,7 @@ namespace
                 CherryVis::log(detector->id) << "Threat detected, moving away from threat direction @ " << BWAPI::WalkPosition(threatDirection);
 #endif
                 moveAwayFrom(detector, threatDirection);
+                return;
             }
         }
 
