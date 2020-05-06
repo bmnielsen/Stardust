@@ -167,8 +167,15 @@ void UnitImpl::updateUnitInFog()
     bool positionVisible = BWAPI::Broodwar->isVisible(tilePositionX, tilePositionY);
 
     // Detect burrowed units we have observed burrowing
-    if (positionVisible && lastBurrowing == BWAPI::Broodwar->getFrameCount() - 1)
+    if (!burrowed && positionVisible && lastBurrowing == BWAPI::Broodwar->getFrameCount() - 1)
     {
+        // Update grid
+        Players::grid(player).unitMoved(type, lastPosition,  true, type, lastPosition, false);
+#if DEBUG_GRID_UPDATES
+        CherryVis::log(id) << "Grid::unitMoved (observed burrowing)";
+        Log::Debug() << *this << ": Grid::unitMoved (observed burrowing)";
+#endif
+
         burrowed = true;
     }
 
@@ -391,13 +398,15 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
         return;
     }
 
-    // Units that have moved
-    if (lastPosition != unit->getPosition())
+    // Units that have moved or changed burrow state
+    if (lastPosition != unit->getPosition() || burrowed != unit->isBurrowed())
     {
         grid.unitMoved(unit->getType(), unit->getPosition(), unit->isBurrowed(), type, lastPosition, burrowed);
 #if DEBUG_GRID_UPDATES
-        CherryVis::log(id) << "Grid::unitMoved " << lastPosition << " to " << unit->getPosition();
-        Log::Debug() << *this << ": Grid::unitMoved " << lastPosition << " to " << unit->getPosition();
+        CherryVis::log(id) << "Grid::unitMoved " << lastPosition << " to " << unit->getPosition()
+                           << "; burrow " << burrowed << " to " << unit->isBurrowed();
+        Log::Debug() << *this << ": Grid::unitMoved " << lastPosition << " to " << unit->getPosition()
+                              << "; burrow " << burrowed << " to " << unit->isBurrowed();
 #endif
     }
 

@@ -3,7 +3,7 @@
 #include "Geo.h"
 
 #if INSTRUMENTATION_ENABLED
-#define DUMP_NARROW_CHOKE_HEATMAPS true
+#define DUMP_NARROW_CHOKE_HEATMAPS false
 #define DEBUG_NARROW_CHOKE_ANALYSIS false
 #endif
 

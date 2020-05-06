@@ -172,6 +172,11 @@ namespace Units
             int startFrame = completionFrame - UnitUtil::BuildTime(unit->type);
             enemyUnitTimings[unit->type].emplace_back(std::make_pair(startFrame, BWAPI::Broodwar->getFrameCount()));
 
+            if (enemyUnitTimings[unit->type].size() == 1)
+            {
+                Log::Get() << "First enemy of type discovered: " << *unit;
+            }
+
             if (unit->type.isBuilding() && includeMorphs)
             {
                 auto morphsFrom = UnitUtil::MorphsFrom(unit->type);
