@@ -134,6 +134,16 @@ DefendBaseSquad::DefendBaseSquad(Base *base)
     if (choke)
     {
         targetPosition = choke->center;
+
+        auto end1Dist = PathFinding::GetGroundDistance(base->getPosition(),
+                                                       choke->end1Center,
+                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                       PathFinding::PathFindingOptions::UseNearestBWEMArea);
+        auto end2Dist = PathFinding::GetGroundDistance(base->getPosition(),
+                                                       choke->end2Center,
+                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                       PathFinding::PathFindingOptions::UseNearestBWEMArea);
+        chokeDefendEnd = end1Dist < end2Dist ? choke->end1Center : choke->end2Center;
     }
     else
     {
@@ -225,7 +235,7 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
         // If defending at a narrow choke, use hold choke micro, otherwise just attack
         if (!enemyInOurBase && choke && choke->isNarrowChoke)
         {
-            cluster.holdChoke(choke, unitsAndTargets, targetPosition);
+            cluster.holdChoke(choke, chokeDefendEnd, unitsAndTargets);
         }
         else
         {

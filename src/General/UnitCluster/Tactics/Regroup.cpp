@@ -182,6 +182,15 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
 
     if (currentSubActivity == SubActivity::ContainChoke)
     {
-        holdChoke(simResult.narrowChoke, unitsAndTargets, targetPosition);
+        auto end1Dist = PathFinding::GetGroundDistance(targetPosition,
+                                                       simResult.narrowChoke->end1Center,
+                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                       PathFinding::PathFindingOptions::UseNearestBWEMArea);
+        auto end2Dist = PathFinding::GetGroundDistance(targetPosition,
+                                                       simResult.narrowChoke->end2Center,
+                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                       PathFinding::PathFindingOptions::UseNearestBWEMArea);
+        auto chokeDefendEnd = end1Dist < end2Dist ? simResult.narrowChoke->end2Center : simResult.narrowChoke->end1Center;
+        holdChoke(simResult.narrowChoke, chokeDefendEnd, unitsAndTargets);
     }
 }

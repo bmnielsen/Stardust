@@ -14,6 +14,7 @@ public:
 private:
     Base *base;
     Choke *choke;
+    BWAPI::Position chokeDefendEnd;
 
     void execute(UnitCluster &cluster) override;
 };

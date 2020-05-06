@@ -61,8 +61,8 @@ public:
                      BWAPI::Position targetPosition);
 
     void holdChoke(Choke *choke,
-                   std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
-                   BWAPI::Position targetPosition);
+                   BWAPI::Position defendEnd,
+                   std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets);
 
     CombatSimResult
     runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &targets, bool attacking = true, Choke *choke = nullptr);
