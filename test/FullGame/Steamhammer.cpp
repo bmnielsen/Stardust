@@ -148,6 +148,22 @@ TEST(Steamhammer, OverpoolSpeed)
     test.run();
 }
 
+TEST(Steamhammer, OverpoolTurtleZero)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.map = Maps::GetOne("Benzene");
+    test.randomSeed = 99546;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "OverpoolTurtle 0";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, 11Gas10PoolLurker)
 {
     BWTest test;
@@ -156,6 +172,20 @@ TEST(Steamhammer, 11Gas10PoolLurker)
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
         Config::StardustTestStrategyName = "11Gas10PoolLurker";
+        return module;
+    };
+
+    test.run();
+}
+
+TEST(Steamhammer, 7Pool6GasLurker)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "7Pool6GasLurker";
         return module;
     };
 
