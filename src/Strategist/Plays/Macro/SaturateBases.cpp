@@ -4,6 +4,7 @@
 #include "Workers.h"
 #include "Map.h"
 #include "PathFinding.h"
+#include "Strategist.h"
 
 namespace
 {
@@ -27,38 +28,59 @@ void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
     // Hard cap of 75 workers
     if (Units::countAll(BWAPI::UnitTypes::Protoss_Probe) >= 75) return;
 
-    // Define a set of bases sorted by the number of desired workers, highest to lowest
-    auto comp = [](const std::pair<Base *, int> &a, const std::pair<Base *, int> &b)
+    // On the first scan, gather all owned bases and how many workers they need
+    std::vector<Base *> fullBases;
+    std::vector<std::pair<std::vector<Base *>, int>> baseClusters;
+    for (auto &base : Map::getMyBases(BWAPI::Broodwar->self()))
     {
-        return a.second < b.second;
-    };
-    std::set<std::pair<Base *, int>, decltype(comp)> basesAndWorkers(comp);
+        int desiredWorkers = Workers::availableMineralAssignments(base);
 
-    // Loop through all base clusters - these are bases close enough together that we can treat their worker production together
-    for (auto &baseCluster : Map::allBaseClusters())
-    {
-        // Gather the bases in the cluster that are owned by us and how many additional workers they require
-        int totalWorkers = 0;
-        basesAndWorkers.clear();
-        for (auto &base : baseCluster)
+        // Reduce by one if this base is already building a worker
+        // It's OK if this base goes to a negative number of workers
+        if (isTraining(base->resourceDepot)) desiredWorkers--;
+
+        // TODO: Reduce by workers in the area assigned to other duties
+
+        if (desiredWorkers > 0)
         {
-            if (base->owner != BWAPI::Broodwar->self()) continue;
-            int desiredWorkers = Workers::availableMineralAssignments(base);
+            baseClusters.emplace_back(std::make_pair(std::vector<Base *>{base}, desiredWorkers));
+        }
+        else
+        {
+            fullBases.push_back(base);
+        }
+    }
 
-            // Reduce by one if this base is already building a worker
-            // It's OK if this base goes to a negative number of workers
-            if (isTraining(base->resourceDepot)) desiredWorkers--;
-
-            totalWorkers += desiredWorkers;
-            basesAndWorkers.insert(std::make_pair(base, desiredWorkers));
+    // Now assign full bases to base clusters if they can safely transfer workers
+    for (auto &base : fullBases)
+    {
+        std::vector<Base *> *bestCluster = nullptr;
+        int bestFrames = INT_MAX;
+        for (auto &cluster : baseClusters)
+        {
+            int frames = PathFinding::ExpectedTravelTime(base->getPosition(),
+                                                         (*cluster.first.begin())->getPosition(),
+                                                         BWAPI::UnitTypes::Protoss_Probe);
+            if (frames < bestFrames)
+            {
+                bestFrames = frames;
+                bestCluster = &cluster.first;
+            }
         }
 
-        if (totalWorkers <= 0) continue;
+        if (bestCluster && (bestFrames <= 400 || Strategist::isEnemyContained()))
+        {
+            bestCluster->push_back(base);
+        }
+    }
 
+    // Now order the production
+    for (auto &clusterAndRequiredWorkers : baseClusters)
+    {
         // Balance the production amongst the bases
-        int desiredProductionPerBase = totalWorkers / basesAndWorkers.size();
-        int remainder = totalWorkers % basesAndWorkers.size();
-        for (auto &pair : basesAndWorkers)
+        int desiredProductionPerBase = clusterAndRequiredWorkers.second / clusterAndRequiredWorkers.first.size();
+        int remainder = clusterAndRequiredWorkers.second % clusterAndRequiredWorkers.first.size();
+        for (auto &base : clusterAndRequiredWorkers.first)
         {
             int count = desiredProductionPerBase;
             if (remainder > 0)
@@ -67,15 +89,15 @@ void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
                 remainder--;
             }
 
-            if (!pair.first->resourceDepot) continue;
-            if (!pair.first->resourceDepot->exists()) continue;
-            if (!pair.first->resourceDepot->completed) continue;
+            if (!base->resourceDepot) continue;
+            if (!base->resourceDepot->exists()) continue;
+            if (!base->resourceDepot->completed) continue;
 
             prioritizedProductionGoals[PRIORITY_WORKERS].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                       BWAPI::UnitTypes::Protoss_Probe,
                                                                       count,
                                                                       1,
-                                                                      pair.first);
+                                                                      base);
         }
     }
 }
