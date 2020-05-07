@@ -110,7 +110,7 @@ void UnitCluster::holdChoke(Choke *choke,
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(myUnit->id) << "HoldChoke: Attacking " << *unitAndTarget.second;
 #endif
-            myUnit->attackUnit(unitAndTarget.second, unitsAndTargets);
+            myUnit->attackUnit(unitAndTarget.second, unitsAndTargets, false);
             return;
         }
 

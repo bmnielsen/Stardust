@@ -22,19 +22,6 @@ namespace
                                     std::set<Unit> &enemyUnits,
                                     const CombatSimResult &initialSimResult)
     {
-        // If there is a narrow choke between the armies, contain the choke instead unless it is fully covered by enemy static defense
-        // This effectively means that on maps like Destination we stay behind the bridges, while with static defense on top of a ramp we
-        // stay out of range of the static defense instead
-        if (initialSimResult.narrowChoke)
-        {
-            auto &grid = Players::grid(BWAPI::Broodwar->enemy());
-            if (grid.staticGroundThreat(initialSimResult.narrowChoke->end1Center) == 0 ||
-                grid.staticGroundThreat(initialSimResult.narrowChoke->end2Center) == 0)
-            {
-                return false;
-            }
-        }
-
         // Run a combat sim excluding enemy static defense
         std::vector<std::pair<MyUnit, Unit>> filteredUnitsAndTargets;
         std::set<Unit> filteredEnemyUnits;

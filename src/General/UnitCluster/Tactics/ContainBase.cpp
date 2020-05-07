@@ -59,7 +59,7 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(myUnit->id) << "Contain: Attacking " << *unitAndTarget.second;
 #endif
-            myUnit->attackUnit(unitAndTarget.second, unitsAndTargets);
+            myUnit->attackUnit(unitAndTarget.second, unitsAndTargets, false);
             continue;
         }
 
@@ -88,6 +88,31 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
         }
         else
         {
+            Choke *insideChoke = nullptr;
+            if (Map::isInNarrowChoke(myUnit->getTilePosition()))
+            {
+                // We don't want to contain inside a narrow choke, so if we are in one, we may want to move back
+                for (const auto &choke : Map::allChokes())
+                {
+                    if (!choke->isNarrowChoke) continue;
+                    if (myUnit->getDistance(choke->center) > 640) continue;
+                    if (choke->chokeTiles.find(myUnit->getTilePosition()) != choke->chokeTiles.end())
+                    {
+                        insideChoke = choke;
+                    }
+                }
+
+                if (!insideChoke)
+                {
+                    Log::Get() << "ERROR: " << *myUnit << ": isInNarrowChoke without being able to find choke!";
+                }
+                else if (!(grid.staticGroundThreat(insideChoke->end1Center) == 0 && grid.staticGroundThreat(insideChoke->end2Center) > 0) &&
+                         !(grid.staticGroundThreat(insideChoke->end2Center) == 0 && grid.staticGroundThreat(insideChoke->end1Center) > 0))
+                {
+                    insideChoke = nullptr;
+                }
+            }
+
             // Get grid nodes if they are available
             auto node = navigationGrid ? &(*navigationGrid)[myUnit->getTilePosition()] : nullptr;
             auto nextNode = node ? node->nextNode : nullptr;
@@ -128,16 +153,16 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
 #endif
             }
 
-            // Move towards the second node if none are under threat
-            // Move away from the second node if the next node is under threat
-            // Do nothing if the first node is not under threat and the second node is
+            // Move towards the second node if none are under threat or in a narrow choke
+            // Move away from the second node if the next node is under threat or in a narrow choke
+            // Do nothing if the first node is not under threat or in a narrow choke and the second node is
             int length = goalWeight;
-            if (grid.staticGroundThreat(nextNodeCenter) > 0)
+            if (grid.staticGroundThreat(nextNodeCenter) > 0 || (insideChoke && Map::isInNarrowChoke(BWAPI::TilePosition(nextNodeCenter))))
             {
                 length = -goalWeight;
                 pullingBack = true;
             }
-            else if (grid.staticGroundThreat(secondNodeCenter) > 0)
+            else if (grid.staticGroundThreat(secondNodeCenter) > 0 || (insideChoke && Map::isInNarrowChoke(BWAPI::TilePosition(nextNodeCenter))))
             {
                 length = 0;
             }

@@ -64,7 +64,7 @@ bool MyUnitImpl::isBeingManufacturedOrCarried() const
     return bwapiUnit->isLoaded();
 }
 
-void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets)
+void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking)
 {
     int cooldown = target->isFlying ? bwapiUnit->getAirWeaponCooldown() : bwapiUnit->getGroundWeaponCooldown();
     int range = Players::weaponRange(player, getWeapon(target));

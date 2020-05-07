@@ -112,14 +112,14 @@ bool MyDragoon::isReady() const
     return true;
 }
 
-void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets)
+void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking)
 {
     int cooldown = target->isFlying ? bwapiUnit->getAirWeaponCooldown() : bwapiUnit->getGroundWeaponCooldown();
 
     // If we are not on cooldown, defer to normal unit attack
     if (cooldown <= BWAPI::Broodwar->getRemainingLatencyFrames() + 2)
     {
-        MyUnitImpl::attackUnit(target, unitsAndTargets);
+        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
         return;
     }
 
@@ -132,9 +132,13 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
     // Compute our preferred distance to the target
     int desiredDistance;
 
-    // Sieged tanks or targets that can't attack us or in narrow choke: desire to be close to them
+    // Move towards our target if the cluster is attacking and any of the following is true:
+    // - The target is a sieged tank
+    // - The target cannot attack us
+    // - We are inside a narrow choke
     // TODO: Perhaps allow kiting in chokes if this unit doesn't block others
-    if (target->type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode || !canBeAttackedBy(target) || Map::isInNarrowChoke(getTilePosition()))
+    if (clusterAttacking &&
+        (target->type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode || !canBeAttackedBy(target) || Map::isInNarrowChoke(getTilePosition())))
     {
         // Just short-circuit and move towards the target
         // TODO: Consider other threats
@@ -227,6 +231,6 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
     }
     else
     {
-        MyUnitImpl::attackUnit(target, unitsAndTargets);
+        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
     }
 }

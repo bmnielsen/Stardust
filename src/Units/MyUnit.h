@@ -26,7 +26,7 @@ public:
 
     void issueMoveOrders();
 
-    virtual void attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets);
+    virtual void attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking = true);
 
     [[nodiscard]] virtual bool isReady() const { return true; };
 

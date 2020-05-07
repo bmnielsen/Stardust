@@ -33,6 +33,12 @@ namespace
 
     bool shouldStartAttack(UnitCluster &cluster, CombatSimResult &simResult)
     {
+        // Always attack if we are maxed
+        if (BWAPI::Broodwar->self()->supplyUsed() > 380)
+        {
+            return true;
+        }
+
         bool attack = shouldAttack(cluster, simResult);
         cluster.addSimResult(simResult, attack);
         return attack;
@@ -40,6 +46,12 @@ namespace
 
     bool shouldContinueAttack(UnitCluster &cluster, CombatSimResult &simResult)
     {
+        // Always continue if we are close to maxed
+        if (BWAPI::Broodwar->self()->supplyUsed() > 300)
+        {
+            return true;
+        }
+
         bool attack = shouldAttack(cluster, simResult, 1.2);
 
         cluster.addSimResult(simResult, attack);
@@ -100,15 +112,21 @@ namespace
 
     bool shouldStopRegrouping(UnitCluster &cluster, CombatSimResult &simResult)
     {
+        // Always attack if we are maxed
+        if (BWAPI::Broodwar->self()->supplyUsed() > 380)
+        {
+            return true;
+        }
+
         // Be more conservative if the battle is across a choke
         double aggression = 0.8;
         if (simResult.narrowChoke)
         {
-            // Scale based on width: 128 pixels wide gives no reduction, 48 or lower gives 0.3 reduction
-            aggression -= std::max(0.0, 0.3 * std::min(1.0, (double) (128 - simResult.narrowChoke->width) / 80.0));
+            // Scale based on width: 128 pixels wide gives no reduction, 48 or lower gives 0.2 reduction
+            aggression -= std::max(0.0, 0.2 * std::min(1.0, (128.0 - (double) simResult.narrowChoke->width) / 80.0));
 
-            // Scale based on length: 0 pixels long gives no reduction, 128 or higher gives 0.3 reduction
-            aggression -= std::max(0.0, 0.3 * std::min(1.0, (double) (simResult.narrowChoke->width - 128) / 128.0));
+            // Scale based on length: 0 pixels long gives no reduction, 128 or higher gives 0.35 reduction
+            aggression -= std::max(0.0, 0.35 * std::min(1.0, ((double) simResult.narrowChoke->length) / 128.0));
         }
         bool attack = shouldAttack(cluster, simResult, aggression);
 
