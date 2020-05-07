@@ -1,8 +1,10 @@
 #include <utility>
+#include <Strategist/Plays/MainArmy/AttackEnemyMain.h>
 #include "Units.h"
 #include "PathFinding.h"
-#include "General.h"
 #include "Opponent.h"
+#include "Map.h"
+#include "UnitUtil.h"
 
 #include "StrategyEngine.h"
 #include "StrategyEngines/PvP.h"
@@ -51,6 +53,7 @@ namespace Strategist
         std::vector<std::shared_ptr<Play>> plays;
         std::vector<ProductionGoal> productionGoals;
         std::vector<std::pair<int, int>> mineralReservations;
+        bool enemyContained;
 
         void setStrategyEngine()
         {
@@ -187,6 +190,97 @@ namespace Strategist
             }
         }
 
+        bool enemyIsContained()
+        {
+            // We consider the enemy to be contained if the following is true:
+            // - The enemy has a known main base
+            // - Our main army play is AttackEnemyMain
+            // - The vanguard cluster in that play is either attacking or containing the enemy main or natural
+            // - We have no knowledge of enemy combat units outside the enemy main and natural
+
+            // If we don't know where the enemy main is, we don't have it contained
+            auto enemyMain = Map::getEnemyMain();
+            if (!enemyMain) return false;
+
+            // We only consider the enemy contained if our main army play is AttackEnemyMain
+            Play *attackMainPlay = nullptr;
+            for (auto &spPlay : plays)
+            {
+                Play *play = spPlay.get();
+                if (typeid(*play) == typeid(AttackEnemyMain))
+                {
+                    attackMainPlay = play;
+                    break;
+                }
+            }
+            if (!attackMainPlay) return false;
+
+            // Get the vanguard cluster with its distance to the enemy main
+            int vanguardDist;
+            auto vanguardCluster = attackMainPlay->getSquad()->vanguardCluster(&vanguardDist);
+
+            // Don't consider the enemy contained if our main army is retreating
+            if (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping &&
+                vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee)
+            {
+                return false;
+            }
+
+            // Now gather the areas considered to be part of the enemy main and natural
+            std::set<const BWEM::Area *> enemyMainAreas;
+            enemyMainAreas.insert(enemyMain->getArea());
+            if (Map::getEnemyStartingMain() == enemyMain)
+            {
+                auto enemyNatural = Map::getNaturalForStartLocation(Map::getEnemyStartingMain()->getTilePosition());
+                if (enemyNatural)
+                {
+                    enemyMainAreas.insert(enemyNatural->getArea());
+                    for (const auto &choke : PathFinding::GetChokePointPath(enemyMain->getPosition(), enemyNatural->getPosition()))
+                    {
+                        enemyMainAreas.insert(choke->GetAreas().first);
+                        enemyMainAreas.insert(choke->GetAreas().second);
+                    }
+
+                    // Update the vanguard cluster's distance if it is closer to the natural
+                    int vanguardDistanceNatural = PathFinding::GetGroundDistance(vanguardCluster->vanguard->lastPosition,
+                                                                                 enemyNatural->getPosition());
+                    if (vanguardDistanceNatural != -1 && vanguardDistanceNatural < vanguardDist)
+                    {
+                        vanguardDist = vanguardDistanceNatural;
+                    }
+                }
+            }
+
+            // The enemy is not contained if the vanguard unit is not in one of the identified areas and we aren't doing a contain
+            auto vanguardArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(vanguardCluster->vanguard->lastPosition));
+            if (enemyMainAreas.find(vanguardArea) == enemyMainAreas.end() &&
+                (vanguardDist > 1000 || (vanguardCluster->currentSubActivity != UnitCluster::SubActivity::ContainChoke
+                                         && vanguardCluster->currentSubActivity != UnitCluster::SubActivity::ContainStaticDefense)))
+            {
+                return false;
+            }
+
+            // The enemy is not contained if it either has a combat unit or something capable of training units outside of the identified areas
+            for (const auto &unit : Units::allEnemy())
+            {
+                if (!unit->lastPositionValid) continue;
+                if (unit->type.isWorker() && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
+                if (!(unit->type.isBuilding() && unit->type.canProduce()) && !UnitUtil::CanAttackGround(unit->type)) continue;
+
+                auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition));
+                if (!area) continue;
+
+                if (enemyMainAreas.find(area) != enemyMainAreas.end()) continue;
+
+                // Allow units close to our vanguard cluster, since these are units that might be contained but just on the other side of the choke
+                if (unit->getDistance(vanguardCluster->center) < 640) continue;
+
+                return false;
+            }
+
+            return true;
+        }
+
         void writeInstrumentation()
         {
 #if CHERRYVIS_ENABLED
@@ -211,6 +305,8 @@ namespace Strategist
                 CherryVis::setBoardValue("strategy", engine->getOurStrategy());
                 CherryVis::setBoardValue("strategyEnemy", engine->getEnemyStrategy());
             }
+
+            CherryVis::setBoardValue("enemyContained", enemyContained ? "true" : "false");
 #endif
         }
     }
@@ -221,12 +317,19 @@ namespace Strategist
         plays.clear();
         productionGoals.clear();
         mineralReservations.clear();
+        enemyContained = false;
 
         setStrategyEngine();
     }
 
     void update()
     {
+        if (enemyContained != enemyIsContained())
+        {
+            Log::Get() << "Enemy is " << (enemyContained ? "no longer " : "") << "contained";
+            enemyContained = !enemyContained;
+        }
+
         // Remove all dead or renegaded units from plays
         // This cascades down to squads and unit clusters
         for (auto it = unitToPlay.begin(); it != unitToPlay.end();)
@@ -276,7 +379,7 @@ namespace Strategist
             // This replaces the current play with a new one, moving all units
             if ((*it)->status.transitionTo != nullptr)
             {
-                auto moveUnit = [&](const MyUnit& unit)
+                auto moveUnit = [&](const MyUnit &unit)
                 {
                     (*it)->status.transitionTo->addUnit(unit);
                     unitToPlay[unit] = (*it)->status.transitionTo;
@@ -342,6 +445,11 @@ namespace Strategist
     std::vector<std::pair<int, int>> &currentMineralReservations()
     {
         return mineralReservations;
+    }
+
+    bool isEnemyContained()
+    {
+        return enemyContained;
     }
 
     // Following methods are used by tests to force specific behaviour
