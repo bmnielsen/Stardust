@@ -51,8 +51,8 @@ Tasks:
 // Heatmaps are quite large, so we don't always want to write them every frame
 // These defines configure what frequency to dump them, or 0 to disable them
 #define COLLISION_HEATMAP_FREQUENCY_ENEMY 0
-#define GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY 24
-#define GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_ENEMY 24
+#define GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY 0
+#define GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_ENEMY 0
 #define AIR_THREAT_HEATMAP_FREQUENCY_ENEMY 0
 #define DETECTION_HEATMAP_FREQUENCY_ENEMY 0
 

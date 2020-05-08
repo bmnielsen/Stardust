@@ -3,6 +3,7 @@
 #include "Map.h"
 #include "Units.h"
 #include "Workers.h"
+#include "Strategist.h"
 
 #include "Plays/Macro/TakeExpansion.h"
 
@@ -32,10 +33,11 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     if (army < 5) wantToExpand = false;
 
     // Expand if we have no bases with more than 3 available mineral assignments
+    // If the enemy is contained, set the threshold to 6 instead
     if (wantToExpand)
     {
         // Adjust by the number of pending expansions to avoid instability when a build worker is reserved for the expansion
-        int availableMineralAssignmentsThreshold = 3 + takeExpansionPlays.size();
+        int availableMineralAssignmentsThreshold = (Strategist::isEnemyContained() ? 6 : 3) + takeExpansionPlays.size();
 
         for (auto base : Map::getMyBases())
         {
