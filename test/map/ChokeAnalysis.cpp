@@ -3,6 +3,7 @@
 
 #include <bwem.h>
 #include "Choke.h"
+#include "Map.h"
 
 void run(const std::string &map, BWAPI::TilePosition chokeLocation, std::function<void(const BWEM::ChokePoint*)> callback)
 {
@@ -160,6 +161,25 @@ TEST(ChokeAnalysis, AnalyzeAll_Destination)
     test.opponentModule = []()
     {
         return new DoNothingModule();
+    };
+
+    test.run();
+}
+
+TEST(ChokeAnalysis, AnalyzeAll_NeoMoonGlaive)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Moon Glaive");
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+
+    test.onEndMine = [](bool win)
+    {
+        EXPECT_FALSE(Map::isInNarrowChoke(BWAPI::TilePosition(80, 55)));
     };
 
     test.run();
