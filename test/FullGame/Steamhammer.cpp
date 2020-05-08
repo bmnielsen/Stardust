@@ -5,13 +5,16 @@ TEST(Steamhammer, RunForever)
 {
     int count = 0;
     int lost = 0;
-    while (true)
+    while (count < 40)
     {
         BWTest test;
         test.opponentRace = BWAPI::Races::Zerg;
+        //test.map = Maps::GetOne("Destination");
         test.opponentModule = []()
         {
-            return new UAlbertaBot::UAlbertaBotModule();
+            auto module = new UAlbertaBot::UAlbertaBotModule();
+            //Config::StardustTestStrategyName = "12HatchTurtle";
+            return module;
         };
         test.onStartOpponent = [&test]()
         {
