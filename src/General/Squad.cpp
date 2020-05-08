@@ -137,8 +137,7 @@ void Squad::updateClusters()
     }
 
     // Find clusters that should be combined
-    // Clusters decide themselves if they should be split while doing their micro
-    for (auto firstIt = clusters.begin(); firstIt != clusters.end(); firstIt++)
+    for (auto firstIt = clusters.begin(); firstIt != clusters.end(); )
     {
         auto secondIt = firstIt;
         for (secondIt++; secondIt != clusters.end();)
@@ -150,30 +149,36 @@ void Squad::updateClusters()
                 continue;
             }
 
-            (*firstIt)->units.insert((*secondIt)->units.begin(), (*secondIt)->units.end());
-            (*firstIt)->updatePositions(targetPosition);
+            // Combine into the cluster with the most units
+            auto &combineInto = ((*firstIt)->units.size() >= (*secondIt)->units.size()) ? *firstIt : *secondIt;
+            auto &combineFrom = ((*firstIt)->units.size() >= (*secondIt)->units.size()) ? *secondIt : *firstIt;
 
-            // If two clusters are combined where one is regrouping, treat the new combined cluster as regrouping
-            if ((*secondIt)->currentActivity == UnitCluster::Activity::Regrouping)
+            combineInto->units.insert(combineFrom->units.begin(), combineFrom->units.end());
+            combineInto->updatePositions(targetPosition);
+
+            // Update cluster of the moved units
+            for (const auto &movedUnit : combineFrom->units)
             {
-                (*firstIt)->setActivity((*secondIt)->currentActivity, (*secondIt)->currentSubActivity);
-            }
-
-            // Update cluster of the second units
-            for (const auto &secondUnit : (*secondIt)->units)
-            {
-                unitToCluster[secondUnit] = *firstIt;
-            }
-
-            secondIt = clusters.erase(secondIt);
+                unitToCluster[movedUnit] = combineInto;
 
 #if DEBUG_CLUSTER_MEMBERSHIP
-            for (const auto &unit : (*firstIt)->units)
-            {
-                CherryVis::log(unit->id) << "Combined into cluster @ " << BWAPI::WalkPosition((*firstIt)->center);
-            }
+                CherryVis::log(movedUnit->id) << "Combined into cluster @ " << BWAPI::WalkPosition(combineInto->center);
 #endif
+            }
+
+            // Delete the appropriate cluster
+            if (combineInto == *firstIt)
+            {
+                secondIt = clusters.erase(secondIt);
+            }
+            else
+            {
+                firstIt = clusters.erase(firstIt);
+                goto continueOuterLoop;
+            }
         }
+        firstIt++;
+        continueOuterLoop:;
     }
 
     // Find units that should be removed from their cluster
