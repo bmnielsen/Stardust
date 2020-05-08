@@ -561,7 +561,6 @@ void Choke::analyzeNarrowChoke()
     // Add the initial tiles to the queue
     std::deque<std::pair<int, HalfTile>> queue;
     std::deque<std::pair<int, HalfTile>> unwalkableQueue;
-    queue.emplace_back(std::make_pair(0, HalfTile(center)));
     auto addHalfTilesBetween = [&](BWAPI::Position start, BWAPI::Position end, int side)
     {
         auto addInitialPosition = [&](BWAPI::Position pos)
@@ -587,6 +586,13 @@ void Choke::analyzeNarrowChoke()
     };
     addHalfTilesBetween(side1Ends[0], side2Ends[0], -2);
     addHalfTilesBetween(side1Ends[1], side2Ends[1], 1);
+
+    // Queue the center of the choke to be set to 0, unless the choke doesn't have a middle
+    auto centerTile = HalfTile(center);
+    if (!visited[centerTile.index()])
+    {
+        queue.emplace_back(std::make_pair(0, centerTile));
+    }
 
     // Now flood-fill
     auto visit = [&](std::pair<int, HalfTile> &tile, int x, int y)
