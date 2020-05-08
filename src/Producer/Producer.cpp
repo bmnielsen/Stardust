@@ -345,7 +345,8 @@ namespace Producer
             int currentMinerals = BWAPI::Broodwar->self()->minerals();
             int currentGas = BWAPI::Broodwar->self()->gas();
             double mineralRate = (double) Workers::mineralWorkers() * MINERALS_PER_WORKER_FRAME;
-            double gasRate = (double) Workers::gasWorkers() * GAS_PER_WORKER_FRAME;
+            auto gasWorkers = Workers::gasWorkers();
+            double gasRate = ((double) gasWorkers.first * GAS_PER_WORKER_FRAME) + ((double) gasWorkers.second * GAS_PER_WORKER_FRAME / 4.0);
             for (int f = 0; f < PREDICT_FRAMES; f++)
             {
                 minerals[f] = currentMinerals + (int) (mineralRate * f);
@@ -1890,7 +1891,7 @@ namespace Producer
                         // TODO: This needs to be handled better
                         if (*unitType == BWAPI::Broodwar->self()->getRace().getRefinery())
                         {
-                            Workers::setDesiredGasWorkers(Workers::gasWorkers() + 3);
+                            Workers::addDesiredGasWorkers(3);
                         }
                     }
                 }

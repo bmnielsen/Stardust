@@ -30,11 +30,11 @@ namespace Workers
     // How many mineral patches are currently available for assignment
     int availableMineralAssignments(Base *base = nullptr);
 
-    void setDesiredGasWorkers(int gasWorkers);
+    void addDesiredGasWorkers(int gasWorkers);
 
     int desiredGasWorkers();
 
     int mineralWorkers();
 
-    int gasWorkers();
+    std::pair<int, int> gasWorkers();
 }

@@ -437,11 +437,12 @@ namespace Workers
     void issueOrders()
     {
         // Adjust number of gas workers to desired count
-        for (int i = gasWorkers(); i < _desiredGasWorkers; i++)
+        auto workers = gasWorkers();
+        for (int i = workers.first + workers.second; i < _desiredGasWorkers; i++)
         {
             assignGasWorker();
         }
-        for (int i = gasWorkers(); i > _desiredGasWorkers; i--)
+        for (int i = workers.first + workers.second; i > _desiredGasWorkers; i--)
         {
             removeGasWorker();
         }
@@ -728,9 +729,9 @@ namespace Workers
         return count;
     }
 
-    void setDesiredGasWorkers(int gasWorkers)
+    void addDesiredGasWorkers(int gasWorkers)
     {
-        _desiredGasWorkers = gasWorkers;
+        _desiredGasWorkers += gasWorkers;
     }
 
     int desiredGasWorkers()
@@ -754,19 +755,28 @@ namespace Workers
         return mineralWorkers;
     }
 
-    int gasWorkers()
+    std::pair<int, int> gasWorkers()
     {
-        int gasWorkers = 0;
+        auto result = std::make_pair(0, 0);
         for (auto &workerAndAssignedRefinery : workerRefinery)
         {
             if (workerAndAssignedRefinery.first->exists() && workerAndAssignedRefinery.second && workerAndAssignedRefinery.second->exists() &&
                 workerAndAssignedRefinery.first->bwapiUnit->getDistance(workerAndAssignedRefinery.second)
                 < 200) // Don't count workers that are on a long journey towards the refinery
             {
-                gasWorkers++;
+                if (workerAndAssignedRefinery.second->getResources() <= 0)
+                {
+                    result.second++;
+                }
+                else
+                {
+                    result.first++;
+                }
             }
         }
 
-        return gasWorkers;
+        CherryVis::setBoardValue("gasWorkers", (std::ostringstream() << result.first << ":" << result.second).str());
+
+        return result;
     }
 }
