@@ -247,8 +247,9 @@ namespace Strategist
                     }
 
                     // Update the vanguard cluster's distance if it is closer to the natural
-                    int vanguardDistanceNatural = PathFinding::GetGroundDistance(vanguardCluster->vanguard->lastPosition,
-                                                                                 enemyNatural->getPosition());
+                    int vanguardDistanceNatural = PathFinding::GetGroundDistance(
+                            vanguardCluster->vanguard ? vanguardCluster->vanguard->lastPosition : vanguardCluster->center,
+                            enemyNatural->getPosition());
                     if (vanguardDistanceNatural != -1 && vanguardDistanceNatural < vanguardDist)
                     {
                         vanguardDist = vanguardDistanceNatural;
@@ -257,7 +258,9 @@ namespace Strategist
             }
 
             // The enemy is not contained if the vanguard unit is not in one of the identified areas and we aren't doing a contain
-            auto vanguardArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(vanguardCluster->vanguard->lastPosition));
+            auto vanguardArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(vanguardCluster->vanguard
+                                                                                         ? vanguardCluster->vanguard->lastPosition
+                                                                                         : vanguardCluster->center));
             if (enemyMainAreas.find(vanguardArea) == enemyMainAreas.end() &&
                 (vanguardDist > 1000 || (vanguardCluster->currentSubActivity != UnitCluster::SubActivity::ContainChoke
                                          && vanguardCluster->currentSubActivity != UnitCluster::SubActivity::ContainStaticDefense)))
