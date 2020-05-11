@@ -202,6 +202,9 @@ void MyUnitImpl::moveToNextWaypoint()
 
     // Determine the position on the choke to move towards
 
+    // Default to center
+    currentlyMovingTowards = choke->center;
+
     // If it is a narrow ramp, move towards the point with highest elevation
     // We do this to make sure we explore the higher elevation part of the ramp before bugging out if it is blocked
     if (choke->isNarrowChoke && choke->isRamp)
@@ -212,13 +215,13 @@ void MyUnitImpl::moveToNextWaypoint()
     {
         // Get the next position after this waypoint
         BWAPI::Position next = targetPosition;
-        if (chokePath.size() > 1) next = BWAPI::Position(chokePath[1]->Center());
+        if (chokePath.size() > 1) next = BWAPI::Position(chokePath[1]->Center()) + BWAPI::Position(2, 2);
 
         // Move to the part of the choke closest to the next position
-        int bestDist = INT_MAX;
+        int bestDist = currentlyMovingTowards.getApproxDistance(next);
         for (auto walkPosition : nextWaypoint->Geometry())
         {
-            BWAPI::Position pos(walkPosition);
+            auto pos = BWAPI::Position(walkPosition) + BWAPI::Position(2, 2);
             int dist = pos.getApproxDistance(next);
             if (dist < bestDist)
             {
