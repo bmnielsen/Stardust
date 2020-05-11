@@ -26,6 +26,8 @@ public:
 
     bool hasResearched(BWAPI::TechType type);
 
+    int upgradeLevel(BWAPI::UpgradeType type);
+
 private:
     BWAPI::Player player;
 
@@ -37,4 +39,5 @@ private:
     std::map<BWAPI::UnitType, int> _unitSightRange;
 
     std::map<BWAPI::TechType, bool> _hasResearched;
+    std::map<BWAPI::UpgradeType, int> _upgradeLevel;
 };

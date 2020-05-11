@@ -54,6 +54,13 @@ bool UnitImpl::isStaticGroundDefense() const
     return true;
 }
 
+bool UnitImpl::isTransport() const
+{
+    return type == BWAPI::UnitTypes::Protoss_Shuttle ||
+           type == BWAPI::UnitTypes::Terran_Dropship ||
+           (type == BWAPI::UnitTypes::Zerg_Overlord && Players::upgradeLevel(player, BWAPI::UpgradeTypes::Ventral_Sacs) > 0);
+}
+
 BWAPI::WeaponType UnitImpl::getWeapon(const Unit &target) const
 {
     return target->isFlying ? UnitUtil::GetAirWeapon(type) : UnitUtil::GetGroundWeapon(type);

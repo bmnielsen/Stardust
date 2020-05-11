@@ -114,4 +114,9 @@ namespace Players
     {
         return getUpgradeTracker(player)->hasResearched(type);
     }
+
+    int upgradeLevel(BWAPI::Player player, BWAPI::UpgradeType type)
+    {
+        return getUpgradeTracker(player)->upgradeLevel(type);
+    }
 }

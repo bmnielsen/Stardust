@@ -93,6 +93,8 @@ public:
 
     [[nodiscard]] bool isStaticGroundDefense() const;
 
+    [[nodiscard]] bool isTransport() const;
+
     [[nodiscard]] BWAPI::WeaponType getWeapon(const Unit &target) const;
 
     [[nodiscard]] bool isInOurWeaponRange(const Unit &target, BWAPI::Position predictedTargetPosition = BWAPI::Positions::Invalid) const;

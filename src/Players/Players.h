@@ -27,4 +27,6 @@ namespace Players
     int attackDamage(BWAPI::Player firstPlayer, BWAPI::UnitType firstUnit, BWAPI::Player secondPlayer, BWAPI::UnitType secondUnit);
 
     bool hasResearched(BWAPI::Player player, BWAPI::TechType type);
+
+    int upgradeLevel(BWAPI::Player player, BWAPI::UpgradeType type);
 }
