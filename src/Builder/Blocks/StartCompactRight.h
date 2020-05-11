@@ -118,5 +118,9 @@ protected:
         medium.emplace_back(topLeft + BWAPI::TilePosition(5, 0));
         large.emplace_back(topLeft + BWAPI::TilePosition(0, 4));
         large.emplace_back(topLeft + BWAPI::TilePosition(4, 4));
+
+        cannons.emplace_back(topLeft + BWAPI::TilePosition(-3, 4));
+        cannons.emplace_back(topLeft + BWAPI::TilePosition(-3, -1));
+        cannons.emplace_back(topLeft + BWAPI::TilePosition(1, -1));
     }
 };

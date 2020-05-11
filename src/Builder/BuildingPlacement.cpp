@@ -4,6 +4,7 @@
 #include "Builder.h"
 #include "PathFinding.h"
 #include "UnitUtil.h"
+#include "Geo.h"
 #include "Block.h"
 
 #include "Blocks/StartNormalLeft.h"
@@ -52,6 +53,8 @@ namespace BuildingPlacement
 
         std::shared_ptr<Block> startBlock;
         std::vector<std::shared_ptr<Block>> blocks;
+        std::map<Base *, std::pair<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>>> baseStaticDefenses;
+        auto emptyBaseStaticDefenses = std::make_pair(BWAPI::TilePositions::Invalid, std::vector<BWAPI::TilePosition>{});
 
         bool updateRequired;
         std::map<Neighbourhood, BWAPI::Position> neighbourhoodOrigins;
@@ -112,6 +115,37 @@ namespace BuildingPlacement
             }
         }
 
+        void addBaseStaticDefense(Base *base, BWAPI::TilePosition pylon, std::vector<BWAPI::TilePosition> cannons)
+        {
+            auto markLocation = [](BWAPI::TilePosition tile)
+            {
+                for (int tileX = tile.x - 1; tileX <= tile.x + 2; tileX++)
+                {
+                    for (int tileY = tile.y - 1; tileY <= tile.y + 2; tileY++)
+                    {
+                        if (tileX < 0 || tileY < 0 || tileX >= BWAPI::Broodwar->mapWidth() || tileY >= BWAPI::Broodwar->mapHeight()) continue;
+
+                        if (tileX == tile.x - 1 || tileY == tile.y - 1 || tileX == tile.x + 2 || tileY == tile.y + 2)
+                        {
+                            tileAvailability[tileX + tileY * BWAPI::Broodwar->mapWidth()] |= 8U;
+                        }
+                        else
+                        {
+                            tileAvailability[tileX + tileY * BWAPI::Broodwar->mapWidth()] |= 4U;
+                        }
+                    }
+                }
+            };
+
+            markLocation(pylon);
+            for (auto cannon : cannons)
+            {
+                markLocation(cannon);
+            }
+
+            baseStaticDefenses[base] = std::make_pair(pylon, std::move(cannons));
+        }
+
         void findStartBlock()
         {
             std::vector<std::shared_ptr<Block>> startBlocks = {
@@ -129,8 +163,163 @@ namespace BuildingPlacement
                 {
                     startBlock = block;
                     blocks.push_back(block);
+                    addBaseStaticDefense(Map::getMyMain(), block->powerPylon, block->cannons);
                     return;
                 }
+            }
+        }
+
+        void findBaseStaticDefenses()
+        {
+            for (auto &base : Map::allBases())
+            {
+                // Main is handled by start block
+                if (base == Map::getMyMain()) continue;
+
+                // Find the end mineral patches, which are the patches furthest away from each other
+                BWAPI::Unit end1, end2;
+                {
+                    int maxDist = 0;
+                    auto patches = base->mineralPatches();
+                    for (auto first : patches)
+                    {
+                        for (auto second : patches)
+                        {
+                            int dist = first->getDistance(second);
+                            if (dist > maxDist)
+                            {
+                                maxDist = dist;
+                                end1 = first;
+                                end2 = second;
+                            }
+                        }
+                    }
+
+                    // If for whatever reason this base has no mineral patches, continue
+                    if (maxDist == 0) continue;
+                }
+
+                std::set<BWAPI::TilePosition> positions;
+                auto addPositionIfValid = [&positions](BWAPI::TilePosition topLeft)
+                {
+                    for (int x = topLeft.x; x < topLeft.x + 2; x++)
+                    {
+                        for (int y = topLeft.y; y < topLeft.y + 2; y++)
+                        {
+                            if (tileAvailability[x + y * BWAPI::Broodwar->mapWidth()] == 1) return;
+                            if (!BWAPI::TilePosition(x, y).isValid()) return;
+                        }
+                    }
+
+                    positions.insert(topLeft);
+                };
+                for (int x = -2; x <= 4; x++)
+                {
+                    addPositionIfValid(base->getTilePosition() + BWAPI::TilePosition(x, -2));
+                    addPositionIfValid(base->getTilePosition() + BWAPI::TilePosition(x, 3));
+                }
+                for (int y = -1; y <= 2; y++)
+                {
+                    addPositionIfValid(base->getTilePosition() + BWAPI::TilePosition(-2, y));
+                    addPositionIfValid(base->getTilePosition() + BWAPI::TilePosition(4, y));
+                }
+
+                auto usePosition = [&positions](BWAPI::TilePosition tile)
+                {
+                    for (int x = tile.x - 1; x <= tile.x + 1; x++)
+                    {
+                        for (int y = tile.y - 1; y <= tile.y + 1; y++)
+                        {
+                            positions.erase(BWAPI::TilePosition(x, y));
+                        }
+                    }
+                };
+
+                std::vector<BWAPI::TilePosition> cannons;
+
+                // Now place a cannon closest to each end
+                auto placeEnd = [&](BWAPI::Unit end)
+                {
+                    int minDist = INT_MAX;
+                    BWAPI::TilePosition best = BWAPI::TilePositions::Invalid;
+                    for (auto tile : positions)
+                    {
+                        int dist = end->getDistance(BWAPI::Position(tile) + BWAPI::Position(16, 16));
+                        if (dist < minDist)
+                        {
+                            minDist = dist;
+                            best = tile;
+                        }
+                    }
+
+                    if (best != BWAPI::TilePositions::Invalid)
+                    {
+                        usePosition(best);
+                        cannons.push_back(best);
+                    }
+
+                    return best;
+                };
+                placeEnd(end1);
+                placeEnd(end2);
+                if (cannons.empty()) continue;
+
+                // Now place the pylon so that it powers both and is as far as possible from minerals and geyser
+                BWAPI::TilePosition pylon = BWAPI::TilePositions::Invalid;
+                {
+                    int geyserX = 0;
+                    int geyserY = 0;
+                    int geyserCount = 0;
+                    for (auto geyser : base->geysers())
+                    {
+                        geyserX += geyser->getInitialPosition().x;
+                        geyserY += geyser->getInitialPosition().y;
+                        geyserCount++;
+                    }
+                    auto geyserPos = geyserCount == 0
+                            ? BWAPI::Positions::Invalid
+                            : BWAPI::Position(geyserX / geyserCount, geyserY / geyserCount);
+
+                    int maxDist = 0;
+                    for (auto tile : positions)
+                    {
+                        // First ensure the position powers the cannons
+                        bool powersAll = true;
+                        for (auto cannon : cannons)
+                        {
+                            if (!UnitUtil::Powers(tile, cannon, BWAPI::UnitTypes::Protoss_Photon_Cannon))
+                            {
+                                powersAll = false;
+                                break;
+                            }
+                        }
+                        if (!powersAll) continue;
+
+                        // Next check the distances
+                        auto pos = BWAPI::Position(tile) + BWAPI::Position(16, 16);
+                        int dist = pos.getApproxDistance(base->mineralLineCenter);
+                        if (geyserCount > 0)
+                        {
+                            // Weight minerals twice as high as geyser
+                            dist *= 2;
+                            dist += pos.getApproxDistance(geyserPos);
+                        }
+
+                        if (dist > maxDist)
+                        {
+                            maxDist = dist;
+                            pylon = tile;
+                        }
+                    }
+
+                    if (!pylon.isValid()) continue;
+
+                    usePosition(pylon);
+                }
+
+                // TODO: Place additional cannons
+
+                addBaseStaticDefense(base, pylon, cannons);
             }
         }
 
@@ -441,7 +630,7 @@ namespace BuildingPlacement
                 {
                     if (x > BWAPI::Broodwar->mapWidth() - 1)
                     {
-                        Log::Get() << "BUILD LOCATION OUT OF BOUNDS @ " << tile;
+                        Log::Get() << "ERROR: BUILD LOCATION OUT OF BOUNDS @ " << tile;
                         continue;
                     }
 
@@ -449,7 +638,7 @@ namespace BuildingPlacement
                     {
                         if (y > BWAPI::Broodwar->mapHeight() - 1)
                         {
-                            Log::Get() << "BUILD LOCATION OUT OF BOUNDS @ " << tile;
+                            Log::Get() << "ERROR: BUILD LOCATION OUT OF BOUNDS @ " << tile;
                             continue;
                         }
 
@@ -474,6 +663,15 @@ namespace BuildingPlacement
                 }
             }
 
+            for (const auto &baseAndStaticDefenses : baseStaticDefenses)
+            {
+                addLocation(baseAndStaticDefenses.second.first, 2, 2, 4);
+                for (const auto &cannon : baseAndStaticDefenses.second.second)
+                {
+                    addLocation(cannon, 2, 2, 5);
+                }
+            }
+
             CherryVis::addHeatmap("Blocks", blocksHeatmap, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 #endif
         }
@@ -486,6 +684,7 @@ namespace BuildingPlacement
         tileAvailability.clear();
         startBlock = nullptr;
         blocks.clear();
+        baseStaticDefenses.clear();
         updateRequired = true;
         availableBuildLocations.clear();
         _availableGeysers.clear();
@@ -504,6 +703,7 @@ namespace BuildingPlacement
 
         initializeTileAvailability();
         findStartBlock();
+        findBaseStaticDefenses();
         findBlocks();
 
         dumpHeatmap();
@@ -609,5 +809,11 @@ namespace BuildingPlacement
                 BWAPI::Position(tile) + (BWAPI::Position(type.tileSize()) / 2),
                 BWAPI::Broodwar->self()->getRace().getWorker(),
                 PathFinding::PathFindingOptions::UseNearestBWEMArea);
+    }
+
+    std::pair<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>> &baseStaticDefenseLocations(Base *base)
+    {
+        auto it = baseStaticDefenses.find(base);
+        return it == baseStaticDefenses.end() ? emptyBaseStaticDefenses : it->second;
     }
 }

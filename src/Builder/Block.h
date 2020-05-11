@@ -24,6 +24,8 @@ public:
     std::vector<Location> medium;
     std::vector<Location> large;
 
+    std::vector<BWAPI::TilePosition> cannons; // Only applicable to start blocks
+
     Block(BWAPI::TilePosition topLeft, BWAPI::TilePosition powerPylon) : topLeft(topLeft), powerPylon(powerPylon) {}
 
     virtual ~Block() = default;

@@ -61,5 +61,10 @@ protected:
         medium.emplace_back(topLeft + BWAPI::TilePosition(5, 0));
         large.emplace_back(topLeft + BWAPI::TilePosition(0, 4));
         large.emplace_back(topLeft + BWAPI::TilePosition(4, 4));
+
+        cannons.emplace_back(topLeft + BWAPI::TilePosition(-6, 5));
+        cannons.emplace_back(topLeft + BWAPI::TilePosition(-6, 0));
+        cannons.emplace_back(topLeft + BWAPI::TilePosition(-2, 5));
+        cannons.emplace_back(topLeft + BWAPI::TilePosition(-2, 0));
     }
 };

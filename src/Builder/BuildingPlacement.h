@@ -4,6 +4,7 @@
 #include "Building.h"
 #include "Unit.h"
 #include "Block.h"
+#include "Base.h"
 
 /*
  * Block finding logic:
@@ -72,4 +73,6 @@ namespace BuildingPlacement
     BuildLocationSet &availableGeysers();
 
     int builderFrames(Neighbourhood location, BWAPI::TilePosition tile, BWAPI::UnitType type);
+
+    std::pair<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>> &baseStaticDefenseLocations(Base *base);
 }
