@@ -112,6 +112,8 @@ void Squad::executeDetectors()
             closestDist = INT_MAX;
             for (auto &cluster : clusters)
             {
+                if (!cluster->vanguard) continue;
+
                 int dist = PathFinding::GetGroundDistance(cluster->vanguard->lastPosition, targetPosition);
                 if (dist == -1) dist = cluster->center.getApproxDistance(targetPosition);
                 if (dist < closestDist)

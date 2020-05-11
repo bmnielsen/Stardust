@@ -184,7 +184,9 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
 {
     // Look for enemies near this cluster
     std::set<Unit> enemyUnits;
-    Units::enemyInRadius(enemyUnits, cluster.center, 640 + cluster.vanguard->getDistance(cluster.center));
+    int radius = 640;
+    if (cluster.vanguard) radius += cluster.vanguard->getDistance(cluster.center);
+    Units::enemyInRadius(enemyUnits, cluster.center, radius);
 
     // If there are no enemies near the cluster, just move towards the target
     if (enemyUnits.empty())

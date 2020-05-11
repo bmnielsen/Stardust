@@ -256,7 +256,9 @@ std::shared_ptr<UnitCluster> Squad::vanguardCluster(int *distToTargetPosition)
     std::shared_ptr<UnitCluster> vanguard = nullptr;
     for (const auto &cluster : clusters)
     {
-        int dist = PathFinding::GetGroundDistance(cluster->vanguard->lastPosition, targetPosition);
+        int dist = PathFinding::GetGroundDistance(
+                cluster->vanguard ? cluster->vanguard->lastPosition : cluster->center,
+                targetPosition);
         if (dist < minDist)
         {
             minDist = dist;
