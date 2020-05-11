@@ -24,5 +24,5 @@ private:
 
     bool unstick() override;
 
-    void attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking = true) override;
+    void attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking) override;
 };

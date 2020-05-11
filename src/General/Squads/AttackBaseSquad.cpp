@@ -4,6 +4,8 @@
 #include "UnitUtil.h"
 #include "Map.h"
 
+#include <iomanip>
+
 namespace
 {
     bool shouldAttack(UnitCluster &cluster, const CombatSimResult &simResult, double aggression = 1.0)
