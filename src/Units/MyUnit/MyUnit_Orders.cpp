@@ -4,7 +4,8 @@ void MyUnitImpl::move(BWAPI::Position position, bool force)
 {
     if (!position.isValid())
     {
-        Log::Get() << "MOVE TO INVALID POSITION: " << *this;
+        Log::Get() << "ERROR: MOVE TO INVALID POSITION: " << *this << " - " << position;
+        CherryVis::log(id) << "ERROR: MOVE TO INVALID POSITION: " << *this << " - " << position;
         return;
     }
     if (issuedOrderThisFrame)
