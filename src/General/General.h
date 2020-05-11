@@ -68,4 +68,8 @@ namespace CombatSim
     void initialize();
 
     int unitValue(const FAP::FAPUnit<> &unit);
+
+    int unitValue(const Unit &unit);
+
+    int unitValue(BWAPI::UnitType type);
 }

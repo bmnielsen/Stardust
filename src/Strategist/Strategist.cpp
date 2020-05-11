@@ -54,6 +54,7 @@ namespace Strategist
         std::vector<ProductionGoal> productionGoals;
         std::vector<std::pair<int, int>> mineralReservations;
         bool enemyContained;
+        int enemyContainedChanged;
 
         void setStrategyEngine()
         {
@@ -192,6 +193,9 @@ namespace Strategist
 
         bool enemyIsContained()
         {
+            // Only change our minds after at least 5 seconds
+            if (BWAPI::Broodwar->getFrameCount() - enemyContainedChanged < 120) return enemyContained;
+
             // We consider the enemy to be contained if the following is true:
             // - The enemy has a known main base
             // - Our main army play is AttackEnemyMain
@@ -318,6 +322,7 @@ namespace Strategist
         productionGoals.clear();
         mineralReservations.clear();
         enemyContained = false;
+        enemyContainedChanged = 0;
 
         setStrategyEngine();
     }
@@ -328,6 +333,7 @@ namespace Strategist
         {
             Log::Get() << "Enemy is " << (enemyContained ? "no longer " : "") << "contained";
             enemyContained = !enemyContained;
+            enemyContainedChanged = BWAPI::Broodwar->getFrameCount();
         }
 
         // Remove all dead or renegaded units from plays

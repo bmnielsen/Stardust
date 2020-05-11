@@ -12,15 +12,15 @@
 // These defines configure a per-frame summary of various unit type's orders, commands, etc.
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_PROBE_STATUS false
-#define DEBUG_ZEALOT_STATUS true
-#define DEBUG_DRAGOON_STATUS true
+#define DEBUG_ZEALOT_STATUS false
+#define DEBUG_DRAGOON_STATUS false
 #define DEBUG_SHUTTLE_STATUS false
-#define DEBUG_OBSERVER_STATUS true
+#define DEBUG_OBSERVER_STATUS false
 #define DEBUG_ENEMY_STATUS false
 #endif
 
 #if INSTRUMENTATION_ENABLED
-#define DEBUG_ENEMY_TIMINGS true
+#define DEBUG_ENEMY_TIMINGS false
 #endif
 
 namespace Units
@@ -610,6 +610,17 @@ namespace Units
         if (it != unitIdToMyUnit.end())
         {
             return it->second;
+        }
+
+        return nullptr;
+    }
+
+    MyUnit myBuildingAt(BWAPI::TilePosition tile)
+    {
+        for (auto unit : myUnits)
+        {
+            if (!unit->type.isBuilding()) continue;
+            if (unit->getTilePosition() == tile) return unit;
         }
 
         return nullptr;

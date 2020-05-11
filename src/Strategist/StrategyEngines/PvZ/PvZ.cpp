@@ -100,6 +100,8 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         }
     }
 
+    UpdateDefendBasePlays(plays);
+
     defaultExpansions(plays);
 }
 

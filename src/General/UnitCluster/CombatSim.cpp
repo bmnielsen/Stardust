@@ -127,6 +127,17 @@ namespace CombatSim
     {
         return baseScore[unit.unitType] + scaledScore[unit.unitType] * (unit.health * 3 + unit.shields) / (unit.maxHealth * 3 + unit.maxShields);
     }
+
+    int unitValue(const Unit &unit)
+    {
+        return baseScore[unit->type] +
+               scaledScore[unit->type] * (unit->lastHealth * 3 + unit->lastShields) / (unit->type.maxHitPoints() * 3 + unit->type.maxShields());
+    }
+
+    int unitValue(BWAPI::UnitType type)
+    {
+        return baseScore[type] + scaledScore[type];
+    }
 }
 
 CombatSimResult

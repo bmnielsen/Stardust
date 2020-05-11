@@ -37,4 +37,6 @@ protected:
     static void defaultExpansions(std::vector<std::shared_ptr<Play>> &plays);
 
     static MainArmyPlay *getMainArmyPlay(std::vector<std::shared_ptr<Play>> &plays);
+
+    static void UpdateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays);
 };

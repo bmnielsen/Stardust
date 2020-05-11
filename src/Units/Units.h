@@ -21,6 +21,8 @@ namespace Units
 
     MyUnit mine(BWAPI::Unit unit);
 
+    MyUnit myBuildingAt(BWAPI::TilePosition tile);
+
     std::set<MyUnit> &allMine();
 
     std::set<Unit> &allEnemy();

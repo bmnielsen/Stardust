@@ -6,6 +6,8 @@
 class DefendBase : public Play
 {
 public:
+    Base *base;
+
     explicit DefendBase(Base *base);
 
     [[nodiscard]] const char *label() const override { return "DefendBase"; }
@@ -14,7 +16,18 @@ public:
 
     void update() override;
 
+    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
+
 protected:
-    Base *base;
     std::shared_ptr<DefendBaseSquad> squad;
+
+    BWAPI::TilePosition pylonLocation;
+    std::deque<BWAPI::TilePosition> cannonLocations;
+
+    MyUnit pylon;
+    std::vector<MyUnit> cannons;
+
+    std::vector<Unit> enemyThreats;
+
+    int desiredCannons();
 };

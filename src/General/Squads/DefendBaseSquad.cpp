@@ -109,6 +109,7 @@ namespace
 DefendBaseSquad::DefendBaseSquad(Base *base)
         : Squad((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
         , base(base)
+        , choke(nullptr)
 {
     if (base == Map::getMyMain())
     {
@@ -135,15 +136,18 @@ DefendBaseSquad::DefendBaseSquad(Base *base)
     {
         targetPosition = choke->center;
 
-        auto end1Dist = PathFinding::GetGroundDistance(base->getPosition(),
-                                                       choke->end1Center,
-                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                       PathFinding::PathFindingOptions::UseNearestBWEMArea);
-        auto end2Dist = PathFinding::GetGroundDistance(base->getPosition(),
-                                                       choke->end2Center,
-                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                       PathFinding::PathFindingOptions::UseNearestBWEMArea);
-        chokeDefendEnd = end1Dist < end2Dist ? choke->end1Center : choke->end2Center;
+        if (choke->isNarrowChoke)
+        {
+            auto end1Dist = PathFinding::GetGroundDistance(base->getPosition(),
+                                                           choke->end1Center,
+                                                           BWAPI::UnitTypes::Protoss_Dragoon,
+                                                           PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            auto end2Dist = PathFinding::GetGroundDistance(base->getPosition(),
+                                                           choke->end2Center,
+                                                           BWAPI::UnitTypes::Protoss_Dragoon,
+                                                           PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            chokeDefendEnd = end1Dist < end2Dist ? choke->end1Center : choke->end2Center;
+        }
     }
     else
     {
