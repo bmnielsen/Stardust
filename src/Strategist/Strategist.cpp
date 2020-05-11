@@ -222,6 +222,7 @@ namespace Strategist
             // Get the vanguard cluster with its distance to the enemy main
             int vanguardDist;
             auto vanguardCluster = attackMainPlay->getSquad()->vanguardCluster(&vanguardDist);
+            if (!vanguardCluster) return false;
 
             // Don't consider the enemy contained if our main army is retreating
             if (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping &&
