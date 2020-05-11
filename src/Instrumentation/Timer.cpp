@@ -3,6 +3,8 @@
 
 #include <chrono>
 
+#define DEBUG_LOG_EACH_CHECKPOINT false
+
 namespace Timer
 {
     namespace
@@ -38,6 +40,9 @@ namespace Timer
 
     void checkpoint(const std::string &label)
     {
+#if DEBUG_LOG_EACH_CHECKPOINT
+        Log::Debug() << label;
+#endif
         auto now = std::chrono::high_resolution_clock::now();
         checkpoints.emplace_back(label, std::chrono::duration_cast<std::chrono::microseconds>(now - lastCheckpoint).count());
         lastCheckpoint = now;
