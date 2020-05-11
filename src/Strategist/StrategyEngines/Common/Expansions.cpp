@@ -11,7 +11,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
 {
     // This logic does not handle the first decision to take our natural expansion, so if this hasn't been done, bail out now
     auto natural = Map::getMyNatural();
-    if (natural->ownedSince == -1) return;
+    if (natural && natural->ownedSince == -1) return;
 
     // Collect any existing TakeExpansion plays
     std::vector<std::shared_ptr<TakeExpansion>> takeExpansionPlays;
