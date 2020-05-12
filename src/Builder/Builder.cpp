@@ -70,6 +70,24 @@ namespace Builder
             build(**builderQueue.begin());
         }
 
+        void writeInstrumentation()
+        {
+#if CHERRYVIS_ENABLED
+            std::vector<std::string> values;
+            values.reserve(pendingBuildings.size());
+            for (auto &pendingBuilding : pendingBuildings)
+            {
+                std::ostringstream ss;
+                ss << pendingBuilding->type << " " << pendingBuilding->tile;
+                if (pendingBuilding->builder)
+                {
+                    ss << " " << *pendingBuilding->builder;
+                }
+                values.emplace_back(ss.str());
+            }
+            CherryVis::setBoardListValue("builder", values);
+#endif
+        }
     }
 
     void initialize()
@@ -133,6 +151,8 @@ namespace Builder
 
             it++;
         }
+
+        writeInstrumentation();
     }
 
     void issueOrders()
