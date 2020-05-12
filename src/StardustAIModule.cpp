@@ -123,6 +123,15 @@ void StardustAIModule::onStart()
     BWAPI::Broodwar->setFrameSkip(0);
 
     Log::Get() << "Initialized game against " << Opponent::getName() << " on " << BWAPI::Broodwar->mapFileName();
+    Log::Get() << "My starting position: " << Map::getMyMain()->getTilePosition();
+    if (Map::getMyNatural())
+    {
+        Log::Get() << "My natural position: " << Map::getMyNatural()->getTilePosition();
+    }
+    else
+    {
+        Log::Get() << "No natural position available";
+    }
     //Log::Debug() << "Seed: " << BWAPI::Broodwar->getRandomSeed();
 }
 
