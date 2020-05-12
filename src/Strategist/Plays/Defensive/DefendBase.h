@@ -10,8 +10,6 @@ public:
 
     explicit DefendBase(Base *base);
 
-    [[nodiscard]] const char *label() const override { return "DefendBase"; }
-
     std::shared_ptr<Squad> getSquad() override { return squad; }
 
     void update() override;

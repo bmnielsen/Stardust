@@ -8,8 +8,6 @@ class TakeExpansion : public Play
 public:
     explicit TakeExpansion(BWAPI::TilePosition depotPosition);
 
-    [[nodiscard]] const char *label() const override { return "TakeExpansion"; }
-
     void update() override;
 
     [[nodiscard]] bool constructionStarted() const;

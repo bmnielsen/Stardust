@@ -5,7 +5,7 @@
 class EarlyGameWorkerScout : public Play
 {
 public:
-    [[nodiscard]] const char *label() const override { return "EarlyGameWorkerScout"; }
+    EarlyGameWorkerScout() : Play("EarlyGameWorkerScout"), scout(nullptr), targetBase(nullptr) {}
 
     void update() override;
 

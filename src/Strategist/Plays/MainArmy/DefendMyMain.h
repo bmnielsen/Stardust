@@ -10,8 +10,6 @@ public:
 
     explicit DefendMyMain();
 
-    [[nodiscard]] const char *label() const override { return "DefendMyMain"; }
-
     std::shared_ptr<Squad> getSquad() override { return squad; }
 
     void update() override;

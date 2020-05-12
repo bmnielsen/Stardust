@@ -15,7 +15,8 @@ namespace
 }
 
 DefendMyMain::DefendMyMain()
-        : emergencyProduction(BWAPI::UnitTypes::None)
+        : MainArmyPlay("DefendMyMain")
+        , emergencyProduction(BWAPI::UnitTypes::None)
         , squad(std::make_shared<DefendBaseSquad>(Map::getMyMain()))
         , lastRegroupFrame(0)
         , reservedGasStealAttacker(nullptr)

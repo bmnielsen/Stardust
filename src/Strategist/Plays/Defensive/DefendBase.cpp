@@ -20,7 +20,8 @@
  */
 
 DefendBase::DefendBase(Base *base)
-        : base(base)
+        : Play((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
+        , base(base)
         , squad(std::make_shared<DefendBaseSquad>(base))
         , pylon(nullptr)
 {

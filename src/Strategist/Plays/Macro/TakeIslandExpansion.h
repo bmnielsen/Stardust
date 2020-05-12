@@ -8,8 +8,6 @@ class TakeIslandExpansion : public TakeExpansion
 public:
     explicit TakeIslandExpansion(BWAPI::TilePosition depotPosition);
 
-    [[nodiscard]] const char *label() const override { return "TakeIslandExpansion"; }
-
     void update() override;
 
     void disband(const std::function<void(const MyUnit&)> &removedUnitCallback,

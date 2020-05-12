@@ -59,6 +59,7 @@ void StrategyEngine::UpdateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
     for (auto &baseToDefend : basesToDefend)
     {
         plays.emplace_back(std::make_shared<DefendBase>(baseToDefend));
+        CherryVis::log() << "Added defend base play for base @ " << BWAPI::WalkPosition(baseToDefend->getPosition());
     }
 
     // TODO: Ordering?

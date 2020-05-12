@@ -8,8 +8,6 @@ class MopUp : public MainArmyPlay
 public:
     MopUp();
 
-    [[nodiscard]] const char *label() const override { return "MopUp"; }
-
     std::shared_ptr<Squad> getSquad() override { return squad; }
 
     void update() override;

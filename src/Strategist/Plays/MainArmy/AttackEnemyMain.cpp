@@ -4,7 +4,10 @@
 #include "Map.h"
 #include "MopUp.h"
 
-AttackEnemyMain::AttackEnemyMain(Base *base) : base(base), squad(std::make_shared<AttackBaseSquad>(base))
+AttackEnemyMain::AttackEnemyMain(Base *base)
+        : MainArmyPlay((std::ostringstream() << "Attack enemy main @ " << base->getTilePosition()).str())
+        , base(base)
+        , squad(std::make_shared<AttackBaseSquad>(base))
 {
     General::addSquad(squad);
 }

@@ -6,6 +6,8 @@
 class MainArmyPlay : public Play
 {
 public:
+    explicit MainArmyPlay(std::string label) : Play(std::move(label)) {};
+
     [[nodiscard]] bool receivesUnassignedUnits() const override { return true; }
 
     void update() override;

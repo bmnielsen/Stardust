@@ -296,7 +296,7 @@ namespace Strategist
             values.reserve(plays.size());
             for (auto &play : plays)
             {
-                values.emplace_back(play->label());
+                values.emplace_back(play->label);
             }
             CherryVis::setBoardListValue("play", values);
 
@@ -397,7 +397,7 @@ namespace Strategist
 
                 (*it)->disband(removeUnit, moveUnit);
 
-                CherryVis::log() << "Play transition: " << (*it)->label() << "->" << (*it)->status.transitionTo->label();
+                CherryVis::log() << "Play transition: " << (*it)->label << "->" << (*it)->status.transitionTo->label;
 
                 *it = (*it)->status.transitionTo;
                 it++;
@@ -406,6 +406,7 @@ namespace Strategist
                 // Erase the play if it is marked complete
             else if ((*it)->status.complete)
             {
+                CherryVis::log() << "Play complete: " << (*it)->label;
                 (*it)->disband(removeUnit, removeUnit);
                 it = plays.erase(it);
             }

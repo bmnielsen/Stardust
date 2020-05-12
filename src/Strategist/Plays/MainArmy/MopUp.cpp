@@ -4,7 +4,7 @@
 #include "Map.h"
 #include "AttackEnemyMain.h"
 
-MopUp::MopUp() : squad(std::make_shared<MopUpSquad>())
+MopUp::MopUp() : MainArmyPlay("MopUp"), squad(std::make_shared<MopUpSquad>())
 {
     General::addSquad(squad);
 }

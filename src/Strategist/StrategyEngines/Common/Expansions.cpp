@@ -65,6 +65,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
                 plays.emplace(plays.begin(), play);
 
                 Log::Get() << "Queued expansion to " << play->depotPosition;
+                CherryVis::log() << "Added TakeExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
             }
         }
     }

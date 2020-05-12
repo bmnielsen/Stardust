@@ -3,7 +3,10 @@
 #include "Builder.h"
 #include "Geo.h"
 
-TakeExpansion::TakeExpansion(BWAPI::TilePosition depotPosition) : depotPosition(depotPosition), builder(nullptr) {}
+TakeExpansion::TakeExpansion(BWAPI::TilePosition depotPosition)
+        : Play((std::ostringstream() << "Take expansion @ " << depotPosition).str())
+        , depotPosition(depotPosition)
+        , builder(nullptr) {}
 
 void TakeExpansion::update()
 {

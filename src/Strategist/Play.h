@@ -33,13 +33,13 @@ struct PlayStatus
 class Play
 {
 public:
+    std::string label;
     PlayStatus status;
     std::map<BWAPI::UnitType, int> assignedIncompleteUnits;
 
-    virtual ~Play() = default;
+    explicit Play(std::string label) : label(std::move(label)) {};
 
-    // Gets a label for this play for use in instrumentation
-    [[nodiscard]] virtual const char *label() const = 0;
+    virtual ~Play() = default;
 
     // Whether this play should receive any unassigned combat units
     [[nodiscard]] virtual bool receivesUnassignedUnits() const { return false; }
