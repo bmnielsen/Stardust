@@ -29,7 +29,7 @@ void StrategyEngine::UpdateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
             auto mainArmyPlay = getMainArmyPlay(plays);
             if (mainArmyPlay && typeid(*mainArmyPlay) == typeid(DefendMyMain)) continue;
         }
-        else if (base->minerals() < 500)
+        else if (base->mineralPatchCount() < 3)
         {
             continue;
         }

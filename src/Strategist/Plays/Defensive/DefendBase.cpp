@@ -178,6 +178,9 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
 
 int DefendBase::desiredCannons()
 {
+    // Desire no cannons if the pylon is not yet complete
+    if (!pylon || !pylon->completed) return 0;
+
     // TODO: This should be more nuanced
 
     // Our main base only needs cannons if the enemy has air-to-ground units

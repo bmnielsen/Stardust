@@ -244,7 +244,7 @@ namespace BuildingPlacement
                     BWAPI::TilePosition best = BWAPI::TilePositions::Invalid;
                     for (auto tile : positions)
                     {
-                        int dist = end->getDistance(BWAPI::Position(tile) + BWAPI::Position(16, 16));
+                        int dist = end->getPosition().getApproxDistance(BWAPI::Position(tile) + BWAPI::Position(16, 16));
                         if (dist < minDist)
                         {
                             minDist = dist;
