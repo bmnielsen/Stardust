@@ -21,13 +21,13 @@ public:
     {
         if (place(tile, tileAvailability))
         {
-            if (topLeft.x + 12 < BWAPI::Broodwar->mapWidth())
+            if (topLeft.x == 0)
             {
-                return std::make_shared<Block12x8>(tile, tile + BWAPI::TilePosition(6, 3));
+                return std::make_shared<Block12x8>(tile, tile + BWAPI::TilePosition(4, 3));
             }
             else
             {
-                return std::make_shared<Block12x8>(tile, tile + BWAPI::TilePosition(4, 3));
+                return std::make_shared<Block12x8>(tile, tile + BWAPI::TilePosition(6, 3));
             }
         }
 
@@ -48,6 +48,7 @@ public:
         }
 
         // When the first medium location is taken to the right, it opens up the next one
+        // Only applies when on left map edge
         if (tile == (topLeft + BWAPI::TilePosition(6, 3)) && size.x == 3 && size.y == 2)
         {
             medium.emplace_back(topLeft + BWAPI::TilePosition(9, 3));
@@ -65,7 +66,15 @@ public:
             return true;
         }
 
-        // If the first location on the right is instead taken with a converted pylon, it opens up two more pylons
+        // If the first location on the right is instead taken with a converted pylon, it opens up another pylon
+        if (tile == (topLeft + BWAPI::TilePosition(8, 3)) && size.x == 2 && size.y == 2)
+        {
+            small.emplace_back(topLeft + BWAPI::TilePosition(10, 3));
+            removeUsed();
+            return true;
+        }
+
+        // If the first location on the right (left edge version) is instead taken with a converted pylon, it opens up two more pylons
         if (tile == (topLeft + BWAPI::TilePosition(6, 3)) && size.x == 2 && size.y == 2)
         {
             small.emplace_back(topLeft + BWAPI::TilePosition(8, 3));
@@ -80,21 +89,29 @@ public:
 protected:
     void placeLocations() override
     {
-        if (topLeft.x + 12 < BWAPI::Broodwar->mapWidth())
-        {
-            small.emplace_back(topLeft + BWAPI::TilePosition(6, 3));
-            small.emplace_back(topLeft + BWAPI::TilePosition(8, 3));
-            small.emplace_back(topLeft + BWAPI::TilePosition(10, 3));
-            medium.emplace_back(topLeft + BWAPI::TilePosition(3, 3), false, false);
-            small.emplace_back(topLeft + BWAPI::TilePosition(3, 3), true);
-        }
-        else
+        if (topLeft.x == 0)
         {
             small.emplace_back(topLeft + BWAPI::TilePosition(4, 3));
             small.emplace_back(topLeft + BWAPI::TilePosition(2, 3));
             small.emplace_back(topLeft + BWAPI::TilePosition(0, 3));
             medium.emplace_back(topLeft + BWAPI::TilePosition(6, 3), false, false);
             small.emplace_back(topLeft + BWAPI::TilePosition(6, 3), true);
+        }
+        else if (topLeft.x + 12 == BWAPI::Broodwar->mapWidth())
+        {
+            small.emplace_back(topLeft + BWAPI::TilePosition(6, 3));
+            small.emplace_back(topLeft + BWAPI::TilePosition(8, 3));
+            small.emplace_back(topLeft + BWAPI::TilePosition(10, 3));
+            medium.emplace_back(topLeft + BWAPI::TilePosition(3, 3), false, false);
+            small.emplace_back(topLeft + BWAPI::TilePosition(4, 3), true);
+        }
+        else
+        {
+            small.emplace_back(topLeft + BWAPI::TilePosition(6, 3));
+            medium.emplace_back(topLeft + BWAPI::TilePosition(3, 3), false, false);
+            medium.emplace_back(topLeft + BWAPI::TilePosition(8, 3));
+            small.emplace_back(topLeft + BWAPI::TilePosition(8, 3), true);
+            small.emplace_back(topLeft + BWAPI::TilePosition(4, 3), true);
         }
 
         large.emplace_back(topLeft);
