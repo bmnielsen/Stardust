@@ -8,9 +8,9 @@
 class TestMainArmyAttackBasePlay : public MainArmyPlay
 {
 public:
-    explicit TestMainArmyAttackBasePlay(Base *base) : squad(std::make_shared<AttackBaseSquad>(base)) { General::addSquad(squad); };
-
-    [[nodiscard]] const char *label() const override { return "TestMainArmyAttackBasePlay"; }
+    explicit TestMainArmyAttackBasePlay(Base *base)
+            : MainArmyPlay((std::ostringstream() << "Test main army attack base @ " << base->getTilePosition()).str())
+            , squad(std::make_shared<AttackBaseSquad>(base)) { General::addSquad(squad); };
 
     std::shared_ptr<Squad> getSquad() override { return squad; }
 
