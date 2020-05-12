@@ -201,5 +201,5 @@ int DefendBase::desiredCannons()
     }
 
     // Otherwise build cannons only when the enemy is contained
-    return Strategist::isEnemyContained() ? 2 : 0;
+    return Strategist::isEnemyContained() ? 0 : 2;
 }
