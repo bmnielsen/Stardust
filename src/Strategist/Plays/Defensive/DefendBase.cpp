@@ -3,6 +3,7 @@
 #include "Strategist.h"
 #include "General.h"
 #include "Players.h"
+#include "Map.h"
 #include "Units.h"
 #include "UnitUtil.h"
 #include "PathFinding.h"
@@ -55,6 +56,8 @@ DefendBase::DefendBase(Base *base)
 
 void DefendBase::update()
 {
+    squad->enemyUnits.clear();
+    
     // Clear dead static defense buildings
     if (pylon && !pylon->exists()) pylon = nullptr;
     for (auto it = cannons.begin(); it != cannons.end();)
@@ -91,7 +94,6 @@ void DefendBase::update()
     }
 
     // Gather enemy units threatening the base
-    enemyThreats.clear();
     int enemyValue = 0;
     bool requireDragoons = false;
     for (const auto &unit : Units::allEnemy())
@@ -114,7 +116,7 @@ void DefendBase::update()
             if (predictedDist > dist) continue;
         }
 
-        enemyThreats.push_back(unit);
+        squad->enemyUnits.insert(unit);
         enemyValue += CombatSim::unitValue(unit);
 
         // Require dragoons against certain enemy types
@@ -138,7 +140,7 @@ void DefendBase::update()
         ourValue += CombatSim::unitValue(unit);
     }
 
-    CherryVis::log() << label << ": " << enemyThreats.size() << " enemy threats; enemy value " << enemyValue << "; our initial value " << ourValue;
+    CherryVis::log() << label << ": " << squad->enemyUnits.size() << " enemy threats; enemy value " << enemyValue << "; our initial value " << ourValue;
 
     int requestedUnits = 0;
     while (ourValue < (enemyValue * 6) / 5)

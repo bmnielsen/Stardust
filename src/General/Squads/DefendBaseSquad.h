@@ -2,19 +2,21 @@
 
 #include "Squad.h"
 #include "Base.h"
-#include "Map.h"
+#include "Unit.h"
 
 class DefendBaseSquad : public Squad
 {
 public:
-    explicit DefendBaseSquad(Base *base);
+    explicit DefendBaseSquad(Base *base)
+            : Squad((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
+    {
+        targetPosition = base->getPosition();
+    };
 
     virtual ~DefendBaseSquad() = default;
 
-private:
-    Base *base;
-    Choke *choke;
-    BWAPI::Position chokeDefendEnd;
+    std::set<Unit> enemyUnits;
 
+private:
     void execute(UnitCluster &cluster) override;
 };

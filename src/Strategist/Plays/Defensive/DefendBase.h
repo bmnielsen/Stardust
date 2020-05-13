@@ -25,7 +25,5 @@ protected:
     MyUnit pylon;
     std::vector<MyUnit> cannons;
 
-    std::vector<Unit> enemyThreats;
-
     int desiredCannons();
 };

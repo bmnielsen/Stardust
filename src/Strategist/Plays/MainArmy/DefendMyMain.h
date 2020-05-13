@@ -1,7 +1,7 @@
 #pragma once
 
 #include "MainArmyPlay.h"
-#include "Squads/DefendBaseSquad.h"
+#include "Squads/EarlyGameDefendMainBaseSquad.h"
 
 class DefendMyMain : public MainArmyPlay
 {
@@ -22,7 +22,7 @@ public:
                  const std::function<void(const MyUnit&)> &movableUnitCallback) override;
 
 private:
-    std::shared_ptr<DefendBaseSquad> squad;
+    std::shared_ptr<EarlyGameDefendMainBaseSquad> squad;
     int lastRegroupFrame;
     std::vector<MyUnit> reservedWorkers;
     MyUnit reservedGasStealAttacker;
