@@ -99,7 +99,7 @@ void DefendBase::update()
         if (!unit->lastPositionValid) continue;
         if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
         if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) continue;
-        if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
+        if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 240)) continue;
 
         int dist = unit->isFlying
                    ? unit->lastPosition.getApproxDistance(base->getPosition())
@@ -125,7 +125,7 @@ void DefendBase::update()
     }
 
     // Release any units in the squad if they are no longer required
-    if (enemyValue > 0)
+    if (enemyValue == 0)
     {
         status.removedUnits = squad->getUnits();
         return;
@@ -137,6 +137,8 @@ void DefendBase::update()
     {
         ourValue += CombatSim::unitValue(unit);
     }
+
+    CherryVis::log() << label << ": " << enemyThreats.size() << " enemy threats; enemy value " << enemyValue << "; our initial value " << ourValue;
 
     int requestedUnits = 0;
     while (ourValue < (enemyValue * 6) / 5)
