@@ -259,3 +259,21 @@ TEST(UpdateNavigationGrid, EnemyStaticDefense)
 
     test.run();
 }
+
+TEST(NavigationGrid, DestinationBlockedChoke)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Destination");
+    test.frameLimit = 500;
+    test.randomSeed = 42;
+    test.expectWin = false;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(34, 122))),
+    };
+
+    test.run();
+}
