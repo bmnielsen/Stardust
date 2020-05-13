@@ -382,6 +382,23 @@ TEST(Steamhammer, 11HatchTurtleMuta)
     test.run();
 }
 
+TEST(Steamhammer, 973HydraBust)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 60426;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestForceGasSteal = true;
+        Config::StardustTestStrategyName = "973HydraBust";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, GasSteal)
 {
     BWTest test;
