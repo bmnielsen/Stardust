@@ -206,8 +206,8 @@ namespace BuildingPlacement
                     {
                         for (int y = topLeft.y; y < topLeft.y + 2; y++)
                         {
-                            if (tileAvailability[x + y * BWAPI::Broodwar->mapWidth()] == 1) return;
                             if (!BWAPI::TilePosition(x, y).isValid()) return;
+                            if ((tileAvailability[x + y * BWAPI::Broodwar->mapWidth()] & 1U) == 1) return;
                         }
                     }
 
