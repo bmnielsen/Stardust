@@ -82,6 +82,7 @@ namespace UnitUtil
         return attackerType.groundWeapon() != BWAPI::WeaponTypes::None ||
                attackerType == BWAPI::UnitTypes::Protoss_Carrier ||
                attackerType == BWAPI::UnitTypes::Protoss_Reaver ||
+               attackerType == BWAPI::UnitTypes::Terran_Science_Vessel ||
                attackerType == BWAPI::UnitTypes::Terran_Bunker;
     }
 

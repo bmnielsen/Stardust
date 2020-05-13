@@ -716,6 +716,12 @@ namespace Units
         return enemyUnitTimings[type];
     }
 
+    bool hasEnemyBuilt(BWAPI::UnitType type)
+    {
+        auto it = enemyUnitTimings.find(type);
+        return it != enemyUnitTimings.end() && !it->second.empty();
+    }
+
     bool isBeingUpgraded(BWAPI::UpgradeType type)
     {
         return upgradesInProgress.find(type) != upgradesInProgress.end();

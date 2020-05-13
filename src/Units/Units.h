@@ -54,6 +54,8 @@ namespace Units
 
     std::vector<std::pair<int, int>> &getEnemyUnitTimings(BWAPI::UnitType type);
 
+    bool hasEnemyBuilt(BWAPI::UnitType type);
+
     // TODO: This doesn't really fit here
     bool isBeingUpgraded(BWAPI::UpgradeType type);
 }

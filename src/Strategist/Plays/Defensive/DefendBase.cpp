@@ -2,6 +2,7 @@
 
 #include "Strategist.h"
 #include "General.h"
+#include "Players.h"
 #include "Units.h"
 #include "UnitUtil.h"
 #include "PathFinding.h"
@@ -162,17 +163,20 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
                                                                    buildLocation);
     }
 
-    // Build cannons if necessary
-    int neededCannons = desiredCannons() - cannons.size();
-    if (neededCannons > 0 && !cannonLocations.empty())
+    // Build cannons if necessary and possible
+    if (!cannonLocations.empty())
     {
-        auto location = *cannonLocations.begin();
-        if (!Builder::pendingHere(location))
+        int neededCannons = desiredCannons() - cannons.size();
+        if (neededCannons > 0)
         {
-            auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(*cannonLocations.begin()), 0, 0, 0);
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                                                                       buildLocation);
+            auto location = *cannonLocations.begin();
+            if (!Builder::pendingHere(location))
+            {
+                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(*cannonLocations.begin()), 0, 0, 0);
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                                                           buildLocation);
+            }
         }
     }
 }
@@ -182,24 +186,77 @@ int DefendBase::desiredCannons()
     // Desire no cannons if the pylon is not yet complete
     if (!pylon || !pylon->completed) return 0;
 
-    // TODO: This should be more nuanced
+    // Count enemy air units we want to defend against
+    int enemyAirUnits =
+            Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) +
+            Units::countEnemy(BWAPI::UnitTypes::Terran_Wraith) +
+            Units::countEnemy(BWAPI::UnitTypes::Terran_Dropship) +
+            Units::countEnemy(BWAPI::UnitTypes::Protoss_Scout) +
+            Units::countEnemy(BWAPI::UnitTypes::Protoss_Shuttle);
 
-    // Our main base only needs cannons if the enemy has air-to-ground units
-    if (base == Map::getMyMain())
+    // Could the enemy have air units?
+
+    // First check if we have observed anything that indicates an air threat or possible air threat
+    bool enemyAirThreat =
+            enemyAirUnits > 0 ||
+
+            Players::upgradeLevel(BWAPI::Broodwar->enemy(), BWAPI::UpgradeTypes::Ventral_Sacs) > 0 ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Spire) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Mutalisk) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Scourge) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Greater_Spire) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Guardian) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Devourer) ||
+
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Starport) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Wraith) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Valkyrie) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Science_Facility) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Science_Vessel) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Control_Tower) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Physics_Lab) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Battlecruiser) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Covert_Ops) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Ghost) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Nuclear_Silo) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Nuclear_Missile) ||
+
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Stargate) || // Stargate and anything with stargate as a prerequisite
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Corsair) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Scout) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Fleet_Beacon) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Carrier) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Arbiter_Tribunal) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Arbiter) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Robotics_Facility) || // Robo and anything with robo as a prerequisite
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Shuttle) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Robotics_Support_Bay) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Reaver) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observer);
+
+    // Next, if the enemy is Zerg, guard against mutas we haven't scouted
+    // TODO: Consider value of seen units to determine if the enemy could have gone for mutas
+    if (!enemyAirThreat && BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg && BWAPI::Broodwar->getFrameCount() > 10000)
     {
-        bool enemyHasAirUnits = false;
-        for (auto &unit : Units::allEnemy())
+        auto enemyMain = Map::getEnemyStartingMain();
+        if (enemyMain && enemyMain->owner == BWAPI::Broodwar->enemy()
+            && enemyMain->lastScouted < (BWAPI::Broodwar->getFrameCount() - UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Spire)))
         {
-            if (unit->isFlying && unit->canAttackGround())
-            {
-                enemyHasAirUnits = true;
-                break;
-            }
+            enemyAirThreat = true;
         }
-
-        return enemyHasAirUnits ? 2 : 0;
     }
 
-    // Otherwise build cannons only when the enemy is contained
-    return Strategist::isEnemyContained() ? 0 : 2;
+    // Main is a special case, we only get cannons there to defend against air threats
+    if (base == Map::getMyMain())
+    {
+        if (enemyAirUnits > 6) return 4;
+        if (enemyAirThreat) return 3;
+        return 0;
+    }
+
+    // At expansions we get cannons if the enemy is not contained or has an air threat
+    if (!Strategist::isEnemyContained() || enemyAirUnits > 0) return 2;
+    if (enemyAirThreat) return 1;
+    return 0;
 }
