@@ -86,6 +86,16 @@ namespace Geo
                bottomRight.y >= point.y && point.y >= topLeft.y;
     }
 
+    bool Overlaps(BWAPI::TilePosition firstTopLeft, int firstWidth, int firstHeight,
+                  BWAPI::TilePosition secondtopLeft, int secondWidth, int secondHeight)
+    {
+        return firstTopLeft.x < secondtopLeft.x + secondWidth // first not right of second
+               && firstTopLeft.y < secondtopLeft.y + secondHeight // first not below second
+               && firstTopLeft.x + firstWidth > secondtopLeft.x // first not left of second
+               && firstTopLeft.y + firstHeight > secondtopLeft.y; // first not above second
+    }
+
+
     bool Walkable(BWAPI::UnitType type, BWAPI::Position center)
     {
         for (int x = center.x - type.dimensionLeft(); x <= center.x + type.dimensionRight(); x++)

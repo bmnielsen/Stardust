@@ -165,6 +165,19 @@ namespace Builder
 
     void build(BWAPI::UnitType type, BWAPI::TilePosition tile, MyUnit builder, int startFrame)
     {
+        // Sanity check that we don't already have a pending building overlapping the tile
+        // This happens if the producer orders two buildings on the same frame where one is using a build location converted from the other
+        // When we detect this, we can just return; the producer will use a different build location on the next frame
+        for (auto &pendingBuilding : pendingBuildings)
+        {
+            if (pendingBuilding->isConstructionStarted()) continue;
+            if (Geo::Overlaps(tile, type.tileWidth(), type.tileHeight(),
+                              pendingBuilding->tile, pendingBuilding->type.tileWidth(), pendingBuilding->type.tileHeight()))
+            {
+                return;
+            }
+        }
+
         auto building = std::make_shared<Building>(type, tile, builder, startFrame);
         pendingBuildings.push_back(building);
         builderQueues[builder].push_back(building);

@@ -44,6 +44,11 @@ public:
         if (tile == (topLeft + BWAPI::TilePosition(10, 3)) && size.x == 2 && size.y == 2)
         {
             small.emplace_back(topLeft + BWAPI::TilePosition(12, 3));
+            removeUsed();
+            return true;
+        }
+        if (tile == (topLeft + BWAPI::TilePosition(12, 3)) && size.x == 2 && size.y == 2)
+        {
             small.emplace_back(topLeft + BWAPI::TilePosition(14, 3));
             removeUsed();
             return true;
@@ -62,6 +67,11 @@ public:
         if (tile == (topLeft + BWAPI::TilePosition(4, 4)) && size.x == 2 && size.y == 2)
         {
             small.emplace_back(topLeft + BWAPI::TilePosition(2, 3));
+            removeUsed();
+            return true;
+        }
+        if (tile == (topLeft + BWAPI::TilePosition(2, 3)) && size.x == 2 && size.y == 2)
+        {
             small.emplace_back(topLeft + BWAPI::TilePosition(0, 3));
             removeUsed();
             return true;

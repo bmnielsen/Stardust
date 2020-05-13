@@ -57,10 +57,15 @@ public:
             return true;
         }
 
-        // If the first location on the left is instead taken with a converted pylon, it opens up two more pylons
+        // If the first location on the left is instead taken with a converted pylon, it opens up the next two pylons
         if (tile == (topLeft + BWAPI::TilePosition(4, 3)) && size.x == 2 && size.y == 2)
         {
             small.emplace_back(topLeft + BWAPI::TilePosition(2, 3));
+            removeUsed();
+            return true;
+        }
+        if (tile == (topLeft + BWAPI::TilePosition(2, 3)) && size.x == 2 && size.y == 2)
+        {
             small.emplace_back(topLeft + BWAPI::TilePosition(0, 3));
             removeUsed();
             return true;
@@ -74,10 +79,15 @@ public:
             return true;
         }
 
-        // If the first location on the right (left edge version) is instead taken with a converted pylon, it opens up two more pylons
+        // If the first location on the right (left edge version) is instead taken with a converted pylon, it opens up the next two pylons
         if (tile == (topLeft + BWAPI::TilePosition(6, 3)) && size.x == 2 && size.y == 2)
         {
             small.emplace_back(topLeft + BWAPI::TilePosition(8, 3));
+            removeUsed();
+            return true;
+        }
+        if (tile == (topLeft + BWAPI::TilePosition(8, 3)) && size.x == 2 && size.y == 2)
+        {
             small.emplace_back(topLeft + BWAPI::TilePosition(10, 3));
             removeUsed();
             return true;

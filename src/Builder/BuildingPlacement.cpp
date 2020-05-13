@@ -713,7 +713,7 @@ namespace BuildingPlacement
     {
         for (auto &block : blocks)
         {
-            updateRequired = block->tilesUsed(building->tile, building->type.tileSize()) || updateRequired;
+            updateRequired = block->tilesReserved(building->tile, building->type.tileSize()) || updateRequired;
         }
     }
 

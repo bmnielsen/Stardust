@@ -44,6 +44,8 @@ public:
 
     [[nodiscard]] virtual bool allowCorner() const { return true; }
 
+    bool tilesReserved(BWAPI::TilePosition tile, BWAPI::TilePosition size);
+
     virtual bool tilesUsed(BWAPI::TilePosition tile, BWAPI::TilePosition size);
 
     bool tilesFreed(BWAPI::TilePosition tile, BWAPI::TilePosition size);

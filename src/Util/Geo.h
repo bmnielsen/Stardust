@@ -16,6 +16,9 @@ namespace Geo
 
     bool Overlaps(BWAPI::UnitType type, BWAPI::Position center, BWAPI::Position point);
 
+    bool Overlaps(BWAPI::TilePosition firstTopLeft, int firstWidth, int firstHeight,
+                  BWAPI::TilePosition secondtopLeft, int secondWidth, int secondHeight);
+
     bool Walkable(BWAPI::UnitType type, BWAPI::Position center);
 
     BWAPI::Position FindClosestUnwalkablePosition(BWAPI::Position start,
@@ -32,4 +35,5 @@ namespace Geo
     BWAPI::Position CenterOfUnit(BWAPI::Position topLeft, BWAPI::UnitType type);
 
     BWAPI::Position ScaleVector(BWAPI::Position vector, int length);
+
 }

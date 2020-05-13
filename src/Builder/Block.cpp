@@ -1,18 +1,7 @@
 #include "Block.h"
 
 #include "Map.h"
-
-namespace
-{
-    bool
-    overlaps(BWAPI::TilePosition firstTopLeft, int firstWidth, int firstHeight, BWAPI::TilePosition secondtopLeft, int secondWidth, int secondHeight)
-    {
-        return firstTopLeft.x < secondtopLeft.x + secondWidth // first not right of second
-               && firstTopLeft.y < secondtopLeft.y + secondHeight // first not below second
-               && firstTopLeft.x + firstWidth > secondtopLeft.x // first not left of second
-               && firstTopLeft.y + firstHeight > secondtopLeft.y; // first not above second
-    }
-}
+#include "Geo.h"
 
 BWAPI::Position Block::center() const
 {
@@ -21,15 +10,15 @@ BWAPI::Position Block::center() const
     return BWAPI::Position(topLeft) + BWAPI::Position(width() * 16, height() * 16);
 }
 
-bool Block::tilesUsed(BWAPI::TilePosition tile, BWAPI::TilePosition size)
+bool Block::tilesReserved(BWAPI::TilePosition tile, BWAPI::TilePosition size)
 {
-    if (!overlaps(tile, size.x, size.y, topLeft, width(), height())) return false;
+    if (!Geo::Overlaps(tile, size.x, size.y, topLeft, width(), height())) return false;
 
     auto removeOverlapping = [&tile, &size](std::vector<Location> &locations, int width, int height)
     {
         for (auto it = locations.begin(); it != locations.end();)
         {
-            if (overlaps(tile, size.x, size.y, it->tile, width, height))
+            if (Geo::Overlaps(tile, size.x, size.y, it->tile, width, height))
             {
                 it = locations.erase(it);
             }
@@ -47,9 +36,14 @@ bool Block::tilesUsed(BWAPI::TilePosition tile, BWAPI::TilePosition size)
     return true;
 }
 
+bool Block::tilesUsed(BWAPI::TilePosition tile, BWAPI::TilePosition size)
+{
+    return tilesReserved(tile, size);
+}
+
 bool Block::tilesFreed(BWAPI::TilePosition tile, BWAPI::TilePosition size)
 {
-    if (!overlaps(tile, size.x, size.y, topLeft, width(), height())) return false;
+    if (!Geo::Overlaps(tile, size.x, size.y, topLeft, width(), height())) return false;
 
     // The freed tiles may free up some of the initial build locations, so place them again
     placeLocations();
