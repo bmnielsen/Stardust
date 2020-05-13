@@ -271,6 +271,9 @@ namespace Strategist
             // The enemy is not contained if it either has a combat unit or something capable of training units outside of the identified areas
             for (const auto &unit : Units::allEnemy())
             {
+                // Any flying non-building indicates the enemy isn't contained
+                if (unit->isFlying && !unit->type.isBuilding()) return false;
+
                 if (!unit->lastPositionValid) continue;
                 if (unit->type.isWorker() && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
                 if (!(unit->type.isBuilding() && unit->type.canProduce()) && !UnitUtil::CanAttackGround(unit->type)) continue;
