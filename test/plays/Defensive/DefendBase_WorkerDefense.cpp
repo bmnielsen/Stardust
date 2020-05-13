@@ -3,6 +3,7 @@
 #include "DoNothingModule.h"
 #include "Strategist.h"
 #include "Units.h"
+#include "Map.h"
 #include "UnitUtil.h"
 #include "Plays/Defensive/DefendBase.h"
 
