@@ -55,9 +55,13 @@ TEST(Steamhammer, RunOne)
 {
     BWTest test;
     test.opponentRace = BWAPI::Races::Zerg;
+//    test.map = Maps::GetOne("Destination");
+//    test.randomSeed = 53123;
     test.opponentModule = []()
     {
-        return new UAlbertaBot::UAlbertaBotModule();
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+//        Config::StardustTestStrategyName = "12HatchTurtle";
+        return module;
     };
     test.onStartOpponent = [&test]()
     {
