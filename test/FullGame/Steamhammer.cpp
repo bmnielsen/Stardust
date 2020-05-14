@@ -415,3 +415,38 @@ TEST(Steamhammer, GasSteal)
 
     test.run();
 }
+
+TEST(Steamhammer, RunOneRandom)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Random;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        return module;
+    };
+    test.onStartOpponent = [&test]()
+    {
+        std::cout << "Steamhammer strategy: " << Config::Strategy::StrategyName << std::endl;
+        if (test.sharedMemory)
+        {
+            strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
+        }
+    };
+    test.onEndMine = [&test](bool won)
+    {
+        std::string mapFilename = test.map->shortname();
+        std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
+
+        std::ostringstream replayName;
+        replayName << "Steamhammer_" << (mapFilename.substr(0, mapFilename.rfind('.')));
+        if (!won)
+        {
+            replayName << "_LOSS";
+        }
+        if (test.sharedMemory) replayName << "_" << test.sharedMemory;
+        replayName << "_" << test.randomSeed;
+        test.replayName = replayName.str();
+    };
+    test.run();
+}
