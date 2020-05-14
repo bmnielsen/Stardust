@@ -336,6 +336,22 @@ namespace Strategist
 
     void update()
     {
+        // Change the strategy engine when we discover the race of a random opponent
+        if (Opponent::hasRaceJustBeenDetermined())
+        {
+            // We first need to clear all of our existing plays, as the new strategy engine will add its own
+            auto removeUnit = [&](const MyUnit &unit)
+            {
+                unitToPlay.erase(unit);
+            };
+            for (auto &play : plays)
+            {
+                play->disband(removeUnit, removeUnit);
+            }
+            plays.clear();
+            setStrategyEngine();
+        }
+
         if (enemyContained != enemyIsContained())
         {
             Log::Get() << "Enemy is " << (enemyContained ? "no longer " : "") << "contained";
@@ -366,9 +382,6 @@ namespace Strategist
             play->assignedIncompleteUnits.clear();
             play->update();
         }
-
-        // Change the strategy engine when we discover the race of a random opponent
-        if (Opponent::hasRaceJustBeenDetermined()) setStrategyEngine();
 
         // Allow the strategy engine to change our plays
         engine->updatePlays(plays);

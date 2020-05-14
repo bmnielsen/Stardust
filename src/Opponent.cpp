@@ -41,6 +41,10 @@ namespace Opponent
                 BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss &&
                 BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran &&
                 BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Zerg;
-        return !raceUnknown;
+
+        if (raceUnknown) return false;
+
+        Log::Get() << "Enemy identified as " << BWAPI::Broodwar->enemy()->getRace();
+        return true;
     }
 }
