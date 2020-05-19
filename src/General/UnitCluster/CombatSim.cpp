@@ -214,6 +214,8 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
     int enemyCount = 0;
     for (auto &unit : targets)
     {
+        if (!unit->completed) continue;
+
         // Only include workers if they have been seen attacking recently
         // TODO: Handle worker rushes
         if (!unit->type.isWorker() || (BWAPI::Broodwar->getFrameCount() - unit->lastSeenAttacking) < 120)
