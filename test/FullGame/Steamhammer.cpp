@@ -416,6 +416,20 @@ TEST(Steamhammer, GasSteal)
     test.run();
 }
 
+TEST(Steamhammer, 1012Gate)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "10-12Gate";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, RunOneRandom)
 {
     BWTest test;

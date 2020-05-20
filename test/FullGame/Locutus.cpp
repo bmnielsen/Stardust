@@ -92,3 +92,76 @@ TEST(Locutus, RunAsLocutus)
     test.expectWin = false;
     test.run();
 }
+
+TEST(Locutus, 4GateGoon)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Roadrunner");
+    test.randomSeed = 24270;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        UAlbertaBot::LocutusBotModule::setStrategy("4GateGoon");
+        return new UAlbertaBot::LocutusBotModule();
+    };
+
+    test.run();
+}
+
+TEST(Locutus, ForgeExpand)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        UAlbertaBot::LocutusBotModule::setStrategy("ForgeExpand");
+        return new UAlbertaBot::LocutusBotModule();
+    };
+
+    test.run();
+}
+
+TEST(Locutus, 99Gate)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Python");
+    test.randomSeed = 49094;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        UAlbertaBot::LocutusBotModule::setStrategy("9-9Gate");
+        return new UAlbertaBot::LocutusBotModule();
+    };
+
+    test.run();
+}
+
+TEST(Locutus, Proxy99Gate)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Heartbreak");
+    test.randomSeed = 91613;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        UAlbertaBot::LocutusBotModule::setStrategy("Proxy9-9Gate");
+        return new UAlbertaBot::LocutusBotModule();
+    };
+
+    test.run();
+}
+
+TEST(Locutus, 1012Gate)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Tau");
+    test.randomSeed = 10473;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        UAlbertaBot::LocutusBotModule::setStrategy("10-12Gate");
+        return new UAlbertaBot::LocutusBotModule();
+    };
+
+    test.run();
+}
