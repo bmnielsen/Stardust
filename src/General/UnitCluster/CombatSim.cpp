@@ -281,6 +281,17 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
     {
         sim.simulate(1);
 
+        // If nothing has happened after simming for three seconds, break now
+        if (i == 72)
+        {
+            int halfwayMine = score(attacking ? sim.getState().first : sim.getState().second);
+            int halfwayEnemy = score(attacking ? sim.getState().second : sim.getState().first);
+            if (halfwayMine >= initialMine && halfwayEnemy >= initialEnemy)
+            {
+                return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, halfwayMine, halfwayEnemy, narrowChoke);
+            }
+        }
+
 #if DEBUG_COMBATSIM_CSV
         for (auto unit : *sim.getState().first)
         {
