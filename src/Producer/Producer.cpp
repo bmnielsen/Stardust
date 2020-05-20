@@ -1461,7 +1461,6 @@ namespace Producer
         }
 
         // Pulls refineries earlier if there are minerals available to do so
-        /* currently disabled, see explanation below
         void pullRefineries()
         {
             auto refineryType = BWAPI::Broodwar->self()->getRace().getRefinery();
@@ -1482,8 +1481,8 @@ namespace Producer
 
                 if (lowestMinerals <= 0) continue;
 
-                // Use this to deduce how many frames of 3 workers mining we can afford to lose
-                int availableFrames = (int) ((double) lowestMinerals / (3.0 * MINERALS_PER_WORKER_FRAME));
+                // Use this to deduce how many frames of 3 workers mining we can afford to lose, with a safety buffer
+                int availableFrames = (int) ((double) lowestMinerals / (3.0 * MINERALS_PER_WORKER_FRAME * 0.9));
 
                 // Find a frame earlier than the current start frame within this constraint where we have enough minerals
                 int startFrame = item.startFrame;
@@ -1504,7 +1503,6 @@ namespace Producer
                 }
             }
         }
-         */
 
         // Pulls pylons earlier if there are minerals available to do so
         void pullPylons()
@@ -1834,8 +1832,7 @@ namespace Producer
 #endif
         }
 
-        // Disabled for now as it is too aggressive (most likely because we are slightly too optimistic about how many minerals we will have)
-        //pullRefineries(committedItems);
+        pullRefineries();
 
         // Pylons are often built a bit too late, since we don't accurately simulate mineral collection and the build worker
         // can be delayed. So pull pylons a bit earlier whenever we have the resources for it.
