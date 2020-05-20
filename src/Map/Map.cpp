@@ -275,6 +275,21 @@ namespace Map
                         setBaseOwner(startingLocationBase, unit->player);
                         break;
                     }
+
+                    auto natural = getNaturalForStartLocation(startingLocationBase->getTilePosition());
+                    if (natural)
+                    {
+                        int naturalDist = PathFinding::GetGroundDistance(
+                                unit->lastPosition,
+                                natural->getPosition(),
+                                BWAPI::UnitTypes::Protoss_Probe,
+                                PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                        if (naturalDist != -1 && naturalDist < 640)
+                        {
+                            setBaseOwner(startingLocationBase, unit->player);
+                            break;
+                        }
+                    }
                 }
             }
         }
