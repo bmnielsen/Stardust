@@ -29,13 +29,14 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(Stardust PUBLIC DEBUG=1)
 endif ()
 
-if (NOT CMAKE_BUILD_TYPE MATCHES Release)
-    target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
-endif ()
-
 IF (MSVC)
+    if (NOT CMAKE_BUILD_TYPE MATCHES Release)
+        target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
+    endif ()
+
     target_link_libraries(Stardust BWAPILIB BWEM FAP libzstd_static)
 ELSE (MSVC)
+    target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
     target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED_VERBOSE=true)
     target_link_libraries(Stardust -L/usr/local/Cellar/llvm/8.0.0/lib BWAPILIB BWEM FAP libzstd_static c++fs)
 ENDIF (MSVC)
