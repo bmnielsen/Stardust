@@ -20,7 +20,7 @@
 #endif
 
 #if INSTRUMENTATION_ENABLED
-#define DEBUG_ENEMY_TIMINGS false
+#define DEBUG_ENEMY_TIMINGS true
 #endif
 
 namespace Units
