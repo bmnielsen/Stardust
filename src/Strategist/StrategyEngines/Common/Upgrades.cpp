@@ -12,7 +12,7 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
     if (Units::isBeingUpgraded(upgradeType)) return;
 
     // Now loop through all of the prioritized production goals, keeping track of how many of the desired unit we have
-    int units = Units::countCompleted(unitType);
+    int units = Units::countCompleted(unitType) + Units::countIncomplete(unitType);
     for (auto &priorityAndProductionGoals : prioritizedProductionGoals)
     {
         for (auto it = priorityAndProductionGoals.second.begin(); it != priorityAndProductionGoals.second.end(); it++)
