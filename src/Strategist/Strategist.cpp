@@ -13,6 +13,7 @@
 #include "StrategyEngines/PvU.h"
 
 #include "Play.h"
+#include "Strategist.h"
 
 /*
  * Broadly, the Strategist decides on a prioritized list of plays to run, each of which can order units from the producer
@@ -55,6 +56,7 @@ namespace Strategist
         std::vector<std::pair<int, int>> mineralReservations;
         bool enemyContained;
         int enemyContainedChanged;
+        Strategist::WorkerScoutStatus workerScoutStatus;
 
         void setStrategyEngine()
         {
@@ -292,6 +294,25 @@ namespace Strategist
             return true;
         }
 
+        std::string workerScoutStatusToString()
+        {
+            switch (workerScoutStatus)
+            {
+                case WorkerScoutStatus::Unstarted:
+                    return "Unstarted";
+                case WorkerScoutStatus::LookingForEnemyBase:
+                    return "LookingForEnemyBase";
+                case WorkerScoutStatus::MovingToEnemyBase:
+                    return "MovingToEnemyBase";
+                case WorkerScoutStatus::EnemyBaseScouted:
+                    return "EnemyBaseScouted";
+                case WorkerScoutStatus::ScoutingBlocked:
+                    return "ScoutingBlocked";
+                case WorkerScoutStatus::ScoutingFailed:
+                    return "ScoutingFailed";
+            }
+        }
+
         void writeInstrumentation()
         {
 #if CHERRYVIS_ENABLED
@@ -318,6 +339,7 @@ namespace Strategist
             }
 
             CherryVis::setBoardValue("enemyContained", enemyContained ? "true" : "false");
+            CherryVis::setBoardValue("workerScoutStatus", workerScoutStatusToString());
 #endif
         }
     }
@@ -330,6 +352,7 @@ namespace Strategist
         mineralReservations.clear();
         enemyContained = false;
         enemyContainedChanged = 0;
+        workerScoutStatus = WorkerScoutStatus::Unstarted;
 
         setStrategyEngine();
     }
@@ -477,6 +500,17 @@ namespace Strategist
     bool isEnemyContained()
     {
         return enemyContained;
+    }
+
+    WorkerScoutStatus getWorkerScoutStatus()
+    {
+        return workerScoutStatus;
+    }
+
+    void setWorkerScoutStatus(WorkerScoutStatus status)
+    {
+        workerScoutStatus = status;
+        Log::Get() << "Worker scout status changed to: " << workerScoutStatusToString();
     }
 
     // Following methods are used by tests to force specific behaviour

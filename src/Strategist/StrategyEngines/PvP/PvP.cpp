@@ -3,6 +3,7 @@
 #include "Units.h"
 #include "Map.h"
 #include "Builder.h"
+#include "UnitUtil.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -297,13 +298,31 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    // TODO: Use scouting information
-
-    if (enemyStrategy == ProtossStrategy::DarkTemplarRush || Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1)
+    auto buildObserver = [&prioritizedProductionGoals]()
     {
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                  BWAPI::UnitTypes::Protoss_Observer,
                                                                  1,
                                                                  1);
+    };
+
+    // Always get an observer once we are on more than one gas
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1)
+    {
+        buildObserver();
+        return;
+    }
+
+    // Get an observer early if we detect or suspect a dark templar rush
+    // TODO: Build a cannon in response to scout blocking instead of observer, current reaction will die to scout blocking 4-gate
+    if (enemyStrategy == ProtossStrategy::DarkTemplarRush || enemyStrategy == ProtossStrategy::BlockScouting)
+    {
+        int frameLimit = 7500
+                         - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Robotics_Facility)
+                         - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Observatory)
+                         - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Observer);
+        if (BWAPI::Broodwar->getFrameCount() < frameLimit) return;
+
+        buildObserver();
     }
 }

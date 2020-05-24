@@ -30,6 +30,7 @@ private:
         TwoGate,            // Two or more gateways before core
         OneGateCore,        // One gateway before core
         FastExpansion,      // Natural expansion taken early
+        BlockScouting,      // The enemy has blocked our scout from getting into their main, suspect shenanigans
         ZealotAllIn,        // Builds that get a lot of zealots before other tech
         DragoonAllIn,       // Builds that get a lot of dragoons before other tech
         Turtle,             // Early cannons or FFE

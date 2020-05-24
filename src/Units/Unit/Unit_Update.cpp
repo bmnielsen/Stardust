@@ -3,7 +3,6 @@
 #include "Geo.h"
 #include "Players.h"
 #include "Map.h"
-#include "UnitUtil.h"
 
 namespace
 {
@@ -51,6 +50,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , completed(unit->isCompleted())
         , estimatedCompletionFrame(-1)
         , isFlying(unit->isFlying())
+        , isMoving(std::abs(unit->getVelocityX()) > 0.001 || std::abs(unit->getVelocityY()) > 0.001)
         , cooldownUntil(BWAPI::Broodwar->getFrameCount() + std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown()))
         , stimmedUntil(BWAPI::Broodwar->getFrameCount() + unit->getStimTimer())
         , undetected(isUndetected(unit))
@@ -116,6 +116,7 @@ void UnitImpl::update(BWAPI::Unit unit)
 
     // TODO: Track lifted buildings
     isFlying = unit->isFlying();
+    isMoving = std::abs(unit->getVelocityX()) > 0.001 || std::abs(unit->getVelocityY()) > 0.001;
 
     if (unit->isVisible())
     {

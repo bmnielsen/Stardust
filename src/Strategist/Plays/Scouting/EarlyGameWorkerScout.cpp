@@ -10,11 +10,18 @@
 #include "Opponent.h"
 
 #include <bwem.h>
+#include <Strategist/Strategist.h>
+
+#if INSTRUMENTATION_ENABLED
+#define OUTPUT_SCOUTTILE_HEATMAP true
+#endif
 
 namespace
 {
     const int goalWeight = 32;
     const double threatWeight = 128.0;
+
+    const int mainPriority = 120;
 
     // Once we know the enemy main base, this method generates the map of prioritized tiles to scout
     // Top priority are mineral patches, geysers, and the area immediately around the resource depot
@@ -26,7 +33,6 @@ namespace
     {
         // Determine the priorities to use
         // For Zerg we don't need to scout around the base (as they can only build on creep), but want to scout the natural more often
-        int mainPriority = 120;
         int areaPriority = 480;
         int naturalPriority = 960;
         if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
@@ -55,10 +61,9 @@ namespace
                 {
                     BWAPI::TilePosition here(x, y);
                     if (!tileValid(here, baseElevation)) continue;
-                    if (BWEM::Map::Instance().GetArea(here) == base->getArea())
-                    {
-                        scoutTiles[areaPriority].insert(here);
-                    }
+                    if (BWEM::Map::Instance().GetArea(here) != base->getArea()) continue;
+
+                    scoutTiles[areaPriority].insert(here);
                 }
             }
         }
@@ -73,6 +78,9 @@ namespace
                 for (int y = -3; y < 6; y++)
                 {
                     auto here = natural->getTilePosition() + BWAPI::TilePosition(x, y);
+
+                    if ((BWAPI::Position(here) + BWAPI::Position(16, 16)).getApproxDistance(natural->getPosition()) > 160) continue;
+
                     if (!tileValid(here, naturalElevation)) continue;
 
                     scoutTiles[naturalPriority].insert(here);
@@ -80,13 +88,18 @@ namespace
             }
         }
 
-        // Now add the tiles close to the depot
+        // Now add the tiles close to the depot, except for the mineral line
         for (int x = -6; x < 10; x++)
         {
             for (int y = -6; y < 9; y++)
             {
                 auto here = base->getTilePosition() + BWAPI::TilePosition(x, y);
+
+                if ((BWAPI::Position(here) + BWAPI::Position(16, 16)).getApproxDistance(base->getPosition()) > 250) continue;
+
                 if (!tileValid(here, baseElevation)) continue;
+
+                if (base->isInMineralLine(here)) continue;
 
                 scoutTiles[mainPriority].insert(here);
             }
@@ -103,6 +116,20 @@ namespace
                 scoutAreas.insert(choke->GetAreas().second);
             }
         }
+
+#if OUTPUT_SCOUTTILE_HEATMAP
+        std::vector<long> scoutTilesCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+        int val = 10;
+        for (auto it = scoutTiles.rbegin(); it != scoutTiles.rend(); it++)
+        {
+            for (auto &tile : it->second)
+            {
+                scoutTilesCvis[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = val;
+            }
+            val += 10;
+        }
+        CherryVis::addHeatmap("WorkerScoutTiles", scoutTilesCvis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+#endif
     }
 }
 
@@ -131,6 +158,20 @@ void EarlyGameWorkerScout::update()
     // If there is no target base here, our scout can't reach it, so this is probably an island map
     if (!targetBase)
     {
+        Strategist::setWorkerScoutStatus(Strategist::WorkerScoutStatus::ScoutingFailed);
+
+        status.complete = true;
+        return;
+    }
+
+    // Detect if the enemy is blocking our scout from getting into the target base
+    if (isScoutBlocked())
+    {
+        // Assume the base is the enemy main if we haven't already inferred this
+        Map::setEnemyStartingMain(targetBase);
+
+        Strategist::setWorkerScoutStatus(Strategist::WorkerScoutStatus::ScoutingBlocked);
+
         status.complete = true;
         return;
     }
@@ -142,6 +183,21 @@ void EarlyGameWorkerScout::update()
     auto tile = getHighestPriorityScoutTile();
     if (!tile.isValid()) tile = BWAPI::TilePosition(targetBase->getPosition());
 
+    // Determine when the scout has seen most of the highest-priority tiles
+    if (Strategist::getWorkerScoutStatus() != Strategist::WorkerScoutStatus::EnemyBaseScouted && !scoutTiles.empty())
+    {
+        int seen = 0;
+        for (auto &mainTile : scoutTiles.begin()->second)
+        {
+            if (Map::lastSeen(mainTile) > 0) seen++;
+        }
+
+        if ((double) seen / (double) scoutTiles.begin()->second.size() > 0.8)
+        {
+            Strategist::setWorkerScoutStatus(Strategist::WorkerScoutStatus::EnemyBaseScouted);
+        }
+    }
+
     // If we aren't already in a scout area, just move directly
     if (scoutAreas.find(BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(scout->lastPosition))) == scoutAreas.end())
     {
@@ -152,7 +208,7 @@ void EarlyGameWorkerScout::update()
         return;
     }
 
-    // Plot a path, avoiding threats
+    // Plot a path, avoiding threats and the enemy mineral line
     // Also reject tiles outside the scout areas to limit the search space
     auto grid = Players::grid(BWAPI::Broodwar->enemy());
     auto avoidThreatTiles = [&](BWAPI::TilePosition tile)
@@ -161,6 +217,7 @@ void EarlyGameWorkerScout::update()
         {
             return false;
         }
+        if (targetBase->isInMineralLine(tile)) return false;
 
         auto walk = BWAPI::WalkPosition(tile);
         for (int x = 0; x < 4; x++)
@@ -270,6 +327,15 @@ void EarlyGameWorkerScout::update()
     scout->moveTo(pos, true);
 }
 
+void EarlyGameWorkerScout::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
+                                   const std::function<void(const MyUnit &)> &movableUnitCallback)
+{
+    if (scout && scout->exists())
+    {
+        Workers::releaseWorker(scout);
+    }
+}
+
 bool EarlyGameWorkerScout::reserveScout()
 {
     // Scout after the first gateway if playing a non-random opponent on a two-player map
@@ -301,6 +367,16 @@ bool EarlyGameWorkerScout::pickInitialTargetBase()
     Workers::reserveWorker(scout);
 
     updateTargetBase();
+
+    if (targetBase && targetBase == Map::getEnemyStartingMain())
+    {
+        Strategist::setWorkerScoutStatus(Strategist::WorkerScoutStatus::MovingToEnemyBase);
+    }
+    else if (targetBase)
+    {
+        Strategist::setWorkerScoutStatus(Strategist::WorkerScoutStatus::LookingForEnemyBase);
+    }
+
     return true;
 }
 
@@ -310,6 +386,8 @@ void EarlyGameWorkerScout::updateTargetBase()
     if (targetBase && !targetBase->owner && targetBase->lastScouted == -1) return;
 
     targetBase = nullptr;
+    closestDistanceToTargetBase = INT_MAX;
+    lastForewardMotionFrame = BWAPI::Broodwar->getFrameCount();
 
     // Assign the enemy starting main if we know it
     if (Map::getEnemyStartingMain())
@@ -321,6 +399,7 @@ void EarlyGameWorkerScout::updateTargetBase()
                                            PathFinding::PathFindingOptions::UseNearestBWEMArea) >= 0)
         {
             targetBase = Map::getEnemyStartingMain();
+            Strategist::setWorkerScoutStatus(Strategist::WorkerScoutStatus::MovingToEnemyBase);
         }
     }
     else
@@ -351,6 +430,52 @@ void EarlyGameWorkerScout::updateTargetBase()
 #endif
         scout->moveTo(targetBase->getPosition());
     }
+}
+
+bool EarlyGameWorkerScout::isScoutBlocked()
+{
+    // Not blocked if we got into the target base once
+    // TODO: May want to detect blocking after we've been out to check the natural at some point, but for now we just handle initial blocking
+    if (targetBase->lastScouted != -1) return false;
+
+    // Get cost from here to the target base
+    auto grid = PathFinding::getNavigationGrid(targetBase->getTilePosition());
+    if (!grid) return false;
+    auto node = (*grid)[scout->lastPosition];
+    if (node.cost == USHRT_MAX) return false;
+
+    // Decreasing distance is fine
+    if (node.cost < closestDistanceToTargetBase)
+    {
+        closestDistanceToTargetBase = node.cost;
+        lastForewardMotionFrame = BWAPI::Broodwar->getFrameCount();
+        return false;
+    }
+
+    // Non-decreasing distance is fine if we are still far away from the enemy base
+    if (node.cost > 1500) return false;
+
+    // Consider us to be blocked if we haven't made forward progress in five seconds
+    if ((BWAPI::Broodwar->getFrameCount() - lastForewardMotionFrame) > 120) return true;
+
+    return false;
+
+    /*
+
+    Diabled as it doesn't really work - too many false positives and won't work if the enemy blocks such that we never see the unit.
+
+    // Look for a stationary enemy unit nearby and in a narrow choke
+    for (const auto &unit : Units::allEnemy())
+    {
+        if (!unit->lastPositionValid) continue;
+        if (unit->getDistance(scout) > 100) continue;
+        if (!Map::isInNarrowChoke(unit->getTilePosition())) continue;
+        if (unit->isMoving) continue;
+
+        Log::Get() << "Enemy scout blocker detected: " << *unit;
+        return true;
+    }
+     */
 }
 
 BWAPI::TilePosition EarlyGameWorkerScout::getHighestPriorityScoutTile()

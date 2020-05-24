@@ -26,40 +26,42 @@ class UnitImpl
 {
 public:
 
-    BWAPI::Unit bwapiUnit;               // Reference to the unit
-    BWAPI::Player player;             // Player owning the unit
-    int tilePositionX;      // X coordinate of the tile position
-    int tilePositionY;      // Y coordinate of the tile position
-    BWAPI::TilePosition buildTile; // For landed buildings, the tile position of the build tile (top-left tile)
+    BWAPI::Unit bwapiUnit;              // Reference to the unit
+    BWAPI::Player player;               // Player owning the unit
+    int tilePositionX;                  // X coordinate of the tile position
+    int tilePositionY;                  // Y coordinate of the tile position
+    BWAPI::TilePosition buildTile;      // For landed buildings, the tile position of the build tile (top-left tile)
 
-    int lastSeen;                   // Frame the unit was last updated
-    int lastSeenAttacking;          // Frame when the unit was last seen making an attack
+    int lastSeen;                       // Frame the unit was last updated
+    int lastSeenAttacking;              // Frame when the unit was last seen making an attack
 
-    BWAPI::UnitType type;                       // Type of the unit
-    int id;                         // Unit ID
+    BWAPI::UnitType type;               // Type of the unit
+    int id;                             // Unit ID
 
-    BWAPI::Position lastPosition;               // Position of the unit when last seen
-    bool lastPositionValid;          // Whether this position is still valid, i.e. we haven't seen the position empty later
-    bool lastPositionVisible;       // Whether the last position was visible on the previous frame
-    bool beingManufacturedOrCarried; // Whether the unit is currently being manufactured or carried
+    BWAPI::Position lastPosition;       // Position of the unit when last seen
+    bool lastPositionValid;             // Whether this position is still valid, i.e. we haven't seen the position empty later
+    bool lastPositionVisible;           // Whether the last position was visible on the previous frame
+    bool beingManufacturedOrCarried;    // Whether the unit is currently being manufactured or carried
 
-    int lastHealth;                 // Health when last seen
-    int lastShields;                // Shields when last seen
+    int lastHealth;                     // Health when last seen
+    int lastShields;                    // Shields when last seen
 
-    bool completed;                  // Whether the unit was completed
-    int estimatedCompletionFrame;   // If not completed, the frame when we expect the unit to complete
+    bool completed;                     // Whether the unit was completed
+    int estimatedCompletionFrame;       // If not completed, the frame when we expect the unit to complete
 
-    bool isFlying;                   // Whether the unit is flying
+    bool isFlying;                      // Whether the unit is flying
+    bool isMoving;                      // Whether the unit is moving
 
-    int cooldownUntil;              // The frame when the unit can use its ground weapon again
-    int stimmedUntil;               // If stimmed, when the stim will wear off
+    int cooldownUntil;                  // The frame when the unit can use its ground weapon again
+    int stimmedUntil;                   // If stimmed, when the stim will wear off
 
-    bool undetected;                 // Whether the unit is currently cloaked and undetected
-    bool burrowed;                   // Whether the unit is currently burrowed
-    int lastBurrowing;              // Frame we last observed the unit burrowing
+    bool undetected;                    // Whether the unit is currently cloaked and undetected
+    bool burrowed;                      // Whether the unit is currently burrowed
+    int lastBurrowing;                  // Frame we last observed the unit burrowing
 
-    std::vector<UpcomingAttack> upcomingAttacks; // List of attacks of this unit that are expected soon
-    bool doomed;                     // Whether this unit is likely to be dead after the upcoming attacks are finished
+    std::vector<UpcomingAttack>
+            upcomingAttacks;            // List of attacks of this unit that are expected soon
+    bool doomed;                        // Whether this unit is likely to be dead after the upcoming attacks are finished
 
     explicit UnitImpl(BWAPI::Unit unit);
 

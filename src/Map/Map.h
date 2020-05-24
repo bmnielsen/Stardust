@@ -44,6 +44,8 @@ namespace Map
 
     Base *getEnemyMain();
 
+    void setEnemyStartingMain(Base *base);
+
     Base *baseNear(BWAPI::Position position);
 
     std::set<Base *> unscoutedStartingLocations();

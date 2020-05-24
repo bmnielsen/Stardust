@@ -922,7 +922,7 @@ namespace Map
         // Update unowned base scouting
         for (auto base : bases)
         {
-            if (base->owner) continue;
+            if (base->owner && base->lastScouted != -1) continue;
 
             // Is the center of where the resource depot should be visible?
             if (BWAPI::Broodwar->isVisible(base->getTilePosition().x + 1, base->getTilePosition().y + 1) ||
@@ -1021,6 +1021,13 @@ namespace Map
     Base *getEnemyMain()
     {
         return playerToPlayerBases[BWAPI::Broodwar->enemy()].main;
+    }
+
+    void setEnemyStartingMain(Base *base)
+    {
+        if (base->owner) return;
+
+        setBaseOwner(base, BWAPI::Broodwar->enemy());
     }
 
     Base *baseNear(BWAPI::Position position)

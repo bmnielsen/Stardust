@@ -72,6 +72,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     }
                     case ProtossStrategy::EarlyForge:
                     case ProtossStrategy::OneGateCore:
+                    case ProtossStrategy::BlockScouting:
                     case ProtossStrategy::DragoonAllIn:
                     case ProtossStrategy::DarkTemplarRush:
                     {

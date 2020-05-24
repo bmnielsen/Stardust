@@ -2,6 +2,7 @@
 
 #include "Units.h"
 #include "Map.h"
+#include "Strategist.h"
 
 std::map<PvP::ProtossStrategy, std::string> PvP::ProtossStrategyNames = {
         {ProtossStrategy::Unknown,         "Unknown"},
@@ -12,6 +13,7 @@ std::map<PvP::ProtossStrategy, std::string> PvP::ProtossStrategyNames = {
         {ProtossStrategy::TwoGate,         "TwoGate"},
         {ProtossStrategy::OneGateCore,     "OneGateCore"},
         {ProtossStrategy::FastExpansion,   "FastExpansion"},
+        {ProtossStrategy::BlockScouting,   "BlockScouting"},
         {ProtossStrategy::ZealotAllIn,     "ZealotAllIn"},
         {ProtossStrategy::DragoonAllIn,    "DragoonAllIn"},
         {ProtossStrategy::Turtle,          "Turtle"},
@@ -21,12 +23,10 @@ std::map<PvP::ProtossStrategy, std::string> PvP::ProtossStrategyNames = {
 
 namespace
 {
-    int countAtLeast(BWAPI::UnitType type, int count, int framesSinceSeen = 0)
+    bool countAtLeast(BWAPI::UnitType type, int count)
     {
         auto &timings = Units::getEnemyUnitTimings(type);
-        if (timings.size() < count) return false;
-
-        return timings[count - 1].second <= (BWAPI::Broodwar->getFrameCount() - framesSinceSeen);
+        return timings.size() >= count;
     }
 
     bool noneCreated(BWAPI::UnitType type)
@@ -85,12 +85,8 @@ namespace
     {
         if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
 
-        // Enemy main is scouted once we have seen the nexus and at least 4 probes 20 seconds ago
-        auto enemyMainScouted = countAtLeast(BWAPI::UnitTypes::Protoss_Nexus, 1, 480) &&
-                                countAtLeast(BWAPI::UnitTypes::Protoss_Probe, 4, 480);
-
         // If the enemy main has been scouted, determine if there is a proxy by looking at what they have built
-        if (enemyMainScouted)
+        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted)
         {
             // Expect first pylon by frame 1300
             if (BWAPI::Broodwar->getFrameCount() > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
@@ -182,22 +178,27 @@ namespace
         // Otherwise work off of goon timings
         if (BWAPI::Broodwar->getFrameCount() < 8000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 6);
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8000, 6);
         }
         if (BWAPI::Broodwar->getFrameCount() < 9000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 6) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8000, 10);
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8000, 6) ||
+                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 10);
         }
         if (BWAPI::Broodwar->getFrameCount() < 10000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8000, 10) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 14);
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 10) ||
+                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10000, 14);
         }
         if (BWAPI::Broodwar->getFrameCount() < 11000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 14) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10000, 18);
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10000, 14) ||
+                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 11000, 18);
+        }
+        if (BWAPI::Broodwar->getFrameCount() < 12000)
+        {
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 11000, 18) ||
+                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 12000, 22);
         }
 
         return false;
@@ -205,9 +206,8 @@ namespace
 
     bool isDarkTemplarRush()
     {
-        // FIXME
-
-        return false;
+        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Templar_Archives, 8000) ||
+               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dark_Templar, 10000);
     }
 
     bool isTurtle()
@@ -220,9 +220,28 @@ namespace
 
     bool isMidGame()
     {
-        // FIXME
+        // We consider ourselves to be in the mid-game after frame 10000 if the enemy has taken their natural or teched to something beyond goons
+        if (BWAPI::Broodwar->getFrameCount() < 10000) return false;
 
-        return false;
+        return countAtLeast(BWAPI::UnitTypes::Protoss_Nexus, 2) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Templar_Archives, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Dark_Templar, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_High_Templar, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Dark_Archon, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Archon, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Robotics_Facility, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Robotics_Support_Bay, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Observatory, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Shuttle, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Reaver, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Observer, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Stargate, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Fleet_Beacon, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Arbiter_Tribunal, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Scout, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Corsair, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Carrier, 1) ||
+               countAtLeast(BWAPI::UnitTypes::Protoss_Arbiter, 1);
     }
 }
 
@@ -240,10 +259,10 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 if (isGasSteal()) return ProtossStrategy::GasSteal;
                 if (isProxy()) return ProtossStrategy::ProxyRush;
 
-                // Default to something reasonable if our scouting completely fails
-                if ((!enemyMain || enemyMain->lastScouted == -1) && BWAPI::Broodwar->getFrameCount() > 4000)
+                // If the enemy blocks our scouting, set their strategy accordingly
+                if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingBlocked)
                 {
-                    strategy = ProtossStrategy::TwoGate;
+                    strategy = ProtossStrategy::BlockScouting;
                     continue;
                 }
 
@@ -265,6 +284,13 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 }
                 if (createdBeforeUnit(BWAPI::UnitTypes::Protoss_Cybernetics_Core, 1, BWAPI::UnitTypes::Protoss_Gateway, 2) ||
                     createdBeforeUnit(BWAPI::UnitTypes::Protoss_Assimilator, 1, BWAPI::UnitTypes::Protoss_Gateway, 2))
+                {
+                    strategy = ProtossStrategy::OneGateCore;
+                    continue;
+                }
+
+                // Default to something reasonable if our scouting completely fails
+                if ((!enemyMain || enemyMain->lastScouted == -1) && BWAPI::Broodwar->getFrameCount() > 4000)
                 {
                     strategy = ProtossStrategy::OneGateCore;
                     continue;
@@ -350,6 +376,22 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                     strategy = ProtossStrategy::Turtle;
                     continue;
                 }
+
+                if (isMidGame())
+                {
+                    strategy = ProtossStrategy::MidGame;
+                    continue;
+                }
+
+                break;
+            case ProtossStrategy::BlockScouting:
+                // An enemy that blocks our scouting could be doing anything, but we suspect some kind of rush or all-in
+                if (isGasSteal()) return ProtossStrategy::GasSteal;
+                if (isProxy()) return ProtossStrategy::ProxyRush; // If we see a proxy building somewhere
+                if (isZealotRush()) return ProtossStrategy::ZealotRush;
+                if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
+                if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
+                if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
 
                 if (isMidGame())
                 {

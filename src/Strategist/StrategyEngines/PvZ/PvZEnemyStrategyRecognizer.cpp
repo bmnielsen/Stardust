@@ -2,6 +2,7 @@
 
 #include "Units.h"
 #include "Map.h"
+#include "Strategist.h"
 
 std::map<PvZ::ZergStrategy, std::string> PvZ::ZergStrategyNames = {
         {ZergStrategy::Unknown,            "Unknown"},
@@ -16,12 +17,10 @@ std::map<PvZ::ZergStrategy, std::string> PvZ::ZergStrategyNames = {
 
 namespace
 {
-    int countAtLeast(BWAPI::UnitType type, int count, int framesSinceSeen = 0)
+    bool countAtLeast(BWAPI::UnitType type, int count)
     {
         auto &timings = Units::getEnemyUnitTimings(type);
-        if (timings.size() < count) return false;
-
-        return timings[count - 1].second <= (BWAPI::Broodwar->getFrameCount() - framesSinceSeen);
+        return timings.size() >= count;
     }
 
     bool createdBeforeFrame(BWAPI::UnitType type, int frame, int count = 1)
@@ -125,13 +124,8 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
                     continue;
                 }
 
-                // Wait until we have seen at least one hatchery and two drones 5 seconds ago
-                // We assume that by this point we have seen likely pool locations
-                if (!countAtLeast(BWAPI::UnitTypes::Zerg_Hatchery, 1, 120) ||
-                    !countAtLeast(BWAPI::UnitTypes::Zerg_Drone, 2, 120))
-                {
-                    break;
-                }
+                // For pool or hatch first determination, wait until we have scouted the area around the base
+                if (Strategist::getWorkerScoutStatus() != Strategist::WorkerScoutStatus::EnemyBaseScouted) break;
 
                 // Transition to pool-first or hatchery-first when we have the appropriate scouting information
                 if (createdBeforeUnit(BWAPI::UnitTypes::Zerg_Spawning_Pool, 1, BWAPI::UnitTypes::Zerg_Hatchery, 2))
