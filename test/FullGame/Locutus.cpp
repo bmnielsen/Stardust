@@ -165,3 +165,16 @@ TEST(Locutus, 1012Gate)
 
     test.run();
 }
+
+TEST(Locutus, 2GateDTRush)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        UAlbertaBot::LocutusBotModule::setStrategy("2GateDTRush");
+        return new UAlbertaBot::LocutusBotModule();
+    };
+
+    test.run();
+}
