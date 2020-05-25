@@ -20,6 +20,8 @@
 #include <cstdint>
 #include <limits>
 #include <fstream>
+#include <sstream>
+#include <cmath>
 #include "defs.h"
 
 
@@ -28,7 +30,7 @@ namespace BWEM {
 
 namespace utils {
 
-
+using namespace std;
 
 ///extern std::ofstream Log;
 

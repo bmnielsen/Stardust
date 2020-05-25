@@ -524,7 +524,30 @@ void Graph::CreateBases()
 	}
 }
 
-	
+const Area * Graph::GetNearestArea(BWAPI::WalkPosition p) const
+{
+    typedef typename utils::TileOfPosition<BWAPI::WalkPosition>::type Tile_t;
+    if (const Area * area = GetArea(p)) return area;
+
+    p = GetMap()->BreadthFirstSearch(p,
+                                     [this](const Tile_t & t, BWAPI::WalkPosition) { return t.AreaId() > 0; },	// findCond
+                                     [](const Tile_t &,       BWAPI::WalkPosition) { return true; });			// visitCond
+
+    return GetArea(p);
+}
+
+const Area * Graph::GetNearestArea(BWAPI::TilePosition p) const
+{
+    typedef typename utils::TileOfPosition<BWAPI::TilePosition>::type Tile_t;
+    if (const Area * area = GetArea(p)) return area;
+
+    p = GetMap()->BreadthFirstSearch(p,
+                                     [this](const Tile_t & t, BWAPI::TilePosition) { return t.AreaId() > 0; },	// findCond
+                                     [](const Tile_t &,       BWAPI::TilePosition) { return true; });			// visitCond
+
+    return GetArea(p);
+}
+
 }} // namespace BWEM::detail
 
 

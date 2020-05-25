@@ -79,7 +79,7 @@ template<typename T, int Scale = 1>
 inline int queenWiseDist(BWAPI::Point<T, Scale> A, BWAPI::Point<T, Scale> B){ A -= B; return utils::queenWiseNorm(A.x, A.y); }
 
 template<typename T, int Scale = 1>
-inline int squaredDist(BWAPI::Point<T, Scale> A, BWAPI::Point<T, Scale> B)	{ A -= B; return squaredNorm(A.x, A.y); }
+inline int squaredDist(BWAPI::Point<T, Scale> A, BWAPI::Point<T, Scale> B)	{ A -= B; return utils::squaredNorm(A.x, A.y); }
 
 template<typename T, int Scale = 1>
 inline double dist(BWAPI::Point<T, Scale> A, BWAPI::Point<T, Scale> B)		{ A -= B; return utils::norm(A.x, A.y); }

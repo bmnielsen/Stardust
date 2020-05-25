@@ -40,7 +40,7 @@ namespace detail
 #define bwem_assert_throw(expr)					bwem_assert_throw_plus(expr, "")
 
 
-#define BWEM_USE_WINUTILS 1		// enable(1) or disable(0) the compilation of winutils.cpp
+#define BWEM_USE_WINUTILS 0		// enable(1) or disable(0) the compilation of winutils.cpp
 								// winutils.h provides optional utils that require the windows headers.
 
 #define BWEM_USE_MAP_PRINTER 0	// enable(1) or disable(0) the compilation of mapPrinter.cpp

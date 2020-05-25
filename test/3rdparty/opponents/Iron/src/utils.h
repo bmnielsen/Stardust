@@ -21,7 +21,6 @@
 
 
 
-
 using namespace std;
 
 
@@ -44,12 +43,17 @@ void clear_delete_elements(T & Container)
     Container.clear();
 }
 
+template<class T, class E>
+inline bool contains2(const T & Container, const E & Element)
+{
+    return find(Container.begin(), Container.end(), Element) != Container.end();
+}
 
 
 template<class T>
 inline void push_back_if_not_found(T & Container, const typename T::value_type & Element)
 {
-    if (!contains(Container, Element)) Container.push_back(Element);
+    if (!contains2(Container, Element)) Container.push_back(Element);
 }
 
 
@@ -58,7 +62,7 @@ inline void push_back_if_not_found(T & Container, const typename T::value_type &
 template<class T>
 inline void push_back_assert_does_not_contain(T & Container, const typename T::value_type & Element)
 {
-    assert_throw(!contains(Container, Element));
+    assert_throw(!contains2(Container, Element));
 	Container.push_back(Element);
 }
 
@@ -68,10 +72,7 @@ do															\
     assert_throw(!contains(Container, Element));			\
 	Container.push_back(Element);							\
 }															\
-__pragma(warning(push))										\
-__pragma(warning(disable:4127))								\
 while(0)													\
-__pragma(warning(pop))										\
 // end define
 
 

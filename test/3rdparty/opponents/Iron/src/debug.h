@@ -16,8 +16,6 @@
 #include "defs.h"
 #include "utils.h"
 
-
-
 namespace iron
 {
 
@@ -40,12 +38,12 @@ void exceptionHandler(const string & functionName, int delay, Code code)
 	catch (const ::Exception & e)
 	{
 		exceptionType = "Exception";
-		strncpy_s(message, 256, e.what(), 255);
+		strncpy(message, e.what(), 255);
 	}
 	catch (const std::exception & e)
 	{
 		exceptionType = "std::exception";
-		strncpy_s(message, 256, e.what(), 255);
+		strncpy(message, e.what(), 255);
 	}
 	catch (...)
 	{
