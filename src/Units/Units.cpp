@@ -636,6 +636,11 @@ namespace Units
         return enemyUnits;
     }
 
+    std::set<Unit> &allEnemyOfType(BWAPI::UnitType type)
+    {
+        return enemyUnitsByType[type];
+    }
+
     void mine(std::set<MyUnit> &units,
               const std::function<bool(const MyUnit &)> &predicate)
     {

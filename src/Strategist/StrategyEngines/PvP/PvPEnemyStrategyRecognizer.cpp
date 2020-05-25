@@ -53,15 +53,12 @@ namespace
 
     bool isGasSteal()
     {
-        for (const Unit &unit : Units::allEnemy())
+        for (const Unit &unit : Units::allEnemyOfType(BWAPI::Broodwar->enemy()->getRace().getRefinery()))
         {
             if (!unit->lastPositionValid) continue;
             if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) != Map::getMyMain()->getArea()) continue;
 
-            if (unit->type.isRefinery())
-            {
-                return true;
-            }
+            return true;
         }
 
         return false;

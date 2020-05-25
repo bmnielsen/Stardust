@@ -27,6 +27,8 @@ namespace Units
 
     std::set<Unit> &allEnemy();
 
+    std::set<Unit> &allEnemyOfType(BWAPI::UnitType type);
+
     void mine(std::set<MyUnit> &units,
               const std::function<bool(const MyUnit &)> &predicate = nullptr);
 
