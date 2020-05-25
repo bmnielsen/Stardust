@@ -89,6 +89,7 @@ bool Base::isInMineralLine(BWAPI::TilePosition pos) const
 void Base::analyzeMineralLine()
 {
     // Compute the approximate center of the mineral line
+    if (mineralPatchCount() > 0)
     {
         int x = 0;
         int y = 0;
@@ -99,6 +100,10 @@ void Base::analyzeMineralLine()
         }
 
         mineralLineCenter = (getPosition() + BWAPI::Position(x / mineralPatchCount(), y / mineralPatchCount()) * 2) / 3;
+    }
+    else
+    {
+        mineralLineCenter = getPosition();
     }
 
     // Compute the tiles that are considered part of the mineral line
