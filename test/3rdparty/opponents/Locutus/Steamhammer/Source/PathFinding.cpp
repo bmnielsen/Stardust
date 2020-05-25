@@ -168,7 +168,7 @@ const BWEM::CPPath PathFinding::GetChokePointPath(
     // - The map doesn't have mineral walking chokes or the unit can't mineral walk
     // An exception to the second case is Plasma, where BWEM doesn't mark the mineral walking chokes as blocked
     bool canUseBwemPath = std::max(unitType.width(), unitType.height()) <= MapTools::Instance().getMinChokeWidth();
-    if (BWAPI::Broodwar->mapHash() == "6f5295624a7e3887470f3f2e14727b1411321a67")
+    if (BWAPI::Broodwar->mapHash() == "8b3e8ed9ce9620a606319ba6a593ed5c894e51df")
     {
         // Because BWEM doesn't mark the mineral walking chokes as blocked, we can use the BWEM path for workers,
         // but not for everything else

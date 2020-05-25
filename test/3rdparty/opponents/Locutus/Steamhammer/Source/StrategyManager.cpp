@@ -77,7 +77,7 @@ void StrategyManager::update()
     }
 
     // Switch back if we had previously switched to carriers and have now found the enemy
-    else if (BWAPI::Broodwar->mapHash() != "6f5295624a7e3887470f3f2e14727b1411321a67" && _openingGroup == "carriers")
+    else if (BWAPI::Broodwar->mapHash() != "8b3e8ed9ce9620a606319ba6a593ed5c894e51df" && _openingGroup == "carriers")
     {
         _openingGroup = "dragoons";
     }
@@ -117,7 +117,7 @@ bool StrategyManager::isRushingOrProxyRushing() const
 
     // On Plasma we are considered to be in the rush as long as the proxy is alive
     // and we haven't switched to carriers
-    if (BWAPI::Broodwar->mapHash() == "6f5295624a7e3887470f3f2e14727b1411321a67") return _openingGroup != "carriers";
+    if (BWAPI::Broodwar->mapHash() == "8b3e8ed9ce9620a606319ba6a593ed5c894e51df") return _openingGroup != "carriers";
 
     // While proxying, we consider ourselves in "rush mode" while we're building up our forces and
     // for a short time period after
@@ -322,7 +322,7 @@ const MetaPairVector StrategyManager::getProtossBuildOrderGoal()
     // - Our proxy gateways die
     // - We are on two bases
     // - We have an excess of minerals
-    if (BWAPI::Broodwar->mapHash() == "6f5295624a7e3887470f3f2e14727b1411321a67" && 
+    if (BWAPI::Broodwar->mapHash() == "8b3e8ed9ce9620a606319ba6a593ed5c894e51df" &&
         (!_proxying || numNexusAll >= 2 || self->minerals() > 500)) 
     {
         _openingGroup = "carriers";

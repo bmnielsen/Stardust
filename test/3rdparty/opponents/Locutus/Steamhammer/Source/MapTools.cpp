@@ -166,7 +166,7 @@ MapTools::MapTools()
     _hasMineralWalkChokes = false;
 
     // Add mineral walking data for Plasma
-    if (BWAPI::Broodwar->mapHash() == "6f5295624a7e3887470f3f2e14727b1411321a67")
+    if (BWAPI::Broodwar->mapHash() == "8b3e8ed9ce9620a606319ba6a593ed5c894e51df")
     {
         _hasMineralWalkChokes = true;
 
@@ -617,7 +617,7 @@ void MapTools::setBWAPIMapData()
 
             // On Plasma, consider the tile walkable if at least 10 walk positions are walkable
             if (walkableWalkPositions < 16 &&
-                (BWAPI::Broodwar->mapHash() != "6f5295624a7e3887470f3f2e14727b1411321a67" || walkableWalkPositions < 10))
+                (BWAPI::Broodwar->mapHash() != "8b3e8ed9ce9620a606319ba6a593ed5c894e51df" || walkableWalkPositions < 10))
             {
                 _terrainWalkable[x][y] = false;
                 _walkable[x][y] = false;
@@ -630,7 +630,7 @@ void MapTools::setBWAPIMapData()
 	for (const auto unit : BWAPI::Broodwar->getStaticNeutralUnits())
 	{
         // Ignore the eggs on Plasma
-        if (BWAPI::Broodwar->mapHash() == "6f5295624a7e3887470f3f2e14727b1411321a67" &&
+        if (BWAPI::Broodwar->mapHash() == "8b3e8ed9ce9620a606319ba6a593ed5c894e51df" &&
             unit->getType() == BWAPI::UnitTypes::Zerg_Egg)
             continue;
 

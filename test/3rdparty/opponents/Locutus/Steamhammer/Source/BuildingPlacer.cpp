@@ -25,7 +25,7 @@ BuildingPlacer::BuildingPlacer()
     computeResourceBox();
 }
 
-BuildingPlacer & BuildingPlacer::Instance() 
+BuildingPlacer & BuildingPlacer::Instance()
 {
     static BuildingPlacer instance;
     return instance;
@@ -332,7 +332,7 @@ void BuildingPlacer::freeTiles(BWAPI::TilePosition position, int width, int heig
         {
 			BWAPI::TilePosition t(x, y);
 			if (!t.isValid()) continue;
-			
+
 			_reserveMap[x][y] = false;
 			bwebMap.getUsedTiles().erase(t);
             bwebMap.usedTilesGrid[x][y] = false;
@@ -373,7 +373,7 @@ BWAPI::TilePosition BuildingPlacer::getRefineryPosition()
             }
 		}
     }
-    
+
     return closestGeyser;
 }
 
@@ -430,7 +430,7 @@ void BuildingPlacer::findHiddenTechBlock()
     BWAPI::TilePosition tileBest = BWAPI::TilePositions::Invalid;
     int distBest = INT_MAX;
     for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
-        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++) 
+        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
         {
             BWAPI::TilePosition tile(x, y);
             if (!tile.isValid()) continue;
@@ -547,8 +547,8 @@ int addProxyBlock(BWAPI::TilePosition tile, std::set<BWAPI::TilePosition> & unbu
         Log().Debug() << "Added 10x6 proxy block @ " << tile;
 
         return bwebMap.blocks.size() - 1;
-    }   
-    
+    }
+
     if (canAddProxyBlock(tile, 10, 3, unbuildableTiles))
     {
         bwebMap.addOverlap(tile, 10, 3);
@@ -562,8 +562,8 @@ int addProxyBlock(BWAPI::TilePosition tile, std::set<BWAPI::TilePosition> & unbu
         Log().Debug() << "Added 10x3 proxy block @ " << tile;
 
         return bwebMap.blocks.size() - 1;
-    }   
-    
+    }
+
     if (canAddProxyBlock(tile, 4, 8, unbuildableTiles))
     {
         bwebMap.addOverlap(tile, 4, 8);
@@ -618,7 +618,7 @@ void BuildingPlacer::findProxyBlocks()
                 insertWithCollision(unit->getTilePosition() + BWAPI::TilePosition(x, y), unbuildableTiles);
 
     // Hard-coded for Plasma
-    if (BWAPI::Broodwar->mapHash() == "6f5295624a7e3887470f3f2e14727b1411321a67")
+    if (BWAPI::Broodwar->mapHash() == "8b3e8ed9ce9620a606319ba6a593ed5c894e51df")
     {
         for (auto base : BWTA::getStartLocations())
         {
@@ -641,7 +641,7 @@ void BuildingPlacer::findProxyBlocks()
 
     // For base-specific locations, avoid all areas likely to be traversed by worker scouts
     std::set<const BWEM::Area*> areasToAvoid;
-	if (BWAPI::Broodwar->mapHash() != "6f5295624a7e3887470f3f2e14727b1411321a67") // disabled on Plasma
+	if (BWAPI::Broodwar->mapHash() != "8b3e8ed9ce9620a606319ba6a593ed5c894e51df") // disabled on Plasma
 	{
 		for (auto first : BWTA::getStartLocations())
 		{
@@ -693,7 +693,7 @@ void BuildingPlacer::findProxyBlocks()
 
     // By default place base proxy blocks at least 2000 pixels away from the base, though we accept a bit closer on Plasma
     int minDistCutoff = 2000;
-    if (BWAPI::Broodwar->mapHash() == "6f5295624a7e3887470f3f2e14727b1411321a67") minDistCutoff = 1500;
+    if (BWAPI::Broodwar->mapHash() == "8b3e8ed9ce9620a606319ba6a593ed5c894e51df") minDistCutoff = 1500;
 
     // Find the best locations
     BWAPI::Position mainPosition = InformationManager::Instance().getMyMainBaseLocation()->getPosition();
@@ -775,7 +775,8 @@ void BuildingPlacer::findProxyBlocks()
         // Map-specific tweak: on Heartbreak Ridge units somewhat randomly take the top or bottom paths around the middle base
         // So here we manually fix one base location that otherwise puts the proxy in an easy-to-discover location
         // TODO: Find a more elegant way to deal with this
-        if (BWAPI::Broodwar->mapHash() == "6f8da3c3cc8d08d9cf882700efa049280aedca8c" &&
+        if ((BWAPI::Broodwar->mapHash() == "fe25d8b79495870ac1981c2dfee9368f543321e3" ||
+             BWAPI::Broodwar->mapHash() == "ecb9c70c5594a5c6882baaf4857a61824fba0cfa") &&
             base->getTilePosition() == BWAPI::TilePosition(117, 56))
         {
             tileBest[base] = BWAPI::TilePosition(76, 2);
@@ -1217,7 +1218,7 @@ BWAPI::Position BuildingPlacer::getProxyBlockLocation() const
 {
     if (_proxyBlock == -1) return BWAPI::Positions::Invalid;
 
-    return 
+    return
         BWAPI::Position(bwebMap.Blocks()[_proxyBlock].Location()) +
         BWAPI::Position(bwebMap.Blocks()[_proxyBlock].width() * 16, bwebMap.Blocks()[_proxyBlock].height() * 16);
 }

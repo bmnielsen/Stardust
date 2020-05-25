@@ -1359,11 +1359,11 @@ namespace UAlbertaBot
 		Log().Debug() << "Creating wall; tight=" << tight;
 
         // Map-specific hard-coded walls
-		if (BWAPI::Broodwar->mapHash() == "8000dc6116e405ab878c14bb0f0cde8efa4d640c") return LocutusWall(); // Alchemist
-        if (BWAPI::Broodwar->mapHash() == "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b") return destinationWall();
-        if (BWAPI::Broodwar->mapHash() == "0a41f144c6134a2204f3d47d57cf2afcd8430841") return matchPointWall();
+		if (BWAPI::Broodwar->mapHash() == "9e5770c62b523042e8af590c8dc267e6c12637fc") return LocutusWall(); // Alchemist
+        if (BWAPI::Broodwar->mapHash() == "e39c1c81740a97a733d227e238bd11df734eaf96") return destinationWall();
+        if (BWAPI::Broodwar->mapHash() == "7e14d53b944b1365973f2d8768c75358c6b28a8f") return matchPointWall();
         if (BWAPI::Broodwar->mapHash() == "83320e505f35c65324e93510ce2eafbaa71c9aa1") return fortressWall();
-        if (BWAPI::Broodwar->mapHash() == "33527b4ce7662f83485575c4b1fcad5d737dfcf1"
+        if (BWAPI::Broodwar->mapHash() == "215263bd93c8f0ef9d3ecf880c46890cec8d4655"
             && bwebMap.getNatural().y < BWAPI::TilePosition(bwemMap.Center()).y
             && bwebMap.getNatural().x < BWAPI::TilePosition(bwemMap.Center()).x) return luna10Oclock();
 

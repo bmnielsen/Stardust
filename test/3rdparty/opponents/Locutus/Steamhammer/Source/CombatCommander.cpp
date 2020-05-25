@@ -67,7 +67,7 @@ void CombatCommander::initializeSquads()
 
 	// The recon squad carries out reconnaissance in force to deny enemy bases.
 	// It is filled in when enough units are available.
-    if (BWAPI::Broodwar->mapHash() != "6f5295624a7e3887470f3f2e14727b1411321a67") // disabled on Plasma
+    if (BWAPI::Broodwar->mapHash() != "8b3e8ed9ce9620a606319ba6a593ed5c894e51df") // disabled on Plasma
     {
         Squad reconSquad = Squad("Recon", idleOrder, ReconPriority);
         reconSquad.setCombatSimRadius(200);  // combat sim includes units in a smaller radius than for a combat squad
@@ -2422,7 +2422,7 @@ BWAPI::Position CombatCommander::getAttackLocation(const Squad * squad)
     // Special case: Plasma
     // Here we only have a ground squad while we're doing a proxy 2-gate
     // So attack any base we can reach that hasn't been explored yet
-    if (BWAPI::Broodwar->mapHash() == "6f5295624a7e3887470f3f2e14727b1411321a67" &&
+    if (BWAPI::Broodwar->mapHash() == "8b3e8ed9ce9620a606319ba6a593ed5c894e51df" &&
         squad && squad->containsUnitType(BWAPI::UnitTypes::Protoss_Zealot))
     {
         BWAPI::Position squadCenter(squad->calcCenter());

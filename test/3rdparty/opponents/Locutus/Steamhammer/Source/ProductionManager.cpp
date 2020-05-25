@@ -276,7 +276,7 @@ void ProductionManager::manageBuildOrderQueue()
                 // Special case for Plasma
                 // Since our combat units can't mineral walk, make sure we only build gateways at the proxy location,
                 // unless we have none
-                if (BWAPI::Broodwar->mapHash() == "6f5295624a7e3887470f3f2e14727b1411321a67" &&
+                if (BWAPI::Broodwar->mapHash() == "8b3e8ed9ce9620a606319ba6a593ed5c894e51df" &&
                     (gateways > 0 || gatewaysBuilding > 0) &&
                     currentItem.macroAct.getMacroLocation() != MacroLocation::Proxy)
                 {
