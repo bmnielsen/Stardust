@@ -6,6 +6,10 @@
 std::pair<BWAPI::TilePosition, int> getStartPositionAndSeed(std::shared_ptr<Maps::MapMetadata> map)
 {
     BWTest test;
+    test.myModule = []()
+    {
+        return new DoNothingModule();
+    };
     test.opponentModule = []()
     {
         return new DoNothingModule();
@@ -26,9 +30,9 @@ std::pair<BWAPI::TilePosition, int> getStartPositionAndSeed(std::shared_ptr<Maps
     return std::make_pair(tile, test.randomSeed);
 }
 
-TEST(FindStartLocationSeeds, SSCAIT)
+TEST(MapAnalysis, FindStartLocationSeeds)
 {
-    auto maps = Maps::Get("sscai");
+    auto maps = Maps::Get("cog");
     for (auto &map : maps)
     {
         std::map<BWAPI::TilePosition, int> startPositionToSeed;
@@ -65,11 +69,15 @@ TEST(FindStartLocationSeeds, SSCAIT)
     }
 }
 
-TEST(FindStartLocationSeeds, tmp)
+TEST(MapAnalysis, GetMapHashes)
 {
     std::vector<std::pair<std::string, std::string>> mapsAndHashes;
-    Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
+    Maps::RunOnEach(Maps::Get("cog"), [&](BWTest test)
     {
+        test.myModule = []()
+        {
+            return new DoNothingModule();
+        };
         test.opponentModule = []()
         {
             return new DoNothingModule();

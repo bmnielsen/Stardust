@@ -184,3 +184,23 @@ TEST(ChokeAnalysis, AnalyzeAll_NeoMoonGlaive)
 
     test.run();
 }
+
+TEST(ChokeAnalysis, AnalyzeAllCOG)
+{
+    Maps::RunOnEach(Maps::Get("cog"), [&](BWTest test)
+    {
+        test.frameLimit = 10;
+        test.expectWin = false;
+        test.opponentModule = []()
+        {
+            return new DoNothingModule();
+        };
+
+        test.onEndMine = [](bool win)
+        {
+            EXPECT_FALSE(Map::isInNarrowChoke(BWAPI::TilePosition(BWAPI::Broodwar->mapWidth() / 2, BWAPI::Broodwar->mapHeight() / 2)));
+        };
+
+        test.run();
+    });
+}
