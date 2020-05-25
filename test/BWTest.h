@@ -45,6 +45,7 @@ public:
     std::string replayName;
 
     std::function<BWAPI::AIModule *()> myModule = nullptr;
+    BWAPI::Race myRace = BWAPI::Races::Protoss;
 
     std::function<BWAPI::AIModule *()> opponentModule = nullptr;
     BWAPI::Race opponentRace = BWAPI::Races::Protoss;

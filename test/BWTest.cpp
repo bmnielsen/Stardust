@@ -282,7 +282,7 @@ void BWTest::runGame(bool opponent)
     h->setCharacterName(opponent ? "Opponent" : "Startest");
     h->setGameType(BWAPI::GameTypes::Melee);
     BWAPI::BroodwarImpl.bwgame.setMapFileName(map->filename);
-    BWAPI::Race race = opponent ? opponentRace : BWAPI::Races::Protoss;
+    BWAPI::Race race = opponent ? opponentRace : myRace;
     h->createMultiPlayerGame([&]()
                              {
                                  if (h->self())
