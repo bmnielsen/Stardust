@@ -311,6 +311,8 @@ namespace Strategist
                 case WorkerScoutStatus::ScoutingFailed:
                     return "ScoutingFailed";
             }
+
+            return "Unknown";
         }
 
         void writeInstrumentation()

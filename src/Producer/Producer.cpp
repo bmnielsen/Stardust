@@ -9,6 +9,8 @@
 #include "Workers.h"
 #include "UnitUtil.h"
 
+#include <chrono>
+
 #if INSTRUMENTATION_ENABLED
 #define DEBUG_WRITE_SUBGOALS false
 #endif
