@@ -89,6 +89,7 @@ void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
                 remainder--;
             }
 
+            if (count < 1) continue;
             if (!base->resourceDepot) continue;
             if (!base->resourceDepot->exists()) continue;
             if (!base->resourceDepot->completed) continue;
