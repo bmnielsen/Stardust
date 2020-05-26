@@ -13,6 +13,10 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     auto natural = Map::getMyNatural();
     if (natural && natural->ownedSince == -1) return;
 
+    // If the natural is "owned" by our opponent, it's probably because of some kind of proxy play
+    // In this case, delay doing any expansions until mid-game
+    if (natural && natural->owner != BWAPI::Broodwar->self() && BWAPI::Broodwar->getFrameCount() < 12000) return;
+
     // Collect any existing TakeExpansion plays
     std::vector<std::shared_ptr<TakeExpansion>> takeExpansionPlays;
     for (auto &play : plays)
@@ -31,6 +35,8 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
 
     // Never expand if we don't have a reasonable-sized army
     if (army < 5) wantToExpand = false;
+
+    // TODO: Don't expand if we are on the defensive
 
     // Expand if we have no bases with more than 3 available mineral assignments
     // If the enemy is contained, set the threshold to 6 instead
