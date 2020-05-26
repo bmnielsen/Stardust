@@ -19,7 +19,7 @@ namespace Builder
 
     MyUnit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int *expectedArrivalFrame = nullptr);
 
-    std::vector<Building *> allPendingBuildings();
+    std::vector<std::shared_ptr<Building>> &allPendingBuildings();
 
     std::vector<Building *> pendingBuildingsOfType(BWAPI::UnitType type);
 

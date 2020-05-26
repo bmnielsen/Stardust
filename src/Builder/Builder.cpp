@@ -259,16 +259,9 @@ namespace Builder
         return bestWorker;
     }
 
-    std::vector<Building *> allPendingBuildings()
+    std::vector<std::shared_ptr<Building>> &allPendingBuildings()
     {
-        std::vector<Building *> result;
-
-        for (const auto &building : pendingBuildings)
-        {
-            result.push_back(building.get());
-        }
-
-        return result;
+        return pendingBuildings;
     }
 
     std::vector<Building *> pendingBuildingsOfType(BWAPI::UnitType type)

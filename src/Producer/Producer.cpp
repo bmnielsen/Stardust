@@ -376,10 +376,10 @@ namespace Producer
             // Adjust for pending buildings
             // This also adds all pending buildings to the committed item set
             // TODO: Should be able to change our minds and cancel pending buildings that are no longer needed
-            for (auto pendingBuilding : Builder::allPendingBuildings())
+            for (const auto &pendingBuilding : Builder::allPendingBuildings())
             {
                 // "Commit" the item and spend resources if the building isn't started
-                auto item = *committedItems.emplace(std::make_shared<ProductionItem>(pendingBuilding));
+                auto item = *committedItems.emplace(std::make_shared<ProductionItem>(pendingBuilding.get()));
                 if (!pendingBuilding->isConstructionStarted())
                 {
                     spendResource(minerals, pendingBuilding->type.mineralPrice(), item->startFrame);

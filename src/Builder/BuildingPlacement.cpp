@@ -431,14 +431,7 @@ namespace BuildingPlacement
             std::map<Neighbourhood, std::map<int, BuildLocationSet>> result;
 
             // Gather our pending pylons
-            std::vector<Building *> pendingPylons;
-            for (auto building : Builder::allPendingBuildings())
-            {
-                if (building->type == BWAPI::UnitTypes::Protoss_Pylon)
-                {
-                    pendingPylons.push_back(building);
-                }
-            }
+            auto pendingPylons = Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Pylon);
 
             // Scan blocks to:
             // - Collect the powered (or soon-to-be-powered) medium and large build locations we have available
@@ -551,14 +544,7 @@ namespace BuildingPlacement
         void updateFramesUntilPowered()
         {
             // Gather our pending pylons
-            std::vector<Building *> pendingPylons;
-            for (auto building : Builder::allPendingBuildings())
-            {
-                if (building->type == BWAPI::UnitTypes::Protoss_Pylon)
-                {
-                    pendingPylons.push_back(building);
-                }
-            }
+            auto pendingPylons = Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Pylon);
 
             // Loop and update every location with a current framesUntilPowered value
             for (auto &neighbourhoodAndLocations : availableBuildLocations)
