@@ -5,6 +5,7 @@
 
 #include "Units.h"
 #include "PathFinding.h"
+#include "Geo.h"
 
 /*
 Base ownership:
@@ -227,6 +228,13 @@ namespace Map
             auto nearbyBase = baseNear(unit->lastPosition);
             if (nearbyBase)
             {
+                // If this is an enemy building and the base is our natural, only change the ownership if the building overlaps the depot position
+                // or is a resource depot
+                if (nearbyBase == Map::getMyNatural() && !unit->type.isResourceDepot() && unit->player != BWAPI::Broodwar->self())
+                {
+                    if (!Geo::Overlaps(BWAPI::UnitTypes::Protoss_Nexus, nearbyBase->getPosition(), unit->type, unit->lastPosition)) return;
+                }
+
                 // Is this unit a resource depot that is closer than the existing resource depot registered for this base?
                 bool isCloserDepot = false;
                 if (unit->type.isResourceDepot())
@@ -1032,11 +1040,16 @@ namespace Map
 
     Base *baseNear(BWAPI::Position position)
     {
+        auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(position));
+        if (!area) return nullptr;
+
         int closestDist = INT_MAX;
         Base *result = nullptr;
 
         for (auto &base : bases)
         {
+            if (base->getArea() != area) continue;
+
             int dist = base->getPosition().getApproxDistance(position);
             if (dist < 500 && dist < closestDist)
             {
