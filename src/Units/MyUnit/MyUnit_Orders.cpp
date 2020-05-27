@@ -14,15 +14,21 @@ void MyUnitImpl::move(BWAPI::Position position, bool force)
         return;
     }
 
-    BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
-    if (!force &&
-        !bwapiUnit->isStuck() &&
-        currentCommand.getType() == BWAPI::UnitCommandTypes::Move &&
-        currentCommand.getTargetPosition() == position &&
-        bwapiUnit->isMoving())
+    auto skipMoveCommand = [&]()
     {
-        return;
-    }
+        if (force) return false;
+        if (bwapiUnit->isStuck()) return false;
+        if (bwapiUnit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Move) return false;
+        if (bwapiUnit->getLastCommand().getTargetPosition().getApproxDistance(position) > 3) return false;
+
+        // Don't resend orders to similar positions too quickly
+        if (bwapiUnit->getLastCommandFrame() > (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 3)) return false;
+
+        // Don't resend order if the unit is moving
+        return bwapiUnit->getLastCommandFrame() < frameLastMoved;
+    };
+
+    if (skipMoveCommand()) return;
 
     issuedOrderThisFrame = bwapiUnit->move(position);
     if (issuedOrderThisFrame)

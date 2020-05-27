@@ -45,12 +45,12 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , lastPositionValid(true)
         , lastPositionVisible(true)
         , beingManufacturedOrCarried(false)
+        , frameLastMoved(BWAPI::Broodwar->getFrameCount())
         , lastHealth(unit->getHitPoints())
         , lastShields(unit->getShields())
         , completed(unit->isCompleted())
         , estimatedCompletionFrame(-1)
         , isFlying(unit->isFlying())
-        , isMoving(std::abs(unit->getVelocityX()) > 0.001 || std::abs(unit->getVelocityY()) > 0.001)
         , cooldownUntil(BWAPI::Broodwar->getFrameCount() + std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown()))
         , stimmedUntil(BWAPI::Broodwar->getFrameCount() + unit->getStimTimer())
         , undetected(isUndetected(unit))
@@ -88,6 +88,11 @@ void UnitImpl::update(BWAPI::Unit unit)
     lastSeen = BWAPI::Broodwar->getFrameCount();
     if (unit->isAttacking()) lastSeenAttacking = BWAPI::Broodwar->getFrameCount();
 
+    if (lastPosition != unit->getPosition())
+    {
+        frameLastMoved = BWAPI::Broodwar->getFrameCount();
+    }
+
     tilePositionX = unit->getPosition().x >> 5U;
     tilePositionY = unit->getPosition().y >> 5U;
     lastPosition = unit->getPosition();
@@ -116,7 +121,6 @@ void UnitImpl::update(BWAPI::Unit unit)
 
     // TODO: Track lifted buildings
     isFlying = unit->isFlying();
-    isMoving = std::abs(unit->getVelocityX()) > 0.001 || std::abs(unit->getVelocityY()) > 0.001;
 
     if (unit->isVisible())
     {

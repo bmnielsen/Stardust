@@ -247,7 +247,8 @@ void MyUnitImpl::updateMoveWaypoints()
 
     // Check if the unit has been ordered to do something else and clear our move data
     BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
-    if (currentCommand.getType() != BWAPI::UnitCommandTypes::Move || currentCommand.getTargetPosition() != currentlyMovingTowards)
+    if (currentCommand.getType() != BWAPI::UnitCommandTypes::Move ||
+        currentCommand.getTargetPosition().getApproxDistance(currentlyMovingTowards) > 3)
     {
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Order: Aborting move as command has changed";

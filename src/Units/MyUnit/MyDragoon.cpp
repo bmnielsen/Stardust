@@ -145,7 +145,7 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Skipping kiting and moving towards " << target->type;
 #endif
-        move(target->lastPosition);
+        moveTo(target->lastPosition, true);
         return;
     }
 

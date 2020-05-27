@@ -225,7 +225,7 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
         }
         else
         {
-            myUnit->move(pos, true);
+            myUnit->moveTo(pos, true);
         }
     }
 

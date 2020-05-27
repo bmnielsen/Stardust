@@ -42,6 +42,7 @@ public:
     bool lastPositionValid;             // Whether this position is still valid, i.e. we haven't seen the position empty later
     bool lastPositionVisible;           // Whether the last position was visible on the previous frame
     bool beingManufacturedOrCarried;    // Whether the unit is currently being manufactured or carried
+    bool frameLastMoved;                // Last frame on which the unit changed position
 
     int lastHealth;                     // Health when last seen
     int lastShields;                    // Shields when last seen
@@ -50,7 +51,6 @@ public:
     int estimatedCompletionFrame;       // If not completed, the frame when we expect the unit to complete
 
     bool isFlying;                      // Whether the unit is flying
-    bool isMoving;                      // Whether the unit is moving
 
     int cooldownUntil;                  // The frame when the unit can use its ground weapon again
     int stimmedUntil;                   // If stimmed, when the stim will wear off

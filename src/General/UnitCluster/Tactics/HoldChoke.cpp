@@ -262,7 +262,7 @@ void UnitCluster::holdChoke(Choke *choke,
 
         if (pos.isValid() && BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos)))
         {
-            myUnit->move(pos, true);
+            myUnit->moveTo(pos, true);
             continue;
         }
 
@@ -273,7 +273,7 @@ void UnitCluster::holdChoke(Choke *choke,
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(myUnit->id) << "Target not walkable; falling back to goal boid";
 #endif
-            myUnit->move(pos, true);
+            myUnit->moveTo(pos, true);
             continue;
         }
 
@@ -283,7 +283,7 @@ void UnitCluster::holdChoke(Choke *choke,
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(myUnit->id) << "Target not walkable; moving directly to target";
 #endif
-            myUnit->move(targetPos, true);
+            myUnit->moveTo(targetPos, true);
         }
         else if (distDiff < 0)
         {
@@ -291,14 +291,14 @@ void UnitCluster::holdChoke(Choke *choke,
             CherryVis::log(myUnit->id) << "Target not walkable; pulling back";
 #endif
             // This isn't really correct for ranged units, but we don't expect them to be getting invalid positions often
-            myUnit->move(defendEnd, true);
+            myUnit->moveTo(defendEnd, true);
         }
         else
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(myUnit->id) << "Target not walkable; staying put";
 #endif
-            myUnit->move(myUnit->lastPosition, true);
+            myUnit->moveTo(myUnit->lastPosition, true);
         }
     }
 }
