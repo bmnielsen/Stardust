@@ -167,14 +167,16 @@ namespace BuildingPlacement
                     return;
                 }
             }
+
+            Log::Get() << "WARNING: No start block available";
         }
 
         void findBaseStaticDefenses()
         {
             for (auto &base : Map::allBases())
             {
-                // Main is handled by start block
-                if (base == Map::getMyMain()) continue;
+                // Main is handled by start block, unless one couldn't be found
+                if (base == Map::getMyMain() && baseStaticDefenses.find(base) != baseStaticDefenses.end()) continue;
 
                 // Find the end mineral patches, which are the patches furthest away from each other
                 BWAPI::Unit end1, end2;

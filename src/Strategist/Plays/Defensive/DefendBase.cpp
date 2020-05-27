@@ -25,6 +25,7 @@ DefendBase::DefendBase(Base *base)
         : Play((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
         , base(base)
         , squad(std::make_shared<DefendBaseSquad>(base))
+        , pylonLocation(BWAPI::TilePositions::Invalid)
         , pylon(nullptr)
 {
     General::addSquad(squad);
