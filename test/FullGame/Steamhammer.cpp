@@ -105,6 +105,8 @@ TEST(Steamhammer, Microwave_9PoolGasHatchSpeed7D)
 TEST(Steamhammer, 4PoolHard)
 {
     BWTest test;
+    test.map = Maps::GetOne("Destination");
+    test.randomSeed = 50443;
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
