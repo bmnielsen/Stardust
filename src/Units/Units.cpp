@@ -13,7 +13,7 @@
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_PROBE_STATUS false
 #define DEBUG_ZEALOT_STATUS true
-#define DEBUG_DRAGOON_STATUS false
+#define DEBUG_DRAGOON_STATUS true
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS false
 #define DEBUG_ENEMY_STATUS false
@@ -282,7 +282,12 @@ namespace Units
             if (!bwapiUnit->isVisible()) continue;
 
 #if DEBUG_ENEMY_STATUS
-            CherryVis::log(bwapiUnit->getID()) << "VIS;cmpl=" << bwapiUnit->isCompleted();
+            CherryVis::log(bwapiUnit->getID()) << "VIS"
+                                               << ";cmpl=" << bwapiUnit->isCompleted()
+                                               << ";iSA=" << bwapiUnit->isStartingAttack()
+                                               << ";iA=" << bwapiUnit->isAttacking()
+                                               << ";iAF=" << bwapiUnit->isAttackFrame()
+                                               << ";cdwn=" << bwapiUnit->getGroundWeaponCooldown();
 #endif
 
             // If the enemy just mind controlled one of our units, consider our unit destroyed

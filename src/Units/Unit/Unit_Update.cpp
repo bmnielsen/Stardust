@@ -86,7 +86,6 @@ void UnitImpl::update(BWAPI::Unit unit)
     type = unit->getType();
 
     lastSeen = BWAPI::Broodwar->getFrameCount();
-    if (unit->isAttacking()) lastSeenAttacking = BWAPI::Broodwar->getFrameCount();
 
     if (lastPosition != unit->getPosition())
     {
@@ -124,7 +123,12 @@ void UnitImpl::update(BWAPI::Unit unit)
 
     if (unit->isVisible())
     {
-        cooldownUntil = BWAPI::Broodwar->getFrameCount() + std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown());
+        auto cooldown = std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown());
+        if (cooldown > 0 && cooldown > (cooldownUntil - BWAPI::Broodwar->getFrameCount() + 1))
+        {
+            lastSeenAttacking = BWAPI::Broodwar->getFrameCount();
+        }
+        cooldownUntil = BWAPI::Broodwar->getFrameCount() + cooldown;
         stimmedUntil = BWAPI::Broodwar->getFrameCount() + unit->getStimTimer();
     }
 
