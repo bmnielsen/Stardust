@@ -176,6 +176,8 @@ TEST(Steamhammer, OverpoolTurtleZero)
 TEST(Steamhammer, 11Gas10PoolLurker)
 {
     BWTest test;
+    test.map = Maps::GetOne("Jade");
+    test.randomSeed = 22113;
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
