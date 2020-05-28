@@ -685,6 +685,17 @@ namespace Workers
         return bestWorker;
     }
 
+    std::vector<MyUnit> getBaseWorkers(Base *base)
+    {
+        std::vector<MyUnit> result;
+        result.reserve(baseWorkers[base].size());
+        for (auto &worker : baseWorkers[base])
+        {
+            result.push_back(worker);
+        }
+        return result;
+    }
+
     void reserveBaseWorkers(std::vector<MyUnit> &workers, Base *base)
     {
         for (auto &worker : baseWorkers[base])

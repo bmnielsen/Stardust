@@ -9,6 +9,7 @@
 #include "PathFinding.h"
 #include "BuildingPlacement.h"
 #include "Builder.h"
+#include "Workers.h"
 
 /*
  * General approach:
@@ -25,6 +26,7 @@ DefendBase::DefendBase(Base *base)
         : Play((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
         , base(base)
         , squad(std::make_shared<DefendBaseSquad>(base))
+        , workerDefenseSquad(std::make_shared<WorkerDefenseSquad>(base))
         , pylonLocation(BWAPI::TilePositions::Invalid)
         , pylon(nullptr)
 {
@@ -134,6 +136,8 @@ void DefendBase::update()
         return;
     }
 
+    workerDefenseSquad->execute(squad->enemyUnits, squad);
+
     // Otherwise reserve enough units to adequately defend the base
     int ourValue = 0;
     for (auto &unit : squad->getUnits())
@@ -184,6 +188,13 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
             }
         }
     }
+}
+
+void DefendBase::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
+                           const std::function<void(const MyUnit &)> &movableUnitCallback)
+{
+    Play::disband(removedUnitCallback, movableUnitCallback);
+    workerDefenseSquad->disband();
 }
 
 int DefendBase::desiredCannons()
