@@ -92,7 +92,7 @@
 		"HumanOpponent"				: false,
 		"SurrenderWhenHopeIsLost"   : false,
 
-        "ScoutHarassEnemy"      : false,
+        "ScoutHarassEnemy"      : true,
 		"AutoGasSteal"			: true,
 		"RandomGasStealRate"	: 0.0,
 
