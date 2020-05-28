@@ -58,12 +58,17 @@ void InformationManager::updateUnitInfo()
 	}
 
 	// Remove destroyed pylons from _ourPylons.
-	for (auto pylon = _ourPylons.begin(); pylon != _ourPylons.end(); ++pylon)
-	{
-		if (!(*pylon)->exists())
-		{
-			pylon = _ourPylons.erase(pylon);
-		}
+    for (auto pylon = _ourPylons.begin(); pylon != _ourPylons.end(); )
+    {
+        auto &pylonUnit = *pylon;
+        if (pylonUnit && pylonUnit->exists())
+        {
+            pylon++;
+        }
+        else
+        {
+            pylon = _ourPylons.erase(pylon);
+        }
 	}
 
 	bool anyNewPylons = false;
