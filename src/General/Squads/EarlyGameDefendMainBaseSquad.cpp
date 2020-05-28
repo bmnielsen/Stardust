@@ -144,8 +144,11 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     // Get enemy combat units in our base
     auto combatUnitSeenRecentlyPredicate = [](const Unit &unit)
     {
-        return UnitUtil::IsCombatUnit(unit->type) && UnitUtil::CanAttackGround(unit->type)
-               && unit->lastSeen > (BWAPI::Broodwar->getFrameCount() - 48);
+        if (unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 48)) return false;
+        if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) return false;
+        if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) return false;
+
+        return true;
     };
     Units::enemyInArea(enemyUnits, Map::getMyMain()->getArea(), combatUnitSeenRecentlyPredicate);
 
