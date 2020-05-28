@@ -176,8 +176,8 @@ void EarlyGameWorkerScout::update()
         return;
     }
 
-    // Wait until our target base is the enemy main
-    if (targetBase != Map::getEnemyStartingMain()) return;
+    // Wait until our target base is the enemy main and we have scouted it once
+    if (targetBase != Map::getEnemyStartingMain() || targetBase->lastScouted == -1) return;
 
     // Determine the next tile we want to scout
     auto tile = getHighestPriorityScoutTile();
