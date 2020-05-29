@@ -434,6 +434,22 @@ TEST(Steamhammer, 1012Gate)
     test.run();
 }
 
+TEST(Steamhammer, DTRush)
+{
+    BWTest test;
+    test.randomSeed = 16752;
+    test.map = Maps::GetOne("Benzene");
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "DTRush";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, RunOneRandom)
 {
     BWTest test;
