@@ -636,6 +636,16 @@ namespace Units
         return myUnits;
     }
 
+    std::set<MyUnit> &allMineCompletedOfType(BWAPI::UnitType type)
+    {
+        return myCompletedUnitsByType[type];
+    }
+
+    std::set<MyUnit> &allMineIncompleteOfType(BWAPI::UnitType type)
+    {
+        return myIncompleteUnitsByType[type];
+    }
+
     std::set<Unit> &allEnemy()
     {
         return enemyUnits;

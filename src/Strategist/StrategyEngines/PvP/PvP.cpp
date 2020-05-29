@@ -298,31 +298,136 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    auto buildObserver = [&prioritizedProductionGoals]()
+    auto buildObserver = [&prioritizedProductionGoals](int frameNeeded = 0)
     {
+        // If we know what frame the observer is needed, check if we need to start building it now
+        if (frameNeeded > 0)
+        {
+            auto framesNeededFor = [](BWAPI::UnitType buildingType)
+            {
+                int earliestCompletion = INT_MAX;
+                for (const auto &unit : Units::allMineIncompleteOfType(buildingType))
+                {
+                    if (unit->estimatedCompletionFrame < earliestCompletion)
+                    {
+                        earliestCompletion = unit->estimatedCompletionFrame;
+                    }
+                }
+
+                if (earliestCompletion == INT_MAX)
+                {
+                    return UnitUtil::BuildTime(buildingType);
+                }
+
+                return earliestCompletion - BWAPI::Broodwar->getFrameCount();
+            };
+            int frameStarted = frameNeeded - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Observer);
+            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Observatory) == 0)
+            {
+                frameStarted -= framesNeededFor(BWAPI::UnitTypes::Protoss_Observatory);
+
+                if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observatory) == 0 &&
+                    Units::countCompleted(BWAPI::UnitTypes::Protoss_Robotics_Facility) == 0)
+                {
+                    frameStarted -= framesNeededFor(BWAPI::UnitTypes::Protoss_Robotics_Facility);
+                }
+            }
+
+            // TODO: When the Producer understands to build something at a specific frame, use that
+            if ((BWAPI::Broodwar->getFrameCount() + 500) < frameStarted) return;
+        }
+
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                  BWAPI::UnitTypes::Protoss_Observer,
                                                                  1,
                                                                  1);
     };
 
-    // Always get an observer once we are on more than one gas
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1)
+    // Always get an observer once we are on more than one gas or if the enemy is known to have a DT
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1
+        || Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
     {
         buildObserver();
         return;
     }
 
-    // Get an observer early if we detect or suspect a dark templar rush
-    // TODO: Build a cannon in response to scout blocking instead of observer, current reaction will die to scout blocking 4-gate
-    if (enemyStrategy == ProtossStrategy::DarkTemplarRush || enemyStrategy == ProtossStrategy::BlockScouting)
+    // Break out if we have detected a strategy that precludes dark templar
+    if (enemyStrategy == ProtossStrategy::EarlyForge
+        || enemyStrategy == ProtossStrategy::ProxyRush
+        || enemyStrategy == ProtossStrategy::ZealotRush
+        || enemyStrategy == ProtossStrategy::ZealotAllIn
+        || enemyStrategy == ProtossStrategy::DragoonAllIn
+        || enemyStrategy == ProtossStrategy::FastExpansion
+        || enemyStrategy == ProtossStrategy::Turtle)
     {
-        int frameLimit = 7500
-                         - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Robotics_Facility)
-                         - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Observatory)
-                         - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Observer);
-        if (BWAPI::Broodwar->getFrameCount() < frameLimit) return;
-
-        buildObserver();
+        return;
     }
+
+    // If we haven't found the enemy main, be conservative and assume we might see DTs by frame 8000
+    auto enemyMain = Map::getEnemyMain();
+    if (!enemyMain)
+    {
+        buildObserver(8000);
+        return;
+    }
+
+    // Otherwise compute when the enemy could get DTs based on our scouting information
+
+    // First estimate when the enemy's templar archives will / might finish
+    int templarArchivesFinished;
+    auto &templarArchiveTimings = Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Templar_Archives);
+    if (!templarArchiveTimings.empty())
+    {
+        // We've scouted a templar archives directly, so use its completion frame
+        templarArchivesFinished = templarArchiveTimings.begin()->first + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Templar_Archives);
+    }
+    else
+    {
+        auto &citadelTimings = Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Citadel_of_Adun);
+        if (!citadelTimings.empty())
+        {
+            // We've scouted a citadel, so assume the templar archives is started as soon as the citadel finishes, unless
+            // we've scouted the base in the meantime
+            templarArchivesFinished = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Templar_Archives) +
+                                      std::max(enemyMain->lastScouted,
+                                               citadelTimings.begin()->first + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Citadel_of_Adun));
+        }
+        else
+        {
+            // We haven't scouted a templar archives or citadel, so assume the enemy started at frame 4000 unless we have scouted
+            // since then
+            templarArchivesFinished = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Templar_Archives) +
+                                      UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Citadel_of_Adun) +
+                                      std::max(4000, enemyMain->lastScouted);
+        }
+    }
+
+    // Next compute the transit time from the enemy's closest gateway
+    auto myMainChoke = Map::getMyMainChoke();
+    auto myPosition = myMainChoke ? myMainChoke->center : Map::getMyMain()->getPosition();
+    int closestGatewayFrames = PathFinding::ExpectedTravelTime(enemyMain->getPosition(),
+                                                               myPosition,
+                                                               BWAPI::UnitTypes::Protoss_Dark_Templar,
+                                                               PathFinding::PathFindingOptions::UseNearestBWEMArea);
+    for (const auto &unit : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Gateway))
+    {
+        if (!unit->completed) continue;
+
+        int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                     myPosition,
+                                                     BWAPI::UnitTypes::Protoss_Dark_Templar,
+                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea);
+        if (frames < closestGatewayFrames)
+        {
+            closestGatewayFrames = frames;
+        }
+    }
+
+    CherryVis::log() << "detection: expect templar archives @ " << templarArchivesFinished
+                     << "; DT @ " << (UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar) + templarArchivesFinished)
+                     << "; DT at our choke @ "
+                     << (closestGatewayFrames + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar) + templarArchivesFinished);
+
+    // Now sum everything up to get the frame to order the observer
+    buildObserver(templarArchivesFinished + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar) + closestGatewayFrames);
 }

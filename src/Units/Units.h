@@ -25,6 +25,10 @@ namespace Units
 
     std::set<MyUnit> &allMine();
 
+    std::set<MyUnit> &allMineCompletedOfType(BWAPI::UnitType type);
+
+    std::set<MyUnit> &allMineIncompleteOfType(BWAPI::UnitType type);
+
     std::set<Unit> &allEnemy();
 
     std::set<Unit> &allEnemyOfType(BWAPI::UnitType type);
