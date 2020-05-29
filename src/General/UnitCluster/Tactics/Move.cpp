@@ -24,7 +24,7 @@ namespace
 
     // TODO: These parameters need to be tuned
     const double goalWeight = 128.0;
-    const double cohesionWeight = 64.0 / sqrt(5.0);
+    const double cohesionWeight = 64.0;
     const int cohesionIgnoreDistance = 300;
     const double separationDetectionLimitFactor = 2.0;
     const double separationWeight = 96.0;
@@ -61,7 +61,7 @@ void UnitCluster::move(BWAPI::Position targetPosition)
             }
 
             // Scaling factor for cohesion boid is based on the size of the squad
-            cohesionFactor = cohesionWeight * pi / sqrt(area);
+            cohesionFactor = cohesionWeight / sqrt(area / pi);
         }
         else
         {

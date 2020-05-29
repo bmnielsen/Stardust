@@ -37,6 +37,13 @@ UnitCluster::UnitCluster(const MyUnit &unit)
 #endif
 }
 
+void UnitCluster::absorbCluster(const std::shared_ptr<UnitCluster> &other, BWAPI::Position targetPosition)
+{
+    units.insert(other->units.begin(), other->units.end());
+    area += other->area;
+    updatePositions(targetPosition);
+}
+
 void UnitCluster::addUnit(const MyUnit &unit)
 {
     if (units.find(unit) != units.end()) return;
@@ -78,6 +85,10 @@ std::set<MyUnit>::iterator UnitCluster::removeUnit(std::set<MyUnit>::iterator un
             ((center.y * (units.size() + 1)) - unit->lastPosition.y) / units.size());
 
     area -= unit->type.width() * unit->type.height();
+    if (area < 0)
+    {
+        Log::Get() << "ERROR: Cluster area negative after removing " << *unit;
+    }
 
     return newUnitIt;
 }
@@ -94,6 +105,7 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
 
         if (!unit->exists())
         {
+            area -= unit->type.width() * unit->type.height();
             unitIt = units.erase(unitIt);
             continue;
         }

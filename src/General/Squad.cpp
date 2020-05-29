@@ -153,8 +153,7 @@ void Squad::updateClusters()
             auto &combineInto = ((*firstIt)->units.size() >= (*secondIt)->units.size()) ? *firstIt : *secondIt;
             auto &combineFrom = ((*firstIt)->units.size() >= (*secondIt)->units.size()) ? *secondIt : *firstIt;
 
-            combineInto->units.insert(combineFrom->units.begin(), combineFrom->units.end());
-            combineInto->updatePositions(targetPosition);
+            combineInto->absorbCluster(combineFrom, targetPosition);
 
             // Update cluster of the moved units
             for (const auto &movedUnit : combineFrom->units)
