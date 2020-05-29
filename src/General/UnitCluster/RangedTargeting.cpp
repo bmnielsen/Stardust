@@ -279,9 +279,12 @@ Unit UnitCluster::ChooseRangedTarget(const MyUnit &attacker, std::set<Unit> &tar
     int bestScore = -999999;
     Unit bestTarget = nullptr;
 
-    // Determine if the target is a base that is not owned by the enemy
+    // Determine if the target is a base that is owned by the enemy and still has a resource depot
     auto targetBase = Map::baseNear(targetPosition);
-    bool targetIsEnemyBase = targetBase && targetBase->owner == BWAPI::Broodwar->enemy();
+    bool targetIsEnemyBase = targetBase
+            && targetBase->owner == BWAPI::Broodwar->enemy()
+            && targetBase->resourceDepot
+            && targetBase->resourceDepot->exists();
 
     int distanceToTarget = attacker->getDistance(targetPosition);
 
