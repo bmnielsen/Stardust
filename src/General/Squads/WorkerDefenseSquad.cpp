@@ -50,6 +50,8 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
     // Filter the units to get a set of units it makes sense to do worker defense against
     // The input set is already filtered to only contain units we consider to be threats
     std::set<Unit> enemyUnits;
+    int workerCount = 0;
+    int combatUnitCount = 0;
     for (const auto &unit : enemiesInBase)
     {
         // First sort out units we can't fight against
@@ -61,16 +63,29 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
         // - It is in or soon will be in our mineral line
         // - It is attacking one of our workers
 
-        if (Map::isInOwnMineralLine(unit->getTilePosition()))
+        auto addUnit = [&]()
         {
             enemyUnits.insert(unit);
+            if (unit->type.isWorker())
+            {
+                workerCount++;
+            }
+            else
+            {
+                combatUnitCount++;
+            }
+        };
+
+        if (Map::isInOwnMineralLine(unit->getTilePosition()))
+        {
+            addUnit();
             continue;
         }
 
         auto comingPosition = unit->predictPosition(24);
         if (comingPosition.isValid() && Map::isInOwnMineralLine(BWAPI::TilePosition(comingPosition)))
         {
-            enemyUnits.insert(unit);
+            addUnit();
             continue;
         }
 
@@ -86,7 +101,7 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
             }
         }
         if (!attackingAWorker) continue;
-        enemyUnits.insert(unit);
+        addUnit();
     }
 
     if (enemyUnits.empty())
@@ -107,7 +122,7 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
 
     // If the enemy has us outnumbered by more than one unit, rally all of our workers
     auto squadUnits = defendBaseSquad->getUnits();
-    if (enemyUnits.size() - squadUnits.size() > 1)
+    if (combatUnitCount - squadUnits.size() > 1)
     {
         executeFullWorkerDefense(enemyUnits, squadUnits);
         return;
