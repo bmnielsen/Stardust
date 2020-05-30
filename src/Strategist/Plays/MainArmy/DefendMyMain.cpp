@@ -30,6 +30,7 @@ void DefendMyMain::update()
     // Get enemy combat units in our base
     std::set<Unit> enemyCombatUnits;
     std::set<Unit> enemyWorkers;
+    bool scoutHarass = true;
     bool enemyFlyingUnit = false;
     Unit gasSteal = nullptr;
     for (const Unit &unit : Units::allEnemy())
@@ -44,6 +45,7 @@ void DefendMyMain::update()
         }
         else if (UnitUtil::IsCombatUnit(unit->type) && unit->type.canAttack())
         {
+            scoutHarass = false;
             enemyCombatUnits.insert(unit);
             if (unit->isFlying) enemyFlyingUnit = true;
         }
@@ -92,13 +94,14 @@ void DefendMyMain::update()
     // If there are more than two workers, consider this to be a worker rush and add them to the set of combat units
     if (enemyWorkers.size() > 2)
     {
+        scoutHarass = false;
         enemyCombatUnits.insert(enemyWorkers.begin(), enemyWorkers.end());
     }
 
     workerDefenseSquad->execute(enemyCombatUnits, squad);
 
     // Keep track of when the squad was last regrouping, considering an empty squad to be regrouping
-    if (!enemyCombatUnits.empty() && (squad->getUnits().empty() || squad->hasClusterWithActivity(UnitCluster::Activity::Regrouping)))
+    if (!enemyCombatUnits.empty() && !scoutHarass && (squad->getUnits().empty() || squad->hasClusterWithActivity(UnitCluster::Activity::Regrouping)))
     {
         lastRegroupFrame = BWAPI::Broodwar->getFrameCount();
     }
