@@ -16,6 +16,7 @@
 #define DEBUG_DRAGOON_STATUS true
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS false
+#define DEBUG_PRODUCINGBUILDING_STATUS true
 #define DEBUG_ENEMY_STATUS false
 #endif
 
@@ -447,6 +448,9 @@ namespace Units
 #if DEBUG_OBSERVER_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Observer;
 #endif
+#if DEBUG_PRODUCINGBUILDING_STATUS
+            output = output || (unit->type.isBuilding() && unit->type.canProduce());
+#endif
 
             if (!output) continue;
 
@@ -487,13 +491,13 @@ namespace Units
             {
                 auto speed = sqrt(unit->bwapiUnit->getVelocityX() * unit->bwapiUnit->getVelocityX()
                                   + unit->bwapiUnit->getVelocityY() * unit->bwapiUnit->getVelocityY());
-                debug << "spd=" << ((int) (100.0 * speed / unit->type.topSpeed()));
+                debug << "spd=" << ((int) (100.0 * speed / unit->type.topSpeed()))
+                      << ";mvng=" << unit->bwapiUnit->isMoving() << ";rdy=" << unit->isReady()
+                      << ";stk=" << unit->bwapiUnit->isStuck()
+                      << ";lstmv=" << (unit->getLastMoveFrame() - BWAPI::Broodwar->getFrameCount());
             }
 
-            debug << ";mvng=" << unit->bwapiUnit->isMoving() << ";rdy=" << unit->isReady()
-                  << ";stk=" << unit->bwapiUnit->isStuck()
-                  << ";lstmv=" << (unit->getLastMoveFrame() - BWAPI::Broodwar->getFrameCount())
-                  << ";cdn=" << (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
+            debug << ";cdn=" << (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
 
             if (unit->getUnstickUntil() >= BWAPI::Broodwar->getFrameCount())
             {
@@ -508,6 +512,25 @@ namespace Units
                 debug << "lstatk=" << myDragoon->getLastAttackStartedAt();
                 debug << ";nxtatk=" << myDragoon->getNextAttackPredictedAt();
                 debug << ";stkf=" << myDragoon->getPotentiallyStuckSince();
+            }
+
+            if (unit->type.isBuilding() && unit->type.canProduce())
+            {
+                debug << ";q=[";
+                bool first = true;
+                for (const auto &type : unit->bwapiUnit->getTrainingQueue())
+                {
+                    if (first)
+                    {
+                        first = false;
+                    }
+                    else
+                    {
+                        debug << ",";
+                    }
+                    debug << type;
+                }
+                debug << "]";
             }
 
             CherryVis::log(unit->id) << debug.str();
