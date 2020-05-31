@@ -60,6 +60,8 @@ namespace Map
 
     int minChokeWidth();
 
+    std::set<const BWEM::Area *> &getMyMainAreas();
+
     void dumpVisibilityHeatmap();
 
     // Walkable tiles are defined here as:

@@ -36,7 +36,17 @@ void DefendMyMain::update()
     for (const Unit &unit : Units::allEnemy())
     {
         if (!unit->lastPositionValid) continue;
-        if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) != Map::getMyMain()->getArea()) continue;
+
+        bool isInArea = false;
+        for (const auto &area : Map::getMyMainAreas())
+        {
+            if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)
+            {
+                isInArea = true;
+                break;
+            }
+        }
+        if (!isInArea) continue;
 
         if (unit->type.isWorker())
         {

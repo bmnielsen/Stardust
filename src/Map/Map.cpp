@@ -25,6 +25,9 @@ namespace Map
         std::map<const BWEM::ChokePoint *, Choke *> chokes;
         int _minChokeWidth;
 
+        Choke *myStartingMainChoke;
+        std::set<const BWEM::Area *> myStartingMainAreas;
+
         std::vector<bool> tileWalkability;
         std::vector<int> tileUnwalkableProximity;
         bool tileWalkabilityUpdated;
@@ -651,6 +654,23 @@ namespace Map
 #endif
         }
 
+        Choke *computeMyMainChoke()
+        {
+            auto main = Map::getMyMain();
+            auto natural = Map::getMyNatural();
+            if (!main || !natural) return nullptr;
+
+            // Main choke is defined as the last choke traversed in a path from the main to the natural
+            auto path = PathFinding::GetChokePointPath(
+                    main->getPosition(),
+                    natural->getPosition(),
+                    BWAPI::UnitTypes::Protoss_Dragoon,
+                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            if (path.empty()) return nullptr;
+
+            return choke(*path.rbegin());
+        }
+
         // Dumps heatmaps for static map things like ground height
         void dumpStaticHeatmaps()
         {
@@ -759,6 +779,8 @@ namespace Map
         startingLocationBases.clear();
         chokes.clear();
         _minChokeWidth = 0;
+        myStartingMainChoke = nullptr;
+        myStartingMainAreas.clear();
         tileWalkability.clear();
         tileUnwalkableProximity.clear();
         tileWalkabilityUpdated = false;
@@ -830,6 +852,31 @@ namespace Map
             }
         }
         Log::Debug() << "Found " << bases.size() << " bases";
+
+        myStartingMainChoke = computeMyMainChoke();
+        myStartingMainAreas.insert(getMyMain()->getArea());
+        if (myStartingMainChoke)
+        {
+            // Main areas consist of all areas where the path to the natural goes through the main choke
+            for (const auto &area : BWEM::Map::Instance().Areas())
+            {
+                bool hasMainChoke = false;
+                for (const auto &choke : PathFinding::GetChokePointPath(
+                        BWAPI::Position(area.Top()),
+                        getMyNatural()->getPosition(),
+                        BWAPI::UnitTypes::Protoss_Dragoon,
+                        PathFinding::PathFindingOptions::UseNearestBWEMArea))
+                {
+                    if (choke == myStartingMainChoke->choke)
+                    {
+                        hasMainChoke = true;
+                        break;
+                    }
+                }
+
+                if (hasMainChoke) myStartingMainAreas.insert(&area);
+            }
+        }
 
         computeNarrowChokeTiles();
         computeLeafAreaTiles();
@@ -1152,24 +1199,17 @@ namespace Map
 
     Choke *getMyMainChoke()
     {
-        auto main = getMyMain();
-        auto natural = getMyNatural();
-        if (!main || !natural) return nullptr;
-
-        // Main choke is defined as the last choke traversed in a path from the main to the natural
-        auto path = PathFinding::GetChokePointPath(
-                main->getPosition(),
-                natural->getPosition(),
-                BWAPI::UnitTypes::Protoss_Dragoon,
-                PathFinding::PathFindingOptions::UseNearestBWEMArea);
-        if (path.empty()) return nullptr;
-
-        return choke(*path.rbegin());
+        return myStartingMainChoke;
     }
 
     int minChokeWidth()
     {
         return _minChokeWidth;
+    }
+
+    std::set<const BWEM::Area *> &getMyMainAreas()
+    {
+        return myStartingMainAreas;
     }
 
     void dumpVisibilityHeatmap()

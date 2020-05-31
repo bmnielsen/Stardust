@@ -150,7 +150,10 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
 
         return true;
     };
-    Units::enemyInArea(enemyUnits, Map::getMyMain()->getArea(), combatUnitSeenRecentlyPredicate);
+    for (const auto &area : Map::getMyMainAreas())
+    {
+        Units::enemyInArea(enemyUnits, area, combatUnitSeenRecentlyPredicate);
+    }
 
     bool enemyInOurBase = !enemyUnits.empty();
 
@@ -163,10 +166,13 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     // If there are no enemy combat units, include enemy buildings to defend against gas steals or other cheese
     if (enemyUnits.empty())
     {
-        Units::enemyInArea(enemyUnits, Map::getMyMain()->getArea(), [](const Unit &unit)
+        for (const auto &area : Map::getMyMainAreas())
         {
-            return unit->type.isBuilding() && !unit->isFlying;
-        });
+            Units::enemyInArea(enemyUnits, area, [](const Unit &unit)
+            {
+                return unit->type.isBuilding() && !unit->isFlying;
+            });
+        }
 
         enemyInOurBase = !enemyUnits.empty();
     }
