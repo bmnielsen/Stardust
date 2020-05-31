@@ -44,9 +44,16 @@ Tasks:
 #include "Bullets.h"
 #include "Players.h"
 
+// While instrumenting we have a lower global frame limit to ensure we get data if the game locks up
 #if INSTRUMENTATION_ENABLED_VERBOSE
-// While instrumenting we have a global frame limit to ensure we get data if the game locks up
 #define FRAME_LIMIT 30000
+#else
+#if INSTRUMENTATION_ENABLED
+#define FRAME_LIMIT 50000
+#endif
+#endif
+
+#if INSTRUMENTATION_ENABLED_VERBOSE
 
 // Heatmaps are quite large, so we don't always want to write them every frame
 // These defines configure what frequency to dump them, or 0 to disable them
