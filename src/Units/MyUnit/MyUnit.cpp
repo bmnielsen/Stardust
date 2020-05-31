@@ -37,7 +37,9 @@ void MyUnitImpl::update(BWAPI::Unit unit)
     moveCommand = nullptr;
 
     // Guard against buildings having a deep training queue
-    if (unit->getTrainingQueue().size() > 1 && unit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))
+    if (BWAPI::Broodwar->self()->supplyUsed() < 380 &&
+        unit->getTrainingQueue().size() > 1 &&
+        unit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))
     {
         Log::Get() << "WARNING: Training queue for " << unit->getType() << " @ " << unit->getTilePosition()
                    << " is too deep! Cancelling later units.";
