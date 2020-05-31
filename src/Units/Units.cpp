@@ -181,7 +181,8 @@ namespace Units
             if (unit->type.isBuilding() && includeMorphs)
             {
                 auto morphsFrom = UnitUtil::MorphsFrom(unit->type);
-                if (morphsFrom.first != BWAPI::UnitTypes::Zerg_Drone)
+                if (morphsFrom.first != BWAPI::UnitTypes::None &&
+                    morphsFrom.first != BWAPI::UnitTypes::Zerg_Drone)
                 {
                     enemyUnitTimings[morphsFrom.first].emplace_back(std::make_pair(startFrame - UnitUtil::BuildTime(morphsFrom.first),
                                                                                    BWAPI::Broodwar->getFrameCount()));
