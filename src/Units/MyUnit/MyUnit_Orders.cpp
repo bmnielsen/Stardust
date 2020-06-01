@@ -2,12 +2,6 @@
 
 void MyUnitImpl::move(BWAPI::Position position, bool force)
 {
-    if (!position.isValid())
-    {
-        Log::Get() << "ERROR: MOVE TO INVALID POSITION: " << *this << " - " << position;
-        CherryVis::log(id) << "ERROR: MOVE TO INVALID POSITION: " << *this << " - " << position;
-        return;
-    }
     if (issuedOrderThisFrame)
     {
         Log::Get() << "DUPLICATE ORDER: " << *this << ": Move to " << BWAPI::WalkPosition(position) << (force ? " (forced)" : "");

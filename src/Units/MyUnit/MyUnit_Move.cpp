@@ -50,6 +50,13 @@ namespace
 
 void MyUnitImpl::moveTo(BWAPI::Position position, bool direct)
 {
+    if (!position.isValid())
+    {
+        Log::Get() << "ERROR: MOVE TO INVALID POSITION: " << *this << " - " << position;
+        CherryVis::log(id) << "ERROR: MOVE TO INVALID POSITION: " << *this << " - " << position;
+        return;
+    }
+
     moveCommand = std::make_unique<MoveCommand>(position, direct);
 }
 
