@@ -178,3 +178,16 @@ TEST(Locutus, 2GateDTRush)
 
     test.run();
 }
+
+TEST(Locutus, CannonFirst4GateGoon)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        UAlbertaBot::LocutusBotModule::setStrategy("CannonFirst4GateGoon");
+        return new UAlbertaBot::LocutusBotModule();
+    };
+
+    test.run();
+}
