@@ -227,6 +227,9 @@ namespace Map
             // Only consider non-neutral buildings
             if (!unit->type.isBuilding() && !unit->type.isAddon()) return;
 
+            // Only consider base ownership for self with depots
+            if (unit->player == BWAPI::Broodwar->self() && !unit->type.isResourceDepot()) return;
+
             // Check if there is a base near the building
             auto nearbyBase = baseNear(unit->lastPosition);
             if (nearbyBase)
