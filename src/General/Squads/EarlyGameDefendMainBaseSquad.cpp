@@ -157,7 +157,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
 
     bool enemyInOurBase = !enemyUnits.empty();
 
-    // If there is a choke, get enemy combat units very close to the default target position
+    // If there is a choke, get enemy combat units very close to it
     if (choke)
     {
         Units::enemyInRadius(enemyUnits, choke->center, 64, combatUnitSeenRecentlyPredicate);
@@ -192,9 +192,9 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, false);
 
     // TODO: Needs tuning
-    bool attack =
-            simResult.myPercentLost() <= 0.001 ||
-            simResult.percentGain() > -0.1;
+    bool attack = (choke && choke == simResult.narrowChoke) ||
+                  simResult.myPercentLost() <= 0.001 ||
+                  simResult.percentGain() > -0.1;
 
 #if DEBUG_COMBATSIM
     CherryVis::log() << BWAPI::WalkPosition(cluster.center)

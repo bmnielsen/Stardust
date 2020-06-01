@@ -9,7 +9,6 @@
 #include "PathFinding.h"
 #include "BuildingPlacement.h"
 #include "Builder.h"
-#include "Workers.h"
 
 /*
  * General approach:
@@ -144,8 +143,6 @@ void DefendBase::update()
     {
         ourValue += CombatSim::unitValue(unit);
     }
-
-    CherryVis::log() << label << ": " << squad->enemyUnits.size() << " enemy threats; enemy value " << enemyValue << "; our initial value " << ourValue;
 
     int requestedUnits = 0;
     while (ourValue < (enemyValue * 6) / 5)
