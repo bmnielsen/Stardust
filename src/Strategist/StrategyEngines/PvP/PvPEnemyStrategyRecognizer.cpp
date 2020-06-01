@@ -88,8 +88,13 @@ namespace
             // Expect first pylon by frame 1300
             if (BWAPI::Broodwar->getFrameCount() > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
 
-            // Expect first gateway by frame 2200
-            if (BWAPI::Broodwar->getFrameCount() > 2200 && !countAtLeast(BWAPI::UnitTypes::Protoss_Gateway, 1)) return true;
+            // Expect first gateway or forge by frame 2200
+            if (BWAPI::Broodwar->getFrameCount() > 2200
+                && !countAtLeast(BWAPI::UnitTypes::Protoss_Gateway, 1)
+                && !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1))
+            {
+                return true;
+            }
 
             // Expect second pylon by frame 4000
             if (BWAPI::Broodwar->getFrameCount() > 4000 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 2)) return true;
