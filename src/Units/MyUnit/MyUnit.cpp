@@ -52,6 +52,17 @@ void MyUnitImpl::update(BWAPI::Unit unit)
         Log::Get() << "Queue: " << units.str();
         unit->cancelTrain(1);
     }
+
+    // Cancel dying incomplete buildings
+    if (type.isBuilding() &&
+        !completed &&
+        bwapiUnit->isUnderAttack() &&
+        bwapiUnit->canCancelConstruction() &&
+        (lastShields + lastHealth) < 20)
+    {
+        Log::Get() << "Cancelling dying " << type << " @ " << getTilePosition();
+        bwapiUnit->cancelConstruction();
+    }
 }
 
 bool MyUnitImpl::isBeingManufacturedOrCarried() const
