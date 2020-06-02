@@ -141,6 +141,15 @@ void EarlyGameWorkerScout::update()
     // Mark the play completed if the scout dies
     if (!scout->exists())
     {
+        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted)
+        {
+            Strategist::setWorkerScoutStatus(Strategist::WorkerScoutStatus::ScoutingCompleted);
+        }
+        else
+        {
+            Strategist::setWorkerScoutStatus(Strategist::WorkerScoutStatus::ScoutingFailed);
+        }
+
         status.complete = true;
         return;
     }

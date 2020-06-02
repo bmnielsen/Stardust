@@ -310,6 +310,8 @@ namespace Strategist
                     return "ScoutingBlocked";
                 case WorkerScoutStatus::ScoutingFailed:
                     return "ScoutingFailed";
+                case WorkerScoutStatus::ScoutingCompleted:
+                    return "ScoutingCompleted";
             }
 
             return "Unknown";
