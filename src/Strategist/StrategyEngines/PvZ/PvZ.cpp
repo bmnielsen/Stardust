@@ -132,8 +132,8 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
 
-            // Get six zealots before dragoons
-            int zealotsRequired = 6 - zealotCount;
+            // Get at least six zealots before dragoons, more if the enemy has tons of lings
+            int zealotsRequired = std::min(6, Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 3) - zealotCount;
 
             // Get two zealots at highest priority
             if (zealotCount < 2)
@@ -236,18 +236,18 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::Normal:
         {
-            // Build at least two zealots then transition into dragoons
+            // Build at least three zealots then transition into dragoons
             auto mainArmyPlay = getMainArmyPlay(plays);
             auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
             auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
 
             int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
                             completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
-            if (unitCount < 2)
+            if (unitCount < 3)
             {
                 prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
-                                                                              2 - unitCount,
+                                                                              3 - unitCount,
                                                                               2);
             }
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
