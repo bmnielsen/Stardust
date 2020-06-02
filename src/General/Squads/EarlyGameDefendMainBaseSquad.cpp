@@ -155,12 +155,29 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         Units::enemyInArea(enemyUnits, area, combatUnitSeenRecentlyPredicate);
     }
 
-    bool enemyInOurBase = !enemyUnits.empty();
+    // Determine if there is an enemy in our base, i.e. has passed the choke
+    bool enemyInOurBase;
+    if (choke && choke->isNarrowChoke)
+    {
+        enemyInOurBase = false;
+        for (const auto &unit : enemyUnits)
+        {
+            if (!Map::isInNarrowChoke(unit->getTilePosition()))
+            {
+                enemyInOurBase = true;
+                break;
+            }
+        }
+    }
+    else
+    {
+        enemyInOurBase = !enemyUnits.empty();
+    }
 
-    // If there is a choke, get enemy combat units very close to it
+    // If there is a choke, get enemy combat units close to it
     if (choke)
     {
-        Units::enemyInRadius(enemyUnits, choke->center, 64, combatUnitSeenRecentlyPredicate);
+        Units::enemyInRadius(enemyUnits, choke->center, 96, combatUnitSeenRecentlyPredicate);
     }
 
     // If there are no enemy combat units, include enemy buildings to defend against gas steals or other cheese
@@ -243,8 +260,23 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         // Reset our defensive position to the choke when all enemy units are out of our base
         if (!enemyInOurBase && choke) targetPosition = choke->center;
 
-        // If defending at a narrow choke, use hold choke micro, otherwise just attack
-        if (!enemyInOurBase && choke && choke->isNarrowChoke)
+        // Check if the enemy has static defense (e.g. cannon rush)
+        bool hasStaticDefense = false;
+        for (const auto &unit : enemyUnits)
+        {
+            if (UnitUtil::IsStationaryAttacker(unit->type))
+            {
+                hasStaticDefense = true;
+                break;
+            }
+        }
+
+        // Choose the type of micro depending on whether the enemy has static defense, we are holding a narrow choke, or neither
+        if (hasStaticDefense)
+        {
+            cluster.containBase(unitsAndTargets, enemyUnits, targetPosition);
+        }
+        else if (!enemyInOurBase && choke && choke->isNarrowChoke)
         {
             cluster.holdChoke(choke, chokeDefendEnd, unitsAndTargets);
         }
