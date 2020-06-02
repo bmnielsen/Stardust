@@ -119,7 +119,7 @@ void UnitCluster::holdChoke(Choke *choke,
             CherryVis::log(myUnit->id) << "HoldChoke: Attacking " << *unitAndTarget.second;
 #endif
             myUnit->attackUnit(unitAndTarget.second, unitsAndTargets, false);
-            return;
+            continue;
         }
 
         // This unit should move, so add it to the vector

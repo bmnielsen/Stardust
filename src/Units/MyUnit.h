@@ -38,7 +38,7 @@ public:
 
     void move(BWAPI::Position position, bool force = false);
 
-    void attack(BWAPI::Unit target);
+    void attack(BWAPI::Unit target, bool force = false);
 
     void rightClick(BWAPI::Unit target);
 

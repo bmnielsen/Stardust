@@ -35,7 +35,7 @@ void MyUnitImpl::move(BWAPI::Position position, bool force)
 #endif
 }
 
-void MyUnitImpl::attack(BWAPI::Unit target)
+void MyUnitImpl::attack(BWAPI::Unit target, bool force)
 {
     if (!target || !target->exists())
     {
@@ -49,7 +49,8 @@ void MyUnitImpl::attack(BWAPI::Unit target)
     }
 
     BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
-    if (!bwapiUnit->isStuck() &&
+    if (!force &&
+        !bwapiUnit->isStuck() &&
         currentCommand.getType() == BWAPI::UnitCommandTypes::Attack_Unit &&
         currentCommand.getTarget() == target)
     {

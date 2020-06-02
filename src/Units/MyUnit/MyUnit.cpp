@@ -68,28 +68,45 @@ bool MyUnitImpl::isBeingManufacturedOrCarried() const
 
 void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking)
 {
-    int cooldown = target->isFlying ? bwapiUnit->getAirWeaponCooldown() : bwapiUnit->getGroundWeaponCooldown();
-    int range = Players::weaponRange(player, getWeapon(target));
-
-    // If the target is already in range, just attack it
-    if (bwapiUnit->getDistance(target->bwapiUnit) <= range)
+    // If the enemy is a long way away, move to it
+    int dist = getDistance(target);
+    if (dist > 320)
     {
-        attack(target->bwapiUnit);
+        moveTo(target->lastPosition);
         return;
     }
 
-    // Otherwise attack when our cooldown is almost over and we expect to be in range shortly
-    if (cooldown <= BWAPI::Broodwar->getRemainingLatencyFrames() + 2)
+    // Determine if we should force the attack command
+    // We do this if there is a high likelihood we are moving backwards because of pathing issues
+    bool forceAttackCommand = false;
+    auto predictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+    if (bwapiUnit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 6))
     {
-        auto predictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
-        auto predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
-        auto predictedDist = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, predictedTargetPosition);
+        forceAttackCommand = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, target->lastPosition) > dist;
+    }
 
-        if (predictedDist <= range)
-        {
-            attack(target->bwapiUnit);
-            return;
-        }
+    // If the target is already in range, just attack it
+    int range = Players::weaponRange(player, getWeapon(target));
+    if (dist <= range)
+    {
+        attack(target->bwapiUnit, forceAttackCommand);
+        return;
+    }
+
+    // If the target is predicted to be in range shortly, attack it
+    auto predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+    auto predictedDist = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, predictedTargetPosition);
+    if (predictedDist <= range)
+    {
+        attack(target->bwapiUnit, forceAttackCommand);
+        return;
+    }
+
+    // If the target is stationary or is close and moving towards us, attack it
+    if (predictedTargetPosition == target->lastPosition || (predictedDist <= dist && predictedDist < std::min(range + 64, 128)))
+    {
+        attack(target->bwapiUnit, forceAttackCommand);
+        return;
     }
 
     // Plot an intercept course
