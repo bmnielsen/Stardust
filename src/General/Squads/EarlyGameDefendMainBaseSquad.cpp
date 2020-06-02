@@ -144,7 +144,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     // Get enemy combat units in our base
     auto combatUnitSeenRecentlyPredicate = [](const Unit &unit)
     {
-        if (unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 48)) return false;
+        if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 48)) return false;
         if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) return false;
         if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) return false;
 
@@ -191,9 +191,9 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     // Run combat sim
     auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, false);
 
+    // Make the attack / retreat decision based on the sim result
     // TODO: Needs tuning
-    bool attack = (choke && choke == simResult.narrowChoke) ||
-                  simResult.myPercentLost() <= 0.001 ||
+    bool attack = simResult.myPercentLost() <= 0.001 ||
                   simResult.percentGain() > -0.1;
 
 #if DEBUG_COMBATSIM
@@ -203,6 +203,22 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
                      << "; %g=" << simResult.percentGain()
                      << (attack ? "; ATTACK" : "; RETREAT");
 #endif
+
+    // If we are defending a narrow choke, keep trying to hold it as long as we have a unit in the choke
+    if (choke && choke->isNarrowChoke)
+    {
+        for (const auto &unit : cluster.units)
+        {
+            if (Map::isInNarrowChoke(unit->getTilePosition()))
+            {
+#if DEBUG_COMBATSIM
+                CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": Overriding to attack as we have unit in choke";
+#endif
+                attack = true;
+                break;
+            }
+        }
+    }
 
     cluster.addSimResult(simResult, attack);
 
