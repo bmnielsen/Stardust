@@ -256,8 +256,6 @@ namespace
 
 PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
 {
-    auto enemyMain = Map::getEnemyStartingMain();
-
     auto strategy = enemyStrategy;
     for (int i = 0; i < 10; i++)
     {
@@ -299,7 +297,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 }
 
                 // Default to something reasonable if our scouting completely fails
-                if ((!enemyMain || enemyMain->lastScouted == -1) && BWAPI::Broodwar->getFrameCount() > 4000)
+                if (BWAPI::Broodwar->getFrameCount() > 4000)
                 {
                     strategy = ProtossStrategy::OneGateCore;
                     continue;
