@@ -23,7 +23,7 @@ private:
     enum class ProtossStrategy
     {
         Unknown,
-        GasSteal,           // Extractor in our main
+        GasSteal,           // Assimilator in our main
         ProxyRush,          // Detected by seeing fewer buildings than expected in main
         ZealotRush,         // Detected by seeing early gates or early zealots
         EarlyForge,         // Detected by seeing a forge before core or second gate, can indicate forge expand, "fake" forge expand, or cannon rush
