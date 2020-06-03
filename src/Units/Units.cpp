@@ -325,6 +325,39 @@ namespace Units
             trackEnemyUnitTimings(unit, it == unitIdToEnemyUnit.end());
         }
 
+        // Update visible neutral units
+        // We are looking for enemy addons that have gone neutral
+        for (auto bwapiUnit : BWAPI::Broodwar->neutral()->getUnits())
+        {
+            if (!bwapiUnit->isVisible()) continue;
+
+            auto it = unitIdToEnemyUnit.find(bwapiUnit->getID());
+            if (it != unitIdToEnemyUnit.end())
+            {
+                auto &unit = it->second;
+
+                if (unit->type.isBuilding())
+                {
+                    Log::Get() << "Enemy switched to neutral: " << *unit;
+                }
+
+                if (unit->lastPositionValid && !unit->beingManufacturedOrCarried)
+                {
+                    Players::grid(unit->player).unitDestroyed(unit->type, unit->lastPosition, unit->completed, unit->burrowed);
+#if DEBUG_GRID_UPDATES
+                    CherryVis::log(unit->id) << "Grid::unitDestroyed " << unit->lastPosition;
+                    Log::Debug() << *unit << ": Grid::unitDestroyed " << unit->lastPosition;
+#endif
+                }
+
+                unit->bwapiUnit = nullptr; // Signals to all holding a copy of the pointer that this unit is dead
+
+                enemyUnits.erase(unit);
+                unitIdToEnemyUnit.erase(it);
+                enemyUnitsByType[unit->type].erase(unit);
+            }
+        }
+
         // Update enemy units in the fog
         std::vector<Unit> destroyedEnemyUnits;
         for (auto &unit : enemyUnits)
