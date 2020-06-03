@@ -183,33 +183,33 @@
 
 		"MapSpecificStrategy" :
 		{
-			"8000dc6116e405ab878c14bb0f0cde8efa4d640c vT" : { "Protoss" : [
+			"9e5770c62b523042e8af590c8dc267e6c12637fc vT" : { "Protoss" : [
 				{ "Weight" : 20, "Strategy" : "9-9GateDefensive" },
 				{ "Weight" : 25, "Strategy" : "10Gate25NexusFE" },
 				{ "Weight" : 25, "Strategy" : "13Nexus" },
 				{ "Weight" : 25, "Strategy" : "DTDrop" },
 				{ "Weight" : 25, "Strategy" : "10-15GateGoon" }
 			]},
-			"8000dc6116e405ab878c14bb0f0cde8efa4d640c vP" : { "Protoss" : [
+			"9e5770c62b523042e8af590c8dc267e6c12637fc vP" : { "Protoss" : [
 				{ "Weight" : 40, "Strategy" : "9-9GateDefensive" },
 				{ "Weight" : 40, "Strategy" : "2GateDTRush" },
 				{ "Weight" : 30, "Strategy" : "FakeDTRush" },
 				{ "Weight" : 50, "Strategy" : "4GateGoon" }
 			]},
-			"8000dc6116e405ab878c14bb0f0cde8efa4d640c vZ" : { "Protoss" : [
+			"9e5770c62b523042e8af590c8dc267e6c12637fc vZ" : { "Protoss" : [
 				{ "Weight" : 50, "Strategy" : "9-9GateDefensive" },
 				{ "Weight" : 40, "Strategy" : "CannonFirst4GateGoon" },
 				{ "Weight" : 40, "Strategy" : "4GateGoon" }
 			]},
-			"8000dc6116e405ab878c14bb0f0cde8efa4d640c vU" : { "Protoss" : [
+			"9e5770c62b523042e8af590c8dc267e6c12637fc vU" : { "Protoss" : [
 				{ "Weight" : 50, "Strategy" : "CannonFirst4GateGoon" }
 			]},
 			
-			"6f5295624a7e3887470f3f2e14727b1411321a67" : { "Protoss" : [
+			"8b3e8ed9ce9620a606319ba6a593ed5c894e51df" : { "Protoss" : [
 				{ "Weight" : 50, "Strategy" : "PlasmaProxy2Gate" },
 				{ "Weight" : 50, "Strategy" : "PlasmaCarriers" }
 			]},
-			"6f5295624a7e3887470f3f2e14727b1411321a67 vZ" : { "Protoss" : [
+			"8b3e8ed9ce9620a606319ba6a593ed5c894e51df vZ" : { "Protoss" : [
 				{ "Weight" : 50, "Strategy" : "PlasmaProxy2Gate" },
 				{ "Weight" : 50, "Strategy" : "PlasmaCorsairsCarriers" }
 			]}
