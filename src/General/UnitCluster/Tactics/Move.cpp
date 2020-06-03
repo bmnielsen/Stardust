@@ -63,11 +63,6 @@ void UnitCluster::move(BWAPI::Position targetPosition)
             // Scaling factor for cohesion boid is based on the size of the squad
             cohesionFactor = cohesionWeight / sqrt(area / pi);
         }
-        else
-        {
-            Log::Get() << "WARNING: Cluster @ " << BWAPI::WalkPosition(center) << " moving towards position without grid @ "
-                       << BWAPI::TilePosition(targetPosition);
-        }
     }
 
     for (const auto &unit : units)

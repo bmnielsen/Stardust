@@ -5,7 +5,7 @@
 #include "Map.h"
 
 #if INSTRUMENTATION_ENABLED
-#define DEBUG_SQUAD_TARGET false
+#define DEBUG_SQUAD_TARGET true
 #endif
 
 MopUpSquad::MopUpSquad() : Squad("Mop Up")
@@ -81,12 +81,14 @@ void MopUpSquad::execute(UnitCluster &cluster)
     }
 
     // We don't know of any enemy buildings, so try to find one
-    // TODO: Make this based on when we last scouted tiles
     // TODO: Somehow handle terran floated buildings
     int bestBaseScoutedAt = BWAPI::Broodwar->getFrameCount();
     Base *bestBase = nullptr;
     for (auto &base : Map::getUntakenExpansions(BWAPI::Broodwar->enemy()))
     {
+        // If the base has been scouted in the past few minutes, skip it
+        if (base->lastScouted > (BWAPI::Broodwar->getFrameCount() - 5000)) continue;
+
         if (base->lastScouted < bestBaseScoutedAt)
         {
             bestBaseScoutedAt = base->lastScouted;
@@ -104,6 +106,49 @@ void MopUpSquad::execute(UnitCluster &cluster)
         cluster.setActivity(UnitCluster::Activity::Moving);
         cluster.move(bestBase->getPosition());
         return;
+    }
+
+    // Move towards the accessible tile that we have seen longest ago
+    auto grid = PathFinding::getNavigationGrid(Map::getMyMain()->getTilePosition());
+    if (grid)
+    {
+        BWAPI::TilePosition bestTile = BWAPI::TilePositions::Invalid;
+        int bestFrame = INT_MAX;
+        int bestDist = INT_MAX;
+        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        {
+            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            {
+                // Consider frame seen in "buckets" of 1000
+                int frame = Map::lastSeen(x, y) / 1000;
+                if (frame >= bestFrame) continue;
+
+                BWAPI::TilePosition tile(x, y);
+
+                if ((*grid)[tile].cost == USHRT_MAX) continue;
+
+                int dist = PathFinding::GetGroundDistance(cluster.center, BWAPI::Position(tile));
+                if (frame < bestFrame || dist < bestDist)
+                {
+                    bestTile = tile;
+                    bestFrame = frame;
+                    bestDist = dist;
+                }
+            }
+        }
+
+        if (bestTile.isValid())
+        {
+#if DEBUG_SQUAD_TARGET
+            CherryVis::log() << "MopUp cluster " << BWAPI::WalkPosition(cluster.center)
+                             << ": moving to best tile @ " << BWAPI::WalkPosition(bestTile)
+                             << "; frame seen: " << bestFrame;
+#endif
+
+            cluster.setActivity(UnitCluster::Activity::Moving);
+            cluster.move(BWAPI::Position(bestTile) + BWAPI::Position(16, 16));
+            return;
+        }
     }
 
 #if DEBUG_SQUAD_TARGET

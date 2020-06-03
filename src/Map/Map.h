@@ -82,4 +82,6 @@ namespace Map
     bool isInLeafArea(BWAPI::TilePosition pos);
 
     int lastSeen(BWAPI::TilePosition tile);
+
+    int lastSeen(int x, int y);
 }

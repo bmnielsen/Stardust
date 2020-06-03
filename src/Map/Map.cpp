@@ -1273,4 +1273,9 @@ namespace Map
     {
         return tileLastSeen[tile.x + tile.y * BWAPI::Broodwar->mapWidth()];
     }
+
+    int lastSeen(int x, int y)
+    {
+        return tileLastSeen[x + y * BWAPI::Broodwar->mapWidth()];
+    }
 }
