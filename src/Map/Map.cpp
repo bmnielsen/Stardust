@@ -977,11 +977,9 @@ namespace Map
 
     void update()
     {
-        // Update unowned base scouting
+        // Update base scouting
         for (auto base : bases)
         {
-            if (base->owner && base->lastScouted != -1) continue;
-
             // Is the center of where the resource depot should be visible?
             if (BWAPI::Broodwar->isVisible(base->getTilePosition().x + 1, base->getTilePosition().y + 1) ||
                 BWAPI::Broodwar->isVisible(base->getTilePosition().x + 2, base->getTilePosition().y + 1))

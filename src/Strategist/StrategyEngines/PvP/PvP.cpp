@@ -11,6 +11,10 @@
 #include "Plays/MainArmy/MopUp.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 
+#if INSTRUMENTATION_ENABLED_VERBOSE
+#define OUTPUT_DETECTION_DEBUG false
+#endif
+
 namespace
 {
     std::map<BWAPI::UnitType, int> emptyUnitCountMap;
@@ -441,10 +445,12 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         }
     }
 
+#if OUTPUT_DETECTION_DEBUG
     CherryVis::log() << "detection: expect templar archives @ " << templarArchivesFinished
                      << "; DT @ " << (UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar) + templarArchivesFinished)
                      << "; DT at our choke @ "
                      << (closestGatewayFrames + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar) + templarArchivesFinished);
+#endif
 
     // Now sum everything up to get the frame to order the observer
     buildObserver(templarArchivesFinished + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar) + closestGatewayFrames);
