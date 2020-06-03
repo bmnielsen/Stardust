@@ -8,7 +8,7 @@ TEST(Steamhammer, RunForever)
     while (count < 40)
     {
         BWTest test;
-        test.opponentRace = BWAPI::Races::Zerg;
+        test.opponentRace = BWAPI::Races::Random;
         //test.map = Maps::GetOne("Destination");
         test.opponentModule = []()
         {
@@ -23,6 +23,9 @@ TEST(Steamhammer, RunForever)
             {
                 strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
             }
+
+            std::cout.setstate(std::ios_base::failbit);
+            std::cerr.setstate(std::ios_base::failbit);
         };
         test.onEndMine = [&](bool won)
         {
@@ -444,6 +447,50 @@ TEST(Steamhammer, DTRush)
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
         Config::StardustTestStrategyName = "DTRush";
+        return module;
+    };
+
+    test.run();
+}
+
+TEST(Steamhammer, Vultures)
+{
+    BWTest test;
+    test.randomSeed = 53781;
+    test.map = Maps::GetOne("Destination");
+    test.opponentRace = BWAPI::Races::Terran;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "Vultures";
+        return module;
+    };
+
+    test.run();
+}
+
+TEST(Steamhammer, BBS)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "BBS";
+        return module;
+    };
+
+    test.run();
+}
+
+TEST(Steamhammer, SiegeExpand)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "SiegeExpand";
         return module;
     };
 

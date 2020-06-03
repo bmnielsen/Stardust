@@ -6,7 +6,7 @@ TEST(Iron, RunForever)
 {
     int count = 0;
     int lost = 0;
-    while (count < 1)
+    while (count < 40)
     {
         BWTest test;
         test.opponentRace = BWAPI::Races::Terran;
