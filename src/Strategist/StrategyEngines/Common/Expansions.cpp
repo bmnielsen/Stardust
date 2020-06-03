@@ -64,14 +64,17 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         {
             // Create a TakeExpansion play for the next expansion
             // TODO: Take island expansions where appropriate
-            auto &untakenExpansions = Map::getUntakenExpansions();
-            if (!untakenExpansions.empty())
+            // TODO: Take mineral-only expansions where appropriate
+            for (const auto &expansion : Map::getUntakenExpansions())
             {
-                auto play = std::make_shared<TakeExpansion>((*untakenExpansions.begin())->getTilePosition());
+                if (expansion->gas() == 0) continue;
+
+                auto play = std::make_shared<TakeExpansion>(expansion->getTilePosition());
                 plays.emplace(plays.begin(), play);
 
                 Log::Get() << "Queued expansion to " << play->depotPosition;
                 CherryVis::log() << "Added TakeExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
+                break;
             }
         }
     }
