@@ -1150,7 +1150,7 @@ namespace Map
             int dist = PathFinding::GetGroundDistance(
                     startPosition,
                     base->getPosition(),
-                    BWAPI::UnitTypes::Protoss_Zealot,
+                    BWAPI::UnitTypes::Protoss_Probe,
                     PathFinding::PathFindingOptions::UseNearestBWEMArea);
             if (dist == -1 || dist > bestDist) continue;
 
@@ -1162,12 +1162,12 @@ namespace Map
                 int distFromMain = PathFinding::GetGroundDistance(
                         startPosition,
                         otherPosition,
-                        BWAPI::UnitTypes::Protoss_Zealot,
+                        BWAPI::UnitTypes::Protoss_Probe,
                         PathFinding::PathFindingOptions::UseNearestBWEMArea);
                 int distFromBase = PathFinding::GetGroundDistance(
                         base->getPosition(),
                         otherPosition,
-                        BWAPI::UnitTypes::Protoss_Zealot,
+                        BWAPI::UnitTypes::Protoss_Probe,
                         PathFinding::PathFindingOptions::UseNearestBWEMArea);
                 if (distFromBase != -1 && distFromMain > distFromBase)
                 {
