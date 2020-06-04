@@ -955,7 +955,9 @@ namespace Map
             BWEM::Map::Instance().OnStaticBuildingDestroyed(unit);
 
         // Units that affect tile walkability
-        if (unit->getType().isMineralField() || (unit->getType().isBuilding() && !unit->getType().isRefinery()))
+        if (unit->getType().isMineralField() ||
+            (unit->getType().isBuilding() && !unit->getType().isRefinery()) ||
+            (unit->getType() == BWAPI::UnitTypes::Zerg_Egg && unit->getPlayer() == BWAPI::Broodwar->neutral()))
         {
             if (updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), true))
             {
@@ -963,6 +965,8 @@ namespace Map
                 tileWalkabilityUpdated = true;
             }
         }
+
+        _mapSpecificOverride->onUnitDestroy(unit);
     }
 
     void onBuildingLifted(BWAPI::UnitType type, BWAPI::TilePosition tile)

@@ -15,4 +15,11 @@ public:
         // So we can use BWEM pathing for workers but nothing else
         return unitType.isWorker();
     }
+
+    void onUnitDestroy(BWAPI::Unit unit) override;
+
+    bool clusterMove(UnitCluster &cluster, BWAPI::Position targetPosition) override;
+
+private:
+    std::map<Choke *, std::set<BWAPI::Unit>> chokeToBlockingEggs;
 };
