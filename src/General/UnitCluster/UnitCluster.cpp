@@ -2,6 +2,7 @@
 #include "PathFinding.h"
 #include "Units.h"
 #include "UnitUtil.h"
+#include "Map.h"
 
 #if INSTRUMENTATION_ENABLED
 #define DEBUG_CLUSTER_MEMBERSHIP true // Also in Squad.cpp
@@ -99,6 +100,8 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     int sumY = 0;
     MyUnit closestToTarget = nullptr;
     int closestToTargetDist = INT_MAX;
+    MyUnit furthestFromMain = nullptr;
+    int furthestFromMainDist = 0;
     for (auto unitIt = units.begin(); unitIt != units.end();)
     {
         auto unit = *unitIt;
@@ -120,13 +123,23 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
             closestToTarget = unit;
         }
 
+        if (!closestToTarget)
+        {
+            int mainDist = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), unit->lastPosition, unit->type);
+            if (mainDist != -1 && mainDist > furthestFromMainDist)
+            {
+                furthestFromMainDist = mainDist;
+                furthestFromMain = unit;
+            }
+        }
+
         unitIt++;
     }
 
     if (units.empty()) return;
 
     center = BWAPI::Position(sumX / units.size(), sumY / units.size());
-    vanguard = closestToTarget;
+    vanguard = closestToTarget ? closestToTarget : furthestFromMain;
 }
 
 void UnitCluster::setActivity(UnitCluster::Activity newActivity, SubActivity newSubActivity)
