@@ -57,6 +57,7 @@ namespace BuildingPlacement
         auto emptyBaseStaticDefenses = std::make_pair(BWAPI::TilePositions::Invalid, std::vector<BWAPI::TilePosition>{});
 
         bool updateRequired;
+        std::map<Neighbourhood, std::set<const BWEM::Area *>> neighbourhoodAreas;
         std::map<Neighbourhood, BWAPI::Position> neighbourhoodOrigins;
         std::map<Neighbourhood, BWAPI::Position> neighbourhoodExits;
         std::map<Neighbourhood, std::map<int, BuildLocationSet>> availableBuildLocations;
@@ -482,14 +483,13 @@ namespace BuildingPlacement
                 for (auto &neighbourhood : ALL_NEIGHBOURHOODS)
                 {
                     // Make sure we don't die if we for some reason have an unconfigured neighbourhood
+                    if (neighbourhoodAreas.find(neighbourhood) == neighbourhoodAreas.end()) continue;
                     if (neighbourhoodOrigins.find(neighbourhood) == neighbourhoodOrigins.end()) continue;
                     if (neighbourhoodExits.find(neighbourhood) == neighbourhoodExits.end()) continue;
 
-                    if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(neighbourhoodOrigins[neighbourhood])) !=
-                        BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center())))
-                    {
-                        continue;
-                    }
+                    auto it = neighbourhoodAreas[neighbourhood].find(
+                            BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center())));
+                    if (it == neighbourhoodAreas[neighbourhood].end()) continue;
 
                     // Add pylons
                     for (auto pylonLocation : block->small)
@@ -667,6 +667,7 @@ namespace BuildingPlacement
 
     void initialize()
     {
+        neighbourhoodAreas.clear();
         neighbourhoodOrigins.clear();
         neighbourhoodExits.clear();
         tileAvailability.clear();
@@ -677,6 +678,8 @@ namespace BuildingPlacement
         availableBuildLocations.clear();
         _availableGeysers.clear();
 
+        neighbourhoodAreas[Neighbourhood::MainBase] = Map::getMyMainAreas();
+        Map::mapSpecificOverride()->addMainBaseBuildingPlacementAreas(neighbourhoodAreas[Neighbourhood::MainBase]);
         neighbourhoodOrigins[Neighbourhood::MainBase] = Map::getMyMain()->mineralLineCenter;
 
         auto mainChoke = Map::getMyMainChoke();

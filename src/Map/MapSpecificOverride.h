@@ -28,4 +28,6 @@ public:
     {
         return false;
     }
+
+    virtual void addMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) {}
 };

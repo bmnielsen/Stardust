@@ -20,6 +20,8 @@ public:
 
     bool clusterMove(UnitCluster &cluster, BWAPI::Position targetPosition) override;
 
+    void addMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) override;
+
 private:
     std::map<Choke *, std::set<BWAPI::Unit>> chokeToBlockingEggs;
 };
