@@ -4,6 +4,7 @@
 #include "Map.h"
 #include "Players.h"
 #include "UnitUtil.h"
+#include "Builder.h"
 
 namespace
 {
@@ -104,6 +105,27 @@ namespace
                          << ": aborting as the sim has recommended regrouping for the past 12 frames";
 #endif
         return true;
+    }
+
+    // Returns true if we have a unit currently trying to pass through this choke
+    bool blockedFriendlyUnit(Choke *choke)
+    {
+        for (const auto &myUnit : Units::allMine())
+        {
+            if (!myUnit->movingTo().isValid()) continue;
+            if (myUnit->getDistance(choke->center) > 320) continue;
+
+            auto chokePath = PathFinding::GetChokePointPath(myUnit->lastPosition,
+                                                            myUnit->movingTo(),
+                                                            myUnit->type,
+                                                            PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            for (const auto &bwemChoke : chokePath)
+            {
+                if (choke->choke == bwemChoke) return true;
+            }
+        }
+
+        return false;
     }
 }
 
@@ -278,7 +300,14 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         }
         else if (!enemyInOurBase && choke && choke->isNarrowChoke)
         {
-            cluster.holdChoke(choke, chokeDefendEnd, unitsAndTargets);
+            if (blockedFriendlyUnit(choke))
+            {
+                cluster.attack(unitsAndTargets, Map::getMyMain()->mineralLineCenter);
+            }
+            else
+            {
+                cluster.holdChoke(choke, chokeDefendEnd, unitsAndTargets);
+            }
         }
         else
         {

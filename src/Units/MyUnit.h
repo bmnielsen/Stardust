@@ -24,6 +24,8 @@ public:
 
     void moveTo(BWAPI::Position position, bool direct = false);
 
+    BWAPI::Position movingTo() { return targetPosition; };
+
     void issueMoveOrders();
 
     virtual void attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking = true);
