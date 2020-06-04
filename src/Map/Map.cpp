@@ -663,7 +663,8 @@ namespace Map
             auto natural = Map::getMyNatural();
             if (!main || !natural) return nullptr;
 
-            // Main choke is defined as the last choke traversed in a path from the main to the natural
+            // Main choke is defined as the last ramp traversed in the path from the main to the natural, or the first
+            // choke if a ramp is not found
             auto path = PathFinding::GetChokePointPath(
                     main->getPosition(),
                     natural->getPosition(),
@@ -671,7 +672,13 @@ namespace Map
                     PathFinding::PathFindingOptions::UseNearestBWEMArea);
             if (path.empty()) return nullptr;
 
-            return choke(*path.rbegin());
+            for (auto it = path.rbegin(); it != path.rend(); it++)
+            {
+                auto c = choke(*it);
+                if (c->isRamp) return c;
+            }
+
+            return choke(*path.begin());
         }
 
         // Dumps heatmaps for static map things like ground height
