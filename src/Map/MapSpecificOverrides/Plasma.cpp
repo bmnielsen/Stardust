@@ -41,6 +41,11 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
         if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(70, 15))
         {
             choke.center = BWAPI::Position(BWAPI::WalkPosition(289, 66));
+            eggPositions.insert(BWAPI::TilePosition(70, 16));
+            eggPositions.insert(BWAPI::TilePosition(71, 16));
+            eggPositions.insert(BWAPI::TilePosition(72, 16));
+            eggPositions.insert(BWAPI::TilePosition(73, 16));
+            eggPositions.insert(BWAPI::TilePosition(74, 16));
             eggPositions.insert(BWAPI::TilePosition(70, 17));
             eggPositions.insert(BWAPI::TilePosition(71, 17));
             eggPositions.insert(BWAPI::TilePosition(72, 17));
@@ -50,6 +55,11 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
         else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(11, 58))
         {
             choke.center = BWAPI::Position(BWAPI::WalkPosition(44, 258));
+            eggPositions.insert(BWAPI::TilePosition(9, 62));
+            eggPositions.insert(BWAPI::TilePosition(9, 63));
+            eggPositions.insert(BWAPI::TilePosition(9, 64));
+            eggPositions.insert(BWAPI::TilePosition(9, 65));
+            eggPositions.insert(BWAPI::TilePosition(9, 66));
             eggPositions.insert(BWAPI::TilePosition(10, 62));
             eggPositions.insert(BWAPI::TilePosition(10, 63));
             eggPositions.insert(BWAPI::TilePosition(10, 64));
@@ -61,6 +71,9 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
             eggPositions.insert(BWAPI::TilePosition(34, 30));
             eggPositions.insert(BWAPI::TilePosition(35, 30));
             eggPositions.insert(BWAPI::TilePosition(36, 30));
+            eggPositions.insert(BWAPI::TilePosition(34, 29));
+            eggPositions.insert(BWAPI::TilePosition(35, 29));
+            eggPositions.insert(BWAPI::TilePosition(36, 29));
         }
         else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(73, 111))
         {
@@ -69,19 +82,29 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
             eggPositions.insert(BWAPI::TilePosition(72, 112));
             eggPositions.insert(BWAPI::TilePosition(73, 112));
             eggPositions.insert(BWAPI::TilePosition(74, 112));
+            eggPositions.insert(BWAPI::TilePosition(70, 113));
+            eggPositions.insert(BWAPI::TilePosition(71, 113));
+            eggPositions.insert(BWAPI::TilePosition(72, 113));
+            eggPositions.insert(BWAPI::TilePosition(73, 113));
+            eggPositions.insert(BWAPI::TilePosition(74, 113));
         }
         else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(37, 99))
         {
             eggPositions.insert(BWAPI::TilePosition(36, 98));
             eggPositions.insert(BWAPI::TilePosition(36, 99));
             eggPositions.insert(BWAPI::TilePosition(36, 100));
+            eggPositions.insert(BWAPI::TilePosition(37, 98));
+            eggPositions.insert(BWAPI::TilePosition(37, 99));
+            eggPositions.insert(BWAPI::TilePosition(37, 100));
         }
         else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(54, 64))
         {
             eggPositions.insert(BWAPI::TilePosition(52, 65));
             eggPositions.insert(BWAPI::TilePosition(53, 65));
-            eggPositions.insert(BWAPI::TilePosition(53, 66));
             eggPositions.insert(BWAPI::TilePosition(54, 65));
+            eggPositions.insert(BWAPI::TilePosition(52, 66));
+            eggPositions.insert(BWAPI::TilePosition(53, 66));
+            eggPositions.insert(BWAPI::TilePosition(54, 66));
         }
         else
         {
