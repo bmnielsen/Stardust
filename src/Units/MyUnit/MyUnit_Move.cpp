@@ -252,8 +252,17 @@ void MyUnitImpl::updateMoveWaypoints()
         return;
     }
 
-    // Check if the unit has been ordered to do something else and clear our move data
     BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
+
+    // If this unit has just finished a mineral walk, resend the move command until it works
+    if (currentCommand.getType() == BWAPI::UnitCommandTypes::Right_Click_Unit &&
+        currentCommand.getTarget() && currentCommand.getTarget()->getType().isMineralField())
+    {
+        move(currentlyMovingTowards);
+        return;
+    }
+
+    // Check if the unit has been ordered to do something else and clear our move data
     if (currentCommand.getType() != BWAPI::UnitCommandTypes::Move ||
         currentCommand.getTargetPosition().getApproxDistance(currentlyMovingTowards) > 3)
     {

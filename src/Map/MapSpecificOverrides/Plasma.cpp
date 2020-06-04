@@ -1,5 +1,36 @@
 #include "Plasma.h"
 
+#include "Map.h"
+
+namespace
+{
+    BWAPI::Position getStartPosition(BWAPI::Unit patch, BWAPI::Unit otherPatch)
+    {
+        BWAPI::Position bestPos = BWAPI::Positions::Invalid;
+        int bestDist = INT_MAX;
+        int radius = BWAPI::UnitTypes::Protoss_Probe.sightRange() / 32;
+        for (int x = -radius; x <= radius; x++)
+        {
+            for (int y = -radius; y <= radius; y++)
+            {
+                BWAPI::TilePosition tile = patch->getInitialTilePosition() + BWAPI::TilePosition(x, y);
+                if (!tile.isValid()) continue;
+                if (!Map::isWalkable(tile)) continue;
+
+                BWAPI::Position pos = BWAPI::Position(tile) + BWAPI::Position(16, 16);
+                int dist = pos.getApproxDistance(otherPatch->getInitialPosition());
+                if (dist < bestDist)
+                {
+                    bestPos = pos;
+                    bestDist = dist;
+                }
+            }
+        }
+
+        return bestPos;
+    }
+}
+
 void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &chokes)
 {
     for (auto &pair : chokes)
@@ -8,6 +39,12 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
         Choke &chokeData = *pair.second;
 
         BWAPI::Position chokeCenter(choke->Center());
+
+        // The choke between the top-left and bottom-left bases has the center in the wrong place, so adjust this
+        if (choke->Center().getApproxDistance(BWAPI::WalkPosition(44, 235)) < 10)
+        {
+            chokeCenter = BWAPI::Position(BWAPI::WalkPosition(44, 258));
+        }
 
         // Determine if the choke is blocked by eggs, and grab the close mineral patches
         bool blockedByEggs = false;
@@ -63,5 +100,8 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
             chokeData.firstAreaMineralPatch = closestMineralPatch;
             chokeData.secondAreaMineralPatch = secondClosestMineralPatch;
         }
+
+        chokeData.firstAreaStartPosition = getStartPosition(chokeData.firstAreaMineralPatch, chokeData.secondAreaMineralPatch);
+        chokeData.secondAreaStartPosition = getStartPosition(chokeData.secondAreaMineralPatch, chokeData.firstAreaMineralPatch);
     }
 }
