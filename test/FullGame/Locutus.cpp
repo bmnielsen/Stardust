@@ -191,3 +191,16 @@ TEST(Locutus, CannonFirst4GateGoon)
 
     test.run();
 }
+
+TEST(Locutus, Plasma)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Plasma");
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        return new UAlbertaBot::LocutusBotModule();
+    };
+
+    test.run();
+}
