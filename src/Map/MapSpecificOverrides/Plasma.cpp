@@ -1,6 +1,9 @@
 #include "Plasma.h"
 
 #include "Map.h"
+#include "Geo.h"
+#include "Players.h"
+#include "UnitUtil.h"
 #include "StrategyEngines/MapSpecific/PlasmaStrategyEngine.h"
 
 namespace
@@ -78,16 +81,16 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
         }
         else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(73, 111))
         {
+            eggPositions.insert(BWAPI::TilePosition(70, 111));
+            eggPositions.insert(BWAPI::TilePosition(71, 111));
+            eggPositions.insert(BWAPI::TilePosition(72, 111));
+            eggPositions.insert(BWAPI::TilePosition(73, 111));
+            eggPositions.insert(BWAPI::TilePosition(74, 111));
             eggPositions.insert(BWAPI::TilePosition(70, 112));
             eggPositions.insert(BWAPI::TilePosition(71, 112));
             eggPositions.insert(BWAPI::TilePosition(72, 112));
             eggPositions.insert(BWAPI::TilePosition(73, 112));
             eggPositions.insert(BWAPI::TilePosition(74, 112));
-            eggPositions.insert(BWAPI::TilePosition(70, 113));
-            eggPositions.insert(BWAPI::TilePosition(71, 113));
-            eggPositions.insert(BWAPI::TilePosition(72, 113));
-            eggPositions.insert(BWAPI::TilePosition(73, 113));
-            eggPositions.insert(BWAPI::TilePosition(74, 113));
         }
         else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(37, 99))
         {
@@ -195,21 +198,36 @@ bool Plasma::clusterMove(UnitCluster &cluster, BWAPI::Position targetPosition)
 {
     if (!cluster.vanguard) return false;
 
-    // Look for a blocked choke on the path between the cluster's vanguard unit and the target position
+    // Check if the cluster needs to move through a blocked choke
     Choke *mineralWalkChoke = nullptr;
-    for (const auto &bwemChoke : PathFinding::GetChokePointPath(
-            cluster.vanguard->lastPosition,
-            targetPosition,
-            BWAPI::UnitTypes::Protoss_Probe))
+
+    // First check if the vanguard unit is close to one of the chokes
+    for (const auto &chokeAndBlockingEggs : chokeToBlockingEggs)
     {
-        auto choke = Map::choke(bwemChoke);
-        if (choke->requiresMineralWalk)
+        if (cluster.vanguard->getDistance(chokeAndBlockingEggs.first->center) < 200)
         {
-            mineralWalkChoke = choke;
+            mineralWalkChoke = chokeAndBlockingEggs.first;
             break;
         }
     }
-    if (!mineralWalkChoke) return false;
+
+    // Next look for a blocked choke on the path between the cluster's vanguard unit and the target position
+    if (!mineralWalkChoke)
+    {
+        for (const auto &bwemChoke : PathFinding::GetChokePointPath(
+                cluster.vanguard->lastPosition,
+                targetPosition,
+                BWAPI::UnitTypes::Protoss_Probe))
+        {
+            auto choke = Map::choke(bwemChoke);
+            if (choke->requiresMineralWalk)
+            {
+                mineralWalkChoke = choke;
+                break;
+            }
+        }
+        if (!mineralWalkChoke) return false;
+    }
 
     auto it = chokeToBlockingEggs.find(mineralWalkChoke);
     if (it == chokeToBlockingEggs.end()) return false;
@@ -226,12 +244,11 @@ bool Plasma::clusterMove(UnitCluster &cluster, BWAPI::Position targetPosition)
         if (!myUnit->isReady()) continue;
 
         // Attack the closest egg
-        // TODO: Should prioritize clearing the eggs that are "most blocking"
         int bestDist = INT_MAX;
         BWAPI::Unit bestEgg = nullptr;
         for (const auto &egg : eggs)
         {
-            int dist = myUnit->getDistance(egg->getInitialPosition());
+            int dist = Geo::EdgeToEdgeDistance(myUnit->type, myUnit->lastPosition, egg->getType(), egg->getInitialPosition());
             if (dist < bestDist)
             {
                 bestDist = dist;
@@ -240,13 +257,69 @@ bool Plasma::clusterMove(UnitCluster &cluster, BWAPI::Position targetPosition)
         }
         if (!bestEgg) continue;
 
-        if (bestEgg->isVisible() && myUnit->cooldownUntil < (BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames() + 2))
+        if (!UnitUtil::IsRangedUnit(myUnit->type))
         {
-            myUnit->attack(bestEgg);
+            if (bestEgg->isVisible())
+            {
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(myUnit->id) << "Attacking closest egg @ " << BWAPI::WalkPosition(bestEgg->getInitialPosition());
+#endif
+                myUnit->attack(bestEgg);
+            }
+            else
+            {
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(myUnit->id) << "Moving to closest egg @ " << BWAPI::WalkPosition(bestEgg->getInitialPosition());
+#endif
+                myUnit->moveTo(bestEgg->getInitialPosition(), true);
+            }
+            continue;
         }
-        else
+
+        // Attack if ready
+        int weaponRange = Players::weaponRange(myUnit->player, myUnit->type.groundWeapon());
+        if (bestEgg->isVisible() &&
+            bestDist <= weaponRange &&
+            myUnit->cooldownUntil < (BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames() + 2))
         {
-            myUnit->moveTo(bestEgg->getInitialPosition());
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(myUnit->id) << "Attacking closest egg @ " << BWAPI::WalkPosition(bestEgg->getInitialPosition());
+#endif
+            myUnit->attack(bestEgg);
+            continue;
+        }
+
+        // Otherwise move towards the egg
+        // For some reason just moving towards the egg position makes normal BW pathing bug out
+        // So we look for the closest position between here and the egg that is walkable and not occupied by a friendly unit
+        auto grid = Players::grid(BWAPI::Broodwar->self());
+        int eggHeight = BWAPI::Broodwar->getGroundHeight(bestEgg->getInitialTilePosition());
+        int dist;
+        for (dist = 64; dist < (bestDist + 16); dist += 16)
+        {
+            auto vector = Geo::ScaleVector(myUnit->lastPosition - bestEgg->getInitialPosition(), dist);
+            if (vector == BWAPI::Positions::Invalid) continue;
+
+            auto pos = bestEgg->getInitialPosition() + vector;
+            BWAPI::TilePosition tile(pos);
+            if (BWAPI::Broodwar->getGroundHeight(tile) != eggHeight) continue;
+            if (!Map::isWalkable(tile)) continue;
+            if (grid.collision(pos) > 0) continue;
+
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(myUnit->id) << "Moving towards closest egg @ " << BWAPI::WalkPosition(bestEgg->getInitialPosition())
+                                       << "; closest position " << BWAPI::WalkPosition(pos);
+#endif
+
+            myUnit->moveTo(pos, true);
+            break;
+        }
+        if (dist >= (bestDist + 16))
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(myUnit->id) << "Moving to closest egg @ " << BWAPI::WalkPosition(bestEgg->getInitialPosition());
+#endif
+            myUnit->moveTo(bestEgg->getInitialPosition(), true);
         }
     }
 
