@@ -286,73 +286,14 @@ void LocutusUnit::mineralWalk()
         return;
     }
 
-    // This code is still used for Plasma
-    // TODO before CIG next year: migrate Plasma to set appropriate start positions for each choke
+    Log().Get() << "Error: Unable to find tile to mineral walk from";
 
-    // Find the closest and furthest walkable position within sight range of the patch
-    BWAPI::Position bestPos = BWAPI::Positions::Invalid;
-    BWAPI::Position worstPos = BWAPI::Positions::Invalid;
-    int bestDist = INT_MAX;
-    int worstDist = 0;
-    int desiredDist = unit->getType().sightRange();
-    int desiredDistTiles = desiredDist / 32;
-    for (int x = -desiredDistTiles; x <= desiredDistTiles; x++)
-        for (int y = -desiredDistTiles; y <= desiredDistTiles; y++)
-        {
-            BWAPI::TilePosition tile = mineralWalkingPatch->getInitialTilePosition() + BWAPI::TilePosition(x, y);
-            if (!tile.isValid()) continue;
-            if (!MapTools::Instance().isWalkable(tile)) continue;
-
-            BWAPI::Position tileCenter = BWAPI::Position(tile) + BWAPI::Position(16, 16);
-            if (tileCenter.getApproxDistance(mineralWalkingPatch->getInitialPosition()) > desiredDist)
-                continue;
-
-            // Check that there is a path to the tile
-            int pathLength = PathFinding::GetGroundDistance(unit->getPosition(), tileCenter, unit->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea);
-            if (pathLength == -1) continue;
-
-            // The path should not cross the choke we're mineral walking
-            for (auto choke : PathFinding::GetChokePointPath(unit->getPosition(), tileCenter, unit->getType(), PathFinding::PathFindingOptions::UseNearestBWEMArea))
-                if (choke == *waypoints.begin())
-                    goto cnt;
-
-            if (pathLength < bestDist)
-            {
-                bestDist = pathLength;
-                bestPos = tileCenter;
-            }
-
-            if (pathLength > worstDist)
-            {
-                worstDist = pathLength;
-                worstPos = tileCenter;
-            }
-
-        cnt:;
-        }
-
-    // If we couldn't find a tile, abort
-    if (!bestPos.isValid())
-    {
-        Log().Get() << "Error: Unable to find tile to mineral walk from";
-
-        waypoints.clear();
-        targetPosition = BWAPI::Positions::Invalid;
-        currentlyMovingTowards = BWAPI::Positions::Invalid;
-        mineralWalkingPatch = nullptr;
-        mineralWalkingTargetArea = nullptr;
-        mineralWalkingStartPosition = BWAPI::Positions::Invalid;
-        return;
-    }
-
-    // If we are already very close to the best position, it isn't working: we should have vision of the mineral patch
-    // So use the worst one instead
-    BWAPI::Position tile = bestPos;
-    if (unit->getDistance(tile) < 16) tile = worstPos;
-
-    // Move towards the tile
-    Micro::Move(unit, tile);
-    lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+    waypoints.clear();
+    targetPosition = BWAPI::Positions::Invalid;
+    currentlyMovingTowards = BWAPI::Positions::Invalid;
+    mineralWalkingPatch = nullptr;
+    mineralWalkingTargetArea = nullptr;
+    mineralWalkingStartPosition = BWAPI::Positions::Invalid;
 }
 
 void LocutusUnit::fleeFrom(BWAPI::Position position)

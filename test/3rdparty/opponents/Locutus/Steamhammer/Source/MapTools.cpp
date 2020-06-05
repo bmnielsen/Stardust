@@ -176,6 +176,12 @@ MapTools::MapTools()
             ChokeData & chokeData = *((ChokeData*)choke->Ext());
             BWAPI::Position chokeCenter(choke->Center());
 
+            // Fix choke center for choke between top-left and bottom-left bases
+            if (BWAPI::TilePosition(chokeCenter) == BWAPI::TilePosition(10, 58))
+            {
+                chokeCenter = BWAPI::Position(BWAPI::WalkPosition(44, 258));
+            }
+
             // Determine if the choke is blocked by eggs, and grab the close mineral patches
             bool blockedByEggs = false;
             BWAPI::Unit closestMineralPatch = nullptr;
@@ -227,6 +233,40 @@ MapTools::MapTools()
                 // suboptimal BWEM choke placement, but luckily they both follow this pattern
                 chokeData.firstAreaMineralPatch = closestMineralPatch;
                 chokeData.secondAreaMineralPatch = secondClosestMineralPatch;
+            }
+
+            if (BWAPI::TilePosition(chokeCenter) == BWAPI::TilePosition(70, 15))
+            {
+                chokeData.firstAreaStartPosition = BWAPI::Position(2416,496);
+                chokeData.secondAreaStartPosition = BWAPI::Position(2192,528);
+            }
+            else if (BWAPI::TilePosition(chokeCenter) == BWAPI::TilePosition(11, 64))
+            {
+                auto tmp = chokeData.firstAreaMineralPatch;
+                chokeData.firstAreaMineralPatch = chokeData.secondAreaMineralPatch;
+                chokeData.secondAreaMineralPatch = tmp;
+                chokeData.firstAreaStartPosition = BWAPI::Position(240,1968);
+                chokeData.secondAreaStartPosition = BWAPI::Position(432,2160);
+            }
+            else if (BWAPI::TilePosition(chokeCenter) == BWAPI::TilePosition(36, 28))
+            {
+                chokeData.firstAreaStartPosition = BWAPI::Position(1328,944);
+                chokeData.secondAreaStartPosition = BWAPI::Position(1200,752);
+            }
+            else if (BWAPI::TilePosition(chokeCenter) == BWAPI::TilePosition(69, 113))
+            {
+                chokeData.firstAreaStartPosition = BWAPI::Position(2192,3600);
+                chokeData.secondAreaStartPosition = BWAPI::Position(2416,3632);
+            }
+            else if (BWAPI::TilePosition(chokeCenter) == BWAPI::TilePosition(36, 100))
+            {
+                chokeData.firstAreaStartPosition = BWAPI::Position(1200,3312);
+                chokeData.secondAreaStartPosition = BWAPI::Position(1328,3184);
+            }
+            else if (BWAPI::TilePosition(chokeCenter) == BWAPI::TilePosition(53, 64))
+            {
+                chokeData.firstAreaStartPosition = BWAPI::Position(1808,2160);
+                chokeData.secondAreaStartPosition = BWAPI::Position(1648,1968);
             }
         }
     }
