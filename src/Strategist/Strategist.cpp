@@ -60,21 +60,25 @@ namespace Strategist
 
         void setStrategyEngine()
         {
-            if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss)
+            engine = Map::mapSpecificOverride()->createStrategyEngine();
+            if (!engine)
             {
-                engine = std::make_unique<PvP>();
-            }
-            else if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran)
-            {
-                engine = std::make_unique<PvT>();
-            }
-            else if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
-            {
-                engine = std::make_unique<PvZ>();
-            }
-            else
-            {
-                engine = std::make_unique<PvU>();
+                if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss)
+                {
+                    engine = std::make_unique<PvP>();
+                }
+                else if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran)
+                {
+                    engine = std::make_unique<PvT>();
+                }
+                else if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
+                {
+                    engine = std::make_unique<PvZ>();
+                }
+                else
+                {
+                    engine = std::make_unique<PvU>();
+                }
             }
 
             engine->initialize(plays);

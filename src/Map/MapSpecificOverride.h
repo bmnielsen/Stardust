@@ -5,6 +5,7 @@
 
 #include "Choke.h"
 #include "UnitCluster.h"
+#include "StrategyEngine.h"
 
 class MapSpecificOverride
 {
@@ -30,4 +31,9 @@ public:
     }
 
     virtual void addMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) {}
+
+    virtual std::unique_ptr<StrategyEngine> createStrategyEngine()
+    {
+        return nullptr;
+    }
 };

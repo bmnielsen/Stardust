@@ -1,6 +1,7 @@
 #include "Plasma.h"
 
 #include "Map.h"
+#include "StrategyEngines/MapSpecific/PlasmaStrategyEngine.h"
 
 namespace
 {
@@ -262,4 +263,9 @@ void Plasma::addMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &are
 
         areas.insert(&area);
     }
+}
+
+std::unique_ptr<StrategyEngine> Plasma::createStrategyEngine()
+{
+    return std::make_unique<PlasmaStrategyEngine>();
 }

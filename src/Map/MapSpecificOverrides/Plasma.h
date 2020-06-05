@@ -22,6 +22,8 @@ public:
 
     void addMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) override;
 
+    std::unique_ptr<StrategyEngine> createStrategyEngine() override;
+
 private:
     std::map<Choke *, std::set<BWAPI::Unit>> chokeToBlockingEggs;
 };
