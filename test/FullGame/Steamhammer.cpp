@@ -423,6 +423,20 @@ TEST(Steamhammer, GasSteal)
     test.run();
 }
 
+TEST(Steamhammer, Plasma)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Plasma");
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, 1012Gate)
 {
     BWTest test;

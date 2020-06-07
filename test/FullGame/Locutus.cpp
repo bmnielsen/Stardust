@@ -192,13 +192,16 @@ TEST(Locutus, CannonFirst4GateGoon)
     test.run();
 }
 
-TEST(Locutus, Plasma)
+TEST(Locutus, PlasmaProxy2Gate)
 {
     BWTest test;
     test.map = Maps::GetOne("Plasma");
+    test.randomSeed = 97016;
+//    test.frameLimit = 14000;
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
+        UAlbertaBot::LocutusBotModule::setStrategy("PlasmaProxy2Gate");
         return new UAlbertaBot::LocutusBotModule();
     };
 
