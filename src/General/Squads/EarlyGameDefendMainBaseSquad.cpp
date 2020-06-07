@@ -300,7 +300,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         }
         else if (!enemyInOurBase && choke && choke->isNarrowChoke)
         {
-            if (blockedFriendlyUnit(choke))
+            if (enemyUnits.empty() && blockedFriendlyUnit(choke))
             {
                 cluster.attack(unitsAndTargets, Map::getMyMain()->mineralLineCenter);
             }
