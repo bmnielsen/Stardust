@@ -26,4 +26,5 @@ public:
 
 private:
     std::map<Choke *, std::set<BWAPI::Unit>> chokeToBlockingEggs;
+    std::vector<const BWEM::Area *> accessibleAreas;
 };

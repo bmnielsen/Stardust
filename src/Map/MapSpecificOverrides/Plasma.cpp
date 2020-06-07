@@ -329,13 +329,17 @@ bool Plasma::clusterMove(UnitCluster &cluster, BWAPI::Position targetPosition)
 void Plasma::addMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas)
 {
     // On Plasma there is very little room in the small main base platform, so use the entire accessible area
-    auto mainPos = Map::getMyMain()->getPosition();
-    for (const auto &area : BWEM::Map::Instance().Areas())
+    if (accessibleAreas.empty())
     {
-        if (PathFinding::GetGroundDistance(mainPos, BWAPI::Position(area.Top())) == -1) continue;
+        auto mainPos = Map::getMyMain()->getPosition();
+        for (const auto &area : BWEM::Map::Instance().Areas())
+        {
+            if (PathFinding::GetGroundDistance(mainPos, BWAPI::Position(area.Top())) == -1) continue;
 
-        areas.insert(&area);
+            accessibleAreas.push_back(&area);
+        }
     }
+    areas.insert(accessibleAreas.begin(), accessibleAreas.end());
 }
 
 std::unique_ptr<StrategyEngine> Plasma::createStrategyEngine()

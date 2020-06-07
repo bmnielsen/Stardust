@@ -8,6 +8,8 @@
 
 #include "Map.h"
 #include "Builder.h"
+#include "Opponent.h"
+#include "Units.h"
 
 namespace
 {
@@ -30,22 +32,54 @@ void PlasmaStrategyEngine::initialize(std::vector<std::shared_ptr<Play>> &plays)
 
 void PlasmaStrategyEngine::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 {
-    // Transition from a defend squad when the vanguard cluster has 3 units
-    auto mainArmyPlay = getMainArmyPlay(plays);
-    if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
+    auto newEnemyStrategy = recognizeEnemyStrategy();
+
+    if (enemyStrategy != newEnemyStrategy)
     {
-        auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-        if (vanguard && vanguard->units.size() >= 3)
+        Log::Get() << "Enemy strategy changed from " << EnemyStrategyNames[enemyStrategy] << " to " << EnemyStrategyNames[newEnemyStrategy];
+#if CHERRYVIS_ENABLED
+        CherryVis::log() << "Enemy strategy changed from " << EnemyStrategyNames[enemyStrategy] << " to " << EnemyStrategyNames[newEnemyStrategy];
+#endif
+
+        enemyStrategy = newEnemyStrategy;
+    }
+
+    // On Plasma we don't currently use scouting information since we expect enemies to do weird stuff
+    // So recall the worker scout as soon as we know the enemy main and race
+    if (Map::getEnemyStartingMain() && !Opponent::isUnknownRace())
+    {
+        for (auto &play : plays)
         {
-            auto enemyMain = Map::getEnemyMain();
-            if (enemyMain)
+            if (auto workerScoutPlay = std::dynamic_pointer_cast<EarlyGameWorkerScout>(play))
             {
-                setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
+                workerScoutPlay->status.complete = true;
+                break;
             }
-            else
-            {
-                setMainPlay<MopUp>(mainArmyPlay);
-            }
+        }
+    }
+
+    // Ensure we have the correct main army play
+    auto mainArmyPlay = getMainArmyPlay(plays);
+    if (mainArmyPlay)
+    {
+        switch (enemyStrategy)
+        {
+            case EnemyStrategy::Unknown:
+            case EnemyStrategy::GasSteal:
+            case EnemyStrategy::ProxyRush:
+                setMainPlay<DefendMyMain>(mainArmyPlay);
+                break;
+            case EnemyStrategy::Normal:
+                auto enemyMain = Map::getEnemyMain();
+                if (enemyMain)
+                {
+                    setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
+                }
+                else
+                {
+                    setMainPlay<MopUp>(mainArmyPlay);
+                }
+                break;
         }
     }
 
@@ -59,39 +93,86 @@ void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &
 {
     handleNaturalExpansion(plays, prioritizedProductionGoals);
 
-    auto mainArmyPlay = getMainArmyPlay(plays);
-    auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-    auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-    int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
-    int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
-
-    if (zealotCount == 0)
+    switch (enemyStrategy)
     {
-        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                   BWAPI::UnitTypes::Protoss_Zealot,
-                                                                   1,
-                                                                   1);
-    }
-    if (dragoonCount == 0)
-    {
-        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                   BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                   1,
-                                                                   1);
-    }
-    if (zealotCount < 2)
-    {
-        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                   BWAPI::UnitTypes::Protoss_Zealot,
-                                                                   1,
-                                                                   1);
-    }
+        case EnemyStrategy::Unknown:
+        case EnemyStrategy::GasSteal:
+        {
+            // Get two zealots before goons
+            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
+            auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
 
-    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                               BWAPI::UnitTypes::Protoss_Dragoon,
-                                                               -1,
-                                                               -1);
+            int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
+
+            if (zealotCount < 2)
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           BWAPI::UnitTypes::Protoss_Zealot,
+                                                                           2 - zealotCount,
+                                                                           2);
+            }
+
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+
+            break;
+        }
+        case EnemyStrategy::ProxyRush:
+        {
+            // Get four zealots before starting the dragoon transition
+            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
+            auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
+
+            int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
+            int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+
+            int zealotsRequired = 4 - zealotCount;
+
+            // Get two zealots at highest priority
+            if (zealotCount < 2)
+            {
+                prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                            BWAPI::UnitTypes::Protoss_Zealot,
+                                                                            2 - zealotCount,
+                                                                            2);
+                zealotsRequired -= 2 - zealotCount;
+            }
+
+            if (zealotsRequired > 0)
+            {
+                prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                              BWAPI::UnitTypes::Protoss_Zealot,
+                                                                              zealotsRequired,
+                                                                              -1);
+            }
+
+            // If the dragoon transition is just beginning, only order one so we keep producing zealots
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       dragoonCount == 0 ? 1 : -1,
+                                                                       -1);
+
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Zealot,
+                                                                       -1,
+                                                                       -1);
+            break;
+        }
+        case EnemyStrategy::Normal:
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Zealot,
+                                                                       -1,
+                                                                       -1);
+            break;
+    }
 
     // Basic infantry skill upgrades are queued when we have enough of them and are still building them
     upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 6);
@@ -103,6 +184,17 @@ void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &
     upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier);
 
     defaultGroundUpgrades(prioritizedProductionGoals);
+
+    // Get an observer when on 2 or more gas
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 &&
+        Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0 &&
+        Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observer) == 0)
+    {
+        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 BWAPI::UnitTypes::Protoss_Observer,
+                                                                 1,
+                                                                 1);
+    }
 }
 
 void PlasmaStrategyEngine::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
