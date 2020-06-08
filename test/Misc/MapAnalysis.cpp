@@ -56,7 +56,7 @@ TEST(MapAnalysis, FindStartLocationSeeds)
     for (auto &map : maps)
     {
         std::ostringstream ss;
-        ss << map.shortname() << ": {";
+        ss << map.shortfilename() << ": {";
         bool first = true;
         for (auto &seed : map.startLocationSeeds)
         {
@@ -88,7 +88,7 @@ TEST(MapAnalysis, GetMapHashes)
 
         test.onStartMine = [&]()
         {
-            mapsAndHashes.emplace_back(std::make_pair(test.map->shortname(), BWAPI::Broodwar->mapHash()));
+            mapsAndHashes.emplace_back(std::make_pair(test.map->shortfilename(), BWAPI::Broodwar->mapHash()));
         };
 
         test.run();

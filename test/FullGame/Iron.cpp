@@ -20,11 +20,8 @@ TEST(Iron, RunForever)
         };
         test.onEndMine = [&](bool won)
         {
-            std::string mapFilename = test.map->shortname();
-            std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
-
             std::ostringstream replayName;
-            replayName << "Iron_" << (mapFilename.substr(0, mapFilename.rfind('.')));
+            replayName << "Iron_" << test.map->shortname();
             if (!won)
             {
                 replayName << "_LOSS";
@@ -63,11 +60,8 @@ TEST(Iron, RunAsIron)
     };
     test.onEndMine = [&](bool won)
     {
-        std::string mapFilename = test.map->shortname();
-        std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
-
         std::ostringstream replayName;
-        replayName << "Iron_" << (mapFilename.substr(0, mapFilename.rfind('.')));
+        replayName << "Iron_" << test.map->shortname();
         if (won)
         {
             replayName << "_LOSS";

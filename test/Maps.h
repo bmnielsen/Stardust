@@ -20,9 +20,16 @@ namespace Maps
         std::string openbwHash;
         std::vector<int> startLocationSeeds;
 
-        std::string shortname()
+        std::string shortfilename()
         {
             return filename.substr(filename.rfind('/') + 1);
+        }
+
+        std::string shortname()
+        {
+            std::string result = shortfilename();
+            std::replace(result.begin(), result.end(), ' ', '_');
+            return result.substr(0, result.rfind('.'));
         }
     };
 

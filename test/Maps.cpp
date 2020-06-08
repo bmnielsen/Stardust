@@ -177,6 +177,13 @@ namespace Maps
         {
             BWTest test;
             test.map = std::make_shared<MapMetadata>(map);
+
+            std::ostringstream replayName;
+            replayName << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
+            replayName << "_" << ::testing::UnitTest::GetInstance()->current_test_info()->name();
+            replayName << "_" << test.map->shortname();
+            test.replayName = replayName.str();
+
             runner(test);
         }
     }
@@ -190,6 +197,14 @@ namespace Maps
                 BWTest test;
                 test.map = std::make_shared<MapMetadata>(map);
                 test.randomSeed = seed;
+
+                std::ostringstream replayName;
+                replayName << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
+                replayName << "_" << ::testing::UnitTest::GetInstance()->current_test_info()->name();
+                replayName << "_" << test.map->shortname();
+                replayName << "_" << test.randomSeed;
+                test.replayName = replayName.str();
+
                 runner(test);
             }
         }

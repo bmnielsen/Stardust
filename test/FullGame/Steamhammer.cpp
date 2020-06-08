@@ -29,11 +29,8 @@ TEST(Steamhammer, RunForever)
         };
         test.onEndMine = [&](bool won)
         {
-            std::string mapFilename = test.map->shortname();
-            std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
-
             std::ostringstream replayName;
-            replayName << "Steamhammer_" << (mapFilename.substr(0, mapFilename.rfind('.')));
+            replayName << "Steamhammer_" << test.map->shortname();
             if (!won)
             {
                 replayName << "_LOSS";
@@ -76,11 +73,8 @@ TEST(Steamhammer, RunOne)
     };
     test.onEndMine = [&test](bool won)
     {
-        std::string mapFilename = test.map->shortname();
-        std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
-
         std::ostringstream replayName;
-        replayName << "Steamhammer_" << (mapFilename.substr(0, mapFilename.rfind('.')));
+        replayName << "Steamhammer_" << test.map->shortname();
         if (!won)
         {
             replayName << "_LOSS";
@@ -530,11 +524,8 @@ TEST(Steamhammer, RunOneRandom)
     };
     test.onEndMine = [&test](bool won)
     {
-        std::string mapFilename = test.map->shortname();
-        std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
-
         std::ostringstream replayName;
-        replayName << "Steamhammer_" << (mapFilename.substr(0, mapFilename.rfind('.')));
+        replayName << "Steamhammer_" << test.map->shortname();
         if (!won)
         {
             replayName << "_LOSS";

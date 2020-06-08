@@ -28,11 +28,8 @@ TEST(Locutus, RunForever)
         };
         test.onEndMine = [&](bool won)
         {
-            std::string mapFilename = test.map->shortname();
-            std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
-
             std::ostringstream replayName;
-            replayName << "Locutus_" << (mapFilename.substr(0, mapFilename.rfind('.')));
+            replayName << "Locutus_" << test.map->shortname();
             if (!won)
             {
                 replayName << "_LOSS";
@@ -76,11 +73,8 @@ TEST(Locutus, RunAsLocutus)
     };
     test.onEndMine = [&](bool won)
     {
-        std::string mapFilename = test.map->shortname();
-        std::replace(mapFilename.begin(), mapFilename.end(), ' ', '_');
-
         std::ostringstream replayName;
-        replayName << "Locutus_" << (mapFilename.substr(0, mapFilename.rfind('.')));
+        replayName << "Locutus_" << test.map->shortname();
         if (won)
         {
             replayName << "_LOSS";
