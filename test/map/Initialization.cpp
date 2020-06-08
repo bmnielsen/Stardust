@@ -40,3 +40,31 @@ TEST(Initialization, Arcadia)
     test.expectWin = false;
     test.run();
 }
+
+TEST(Initialization, Alchemist)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Alchemist");
+    test.randomSeed = 68326;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.run();
+}
+
+TEST(Initialization, Plasma)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Plasma");
+    test.randomSeed = 40072;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.run();
+}
