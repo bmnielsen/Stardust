@@ -332,8 +332,22 @@ void Area::CreateBases()
 
         // Now match them to BWEM resource objects
         vector<Ressource *> resources;
-        for (Mineral * m : Minerals()) if (resourceIds.find(m->Unit()->getID()) != resourceIds.end()) resources.push_back(m);
-        for (Geyser * g : Geysers()) if (resourceIds.find(g->Unit()->getID()) != resourceIds.end()) resources.push_back(g);
+        for (auto &m : pMap->Minerals())
+        {
+            if (resourceIds.find(m->Unit()->getID()) != resourceIds.end())
+            {
+                AddMineral(m.get());
+                resources.push_back(m.get());
+            }
+        }
+        for (auto &g : pMap->Geysers())
+        {
+            if (resourceIds.find(g->Unit()->getID()) != resourceIds.end())
+            {
+                AddGeyser(g.get());
+                resources.push_back(g.get());
+            }
+        }
 
         // Use BWEM's method to detect the blocking minerals
         vector<Mineral *> BlockingMinerals;

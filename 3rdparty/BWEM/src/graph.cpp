@@ -512,6 +512,8 @@ void Graph::CollectInformation()
 {
 	// 1) Process the whole Map:
 
+	// Move resource assignment into base creation
+	/*
 	for (auto & m : GetMap()->Minerals())
 		if (Area * pArea = mainArea(GetMap(), m->TopLeft(), m->Size()))
 			pArea->AddMineral(m.get());
@@ -519,6 +521,7 @@ void Graph::CollectInformation()
 	for (auto & g : GetMap()->Geysers())	
 		if (Area * pArea = mainArea(GetMap(), g->TopLeft(), g->Size()))
 			pArea->AddGeyser(g.get());
+    */
 
 	for (int y = 0 ; y < GetMap()->Size().y ; ++y)
 	for (int x = 0 ; x < GetMap()->Size().x ; ++x)
