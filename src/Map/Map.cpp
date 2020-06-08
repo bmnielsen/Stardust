@@ -749,6 +749,34 @@ namespace Map
 
             CherryVis::addHeatmap("MineralLines", mineralLineCvis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 
+            // Bases and resources
+            std::vector<long> basesCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            auto setBaseTiles = [&basesCvis](BWAPI::TilePosition tile, BWAPI::TilePosition size, long value)
+            {
+                for (int x = 0; x < size.x; x++)
+                {
+                    for (int y = 0; y < size.y; y++)
+                    {
+                        basesCvis[tile.x + x + (tile.y + y) * BWAPI::Broodwar->mapWidth()] = value;
+                    }
+                }
+            };
+            int val = 500;
+            for (auto &base : bases)
+            {
+                setBaseTiles(base->getTilePosition(), BWAPI::UnitTypes::Protoss_Nexus.tileSize(), val);
+                for (const auto &patch : base->mineralPatches())
+                {
+                    setBaseTiles(patch->getInitialTilePosition(), BWAPI::UnitTypes::Resource_Mineral_Field.tileSize(), val);
+                }
+                for (const auto &geyser : base->geysers())
+                {
+                    setBaseTiles(geyser->getInitialTilePosition(), BWAPI::UnitTypes::Resource_Vespene_Geyser.tileSize(), val);
+                }
+                val += 20;
+            }
+            CherryVis::addHeatmap("Bases", basesCvis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+
             // Chokes
             std::vector<long> chokesCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 16);
             for (auto &bwemChokeAndChoke : chokes)
