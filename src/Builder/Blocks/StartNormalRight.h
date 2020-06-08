@@ -7,7 +7,7 @@ public:
 
     [[nodiscard]] int width() const override { return 8; }
 
-    [[nodiscard]] int height() const override { return 8; }
+    [[nodiscard]] int height() const override { return 7; }
 
     [[nodiscard]] bool allowTopEdge() const override { return false; }
 
@@ -27,11 +27,11 @@ public:
         std::vector<BWAPI::TilePosition> borderTiles;
         for (int tileX = blockTile.x - 1; tileX <= blockTile.x + 8; tileX++)
         {
-            for (int tileY = blockTile.y - 1; tileY <= blockTile.y + 8; tileY++)
+            for (int tileY = blockTile.y - 1; tileY <= blockTile.y + 7; tileY++)
             {
                 if (tileX < 0 || tileY < 0 || tileX >= BWAPI::Broodwar->mapWidth() || tileY >= BWAPI::Broodwar->mapHeight()) return nullptr;
 
-                if (tileX == blockTile.x - 1 || tileY == blockTile.y - 1 || tileX == blockTile.x + 8 || tileY == blockTile.y + 8)
+                if (tileX == blockTile.x - 1 || tileY == blockTile.y - 1 || tileX == blockTile.x + 8 || tileY == blockTile.y + 7)
                 {
                     borderTiles.emplace_back(BWAPI::TilePosition(tileX, tileY));
                 }

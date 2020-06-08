@@ -11,7 +11,10 @@
 #include "Blocks/StartNormalRight.h"
 #include "Blocks/StartCompactLeft.h"
 #include "Blocks/StartCompactRight.h"
-#include "Blocks/StartBottomLeft.h"
+#include "Blocks/StartCompactLeftHorizontal.h"
+#include "Blocks/StartCompactRightVertical.h"
+#include "Blocks/StartBottomLeftHorizontal.h"
+#include "Blocks/StartTopLeftHorizontal.h"
 
 #include "Blocks/18x6.h"
 #include "Blocks/16x8.h"
@@ -154,7 +157,10 @@ namespace BuildingPlacement
                     std::make_shared<StartNormalRight>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
                     std::make_shared<StartCompactLeft>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
                     std::make_shared<StartCompactRight>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
-                    std::make_shared<StartBottomLeft>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<StartCompactLeftHorizontal>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<StartCompactRightVertical>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<StartBottomLeftHorizontal>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<StartTopLeftHorizontal>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
             };
 
             for (const auto &blockType : startBlocks)

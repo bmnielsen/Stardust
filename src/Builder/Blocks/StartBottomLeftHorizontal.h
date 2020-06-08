@@ -1,10 +1,10 @@
 #include "Block.h"
 
 // This start block is useful in mains with a geyser on left and minerals on right, like Tau Cross 6 o'clock
-class StartBottomLeft : public Block
+class StartBottomLeftHorizontal : public Block
 {
 public:
-    explicit StartBottomLeft(BWAPI::TilePosition topLeft, BWAPI::TilePosition powerPylon) : Block(topLeft, powerPylon) { placeLocations(); }
+    explicit StartBottomLeftHorizontal(BWAPI::TilePosition topLeft, BWAPI::TilePosition powerPylon) : Block(topLeft, powerPylon) { placeLocations(); }
 
     [[nodiscard]] int width() const override { return 11; }
 
@@ -106,7 +106,7 @@ public:
 
         if (placeStartBlock(usedTiles, borderTiles, tileAvailability))
         {
-            return std::make_shared<StartBottomLeft>(blockTile, blockTile + BWAPI::TilePosition(7, 0));
+            return std::make_shared<StartBottomLeftHorizontal>(blockTile, blockTile + BWAPI::TilePosition(7, 0));
         }
 
         return nullptr;
