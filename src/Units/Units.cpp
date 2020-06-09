@@ -325,8 +325,32 @@ namespace Units
             trackEnemyUnitTimings(unit, it == unitIdToEnemyUnit.end());
         }
 
-        // Update visible neutral units
-        // We are looking for enemy addons that have gone neutral
+        // Update enemy units in the fog
+        std::vector<Unit> destroyedEnemyUnits;
+        for (auto &unit : enemyUnits)
+        {
+            if (unit->lastSeen == BWAPI::Broodwar->getFrameCount()) continue;
+
+            unit->updateUnitInFog();
+
+            // If a building that can't be lifted has disappeared from its last position, treat it as destroyed
+            if (!unit->lastPositionValid && unit->type.isBuilding() && !unit->type.isFlyingBuilding())
+            {
+                destroyedEnemyUnits.push_back(unit);
+                continue;
+            }
+
+#if DEBUG_ENEMY_STATUS
+            CherryVis::log(unit->id) << "FOG;cmpl=" << unit->completed << ";lpv=" << unit->lastPositionValid;
+#endif
+        }
+        for (auto &unit : destroyedEnemyUnits)
+        {
+            enemyUnitDestroyed(unit);
+        }
+
+        // Update visible neutral units to detect addons that have gone neutral or refineries that have become geysers
+        destroyedEnemyUnits.clear();
         for (auto bwapiUnit : BWAPI::Broodwar->neutral()->getUnits())
         {
             if (!bwapiUnit->isVisible()) continue;
@@ -336,6 +360,14 @@ namespace Units
             {
                 auto &unit = it->second;
 
+                // Refineries are treated as destroyed
+                if (unit->type.isRefinery())
+                {
+                    destroyedEnemyUnits.push_back(unit);
+                    continue;
+                }
+
+                // All others are treated as destroyed for the grid but otherwise not
                 if (unit->type.isBuilding())
                 {
                     Log::Get() << "Enemy switched to neutral: " << *unit;
@@ -356,26 +388,6 @@ namespace Units
                 unitIdToEnemyUnit.erase(it);
                 enemyUnitsByType[unit->type].erase(unit);
             }
-        }
-
-        // Update enemy units in the fog
-        std::vector<Unit> destroyedEnemyUnits;
-        for (auto &unit : enemyUnits)
-        {
-            if (unit->lastSeen == BWAPI::Broodwar->getFrameCount()) continue;
-
-            unit->updateUnitInFog();
-
-            // If a building that can't be lifted has disappeared from its last position, treat it as destroyed
-            if (!unit->lastPositionValid && unit->type.isBuilding() && !unit->type.isFlyingBuilding())
-            {
-                destroyedEnemyUnits.push_back(unit);
-                continue;
-            }
-
-#if DEBUG_ENEMY_STATUS
-            CherryVis::log(unit->id) << "FOG;cmpl=" << unit->completed << ";lpv=" << unit->lastPositionValid;
-#endif
         }
         for (auto &unit : destroyedEnemyUnits)
         {

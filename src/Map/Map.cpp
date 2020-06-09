@@ -330,6 +330,7 @@ namespace Map
             auto isNearbyBuilding = [&unit, &nearbyBase](const Unit &other)
             {
                 if (other->id == unit->id) return false;
+                if (other->type.isAddon()) return false;
                 if (!other->type.isBuilding()) return false;
                 if (!other->lastPositionValid) return false;
                 return nearbyBase->getPosition().getApproxDistance(other->lastPosition) < 320;
