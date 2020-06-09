@@ -178,6 +178,11 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
         choke.firstAreaStartPosition = getStartPosition(choke.firstAreaMineralPatch, choke.secondAreaMineralPatch);
         choke.secondAreaStartPosition = getStartPosition(choke.secondAreaMineralPatch, choke.firstAreaMineralPatch);
     }
+
+    if (chokeToBlockingEggs.size() != 6)
+    {
+        Log::Get() << "WARNING: Expected to find 6 blocked chokes, but found " << chokeToBlockingEggs.size();
+    }
 }
 
 void Plasma::onUnitDestroy(BWAPI::Unit unit)
