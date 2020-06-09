@@ -56,7 +56,8 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
             eggPositions.insert(BWAPI::TilePosition(73, 17));
             eggPositions.insert(BWAPI::TilePosition(74, 17));
         }
-        else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(11, 58))
+        else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(11, 58) ||
+                 BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(11, 69))
         {
             choke.center = BWAPI::Position(BWAPI::WalkPosition(44, 258));
             eggPositions.insert(BWAPI::TilePosition(9, 62));
@@ -79,7 +80,8 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
             eggPositions.insert(BWAPI::TilePosition(35, 29));
             eggPositions.insert(BWAPI::TilePosition(36, 29));
         }
-        else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(73, 111))
+        else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(73, 111) ||
+                 BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(70, 113))
         {
             eggPositions.insert(BWAPI::TilePosition(70, 111));
             eggPositions.insert(BWAPI::TilePosition(71, 111));
@@ -92,7 +94,8 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
             eggPositions.insert(BWAPI::TilePosition(73, 112));
             eggPositions.insert(BWAPI::TilePosition(74, 112));
         }
-        else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(37, 99))
+        else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(37, 99) ||
+                 BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(36, 99))
         {
             eggPositions.insert(BWAPI::TilePosition(36, 98));
             eggPositions.insert(BWAPI::TilePosition(36, 99));
@@ -101,7 +104,8 @@ void Plasma::initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &choke
             eggPositions.insert(BWAPI::TilePosition(37, 99));
             eggPositions.insert(BWAPI::TilePosition(37, 100));
         }
-        else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(54, 64))
+        else if (BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(54, 64) ||
+                 BWAPI::TilePosition(choke.center) == BWAPI::TilePosition(53, 64))
         {
             eggPositions.insert(BWAPI::TilePosition(52, 65));
             eggPositions.insert(BWAPI::TilePosition(53, 65));
