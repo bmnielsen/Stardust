@@ -1,6 +1,7 @@
 #include "UnitCluster.h"
 
 #include "Units.h"
+#include "Map.h"
 
 /*
  * Cluster attack
@@ -18,6 +19,26 @@
 
 void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition)
 {
+    // If this map has chokes that may need to be cleared, check if this cluster needs to do so to reach its target
+    if (Map::mapSpecificOverride()->hasAttackClearableChokes())
+    {
+        // We don't bother if any enemy unit is already in range of a unit in the cluster
+        bool anyUnitInRange = false;
+        for (const auto &unitAndTarget : unitsAndTargets)
+        {
+            if (unitAndTarget.second && unitAndTarget.first->isInOurWeaponRange(unitAndTarget.second))
+            {
+                anyUnitInRange = true;
+                break;
+            }
+        }
+
+        if (!anyUnitInRange && Map::mapSpecificOverride()->clusterMove(*this, targetPosition))
+        {
+            return;
+        }
+    }
+
     // Micro each unit
     for (auto &unitAndTarget : unitsAndTargets)
     {

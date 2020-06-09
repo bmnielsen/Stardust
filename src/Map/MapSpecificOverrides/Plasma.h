@@ -7,6 +7,8 @@ class Plasma : public MapSpecificOverride
 public:
     bool hasMineralWalking() override { return true; }
 
+    bool hasAttackClearableChokes() override { return true; }
+
     void initializeChokes(std::map<const BWEM::ChokePoint *, Choke *> &chokes) override;
 
     bool canUseBwemPath(BWAPI::UnitType unitType) override
