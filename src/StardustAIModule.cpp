@@ -129,7 +129,8 @@ void StardustAIModule::onStart()
     BWAPI::Broodwar->setLocalSpeed(0);
     BWAPI::Broodwar->setFrameSkip(0);
 
-    Log::Get() << "Initialized game against " << Opponent::getName() << " on " << BWAPI::Broodwar->mapFileName();
+    Log::Get() << "Initialized game against " << Opponent::getName()
+               << " on " << BWAPI::Broodwar->mapFileName() << " (" << BWAPI::Broodwar->mapHash() << ")";
     Log::Get() << "My starting position: " << Map::getMyMain()->getTilePosition();
     if (Map::getMyNatural())
     {

@@ -845,11 +845,13 @@ namespace Map
         if (BWAPI::Broodwar->mapHash() == "83320e505f35c65324e93510ce2eafbaa71c9aa1")
         {
             // TODO: Add openbw hash
+            Log::Get() << "Using map-specific override for Fortress";
             _mapSpecificOverride = new Fortress();
         }
         else if (BWAPI::Broodwar->mapHash() == "6f5295624a7e3887470f3f2e14727b1411321a67" ||
                  BWAPI::Broodwar->mapHash() == "8b3e8ed9ce9620a606319ba6a593ed5c894e51df")
         {
+            Log::Get() << "Using map-specific override for Plasma";
             _mapSpecificOverride = new Plasma();
         }
         else
