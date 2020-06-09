@@ -7,14 +7,6 @@
 #include "PathFinding.h"
 #include "Geo.h"
 
-/*
-Base ownership:
-- Set our main base on startup
-- Set enemy main base on startup if there are only two starting locations
-- Don't set enemy main base if it takes another main
-- Set enemy main base if we see a building near it
-*/
-
 namespace Map
 {
     namespace

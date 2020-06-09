@@ -8,7 +8,7 @@
 /*
  * Cluster movement
  *
- * When we have a navigation grid (which should always be the case), we implement flocking with three boids:
+ * When we have a navigation grid (which is usually the case), we implement flocking with three boids:
  * - Goal: moves the unit towards the target position
  * - Cohesion: keeps the cluster together
  * - Separation: keeps some space between the units
@@ -16,6 +16,7 @@
  * Collisions with unwalkable terrain are handled by having the unit ignore the boids and move only using the
  * grid. These cases are hopefully lessened by the fact that our navigation grid favours paths away from
  * unwalkable tiles.
+ * TODO: Add some kind of collision with terrain boid
  */
 
 namespace

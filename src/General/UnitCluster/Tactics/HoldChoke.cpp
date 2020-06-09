@@ -12,8 +12,6 @@
  * Basic idea:
  * - Melee units hold the line at the choke end
  * - Ranged units keep in range of a point further inside the choke
- *
- * TODO: Needs different logic when attacker has higher-range units than we do - e.g. keep distance and pounce when the enemy starts crossing
  */
 
 namespace

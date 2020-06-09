@@ -15,18 +15,6 @@
 #define DEBUG_WRITE_SUBGOALS false
 #endif
 
-/*
-TODOs:
-- Dynamic prediction window based on how many prerequisites are needed
-- Support building outside of main base
-- Build location handling may not be good enough
-
-Ideas:
-- Support maximizing production or pressure on enemy at a certain frame
-  - Can probably just be handled in the strategist, so the producer always just needs to know what its priorities are
-- Schedule something for a specific frame
-  - Might be tricky to get right - in some cases it might be better to produce it earlier (to free up production capacity later)
-*/
 namespace Producer
 {
 #ifndef DEBUG

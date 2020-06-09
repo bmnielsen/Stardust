@@ -63,13 +63,3 @@ protected:
 
     void removeUsed();
 };
-
-/*
- * 1. Find start block
- * 2. Find normal blocks
- * 3. Order the pylons according to distance from nexus and how many positions are powered. Always start with start block pylon. Consider artosis.
- * 4. As pylons are created, remove them from the list and add the powered locations
- * 5. As buildings are created, remove them from the list
- * 6. On unit destroy, re-add locations to the list.
- *
- */

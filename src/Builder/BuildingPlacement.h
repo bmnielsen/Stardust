@@ -9,7 +9,7 @@
 /*
  * Block finding logic:
  *
- * - Start with our starting block, which provides 2 gateways, 3-4 tech buildings and 3 cannons
+ * - Start with our starting block, which provides 2 gateways, 2-4 tech buildings and 3-4 cannons
  * - Then progressively try to place smaller and smaller blocks
  *
  * Ideas for future improvement:

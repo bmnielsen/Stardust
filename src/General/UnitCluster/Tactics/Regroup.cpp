@@ -9,10 +9,9 @@
  * Orders a cluster to regroup.
  *
  * There are several regrouping strategies that can be chosen based on the situation:
- * - Contain: The enemy is considered to be mainly static, so retreat to a safe distance and attack anything that comes into range.
- * - Pull back: Retreat to a location that is more easily defensible (choke, high ground) and set up appropriately.
+ * - Contain base: The enemy is considered to be mainly static, so retreat to a safe distance and attack anything that comes into range.
+ * - Hold choke: We can stay at our choke and hold off the enemy.
  * - Flee: Move back towards our main base until we are reinforced.
- * - Explode: Send the cluster units in multiple directions to confuse the enemy.
  */
 
 namespace

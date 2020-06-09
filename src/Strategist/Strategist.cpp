@@ -16,34 +16,9 @@
 #include "Strategist.h"
 
 /*
- * Broadly, the Strategist decides on a prioritized list of plays to run, each of which can order units from the producer
- * and influence the organization and behaviour of its managed units.
- *
- * On each frame, each play decides whether it is finished or should transition into a different play. If not, it decides
- * what units (if any) it needs to perform its task.
- *
- * Units are then (re)assigned accordingly, and any missing units are ordered from the producer by the individual plays.
- *
- * The Strategist also coordinates scouting.
- *
- * Scenarios:
- *
- * Early game normal tactics.
- * - Scout is sent to find enemy base -> triggered by frame or building creation
- * - Initial units are added to a defensive play -> it keeps tabs on what units it thinks it needs based on observations
- * - Enemy base is found, attack base play is added -> triggered by map calling into strategist?
- * - When the defensive play no longer feels there is a threat, its units are released and go to the attack base play
- * - Later, a scouting play is added to keep tabs on possible enemy expansions -> triggered by frame or observations
- * - Whenever an expansion is found, strategist adds one or more plays to attack it in some way
- * - Attack plays keep track of how they are doing, e.g. if an attack play does not feel it can succeed, it might transition
- *   into a contain enemy play
- *
- * Default play:
- *
- * The last play will always be the play for the bulk of our army. Generally it will be tasked with attacking the enemy's main base. If we haven't
- * found the enemy's main base yet, the army will rally at our base. Once the enemy's main base is destroyed, we will either consider a new enemy
- * base to be its main base, or transition to a mop up play that searches for remaining buildings to destroy.
- *
+ * Broadly, the Strategist (via a StrategyEngine) decides on a prioritized list of plays to run, each of which can order
+ * units from the producer and influence the organization and behaviour of its managed units. The StrategyEngine also
+ * orders production for our main army.
  */
 namespace Strategist
 {

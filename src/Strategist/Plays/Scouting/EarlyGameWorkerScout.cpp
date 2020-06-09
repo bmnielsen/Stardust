@@ -468,23 +468,6 @@ bool EarlyGameWorkerScout::isScoutBlocked()
     if ((BWAPI::Broodwar->getFrameCount() - lastForewardMotionFrame) > 120) return true;
 
     return false;
-
-    /*
-
-    Diabled as it doesn't really work - too many false positives and won't work if the enemy blocks such that we never see the unit.
-
-    // Look for a stationary enemy unit nearby and in a narrow choke
-    for (const auto &unit : Units::allEnemy())
-    {
-        if (!unit->lastPositionValid) continue;
-        if (unit->getDistance(scout) > 100) continue;
-        if (!Map::isInNarrowChoke(unit->getTilePosition())) continue;
-        if (unit->isMoving) continue;
-
-        Log::Get() << "Enemy scout blocker detected: " << *unit;
-        return true;
-    }
-     */
 }
 
 BWAPI::TilePosition EarlyGameWorkerScout::getHighestPriorityScoutTile()

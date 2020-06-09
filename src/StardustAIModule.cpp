@@ -1,32 +1,3 @@
-/*
-TODOs:
-- Ability to take expansions
-- Ability to build static defense / walls
-- Ability to proxy
-- Scouting
-- Combat
-- Flocking
-- Threat-aware pathfinding
-- Path smoothing? (test with scouting probe to see how big an impact it has)
-  - e.g. cache most efficient paths between common waypoints like narrow chokes, invalidate when something blocks them
-  - brushfire to common destinations, e.g. each base or choke, maybe recalculate for changes
-
-Tasks:
-- Get simple combat management working
-  - Including combat sim with customizations
-- Expansions, static defense, walls
-- Enhanced scouting with opponent plan recognition
-- Worker defense
-- Start looking into pathfinding stuff
-- Enhanced combat mechanics:
-  - Avoiding overkill
-  - Army movement
-  - Avoid narrow chokes where possible
-- Proxies
-- Worker harrass
-*/
-
-
 #include "StardustAIModule.h"
 
 #include "Timer.h"
@@ -49,7 +20,7 @@ Tasks:
 #define FRAME_LIMIT 30000
 #else
 #if INSTRUMENTATION_ENABLED
-#define FRAME_LIMIT 50000
+#define FRAME_LIMIT 40000
 #endif
 #endif
 

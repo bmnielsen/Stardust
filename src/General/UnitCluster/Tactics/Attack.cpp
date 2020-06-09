@@ -3,20 +3,6 @@
 #include "Units.h"
 #include "Map.h"
 
-/*
- * Cluster attack
- *
- * This is a "normal" attack; special maneuvers like flanking will be done elsewhere.
- *
- * Currently just uses myUnit.attackUnit.
- *
- * TODO: Use boids for unit positioning
- * - Kiting
- * - Surrounds
- * - Advancing the front line if they are blocking the second line from firing
- * - Retreating individual hurt units
- */
-
 void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition)
 {
     // If this map has chokes that may need to be cleared, check if this cluster needs to do so to reach its target

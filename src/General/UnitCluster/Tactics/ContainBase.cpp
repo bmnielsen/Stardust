@@ -8,7 +8,7 @@
 /*
  * Contains a base, here defined as somewhere the enemy has static defense.
  *
- * We basically order our units to fan out just outside of enemy threat range, attacking anything that comes into range of our units.
+ * We basically just order our units to fan out just outside of enemy threat range, attacking anything that comes into range of our units.
  */
 
 namespace

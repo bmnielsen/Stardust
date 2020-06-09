@@ -10,17 +10,6 @@
 #include "BuildingPlacement.h"
 #include "Builder.h"
 
-/*
- * General approach:
- *
- * - If the mineral line is under attack, do worker defense
- * - Otherwise, determine the level of risk to the base.
- * - If the base cannot be saved, evacuate workers
- * - If high risk (enemy units are here or expected to come soon), reserve some units for protection
- * - If at medium risk, get some static defense
- * - If at low risk, do nothing
- */
-
 DefendBase::DefendBase(Base *base)
         : Play((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
         , base(base)
