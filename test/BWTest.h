@@ -34,7 +34,7 @@ public:
     std::shared_ptr<Maps::MapMetadata> map;
     std::vector<Maps::MapMetadata> maps;
 
-    int frameLimit = 25000;
+    int frameLimit = 30000;
     int timeLimit = 600;
     int randomSeed = -1;
     bool expectWin = true;
