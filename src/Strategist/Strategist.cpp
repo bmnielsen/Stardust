@@ -492,8 +492,11 @@ namespace Strategist
 
     void setWorkerScoutStatus(WorkerScoutStatus status)
     {
-        workerScoutStatus = status;
-        Log::Get() << "Worker scout status changed to: " << workerScoutStatusToString();
+        if (workerScoutStatus != status)
+        {
+            workerScoutStatus = status;
+            Log::Get() << "Worker scout status changed to: " << workerScoutStatusToString();
+        }
     }
 
     // Following methods are used by tests to force specific behaviour
