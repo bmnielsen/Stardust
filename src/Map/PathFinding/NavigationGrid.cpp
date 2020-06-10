@@ -14,6 +14,11 @@ namespace
     {
         return Map::isWalkable(x, y) && !Map::isInOwnMineralLine(x, y);
     }
+
+    bool allowDiagonalConnectionThrough(int x, int y)
+    {
+        return walkableAndNotMineralLine(x, y) || Map::mapSpecificOverride()->allowDiagonalPathingThrough(x, y);
+    }
 }
 
 NavigationGrid::NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize) : goal(goal)
@@ -116,7 +121,7 @@ void NavigationGrid::update()
         if (node.cost <= cost) return;
 
         // Don't allow diagonal connections through blocked tiles
-        if (direction % 2 == 1 && (!walkableAndNotMineralLine(x, current->y) || !walkableAndNotMineralLine(current->x, y))) return;
+        if (direction % 2 == 1 && (!allowDiagonalConnectionThrough(x, current->y) || !allowDiagonalConnectionThrough(current->x, y))) return;
 
         // If the target node is already connected, remove the reverse connection
         if (node.nextNode)

@@ -38,4 +38,9 @@ public:
     {
         return nullptr;
     }
+
+    virtual bool allowDiagonalPathingThrough(int x, int y)
+    {
+        return false;
+    }
 };
