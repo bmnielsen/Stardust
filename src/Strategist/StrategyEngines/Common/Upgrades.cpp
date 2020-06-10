@@ -99,7 +99,7 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
         int armorLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Armor);
 
         // Weapons -> 1, Armor -> 1, Weapons -> 3, Armor -> 3
-        if ((weaponLevel == 0 || armorLevel >= 1) && weaponLevel <= maxLevel &&
+        if ((weaponLevel == 0 || armorLevel >= 1) && weaponLevel < maxLevel &&
             !Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
         {
             prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
@@ -107,14 +107,14 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
                                                                      weaponLevel + 1,
                                                                      forgeCount);
         }
-        if (!Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Armor) && armorLevel <= maxLevel)
+        if (!Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Armor) && armorLevel < maxLevel)
         {
             prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
                                                                      BWAPI::UpgradeTypes::Protoss_Ground_Armor,
                                                                      armorLevel + 1,
                                                                      forgeCount);
         }
-        if (weaponLevel > 0 && armorLevel == 0 && weaponLevel <= maxLevel &&
+        if (weaponLevel > 0 && armorLevel == 0 && weaponLevel < maxLevel &&
             !Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
         {
             prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
