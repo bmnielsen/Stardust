@@ -32,6 +32,7 @@ void DefendMyMain::update()
     std::set<Unit> enemyWorkers;
     bool scoutHarass = true;
     bool enemyFlyingUnit = false;
+    bool enemyRangedUnit = false;
     Unit gasSteal = nullptr;
     for (const Unit &unit : Units::allEnemy())
     {
@@ -58,6 +59,7 @@ void DefendMyMain::update()
             scoutHarass = false;
             enemyCombatUnits.insert(unit);
             if (unit->isFlying) enemyFlyingUnit = true;
+            if (UnitUtil::IsRangedUnit(unit->type)) enemyRangedUnit = true;
         }
         else if (unit->type.isRefinery())
         {
@@ -120,7 +122,9 @@ void DefendMyMain::update()
     emergencyProduction = BWAPI::UnitTypes::None;
     if (lastRegroupFrame > 0 && lastRegroupFrame > (BWAPI::Broodwar->getFrameCount() - REGROUP_EMERGENCY_TIMEOUT))
     {
-        emergencyProduction = enemyFlyingUnit ? BWAPI::UnitTypes::Protoss_Dragoon : BWAPI::UnitTypes::Protoss_Zealot;
+        emergencyProduction = (enemyFlyingUnit || enemyRangedUnit)
+                              ? BWAPI::UnitTypes::Protoss_Dragoon
+                              : BWAPI::UnitTypes::Protoss_Zealot;
 
 #if DEBUG_PLAY_STATE
         CherryVis::log() << "Defend base: emergency, producing " << emergencyProduction;
