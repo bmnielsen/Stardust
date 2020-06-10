@@ -111,6 +111,7 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
         {
             for (const auto &unit : units)
             {
+                CherryVis::log(unit->id) << "Releasing from non-mining duties (no enemies for worker defense)";
                 Workers::releaseWorker(unit);
             }
 
@@ -142,6 +143,7 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
         }
         else
         {
+            CherryVis::log((*it)->id) << "Releasing from non-mining duties (no longer needed for worker defense)";
             Workers::releaseWorker(*it);
             it = units.erase(it);
         }
@@ -171,6 +173,7 @@ void WorkerDefenseSquad::disband()
 {
     for (const auto &unit : units)
     {
+        CherryVis::log(unit->id) << "Releasing from non-mining duties (disband worker defense)";
         Workers::releaseWorker(unit);
     }
 

@@ -724,7 +724,6 @@ namespace Workers
         if (!unit || !unit->exists() || !unit->type.isWorker() || !unit->completed) return;
 
         workerJob[unit] = Job::None;
-        CherryVis::log(unit->id) << "Released from non-mining duties";
     }
 
     int availableMineralAssignments(Base *base)

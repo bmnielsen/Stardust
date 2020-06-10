@@ -341,6 +341,7 @@ void EarlyGameWorkerScout::disband(const std::function<void(const MyUnit &)> &re
 {
     if (scout && scout->exists())
     {
+        CherryVis::log(scout->id) << "Releasing from non-mining duties (scout disband)";
         Workers::releaseWorker(scout);
     }
 }

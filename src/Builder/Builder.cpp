@@ -61,6 +61,7 @@ namespace Builder
             // When the builder has no more buildings in its queue, release it back to Workers
             if (builderQueue.empty())
             {
+                CherryVis::log(builder->id) << "Releasing from non-mining duties (builder queue empty)";
                 Workers::releaseWorker(builder);
                 builderQueues.erase(builder);
                 return;
