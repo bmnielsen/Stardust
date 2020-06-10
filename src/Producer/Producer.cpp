@@ -21,21 +21,15 @@ namespace Producer
     namespace
     {
 #endif
-        // How many frames in the future to consider when predicting future production needs
-#ifdef DEBUG
-        const int PREDICT_FRAMES = 24 * 60 * 3; // 2 minutes
-#else
-        const int PREDICT_FRAMES = 24 * 60 * 3; // 3 minutes
-#endif
-
         const double MINERALS_PER_WORKER_FRAME = 0.0465;
         const double GAS_PER_WORKER_FRAME = 0.071;
         const double MINERALS_PER_GAS_UNIT = 0.655;
 
-        std::array<int, PREDICT_FRAMES> minerals;
-        std::array<int, PREDICT_FRAMES> gas;
-        std::array<int, PREDICT_FRAMES> supply;
-        std::array<int, PREDICT_FRAMES> totalSupply;
+        int PREDICT_FRAMES;
+        std::vector<int> minerals;
+        std::vector<int> gas;
+        std::vector<int> supply;
+        std::vector<int> totalSupply;
         std::map<BuildingPlacement::Neighbourhood, std::map<int, BuildingPlacement::BuildLocationSet>> buildLocations;
         BuildingPlacement::BuildLocationSet availableGeysers;
 
@@ -244,7 +238,7 @@ namespace Producer
             return baseRemainingBuildTime;
         }
 
-        void updateResourceCollection(std::array<int, PREDICT_FRAMES> &resource, int fromFrame, int workerChange, double baseRate)
+        void updateResourceCollection(std::vector<int> &resource, int fromFrame, int workerChange, double baseRate)
         {
             double delta = (double) workerChange * baseRate;
             for (int f = fromFrame + 1; f < PREDICT_FRAMES; f++)
@@ -253,7 +247,7 @@ namespace Producer
             }
         }
 
-        void spendResource(std::array<int, PREDICT_FRAMES> &resource, int amount, int fromFrame, int toFrame = PREDICT_FRAMES)
+        void spendResource(std::vector<int> &resource, int amount, int fromFrame, int toFrame = PREDICT_FRAMES)
         {
             for (int f = fromFrame; f < toFrame; f++)
             {
@@ -261,7 +255,7 @@ namespace Producer
             }
         }
 
-        void moveResourceSpend(std::array<int, PREDICT_FRAMES> &resource, int amount, int fromFrame, int delta)
+        void moveResourceSpend(std::vector<int> &resource, int amount, int fromFrame, int delta)
         {
             // If the delta is positive, add back the resource into the future, otherwise subtract it into the past
             if (delta > 0)
@@ -331,21 +325,25 @@ namespace Producer
 
         void initializeResources()
         {
+            // Decide on the length of the prediction window
+            // In the early game we use a 4500-frame window, which shrinks to 2000 later on
+            PREDICT_FRAMES = std::max(2000, std::min(4500, 12000 - BWAPI::Broodwar->getFrameCount()));
+
             // Fill mineral and gas with current rates
-            int currentMinerals = BWAPI::Broodwar->self()->minerals();
-            int currentGas = BWAPI::Broodwar->self()->gas();
+            minerals.assign(PREDICT_FRAMES, BWAPI::Broodwar->self()->minerals());
+            gas.assign(PREDICT_FRAMES, BWAPI::Broodwar->self()->gas());
             double mineralRate = (double) Workers::mineralWorkers() * MINERALS_PER_WORKER_FRAME;
             auto gasWorkers = Workers::gasWorkers();
             double gasRate = ((double) gasWorkers.first * GAS_PER_WORKER_FRAME) + ((double) gasWorkers.second * GAS_PER_WORKER_FRAME / 4.0);
             for (int f = 0; f < PREDICT_FRAMES; f++)
             {
-                minerals[f] = currentMinerals + (int) (mineralRate * f);
-                gas[f] = currentGas + (int) (gasRate * f);
+                minerals[f] += (int) (mineralRate * f);
+                gas[f] += (int) (gasRate * f);
             }
 
             // Fill supply with available and provided supply
-            supply.fill(BWAPI::Broodwar->self()->supplyTotal() - BWAPI::Broodwar->self()->supplyUsed());
-            totalSupply.fill(BWAPI::Broodwar->self()->supplyTotal());
+            supply.assign(PREDICT_FRAMES, BWAPI::Broodwar->self()->supplyTotal() - BWAPI::Broodwar->self()->supplyUsed());
+            totalSupply.assign(PREDICT_FRAMES, BWAPI::Broodwar->self()->supplyTotal());
 
             // Assume workers being built will go to minerals
             for (const auto &unit : Units::allMine())
