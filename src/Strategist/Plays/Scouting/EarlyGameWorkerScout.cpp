@@ -356,6 +356,25 @@ bool EarlyGameWorkerScout::reserveScout()
         scoutAfterBuilding = BWAPI::UnitTypes::Protoss_Gateway;
     }
 
+    // If a building of the required type already exists, this play is being added late
+    // This happens vs. random when the play is re-initialized once the enemy race is known
+    // In this case grab our furthest worker from the main base, as it is likely to have already been our scout
+    if (Units::countAll(scoutAfterBuilding) > 0)
+    {
+        int bestDist = 0;
+        for (const auto &worker : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
+        {
+            int dist = PathFinding::GetGroundDistance(worker->lastPosition, Map::getMyMain()->getPosition(), BWAPI::UnitTypes::Protoss_Probe, PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            if (dist > bestDist)
+            {
+                bestDist = dist;
+                scout = worker;
+            }
+        }
+
+        return scout != nullptr;
+    }
+
     for (auto &pendingBuilding : Builder::allPendingBuildings())
     {
         if (pendingBuilding->builder && pendingBuilding->type == scoutAfterBuilding)
