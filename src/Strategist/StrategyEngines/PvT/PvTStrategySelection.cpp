@@ -61,8 +61,10 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                         continue;
                     case TerranStrategy::WallIn:
                     case TerranStrategy::FastExpansion:
-                    case TerranStrategy::Normal:
                         strategy = OurStrategy::FastExpansion;
+                        continue;
+                    case TerranStrategy::Normal:
+                        strategy = OurStrategy::Normal;
                         continue;
                     case TerranStrategy::MidGame:
                         strategy = OurStrategy::MidGame;
