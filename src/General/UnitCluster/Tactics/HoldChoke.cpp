@@ -60,25 +60,36 @@ void UnitCluster::holdChoke(Choke *choke,
 
         // TODO: Check if the unit is in position
 
-        auto predictedTargetPos = unitAndTarget.second->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        // Determine if this unit should be attacked
 
+        // If the target is close enough to the defend end, attack with all units
+        if (target->getDistance(defendEnd) <= std::max(choke->width / 2,
+                                                   std::min(Players::weaponRange(myUnit->player, myUnit->type.groundWeapon()), centerDist)))
+        {
+            meleeShouldAttack = true;
+            rangedShouldAttack = true;
+            break;
+        }
+
+        // If the target is about to be in our weapon range, attack with ranged or all units
+        auto predictedTargetPos = unitAndTarget.second->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        if (!myUnit->isInOurWeaponRange(target, predictedTargetPos)) continue;
         if (UnitUtil::IsRangedUnit(myUnit->type))
         {
-            // Ranged units attack if the unit is about to be in weapon range or is in range of the defend end of the choke
-            rangedShouldAttack = rangedShouldAttack ||
-                                 myUnit->isInOurWeaponRange(target, predictedTargetPos) ||
-                                 target->getDistance(defendEnd) <= Players::weaponRange(myUnit->player, myUnit->type.groundWeapon());
+            rangedShouldAttack = true;
+
+            // If we don't outrange the target, attack with melee units as well
+            if (myUnit->isInEnemyWeaponRange(target, predictedTargetPos, 16))
+            {
+                meleeShouldAttack = true;
+                break;
+            }
         }
         else
         {
-            // Melee units attack if the unit is about to be in weapon range or is close enough to the defend end
-            if (myUnit->isInOurWeaponRange(target, predictedTargetPos) ||
-                target->getDistance(defendEnd) <= std::min(Players::weaponRange(myUnit->player, myUnit->type.groundWeapon()), centerDist))
-            {
-                meleeShouldAttack = true;
-                rangedShouldAttack = true; // Ranged always attack when melee attack
-                break;
-            }
+            meleeShouldAttack = true;
+            rangedShouldAttack = true;
+            break;
         }
     }
 
@@ -151,12 +162,13 @@ void UnitCluster::holdChoke(Choke *choke,
                 targetPos = defendEnd;
                 distDiff = defendEndDist;
             }
-            else if (unitAndTarget.second && unitAndTarget.second->isInOurWeaponRange(myUnit))
+            else if (unitAndTarget.second && myUnit->isInEnemyWeaponRange(unitAndTarget.second, 32))
             {
                 // Unit is in its target's attack range
                 targetPos = unitAndTarget.second->lastPosition;
                 distDiff = myUnit->getDistance(unitAndTarget.second)
-                           - Players::weaponRange(unitAndTarget.second->player, unitAndTarget.second->type.groundWeapon());
+                           - Players::weaponRange(unitAndTarget.second->player, unitAndTarget.second->type.groundWeapon())
+                           - 32;
             }
             else
             {
@@ -251,7 +263,7 @@ void UnitCluster::holdChoke(Choke *choke,
         // Find a walkable position along the vector
         int dist = Geo::ApproximateDistance(0, totalX, 0, totalY) - 16;
         auto pos = myUnit->lastPosition + totalVector;
-        while (dist > 0 && (!pos.isValid() || !BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos))))
+        while (dist > 10 && (!pos.isValid() || !BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos))))
         {
             pos = myUnit->lastPosition + Geo::ScaleVector(totalVector, dist);
             dist -= 16;

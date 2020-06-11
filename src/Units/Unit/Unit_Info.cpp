@@ -66,16 +66,16 @@ BWAPI::WeaponType UnitImpl::getWeapon(const Unit &target) const
     return target->isFlying ? UnitUtil::GetAirWeapon(type) : UnitUtil::GetGroundWeapon(type);
 }
 
-bool UnitImpl::isInOurWeaponRange(const Unit &target, BWAPI::Position predictedTargetPosition) const
+bool UnitImpl::isInOurWeaponRange(const Unit &target, BWAPI::Position predictedTargetPosition, int buffer) const
 {
     int range = Players::weaponRange(player, target->isFlying ? type.airWeapon() : type.groundWeapon());
-    return getDistance(target, predictedTargetPosition) <= range;
+    return getDistance(target, predictedTargetPosition) <= (range + buffer);
 }
 
-bool UnitImpl::isInEnemyWeaponRange(const Unit &attacker, BWAPI::Position predictedAttackerPosition) const
+bool UnitImpl::isInEnemyWeaponRange(const Unit &attacker, BWAPI::Position predictedAttackerPosition, int buffer) const
 {
     int range = Players::weaponRange(attacker->player, isFlying ? attacker->type.airWeapon() : attacker->type.groundWeapon());
-    return getDistance(attacker, predictedAttackerPosition) <= range;
+    return getDistance(attacker, predictedAttackerPosition) <= (range + buffer);
 }
 
 int UnitImpl::getDistance(BWAPI::Position position) const

@@ -99,9 +99,23 @@ public:
 
     [[nodiscard]] BWAPI::WeaponType getWeapon(const Unit &target) const;
 
-    [[nodiscard]] bool isInOurWeaponRange(const Unit &target, BWAPI::Position predictedTargetPosition = BWAPI::Positions::Invalid) const;
+    [[nodiscard]] bool isInOurWeaponRange(const Unit &target,
+                                          BWAPI::Position predictedTargetPosition = BWAPI::Positions::Invalid,
+                                          int buffer = 0) const;
 
-    [[nodiscard]] bool isInEnemyWeaponRange(const Unit &attacker, BWAPI::Position predictedAttackerPosition = BWAPI::Positions::Invalid) const;
+    [[nodiscard]] bool isInOurWeaponRange(const Unit &target, int buffer) const
+    {
+        return isInOurWeaponRange(target, BWAPI::Positions::Invalid, buffer);
+    };
+
+    [[nodiscard]] bool isInEnemyWeaponRange(const Unit &attacker,
+                                            BWAPI::Position predictedAttackerPosition = BWAPI::Positions::Invalid,
+                                            int buffer = 0) const;
+
+    [[nodiscard]] bool isInEnemyWeaponRange(const Unit &attacker, int buffer) const
+    {
+        return isInEnemyWeaponRange(attacker, BWAPI::Positions::Invalid, buffer);
+    };
 
     [[nodiscard]] int getDistance(BWAPI::Position position) const;
 
