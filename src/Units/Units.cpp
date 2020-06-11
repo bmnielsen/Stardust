@@ -130,44 +130,122 @@ namespace Units
             }
             else
             {
-                // Assume the unit came from the enemy main
-                // TODO: Do we need to make this more accurate and consider other known bases?
-
-                int framesToEnemyMain = INT_MAX;
-                auto enemyMain = Map::getEnemyMain();
-                if (!enemyMain) enemyMain = Map::getEnemyStartingMain();
-                if (!enemyMain)
+                auto getClosestProducer = [&unit]()
                 {
-                    // Default to the closest unscouted starting position
-                    for (auto base : Map::unscoutedStartingLocations())
+                    Unit closestProducer = nullptr;
+                    int closestDist = INT_MAX;
+
+                    auto handlePossibleProducer = [&](const Unit &producer)
                     {
-                        int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
-                                                                     base->getPosition(),
-                                                                     unit->type,
-                                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea);
-                        if (frames < framesToEnemyMain)
+                        if (!producer->exists()) return;
+                        if (!producer->lastPositionValid) return;
+
+                        int dist;
+                        if (unit->isFlying)
                         {
-                            framesToEnemyMain = frames;
-                            enemyMain = base;
+                            dist = producer->lastPosition.getApproxDistance(unit->lastPosition);
+                        }
+                        else
+                        {
+                            dist = PathFinding::GetGroundDistance(producer->lastPosition,
+                                                                  unit->lastPosition,
+                                                                  unit->type,
+                                                                  PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                        }
+
+                        if (dist < closestDist)
+                        {
+                            closestDist = dist;
+                            closestProducer = producer;
+                        }
+                    };
+
+                    // Assume all Zerg units come from a larva (at a hatchery / lair / hive)
+                    if (unit->player->getRace() == BWAPI::Races::Zerg)
+                    {
+                        for (const auto &producer : enemyUnits)
+                        {
+                            if (producer->type != BWAPI::UnitTypes::Zerg_Hatchery &&
+                                producer->type != BWAPI::UnitTypes::Zerg_Lair &&
+                                producer->type != BWAPI::UnitTypes::Zerg_Hive)
+                            {
+                                continue;
+                            }
+
+                            handlePossibleProducer(producer);
                         }
                     }
+                    else
+                    {
+                        auto producerType = unit->type.whatBuilds().first;
+                        if (!producerType.isBuilding()) producerType = producerType.whatBuilds().first;
+
+                        for (const auto &producer : enemyUnitsByType[producerType])
+                        {
+                            if (producer->isFlying) continue;
+
+                            handlePossibleProducer(producer);
+                        }
+                    }
+
+                    return closestProducer;
+                };
+
+                // Try to guess how many frames the unit has moved since it was built
+                int framesMoved = 0;
+                if (unit->type.topSpeed() > 0.001)
+                {
+                    // First see if we know of anything that can produce the unit
+                    auto closestProducer = getClosestProducer();
+                    if (closestProducer)
+                    {
+                        framesMoved = PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                                      closestProducer->lastPosition,
+                                                                      unit->type,
+                                                                      PathFinding::PathFindingOptions::UseNearestBWEMArea);
+
+                        // Give it a bit of leeway to account for the spawn position being outside the producer
+                        framesMoved = std::max(0, framesMoved - 48);
+                    }
+                    else
+                    {
+                        // We don't know the producer, so assume it came from the closest possible enemy main
+                        auto enemyMain = Map::getEnemyMain();
+                        if (!enemyMain) enemyMain = Map::getEnemyStartingMain();
+                        if (enemyMain)
+                        {
+                            framesMoved = PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                                          enemyMain->getPosition(),
+                                                                          unit->type,
+                                                                          PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                        }
+                        else
+                        {
+                            // Default to the closest unscouted starting position
+                            framesMoved = INT_MAX;
+                            for (auto base : Map::unscoutedStartingLocations())
+                            {
+                                int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                                             base->getPosition(),
+                                                                             unit->type,
+                                                                             PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                                if (frames < framesMoved)
+                                {
+                                    framesMoved = frames;
+                                }
+                            }
+
+                            // Guard against bugs in scouting
+                            if (framesMoved == INT_MAX) framesMoved = 0;
+                        }
+
+                        // Give some leeway since the unit might have been produced away from the depot
+                        // For Zerg we give less leeway since they have less building room
+                        framesMoved = std::max(0, framesMoved - (unit->player->getRace() == BWAPI::Races::Zerg ? 75 : 200));
+                    }
                 }
 
-                if (enemyMain && unit->type.topSpeed() > 0.001)
-                {
-                    if (framesToEnemyMain == INT_MAX)
-                    {
-                        framesToEnemyMain = PathFinding::ExpectedTravelTime(unit->lastPosition,
-                                                                            enemyMain->getPosition(),
-                                                                            unit->type,
-                                                                            PathFinding::PathFindingOptions::UseNearestBWEMArea);
-                    }
-                    completionFrame = BWAPI::Broodwar->getFrameCount() - framesToEnemyMain;
-                }
-                else
-                {
-                    completionFrame = BWAPI::Broodwar->getFrameCount();
-                }
+                completionFrame = BWAPI::Broodwar->getFrameCount() - framesMoved;
             }
 
             int startFrame = completionFrame - UnitUtil::BuildTime(unit->type);
