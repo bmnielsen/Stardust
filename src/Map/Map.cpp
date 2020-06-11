@@ -163,6 +163,8 @@ namespace Map
             };
             CherryVis::log() << "Changing base " << base->getTilePosition() << " owner from " << playerLabel(base->owner) << " to "
                              << playerLabel(owner);
+            Log::Get() << "Changing base " << base->getTilePosition() << " owner from " << playerLabel(base->owner) << " to "
+                       << playerLabel(owner);
 
             base->owner = owner;
             base->ownedSince = BWAPI::Broodwar->getFrameCount();
@@ -217,7 +219,8 @@ namespace Map
         void inferBaseOwnershipFromUnitCreated(const Unit &unit)
         {
             // Only consider non-neutral buildings
-            if (!unit->type.isBuilding() && !unit->type.isAddon()) return;
+            if (unit->player == BWAPI::Broodwar->neutral()) return;
+            if (!unit->type.isBuilding()) return;
 
             // Only consider base ownership for self with depots
             if (unit->player == BWAPI::Broodwar->self() && !unit->type.isResourceDepot()) return;
@@ -300,51 +303,50 @@ namespace Map
             }
         }
 
-        // Given a newly-destroyed building, determine whether it infers something about base ownership.
-        // If the lost unit is a building near a base owned by the unit's owner, change the base ownership
-        // if the player has no buildings left near the base.
-        void inferBaseOwnershipFromUnitDestroyed(Unit unit)
+        void validateBaseOwnership(Base *base, Unit recentlyDestroyedBuilding = nullptr)
         {
-            // Only consider buildings
-            if (!unit->type.isBuilding()) return;
+            if (!base->owner) return;
 
-            // Ensure there is an owned base near the building
-            auto nearbyBase = baseNear(unit->lastPosition);
-            if (!nearbyBase || !nearbyBase->owner) return;
-
-            // Ignore if the building wasn't owned by the base owner
-            if (nearbyBase->owner != unit->player)
+            auto isNearbyBuilding = [&recentlyDestroyedBuilding, &base](const Unit &unit)
             {
-                return;
-            }
-
-            // If the player still has a building near the base, don't update ownership
-            auto isNearbyBuilding = [&unit, &nearbyBase](const Unit &other)
-            {
-                if (other->id == unit->id) return false;
-                if (other->type.isAddon()) return false;
-                if (!other->type.isBuilding()) return false;
-                if (!other->lastPositionValid) return false;
-                return nearbyBase->getPosition().getApproxDistance(other->lastPosition) < 320;
+                if (recentlyDestroyedBuilding && unit->id == recentlyDestroyedBuilding->id) return false;
+                if (!unit->type.isBuilding()) return false;
+                if (!unit->lastPositionValid) return false;
+                return base->getPosition().getApproxDistance(unit->lastPosition) < 320;
             };
 
-            if (nearbyBase->owner == BWAPI::Broodwar->self())
+            if (base->owner == BWAPI::Broodwar->self())
             {
-                for (auto &other : Units::allMine())
+                for (auto &unit : Units::allMine())
                 {
-                    if (isNearbyBuilding(other)) return;
+                    if (isNearbyBuilding(unit)) return;
                 }
             }
             else
             {
-                for (auto &other : Units::allEnemy())
+                for (auto &unit : Units::allEnemy())
                 {
-                    if (isNearbyBuilding(other)) return;
+                    if (isNearbyBuilding(unit)) return;
                 }
             }
 
-            // The player has lost the base
-            setBaseOwner(nearbyBase, nullptr);
+            setBaseOwner(base, nullptr);
+        }
+
+        // Given a newly-destroyed building, determine whether it infers something about base ownership.
+        // If the lost unit is a building near a base owned by the unit's owner, change the base ownership
+        // if the player has no buildings left near the base.
+        void inferBaseOwnershipFromUnitDestroyed(const Unit &unit)
+        {
+            // Only consider buildings
+            if (!unit->type.isBuilding()) return;
+
+            // Ensure there is a base owned by the player near the building
+            auto nearbyBase = baseNear(unit->lastPosition);
+            if (!nearbyBase || !nearbyBase->owner || nearbyBase->owner != unit->player) return;
+
+            // Check if the destruction of the unit results in the base ownership changing
+            validateBaseOwnership(nearbyBase, unit);
         }
 
         void checkCreep(Base *base)
@@ -1020,7 +1022,7 @@ namespace Map
     void update()
     {
         // Update base scouting
-        for (auto base : bases)
+        for (auto &base : bases)
         {
             // Is the center of where the resource depot should be visible?
             if (BWAPI::Broodwar->isVisible(base->getTilePosition().x + 1, base->getTilePosition().y + 1) ||
@@ -1047,6 +1049,15 @@ namespace Map
             if (unscouted.size() == 1)
             {
                 setBaseOwner(*unscouted.begin(), BWAPI::Broodwar->enemy());
+            }
+        }
+
+        // Periodically check if base ownership is out-of-sync for any bases
+        if (BWAPI::Broodwar->getFrameCount() % 24 == 17)
+        {
+            for (auto &base : bases)
+            {
+                validateBaseOwnership(base);
             }
         }
 
