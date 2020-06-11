@@ -306,6 +306,7 @@ namespace Map
         void validateBaseOwnership(Base *base, Unit recentlyDestroyedBuilding = nullptr)
         {
             if (!base->owner) return;
+            if (base->lastScouted == -1) return;
 
             auto isNearbyBuilding = [&recentlyDestroyedBuilding, &base](const Unit &unit)
             {
