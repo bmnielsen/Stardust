@@ -544,6 +544,8 @@
 				["4 x SCV", "barracks", "SCV", "supply depot", "2 x SCV", "go scout once around", "marine", "barracks", "SCV", "marine", "SCV", "marine", "refinery", "go gas until 250", "supply depot", "SCV", "2 x marine", "academy", "comsat station", "SCV", "2 x marine", "SCV"]},
             "BBS"					: { "Race" : "Terran", "OpeningGroup" : "bio", "OpeningBuildOrder" :
 				["go defensive", "4 x SCV", "2 x barracks", "SCV", "supply depot", "go scout once around", "SCV", "4 x marine", "supply depot", "SCV", "2 x marine", "go aggressive", "SCV", "go pull workers 4", "2 x marine", "SCV", "2 x marine", "SCV", "2 x marine", "SCV", "2 x marine", "SCV"]},
+            "UAlbertaBotMarineRush"	: { "Race" : "Terran", "OpeningGroup" : "bio", "OpeningBuildOrder" :
+				["4 x SCV", "supply depot", "SCV", "2 x barracks"]},
             "10-10-10FD"			: { "Race" : "Terran", "OpeningGroup" : "tanks", "OpeningBuildOrder" :
 				["go defensive", "6 x SCV", "supply depot", "barracks", "refinery", "go gas until 250", "4 x SCV", "factory", "go queue barrier", "machine shop", "SCV", "go queue barrier", "supply depot", "marine", "go scout once around", "SCV", "marine", "SCV", "marine", "supply depot", "SCV", "marine", "go start gas", "SCV", "siege tank tank mode", "supply depot", "marine", "2 x SCV", "marine", "siege tank tank mode", "tank siege mode", "SCV", "marine", "SCV", "marine", "SCV", "go aggressive", "vulture", "command center"]},
             "11Rax"					: { "Race" : "Terran", "OpeningGroup" : "bio", "OpeningBuildOrder" :

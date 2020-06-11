@@ -505,6 +505,22 @@ TEST(Steamhammer, SiegeExpand)
     test.run();
 }
 
+TEST(Steamhammer, UAlbertaBotMarineRush)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Luna");
+    test.randomSeed = 95324;
+    test.opponentRace = BWAPI::Races::Random;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "UAlbertaBotMarineRush";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, RunOneRandom)
 {
     BWTest test;
