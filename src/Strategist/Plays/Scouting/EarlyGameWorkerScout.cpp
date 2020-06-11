@@ -471,7 +471,18 @@ bool EarlyGameWorkerScout::isScoutBlocked()
     auto grid = PathFinding::getNavigationGrid(targetBase->getTilePosition());
     if (!grid) return false;
     auto node = (*grid)[scout->lastPosition];
-    if (node.cost == USHRT_MAX) return false;
+    if (node.cost == USHRT_MAX)
+    {
+        // This means either that our scout is in an unexpected position or the enemy has done a wall-in
+        // Check for the latter by checking if there is a path from the target base to our main
+        auto mainGrid = PathFinding::getNavigationGrid(Map::getMyMain()->getTilePosition());
+        if (!mainGrid) return false;
+
+        auto targetNode = (*mainGrid)[targetBase->getTilePosition()];
+        if (targetNode.cost == USHRT_MAX) return true;
+
+        return false;
+    }
 
     // Decreasing distance is fine
     if (node.cost < closestDistanceToTargetBase)
