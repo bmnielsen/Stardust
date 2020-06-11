@@ -138,11 +138,12 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
             int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
 
-            // Get four zealots before starting the dragoon transition
-            int zealotsRequired = 4 - zealotCount;
+            // If we have no dragoons yet, get four zealots
+            // Otherwise keep two zealots while pumping dragoons
+            int zealotsRequired = (dragoonCount == 0 ? 4 : 2) - zealotCount;
 
             // Get two zealots at highest priority
-            if (zealotCount < 2)
+            if (dragoonCount == 0 && zealotCount < 2)
             {
                 prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                             BWAPI::UnitTypes::Protoss_Zealot,

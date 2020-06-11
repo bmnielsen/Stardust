@@ -5,9 +5,6 @@
 #include "General.h"
 #include "Units.h"
 #include "UnitUtil.h"
-#include "Workers.h"
-
-#define DEBUG_PLAY_STATE false
 
 namespace
 {
@@ -119,17 +116,24 @@ void DefendMyMain::update()
     }
 
     // If the squad has been regrouping recently, consider this an emergency
-    emergencyProduction = BWAPI::UnitTypes::None;
+    // TODO: Should clear emergency when our squad is defending the choke
     if (lastRegroupFrame > 0 && lastRegroupFrame > (BWAPI::Broodwar->getFrameCount() - REGROUP_EMERGENCY_TIMEOUT))
     {
-        emergencyProduction = (enemyFlyingUnit || enemyRangedUnit)
-                              ? BWAPI::UnitTypes::Protoss_Dragoon
-                              : BWAPI::UnitTypes::Protoss_Zealot;
+        if (emergencyProduction == BWAPI::UnitTypes::None)
+        {
+            emergencyProduction = (enemyFlyingUnit || enemyRangedUnit)
+                                  ? BWAPI::UnitTypes::Protoss_Dragoon
+                                  : BWAPI::UnitTypes::Protoss_Zealot;
 
-#if DEBUG_PLAY_STATE
-        CherryVis::log() << "Defend base: emergency, producing " << emergencyProduction;
-#endif
+            CherryVis::log() << "DefendMyMain: emergency, producing " << emergencyProduction;
+        }
+
         return;
+    }
+    else if (emergencyProduction != BWAPI::UnitTypes::None)
+    {
+        emergencyProduction = BWAPI::UnitTypes::None;
+        CherryVis::log() << "DefendMyMain: emergency cleared";
     }
 }
 
