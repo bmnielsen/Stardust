@@ -231,6 +231,21 @@ void NavigationGrid::addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosi
         }
     }
 
+    // Add tiles that might have diagonal connections through the corner of the building
+    auto addCornerTile = [&](int offsetX, int offsetY)
+    {
+        auto here = tile + BWAPI::TilePosition(offsetX, offsetY);
+        if (here.isValid()) tiles.insert(here);
+    };
+    addCornerTile(0, -1);
+    addCornerTile(size.x - 1, -1);
+    addCornerTile(size.x, 0);
+    addCornerTile(size.x, size.y - 1);
+    addCornerTile(size.x - 1, size.y);
+    addCornerTile(0, size.y);
+    addCornerTile(-1, size.y - 1);
+    addCornerTile(-1, 0);
+
     addBlockingTiles(tiles);
 }
 
