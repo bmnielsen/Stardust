@@ -23,14 +23,38 @@ namespace
     public:
         AttackAtFrameModule(BWAPI::Position targetPosition, int attackFrame) : targetPosition(targetPosition), attackFrame(attackFrame) {}
 
+        void onStart() override
+        {
+            CherryVis::initialize();
+            Map::initialize();
+        }
+
         void onFrame() override
         {
+            if (BWAPI::Broodwar->getFrameCount() < attackFrame) return;
+
             if (BWAPI::Broodwar->getFrameCount() == attackFrame)
             {
                 for (auto unit : BWAPI::Broodwar->self()->getUnits())
                 {
                     if (!isCombatUnit(unit->getType())) continue;
                     unit->attack(targetPosition);
+                }
+            }
+            else if (BWAPI::Broodwar->getFrameCount() % 6 == 0)
+            {
+                for (auto unit : BWAPI::Broodwar->self()->getUnits())
+                {
+                    if (!isCombatUnit(unit->getType())) continue;
+                    if (unit->getGroundWeaponCooldown() > 10) continue;
+
+                    auto nextPos = unit->getPosition() + BWAPI::Position((int) (5 * unit->getVelocityX()), (int) (5 * unit->getVelocityY()));
+                    auto dist = PathFinding::GetGroundDistance(unit->getPosition(), targetPosition);
+                    auto nextDist = PathFinding::GetGroundDistance(nextPos, targetPosition);
+                    if (dist != -1 && nextDist > dist)
+                    {
+                        unit->attack(targetPosition);
+                    }
                 }
             }
         }
@@ -230,6 +254,132 @@ TEST(ContainAtChoke, ZealotsAndDragoonsVsZerglingsOnRamp)
             UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Zergling, BWAPI::WalkPosition(129, 379)),
             UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Zergling, BWAPI::WalkPosition(130, 379)),
             UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Zergling, BWAPI::WalkPosition(131, 379)),
+    };
+
+    // Order the dragoon to attack the bottom base
+    test.onStartMine = []()
+    {
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<DefendMyMain>());
+        Strategist::setOpening(openingPlays);
+    };
+
+    test.onEndMine = [](bool)
+    {
+        // Ensure there are no known enemy combat units
+        bool hasEnemyCombatUnit = false;
+        for (auto &unit : Units::allEnemy())
+        {
+            if (isCombatUnit(unit->type))
+            {
+                hasEnemyCombatUnit = true;
+                break;
+            }
+        }
+
+        EXPECT_FALSE(hasEnemyCombatUnit);
+    };
+
+    test.run();
+}
+
+// 8 marines vs. 4 zealots
+TEST(ContainAtChoke, ZealotsVsMarinesOnRamp)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        return new AttackAtFrameModule(BWAPI::Position(BWAPI::WalkPosition(50, 375)), 200);
+    };
+    test.map = Maps::GetOne("Andromeda");
+    test.randomSeed = 19968;
+    test.frameLimit = 2000;
+    test.expectWin = false;
+
+    // Equal dragoon armies at each side of the choke
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(14, 95)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(15, 95)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(16, 95)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(17, 95)),
+    };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(127, 375)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(129, 375)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(131, 375)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(133, 375)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(127, 377)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(129, 377)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(131, 377)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(133, 377)),
+    };
+
+    // Order the dragoon to attack the bottom base
+    test.onStartMine = []()
+    {
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<DefendMyMain>());
+        Strategist::setOpening(openingPlays);
+    };
+
+    test.onEndMine = [](bool)
+    {
+        // Ensure there are no known enemy combat units
+        bool hasEnemyCombatUnit = false;
+        for (auto &unit : Units::allEnemy())
+        {
+            if (isCombatUnit(unit->type))
+            {
+                hasEnemyCombatUnit = true;
+                break;
+            }
+        }
+
+        EXPECT_FALSE(hasEnemyCombatUnit);
+    };
+
+    test.run();
+}
+
+// 12 marines vs. 4 zealots and 2 dragoons
+TEST(ContainAtChoke, ZealotsAndDragoonsVsMarinesOnRamp)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        return new AttackAtFrameModule(BWAPI::Position(BWAPI::WalkPosition(50, 375)), 200);
+    };
+    test.map = Maps::GetOne("Andromeda");
+    test.randomSeed = 19968;
+    test.frameLimit = 2000;
+    test.expectWin = false;
+
+    // Equal dragoon armies at each side of the choke
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(14, 95)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(15, 95)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(16, 95)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(17, 95)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(14, 94)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(15, 94)),
+    };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(127, 375)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(129, 375)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(131, 375)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(133, 375)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(127, 377)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(129, 377)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(131, 377)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(133, 377)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(127, 379)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(129, 379)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(131, 379)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::WalkPosition(133, 379)),
     };
 
     // Order the dragoon to attack the bottom base
