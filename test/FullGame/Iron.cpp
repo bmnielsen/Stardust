@@ -9,6 +9,7 @@ TEST(Iron, RunForever)
     while (count < 40)
     {
         BWTest test;
+        test.maps = Maps::Get("cog");
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
         {
@@ -39,6 +40,33 @@ TEST(Iron, RunForever)
         test.expectWin = false;
         test.run();
     }
+}
+
+TEST(Iron, RunOne)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.maps = Maps::Get("cog");
+    test.opponentModule = []()
+    {
+        return new iron::Iron();
+    };
+    test.onStartOpponent = []()
+    {
+        std::cout.setstate(std::ios_base::failbit);
+    };
+    test.onEndMine = [&test](bool won)
+    {
+        std::ostringstream replayName;
+        replayName << "Iron_" << test.map->shortname();
+        if (!won)
+        {
+            replayName << "_LOSS";
+        }
+        replayName << "_" << test.randomSeed;
+        test.replayName = replayName.str();
+    };
+    test.run();
 }
 
 TEST(Iron, RunAsIron)
