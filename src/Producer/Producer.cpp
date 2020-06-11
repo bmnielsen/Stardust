@@ -920,6 +920,7 @@ namespace Producer
                 for (auto &frameStopAndMineralsNeeded : frameStopsAndResourceNeeded)
                 {
                     int frame = f - frameStopAndMineralsNeeded.first;
+                    if (frame >= PREDICT_FRAMES) continue;
                     if (frame < 0 || resource[frame] < frameStopAndMineralsNeeded.second) return f + 1;
                 }
             }
