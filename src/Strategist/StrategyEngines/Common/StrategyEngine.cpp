@@ -4,19 +4,6 @@
 
 #include "Map.h"
 
-MainArmyPlay *StrategyEngine::getMainArmyPlay(std::vector<std::shared_ptr<Play>> &plays)
-{
-    for (auto &play : plays)
-    {
-        if (auto mainArmyPlay = std::dynamic_pointer_cast<MainArmyPlay>(play))
-        {
-            return mainArmyPlay.get();
-        }
-    }
-
-    return nullptr;
-}
-
 void StrategyEngine::UpdateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays)
 {
     // First gather the list of bases we want to defend
@@ -26,7 +13,7 @@ void StrategyEngine::UpdateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
         if (base == Map::getMyMain())
         {
             // Don't defend it with a DefendBase play if our main army is already defending the base
-            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             if (mainArmyPlay && typeid(*mainArmyPlay) == typeid(DefendMyMain)) continue;
         }
         else if (base->mineralPatchCount() < 3)

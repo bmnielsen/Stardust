@@ -29,7 +29,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
         if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0) return false;
 
         // Count total combat units
-        auto mainArmyPlay = getMainArmyPlay(plays);
+        auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
         auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
         auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
         int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
@@ -130,7 +130,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
-                auto mainArmyPlay = getMainArmyPlay(plays);
+                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
                 if (mainArmyPlay && typeid(*mainArmyPlay) == typeid(DefendMyMain))
                 {
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();

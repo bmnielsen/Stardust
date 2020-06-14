@@ -56,7 +56,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     // Ensure we have the correct main army play
-    auto mainArmyPlay = getMainArmyPlay(plays);
+    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     if (mainArmyPlay)
     {
         if (enemyStrategy == ZergStrategy::GasSteal)
@@ -126,7 +126,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::AntiAllIn:
         {
-            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
             auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
 
@@ -174,7 +174,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             // Build a couple of zealots though if we have seen zerglings on the way and have nothing to defend with
             if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 0)
             {
-                auto mainArmyPlay = getMainArmyPlay(plays);
+                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
                 auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
                 auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
 
@@ -207,7 +207,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::Defensive:
         {
             // Build at least four zealots then transition into dragoons
-            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
             auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
 
@@ -237,7 +237,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::Normal:
         {
             // Build at least three zealots then transition into dragoons
-            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
             auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
 
@@ -273,7 +273,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             {
                 requiredZealots = std::min(10, Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 2);
 
-                auto mainArmyPlay = getMainArmyPlay(plays);
+                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
                 auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
                 auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
 
@@ -332,7 +332,7 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // In this case we want to expand when we consider it safe to do so: we have an attacking or containing army
             // that is close to the enemy base
 
-            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return;
 
             auto squad = mainArmyPlay->getSquad();

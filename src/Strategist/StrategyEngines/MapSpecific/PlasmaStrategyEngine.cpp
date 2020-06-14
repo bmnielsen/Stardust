@@ -59,7 +59,7 @@ void PlasmaStrategyEngine::updatePlays(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Ensure we have the correct main army play
-    auto mainArmyPlay = getMainArmyPlay(plays);
+    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     if (mainArmyPlay)
     {
         switch (enemyStrategy)
@@ -99,7 +99,7 @@ void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &
         case EnemyStrategy::GasSteal:
         {
             // Get two zealots before goons
-            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
             auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
 
@@ -123,7 +123,7 @@ void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &
         case EnemyStrategy::ProxyRush:
         {
             // Get four zealots before starting the dragoon transition
-            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
             auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
 
@@ -206,7 +206,7 @@ void PlasmaStrategyEngine::handleNaturalExpansion(std::vector<std::shared_ptr<Pl
     if (Builder::isPendingHere(natural->getTilePosition())) return;
 
     // Expand as soon as our army is attacking
-    auto mainArmyPlay = getMainArmyPlay(plays);
+    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return;
 
     auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(natural->getTilePosition()),

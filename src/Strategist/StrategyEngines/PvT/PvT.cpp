@@ -57,7 +57,7 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     // Ensure we have the correct main army play
-    auto mainArmyPlay = getMainArmyPlay(plays);
+    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     if (mainArmyPlay)
     {
         if (enemyStrategy == TerranStrategy::GasSteal)
@@ -131,7 +131,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::AntiMarineRush:
         {
-            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
             auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
 
@@ -227,7 +227,7 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // In this case we want to expand when we consider it safe to do so: we have an attacking or containing army
             // that is close to the enemy base
 
-            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return;
 
             auto squad = mainArmyPlay->getSquad();

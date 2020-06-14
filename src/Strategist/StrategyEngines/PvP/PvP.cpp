@@ -61,7 +61,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     // Ensure we have the correct main army play
-    auto mainArmyPlay = getMainArmyPlay(plays);
+    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     if (mainArmyPlay)
     {
         if (enemyStrategy == ProtossStrategy::GasSteal)
@@ -124,7 +124,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // Start with one-gate core with two zealots until we have more scouting information
 
-            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
             auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
 
@@ -161,7 +161,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::AntiZealotRush:
         {
-            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
             auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
 
@@ -259,7 +259,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // We never expand before frame 10000 unless the enemy has done so
             if (BWAPI::Broodwar->getFrameCount() < 10000 && Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) < 2) return;
 
-            auto mainArmyPlay = getMainArmyPlay(plays);
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return;
 
             auto squad = mainArmyPlay->getSquad();

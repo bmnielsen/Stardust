@@ -36,7 +36,19 @@ protected:
 
     static void defaultExpansions(std::vector<std::shared_ptr<Play>> &plays);
 
-    static MainArmyPlay *getMainArmyPlay(std::vector<std::shared_ptr<Play>> &plays);
+    template<class T>
+    static T *getPlay(std::vector<std::shared_ptr<Play>> &plays)
+    {
+        for (auto &play : plays)
+        {
+            if (auto match = std::dynamic_pointer_cast<T>(play))
+            {
+                return match.get();
+            }
+        }
+
+        return nullptr;
+    }
 
     static void UpdateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays);
 };
