@@ -10,6 +10,7 @@
 #include "Plays/MainArmy/AttackEnemyMain.h"
 #include "Plays/MainArmy/MopUp.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
+#include "Plays/Defensive/AntiCannonRush.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define OUTPUT_DETECTION_DEBUG false
@@ -102,6 +103,26 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     break;
                 }
             }
+        }
+    }
+
+    // Ensure we have an anti cannon rush play if the enemy strategy warrants it
+    if (BWAPI::Broodwar->getFrameCount() < 6000)
+    {
+        auto antiCannonRushPlay = getPlay<AntiCannonRush>(plays);
+        if (enemyStrategy == ProtossStrategy::EarlyForge ||
+            enemyStrategy == ProtossStrategy::ProxyRush ||
+            enemyStrategy == ProtossStrategy::BlockScouting ||
+            (enemyStrategy == ProtossStrategy::Unknown && BWAPI::Broodwar->getFrameCount() > 2000))
+        {
+            if (!antiCannonRushPlay)
+            {
+                plays.insert(plays.begin(), std::make_shared<AntiCannonRush>());
+            }
+        }
+        else if (antiCannonRushPlay && enemyStrategy == ProtossStrategy::FastExpansion)
+        {
+            antiCannonRushPlay->status.complete = true;
         }
     }
 

@@ -14,8 +14,8 @@ public:
 
     void update() override;
 
-    virtual void disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
-                         const std::function<void(const MyUnit&)> &movableUnitCallback) override;
+    void disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
+                 const std::function<void(const MyUnit &)> &movableUnitCallback) override;
 
 private:
     MyUnit scout;
