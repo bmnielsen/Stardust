@@ -197,10 +197,10 @@ void AntiCannonRush::update()
         auto &cannon = cannonAndAttackers.first;
 
         // Reserve attackers if we have just seen it start to build
-        if (cannonAndAttackers.second.size() < 5 &&
+        if (cannonAndAttackers.second.size() < 4 &&
             cannon->estimatedCompletionFrame > completionCutoff)
         {
-            while (cannonAndAttackers.second.size() < 5)
+            while (cannonAndAttackers.second.size() < 4)
             {
                 auto unit = Workers::getClosestReassignableWorker(cannon->lastPosition, true);
                 if (!unit) break;
