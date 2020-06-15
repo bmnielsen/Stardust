@@ -105,6 +105,8 @@ TEST(Locutus, 4GateGoon)
 TEST(Locutus, ForgeExpand)
 {
     BWTest test;
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 2450;
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
