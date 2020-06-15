@@ -81,7 +81,7 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
 {
     // If the enemy is a long way away, move to it
     int dist = getDistance(target);
-    if (dist > 320)
+    if (dist > 320 || !target->bwapiUnit->isVisible())
     {
         moveTo(target->lastPosition);
         return;
