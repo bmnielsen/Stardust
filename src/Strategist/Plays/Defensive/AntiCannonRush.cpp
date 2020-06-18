@@ -45,7 +45,7 @@ namespace
     {
         for (auto &worker : workers)
         {
-            CherryVis::log(worker->id) << "Releasing from non-mining duties (AntiCannonRush no longer needs for attacking cannon)";
+            CherryVis::log(worker->id) << "Releasing from non-mining duties (AntiCannonRush no longer needs it)";
             Workers::releaseWorker(worker);
         }
 
@@ -221,6 +221,9 @@ void AntiCannonRush::update()
     {
         for (auto &unitAndTarget : unitsAndTargets)
         {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(unitAndTarget.first->id) << "Attacking " << *unitAndTarget.second;
+#endif
             unitAndTarget.first->attackUnit(unitAndTarget.second, unitsAndTargets);
         }
         return;
@@ -275,6 +278,8 @@ void AntiCannonRush::disband(const std::function<void(const MyUnit &)> &removedU
         CherryVis::log(scout->id) << "Releasing from non-mining duties (AntiCannonRush disband)";
         Workers::releaseWorker(scout);
     }
+
+    releaseAll(workerAttackers);
 
     for (auto &cannonAndAttackers : cannonsAndAttackers)
     {
