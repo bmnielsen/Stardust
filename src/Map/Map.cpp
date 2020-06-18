@@ -33,6 +33,7 @@ namespace Map
 
 #if CHERRYVIS_ENABLED
         std::vector<long> visibility;
+        std::vector<long> power;
 #endif
 
         struct PlayerBases
@@ -826,6 +827,7 @@ namespace Map
         tileLastSeen.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
 #if CHERRYVIS_ENABLED
         visibility.clear();
+        power.clear();
 #endif
         playerToPlayerBases.clear();
 
@@ -1284,6 +1286,22 @@ namespace Map
         {
             CherryVis::addHeatmap("FogOfWar", newVisibility, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
             visibility = newVisibility;
+        }
+
+        std::vector<long> newPower(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
+        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        {
+            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            {
+                if (BWAPI::Broodwar->hasPower(x, y, BWAPI::UnitTypes::Protoss_Photon_Cannon))
+                    newPower[x + y * BWAPI::Broodwar->mapWidth()] = 1;
+            }
+        }
+
+        if (newPower != power)
+        {
+            CherryVis::addHeatmap("Power", newPower, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+            power = newPower;
         }
 #endif
     }
