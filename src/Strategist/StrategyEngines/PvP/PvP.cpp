@@ -230,9 +230,19 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::FastExpansion:
         case OurStrategy::Defensive:
         case OurStrategy::Normal:
+        {
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+
+            // Default upgrades
+            handleUpgrades(prioritizedProductionGoals);
+
+            break;
+        }
         case OurStrategy::MidGame:
         {
-            // For now all of these just go mass dragoon
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
@@ -321,9 +331,14 @@ void PvP::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
     upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
     // Cases where we want the upgrade as soon as we start building one of the units
-    upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
     upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, true);
     upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier);
+
+    // Upgrade observer speed on two gas
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 2)
+    {
+        upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
+    }
 
     defaultGroundUpgrades(prioritizedProductionGoals);
 
@@ -406,11 +421,11 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    // If we haven't found the enemy main, be conservative and assume we might see DTs by frame 8000
+    // If we haven't found the enemy main, be conservative and assume we might see DTs by frame 7800
     auto enemyMain = Map::getEnemyMain();
     if (!enemyMain)
     {
-        buildObserver(8000);
+        buildObserver(7800);
         return;
     }
 
