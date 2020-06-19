@@ -73,8 +73,9 @@ namespace
     {
         if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
 
-        // We expect a zealot rush if we see an early zealot or early second gateway
-        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 3500) ||
+        // We expect a zealot rush if we see an early zealot, early second zealot or early second gateway
+        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 2800) ||
+               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 3300, 2) ||
                createdBeforeFrame(BWAPI::UnitTypes::Protoss_Gateway, 2300, 2);
     }
 
