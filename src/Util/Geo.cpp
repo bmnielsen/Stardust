@@ -53,6 +53,18 @@ namespace Geo
         return ApproximateDistance(xDist, 0, yDist, 0);
     }
 
+    int EdgeToTileDistance(BWAPI::UnitType type, BWAPI::TilePosition topLeft, BWAPI::TilePosition tile)
+    {
+        BWAPI::TilePosition bottomRight = topLeft + type.tileSize();
+
+        // Compute offsets
+        int xDist = (std::max)({topLeft.x - tile.x - 1, tile.x - bottomRight.x - 1, 0});
+        int yDist = (std::max)({topLeft.y - tile.y - 1, tile.y - bottomRight.y - 1, 0});
+
+        // Compute distance
+        return ApproximateDistance(xDist, 0, yDist, 0);
+    }
+
     BWAPI::Position NearestPointOnEdge(BWAPI::Position point, BWAPI::UnitType type, BWAPI::Position center)
     {
         // Compute bounding box

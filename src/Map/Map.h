@@ -58,6 +58,8 @@ namespace Map
 
     Choke *getMyMainChoke();
 
+    Choke *getEnemyMainChoke();
+
     int minChokeWidth();
 
     std::set<const BWEM::Area *> &getMyMainAreas();

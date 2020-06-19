@@ -4,6 +4,7 @@
 #include "Map.h"
 #include "Builder.h"
 #include "UnitUtil.h"
+#include "Strategist.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -123,6 +124,41 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         else if (antiCannonRushPlay && enemyStrategy == ProtossStrategy::FastExpansion)
         {
             antiCannonRushPlay->status.complete = true;
+        }
+    }
+
+    // Have the worker scout hide for later scouting information if the enemy strategy warrants it
+    if (BWAPI::Broodwar->getFrameCount() < 5500)
+    {
+        auto setScoutHiding = [&plays](int hideUntil)
+        {
+            // Only applicable if we have done the initial scout
+            if (Strategist::getWorkerScoutStatus() != Strategist::WorkerScoutStatus::EnemyBaseScouted) return;
+
+            auto play = getPlay<EarlyGameWorkerScout>(plays);
+            if (play) play->hideUntil(hideUntil);
+        };
+
+        switch (enemyStrategy)
+        {
+            case ProtossStrategy::Unknown:
+            case ProtossStrategy::GasSteal:
+            case ProtossStrategy::ProxyRush:
+            case ProtossStrategy::ZealotRush:
+            case ProtossStrategy::TwoGate:
+            case ProtossStrategy::BlockScouting:
+            case ProtossStrategy::ZealotAllIn:
+            case ProtossStrategy::DragoonAllIn:
+            case ProtossStrategy::DarkTemplarRush:
+                setScoutHiding(0);
+                break;
+            case ProtossStrategy::EarlyForge:
+            case ProtossStrategy::OneGateCore:
+            case ProtossStrategy::FastExpansion:
+            case ProtossStrategy::Turtle:
+            case ProtossStrategy::MidGame:
+                setScoutHiding(5500);
+                break;
         }
     }
 

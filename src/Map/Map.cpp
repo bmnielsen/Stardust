@@ -654,11 +654,12 @@ namespace Map
 #endif
         }
 
-        Choke *computeMyMainChoke()
+        Choke *computeMainChoke(Base *main)
         {
-            auto main = Map::getMyMain();
-            auto natural = Map::getMyNatural();
-            if (!main || !natural) return nullptr;
+            if (!main) return nullptr;
+
+            auto natural = getNaturalForStartLocation(main->getTilePosition());
+            if (!natural) return nullptr;
 
             // Main choke is defined as the last ramp traversed in the path from the main to the natural, or the first
             // choke if a ramp is not found
@@ -899,7 +900,7 @@ namespace Map
         }
         Log::Debug() << "Found " << bases.size() << " bases";
 
-        myStartingMainChoke = computeMyMainChoke();
+        myStartingMainChoke = computeMainChoke(getMyMain());
         myStartingMainAreas.insert(getMyMain()->getArea());
         if (myStartingMainChoke)
         {
@@ -1257,6 +1258,11 @@ namespace Map
     Choke *getMyMainChoke()
     {
         return myStartingMainChoke;
+    }
+
+    Choke *getEnemyMainChoke()
+    {
+        return computeMainChoke(getEnemyStartingMain());
     }
 
     int minChokeWidth()

@@ -131,6 +131,67 @@ namespace
         CherryVis::addHeatmap("WorkerScoutTiles", scoutTilesCvis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 #endif
     }
+
+    BWAPI::TilePosition getTileToHideOn()
+    {
+        auto enemyMain = Map::getEnemyStartingMain();
+        if (!enemyMain) return BWAPI::TilePositions::Invalid;
+
+        // Collect all of the tiles the enemy has vision on
+        std::set<BWAPI::TilePosition> visionTiles;
+        for (const auto &unit : Units::allEnemy())
+        {
+            if (!unit->type.isBuilding()) continue;
+
+            auto topLeft = unit->getTilePosition();
+
+            int tileSightRadius = (unit->type.sightRange() + 31) / 32;
+            for (int x = -tileSightRadius; x < unit->type.tileWidth() + tileSightRadius; x++)
+            {
+                for (int y = -tileSightRadius; y < unit->type.tileHeight() + tileSightRadius; y++)
+                {
+                    auto here = topLeft + BWAPI::TilePosition(x, y);
+                    if (!here.isValid()) continue;
+
+                    if (Geo::EdgeToTileDistance(unit->type, topLeft, here) <= tileSightRadius)
+                    {
+                        visionTiles.insert(here);
+                    }
+                }
+            }
+        }
+
+        // Now get the best tile in the main area
+        auto enemyChoke = Map::getEnemyMainChoke();
+        int baseElevation = BWAPI::Broodwar->getGroundHeight(enemyMain->getTilePosition());
+        int bestDist = 0;
+        BWAPI::TilePosition bestTile = BWAPI::TilePositions::Invalid;
+        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        {
+            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            {
+                BWAPI::TilePosition here(x, y);
+                if (!here.isValid()) continue;
+                if (!Map::isWalkable(here)) continue;
+                if (BWAPI::Broodwar->getGroundHeight(here) > baseElevation) continue;
+                if (BWEM::Map::Instance().GetArea(here) != enemyMain->getArea()) continue;
+
+                int dist = enemyMain->getPosition().getApproxDistance(BWAPI::Position(here) + BWAPI::Position(16, 16));
+                if (enemyChoke)
+                {
+                    dist += enemyChoke->center.getApproxDistance(BWAPI::Position(here) + BWAPI::Position(16, 16));
+                }
+
+                if (dist > bestDist)
+                {
+                    bestDist = dist;
+                    bestTile = here;
+                }
+            }
+        }
+
+        return bestTile;
+    }
 }
 
 void EarlyGameWorkerScout::update()
@@ -188,8 +249,16 @@ void EarlyGameWorkerScout::update()
     // Wait until our target base is the enemy main and we have scouted it once
     if (targetBase != Map::getEnemyStartingMain() || targetBase->lastScouted == -1) return;
 
-    // Determine the next tile we want to scout
-    auto tile = getHighestPriorityScoutTile();
+    // Determine the next tile we want to scout or move to
+    BWAPI::TilePosition tile;
+    if (hidingUntil > BWAPI::Broodwar->getFrameCount())
+    {
+        tile = getTileToHideOn();
+    }
+    else
+    {
+        tile = getHighestPriorityScoutTile();
+    }
     if (!tile.isValid()) tile = BWAPI::TilePosition(targetBase->getPosition());
 
     // Determine when the scout has seen most of the highest-priority tiles
@@ -266,6 +335,7 @@ void EarlyGameWorkerScout::update()
     // Compute threat avoidance boid
     int threatX = 0;
     int threatY = 0;
+    bool hasRangedThreat = false;
     for (auto &unit : Units::allEnemy())
     {
         if (!unit->lastPositionValid) continue;
@@ -277,6 +347,14 @@ void EarlyGameWorkerScout::update()
         int dist = scout->getDistance(unit);
         if (dist >= detectionLimit) continue;
 
+        // If the enemy has a ranged unit inside our detection limit, skip threat avaoidance entirely
+        // Rationale is that we can't get away anyway, so let's just get the scouting done that we can before dying
+        if (UnitUtil::IsRangedUnit(unit->type))
+        {
+            hasRangedThreat = true;
+            break;
+        }
+
         // Minimum force at detection limit, maximum force at detection limit - 64 (and closer)
         double distFactor = 1.0 - (double) std::max(0, dist - 64) / (double) (detectionLimit - 64);
         auto vector = BWAPI::Position(scout->lastPosition.x - unit->lastPosition.x, scout->lastPosition.y - unit->lastPosition.y);
@@ -286,11 +364,18 @@ void EarlyGameWorkerScout::update()
         threatY += scaled.y;
     }
 
-    // If there are no threats, move directly
-    if (threatX == 0 && threatY == 0)
+    // If there is a ranged threat or no threats, move directly
+    if (hasRangedThreat || (threatX == 0 && threatY == 0))
     {
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(scout->id) << "Scout: No threats, moving directly to target " << BWAPI::WalkPosition(targetPos);
+        if (hasRangedThreat)
+        {
+            CherryVis::log(scout->id) << "Scout: Ranged threat, moving directly to target " << BWAPI::WalkPosition(targetPos);
+        }
+        else
+        {
+            CherryVis::log(scout->id) << "Scout: No threats, moving directly to target " << BWAPI::WalkPosition(targetPos);
+        }
 #endif
 
         scout->moveTo(targetPos, true);
@@ -346,6 +431,18 @@ void EarlyGameWorkerScout::disband(const std::function<void(const MyUnit &)> &re
     }
 }
 
+void EarlyGameWorkerScout::hideUntil(int frame)
+{
+#if INSTRUMENTATION_ENABLED
+    if (frame != hidingUntil)
+    {
+        CherryVis::log() << "Hiding worker scout until frame " << frame;
+    }
+#endif
+
+    hidingUntil = frame;
+}
+
 bool EarlyGameWorkerScout::reserveScout()
 {
     // Scout after the first gateway if playing a non-random opponent on a two-player map
@@ -364,7 +461,10 @@ bool EarlyGameWorkerScout::reserveScout()
         int bestDist = 0;
         for (const auto &worker : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
         {
-            int dist = PathFinding::GetGroundDistance(worker->lastPosition, Map::getMyMain()->getPosition(), BWAPI::UnitTypes::Protoss_Probe, PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            int dist = PathFinding::GetGroundDistance(worker->lastPosition,
+                                                      Map::getMyMain()->getPosition(),
+                                                      BWAPI::UnitTypes::Protoss_Probe,
+                                                      PathFinding::PathFindingOptions::UseNearestBWEMArea);
             if (dist > bestDist)
             {
                 bestDist = dist;
