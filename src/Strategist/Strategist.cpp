@@ -285,6 +285,8 @@ namespace Strategist
                     return "MovingToEnemyBase";
                 case WorkerScoutStatus::EnemyBaseScouted:
                     return "EnemyBaseScouted";
+                case WorkerScoutStatus::MonitoringEnemyChoke:
+                    return "MonitoringEnemyChoke";
                 case WorkerScoutStatus::ScoutingBlocked:
                     return "ScoutingBlocked";
                 case WorkerScoutStatus::ScoutingFailed:

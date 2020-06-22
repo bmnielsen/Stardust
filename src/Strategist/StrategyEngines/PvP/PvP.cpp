@@ -127,38 +127,43 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         }
     }
 
-    // Have the worker scout hide for later scouting information if the enemy strategy warrants it
-    if (BWAPI::Broodwar->getFrameCount() < 5500)
+    // Set the worker scout mode
+    if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
+        Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::MonitoringEnemyChoke)
     {
-        auto setScoutHiding = [&plays](int hideUntil)
+        auto play = getPlay<EarlyGameWorkerScout>(plays);
+        if (play)
         {
-            // Only applicable if we have done the initial scout
-            if (Strategist::getWorkerScoutStatus() != Strategist::WorkerScoutStatus::EnemyBaseScouted) return;
+            auto setScoutHiding = [&play](int hideUntil)
+            {
+                if (BWAPI::Broodwar->getFrameCount() > hideUntil) return;
+                play->hideUntil(hideUntil);
+            };
 
-            auto play = getPlay<EarlyGameWorkerScout>(plays);
-            if (play) play->hideUntil(hideUntil);
-        };
-
-        switch (enemyStrategy)
-        {
-            case ProtossStrategy::Unknown:
-            case ProtossStrategy::GasSteal:
-            case ProtossStrategy::ProxyRush:
-            case ProtossStrategy::ZealotRush:
-            case ProtossStrategy::TwoGate:
-            case ProtossStrategy::BlockScouting:
-            case ProtossStrategy::ZealotAllIn:
-            case ProtossStrategy::DragoonAllIn:
-            case ProtossStrategy::DarkTemplarRush:
-                setScoutHiding(0);
-                break;
-            case ProtossStrategy::EarlyForge:
-            case ProtossStrategy::OneGateCore:
-            case ProtossStrategy::FastExpansion:
-            case ProtossStrategy::Turtle:
-            case ProtossStrategy::MidGame:
-                setScoutHiding(5500);
-                break;
+            switch (enemyStrategy)
+            {
+                case ProtossStrategy::Unknown:
+                case ProtossStrategy::GasSteal:
+                case ProtossStrategy::ProxyRush:
+                case ProtossStrategy::BlockScouting:
+                case ProtossStrategy::DragoonAllIn:
+                case ProtossStrategy::DarkTemplarRush:
+                    setScoutHiding(0);
+                    break;
+                case ProtossStrategy::ZealotRush:
+                case ProtossStrategy::TwoGate:
+                case ProtossStrategy::ZealotAllIn:
+                    setScoutHiding(0);
+                    play->monitorEnemyChoke();
+                    break;
+                case ProtossStrategy::EarlyForge:
+                case ProtossStrategy::OneGateCore:
+                case ProtossStrategy::FastExpansion:
+                case ProtossStrategy::Turtle:
+                case ProtossStrategy::MidGame:
+                    setScoutHiding(5500);
+                    break;
+            }
         }
     }
 

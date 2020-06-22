@@ -3,6 +3,7 @@
 #include "Units.h"
 #include "Map.h"
 #include "Builder.h"
+#include "Strategist.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -96,6 +97,20 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
                     break;
                 }
+            }
+        }
+    }
+
+    // Set the worker scout to monitor the enemy choke once the pool is finished
+    if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted)
+    {
+        auto play = getPlay<EarlyGameWorkerScout>(plays);
+        if (play)
+        {
+            auto pools = Units::allEnemyOfType(BWAPI::UnitTypes::Zerg_Spawning_Pool);
+            if (!pools.empty() && (*pools.begin())->completed)
+            {
+                play->monitorEnemyChoke();
             }
         }
     }

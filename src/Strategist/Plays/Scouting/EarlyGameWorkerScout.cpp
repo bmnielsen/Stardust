@@ -192,6 +192,65 @@ namespace
 
         return bestTile;
     }
+
+    BWAPI::TilePosition getTileToMonitorChokeFrom()
+    {
+        auto enemyMainChoke = Map::getEnemyMainChoke();
+        if (!enemyMainChoke) return BWAPI::TilePositions::Invalid;
+
+        // We measure potential tiles against the natural choke by default, or our main if a natural choke doesn't exist
+        auto referencePosition = Map::getMyMain()->getPosition();
+        auto chokePath = PathFinding::GetChokePointPath(referencePosition,
+                                                        enemyMainChoke->center,
+                                                        BWAPI::UnitTypes::Protoss_Dragoon,
+                                                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
+        if (!chokePath.empty())
+        {
+            auto it = chokePath.rbegin();
+            auto naturalChoke = Map::choke(*it);
+
+            // Depending on the choke geography we might get the choke itself as the last part of the path
+            // If so, advance to the next one
+            if (naturalChoke == enemyMainChoke)
+            {
+                it++;
+                if (it != chokePath.rend()) naturalChoke = Map::choke(*it);
+            }
+
+            if (naturalChoke)
+            {
+                CherryVis::log() << "Reference position is enemy natural choke @ " << BWAPI::WalkPosition(naturalChoke->center);
+                referencePosition = naturalChoke->center;
+            }
+        }
+
+        auto tileSightRange = BWAPI::UnitTypes::Protoss_Probe.sightRange() / 32;
+        int bestDist = INT_MAX;
+        BWAPI::TilePosition bestTile = BWAPI::TilePositions::Invalid;
+        for (int x = -tileSightRange + 1; x < tileSightRange; x++)
+        {
+            for (int y = -tileSightRange + 1; y < tileSightRange; y++)
+            {
+                auto here = BWAPI::TilePosition(enemyMainChoke->center) + BWAPI::TilePosition(x, y);
+                if (!here.isValid()) continue;
+                if (!Map::isWalkable(here)) continue;
+
+                int chokeDist = enemyMainChoke->center.getApproxDistance(BWAPI::Position(here) + BWAPI::Position(16, 16));
+                if (chokeDist > BWAPI::UnitTypes::Protoss_Probe.sightRange()) continue;
+
+                int dist = referencePosition.getApproxDistance(BWAPI::Position(here) + BWAPI::Position(16, 16));
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    bestTile = here;
+                }
+            }
+        }
+
+        CherryVis::log() << "Best tile @ " << BWAPI::WalkPosition(bestTile);
+
+        return bestTile;
+    }
 }
 
 void EarlyGameWorkerScout::update()
@@ -202,7 +261,8 @@ void EarlyGameWorkerScout::update()
     // Mark the play completed if the scout dies
     if (!scout->exists())
     {
-        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted)
+        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
+            Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::MonitoringEnemyChoke)
         {
             Strategist::setWorkerScoutStatus(Strategist::WorkerScoutStatus::ScoutingCompleted);
         }
@@ -249,20 +309,10 @@ void EarlyGameWorkerScout::update()
     // Wait until our target base is the enemy main and we have scouted it once
     if (targetBase != Map::getEnemyStartingMain() || targetBase->lastScouted == -1) return;
 
-    // Determine the next tile we want to scout or move to
-    BWAPI::TilePosition tile;
-    if (hidingUntil > BWAPI::Broodwar->getFrameCount())
-    {
-        tile = getTileToHideOn();
-    }
-    else
-    {
-        tile = getHighestPriorityScoutTile();
-    }
-    if (!tile.isValid()) tile = BWAPI::TilePosition(targetBase->getPosition());
-
     // Determine when the scout has seen most of the highest-priority tiles
-    if (Strategist::getWorkerScoutStatus() != Strategist::WorkerScoutStatus::EnemyBaseScouted && !scoutTiles.empty())
+    if (Strategist::getWorkerScoutStatus() != Strategist::WorkerScoutStatus::EnemyBaseScouted &&
+        Strategist::getWorkerScoutStatus() != Strategist::WorkerScoutStatus::MonitoringEnemyChoke &&
+        !scoutTiles.empty())
     {
         int seen = 0;
         for (auto &mainTile : scoutTiles.begin()->second)
@@ -276,65 +326,34 @@ void EarlyGameWorkerScout::update()
         }
     }
 
-    // If we aren't already in a scout area, just move directly
-    if (scoutAreas.find(BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(scout->lastPosition))) == scoutAreas.end())
+    // Determine the next tile we want to scout or move to
+    BWAPI::TilePosition tile;
+    if (hidingUntil > BWAPI::Broodwar->getFrameCount())
     {
-#if DEBUG_UNIT_ORDERS
-        CherryVis::log(scout->id) << "Scout: out of scout areas, move directly to scout tile " << BWAPI::WalkPosition(tile);
-#endif
-        scout->moveTo(BWAPI::Position(tile) + BWAPI::Position(16, 16));
-        return;
+        tile = getTileToHideOn();
     }
-
-    // Plot a path, avoiding threats and the enemy mineral line
-    // Also reject tiles outside the scout areas to limit the search space
-    auto grid = Players::grid(BWAPI::Broodwar->enemy());
-    auto avoidThreatTiles = [&](BWAPI::TilePosition tile)
+    else if (fixedPosition.isValid())
     {
-        if (scoutAreas.find(BWEM::Map::Instance().GetNearestArea(tile)) == scoutAreas.end())
+        tile = fixedPosition;
+        if (scout->getDistance(BWAPI::Position(tile) + BWAPI::Position(16, 16)) < 64)
         {
-            return false;
+            Strategist::setWorkerScoutStatus(Strategist::WorkerScoutStatus::MonitoringEnemyChoke);
         }
-        if (targetBase->isInMineralLine(tile)) return false;
-
-        auto walk = BWAPI::WalkPosition(tile);
-        for (int x = 0; x < 4; x++)
+        else
         {
-            for (int y = 0; y < 4; y++)
-            {
-                if (grid.staticGroundThreat(walk + BWAPI::WalkPosition(x, y)) > 0) return false;
-            }
+            Strategist::setWorkerScoutStatus(Strategist::WorkerScoutStatus::EnemyBaseScouted);
         }
-        return true;
-    };
-    auto closeEnoughToTarget = [&](BWAPI::TilePosition here)
-    {
-        return here.getApproxDistance(tile) < 6 && BWAPI::Broodwar->getGroundHeight(here) >= BWAPI::Broodwar->getGroundHeight(tile);
-    };
-    auto path = PathFinding::Search(scout->getTilePosition(), tile, avoidThreatTiles, closeEnoughToTarget);
-
-    // Choose the appropriate target position
-    BWAPI::Position targetPos;
-    if (path.size() < 3)
-    {
-        targetPos = BWAPI::Position(tile) + BWAPI::Position(16, 16);
-
-#if DEBUG_UNIT_ORDERS
-        CherryVis::log(scout->id) << "Scout: target directly to scout tile " << BWAPI::WalkPosition(targetPos);
-#endif
     }
     else
     {
-        targetPos = BWAPI::Position(path[2]) + BWAPI::Position(16, 16);
-
-#if DEBUG_UNIT_ORDERS
-        CherryVis::log(scout->id) << "Scout: target next path waypoint " << BWAPI::WalkPosition(targetPos);
-#endif
+        tile = getHighestPriorityScoutTile();
     }
+    if (!tile.isValid()) tile = BWAPI::TilePosition(targetBase->getPosition());
 
     // Compute threat avoidance boid
     int threatX = 0;
     int threatY = 0;
+    bool hasThreat = false;
     bool hasRangedThreat = false;
     for (auto &unit : Units::allEnemy())
     {
@@ -343,9 +362,11 @@ void EarlyGameWorkerScout::update()
         if (!UnitUtil::CanAttackGround(unit->type)) continue;
         if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
 
-        int detectionLimit = std::min(128, Players::weaponRange(unit->player, unit->type.groundWeapon()) + 64);
+        int detectionLimit = std::max(128, Players::weaponRange(unit->player, unit->type.groundWeapon()) + 64);
         int dist = scout->getDistance(unit);
         if (dist >= detectionLimit) continue;
+
+        hasThreat = true;
 
         // If the enemy has a ranged unit inside our detection limit, skip threat avaoidance entirely
         // Rationale is that we can't get away anyway, so let's just get the scouting done that we can before dying
@@ -364,8 +385,87 @@ void EarlyGameWorkerScout::update()
         threatY += scaled.y;
     }
 
+    // Get the next waypoint
+    BWAPI::Position targetPos;
+
+    // If we are outside the scout areas, use the navigation grid
+    if (scoutAreas.find(BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(scout->lastPosition))) == scoutAreas.end())
+    {
+        // Move directly if there is no enemy threat or a ranged threat
+        if (!hasThreat || hasRangedThreat)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(scout->id) << "Scout: out of scout areas, move directly to scout tile " << BWAPI::WalkPosition(tile);
+#endif
+            scout->moveTo(BWAPI::Position(tile) + BWAPI::Position(16, 16));
+            return;
+        }
+
+        auto navigationGrid = PathFinding::getNavigationGrid(targetBase->getTilePosition());
+        auto node = navigationGrid ? &(*navigationGrid)[scout->getTilePosition()] : nullptr;
+        node = node ? node->nextNode : nullptr;
+        node = node ? node->nextNode : nullptr;
+        if (!node)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(scout->id) << "Scout: out of scout areas and no valid navigation grid node, move directly to scout tile " << BWAPI::WalkPosition(tile);
+#endif
+            scout->moveTo(BWAPI::Position(tile) + BWAPI::Position(16, 16));
+            return;
+        }
+
+        targetPos = node->center();
+    }
+    else
+    {
+        // Plot a path, avoiding static defenses and the enemy mineral line
+        // Also reject tiles outside the scout areas to limit the search space
+        auto grid = Players::grid(BWAPI::Broodwar->enemy());
+        auto avoidThreatTiles = [&](BWAPI::TilePosition tile)
+        {
+            if (scoutAreas.find(BWEM::Map::Instance().GetNearestArea(tile)) == scoutAreas.end())
+            {
+                return false;
+            }
+            if (targetBase->isInMineralLine(tile)) return false;
+
+            auto walk = BWAPI::WalkPosition(tile);
+            for (int x = 0; x < 4; x++)
+            {
+                for (int y = 0; y < 4; y++)
+                {
+                    if (grid.staticGroundThreat(walk + BWAPI::WalkPosition(x, y)) > 0) return false;
+                }
+            }
+            return true;
+        };
+        auto closeEnoughToTarget = [&](BWAPI::TilePosition here)
+        {
+            return here.getApproxDistance(tile) < 6 && BWAPI::Broodwar->getGroundHeight(here) >= BWAPI::Broodwar->getGroundHeight(tile);
+        };
+        auto path = PathFinding::Search(scout->getTilePosition(), tile, avoidThreatTiles, closeEnoughToTarget);
+
+        // Choose the appropriate target position
+        if (path.size() < 3)
+        {
+            targetPos = BWAPI::Position(tile) + BWAPI::Position(16, 16);
+
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(scout->id) << "Scout: target directly to scout tile " << BWAPI::WalkPosition(targetPos);
+#endif
+        }
+        else
+        {
+            targetPos = BWAPI::Position(path[2]) + BWAPI::Position(16, 16);
+
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(scout->id) << "Scout: target next path waypoint " << BWAPI::WalkPosition(targetPos);
+#endif
+        }
+    }
+
     // If there is a ranged threat or no threats, move directly
-    if (hasRangedThreat || (threatX == 0 && threatY == 0))
+    if (!hasThreat || hasRangedThreat)
     {
 #if DEBUG_UNIT_ORDERS
         if (hasRangedThreat)
@@ -441,6 +541,11 @@ void EarlyGameWorkerScout::hideUntil(int frame)
 #endif
 
     hidingUntil = frame;
+}
+
+void EarlyGameWorkerScout::monitorEnemyChoke()
+{
+    fixedPosition = getTileToMonitorChokeFrom();
 }
 
 bool EarlyGameWorkerScout::reserveScout()
