@@ -1,10 +1,11 @@
 #include "CherryVis.h"
 
-#include <BWAPI.h>
+#if CHERRYVIS_ENABLED
 #include <nlohmann/json.hpp>
 #include <utility>
 #include <zstdstream/zstdstream.hpp>
 #include <filesystem>
+#endif
 
 namespace CherryVis
 {

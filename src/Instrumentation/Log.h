@@ -2,10 +2,10 @@
 
 #include <BWAPI.h>
 
-#define LOGGING_ENABLED true
-
+#if LOGGING_ENABLED
 #if INSTRUMENTATION_ENABLED
 #define DEBUG_LOGGING_ENABLED true
+#endif
 #endif
 
 namespace Log

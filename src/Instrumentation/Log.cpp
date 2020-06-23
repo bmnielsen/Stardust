@@ -1,10 +1,11 @@
 #include "Log.h"
 
-#include <BWAPI.h>
+#if LOGGING_ENABLED
 #include <fstream>
 #include <chrono>
 #include <ctime>
 #include <iomanip>
+#endif
 
 namespace Log
 {
