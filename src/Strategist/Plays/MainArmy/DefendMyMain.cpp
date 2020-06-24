@@ -171,6 +171,11 @@ void DefendMyMain::disband(const std::function<void(const MyUnit &)> &removedUni
     }
 }
 
+bool DefendMyMain::canTransitionToAttack() const
+{
+    return squad->canTransitionToAttack();
+}
+
 void DefendMyMain::removeUnit(MyUnit unit)
 {
     if (unit == reservedGasStealAttacker)

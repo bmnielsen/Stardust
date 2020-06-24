@@ -22,6 +22,8 @@ public:
     void disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
                  const std::function<void(const MyUnit&)> &movableUnitCallback) override;
 
+    [[nodiscard]] bool canTransitionToAttack() const;
+
 private:
     std::shared_ptr<EarlyGameDefendMainBaseSquad> squad;
     std::shared_ptr<WorkerDefenseSquad> workerDefenseSquad;

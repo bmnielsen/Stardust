@@ -83,9 +83,11 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 case OurStrategy::Normal:
                 case OurStrategy::MidGame:
                 {
-                    // Transition from a defend squad when the vanguard cluster has 3 units
+                    // Transition from a defend squad when the vanguard cluster has 3 units and can do so
                     if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
                     {
+                        if (!((DefendMyMain *) mainArmyPlay)->canTransitionToAttack()) break;
+
                         auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                         if (vanguard && vanguard->units.size() >= 3)
                         {
@@ -97,6 +99,33 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                             else
                             {
                                 setMainPlay<MopUp>(mainArmyPlay);
+                            }
+                        }
+                    }
+
+                    // Transition to a defend squad if our attack squad has no units or has been pushed back into our main
+                    if (typeid(*mainArmyPlay) == typeid(AttackEnemyMain))
+                    {
+                        auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
+                        if (!vanguard)
+                        {
+                            setMainPlay<DefendMyMain>(mainArmyPlay);
+                        }
+                        else if (vanguard->currentActivity == UnitCluster::Activity::Regrouping &&
+                                 vanguard->currentSubActivity == UnitCluster::SubActivity::Flee)
+                        {
+                            auto inMain = [](BWAPI::Position pos)
+                            {
+                                auto choke = Map::getMyMainChoke();
+                                if (choke && choke->center.getApproxDistance(pos) < 320) return true;
+
+                                auto mainAreas = Map::getMyMainAreas();
+                                return mainAreas.find(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(pos))) != mainAreas.end();
+                            };
+
+                            if (inMain(vanguard->center) || (vanguard->vanguard && inMain(vanguard->vanguard->lastPosition)))
+                            {
+                                setMainPlay<DefendMyMain>(mainArmyPlay);
                             }
                         }
                     }

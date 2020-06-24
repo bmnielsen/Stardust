@@ -10,6 +10,8 @@ public:
 
     virtual ~EarlyGameDefendMainBaseSquad() = default;
 
+    [[nodiscard]] bool canTransitionToAttack() const;
+
 private:
     Choke *choke;
     BWAPI::Position chokeDefendEnd;

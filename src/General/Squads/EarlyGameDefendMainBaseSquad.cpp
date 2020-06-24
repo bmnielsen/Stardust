@@ -168,6 +168,30 @@ EarlyGameDefendMainBaseSquad::EarlyGameDefendMainBaseSquad()
     }
 }
 
+bool EarlyGameDefendMainBaseSquad::canTransitionToAttack() const
+{
+    // Don't transition if any clusters are not attacking
+    for (const auto &cluster : clusters)
+    {
+        if (cluster->currentActivity != UnitCluster::Activity::Attacking) return false;
+    }
+
+    // Get the vanguard cluster
+    auto vanguard = vanguardCluster();
+    if (!vanguard) return false;
+
+    // Assert that the sim has recommended attacking for at least the past 72 frames
+    if (vanguard->recentSimResults.size() < 72) return false;
+    int count = 0;
+    for (auto it = vanguard->recentSimResults.rbegin(); it != vanguard->recentSimResults.rend() && count < 72; it++)
+    {
+        if (!it->second) return false;
+        count++;
+    }
+
+    return true;
+}
+
 void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
 {
     std::set<Unit> enemyUnits;
@@ -252,22 +276,6 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
                      << (attack ? "; ATTACK" : "; RETREAT");
 #endif
 
-    // If we are defending a narrow choke, keep trying to hold it as long as we have a unit in the choke
-    if (choke && choke->isNarrowChoke)
-    {
-        for (const auto &unit : cluster.units)
-        {
-            if (Map::isInNarrowChoke(unit->getTilePosition()))
-            {
-#if DEBUG_COMBATSIM
-                CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": Overriding to attack as we have unit in choke";
-#endif
-                attack = true;
-                break;
-            }
-        }
-    }
-
     cluster.addSimResult(simResult, attack);
 
     // Make the final decision based on what state we are currently in
@@ -284,7 +292,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         attack = !shouldAbortAttack(cluster, simResult);
     }
 
-    if (attack)
+    if (attack || (!enemyInOurBase && choke && choke->isNarrowChoke))
     {
         cluster.setActivity(UnitCluster::Activity::Attacking);
 
