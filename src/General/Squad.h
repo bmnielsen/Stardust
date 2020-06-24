@@ -29,7 +29,7 @@ public:
 
     [[nodiscard]] bool hasClusterWithActivity(UnitCluster::Activity activity) const;
 
-    std::shared_ptr<UnitCluster> vanguardCluster(int *distToTargetPosition = nullptr);
+    [[nodiscard]] std::shared_ptr<UnitCluster> vanguardCluster(int *distToTargetPosition = nullptr) const;
 
     explicit Squad(std::string label) : label(std::move(label)), targetPosition(BWAPI::Positions::Invalid) {}
 
@@ -38,6 +38,12 @@ protected:
 
     std::set<std::shared_ptr<UnitCluster>> clusters;
     std::map<MyUnit, std::shared_ptr<UnitCluster>> unitToCluster;
+
+    [[nodiscard]] virtual bool canAddUnitToCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster, int dist) const;
+
+    [[nodiscard]] virtual bool shouldCombineClusters(const std::shared_ptr<UnitCluster> &first, const std::shared_ptr<UnitCluster> &second) const;
+
+    [[nodiscard]] virtual bool shouldRemoveFromCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster) const;
 
     void addUnitToBestCluster(const MyUnit &unit);
 

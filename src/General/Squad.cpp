@@ -44,6 +44,21 @@ void Squad::addUnit(const MyUnit &unit)
     }
 }
 
+bool Squad::canAddUnitToCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster, int dist) const
+{
+    return dist <= ADD_THRESHOLD;
+}
+
+bool Squad::shouldCombineClusters(const std::shared_ptr<UnitCluster> &first, const std::shared_ptr<UnitCluster> &second) const
+{
+    return PathFinding::GetGroundDistance(first->center, second->center, BWAPI::UnitTypes::Protoss_Dragoon) <= COMBINE_THRESHOLD;
+}
+
+bool Squad::shouldRemoveFromCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster) const
+{
+    return unit->getDistance(cluster->center) > REMOVE_THRESHOLD;
+}
+
 void Squad::addUnitToBestCluster(const MyUnit &unit)
 {
     // Look for a suitable cluster to add this unit to
@@ -52,7 +67,7 @@ void Squad::addUnitToBestCluster(const MyUnit &unit)
     for (const auto &cluster : clusters)
     {
         int dist = unit->getDistance(cluster->center);
-        if (dist <= ADD_THRESHOLD && dist < bestDist)
+        if (dist < bestDist && canAddUnitToCluster(unit, cluster, dist))
         {
             bestDist = dist;
             best = cluster;
@@ -142,8 +157,7 @@ void Squad::updateClusters()
         auto secondIt = firstIt;
         for (secondIt++; secondIt != clusters.end();)
         {
-            int dist = PathFinding::GetGroundDistance((*firstIt)->center, (*secondIt)->center, BWAPI::UnitTypes::Protoss_Dragoon);
-            if (dist > COMBINE_THRESHOLD)
+            if (!shouldCombineClusters(*firstIt, *secondIt))
             {
                 secondIt++;
                 continue;
@@ -185,7 +199,7 @@ void Squad::updateClusters()
     {
         for (auto unitIt = cluster->units.begin(); unitIt != cluster->units.end();)
         {
-            if ((*unitIt)->getDistance(cluster->center) <= REMOVE_THRESHOLD)
+            if (!shouldRemoveFromCluster(*unitIt, cluster))
             {
                 unitIt++;
                 continue;
@@ -249,7 +263,7 @@ bool Squad::hasClusterWithActivity(UnitCluster::Activity activity) const
     return false;
 }
 
-std::shared_ptr<UnitCluster> Squad::vanguardCluster(int *distToTargetPosition)
+std::shared_ptr<UnitCluster> Squad::vanguardCluster(int *distToTargetPosition) const
 {
     int minDist = INT_MAX;
     std::shared_ptr<UnitCluster> vanguard = nullptr;

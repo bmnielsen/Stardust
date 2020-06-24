@@ -8,6 +8,15 @@
 
 namespace
 {
+    bool inMain(BWAPI::Position pos)
+    {
+        auto choke = Map::getMyMainChoke();
+        if (choke && choke->center.getApproxDistance(pos) < 320) return true;
+
+        auto mainAreas = Map::getMyMainAreas();
+        return mainAreas.find(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(pos))) != mainAreas.end();
+    }
+
     bool shouldStartAttack(UnitCluster &cluster, const CombatSimResult &simResult)
     {
         // Don't start an attack until we have 24 frames of recommending attack with the same number of friendly units
@@ -380,4 +389,28 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
 #endif
         unit->moveTo(targetPosition);
     }
+}
+
+bool EarlyGameDefendMainBaseSquad::canAddUnitToCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster, int dist) const
+{
+    bool unitInMain = inMain(unit->lastPosition);
+    bool clusterInMain = inMain(cluster->vanguard ? cluster->vanguard->lastPosition : cluster->center);
+    if (unitInMain && clusterInMain) return true;
+    if (unitInMain || clusterInMain) return false;
+    return Squad::canAddUnitToCluster(unit, cluster, dist);
+}
+
+bool EarlyGameDefendMainBaseSquad::shouldCombineClusters(const std::shared_ptr<UnitCluster> &first, const std::shared_ptr<UnitCluster> &second) const
+{
+    bool firstInMain = inMain(first->vanguard ? first->vanguard->lastPosition : first->center);
+    bool secondInMain = inMain(second->vanguard ? second->vanguard->lastPosition : second->center);
+    if (firstInMain && secondInMain) return true;
+    if (firstInMain || secondInMain) return false;
+    return Squad::shouldCombineClusters(first, second);
+}
+
+bool EarlyGameDefendMainBaseSquad::shouldRemoveFromCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster) const
+{
+    if (inMain(unit->lastPosition)) return false;
+    return Squad::shouldRemoveFromCluster(unit, cluster);
 }
