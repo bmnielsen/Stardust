@@ -603,7 +603,13 @@ namespace BuildingPlacement
             for (auto &base : Map::allBases())
             {
                 if (base->owner != BWAPI::Broodwar->self()) continue;
-                if (!base->resourceDepot || !base->resourceDepot->exists() || !base->resourceDepot->completed) continue;
+                if (!base->resourceDepot || !base->resourceDepot->exists()) continue;
+                if (!base->resourceDepot->completed &&
+                    (base->resourceDepot->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount())
+                    > UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator))
+                {
+                    continue;
+                }
 
                 for (auto geyser : base->geysers())
                 {
