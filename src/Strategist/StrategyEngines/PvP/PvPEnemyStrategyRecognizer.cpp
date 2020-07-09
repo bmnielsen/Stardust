@@ -431,12 +431,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 if (isGasSteal()) return ProtossStrategy::GasSteal;
                 if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
 
-                if (!isDragoonAllIn())
-                {
-                    strategy = ProtossStrategy::OneGateCore;
-                    continue;
-                }
-
                 if (isMidGame())
                 {
                     strategy = ProtossStrategy::MidGame;

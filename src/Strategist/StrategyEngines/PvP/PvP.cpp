@@ -72,12 +72,35 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         }
         else
         {
+            auto setAttackPlay = [&mainArmyPlay]()
+            {
+                auto enemyMain = Map::getEnemyMain();
+                if (enemyMain)
+                {
+                    setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
+                }
+                else
+                {
+                    setMainPlay<MopUp>(mainArmyPlay);
+                }
+            };
+
             switch (ourStrategy)
             {
                 case OurStrategy::EarlyGameDefense:
                 case OurStrategy::AntiZealotRush:
                 case OurStrategy::Defensive:
                     setMainPlay<DefendMyMain>(mainArmyPlay);
+                    break;
+                case OurStrategy::DTExpand:
+                    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Dark_Templar) < 1)
+                    {
+                        setMainPlay<DefendMyMain>(mainArmyPlay);
+                    }
+                    else
+                    {
+                        setAttackPlay();
+                    }
                     break;
                 case OurStrategy::FastExpansion:
                 case OurStrategy::Normal:
@@ -91,15 +114,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                         auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                         if (vanguard && vanguard->units.size() >= 3)
                         {
-                            auto enemyMain = Map::getEnemyMain();
-                            if (enemyMain)
-                            {
-                                setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
-                            }
-                            else
-                            {
-                                setMainPlay<MopUp>(mainArmyPlay);
-                            }
+                            setAttackPlay();
                         }
                     }
 
@@ -327,6 +342,27 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             break;
         }
+        case OurStrategy::DTExpand:
+        {
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+            auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
+            auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
+
+            int dtCount = completedUnits[BWAPI::UnitTypes::Protoss_Dark_Templar] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dark_Templar];
+            if (dtCount < 1)
+            {
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         BWAPI::UnitTypes::Protoss_Dark_Templar,
+                                                                         1,
+                                                                         1);
+            }
+
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+            break;
+        }
     }
 }
 
@@ -383,6 +419,30 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 return;
             }
             break;
+        }
+        case OurStrategy::DTExpand:
+        {
+            // Take our natural as soon as the army has moved beyond it
+            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return;
+
+            auto squad = mainArmyPlay->getSquad();
+            if (!squad) return;
+
+            auto vanguardCluster = squad->vanguardCluster();
+            if (!vanguardCluster) return;
+
+            // Ensure the cluster is at least 10 tiles further from the natural than it is from the main
+            int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
+            int distToNatural = PathFinding::GetGroundDistance(natural->getPosition(), vanguardCluster->center);
+            if (distToNatural < 500 || distToMain < (distToNatural + 500)) return;
+
+            // Cluster should not be fleeing
+            if (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
+                && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee)
+            {
+                return;
+            }
         }
     }
 

@@ -47,6 +47,7 @@ private:
         FastExpansion,          // For when the opponent plays a greedy or turtle strategy
         Defensive,              // For when the opponent is playing an aggressive strategy that isn't considered a zealot rush
         Normal,                 // Normal non-greedy and non-cautious opening
+        DTExpand,               // Reaction to dragoon all-in, gets one DT, moves out and expands behind it
         MidGame,                // When we have reached the mid-game
         // TODO: Various mid-game and late-game strategies
     };

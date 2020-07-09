@@ -9,6 +9,7 @@ std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
         {OurStrategy::FastExpansion,    "FastExpansion"},
         {OurStrategy::Defensive,        "Defensive"},
         {OurStrategy::Normal,           "Normal"},
+        {OurStrategy::DTExpand,         "DTExpand"},
         {OurStrategy::MidGame,          "MidGame"}
 };
 
@@ -73,10 +74,14 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     case ProtossStrategy::EarlyForge:
                     case ProtossStrategy::OneGateCore:
                     case ProtossStrategy::BlockScouting:
-                    case ProtossStrategy::DragoonAllIn:
                     case ProtossStrategy::DarkTemplarRush:
                     {
                         strategy = OurStrategy::Normal;
+                        continue;
+                    }
+                    case ProtossStrategy::DragoonAllIn:
+                    {
+                        strategy = OurStrategy::DTExpand;
                         continue;
                     }
                     case ProtossStrategy::MidGame:
@@ -122,6 +127,12 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
+                if (newEnemyStrategy == ProtossStrategy::DragoonAllIn)
+                {
+                    strategy = OurStrategy::DTExpand;
+                    continue;
+                }
+
                 // Transition to normal when we either detect another opening or when there are six units in the vanguard cluster
 
                 if (newEnemyStrategy == ProtossStrategy::Turtle || newEnemyStrategy == ProtossStrategy::MidGame)
@@ -153,9 +164,27 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
+                if (newEnemyStrategy == ProtossStrategy::DragoonAllIn)
+                {
+                    strategy = OurStrategy::DTExpand;
+                    continue;
+                }
+
                 // Transition to mid-game when the enemy has done so
                 // TODO: This is very vaguely defined
                 if (newEnemyStrategy == ProtossStrategy::MidGame)
+                {
+                    strategy = OurStrategy::MidGame;
+                    continue;
+                }
+
+                break;
+            }
+            case PvP::OurStrategy::DTExpand:
+            {
+                // Transition to mid-game when we have taken our natural
+                auto natural = Map::getMyNatural();
+                if (!natural || natural->ownedSince != -1)
                 {
                     strategy = OurStrategy::MidGame;
                     continue;
