@@ -249,8 +249,8 @@ int DefendBase::desiredCannons()
         }
     }
 
-    // Main is a special case, we only get cannons there to defend against air threats
-    if (base == Map::getMyMain())
+    // Main and natural are special cases, we only get cannons there to defend against air threats
+    if (base == Map::getMyMain() || base == Map::getMyNatural())
     {
         if (enemyAirUnits > 6) return 4;
         if (enemyAirThreat) return 3;
