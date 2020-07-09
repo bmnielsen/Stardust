@@ -286,8 +286,8 @@ namespace BuildingPlacement
                         geyserCount++;
                     }
                     auto geyserPos = geyserCount == 0
-                            ? BWAPI::Positions::Invalid
-                            : BWAPI::Position(geyserX / geyserCount, geyserY / geyserCount);
+                                     ? BWAPI::Positions::Invalid
+                                     : BWAPI::Position(geyserX / geyserCount, geyserY / geyserCount);
 
                     int maxDist = 0;
                     for (auto tile : positions)
@@ -404,13 +404,22 @@ namespace BuildingPlacement
         int distanceToExit(Neighbourhood location, BWAPI::TilePosition tile, BWAPI::UnitType type)
         {
             if (neighbourhoodExits.find(location) == neighbourhoodExits.end()) return 0;
-            if (!type.canProduce()) return 0;
 
-            return PathFinding::GetGroundDistance(
+            auto dist = PathFinding::GetGroundDistance(
                     BWAPI::Position(tile) + (BWAPI::Position(type.tileSize()) / 2),
                     neighbourhoodExits[location],
                     BWAPI::UnitTypes::Protoss_Dragoon,
                     PathFinding::PathFindingOptions::UseNearestBWEMArea);
+
+            // For the main base neighbourhood, prefer not to place buildings too close to the exit
+            // Rationale: the main base exit is probably a choke and we don't want to have our buildings
+            // get in the way of our choke defense
+            if (location == Neighbourhood::MainBase && dist < 320)
+            {
+                dist = 320 + (320 - dist);
+            }
+
+            return dist;
         }
 
         // At how many frames from now will the build position given by the tile and type be powered
