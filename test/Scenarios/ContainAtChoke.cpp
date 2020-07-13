@@ -408,3 +408,64 @@ TEST(ContainAtChoke, ZealotsAndDragoonsVsMarinesOnRamp)
 
     test.run();
 }
+
+
+// 6 dragoons vs. 8 dragoons, our units start on the wrong side of the ramp
+TEST(ContainAtChoke, DragoonsVsDragoonsOnRamp)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        return new AttackAtFrameModule(BWAPI::Position(BWAPI::WalkPosition(50, 375)), 20);
+    };
+    test.map = Maps::GetOne("Andromeda");
+    test.randomSeed = 19968;
+    test.frameLimit = 2000;
+    test.expectWin = false;
+
+    // Equal dragoon armies at each side of the choke
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(28, 98)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(27, 99)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(26, 100)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(25, 101)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(24, 102))
+    };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(127, 375)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(131, 375)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(127, 377)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(131, 377)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(127, 379)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(131, 379)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(135, 374)),
+    };
+
+    // Order the dragoon to attack the bottom base
+    test.onStartMine = []()
+    {
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<DefendMyMain>());
+        Strategist::setOpening(openingPlays);
+    };
+
+    test.onEndMine = [](bool)
+    {
+        // Ensure there are no known enemy combat units
+        bool hasEnemyCombatUnit = false;
+        for (auto &unit : Units::allEnemy())
+        {
+            if (isCombatUnit(unit->type))
+            {
+                hasEnemyCombatUnit = true;
+                break;
+            }
+        }
+
+        EXPECT_FALSE(hasEnemyCombatUnit);
+    };
+
+    test.run();
+}
