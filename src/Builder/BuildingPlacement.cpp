@@ -411,12 +411,12 @@ namespace BuildingPlacement
 
             // Gather main base blocks
             // At the same time, find the furthest block small building location that has detection on the choke center
-            std::vector<const std::shared_ptr<Block>> mainBlocks;
+            std::vector<std::shared_ptr<Block>> mainBlocks;
             auto furthestBlockLocation = BWAPI::TilePositions::Invalid;
             std::shared_ptr<Block> furthestBlockLocationBlock = nullptr;
             {
                 auto furthestDist = 0;
-                for (const auto &block : blocks)
+                for (auto &block : blocks)
                 {
                     // Ignore non-main-base
                     auto it = neighbourhoodAreas[Neighbourhood::MainBase].find(
