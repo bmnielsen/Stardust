@@ -486,29 +486,30 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    auto buildObserver = [&prioritizedProductionGoals](int frameNeeded = 0)
+    auto framesNeededFor = [](BWAPI::UnitType buildingType)
+    {
+        int earliestCompletion = INT_MAX;
+        for (const auto &unit : Units::allMineIncompleteOfType(buildingType))
+        {
+            if (unit->estimatedCompletionFrame < earliestCompletion)
+            {
+                earliestCompletion = unit->estimatedCompletionFrame;
+            }
+        }
+
+        if (earliestCompletion == INT_MAX)
+        {
+            return UnitUtil::BuildTime(buildingType);
+        }
+
+        return earliestCompletion - BWAPI::Broodwar->getFrameCount();
+    };
+
+    auto buildObserver = [&](int frameNeeded = 0)
     {
         // If we know what frame the observer is needed, check if we need to start building it now
         if (frameNeeded > 0)
         {
-            auto framesNeededFor = [](BWAPI::UnitType buildingType)
-            {
-                int earliestCompletion = INT_MAX;
-                for (const auto &unit : Units::allMineIncompleteOfType(buildingType))
-                {
-                    if (unit->estimatedCompletionFrame < earliestCompletion)
-                    {
-                        earliestCompletion = unit->estimatedCompletionFrame;
-                    }
-                }
-
-                if (earliestCompletion == INT_MAX)
-                {
-                    return UnitUtil::BuildTime(buildingType);
-                }
-
-                return earliestCompletion - BWAPI::Broodwar->getFrameCount();
-            };
             int frameStarted = frameNeeded - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Observer);
             if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Observatory) == 0)
             {
@@ -531,9 +532,75 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
                                                                  1);
     };
 
-    // Always get an observer once we are on more than one gas or if the enemy is known to have a DT
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1
-        || Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
+    auto buildCannon = [&](int frameNeeded = 0)
+    {
+        // Get the cannon location
+        auto cannonLocations = BuildingPlacement::mainChokeCannonLocations();
+
+        // If we know what frame the cannon is needed, check if we need to start building it now
+        if (frameNeeded > 0)
+        {
+            int frameStarted = frameNeeded - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
+            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Forge) == 0)
+            {
+                frameStarted -= framesNeededFor(BWAPI::UnitTypes::Protoss_Forge);
+            }
+            else if (cannonLocations.first != BWAPI::TilePositions::Invalid && !Units::myBuildingAt(cannonLocations.first))
+            {
+                frameStarted -= UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
+            }
+
+            // TODO: When the Producer understands to build something at a specific frame, use that
+            if ((BWAPI::Broodwar->getFrameCount() + 500) < frameStarted) return;
+        }
+
+        if (cannonLocations.first != BWAPI::TilePositions::Invalid)
+        {
+            auto pylon = Units::myBuildingAt(cannonLocations.first);
+            if (pylon)
+            {
+                if (pylon->completed)
+                {
+                    auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(cannonLocations.second), 0, 0, 0);
+                    prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                             BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                                                             buildLocation);
+                }
+            }
+            else if (!Builder::isPendingHere(cannonLocations.first))
+            {
+                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(cannonLocations.first), 0, 0, 0);
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         BWAPI::UnitTypes::Protoss_Pylon,
+                                                                         buildLocation);
+            }
+        }
+        else
+        {
+            auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(Map::getMyMain());
+            if (baseStaticDefenseLocations.first != BWAPI::TilePositions::Invalid)
+            {
+                auto tile = *baseStaticDefenseLocations.second.begin();
+                if (!Units::myBuildingAt(tile))
+                {
+                    auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
+                    prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                             BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                                                             buildLocation);
+                }
+            }
+        }
+    };
+
+    // If the enemy is known to have a DT, get a cannon and observer
+    // Otherwise get an observer when we have a second gas
+    if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
+    {
+        buildObserver();
+        buildCannon();
+        return;
+    }
+    else if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1)
     {
         buildObserver();
         return;
@@ -555,7 +622,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     auto enemyMain = Map::getEnemyMain();
     if (!enemyMain)
     {
-        buildObserver(7800);
+        buildCannon(7800);
         return;
     }
 
@@ -618,6 +685,11 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
                      << (closestGatewayFrames + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar) + templarArchivesFinished);
 #endif
 
-    // Now sum everything up to get the frame to order the observer
-    buildObserver(templarArchivesFinished + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar) + closestGatewayFrames);
+    // Now sum everything up to get the frame where we need detection
+    int frame = templarArchivesFinished + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar) + closestGatewayFrames;
+    buildCannon(frame);
+    if (!templarArchiveTimings.empty())
+    {
+        buildObserver(frame);
+    }
 }

@@ -59,6 +59,9 @@ namespace BuildingPlacement
         std::map<Base *, std::pair<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>>> baseStaticDefenses;
         auto emptyBaseStaticDefenses = std::make_pair(BWAPI::TilePositions::Invalid, std::vector<BWAPI::TilePosition>{});
 
+        std::shared_ptr<Block> chokeCannonBlock;
+        BWAPI::TilePosition chokeCannonPlacement;
+
         bool updateRequired;
         std::map<Neighbourhood, std::set<const BWEM::Area *>> neighbourhoodAreas;
         std::map<Neighbourhood, BWAPI::Position> neighbourhoodOrigins;
@@ -401,6 +404,178 @@ namespace BuildingPlacement
             }
         }
 
+        void findMainChokeCannonPlacement()
+        {
+            auto mainChoke = Map::getMyMainChoke();
+            if (!mainChoke) return;
+
+            // Gather main base blocks
+            // At the same time, find the furthest block small building location that has detection on the choke center
+            std::vector<const std::shared_ptr<Block>> mainBlocks;
+            auto furthestBlockLocation = BWAPI::TilePositions::Invalid;
+            std::shared_ptr<Block> furthestBlockLocationBlock = nullptr;
+            {
+                auto furthestDist = 0;
+                for (const auto &block : blocks)
+                {
+                    // Ignore non-main-base
+                    auto it = neighbourhoodAreas[Neighbourhood::MainBase].find(
+                            BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center())));
+                    if (it == neighbourhoodAreas[Neighbourhood::MainBase].end()) continue;
+
+                    mainBlocks.push_back(block);
+
+                    // Search for a close small location
+                    for (const auto &location : block->small)
+                    {
+                        if (location.tile == block->powerPylon) continue;
+                        if (!UnitUtil::Powers(block->powerPylon, location.tile, BWAPI::UnitTypes::Protoss_Photon_Cannon)) continue;
+
+                        int dist = Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                                            BWAPI::Position(location.tile) + BWAPI::Position(32, 32),
+                                                            mainChoke->center);
+                        if (dist > 7 * 32) continue;
+
+                        if (dist > furthestDist)
+                        {
+                            furthestDist = dist;
+                            furthestBlockLocation = location.tile;
+                            furthestBlockLocationBlock = block;
+                        }
+                    }
+                }
+            }
+
+            // TODO: Check if there is a 2x2 block that fits?
+
+            // Try to find a location for a cannon that fulfills the following conditions:
+            // - Is in our main
+            // - Is within detection range of the choke center
+            // - Is powered by some block
+            // - Only borders unbuildable or reserved tiles on one side, and in the latter case, leaves room on at least one side
+            auto furthestLocation = BWAPI::TilePositions::Invalid;
+            std::shared_ptr<Block> furthestLocationBlock = nullptr;
+            {
+                auto isUnbuildableOrReserved = [](BWAPI::TilePosition tile)
+                {
+                    auto valueAt = [&](int offsetX, int offsetY)
+                    {
+                        int x = tile.x + offsetX;
+                        if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) return 1U;
+
+                        int y = tile.y + offsetY;
+                        if (y < 0 || y >= BWAPI::Broodwar->mapHeight()) return 1U;
+
+                        if (!Map::isWalkable(x, y))
+                        {
+                            return tileAvailability[x + y * BWAPI::Broodwar->mapWidth()] | 16U;
+                        }
+
+                        return tileAvailability[x + y * BWAPI::Broodwar->mapWidth()];
+                    };
+
+                    // Check for overlap with unbuildable or reserved for block
+                    if ((valueAt(0, 0) & 5U) != 0) return true;
+                    if ((valueAt(1, 0) & 5U) != 0) return true;
+                    if ((valueAt(0, 1) & 5U) != 0) return true;
+                    if ((valueAt(1, 1) & 5U) != 0) return true;
+
+                    // Check all of the tiles around the cannon, counting how many times walkability or reserved for block changes
+                    // Accept if it changes at most twice and has 3 or fewer reserved
+                    auto lastValue = valueAt(-1, -1) & 20U;
+                    auto changes = 0U;
+                    auto reserved = 0U;
+                    auto visit = [&](int offsetX, int offsetY)
+                    {
+                        auto here = valueAt(offsetX, offsetY) & 20U;
+                        if (here != lastValue)
+                        {
+                            lastValue = here;
+                            changes++;
+                        }
+                        if ((here & 4) != 0) reserved++;
+                    };
+                    visit(0, -1);
+                    visit(1, -1);
+                    visit(2, -1);
+                    visit(2, 0);
+                    visit(2, 1);
+                    visit(2, 2);
+                    visit(1, 2);
+                    visit(0, 2);
+                    visit(-1, 2);
+                    visit(-1, 1);
+                    visit(-1, 0);
+                    visit(-1, -1);
+
+                    return changes > 2 || reserved > 3;
+                };
+
+                int furthestDist = 0;
+                auto chokeTile = BWAPI::TilePosition(mainChoke->center);
+                for (int x = chokeTile.x - 9; x <= chokeTile.x + 9; x++)
+                {
+                    for (int y = chokeTile.y - 9; y <= chokeTile.y + 9; y++)
+                    {
+                        BWAPI::TilePosition here(x, y);
+                        if (!here.isValid()) continue;
+
+                        // Ensure it is in detection range of the choke center
+                        int dist = Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                                            BWAPI::Position(here) + BWAPI::Position(32, 32),
+                                                            mainChoke->center);
+                        if (dist > 7 * 32) continue;
+                        if (dist < furthestDist) continue;
+
+                        // Ensure it is in the main area
+                        auto it = neighbourhoodAreas[Neighbourhood::MainBase].find(
+                                BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(here) + BWAPI::WalkPosition(4, 4)));
+                        if (it == neighbourhoodAreas[Neighbourhood::MainBase].end()) continue;
+
+                        // Ensure it can fit here
+                        if (isUnbuildableOrReserved(here)) continue;
+
+                        // Find the furthest pylon that powers it
+                        int furthestPowerDist = 0;
+                        std::shared_ptr<Block> furthestPowerBlock = nullptr;
+                        for (const auto &block : mainBlocks)
+                        {
+                            if (!UnitUtil::Powers(block->powerPylon, here, BWAPI::UnitTypes::Protoss_Photon_Cannon)) continue;
+
+                            int powerDist = BWAPI::Position(block->powerPylon).getApproxDistance(BWAPI::Position(here));
+                            if (powerDist > furthestPowerDist)
+                            {
+                                furthestPowerDist = powerDist;
+                                furthestPowerBlock = block;
+                            }
+                        }
+                        if (!furthestPowerBlock) continue;
+
+                        furthestDist = dist;
+                        furthestLocation = here;
+                        furthestLocationBlock = furthestPowerBlock;
+                    }
+                }
+            }
+
+            // Use the best result
+            if (furthestLocation.isValid())
+            {
+                chokeCannonPlacement = furthestLocation;
+                chokeCannonBlock = furthestLocationBlock;
+            }
+            else if (furthestBlockLocation.isValid())
+            {
+                furthestBlockLocationBlock->tilesReserved(furthestBlockLocation, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize());
+                chokeCannonPlacement = furthestBlockLocation;
+                chokeCannonBlock = furthestBlockLocationBlock;
+            }
+            else
+            {
+                Log::Get() << "WARNING: No choke cannon placement";
+            }
+        }
+
         int distanceToExit(Neighbourhood location, BWAPI::TilePosition tile, BWAPI::UnitType type)
         {
             if (neighbourhoodExits.find(location) == neighbourhoodExits.end()) return 0;
@@ -630,6 +805,7 @@ namespace BuildingPlacement
             // - Medium building: 3
             // - Pylon: 4
             // - Defensive location: 5
+            // - Choke cannon placement: 10
 
             std::vector<long> blocksHeatmap(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
 
@@ -681,6 +857,11 @@ namespace BuildingPlacement
                 }
             }
 
+            if (chokeCannonPlacement.isValid())
+            {
+                addLocation(chokeCannonPlacement, 2, 2, 10);
+            }
+
             CherryVis::addHeatmap("Blocks", blocksHeatmap, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 #endif
         }
@@ -695,6 +876,8 @@ namespace BuildingPlacement
         startBlock = nullptr;
         blocks.clear();
         baseStaticDefenses.clear();
+        chokeCannonBlock = nullptr;
+        chokeCannonPlacement = BWAPI::TilePositions::Invalid;
         updateRequired = true;
         availableBuildLocations.clear();
         _availableGeysers.clear();
@@ -717,6 +900,7 @@ namespace BuildingPlacement
         findStartBlock();
         findBaseStaticDefenses();
         findBlocks();
+        findMainChokeCannonPlacement();
 
         dumpHeatmap();
     }
@@ -789,6 +973,14 @@ namespace BuildingPlacement
         if (startBlock && startBlock->powerPylon == a.location.tile) return true;
         if (startBlock && startBlock->powerPylon == b.location.tile) return false;
 
+        // If our enemy is Protoss, prioritize the cannon choke power pylon next
+        // We use this for detection on our choke in reaction to DTs
+        if (chokeCannonBlock && BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss)
+        {
+            if (chokeCannonBlock->powerPylon == a.location.tile) return true;
+            if (chokeCannonBlock->powerPylon == b.location.tile) return false;
+        }
+
         // Prioritize locations that will be powered first
         if (a.framesUntilPowered < b.framesUntilPowered) return true;
         if (a.framesUntilPowered > b.framesUntilPowered) return false;
@@ -827,5 +1019,10 @@ namespace BuildingPlacement
     {
         auto it = baseStaticDefenses.find(base);
         return it == baseStaticDefenses.end() ? emptyBaseStaticDefenses : it->second;
+    }
+
+    std::pair<BWAPI::TilePosition, BWAPI::TilePosition> mainChokeCannonLocations()
+    {
+        return std::make_pair(chokeCannonBlock ? chokeCannonBlock->powerPylon : BWAPI::TilePositions::Invalid, chokeCannonPlacement);
     }
 }

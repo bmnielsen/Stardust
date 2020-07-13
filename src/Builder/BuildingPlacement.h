@@ -75,4 +75,6 @@ namespace BuildingPlacement
     int builderFrames(Neighbourhood location, BWAPI::TilePosition tile, BWAPI::UnitType type);
 
     std::pair<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>> &baseStaticDefenseLocations(Base *base);
+
+    std::pair<BWAPI::TilePosition, BWAPI::TilePosition> mainChokeCannonLocations();
 }
