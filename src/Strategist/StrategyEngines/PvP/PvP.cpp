@@ -593,14 +593,15 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     };
 
     // If the enemy is known to have a DT, get a cannon and observer
-    // Otherwise get an observer when we have a second gas
     if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
     {
         buildObserver();
         buildCannon();
         return;
     }
-    else if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1)
+
+    // Get an observer when we have a second gas
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1)
     {
         buildObserver();
         return;
