@@ -12,6 +12,8 @@ public:
     MyUnit unit;               // The building itself
     MyUnit builder;            // The unit that will build the building
     int desiredStartFrame;  // The desired start frame given by the producer
+    int buildCommandSuccessFrames;  // Number of frames in which a successful build command was issued
+    int buildCommandFailureFrames;  // Number of frames in which a failed build command was issued
 
     // TODO: State required by the builder
 

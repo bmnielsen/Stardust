@@ -86,4 +86,12 @@ namespace Map
     int lastSeen(BWAPI::TilePosition tile);
 
     int lastSeen(int x, int y);
+
+    void addNoGoArea(BWAPI::TilePosition topLeft, BWAPI::TilePosition size);
+
+    void removeNoGoArea(BWAPI::TilePosition topLeft, BWAPI::TilePosition size);
+
+    bool isInNoGoArea(BWAPI::TilePosition pos);
+
+    bool isInNoGoArea(int x, int y);
 }

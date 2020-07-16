@@ -15,7 +15,7 @@ public:
     Unit resourceDepot;                              // The resource depot for the base, may be null
     int ownedSince;                                 // Frame the base last changed ownership
     int lastScouted;                                // When we have last seen this base
-    bool spiderMined;                                // Do we suspect this base to have a spider mine blocking it
+    bool blockedByEnemy;                                // Do we suspect this base to be blocked by a hidden enemy unit
     bool requiresMineralWalkFromEnemyStartLocations; // Does this base require mineral walking for the enemy to reach it
     BWAPI::Position mineralLineCenter; // Approximate center of the mineral line
     BWAPI::Unit workerDefenseRallyPatch; // Mineral patch where workers should rally when doing worker defense

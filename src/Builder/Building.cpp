@@ -9,6 +9,8 @@ Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyUnit builde
         , unit(nullptr)
         , builder(std::move(builder))
         , desiredStartFrame(desiredStartFrame)
+        , buildCommandSuccessFrames(0)
+        , buildCommandFailureFrames(0)
         , startFrame(-1)
 {
 }

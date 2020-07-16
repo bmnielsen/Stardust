@@ -4,6 +4,7 @@
 #include "PathFinding.h"
 #include "Geo.h"
 #include "BuildingPlacement.h"
+#include "Map.h"
 
 namespace Builder
 {
@@ -21,18 +22,22 @@ namespace Builder
             // for the building to appear
             if (building.builder->bwapiUnit->isConstructing()) return;
 
-            // TODO: Detect cases where we have already issued a build command that succeeded
-            // (e.g. spider mine blocking)
-
             // If we are close to the build position and want to build now, issue the build command
             int dist = Geo::EdgeToEdgeDistance(building.builder->type, building.builder->lastPosition, building.type, building.getPosition());
             if (dist <= 64 && building.desiredStartFrame - BWAPI::Broodwar->getFrameCount() <= BWAPI::Broodwar->getRemainingLatencyFrames())
             {
                 // Return immediately if issuing the build command succeeded
-                if (building.builder->build(building.type, building.tile)) return;
+                if (building.builder->build(building.type, building.tile))
+                {
+                    building.buildCommandSuccessFrames++;
+                    return;
+                }
 
-                // The build command failed
-                // TODO: Look for blocking units
+                if (BWAPI::Broodwar->getLastError() != BWAPI::Errors::Insufficient_Minerals &&
+                    BWAPI::Broodwar->getLastError() != BWAPI::Errors::Insufficient_Gas)
+                {
+                    building.buildCommandFailureFrames++;
+                }
             }
 
             // Move towards the build position
@@ -64,11 +69,7 @@ namespace Builder
                 CherryVis::log(builder->id) << "Releasing from non-mining duties (builder queue empty)";
                 Workers::releaseWorker(builder);
                 builderQueues.erase(builder);
-                return;
             }
-
-            // Tell the worker to build the new start of its queue
-            build(**builderQueue.begin());
         }
 
         void writeInstrumentation()
@@ -115,10 +116,50 @@ namespace Builder
                 BuildingPlacement::onBuildingCancelled(&building);
 
                 releaseBuilder(building);
+                if (!building.unit)
+                {
+                    Map::removeNoGoArea((*it)->tile - BWAPI::TilePosition(1, 1), (*it)->type.tileSize() + BWAPI::TilePosition(2, 2));
+                }
                 it = pendingBuildings.erase(it);
+                continue;
             }
-            else
-                it++;
+
+            // Check for buildings our worker is unable to build
+            if (!building.unit)
+            {
+                // If we've sent successful build commands for the past two seconds without the building starting,
+                // assume the enemy is blocking it with something
+                if (building.buildCommandSuccessFrames >= 48)
+                {
+                    Log::Get() << "Build of " << building << " failed due to enemy blocking";
+
+                    if (building.type == BWAPI::UnitTypes::Protoss_Nexus)
+                    {
+                        auto base = Map::baseNear(BWAPI::Position(building.tile));
+                        if (base)
+                        {
+                            base->blockedByEnemy = true;
+                        }
+                    }
+                }
+                else if (building.buildCommandFailureFrames >= 240)
+                {
+                    Log::Get() << "Build of " << building << " failed due to own unit blocking or other error";
+                }
+                else
+                {
+                    it++;
+                    continue;
+                }
+
+                // TODO: At some point we should restore the building placement, at least in some cases
+                releaseBuilder(building);
+                Map::removeNoGoArea((*it)->tile - BWAPI::TilePosition(1, 1), (*it)->type.tileSize() + BWAPI::TilePosition(2, 2));
+                it = pendingBuildings.erase(it);
+                continue;
+            }
+
+            it++;
         }
 
         // Check for started buildings
@@ -136,6 +177,7 @@ namespace Builder
 
                     pendingBuilding->constructionStarted(unit);
                     releaseBuilder(*pendingBuilding);
+                    Map::removeNoGoArea(pendingBuilding->tile - BWAPI::TilePosition(1, 1), pendingBuilding->type.tileSize() + BWAPI::TilePosition(2, 2));
                 }
             }
         }
@@ -189,6 +231,7 @@ namespace Builder
                      << "; builder queue length: " << builderQueues[builder].size();
 
         BuildingPlacement::onBuildingQueued(building.get());
+        Map::addNoGoArea(building->tile - BWAPI::TilePosition(1, 1), building->type.tileSize() + BWAPI::TilePosition(2, 2));
     }
 
     void cancel(BWAPI::TilePosition tile)
@@ -202,6 +245,10 @@ namespace Builder
             {
                 Log::Get() << "Cancelling construction of " << *(*it)->unit;
                 (*it)->unit->cancelConstruction();
+            }
+            else
+            {
+                Map::removeNoGoArea((*it)->tile - BWAPI::TilePosition(1, 1), (*it)->type.tileSize() + BWAPI::TilePosition(2, 2));
             }
 
             BuildingPlacement::onBuildingCancelled(it->get());
