@@ -118,11 +118,14 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                         }
                     }
 
-                    // Transition to a defend squad if our attack squad has no units or has been pushed back into our main
+                    // Transition to a defend squad if:
+                    // - our attack squad has no units
+                    // - our attack squad has been pushed back into our main
+                    // - the enemy is doing a DT rush and we don't have obs yet
                     if (typeid(*mainArmyPlay) == typeid(AttackEnemyMain))
                     {
                         auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                        if (!vanguard)
+                        if (!vanguard || (enemyStrategy == ProtossStrategy::DarkTemplarRush && mainArmyPlay->getSquad()->getDetectors().empty()))
                         {
                             setMainPlay<DefendMyMain>(mainArmyPlay);
                         }
@@ -532,7 +535,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
                                                                  1);
     };
 
-    auto buildCannon = [&](int frameNeeded = 0)
+    auto buildCannon = [&](int frameNeeded = 0, bool alsoAtNexus = false)
     {
         // Get the cannon location
         auto cannonLocations = BuildingPlacement::mainChokeCannonLocations();
@@ -577,6 +580,11 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         }
         else
         {
+            alsoAtNexus = true;
+        }
+
+        if (alsoAtNexus)
+        {
             auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(Map::getMyMain());
             if (baseStaticDefenseLocations.first != BWAPI::TilePositions::Invalid)
             {
@@ -593,10 +601,11 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     };
 
     // If the enemy is known to have a DT, get a cannon and observer
-    if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
+    if (enemyStrategy == ProtossStrategy::DarkTemplarRush ||
+        Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
     {
         buildObserver();
-        buildCannon();
+        buildCannon(0, true);
         return;
     }
 
@@ -688,9 +697,13 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
 
     // Now sum everything up to get the frame where we need detection
     int frame = templarArchivesFinished + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar) + closestGatewayFrames;
-    buildCannon(frame);
-    if (!templarArchiveTimings.empty())
+    if (templarArchiveTimings.empty())
+    {
+        buildCannon(frame);
+    }
+    else
     {
         buildObserver(frame);
+        buildCannon(frame, true);
     }
 }
