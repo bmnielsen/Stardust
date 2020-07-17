@@ -258,9 +258,36 @@ void UnitCluster::holdChoke(Choke *choke,
         // Put them all together to get the target direction
         int totalX = goalX + separationX;
         int totalY = goalY + separationY;
-        auto totalVector = BWAPI::Position(totalX, totalY);
+
+        // If the unit is in a no-go area, get out of it immediately
+        // TODO: This needs to be refactored to be usable from all tactics
+        if (Map::isInNoGoArea(myUnit->tilePositionX, myUnit->tilePositionY))
+        {
+            // Find the closest tile that is walkable and not in a no-go area
+            int closestDist = INT_MAX;
+            for (int x = myUnit->tilePositionX - 5; x < myUnit->tilePositionX + 5; x++)
+            {
+                if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
+
+                for (int y = myUnit->tilePositionY - 5; y < myUnit->tilePositionY + 5; y++)
+                {
+                    if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
+                    if (!Map::isWalkable(x, y)) continue;
+                    if (Map::isInNoGoArea(x, y)) continue;
+
+                    int dist = Geo::ApproximateDistance(myUnit->tilePositionX, x, myUnit->tilePositionY, y);
+                    if (dist < closestDist)
+                    {
+                        closestDist = dist;
+                        totalX = (x - myUnit->tilePositionX) * 32;
+                        totalY = (y - myUnit->tilePositionY) * 32;
+                    }
+                }
+            }
+        }
 
         // Find a walkable position along the vector
+        auto totalVector = BWAPI::Position(totalX, totalY);
         int dist = Geo::ApproximateDistance(0, totalX, 0, totalY) - 16;
         auto pos = myUnit->lastPosition + totalVector;
         while (dist > 10 && (!pos.isValid() || !BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos))))
