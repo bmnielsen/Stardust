@@ -56,7 +56,7 @@ private:
 
     void handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
-    static void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
     void handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 };
