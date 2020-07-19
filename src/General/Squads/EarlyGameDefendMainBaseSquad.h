@@ -16,6 +16,8 @@ private:
     Choke *choke;
     BWAPI::Position chokeDefendEnd;
 
+    void initializeChoke();
+
     void execute(UnitCluster &cluster) override;
 
     [[nodiscard]] bool canAddUnitToCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster, int dist) const override;

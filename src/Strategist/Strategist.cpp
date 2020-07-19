@@ -217,7 +217,7 @@ namespace Strategist
             enemyMainAreas.insert(enemyMain->getArea());
             if (Map::getEnemyStartingMain() == enemyMain)
             {
-                auto enemyNatural = Map::getNaturalForStartLocation(Map::getEnemyStartingMain()->getTilePosition());
+                auto enemyNatural = Map::getEnemyStartingNatural();
                 if (enemyNatural)
                 {
                     enemyMainAreas.insert(enemyNatural->getArea());

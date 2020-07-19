@@ -493,7 +493,7 @@ namespace BuildingPlacement
                             lastValue = here;
                             changes++;
                         }
-                        if ((here & 4) != 0) reserved++;
+                        if ((here & 4U) != 0) reserved++;
                     };
                     visit(0, -1);
                     visit(1, -1);
@@ -939,6 +939,13 @@ namespace BuildingPlacement
         {
             updateRequired = block->tilesFreed(unit->getTilePosition(), unit->type.tileSize()) || updateRequired;
         }
+    }
+
+    void onMainChokeChanged()
+    {
+        findMainChokeCannonPlacement();
+        neighbourhoodExits[Neighbourhood::MainBase] = Map::getMyMainChoke()->center;
+        updateRequired = true;
     }
 
     void update()

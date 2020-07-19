@@ -4,6 +4,7 @@
 #include "Map.h"
 #include "Builder.h"
 #include "Strategist.h"
+#include "Workers.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -328,17 +329,36 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     if (!natural || natural->ownedSince != -1) return;
     if (Builder::isPendingHere(natural->getTilePosition())) return;
 
-    // Return if our strategy doesn't warrant taking the natural now, otherwise fall through to queue it
+    auto takeNatural = [&]()
+    {
+        auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(natural->getTilePosition()),
+                                                              BuildingPlacement::builderFrames(BuildingPlacement::Neighbourhood::MainBase,
+                                                                                               natural->getTilePosition(),
+                                                                                               BWAPI::UnitTypes::Protoss_Nexus),
+                                                              0, 0);
+        prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Nexus, buildLocation);
+    };
+
+    // If we have a backdoor natural, expand when our main is saturated or when we can afford it
+    if (Map::mapSpecificOverride()->hasBackdoorNatural())
+    {
+        if (BWAPI::Broodwar->self()->minerals() > 350 || Workers::availableMineralAssignments(Map::getMyMain()) < 2)
+        {
+            takeNatural();
+            return;
+        }
+    }
+
     switch (ourStrategy)
     {
         case OurStrategy::EarlyGameDefense:
         case OurStrategy::AntiAllIn:
         case OurStrategy::Defensive:
             // Don't take our natural if the enemy could be rushing or doing an all-in
-            return;
+            break;
 
         case OurStrategy::FastExpansion:
-            // We want to expand now, so fall through
+            takeNatural();
             break;
 
         case OurStrategy::Normal:
@@ -369,16 +389,11 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             {
                 return;
             }
+
+            takeNatural();
             break;
         }
     }
-
-    auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(natural->getTilePosition()),
-                                                          BuildingPlacement::builderFrames(BuildingPlacement::Neighbourhood::MainBase,
-                                                                                           natural->getTilePosition(),
-                                                                                           BWAPI::UnitTypes::Protoss_Nexus),
-                                                          0, 0);
-    prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Nexus, buildLocation);
 }
 
 void PvZ::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)

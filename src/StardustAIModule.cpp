@@ -108,6 +108,14 @@ void StardustAIModule::onStart()
     {
         Log::Get() << "No natural position available";
     }
+    if (Map::getMyMainChoke())
+    {
+        Log::Get() << "My main choke: " << BWAPI::TilePosition(Map::getMyMainChoke()->center);
+    }
+    else
+    {
+        Log::Get() << "No main choke available";
+    }
     //Log::Debug() << "Seed: " << BWAPI::Broodwar->getRandomSeed();
 }
 

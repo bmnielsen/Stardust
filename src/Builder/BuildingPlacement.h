@@ -19,6 +19,7 @@
  * Pylon placement logic:
  *
  * - First pylon is always in start block
+ * - In PvP, next pylon gives power to the choke cannon
  * - Subsequent pylons are ordered by their distance to the mineral line
  * - Producer takes first pylon that either provides required building locations or keeps a minimum number of build locations available
  */
@@ -65,6 +66,8 @@ namespace BuildingPlacement
     void onUnitCreate(const Unit &unit);
 
     void onUnitDestroy(const Unit &unit);
+
+    void onMainChokeChanged();
 
     void update();
 

@@ -107,7 +107,7 @@ namespace
 
         // Otherwise check if we have directly scouted an enemy building in a proxy location
         auto enemyMain = Map::getEnemyStartingMain();
-        auto enemyNatural = enemyMain ? Map::getNaturalForStartLocation(enemyMain->getTilePosition()) : nullptr;
+        auto enemyNatural = Map::getEnemyStartingNatural();
         for (const auto &enemyUnit : Units::allEnemy())
         {
             if (!enemyUnit->type.isBuilding()) continue;

@@ -40,17 +40,21 @@ namespace Map
 
     Base *getMyNatural();
 
+    void setMyNatural(Base *base);
+
     Base *getEnemyStartingMain();
+
+    Base *getEnemyStartingNatural();
 
     Base *getEnemyMain();
 
     void setEnemyStartingMain(Base *base);
 
+    void setEnemyStartingNatural(Base *base);
+
     Base *baseNear(BWAPI::Position position);
 
     std::set<Base *> unscoutedStartingLocations();
-
-    Base *getNaturalForStartLocation(BWAPI::TilePosition startLocation);
 
     std::vector<Choke *> allChokes();
 
@@ -58,7 +62,11 @@ namespace Map
 
     Choke *getMyMainChoke();
 
+    void setMyMainChoke(Choke *choke);
+
     Choke *getEnemyMainChoke();
+
+    void setEnemyMainChoke(Choke *choke);
 
     int minChokeWidth();
 

@@ -27,10 +27,12 @@ namespace
     // Top priority are mineral patches, geysers, and the area immediately around the resource depot
     // Next priority is the natural location
     // Lowest priority is all other tiles in the base area, unless the enemy is zerg (since they can only build on creep anyway)
-    void generateTileScoutPriorities(const Base *base,
-                                     std::map<int, std::set<BWAPI::TilePosition>> &scoutTiles,
+    void generateTileScoutPriorities(std::map<int, std::set<BWAPI::TilePosition>> &scoutTiles,
                                      std::set<const BWEM::Area *> &scoutAreas)
     {
+        auto base = Map::getEnemyStartingMain();
+        if (!base) return;
+
         // Determine the priorities to use
         // For Zerg we don't need to scout around the base (as they can only build on creep), but want to scout the natural more often
         int areaPriority = 480;
@@ -69,7 +71,7 @@ namespace
         }
 
         // Now add tiles close to the natural
-        auto natural = Map::getNaturalForStartLocation(base->getTilePosition());
+        auto natural = Map::getEnemyStartingNatural();
         if (natural)
         {
             int naturalElevation = BWAPI::Broodwar->getGroundHeight(natural->getTilePosition());
@@ -708,7 +710,7 @@ bool EarlyGameWorkerScout::isScoutBlocked()
 
 BWAPI::TilePosition EarlyGameWorkerScout::getHighestPriorityScoutTile()
 {
-    if (scoutTiles.empty()) generateTileScoutPriorities(targetBase, scoutTiles, scoutAreas);
+    if (scoutTiles.empty()) generateTileScoutPriorities(scoutTiles, scoutAreas);
 
     int highestPriorityFrame = INT_MAX;
     int highestPriorityDist = INT_MAX;

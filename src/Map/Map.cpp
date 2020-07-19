@@ -2,6 +2,7 @@
 
 #include "MapSpecificOverrides/Fortress.h"
 #include "MapSpecificOverrides/Plasma.h"
+#include "MapSpecificOverrides/Alchemist.h"
 
 #include "Units.h"
 #include "PathFinding.h"
@@ -17,7 +18,6 @@ namespace Map
         std::map<const BWEM::ChokePoint *, Choke *> chokes;
         int _minChokeWidth;
 
-        Choke *myStartingMainChoke;
         std::set<const BWEM::Area *> myStartingMainAreas;
 
         std::vector<bool> tileWalkability;
@@ -43,6 +43,8 @@ namespace Map
         {
             Base *startingMain;
             Base *startingNatural;
+            Choke *startingMainChoke;
+
             Base *main;
             std::set<Base *> allOwned;
             std::vector<Base *> probableExpansions;
@@ -51,6 +53,28 @@ namespace Map
         };
 
         std::map<BWAPI::Player, PlayerBases> playerToPlayerBases;
+
+        Choke *computeMainChoke(Base *main, Base *natural)
+        {
+            if (!main || !natural) return nullptr;
+
+            // Main choke is defined as the last ramp traversed in the path from the main to the natural, or the first
+            // choke if a ramp is not found
+            auto path = PathFinding::GetChokePointPath(
+                    main->getPosition(),
+                    natural->getPosition(),
+                    BWAPI::UnitTypes::Protoss_Dragoon,
+                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            if (path.empty()) return nullptr;
+
+            for (auto it = path.rbegin(); it != path.rend(); it++)
+            {
+                auto c = choke(*it);
+                if (c->isRamp) return c;
+            }
+
+            return choke(*path.begin());
+        }
 
         int closestBaseDistance(Base *base, const std::set<Base *> &otherBases)
         {
@@ -67,6 +91,59 @@ namespace Map
             }
 
             return closestDistance;
+        }
+
+        Base *getNaturalForStartLocation(BWAPI::TilePosition startLocation)
+        {
+            auto startPosition = BWAPI::Position(startLocation) + BWAPI::Position(64, 48);
+
+            // Natural is the closest base that has gas, unless it is further from a start position than our main
+            // In this case the map either has a backdoor expansion or two exits from the main, both of which we handle
+            // via map-specific overrides
+
+            // Get the closest base
+            Base *bestNatural = nullptr;
+            int bestDist = INT_MAX;
+            for (auto base : bases)
+            {
+                if (base->getTilePosition() == startLocation) continue;
+                if (base->gas() == 0) continue;
+
+                int dist = PathFinding::GetGroundDistance(
+                        startPosition,
+                        base->getPosition(),
+                        BWAPI::UnitTypes::Protoss_Probe,
+                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                if (dist == -1 || dist > bestDist) continue;
+
+                bestDist = dist;
+                bestNatural = base;
+            }
+            if (!bestNatural) return nullptr;
+
+            // Verify it is closer than the main to all other start locations
+            for (auto otherStartLocation : BWAPI::Broodwar->getStartLocations())
+            {
+                if (startLocation == otherStartLocation) continue;
+                auto otherPosition = BWAPI::Position(otherStartLocation) + BWAPI::Position(64, 48);
+                int distFromMain = PathFinding::GetGroundDistance(
+                        startPosition,
+                        otherPosition,
+                        BWAPI::UnitTypes::Protoss_Probe,
+                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                int distFromBase = PathFinding::GetGroundDistance(
+                        bestNatural->getPosition(),
+                        otherPosition,
+                        BWAPI::UnitTypes::Protoss_Probe,
+                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
+
+                if (distFromMain != -1 && distFromBase != -1 && distFromMain < distFromBase)
+                {
+                    return nullptr;
+                }
+            }
+
+            return bestNatural;
         }
 
         void computeProbableExpansions(BWAPI::Player player, PlayerBases &playerBases)
@@ -186,7 +263,13 @@ namespace Map
                 {
                     ownerBases.startingMain = base;
                     ownerBases.startingNatural = getNaturalForStartLocation(base->getTilePosition());
+                    ownerBases.startingMainChoke = computeMainChoke(base, ownerBases.startingNatural);
                     ownerBases.main = base;
+
+                    if (owner == BWAPI::Broodwar->enemy())
+                    {
+                        _mapSpecificOverride->enemyStartingMainDetermined();
+                    }
                 }
 
                 // If this player had a starting main, but doesn't currently have a main, set this base as the main
@@ -675,31 +758,6 @@ namespace Map
 #endif
         }
 
-        Choke *computeMainChoke(Base *main)
-        {
-            if (!main) return nullptr;
-
-            auto natural = getNaturalForStartLocation(main->getTilePosition());
-            if (!natural) return nullptr;
-
-            // Main choke is defined as the last ramp traversed in the path from the main to the natural, or the first
-            // choke if a ramp is not found
-            auto path = PathFinding::GetChokePointPath(
-                    main->getPosition(),
-                    natural->getPosition(),
-                    BWAPI::UnitTypes::Protoss_Dragoon,
-                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
-            if (path.empty()) return nullptr;
-
-            for (auto it = path.rbegin(); it != path.rend(); it++)
-            {
-                auto c = choke(*it);
-                if (c->isRamp) return c;
-            }
-
-            return choke(*path.begin());
-        }
-
         // Dumps heatmaps for static map things like ground height
         void dumpStaticHeatmaps()
         {
@@ -836,7 +894,6 @@ namespace Map
         startingLocationBases.clear();
         chokes.clear();
         _minChokeWidth = 0;
-        myStartingMainChoke = nullptr;
         myStartingMainAreas.clear();
         tileWalkability.clear();
         tileUnwalkableProximity.clear();
@@ -875,6 +932,12 @@ namespace Map
         {
             Log::Get() << "Using map-specific override for Plasma";
             _mapSpecificOverride = new Plasma();
+        }
+        else if (BWAPI::Broodwar->mapHash() == "8000dc6116e405ab878c14bb0f0cde8efa4d640c" ||
+                 BWAPI::Broodwar->mapHash() == "9e5770c62b523042e8af590c8dc267e6c12637fc")
+        {
+            Log::Get() << "Using map-specific override for Alchemist";
+            _mapSpecificOverride = new Alchemist();
         }
         else
         {
@@ -924,11 +987,12 @@ namespace Map
         }
         Log::Debug() << "Found " << bases.size() << " bases";
 
-        myStartingMainChoke = computeMainChoke(getMyMain());
         myStartingMainAreas.insert(getMyMain()->getArea());
-        if (myStartingMainChoke)
+        if (playerToPlayerBases[BWAPI::Broodwar->self()].startingMainChoke &&
+            playerToPlayerBases[BWAPI::Broodwar->self()].startingNatural)
         {
             // Main areas consist of all areas where the path to the natural goes through the main choke
+            // TODO: Doesn't work for Alchemist 3 o'clock where we don't have a main choke or natural
             for (const auto &area : BWEM::Map::Instance().Areas())
             {
                 bool hasMainChoke = false;
@@ -938,7 +1002,7 @@ namespace Map
                         BWAPI::UnitTypes::Protoss_Dragoon,
                         PathFinding::PathFindingOptions::UseNearestBWEMArea))
                 {
-                    if (choke == myStartingMainChoke->choke)
+                    if (choke == playerToPlayerBases[BWAPI::Broodwar->self()].startingMainChoke->choke)
                     {
                         hasMainChoke = true;
                         break;
@@ -1156,9 +1220,20 @@ namespace Map
         return playerToPlayerBases[BWAPI::Broodwar->self()].startingNatural;
     }
 
+    void setMyNatural(Base *base)
+    {
+        playerToPlayerBases[BWAPI::Broodwar->self()].startingNatural = base;
+        Log::Get() << "Set my natural to " << base->getTilePosition();
+    }
+
     Base *getEnemyStartingMain()
     {
         return playerToPlayerBases[BWAPI::Broodwar->enemy()].startingMain;
+    }
+
+    Base *getEnemyStartingNatural()
+    {
+        return playerToPlayerBases[BWAPI::Broodwar->enemy()].startingNatural;
     }
 
     Base *getEnemyMain()
@@ -1171,6 +1246,12 @@ namespace Map
         if (base->owner) return;
 
         setBaseOwner(base, BWAPI::Broodwar->enemy());
+    }
+
+    void setEnemyStartingNatural(Base *base)
+    {
+        playerToPlayerBases[BWAPI::Broodwar->enemy()].startingNatural = base;
+        Log::Get() << "Set enemy natural to " << base->getTilePosition();
     }
 
     Base *baseNear(BWAPI::Position position)
@@ -1210,61 +1291,6 @@ namespace Map
         return result;
     }
 
-    Base *getNaturalForStartLocation(BWAPI::TilePosition startLocation)
-    {
-        auto startPosition = BWAPI::Position(startLocation) + BWAPI::Position(64, 48);
-
-        // The natural base is the closest base that:
-        // - has gas
-        // - is closer (by ground) to at least one other start position
-
-        // Pick a natural base
-        Base *bestNatural = nullptr;
-        int bestDist = INT_MAX;
-        for (auto base : bases)
-        {
-            if (base->getTilePosition() == startLocation) continue;
-            if (base->gas() == 0) continue;
-
-            int dist = PathFinding::GetGroundDistance(
-                    startPosition,
-                    base->getPosition(),
-                    BWAPI::UnitTypes::Protoss_Probe,
-                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
-            if (dist == -1 || dist > bestDist) continue;
-
-            bool closerToOtherStartLocation = false;
-            for (auto otherStartLocation : BWAPI::Broodwar->getStartLocations())
-            {
-                if (startLocation == otherStartLocation) continue;
-                auto otherPosition = BWAPI::Position(otherStartLocation) + BWAPI::Position(64, 48);
-                int distFromMain = PathFinding::GetGroundDistance(
-                        startPosition,
-                        otherPosition,
-                        BWAPI::UnitTypes::Protoss_Probe,
-                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
-                int distFromBase = PathFinding::GetGroundDistance(
-                        base->getPosition(),
-                        otherPosition,
-                        BWAPI::UnitTypes::Protoss_Probe,
-                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
-                if (distFromBase != -1 && distFromMain > distFromBase)
-                {
-                    closerToOtherStartLocation = true;
-                    break;
-                }
-            }
-
-            if (closerToOtherStartLocation)
-            {
-                bestNatural = base;
-                bestDist = dist;
-            }
-        }
-
-        return bestNatural;
-    }
-
     std::vector<Choke *> allChokes()
     {
         std::vector<Choke *> result;
@@ -1287,12 +1313,25 @@ namespace Map
 
     Choke *getMyMainChoke()
     {
-        return myStartingMainChoke;
+        return playerToPlayerBases[BWAPI::Broodwar->self()].startingMainChoke;
+    }
+
+    void setMyMainChoke(Choke *choke)
+    {
+        playerToPlayerBases[BWAPI::Broodwar->self()].startingMainChoke = choke;
+        Log::Get() << "Set my main choke to " << BWAPI::TilePosition(choke->center);
+        BuildingPlacement::onMainChokeChanged();
     }
 
     Choke *getEnemyMainChoke()
     {
-        return computeMainChoke(getEnemyStartingMain());
+        return playerToPlayerBases[BWAPI::Broodwar->enemy()].startingMainChoke;
+    }
+
+    void setEnemyMainChoke(Choke *choke)
+    {
+        playerToPlayerBases[BWAPI::Broodwar->enemy()].startingMainChoke = choke;
+        Log::Get() << "Set enemy main choke to " << BWAPI::TilePosition(choke->center);
     }
 
     int minChokeWidth()

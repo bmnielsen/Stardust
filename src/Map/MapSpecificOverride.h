@@ -43,4 +43,10 @@ public:
     {
         return false;
     }
+
+    // Hook to do special processing when we know the enemy's starting main base
+    virtual void enemyStartingMainDetermined() {}
+
+    // Whether the natural base is behind the main base relative to the enemy starting position
+    virtual bool hasBackdoorNatural() { return false; }
 };
