@@ -121,6 +121,7 @@ void DefendBase::update()
     if (enemyValue == 0)
     {
         status.removedUnits = squad->getUnits();
+        workerDefenseSquad->disband();
         return;
     }
 
