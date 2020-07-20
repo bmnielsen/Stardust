@@ -219,10 +219,12 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Nexus, buildLocation);
     };
 
-    // If we have a backdoor natural, expand when our main is saturated or when we can afford it
+    // If we have a backdoor natural, expand when our first goon is being produced or we have lots of money
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
     {
-        if (BWAPI::Broodwar->self()->minerals() > 350 || Workers::availableMineralAssignments(Map::getMyMain()) < 2)
+        if (BWAPI::Broodwar->self()->minerals() > 450 ||
+            Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon) > 0 ||
+            Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon) > 0)
         {
             takeNatural();
             return;
