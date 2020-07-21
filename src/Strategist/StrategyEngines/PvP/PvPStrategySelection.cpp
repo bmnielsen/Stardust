@@ -65,12 +65,12 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                         strategy = OurStrategy::Defensive;
                         continue;
                     }
-                    case ProtossStrategy::FastExpansion:
                     case ProtossStrategy::Turtle:
                     {
                         strategy = OurStrategy::FastExpansion;
                         continue;
                     }
+                    case ProtossStrategy::FastExpansion:
                     case ProtossStrategy::EarlyForge:
                     case ProtossStrategy::OneGateCore:
                     case ProtossStrategy::BlockScouting:
