@@ -33,6 +33,7 @@ private:
         BlockScouting,      // The enemy has blocked our scout from getting into their main, suspect shenanigans
         ZealotAllIn,        // Builds that get a lot of zealots before other tech
         DragoonAllIn,       // Builds that get a lot of dragoons before other tech
+        EarlyRobo,          // Builds that get a robotics bay fairly early
         Turtle,             // Early cannons or FFE
         DarkTemplarRush,    // Dark templar or dark templar tech
         MidGame,            // Generic for when the opponent has transitioned out of their opening

@@ -207,6 +207,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 case ProtossStrategy::EarlyForge:
                 case ProtossStrategy::OneGateCore:
                 case ProtossStrategy::FastExpansion:
+                case ProtossStrategy::EarlyRobo:
                 case ProtossStrategy::Turtle:
                 case ProtossStrategy::MidGame:
                     setScoutHiding(5500);
@@ -658,6 +659,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         || (enemyStrategy == ProtossStrategy::ZealotRush && BWAPI::Broodwar->getFrameCount() < 6000)
         || (enemyStrategy == ProtossStrategy::ZealotAllIn && BWAPI::Broodwar->getFrameCount() < 8000)
         || (enemyStrategy == ProtossStrategy::DragoonAllIn && BWAPI::Broodwar->getFrameCount() < 8000)
+        || (enemyStrategy == ProtossStrategy::EarlyRobo && BWAPI::Broodwar->getFrameCount() < 8000)
         || (enemyStrategy == ProtossStrategy::FastExpansion && BWAPI::Broodwar->getFrameCount() < 8000)
         || (enemyStrategy == ProtossStrategy::Turtle && BWAPI::Broodwar->getFrameCount() < 8000))
     {

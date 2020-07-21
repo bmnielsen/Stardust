@@ -16,6 +16,7 @@ std::map<PvP::ProtossStrategy, std::string> PvP::ProtossStrategyNames = {
         {ProtossStrategy::BlockScouting,   "BlockScouting"},
         {ProtossStrategy::ZealotAllIn,     "ZealotAllIn"},
         {ProtossStrategy::DragoonAllIn,    "DragoonAllIn"},
+        {ProtossStrategy::EarlyRobo,       "EarlyRobo"},
         {ProtossStrategy::Turtle,          "Turtle"},
         {ProtossStrategy::DarkTemplarRush, "DarkTemplarRush"},
         {ProtossStrategy::MidGame,         "MidGame"},
@@ -219,6 +220,11 @@ namespace
         return false;
     }
 
+    bool isEarlyRobo()
+    {
+        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Robotics_Facility, 7500);
+    }
+
     bool isDarkTemplarRush()
     {
         return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Templar_Archives, 8000) ||
@@ -280,6 +286,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 }
 
                 if (isFastExpansion()) return ProtossStrategy::FastExpansion;
+                if (isEarlyRobo()) return ProtossStrategy::EarlyRobo;
 
                 // Early forge if we have seen either a forge or a cannon before transitioning to something else
                 if (countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1) || countAtLeast(BWAPI::UnitTypes::Protoss_Photon_Cannon, 1))
@@ -342,6 +349,12 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                     continue;
                 }
 
+                if (isEarlyRobo())
+                {
+                    strategy = ProtossStrategy::EarlyRobo;
+                    continue;
+                }
+
                 if (isTurtle())
                 {
                     strategy = ProtossStrategy::Turtle;
@@ -364,6 +377,12 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
                 if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
 
+                if (isEarlyRobo())
+                {
+                    strategy = ProtossStrategy::EarlyRobo;
+                    continue;
+                }
+
                 if (isTurtle())
                 {
                     strategy = ProtossStrategy::Turtle;
@@ -383,6 +402,12 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
                 if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
                 if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
+
+                if (isEarlyRobo())
+                {
+                    strategy = ProtossStrategy::EarlyRobo;
+                    continue;
+                }
 
                 if (isTurtle())
                 {
@@ -436,6 +461,12 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 if (isGasSteal()) return ProtossStrategy::GasSteal;
                 if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
 
+                if (!isDragoonAllIn() && isEarlyRobo())
+                {
+                    strategy = ProtossStrategy::EarlyRobo;
+                    continue;
+                }
+
                 if (isMidGame())
                 {
                     strategy = ProtossStrategy::MidGame;
@@ -444,6 +475,26 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
 
                 break;
             case ProtossStrategy::Turtle:
+                if (isGasSteal()) return ProtossStrategy::GasSteal;
+                if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
+                if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
+                if (isProxy()) return ProtossStrategy::ProxyRush;
+                if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
+
+                if (isEarlyRobo())
+                {
+                    strategy = ProtossStrategy::EarlyRobo;
+                    continue;
+                }
+
+                if (isMidGame())
+                {
+                    strategy = ProtossStrategy::MidGame;
+                    continue;
+                }
+
+                break;
+            case ProtossStrategy::EarlyRobo:
                 if (isGasSteal()) return ProtossStrategy::GasSteal;
                 if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
                 if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
