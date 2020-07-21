@@ -185,7 +185,10 @@ void UnitCluster::move(BWAPI::Position targetPosition)
 
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(unit->id) << "Movement boids towards " << BWAPI::WalkPosition(targetPosition)
-                                 << "; cluster=" << BWAPI::WalkPosition(center)
+                                 << "; nodes=[" << BWAPI::WalkPosition((*grid)[unit->getTilePosition()].nextNode->center())
+                                 << "," << BWAPI::WalkPosition((*grid)[unit->getTilePosition()].nextNode->nextNode->center())
+                                 << "," << BWAPI::WalkPosition((*grid)[unit->getTilePosition()].nextNode->nextNode->nextNode->center())
+                                 << "]; cluster=" << BWAPI::WalkPosition(center)
                                  << ": goal=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(goalX, goalY))
                                  << "; cohesion=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(cohesionX, cohesionY))
                                  << "; separation=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(separationX, separationY))

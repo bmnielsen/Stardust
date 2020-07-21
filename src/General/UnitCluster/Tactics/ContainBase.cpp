@@ -123,6 +123,9 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
             {
                 nextNodeCenter = nextNode->center();
                 secondNodeCenter = secondNode->center();
+                CherryVis::log(myUnit->id) << "Contain (goal boid):"
+                                           << " nextNode=" << BWAPI::WalkPosition(nextNodeCenter) << " (" << nextNode->cost << ")"
+                                           << "; secondNode=" << BWAPI::WalkPosition(secondNodeCenter) << " (" << secondNode->cost << ")";
             }
             else
             {
@@ -131,7 +134,7 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
                 // If the next choke is very close, use the one after that instead
                 auto path = PathFinding::GetChokePointPath(myUnit->lastPosition, targetPosition, myUnit->type);
                 BWAPI::Position waypoint = BWAPI::Positions::Invalid;
-                for (const auto &bwemChoke : PathFinding::GetChokePointPath(myUnit->lastPosition, targetPosition, myUnit->type))
+                for (const auto &bwemChoke : path)
                 {
                     auto chokeCenter = Map::choke(bwemChoke)->center;
                     if (myUnit->getDistance(chokeCenter) > 128)
