@@ -74,16 +74,17 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     case ProtossStrategy::EarlyForge:
                     case ProtossStrategy::OneGateCore:
                     case ProtossStrategy::BlockScouting:
+                    case ProtossStrategy::DragoonAllIn:
                     case ProtossStrategy::DarkTemplarRush:
                     {
                         strategy = OurStrategy::Normal;
                         continue;
                     }
-                    case ProtossStrategy::DragoonAllIn:
-                    {
-                        strategy = OurStrategy::DTExpand;
-                        continue;
-                    }
+//                    case ProtossStrategy::DragoonAllIn:
+//                    {
+//                        strategy = OurStrategy::DTExpand;
+//                        continue;
+//                    }
                     case ProtossStrategy::MidGame:
                     {
                         strategy = OurStrategy::MidGame;

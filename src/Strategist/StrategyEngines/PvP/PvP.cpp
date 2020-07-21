@@ -241,6 +241,16 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
             int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
 
+            // Ensure gas before zealot
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0)
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                           1,
+                                                                           -1);
+                break;
+            }
+
             if (zealotCount == 0)
             {
                 prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -392,8 +402,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
     {
         if (BWAPI::Broodwar->self()->minerals() > 450 ||
-            Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon) > 0 ||
-            Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon) > 0)
+            Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon) > 0)
         {
             takeNatural();
             return;
@@ -434,6 +443,13 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // Cluster should be at least 2/3 of the way to the target base
             int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
             if (dist * 2 > distToMain) return;
+
+            // Always expand in this situation if we are gas blocked
+            if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100)
+            {
+                takeNatural();
+                break;
+            }
 
             // Cluster should not be moving or fleeing
             // In other words, we want the cluster to be in some kind of stable attack or contain state

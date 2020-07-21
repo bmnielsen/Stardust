@@ -345,8 +345,7 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
     {
         if (BWAPI::Broodwar->self()->minerals() > 450 ||
-            Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon) > 0 ||
-            Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon) > 0)
+            Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon) > 0)
         {
             takeNatural();
             return;
