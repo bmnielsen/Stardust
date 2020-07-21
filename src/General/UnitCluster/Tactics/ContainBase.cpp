@@ -42,6 +42,7 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
         for (auto &unit : enemyUnits)
         {
             if (!unit->isStaticGroundDefense()) continue;
+            if (!unit->completed) continue;
 
             int dist = myUnit->getDistance(unit);
             if (dist < closestStaticDefenseDist)
