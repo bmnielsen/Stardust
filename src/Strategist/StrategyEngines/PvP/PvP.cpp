@@ -652,14 +652,14 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    // Break out if we have detected a strategy that precludes dark templar
-    if (enemyStrategy == ProtossStrategy::EarlyForge
-        || enemyStrategy == ProtossStrategy::ProxyRush
-        || enemyStrategy == ProtossStrategy::ZealotRush
-        || enemyStrategy == ProtossStrategy::ZealotAllIn
-        || enemyStrategy == ProtossStrategy::DragoonAllIn
-        || enemyStrategy == ProtossStrategy::FastExpansion
-        || enemyStrategy == ProtossStrategy::Turtle)
+    // Break out if we have detected a strategy that precludes a dark templar rush now
+    if ((enemyStrategy == ProtossStrategy::EarlyForge && BWAPI::Broodwar->getFrameCount() < 6000)
+        || (enemyStrategy == ProtossStrategy::ProxyRush && BWAPI::Broodwar->getFrameCount() < 6000)
+        || (enemyStrategy == ProtossStrategy::ZealotRush && BWAPI::Broodwar->getFrameCount() < 6000)
+        || (enemyStrategy == ProtossStrategy::ZealotAllIn && BWAPI::Broodwar->getFrameCount() < 8000)
+        || (enemyStrategy == ProtossStrategy::DragoonAllIn && BWAPI::Broodwar->getFrameCount() < 8000)
+        || (enemyStrategy == ProtossStrategy::FastExpansion && BWAPI::Broodwar->getFrameCount() < 8000)
+        || (enemyStrategy == ProtossStrategy::Turtle && BWAPI::Broodwar->getFrameCount() < 8000))
     {
         return;
     }
