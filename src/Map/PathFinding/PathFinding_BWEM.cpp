@@ -106,7 +106,7 @@ namespace PathFinding
                 // edge case that there is an alternate choke giving a significantly better result
                 if (current.toArea == targetArea)
                 {
-                    if (pathLength) *pathLength = current.dist + current.choke->Center().getApproxDistance(BWAPI::WalkPosition(end));
+                    if (pathLength) *pathLength = current.dist + end.getApproxDistance(BWAPI::Position(current.choke->Center()));
                     return createPath(current, parentMap);
                 }
 
@@ -116,7 +116,7 @@ namespace PathFinding
                     if (validChoke(choke, unitType.width(), unitType.isWorker()) && parentMap.find(choke) == parentMap.end())
                         nodeQueue.emplace(
                                 choke,
-                                current.dist + choke->Center().getApproxDistance(current.choke->Center()),
+                                current.dist + BWAPI::Position(choke->Center()).getApproxDistance(BWAPI::Position(current.choke->Center())),
                                 chokeTo(choke, current.toArea),
                                 current.choke);
                 }
