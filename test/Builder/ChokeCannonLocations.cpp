@@ -15,16 +15,16 @@ TEST(GetChokeCannonLocations, AllCOG)
     });
 }
 
-TEST(GetChokeCannonLocations, GreatBarrierReef)
+TEST(GetChokeCannonLocations, AllSSCAIT)
 {
-    BWTest test;
-    test.map = Maps::GetOne("GreatBarrierReef");
-    test.randomSeed = 24549;
-    test.opponentModule = []()
+    Maps::RunOnEachStartLocation(Maps::Get("sscai"), [](BWTest test)
     {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.run();
+        test.opponentModule = []()
+        {
+            return new DoNothingModule();
+        };
+        test.frameLimit = 10;
+        test.expectWin = false;
+        test.run();
+    });
 }
