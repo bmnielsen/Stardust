@@ -410,12 +410,12 @@ namespace BuildingPlacement
             if (!mainChoke) return;
 
             // Gather main base blocks
-            // At the same time, find the furthest block small building location that has detection on the choke center
+            // At the same time, find the closest small building location that has detection on the choke center
             std::vector<std::shared_ptr<Block>> mainBlocks;
-            auto furthestBlockLocation = BWAPI::TilePositions::Invalid;
-            std::shared_ptr<Block> furthestBlockLocationBlock = nullptr;
+            auto closestBlockLocation = BWAPI::TilePositions::Invalid;
+            std::shared_ptr<Block> closestBlockLocationBlock = nullptr;
+            auto closestDist = INT_MAX;
             {
-                auto furthestDist = 0;
                 for (auto &block : blocks)
                 {
                     // Ignore non-main-base
@@ -434,13 +434,13 @@ namespace BuildingPlacement
                         int dist = Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Photon_Cannon,
                                                             BWAPI::Position(location.tile) + BWAPI::Position(32, 32),
                                                             mainChoke->center);
-                        if (dist > 7 * 32) continue;
+                        if (dist < 3 * 32 || dist > 7 * 32) continue;
 
-                        if (dist > furthestDist)
+                        if (dist < closestDist)
                         {
-                            furthestDist = dist;
-                            furthestBlockLocation = location.tile;
-                            furthestBlockLocationBlock = block;
+                            closestDist = dist;
+                            closestBlockLocation = location.tile;
+                            closestBlockLocationBlock = block;
                         }
                     }
                 }
@@ -453,8 +453,8 @@ namespace BuildingPlacement
             // - Is within detection range of the choke center
             // - Is powered by some block
             // - Only borders unbuildable or reserved tiles on one side, and in the latter case, leaves room on at least one side
-            auto furthestLocation = BWAPI::TilePositions::Invalid;
-            std::shared_ptr<Block> furthestLocationBlock = nullptr;
+            auto closestLocation = BWAPI::TilePositions::Invalid;
+            std::shared_ptr<Block> closestLocationBlock = nullptr;
             {
                 auto isUnbuildableOrReserved = [](BWAPI::TilePosition tile)
                 {
@@ -511,7 +511,6 @@ namespace BuildingPlacement
                     return changes > 2 || reserved > 3;
                 };
 
-                int furthestDist = 0;
                 auto chokeTile = BWAPI::TilePosition(mainChoke->center);
                 for (int x = chokeTile.x - 9; x <= chokeTile.x + 9; x++)
                 {
@@ -524,8 +523,8 @@ namespace BuildingPlacement
                         int dist = Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Photon_Cannon,
                                                             BWAPI::Position(here) + BWAPI::Position(32, 32),
                                                             mainChoke->center);
-                        if (dist > 7 * 32) continue;
-                        if (dist < furthestDist) continue;
+                        if (dist < 3 * 32 || dist > 7 * 32) continue;
+                        if (dist > closestDist) continue;
 
                         // Ensure it is in the main area
                         auto it = neighbourhoodAreas[Neighbourhood::MainBase].find(
@@ -551,24 +550,24 @@ namespace BuildingPlacement
                         }
                         if (!furthestPowerBlock) continue;
 
-                        furthestDist = dist;
-                        furthestLocation = here;
-                        furthestLocationBlock = furthestPowerBlock;
+                        closestDist = dist;
+                        closestLocation = here;
+                        closestLocationBlock = furthestPowerBlock;
                     }
                 }
             }
 
             // Use the best result
-            if (furthestLocation.isValid())
+            if (closestLocation.isValid())
             {
-                chokeCannonPlacement = furthestLocation;
-                chokeCannonBlock = furthestLocationBlock;
+                chokeCannonPlacement = closestLocation;
+                chokeCannonBlock = closestLocationBlock;
             }
-            else if (furthestBlockLocation.isValid())
+            else if (closestBlockLocation.isValid())
             {
-                furthestBlockLocationBlock->tilesReserved(furthestBlockLocation, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize());
-                chokeCannonPlacement = furthestBlockLocation;
-                chokeCannonBlock = furthestBlockLocationBlock;
+                closestBlockLocationBlock->tilesReserved(closestBlockLocation, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize());
+                chokeCannonPlacement = closestBlockLocation;
+                chokeCannonBlock = closestBlockLocationBlock;
             }
             else
             {
@@ -696,7 +695,8 @@ namespace BuildingPlacement
                                 pylon.powersMedium.emplace(location,
                                                            builderFrames(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Forge),
                                                            0,
-                                                           distanceToExit(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Forge));
+                                                           distanceToExit(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Forge),
+                                                           true);
                             }
                             for (auto &location : unpoweredLarge)
                             {
@@ -716,7 +716,8 @@ namespace BuildingPlacement
                                 std::get<0>(tileAndPoweredAt),
                                 builderFrames(neighbourhood, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Forge),
                                 std::get<1>(tileAndPoweredAt),
-                                distanceToExit(neighbourhood, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Forge));
+                                distanceToExit(neighbourhood, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Forge),
+                                true);
                     }
 
                     for (auto &tileAndPoweredAt : poweredLarge)
@@ -1001,9 +1002,13 @@ namespace BuildingPlacement
         if (!a.location.converted && b.location.converted) return true;
         if (a.location.converted && !b.location.converted) return false;
 
-        // Finally prioritize by combined builder frames and distance to exit
-        if ((a.builderFrames + a.distanceToExit) < (b.builderFrames + b.distanceToExit)) return true;
-        if ((a.builderFrames + a.distanceToExit) > (b.builderFrames + b.distanceToExit)) return false;
+        // Finally prioritize based on distance
+        // We weight builder distance more than distance from exit
+        // Tech buildings prefer further away from the exit
+        int aDist = a.isTech ? (a.builderFrames * 2 - a.distanceToExit) : (a.builderFrames * 2 + a.distanceToExit);
+        int bDist = b.isTech ? (b.builderFrames * 2 - b.distanceToExit) : (b.builderFrames * 2 + b.distanceToExit);
+        if (aDist < bDist) return true;
+        if (aDist > bDist) return false;
 
         // Default case if everything else is equal
         return a.location.tile < b.location.tile;

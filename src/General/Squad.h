@@ -38,6 +38,7 @@ protected:
 
     std::set<std::shared_ptr<UnitCluster>> clusters;
     std::map<MyUnit, std::shared_ptr<UnitCluster>> unitToCluster;
+    std::set<Unit> enemiesNeedingDetection;
 
     [[nodiscard]] virtual bool canAddUnitToCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster, int dist) const;
 
@@ -55,7 +56,6 @@ protected:
 
 private:
     std::set<MyUnit> detectors;
-    std::set<Unit> enemiesNeedingDetection;
 
     void executeDetectors();
 };

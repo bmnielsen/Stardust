@@ -4,7 +4,6 @@
 #include "Map.h"
 #include "Players.h"
 #include "UnitUtil.h"
-#include "Builder.h"
 
 namespace
 {
@@ -239,7 +238,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     // If there is a choke, get enemy combat units close to it
     if (choke)
     {
-        Units::enemyInRadius(enemyUnits, choke->center, 96, combatUnitSeenRecentlyPredicate);
+        Units::enemyInRadius(enemyUnits, choke->center, 192, combatUnitSeenRecentlyPredicate);
     }
 
     // If there are no enemy combat units, include enemy buildings to defend against gas steals or other cheese
@@ -264,7 +263,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     // Consider enemy units in a bit larger radius to the choke for the combat sim
     if (choke)
     {
-        Units::enemyInRadius(enemyUnits, choke->center, 192, combatUnitSeenRecentlyPredicate);
+        Units::enemyInRadius(enemyUnits, choke->center, 256, combatUnitSeenRecentlyPredicate);
     }
 
     // Run combat sim
@@ -299,12 +298,12 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         attack = !shouldAbortAttack(cluster, simResult);
     }
 
-    if (attack || (!enemyInOurBase && choke && choke->isNarrowChoke))
+    if (attack || (!enemiesNeedingDetection.empty() && choke) || (!enemyInOurBase && choke && choke->isNarrowChoke))
     {
         cluster.setActivity(UnitCluster::Activity::Attacking);
 
         // Reset our defensive position to the choke when all enemy units are out of our base
-        if (!enemyInOurBase && choke) targetPosition = choke->center;
+        if ((!enemiesNeedingDetection.empty() || !enemyInOurBase) && choke) targetPosition = choke->center;
 
         // Check if the enemy has static defense (e.g. cannon rush)
         bool hasStaticDefense = false;
@@ -322,7 +321,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         {
             cluster.containBase(unitsAndTargets, enemyUnits, targetPosition);
         }
-        else if (!enemyInOurBase && choke && choke->isNarrowChoke)
+        else if (enemiesNeedingDetection.empty() && !enemyInOurBase && choke && choke->isNarrowChoke)
         {
             if (enemyUnits.empty() && blockedFriendlyUnit(choke))
             {
