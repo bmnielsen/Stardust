@@ -594,25 +594,27 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
             if ((BWAPI::Broodwar->getFrameCount() + 500) < frameStarted) return;
         }
 
+        auto buildAtTile = [&prioritizedProductionGoals](BWAPI::TilePosition tile, BWAPI::UnitType type)
+        {
+            if (Units::myBuildingAt(tile) != nullptr) return;
+            if (Builder::isPendingHere(tile)) return;
+
+            auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
+            prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     type,
+                                                                     buildLocation);
+        };
+
         if (cannonLocations.first != BWAPI::TilePositions::Invalid)
         {
             auto pylon = Units::myBuildingAt(cannonLocations.first);
-            if (pylon)
+            if (pylon && pylon->completed)
             {
-                if (pylon->completed)
-                {
-                    auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(cannonLocations.second), 0, 0, 0);
-                    prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                             BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                                                                             buildLocation);
-                }
+                buildAtTile(cannonLocations.second, BWAPI::UnitTypes::Protoss_Photon_Cannon);
             }
-            else if (!Builder::isPendingHere(cannonLocations.first))
+            else
             {
-                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(cannonLocations.first), 0, 0, 0);
-                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                         BWAPI::UnitTypes::Protoss_Pylon,
-                                                                         buildLocation);
+                buildAtTile(cannonLocations.first, BWAPI::UnitTypes::Protoss_Pylon);
             }
         }
         else
@@ -625,14 +627,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
             auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(Map::getMyMain());
             if (baseStaticDefenseLocations.first != BWAPI::TilePositions::Invalid)
             {
-                auto tile = *baseStaticDefenseLocations.second.begin();
-                if (!Units::myBuildingAt(tile))
-                {
-                    auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
-                    prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                             BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                                                                             buildLocation);
-                }
+                buildAtTile(*baseStaticDefenseLocations.second.begin(), BWAPI::UnitTypes::Protoss_Photon_Cannon);
             }
         }
     };
