@@ -63,18 +63,29 @@ bool UnitImpl::isTransport() const
 
 BWAPI::WeaponType UnitImpl::getWeapon(const Unit &target) const
 {
-    return target->isFlying ? UnitUtil::GetAirWeapon(type) : UnitUtil::GetGroundWeapon(type);
+    auto weaponUnitType = type;
+    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+
+    return target->isFlying ? UnitUtil::GetAirWeapon(weaponUnitType) : UnitUtil::GetGroundWeapon(weaponUnitType);
 }
 
 bool UnitImpl::isInOurWeaponRange(const Unit &target, BWAPI::Position predictedTargetPosition, int buffer) const
 {
-    int range = Players::weaponRange(player, target->isFlying ? type.airWeapon() : type.groundWeapon());
+    auto weaponUnitType = type;
+    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+
+    int range = Players::weaponRange(player, target->isFlying ? weaponUnitType.airWeapon() : weaponUnitType.groundWeapon());
+    if (type == BWAPI::UnitTypes::Terran_Bunker) range += 32;
     return getDistance(target, predictedTargetPosition) <= (range + buffer);
 }
 
 bool UnitImpl::isInEnemyWeaponRange(const Unit &attacker, BWAPI::Position predictedAttackerPosition, int buffer) const
 {
-    int range = Players::weaponRange(attacker->player, isFlying ? attacker->type.airWeapon() : attacker->type.groundWeapon());
+    auto weaponUnitType = attacker->type;
+    if (attacker->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+
+    int range = Players::weaponRange(attacker->player, isFlying ? weaponUnitType.airWeapon() : weaponUnitType.groundWeapon());
+    if (attacker->type == BWAPI::UnitTypes::Terran_Bunker) range += 32;
     return getDistance(attacker, predictedAttackerPosition) <= (range + buffer);
 }
 

@@ -13,9 +13,12 @@ void UpgradeTracker::update(Grid &grid)
             // Update the grid for all known units with this weapon type
             auto updateGrid = [&](const Unit &unit)
             {
+                auto weaponUnitType = unit->type;
+                if (unit->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+
                 if (unit->lastPositionValid && !unit->beingManufacturedOrCarried &&
-                    (unit->type.groundWeapon() == weaponAndDamage.first ||
-                     unit->type.airWeapon() == weaponAndDamage.first))
+                    (weaponUnitType.groundWeapon() == weaponAndDamage.first ||
+                     weaponUnitType.airWeapon() == weaponAndDamage.first))
                 {
                     grid.unitWeaponDamageUpgraded(unit->type, unit->lastPosition, weaponAndDamage.first, weaponAndDamage.second, current);
 
@@ -48,9 +51,12 @@ void UpgradeTracker::update(Grid &grid)
             // Update the grid for all known units with this weapon type
             auto updateGrid = [&](const Unit &unit)
             {
+                auto weaponUnitType = unit->type;
+                if (unit->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+
                 if (unit->lastPositionValid && !unit->beingManufacturedOrCarried &&
-                    (unit->type.groundWeapon() == weaponAndRange.first ||
-                     unit->type.airWeapon() == weaponAndRange.first))
+                    (weaponUnitType.groundWeapon() == weaponAndRange.first ||
+                     weaponUnitType.airWeapon() == weaponAndRange.first))
                 {
                     grid.unitWeaponRangeUpgraded(unit->type, unit->lastPosition, weaponAndRange.first, weaponAndRange.second, current);
 
