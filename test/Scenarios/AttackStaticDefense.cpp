@@ -4,6 +4,22 @@
 #include "Map.h"
 #include "Strategist.h"
 #include "TestAttackBasePlay.h"
+#include "Plays/MainArmy/AttackEnemyMain.h"
+
+namespace
+{
+    class DoNothingStrategyEngine : public StrategyEngine
+    {
+        void initialize(std::vector<std::shared_ptr<Play>> &plays) override {}
+
+        void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override {}
+
+        void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
+                              std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                              std::vector<std::pair<int, int>> &mineralReservations) override
+        {}
+    };
+}
 
 TEST(AttackStaticDefense, ContainsWhileOutmatched)
 {
@@ -161,6 +177,63 @@ TEST(AttackStaticDefense, ThroughBridge)
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        Strategist::setOpening(openingPlays);
+    };
+
+    // TODO: Assert something
+
+    test.run();
+}
+
+TEST(AttackStaticDefense, HandlesBlockedPath)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.map = Maps::GetOne("BlueStorm");
+    test.randomSeed = 64709;
+    test.frameLimit = 2000;
+    test.expectWin = false;
+
+    // We have some dragoons close to the choke and lots in our base
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(102, 19)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(105, 39)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(106, 39)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(107, 39)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(108, 39)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(109, 39)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(110, 39)),
+        };
+
+    // Enemy has a bunch of cannons
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(96, 21)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Pylon, BWAPI::TilePosition(97, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Photon_Cannon, BWAPI::TilePosition(96, 18)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Photon_Cannon, BWAPI::TilePosition(98, 18)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Photon_Cannon, BWAPI::TilePosition(100, 18)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Photon_Cannon, BWAPI::TilePosition(99, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Photon_Cannon, BWAPI::TilePosition(101, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Photon_Cannon, BWAPI::TilePosition(98, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Photon_Cannon, BWAPI::TilePosition(100, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Photon_Cannon, BWAPI::TilePosition(102, 22)),
+    };
+
+    Base *baseToAttack = nullptr;
+
+    // Order the dragoon to attack the bottom base
+    test.onStartMine = [&baseToAttack]()
+    {
+        baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(116, 8)));
+
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<AttackEnemyMain>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
