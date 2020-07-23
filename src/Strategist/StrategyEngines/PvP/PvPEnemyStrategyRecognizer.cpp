@@ -82,6 +82,7 @@ namespace
 
     bool isProxy()
     {
+        if (isFastExpansion()) return false;
         if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
 
         // If the enemy main has been scouted, determine if there is a proxy by looking at what they have built
@@ -325,6 +326,15 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 }
                 break;
             case ProtossStrategy::ProxyRush:
+                // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their nexus
+                if (!isProxy())
+                {
+                    strategy = ProtossStrategy::Unknown;
+                    continue;
+                }
+
+                // Otherwise intentionally fall through to zealot rush handling
+
             case ProtossStrategy::ZealotRush:
                 // Consider the rush to be over after 6000 frames
                 // From there the TwoGate handler will potentially transition into ZealotAllIn

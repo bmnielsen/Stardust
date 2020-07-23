@@ -198,6 +198,15 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 }
                 break;
             case TerranStrategy::ProxyRush:
+                // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their command center
+                if (!isProxy())
+                {
+                    strategy = TerranStrategy::Unknown;
+                    continue;
+                }
+
+                // Otherwise intentionally fall through to marine rush handling
+
             case TerranStrategy::MarineRush:
                 // Consider the rush to be over after 6000 frames
                 // From there the Normal handler will potentially transition into MarineAllIn
