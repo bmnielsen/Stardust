@@ -789,11 +789,11 @@ namespace FAP {
         if (fu.shields > fu.maxShields)
           fu.shields = fu.maxShields;
       }
-      // Assume the enemy repairs their bunker
+      // Assume the enemy repairs their bunker with 4 SCVs
       // TODO: Actually simulate based on observations
       else if (fu.unitType == BWAPI::UnitTypes::Terran_Bunker) {
         if (fu.health < fu.maxHealth)
-          fu.health += 112;
+          fu.health += 680;
       }
     };
 
