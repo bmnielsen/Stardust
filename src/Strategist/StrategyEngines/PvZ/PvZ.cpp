@@ -341,11 +341,11 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                                                  buildLocation);
     };
 
-    // If we have a backdoor natural, expand when our first goon is being produced or we have lots of money
+    // If we have a backdoor natural, expand when our third goon is being produced or we have lots of money
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
     {
         if (BWAPI::Broodwar->self()->minerals() > 450 ||
-            Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon) > 0)
+            Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon) > 2)
         {
             takeNatural();
             return;
