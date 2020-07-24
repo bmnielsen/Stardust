@@ -83,7 +83,7 @@ namespace
     bool isProxy()
     {
         if (isFastExpansion()) return false;
-        if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
+        if (BWAPI::Broodwar->getFrameCount() >= 5000) return false;
 
         // If the enemy main has been scouted, determine if there is a proxy by looking at what they have built
         if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
@@ -508,7 +508,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 if (isGasSteal()) return ProtossStrategy::GasSteal;
                 if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
                 if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
-                if (isProxy()) return ProtossStrategy::ProxyRush;
                 if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
 
                 if (isMidGame())
