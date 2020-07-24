@@ -116,7 +116,6 @@ TEST(AttackBunker, FourGoons)
     test.randomSeed = 65145;
     test.frameLimit = 2000;
 
-    // Simulate a short rush distance 4-pool where the zerglings arrive as we have 11 probes
     test.myInitialUnits = {
             UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(41, 31))),
             UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(42, 31))),
@@ -136,7 +135,6 @@ TEST(AttackBunker, FourGoons)
             UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Cybernetics_Core, BWAPI::TilePosition(112, 10)),
     };
 
-    // Enemy zerglings
     test.opponentInitialUnits = {
             UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Bunker, BWAPI::Position(BWAPI::TilePosition(50, 105))),
             UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(BWAPI::TilePosition(50, 109))),
