@@ -2,6 +2,7 @@
 
 #include "Map.h"
 #include "Plays/MainArmy/DefendMyMain.h"
+#include "Units.h"
 
 std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
         {OurStrategy::EarlyGameDefense, "EarlyGameDefense"},
@@ -25,16 +26,25 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
     auto canTransitionFromAntiZealotRush = [&]()
     {
-        // Require Dragoon Range
-        // TODO: This is probably much too conservative
-        if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0) return false;
-
         // Count total combat units
         auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
         auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
         auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
         int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
                         completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+
+        // Transition immediately if we've discovered a different enemy strategy
+        if (newEnemyStrategy != ProtossStrategy::BlockScouting &&
+            newEnemyStrategy != ProtossStrategy::ProxyRush &&
+            newEnemyStrategy != ProtossStrategy::ZealotRush &&
+            newEnemyStrategy != ProtossStrategy::ZealotAllIn)
+        {
+            if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) <= unitCount) return true;
+        }
+
+        // Require Dragoon Range
+        // TODO: This is probably much too conservative
+        if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0) return false;
 
         // Transition when we have at least 10 units
         return unitCount >= 10;
