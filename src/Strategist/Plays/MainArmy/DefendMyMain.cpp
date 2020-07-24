@@ -121,9 +121,19 @@ void DefendMyMain::update()
     {
         if (emergencyProduction == BWAPI::UnitTypes::None)
         {
-            emergencyProduction = (enemyFlyingUnit || enemyRangedUnit)
-                                  ? BWAPI::UnitTypes::Protoss_Dragoon
-                                  : BWAPI::UnitTypes::Protoss_Zealot;
+            emergencyProduction = BWAPI::UnitTypes::Protoss_Zealot;
+
+            // Produce dragoons instead under the following circumstances:
+            // - The enemy has units that can only be effectively countered with dragoons
+            // - The enemy is not zerg and we already have the prerequisites needed for dragoons
+            if (enemyFlyingUnit || enemyRangedUnit || (
+                    BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Zerg &&
+                    Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0 &&
+                    BWAPI::Broodwar->self()->gas() >= 50
+            ))
+            {
+                emergencyProduction = BWAPI::UnitTypes::Protoss_Dragoon;
+            }
 
             CherryVis::log() << "DefendMyMain: emergency, producing " << emergencyProduction;
         }
