@@ -220,22 +220,30 @@ namespace Producer
              */
         }
 
-        int getRemainingBuildTime(
-                const MyUnit &producer,
-                bool isBuilding,
-                int baseRemainingBuildTime,
-                BWAPI::UnitCommandType buildCommandType,
-                const Type &itemType)
+        int getRemainingBuildTime(const MyUnit &producer)
         {
-            if (producer->bwapiUnit->getLastCommand().getType() == buildCommandType &&
+            if (producer->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
                 (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
             {
-                return buildTime(itemType);
+                return buildTime(producer->bwapiUnit->getLastCommand().getUnitType());
             }
 
-            if (!isBuilding) return -1;
+            if (!producer->bwapiUnit->isTraining()) return -1;
 
-            return baseRemainingBuildTime;
+            return producer->bwapiUnit->getRemainingTrainTime();
+        }
+
+        int getRemainingUpgradeTime(const MyUnit &producer)
+        {
+            if (producer->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Upgrade &&
+                (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+            {
+                return buildTime(producer->bwapiUnit->getLastCommand().getUpgradeType());
+            }
+
+            if (!producer->bwapiUnit->isUpgrading()) return -1;
+
+            return producer->bwapiUnit->getRemainingUpgradeTime();
         }
 
         void updateResourceCollection(std::vector<int> &resource, int fromFrame, int workerChange, double baseRate)
@@ -351,11 +359,7 @@ namespace Producer
                 if (!unit->completed) continue;
                 if (!unit->type.isResourceDepot()) continue;
 
-                int remainingTrainTime = getRemainingBuildTime(unit,
-                                                               unit->bwapiUnit->isTraining(),
-                                                               unit->bwapiUnit->getRemainingTrainTime(),
-                                                               BWAPI::UnitCommandTypes::Train,
-                                                               BWAPI::Broodwar->self()->getRace().getWorker());
+                int remainingTrainTime = getRemainingBuildTime(unit);
                 if (remainingTrainTime >= 0) updateResourceCollection(minerals, remainingTrainTime + 1, 1, MINERALS_PER_WORKER_FRAME);
             }
 
@@ -1596,25 +1600,25 @@ namespace Producer
             // Committed producers
             for (auto &item : committedItems)
             {
-                if (item->is(producerType) && canProduceFrom(type, location, *item))
-                {
-                    if (item->queuedBuilding && item->queuedBuilding->unit)
-                    {
-                        auto existingProducerIt = existingProducers.find(item->queuedBuilding->unit);
-                        if (existingProducerIt != existingProducers.end())
-                        {
-                            producers.push_back(existingProducerIt->second);
-                            continue;
-                        }
+                if (!item->is(producerType) || !canProduceFrom(type, location, *item)) continue;
 
-                        auto producer = std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame));
-                        producers.push_back(producer);
-                        existingProducers[item->queuedBuilding->unit] = producer;
-                    }
-                    else
+                if (item->queuedBuilding && item->queuedBuilding->unit)
+                {
+                    auto existingProducerIt = existingProducers.find(item->queuedBuilding->unit);
+                    if (existingProducerIt != existingProducers.end())
                     {
-                        producers.push_back(std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame)));
+                        existingProducerIt->second->availableFrom = std::max(prerequisitesAvailable, item->completionFrame);
+                        producers.push_back(existingProducerIt->second);
+                        continue;
                     }
+
+                    auto producer = std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame));
+                    producers.push_back(producer);
+                    existingProducers[item->queuedBuilding->unit] = producer;
+                }
+                else
+                {
+                    producers.push_back(std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame)));
                 }
             }
 
@@ -1636,30 +1640,23 @@ namespace Producer
                     if (toProduce == 0) return;
                 }
 
+                int remainingTrainTime = -1;
+                if (unitType)
+                {
+                    remainingTrainTime = getRemainingBuildTime(unit);
+                }
+                else if (upgradeType)
+                {
+                    remainingTrainTime = getRemainingUpgradeTime(unit);
+                }
+
                 // If this producer is already created when handling a previous production goal, reference the existing object
                 auto existingProducerIt = existingProducers.find(unit);
                 if (existingProducerIt != existingProducers.end())
                 {
+                    existingProducerIt->second->availableFrom = std::max(prerequisitesAvailable, remainingTrainTime + 1);
                     producers.push_back(existingProducerIt->second);
                     continue;
-                }
-
-                int remainingTrainTime = -1;
-                if (unitType)
-                {
-                    remainingTrainTime = getRemainingBuildTime(unit,
-                                                               unit->bwapiUnit->isTraining(),
-                                                               unit->bwapiUnit->getRemainingTrainTime(),
-                                                               BWAPI::UnitCommandTypes::Train,
-                                                               type);
-                }
-                else if (upgradeType)
-                {
-                    remainingTrainTime = getRemainingBuildTime(unit,
-                                                               unit->bwapiUnit->isUpgrading(),
-                                                               unit->bwapiUnit->getRemainingUpgradeTime(),
-                                                               BWAPI::UnitCommandTypes::Upgrade,
-                                                               type);
                 }
 
                 auto producer = std::make_shared<Producer>(unit, std::max(prerequisitesAvailable, remainingTrainTime + 1));
