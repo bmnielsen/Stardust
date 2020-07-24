@@ -376,6 +376,10 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1);
+
+            // Make sure we get dragoon range to defend our choke effectively
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+
             break;
         }
     }
