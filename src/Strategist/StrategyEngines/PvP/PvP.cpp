@@ -662,7 +662,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         {
             auto buildAtBase = [&buildCannonAt](Base *base)
             {
-                if (base->owner != BWAPI::Broodwar->self()) return;
+                if (!base || base->owner != BWAPI::Broodwar->self()) return;
 
                 auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(Map::getMyMain());
                 if (baseStaticDefenseLocations.first != BWAPI::TilePositions::Invalid)
