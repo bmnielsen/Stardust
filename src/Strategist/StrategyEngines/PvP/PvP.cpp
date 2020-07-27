@@ -228,6 +228,19 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     handleNaturalExpansion(plays, prioritizedProductionGoals);
     handleDetection(prioritizedProductionGoals);
 
+    // Temporary hack to set the number of gas workers needed until the producer can do it
+    auto setGasGathering = [](bool gather)
+    {
+        int current = Workers::desiredGasWorkers();
+        int desired = (gather || Workers::availableMineralAssignments() < 2)
+                      ? (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) * 3)
+                      : 0;
+        Workers::addDesiredGasWorkers(desired - current);
+    };
+
+    // Default to gather gas - we will only set to false later if we are being rushed
+    setGasGathering(true);
+
     // Main army production
     switch (ourStrategy)
     {
@@ -289,8 +302,9 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
             int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
 
-            // Get four zealots before starting the dragoon transition
-            int zealotsRequired = 4 - zealotCount;
+            // We get at least four zealots, but ensure we match enemy zealot production to avoid getting overrun
+            int desiredZealots = 4 + (Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) * 3) / 4;
+            int zealotsRequired = desiredZealots - zealotCount;
 
             // Get two zealots at highest priority
             if (zealotCount < 2)
@@ -308,6 +322,10 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
                                                                               zealotsRequired,
                                                                               -1);
+                if (zealotsRequired > 1 || BWAPI::Broodwar->self()->gas() >= 50)
+                {
+                    setGasGathering(false);
+                }
             }
 
             // If the dragoon transition is just beginning, only order one so we keep producing zealots
@@ -321,8 +339,11 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1,
                                                                        -1);
 
-            // Upgrade goon range at 2 dragoons
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+            // Upgrade goon range at 2 dragoons unless we are still behind in zealots
+            if (zealotsRequired == 0)
+            {
+                upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+            }
 
             break;
         }
@@ -400,7 +421,9 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                                                                                natural->getTilePosition(),
                                                                                                BWAPI::UnitTypes::Protoss_Nexus),
                                                               0, 0);
-        prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Nexus, buildLocation);
+        prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 BWAPI::UnitTypes::Protoss_Nexus,
+                                                                 buildLocation);
     };
 
     // If we have a backdoor natural, expand when we have enough goons or we have lots of money
@@ -653,6 +676,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     }
 
     // Break out if we have detected a strategy that precludes a dark templar rush now
+    if (ourStrategy == OurStrategy::AntiZealotRush) return;
     if ((enemyStrategy == ProtossStrategy::EarlyForge && BWAPI::Broodwar->getFrameCount() < 6000)
         || (enemyStrategy == ProtossStrategy::ProxyRush && BWAPI::Broodwar->getFrameCount() < 6000)
         || (enemyStrategy == ProtossStrategy::ZealotRush && BWAPI::Broodwar->getFrameCount() < 6000)

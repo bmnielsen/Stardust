@@ -57,6 +57,7 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
         // First sort out units we can't fight against
         if (unit->isFlying) continue;
         if (UnitUtil::IsRangedUnit(unit->type)) continue;
+        if (unit->undetected) continue;
 
         // Now determine if the unit is worth attacking
         // This is the case if:

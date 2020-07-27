@@ -352,6 +352,10 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     //   Rationale: we want to encourage our enemies to get distracted and chase us
     // - Otherwise move towards the mineral line center
     // TODO: Do something else against ranged units
+
+    // First scan to see if any unit is attacking, since if any single unit attacks, all units should attack
+    bool anyAttacking = false;
+    std::vector<std::pair<MyUnit, Unit>> filteredUnitsAndTargets;
     for (auto &unitAndTarget : unitsAndTargets)
     {
         auto &unit = unitAndTarget.first;
@@ -363,6 +367,25 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
         if (!unit->isReady()) continue;
 
+        filteredUnitsAndTargets.push_back(unitAndTarget);
+
+        if (!target) continue;
+
+        // Attack if we are in the mineral line and in range of the enemy (or the enemy is in range of us)
+        auto enemyPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        if (Map::isInOwnMineralLine(unit->tilePositionX, unit->tilePositionY) &&
+            (unit->isInOurWeaponRange(target, enemyPosition) || unit->isInEnemyWeaponRange(target, enemyPosition)))
+        {
+            anyAttacking = true;
+        }
+    }
+
+    // Now execute the orders
+    for (auto &unitAndTarget : filteredUnitsAndTargets)
+    {
+        auto &unit = unitAndTarget.first;
+        auto &target = unitAndTarget.second;
+
         // If the unit has no target, just move to the target position
         if (!target)
         {
@@ -373,11 +396,8 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
             continue;
         }
 
-        auto enemyPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames());
-
-        // Attack the enemy if we are in the mineral line and in range of the enemy (or the enemy is in range of us)
-        if (Map::isInOwnMineralLine(unit->tilePositionX, unit->tilePositionY) &&
-            (unit->isInOurWeaponRange(target, enemyPosition) || unit->isInEnemyWeaponRange(target, enemyPosition)))
+        // Attack if the squad is attacking
+        if (target && anyAttacking)
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
@@ -386,6 +406,8 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
             unit->attackUnit(target, unitsAndTargets, false);
             continue;
         }
+
+        auto enemyPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames());
 
         // Move towards the enemy if we are well out of their attack range
         int enemyRange = Players::weaponRange(target->player, target->getWeapon(unit));
