@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29806.167
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BWAPILIB", "3rdparty\BWAPILIB\BWAPILIB.vcxproj", "{7B9D001C-3ECF-3960-A03B-2C4719D94E96}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BWEM", "3rdparty\BWEM\BWEM.vcxproj", "{3BF8709C-7777-3C81-84F4-9B50BE4D24C4}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7B9D001C-3ECF-3960-A03B-2C4719D94E96} = {7B9D001C-3ECF-3960-A03B-2C4719D94E96}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Stardust", "src\Stardust.vcxproj", "{E8EF6F60-2273-3A31-93E7-432605FC32DD}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7B9D001C-3ECF-3960-A03B-2C4719D94E96} = {7B9D001C-3ECF-3960-A03B-2C4719D94E96}
+		{3BF8709C-7777-3C81-84F4-9B50BE4D24C4} = {3BF8709C-7777-3C81-84F4-9B50BE4D24C4}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7B9D001C-3ECF-3960-A03B-2C4719D94E96}.Release|Win32.ActiveCfg = Release|Win32
+		{7B9D001C-3ECF-3960-A03B-2C4719D94E96}.Release|Win32.Build.0 = Release|Win32
+		{3BF8709C-7777-3C81-84F4-9B50BE4D24C4}.Release|Win32.ActiveCfg = Release|Win32
+		{3BF8709C-7777-3C81-84F4-9B50BE4D24C4}.Release|Win32.Build.0 = Release|Win32
+		{E8EF6F60-2273-3A31-93E7-432605FC32DD}.Release|Win32.ActiveCfg = Release|Win32
+		{E8EF6F60-2273-3A31-93E7-432605FC32DD}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {82E0C7A2-E258-386F-AFE1-3AAEF2C054A2}
+	EndGlobalSection
+EndGlobal
