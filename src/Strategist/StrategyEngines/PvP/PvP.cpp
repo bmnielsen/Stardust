@@ -122,11 +122,13 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     // Transition to a defend squad if:
                     // - our attack squad has no units
                     // - our attack squad has been pushed back into our main
-                    // - the enemy is doing a DT rush and we don't have obs yet
+                    // - the enemy is doing a DT rush or has DTs and we don't have obs yet
                     if (typeid(*mainArmyPlay) == typeid(AttackEnemyMain))
                     {
                         auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                        if (!vanguard || (enemyStrategy == ProtossStrategy::DarkTemplarRush && mainArmyPlay->getSquad()->getDetectors().empty()))
+                        if (!vanguard
+                            || ((Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0 || enemyStrategy == ProtossStrategy::DarkTemplarRush)
+                                && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0))
                         {
                             setMainPlay<DefendMyMain>(mainArmyPlay);
                         }
@@ -599,63 +601,78 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
                                                                  1);
     };
 
-    auto buildCannon = [&](int frameNeeded = 0, bool alsoAtNexus = false)
+    auto buildCannon = [&](int frameNeeded = 0, bool alsoAtBases = false)
     {
-        // Get the cannon location
-        auto cannonLocations = BuildingPlacement::mainChokeCannonLocations();
-
-        // If we know what frame the cannon is needed, check if we need to start building it now
-        if (frameNeeded > 0)
+        auto buildCannonAt = [&](BWAPI::TilePosition pylonTile, BWAPI::TilePosition cannonTile)
         {
-            int frameStarted = frameNeeded - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
-            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Forge) == 0)
+            if (!pylonTile.isValid()) return;
+            if (!cannonTile.isValid()) return;
+
+            // If we know what frame the cannon is needed, check if we need to start building it now
+            if (frameNeeded > 0)
             {
-                frameStarted -= framesNeededFor(BWAPI::UnitTypes::Protoss_Forge);
+                int frameStarted = frameNeeded - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
+                if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Forge) == 0)
+                {
+                    frameStarted -= framesNeededFor(BWAPI::UnitTypes::Protoss_Forge);
+                }
+                else if (!Units::myBuildingAt(pylonTile))
+                {
+                    frameStarted -= UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
+                }
+
+                // TODO: When the Producer understands to build something at a specific frame, use that
+                if ((BWAPI::Broodwar->getFrameCount() + 500) < frameStarted) return;
             }
-            else if (cannonLocations.first != BWAPI::TilePositions::Invalid && !Units::myBuildingAt(cannonLocations.first))
+
+            auto buildAtTile = [&prioritizedProductionGoals](BWAPI::TilePosition tile, BWAPI::UnitType type)
             {
-                frameStarted -= UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
-            }
+                if (Units::myBuildingAt(tile) != nullptr) return;
+                if (Builder::isPendingHere(tile)) return;
 
-            // TODO: When the Producer understands to build something at a specific frame, use that
-            if ((BWAPI::Broodwar->getFrameCount() + 500) < frameStarted) return;
-        }
+                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         type,
+                                                                         buildLocation);
+            };
 
-        auto buildAtTile = [&prioritizedProductionGoals](BWAPI::TilePosition tile, BWAPI::UnitType type)
-        {
-            if (Units::myBuildingAt(tile) != nullptr) return;
-            if (Builder::isPendingHere(tile)) return;
-
-            auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
-            prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                     type,
-                                                                     buildLocation);
-        };
-
-        if (cannonLocations.first != BWAPI::TilePositions::Invalid)
-        {
-            auto pylon = Units::myBuildingAt(cannonLocations.first);
+            auto pylon = Units::myBuildingAt(pylonTile);
             if (pylon && pylon->completed)
             {
-                buildAtTile(cannonLocations.second, BWAPI::UnitTypes::Protoss_Photon_Cannon);
+                buildAtTile(cannonTile, BWAPI::UnitTypes::Protoss_Photon_Cannon);
             }
             else
             {
-                buildAtTile(cannonLocations.first, BWAPI::UnitTypes::Protoss_Pylon);
+                buildAtTile(pylonTile, BWAPI::UnitTypes::Protoss_Pylon);
             }
+        };
+
+        // Get the cannon location
+        auto cannonLocations = BuildingPlacement::mainChokeCannonLocations();
+        if (cannonLocations.first != BWAPI::TilePositions::Invalid)
+        {
+            buildCannonAt(cannonLocations.first, cannonLocations.second);
         }
         else
         {
-            alsoAtNexus = true;
+            alsoAtBases = true;
         }
 
-        if (alsoAtNexus)
+        if (alsoAtBases)
         {
-            auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(Map::getMyMain());
-            if (baseStaticDefenseLocations.first != BWAPI::TilePositions::Invalid)
+            auto buildAtBase = [&buildCannonAt](Base *base)
             {
-                buildAtTile(*baseStaticDefenseLocations.second.begin(), BWAPI::UnitTypes::Protoss_Photon_Cannon);
-            }
+                if (base->owner != BWAPI::Broodwar->self()) return;
+
+                auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(Map::getMyMain());
+                if (baseStaticDefenseLocations.first != BWAPI::TilePositions::Invalid)
+                {
+                    buildCannonAt(baseStaticDefenseLocations.first, *baseStaticDefenseLocations.second.begin());
+                }
+            };
+
+            buildAtBase(Map::getMyMain());
+            buildAtBase(Map::getMyNatural());
         }
     };
 
