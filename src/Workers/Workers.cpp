@@ -56,7 +56,7 @@ namespace Workers
 
         int availableMineralAssignmentsAtBase(Base *base)
         {
-            if (base->owner != BWAPI::Broodwar->self()) return 0;
+            if (!base || base->owner != BWAPI::Broodwar->self()) return 0;
             if (!base->resourceDepot || !base->resourceDepot->exists()) return 0;
 
             int count = base->mineralPatchCount() * 2;
