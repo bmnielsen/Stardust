@@ -683,7 +683,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         || (enemyStrategy == ProtossStrategy::ZealotAllIn && BWAPI::Broodwar->getFrameCount() < 8000)
         || (enemyStrategy == ProtossStrategy::DragoonAllIn && BWAPI::Broodwar->getFrameCount() < 8000)
         || (enemyStrategy == ProtossStrategy::EarlyRobo && BWAPI::Broodwar->getFrameCount() < 8000)
-        || (enemyStrategy == ProtossStrategy::FastExpansion && BWAPI::Broodwar->getFrameCount() < 8000)
+        || (enemyStrategy == ProtossStrategy::FastExpansion && BWAPI::Broodwar->getFrameCount() < 7000)
         || (enemyStrategy == ProtossStrategy::Turtle && BWAPI::Broodwar->getFrameCount() < 8000))
     {
         return;
