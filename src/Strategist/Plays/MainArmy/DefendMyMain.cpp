@@ -119,22 +119,23 @@ void DefendMyMain::update()
     // TODO: Should clear emergency when our squad is defending the choke
     if (lastRegroupFrame > 0 && lastRegroupFrame > (BWAPI::Broodwar->getFrameCount() - REGROUP_EMERGENCY_TIMEOUT))
     {
-        if (emergencyProduction == BWAPI::UnitTypes::None)
+        auto desiredEmergencyProduction = BWAPI::UnitTypes::Protoss_Zealot;
+
+        // Produce dragoons instead under the following circumstances:
+        // - The enemy has units that can only be effectively countered with dragoons
+        // - The enemy is not zerg and we already have the prerequisites needed for dragoons
+        if (enemyFlyingUnit || enemyRangedUnit || (
+                BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Zerg &&
+                Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0 &&
+                BWAPI::Broodwar->self()->gas() >= 50
+        ))
         {
-            emergencyProduction = BWAPI::UnitTypes::Protoss_Zealot;
+            desiredEmergencyProduction = BWAPI::UnitTypes::Protoss_Dragoon;
+        }
 
-            // Produce dragoons instead under the following circumstances:
-            // - The enemy has units that can only be effectively countered with dragoons
-            // - The enemy is not zerg and we already have the prerequisites needed for dragoons
-            if (enemyFlyingUnit || enemyRangedUnit || (
-                    BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Zerg &&
-                    Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0 &&
-                    BWAPI::Broodwar->self()->gas() >= 50
-            ))
-            {
-                emergencyProduction = BWAPI::UnitTypes::Protoss_Dragoon;
-            }
-
+        if (emergencyProduction != desiredEmergencyProduction)
+        {
+            emergencyProduction = desiredEmergencyProduction;
             CherryVis::log() << "DefendMyMain: emergency, producing " << emergencyProduction;
         }
 

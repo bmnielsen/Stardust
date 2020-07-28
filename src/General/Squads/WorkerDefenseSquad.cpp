@@ -153,14 +153,17 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
     // Now check if it makes sense to grab any of the other workers
     for (auto &worker : baseWorkers)
     {
-        // Never grab a worker that is actively mining
-        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
-            worker->bwapiUnit->getOrder() == BWAPI::Orders::HarvestGas)
+        // Never grab a worker that is actively mining unless it is dying
+        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::HarvestGas ||
+            ((worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals
+              || worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnMinerals
+              || worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnGas)
+             && worker->bwapiUnit->getShields() > 5))
         {
             continue;
         }
 
-        auto target = getTarget(worker, enemyUnits, false, 32);
+        auto target = getTarget(worker, enemyUnits, false, 128);
         if (target)
         {
             Workers::reserveWorker(worker);

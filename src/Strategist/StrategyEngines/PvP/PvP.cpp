@@ -428,11 +428,11 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                                                  buildLocation);
     };
 
-    // If we have a backdoor natural, expand when we have enough goons or we have lots of money
+    // If we have a backdoor natural, expand if we have too many minerals
+    // This mainly helps us if we are gas blocked because of wanting a DT or observer
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
     {
-        if (BWAPI::Broodwar->self()->minerals() > 450 ||
-            Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon) > 5)
+        if (BWAPI::Broodwar->self()->minerals() > 450)
         {
             takeNatural();
             return;
