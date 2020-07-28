@@ -64,7 +64,7 @@ void UnitCluster::holdChoke(Choke *choke,
 
         // If the target is close enough to the defend end, attack with all units
         if (target->getDistance(defendEnd) <= std::max(choke->width / 2,
-                                                   std::min(Players::weaponRange(myUnit->player, myUnit->type.groundWeapon()), centerDist)))
+                                                       std::min(Players::weaponRange(myUnit->player, myUnit->type.groundWeapon()), centerDist)))
         {
             meleeShouldAttack = true;
             rangedShouldAttack = true;
@@ -121,13 +121,32 @@ void UnitCluster::holdChoke(Choke *choke,
         // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
         if (!myUnit->isReady()) continue;
 
+        int distToChokeCenter = PathFinding::GetGroundDistance(myUnit->lastPosition,
+                                                               choke->center,
+                                                               myUnit->type,
+                                                               PathFinding::PathFindingOptions::UseNearestBWEMArea);
+
         // Attack
         if (unitAndTarget.second && shouldAttack(myUnit, unitAndTarget.second))
         {
+            // If the target is not in our weapon range, use move logic instead if we are a long way from the choke
+            if (distToChokeCenter > 300 && !myUnit->isInOurWeaponRange(unitAndTarget.second))
+            {
+                myUnit->moveTo(choke->center);
+                continue;
+            }
+
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(myUnit->id) << "HoldChoke: Attacking " << *unitAndTarget.second;
 #endif
             myUnit->attackUnit(unitAndTarget.second, unitsAndTargets, false);
+            continue;
+        }
+
+        // If the unit is a long way away from the choke, move towards it instead so our pathing kicks in
+        if (distToChokeCenter > 300)
+        {
+            myUnit->moveTo(choke->center);
             continue;
         }
 
