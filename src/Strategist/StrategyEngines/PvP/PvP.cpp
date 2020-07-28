@@ -428,11 +428,13 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                                                  buildLocation);
     };
 
-    // If we have a backdoor natural, expand if we have too many minerals
-    // This mainly helps us if we are gas blocked because of wanting a DT or observer
+    // If we have a backdoor natural, expand if we are gas blocked
+    // This generally happens when we are teching to DT or observers
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
     {
-        if (BWAPI::Broodwar->self()->minerals() > 450)
+        if (BWAPI::Broodwar->self()->minerals() > 400 &&
+            BWAPI::Broodwar->self()->gas() < 100 &&
+            (BWAPI::Broodwar->self()->supplyTotal() - BWAPI::Broodwar->self()->supplyUsed()) >= 6)
         {
             takeNatural();
             return;
@@ -596,12 +598,12 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         }
 
         auto priority = Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0
-                ? PRIORITY_EMERGENCY
-                : PRIORITY_NORMAL;
+                        ? PRIORITY_EMERGENCY
+                        : PRIORITY_NORMAL;
         prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                 BWAPI::UnitTypes::Protoss_Observer,
-                                                                 1,
-                                                                 1);
+                                                          BWAPI::UnitTypes::Protoss_Observer,
+                                                          1,
+                                                          1);
     };
 
     auto buildCannon = [&](int frameNeeded = 0, bool alsoAtBases = false)
@@ -638,8 +640,8 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
                                 ? PRIORITY_EMERGENCY
                                 : PRIORITY_NORMAL;
                 prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                         type,
-                                                                         buildLocation);
+                                                                  type,
+                                                                  buildLocation);
             };
 
             auto pylon = Units::myBuildingAt(pylonTile);
