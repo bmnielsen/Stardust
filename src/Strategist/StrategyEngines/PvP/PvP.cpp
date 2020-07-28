@@ -107,33 +107,29 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 case OurStrategy::Normal:
                 case OurStrategy::MidGame:
                 {
-                    // Transition from a defend squad when the vanguard cluster has 3 units and can do so
-                    if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                    // Always use a defend play if the squad has no units or we have no obs to counter DTs
+                    auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
+                    if (!vanguard
+                        || ((Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0 || enemyStrategy == ProtossStrategy::DarkTemplarRush)
+                            && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0))
                     {
-                        if (!((DefendMyMain *) mainArmyPlay)->canTransitionToAttack()) break;
-
-                        auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                        if (vanguard && vanguard->units.size() >= 3)
-                        {
-                            setAttackPlay();
-                        }
+                        setMainPlay<DefendMyMain>(mainArmyPlay);
+                        break;
                     }
 
-                    // Transition to a defend squad if:
-                    // - our attack squad has no units
-                    // - our attack squad has been pushed back into our main
-                    // - the enemy is doing a DT rush or has DTs and we don't have obs yet
+                    // Transition from a defend squad when the vanguard cluster has 3 units and can do so
+                    if (typeid(*mainArmyPlay) == typeid(DefendMyMain) &&
+                        vanguard->units.size() >= 3 &&
+                        ((DefendMyMain *) mainArmyPlay)->canTransitionToAttack())
+                    {
+                        setAttackPlay();
+                    }
+
+                    // Transition to a defend squad if our attack squad has been pushed back into our main
                     if (typeid(*mainArmyPlay) == typeid(AttackEnemyMain))
                     {
-                        auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                        if (!vanguard
-                            || ((Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0 || enemyStrategy == ProtossStrategy::DarkTemplarRush)
-                                && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0))
-                        {
-                            setMainPlay<DefendMyMain>(mainArmyPlay);
-                        }
-                        else if (vanguard->currentActivity == UnitCluster::Activity::Regrouping &&
-                                 vanguard->currentSubActivity == UnitCluster::SubActivity::Flee)
+                        if (vanguard->currentActivity == UnitCluster::Activity::Regrouping &&
+                            vanguard->currentSubActivity == UnitCluster::SubActivity::Flee)
                         {
                             auto inMain = [](BWAPI::Position pos)
                             {
