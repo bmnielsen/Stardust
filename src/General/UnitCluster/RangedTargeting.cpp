@@ -312,12 +312,7 @@ Unit UnitCluster::ChooseRangedTarget(const MyUnit &attacker, std::set<Unit> &tar
             continue;
         }
 
-        // Skip targets that are too far away to worry about.
         const int range = attacker->getDistance(targetUnit);
-        if (range >= 13 * 32)
-        {
-            continue;
-        }
 
         // Let's say that 1 priority step is worth 160 pixels (5 tiles).
         // We care about unit-target range and target-order position distance.

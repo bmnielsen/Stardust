@@ -144,12 +144,7 @@ Unit UnitCluster::ChooseMeleeTarget(const MyUnit &attacker, std::set<Unit> &targ
             continue;
         }
 
-        // Skip targets that are too far away to worry about.
         const int range = attacker->getDistance(targetUnit);
-//        if (range >= 13 * 32)
-//        {
-//            continue;
-//        }
 
         // Let's say that 1 priority step is worth 64 pixels (2 tiles).
         // We care about unit-target range and target-order position distance.
