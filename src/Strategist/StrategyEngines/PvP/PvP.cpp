@@ -595,7 +595,10 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
             if ((BWAPI::Broodwar->getFrameCount() + 500) < frameStarted) return;
         }
 
-        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+        auto priority = Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0
+                ? PRIORITY_EMERGENCY
+                : PRIORITY_NORMAL;
+        prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                  BWAPI::UnitTypes::Protoss_Observer,
                                                                  1,
                                                                  1);
@@ -697,7 +700,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     if ((enemyStrategy == ProtossStrategy::EarlyForge && BWAPI::Broodwar->getFrameCount() < 6000)
         || (enemyStrategy == ProtossStrategy::ProxyRush && BWAPI::Broodwar->getFrameCount() < 6000)
         || (enemyStrategy == ProtossStrategy::ZealotRush && BWAPI::Broodwar->getFrameCount() < 6000)
-        || (enemyStrategy == ProtossStrategy::ZealotAllIn && BWAPI::Broodwar->getFrameCount() < 8000)
+        || (enemyStrategy == ProtossStrategy::ZealotAllIn && BWAPI::Broodwar->getFrameCount() < 6000)
         || (enemyStrategy == ProtossStrategy::DragoonAllIn && BWAPI::Broodwar->getFrameCount() < 8000)
         || (enemyStrategy == ProtossStrategy::EarlyRobo && BWAPI::Broodwar->getFrameCount() < 8000)
         || (enemyStrategy == ProtossStrategy::FastExpansion && BWAPI::Broodwar->getFrameCount() < 7000)
