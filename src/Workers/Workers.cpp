@@ -390,7 +390,7 @@ namespace Workers
                     }
 
                     // Assign a mineral patch if it is close to its assigned base
-                    if (worker->getDistance(base->getPosition()) <= 200)
+                    if (worker->getDistance(base->getPosition()) <= 300)
                     {
                         assignMineralPatch(worker);
                     }
@@ -418,7 +418,7 @@ namespace Workers
                     }
 
                     // Assign a refinery if it is close to its assigned base
-                    if (worker->getDistance(base->getPosition()) <= 200)
+                    if (worker->getDistance(base->getPosition()) <= 300)
                     {
                         assignRefinery(worker);
                     }
@@ -625,9 +625,12 @@ namespace Workers
                         continue;
                     }
 
-                    // For some reason the worker doesn't have anything good to do, so let's just move towards the base
+                    // For some reason the worker doesn't have anything to do
+                    // Clear its state so it gets a new assignment
+                    removeFromResource(worker, workerMineralPatch, mineralPatchWorkers);
+                    removeFromResource(worker, workerRefinery, refineryWorkers);
 #if DEBUG_UNIT_ORDERS
-                    CherryVis::log(worker->id) << "moveTo: Assigned base (default)";
+                    CherryVis::log(worker->id) << "Worker has nothing to do, clearing state";
 #endif
                     worker->moveTo(base->getPosition());
                     break;
