@@ -634,7 +634,10 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
                 if (Builder::isPendingHere(tile)) return;
 
                 auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
-                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                auto priority = Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0
+                                ? PRIORITY_EMERGENCY
+                                : PRIORITY_NORMAL;
+                prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                          type,
                                                                          buildLocation);
             };
@@ -667,7 +670,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
             {
                 if (!base || base->owner != BWAPI::Broodwar->self()) return;
 
-                auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(Map::getMyMain());
+                auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
                 if (baseStaticDefenseLocations.first != BWAPI::TilePositions::Invalid)
                 {
                     buildCannonAt(baseStaticDefenseLocations.first, *baseStaticDefenseLocations.second.begin());
@@ -675,7 +678,10 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
             };
 
             buildAtBase(Map::getMyMain());
-            buildAtBase(Map::getMyNatural());
+            if (!Map::mapSpecificOverride()->hasBackdoorNatural())
+            {
+                buildAtBase(Map::getMyNatural());
+            }
         }
     };
 
@@ -683,8 +689,8 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     if (enemyStrategy == ProtossStrategy::DarkTemplarRush ||
         Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
     {
-        buildObserver();
         buildCannon(0, true);
+        buildObserver();
         return;
     }
 
