@@ -397,6 +397,18 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::MidGame:
         {
+            // Have a couple of DTs on hand if we have a templar archives and the enemy hasn't built mobile detection
+            int dtCount = Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar);
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Templar_Archives) > 0 && dtCount < 2 &&
+                !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observer) &&
+                !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory))
+            {
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           BWAPI::UnitTypes::Protoss_Dark_Templar,
+                                                                           2 - dtCount,
+                                                                           2);
+            }
+
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
