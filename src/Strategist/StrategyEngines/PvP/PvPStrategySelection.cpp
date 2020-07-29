@@ -17,6 +17,15 @@ std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
 namespace
 {
     std::map<BWAPI::UnitType, int> emptyUnitCountMap;
+
+    bool isDTExpandFeasible()
+    {
+        return !(Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Forge) ||
+                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Photon_Cannon) ||
+                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Robotics_Facility) ||
+                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory) ||
+                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observer));
+    }
 }
 
 PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, std::vector<std::shared_ptr<Play>> &plays)
@@ -92,7 +101,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     }
                     case ProtossStrategy::DragoonAllIn:
                     {
-                        strategy = OurStrategy::DTExpand;
+                        strategy = isDTExpandFeasible() ? OurStrategy::DTExpand : OurStrategy::Normal;
                         continue;
                     }
                     case ProtossStrategy::MidGame:
@@ -140,7 +149,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
                 if (newEnemyStrategy == ProtossStrategy::DragoonAllIn)
                 {
-                    strategy = OurStrategy::DTExpand;
+                    strategy = isDTExpandFeasible() ? OurStrategy::DTExpand : OurStrategy::Normal;;
                     continue;
                 }
 
@@ -175,7 +184,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
-                if (newEnemyStrategy == ProtossStrategy::DragoonAllIn)
+                if (newEnemyStrategy == ProtossStrategy::DragoonAllIn && isDTExpandFeasible())
                 {
                     strategy = OurStrategy::DTExpand;
                     continue;
@@ -193,6 +202,13 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
             }
             case PvP::OurStrategy::DTExpand:
             {
+                // Transition to normal if a DT expand is no longer feasible
+                if (!isDTExpandFeasible())
+                {
+                    strategy = OurStrategy::Normal;
+                    continue;
+                }
+                
                 // Transition to mid-game when we have taken our natural
                 auto natural = Map::getMyNatural();
                 if (!natural || natural->ownedSince != -1)
