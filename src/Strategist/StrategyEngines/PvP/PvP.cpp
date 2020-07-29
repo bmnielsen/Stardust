@@ -110,7 +110,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     // Always use a defend play if the squad has no units or we have no obs to counter DTs
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                     if (!vanguard
-                        || ((Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0 || enemyStrategy == ProtossStrategy::DarkTemplarRush)
+                        || ((Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Dark_Templar) || enemyStrategy == ProtossStrategy::DarkTemplarRush)
                             && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0))
                     {
                         setMainPlay<DefendMyMain>(mainArmyPlay);
@@ -208,7 +208,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 case ProtossStrategy::EarlyRobo:
                 case ProtossStrategy::Turtle:
                 case ProtossStrategy::MidGame:
-                    setScoutHiding(5500);
+                    setScoutHiding(6000);
                     break;
             }
         }
@@ -683,9 +683,9 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         }
     };
 
-    // If the enemy is known to have a DT, get a cannon and observer
+    // If the enemy is known to have produced a DT, get a cannon and observer
     if (enemyStrategy == ProtossStrategy::DarkTemplarRush ||
-        Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
+        Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Dark_Templar))
     {
         buildCannon(0, true);
         buildObserver();
