@@ -239,56 +239,70 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     // Default to gather gas - we will only set to false later if we are being rushed
     setGasGathering(true);
 
+    auto oneGateCoreOpening = [&](int numZealots)
+    {
+        // If our core is done or we want no zealots just return dragoons
+        if (numZealots == 0 || Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0)
+        {
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+            return;
+        }
+
+        auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+        auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
+        auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
+
+        int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
+        int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+
+        // Ensure gas before zealot
+        if (Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0)
+        {
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       1,
+                                                                       -1);
+            return;
+        }
+
+        if (zealotCount == 0)
+        {
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Zealot,
+                                                                       1,
+                                                                       1);
+        }
+        if (dragoonCount == 0)
+        {
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       1,
+                                                                       1);
+        }
+        if (zealotCount < numZealots)
+        {
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Zealot,
+                                                                       numZealots - zealotCount,
+                                                                       1);
+        }
+
+        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                   -1,
+                                                                   -1);
+    };
+
     // Main army production
     switch (ourStrategy)
     {
         case OurStrategy::EarlyGameDefense:
         {
             // Start with one-gate core with two zealots until we have more scouting information
-
-            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-            auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-            int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
-            int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
-
-            // Ensure gas before zealot
-            if (Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0)
-            {
-                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                           BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                           1,
-                                                                           -1);
-                break;
-            }
-
-            if (zealotCount == 0)
-            {
-                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                           BWAPI::UnitTypes::Protoss_Zealot,
-                                                                           1,
-                                                                           1);
-            }
-            if (dragoonCount == 0)
-            {
-                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                           BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                           1,
-                                                                           1);
-            }
-            if (zealotCount < 2)
-            {
-                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                           BWAPI::UnitTypes::Protoss_Zealot,
-                                                                           1,
-                                                                           1);
-            }
-
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       -1,
-                                                                       -1);
+            oneGateCoreOpening(2);
             break;
         }
         case OurStrategy::AntiZealotRush:
@@ -347,13 +361,19 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
 
         case OurStrategy::FastExpansion:
+        {
+            oneGateCoreOpening(0);
+
+            // Default upgrades
+            handleUpgrades(prioritizedProductionGoals);
+
+            break;
+        }
+
         case OurStrategy::Defensive:
         case OurStrategy::Normal:
         {
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       -1,
-                                                                       -1);
+            oneGateCoreOpening(1);
 
             // Default upgrades
             handleUpgrades(prioritizedProductionGoals);
