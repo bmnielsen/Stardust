@@ -13,6 +13,7 @@
 #include "Plays/MainArmy/MopUp.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Defensive/AntiCannonRush.h"
+#include "Plays/SpecialTeams/DarkTemplarHarass.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define OUTPUT_DETECTION_DEBUG false
@@ -170,6 +171,20 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         else if (antiCannonRushPlay && enemyStrategy == ProtossStrategy::FastExpansion)
         {
             antiCannonRushPlay->status.complete = true;
+        }
+    }
+
+    // Ensure we have a DarkTemplarHarass play if we have any DTs
+    {
+        auto darkTemplarHarassPlay = getPlay<DarkTemplarHarass>(plays);
+        bool haveDarkTemplar = Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0;
+        if (darkTemplarHarassPlay && !haveDarkTemplar)
+        {
+            darkTemplarHarassPlay->status.complete = true;
+        }
+        else if (haveDarkTemplar && !darkTemplarHarassPlay)
+        {
+            plays.emplace_back(std::make_shared<DarkTemplarHarass>());
         }
     }
 
@@ -398,16 +413,12 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::DTExpand:
         {
-            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-            auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-            int dtCount = completedUnits[BWAPI::UnitTypes::Protoss_Dark_Templar] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dark_Templar];
-            if (dtCount < 1)
+            int dtCount = Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar);
+            if (dtCount < 2)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                          BWAPI::UnitTypes::Protoss_Dark_Templar,
-                                                                         1,
+                                                                         2 - dtCount,
                                                                          1);
             }
 

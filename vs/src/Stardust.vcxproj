@@ -141,6 +141,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\MainArmyPlay.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\MopUp.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\EarlyGameWorkerScout.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\DarkTemplarHarass.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Strategist.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\Expansions.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\StrategyEngine.cpp" />
