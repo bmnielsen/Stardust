@@ -116,12 +116,15 @@ namespace
     }
 
     // Returns true if we have a unit currently trying to pass through this choke
-    bool blockedFriendlyUnit(Choke *choke)
+    bool blockedFriendlyUnit(Choke *choke, const std::map<MyUnit, std::shared_ptr<UnitCluster>> &squadUnits)
     {
         for (const auto &myUnit : Units::allMine())
         {
             if (!myUnit->movingTo().isValid()) continue;
             if (myUnit->getDistance(choke->center) > 320) continue;
+
+            // Don't include units in this squad as this can cause unstable behaviour
+            if (squadUnits.find(myUnit) != squadUnits.end()) continue;
 
             auto chokePath = PathFinding::GetChokePointPath(myUnit->lastPosition,
                                                             myUnit->movingTo(),
@@ -323,7 +326,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         }
         else if (enemiesNeedingDetection.empty() && !enemyInOurBase && choke && choke->isNarrowChoke)
         {
-            if (enemyUnits.empty() && blockedFriendlyUnit(choke))
+            if (enemyUnits.empty() && blockedFriendlyUnit(choke, unitToCluster))
             {
                 cluster.attack(unitsAndTargets, Map::getMyMain()->mineralLineCenter);
             }
