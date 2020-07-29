@@ -32,7 +32,7 @@ namespace Map
 
     std::set<Base *> &getMyBases(BWAPI::Player player = BWAPI::Broodwar->self());
 
-    std::set<Base *> getEnemyBases(BWAPI::Player player = BWAPI::Broodwar->enemy());
+    std::set<Base *> getEnemyBases(BWAPI::Player player = BWAPI::Broodwar->self());
 
     std::vector<Base *> &getUntakenExpansions(BWAPI::Player player = BWAPI::Broodwar->self());
 
