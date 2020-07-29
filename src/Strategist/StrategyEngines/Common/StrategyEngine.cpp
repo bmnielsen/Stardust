@@ -13,14 +13,14 @@ void StrategyEngine::UpdateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
     std::set<Base *> basesToDefend;
 
     // Don't defend any bases if our main army play is defending our main
-    if (mainArmyPlay && typeid(*mainArmyPlay) == typeid(DefendMyMain))
+    if (mainArmyPlay && typeid(*mainArmyPlay) != typeid(DefendMyMain))
     {
         for (auto &base : Map::getMyBases())
         {
             if (base == Map::getMyMain() || base == Map::getMyNatural())
             {
                 // Don't defend our main or natural with a DefendBase play if our main army is close to it
-                if (mainArmyPlay && typeid(*mainArmyPlay) == typeid(AttackEnemyMain))
+                if (typeid(*mainArmyPlay) == typeid(AttackEnemyMain))
                 {
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                     if (vanguard && vanguard->vanguard)
