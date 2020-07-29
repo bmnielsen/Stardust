@@ -11,9 +11,9 @@
 
 #if INSTRUMENTATION_ENABLED
 #define DEBUG_UNIT_ORDERS true   // Writes a log message for each order sent to a unit
+#define DEBUG_COMBATSIM true    // Writes log messages for each sim result
 #endif
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_GRID_UPDATES false // Writes a log message whenever a grid is updated
-#define DEBUG_COMBATSIM true    // Writes log messages for each sim result
 #endif
