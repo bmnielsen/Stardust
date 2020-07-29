@@ -27,7 +27,7 @@ namespace PathFinding
         }
         for (auto choke : Map::allChokes())
         {
-            if (!choke->isNarrowChoke) continue;
+            if (choke != Map::getMyMainChoke() && !choke->isNarrowChoke) continue;
 
             createNavigationGrid(BWAPI::TilePosition(choke->center));
         }
