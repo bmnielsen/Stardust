@@ -185,6 +185,25 @@ TEST(ChokeAnalysis, AnalyzeAll_NeoMoonGlaive)
     test.run();
 }
 
+TEST(ChokeAnalysis, AnalyzeAll_BlueStorm)
+{
+    BWTest test;
+    test.map = Maps::GetOne("BlueStorm");
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+
+    test.onEndMine = [](bool win)
+    {
+        EXPECT_FALSE(Map::isInNarrowChoke(BWAPI::TilePosition(80, 55)));
+    };
+
+    test.run();
+}
+
 TEST(ChokeAnalysis, AnalyzeAllCOG)
 {
     Maps::RunOnEach(Maps::Get("cog"), [&](BWTest test)
