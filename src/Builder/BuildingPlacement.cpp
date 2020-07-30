@@ -585,10 +585,10 @@ namespace BuildingPlacement
                     BWAPI::UnitTypes::Protoss_Dragoon,
                     PathFinding::PathFindingOptions::UseNearestBWEMArea);
 
-            // For the main base neighbourhood, prefer not to place buildings too close to the exit
+            // For the main base neighbourhood, prefer not to place large buildings too close to the exit
             // Rationale: the main base exit is probably a choke and we don't want to have our buildings
             // get in the way of our choke defense
-            if (location == Neighbourhood::MainBase && dist < 320)
+            if (type.tileWidth() == 4 && location == Neighbourhood::MainBase && dist < 320)
             {
                 dist = 320 + (320 - dist);
             }
