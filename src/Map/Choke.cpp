@@ -196,15 +196,29 @@ Choke::Choke(const BWEM::ChokePoint *_choke)
     }
 }
 
+void Choke::setAsMainChoke()
+{
+    // Our main choke is always considered to be narrow regardless of its actual width
+    if (!isNarrowChoke)
+    {
+        analyzeNarrowChoke();
+
+        if (!isNarrowChoke)
+        {
+            Log::Get() << "WARNING: Unable to analyze main choke as a narrow choke";
+        }
+    }
+}
+
 void Choke::analyzeNarrowChoke()
 {
     // TODO: This approach does not work for chokes where one of the sides is a map edge
 
     // Start by getting the sides closest to BWEM's center
-    BWAPI::Position side1 = Geo::FindClosestUnwalkablePosition(center, center, 64);
+    BWAPI::Position side1 = Geo::FindClosestUnwalkablePosition(center, center, 64 + width / 2);
     if (!side1.isValid()) return;
 
-    BWAPI::Position side2 = Geo::FindClosestUnwalkablePosition(center, center, 64, side1);
+    BWAPI::Position side2 = Geo::FindClosestUnwalkablePosition(center, center, 64 + width / 2, side1);
     if (!side2.isValid()) return;
 
 #if DEBUG_NARROW_CHOKE_ANALYSIS

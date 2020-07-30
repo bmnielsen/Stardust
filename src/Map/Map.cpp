@@ -987,6 +987,11 @@ namespace Map
         }
         Log::Debug() << "Found " << bases.size() << " bases";
 
+        if (playerToPlayerBases[BWAPI::Broodwar->self()].startingMainChoke)
+        {
+            playerToPlayerBases[BWAPI::Broodwar->self()].startingMainChoke->setAsMainChoke();
+        }
+
         myStartingMainAreas.insert(getMyMain()->getArea());
         if (playerToPlayerBases[BWAPI::Broodwar->self()].startingMainChoke &&
             playerToPlayerBases[BWAPI::Broodwar->self()].startingNatural)
@@ -1318,6 +1323,7 @@ namespace Map
 
     void setMyMainChoke(Choke *choke)
     {
+        choke->setAsMainChoke();
         playerToPlayerBases[BWAPI::Broodwar->self()].startingMainChoke = choke;
         Log::Get() << "Set my main choke to " << BWAPI::TilePosition(choke->center);
         BuildingPlacement::onMainChokeChanged();

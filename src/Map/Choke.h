@@ -34,6 +34,8 @@ public:
     BWAPI::Unit secondAreaMineralPatch;         // Mineral patch to use when moving towards the second area in the chokepoint's GetAreas()
     BWAPI::Position secondAreaStartPosition;    // Start location to move to that should give visibility of secondAreaMineralPatch
 
+    void setAsMainChoke();
+
 private:
     void analyzeNarrowChoke();
 
