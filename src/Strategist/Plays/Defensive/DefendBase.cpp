@@ -48,7 +48,7 @@ DefendBase::DefendBase(Base *base)
 void DefendBase::update()
 {
     squad->enemyUnits.clear();
-    
+
     // Clear dead static defense buildings
     if (pylon && !pylon->exists()) pylon = nullptr;
     for (auto it = cannons.begin(); it != cannons.end();)
@@ -178,7 +178,7 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
 }
 
 void DefendBase::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                           const std::function<void(const MyUnit &)> &movableUnitCallback)
+                         const std::function<void(const MyUnit &)> &movableUnitCallback)
 {
     Play::disband(removedUnitCallback, movableUnitCallback);
     workerDefenseSquad->disband();
@@ -203,7 +203,6 @@ int DefendBase::desiredCannons()
     bool enemyAirThreat =
             enemyAirUnits > 0 ||
 
-            Players::upgradeLevel(BWAPI::Broodwar->enemy(), BWAPI::UpgradeTypes::Ventral_Sacs) > 0 ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Spire) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Mutalisk) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Scourge) ||
@@ -211,7 +210,9 @@ int DefendBase::desiredCannons()
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Guardian) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Devourer) ||
 
+            // Starport and anything with starport as a prerequisite
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Starport) ||
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Dropship) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Wraith) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Valkyrie) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Science_Facility) ||
@@ -224,14 +225,22 @@ int DefendBase::desiredCannons()
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Nuclear_Silo) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Nuclear_Missile) ||
 
-            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Stargate) || // Stargate and anything with stargate as a prerequisite
+            // Stargate and anything with stargate as a prerequisite
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Stargate) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Corsair) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Scout) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Fleet_Beacon) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Carrier) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Arbiter_Tribunal) ||
-            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Arbiter) ||
-            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Robotics_Facility) || // Robo and anything with robo as a prerequisite
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Arbiter);
+
+    bool enemyDropThreat =
+            Players::upgradeLevel(BWAPI::Broodwar->enemy(), BWAPI::UpgradeTypes::Ventral_Sacs) > 0 ||
+
+            // Terran is handled by air threat
+
+            // Robo and anything with robo as a prerequisite
+            Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Robotics_Facility) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Shuttle) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Robotics_Support_Bay) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Reaver) ||
@@ -255,11 +264,12 @@ int DefendBase::desiredCannons()
     {
         if (enemyAirUnits > 6) return 4;
         if (enemyAirThreat) return 3;
+        if (enemyDropThreat && BWAPI::Broodwar->getFrameCount() > 8000) return 2;
         return 0;
     }
 
     // At expansions we get cannons if the enemy is not contained or has an air threat
     if (!Strategist::isEnemyContained() || enemyAirUnits > 0) return 2;
-    if (enemyAirThreat) return 1;
+    if (enemyAirThreat || enemyDropThreat) return 1;
     return 0;
 }
