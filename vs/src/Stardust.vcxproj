@@ -76,8 +76,8 @@
       <AdditionalOptions>%(AdditionalOptions) /machine:X86</AdditionalOptions>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
-      <ImportLibrary>C:/Dev/BW/Stardust-dev-tournament/vs/src/Release/Stardust.lib</ImportLibrary>
-      <ProgramDataBaseFile>C:/Dev/BW/Stardust-dev-tournament/vs/src/Release/Stardust.pdb</ProgramDataBaseFile>
+      <ImportLibrary>$(SolutionDir)/src/Release/Stardust.lib</ImportLibrary>
+      <ProgramDataBaseFile>$(SolutionDir)/src/Release/Stardust.pdb</ProgramDataBaseFile>
       <SubSystem>Console</SubSystem>
     </Link>
     <ProjectReference>
