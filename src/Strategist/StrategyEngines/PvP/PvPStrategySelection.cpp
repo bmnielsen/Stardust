@@ -17,15 +17,6 @@ std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
 namespace
 {
     std::map<BWAPI::UnitType, int> emptyUnitCountMap;
-
-    bool isDTExpandFeasible()
-    {
-        return !(Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Forge) ||
-                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Photon_Cannon) ||
-                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Robotics_Facility) ||
-                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory) ||
-                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observer));
-    }
 }
 
 PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, std::vector<std::shared_ptr<Play>> &plays)
@@ -57,6 +48,17 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
         // Transition when we have at least 10 units
         return unitCount >= 10;
+    };
+
+    auto isDTExpandFeasible = [&]()
+    {
+        if (ourStrategy != OurStrategy::DTExpand && BWAPI::Broodwar->getFrameCount() > 9000) return false;
+
+        return !(Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Forge) ||
+                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Photon_Cannon) ||
+                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Robotics_Facility) ||
+                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory) ||
+                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observer));
     };
 
     auto strategy = ourStrategy;
