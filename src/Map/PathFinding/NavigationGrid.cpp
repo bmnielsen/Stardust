@@ -251,28 +251,17 @@ void NavigationGrid::addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosi
 
 void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
 {
-    // First, invalidate every path that goes through the tiles
-    // Then push all still-valid tiles bordering an invalidated tile to the update queue
-    // When the grid is updated, all of the invalidated tiles will receive a new path from these bordering tiles
-
+    // Step one: add all blocking tiles to a queue and collect all of their path origins
+    std::set<GridNode *> origins;
     std::queue<GridNode *> queue;
     for (const auto &tile : tiles)
     {
         auto &node = grid[tile.x + tile.y * BWAPI::Broodwar->mapWidth()];
+        if (node.nextNode) origins.insert(node.nextNode);
         queue.push(&node);
     }
 
-    std::vector<GridNode *> bordering;
-    auto addBordering = [&](unsigned short x, unsigned short y)
-    {
-        if (x >= BWAPI::Broodwar->mapWidth() || y >= BWAPI::Broodwar->mapHeight())
-        {
-            return;
-        }
-
-        bordering.push_back(&grid[x + y * BWAPI::Broodwar->mapWidth()]);
-    };
-
+    // Step two: invalidate every path that goes through the blocking tiles
     auto visit = [&](NavigationGrid::GridNode *current, unsigned short x, unsigned short y)
     {
         auto &node = grid[x + y * BWAPI::Broodwar->mapWidth()];
@@ -280,17 +269,7 @@ void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles
         node.cost = USHRT_MAX;
         node.nextNode = nullptr;
         if (node.prevNodes) queue.push(&node);
-
-        addBordering(x + 1, y);
-        addBordering(x - 1, y);
-        addBordering(x, y + 1);
-        addBordering(x, y - 1);
-        addBordering(x - 1, y - 1);
-        addBordering(x + 1, y - 1);
-        addBordering(x - 1, y + 1);
-        addBordering(x + 1, y + 1);
     };
-
     while (!queue.empty())
     {
         GridNode *current = queue.front();
@@ -309,13 +288,13 @@ void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles
         current->prevNodes = 0;
     }
 
-    // Push all valid bordering tiles to the update queue
-    for (auto &borderingNode : bordering)
+    // Step three: push all valid original next nodes to the update queue for use in assigning new paths
+    for (auto &origin : origins)
     {
-        if (borderingNode->nextNode)
+        if (origin->nextNode)
         {
-            nodeQueue.push(std::make_tuple(borderingNode->cost + 10, borderingNode, false));
-            nodeQueue.push(std::make_tuple(borderingNode->cost + 14, borderingNode, true));
+            nodeQueue.push(std::make_tuple(origin->cost + 10, origin, false));
+            nodeQueue.push(std::make_tuple(origin->cost + 14, origin, true));
         }
     }
 }
