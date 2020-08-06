@@ -16,27 +16,29 @@ namespace
 
                 if (node.cost > 0 && node.cost < USHRT_MAX && !node.nextNode)
                 {
-                    std::cout << "Node with no next node " << node << std::endl;
+                    std::cout << BWAPI::Broodwar->getFrameCount() << ": Node with no next node " << node << std::endl;
                     return false;
                 }
 
                 if (node.cost == 0 && node.nextNode)
                 {
-                    std::cout << "Goal node with next node " << node << std::endl;
+                    std::cout << BWAPI::Broodwar->getFrameCount() << ": Goal node with next node " << node << std::endl;
                     return false;
                 }
 
                 // Doesn't work as there are walkable areas behind doodads that can't be reached
+                /*
                 if (Map::unwalkableProximity(node.x, node.y) >= 2 && node.cost == USHRT_MAX &&
                     PathFinding::GetGroundDistance(BWAPI::Position(BWAPI::TilePosition(x, y)), BWAPI::Position(grid.goal)) != -1)
                 {
                     std::cout << "Should be path from " << node << std::endl;
                     return false;
                 }
+                */
 
                 if (node.nextNode && node.cost <= node.nextNode->cost)
                 {
-                    std::cout << "Non-decreasing cost " << node << std::endl;
+                    std::cout << BWAPI::Broodwar->getFrameCount() << ": Non-decreasing cost " << node << std::endl;
                     return false;
                 }
 
@@ -46,13 +48,13 @@ namespace
                 {
                     if (current == &node)
                     {
-                        std::cout << "Loop between " << node << " and " << *current << std::endl;
+                        std::cout << BWAPI::Broodwar->getFrameCount() << ": Loop between " << node << " and " << *current << std::endl;
                         return false;
                     }
 
                     if (!Map::isWalkable(current->x, current->y))
                     {
-                        std::cout << "Path from " << node << " goes through unwalkable tile " << *current << std::endl;
+                        std::cout << BWAPI::Broodwar->getFrameCount() << ": Path from " << node << " goes through unwalkable tile " << *current << std::endl;
                         return false;
                     }
 
@@ -65,7 +67,7 @@ namespace
         return true;
     }
 
-    void setupGridTest(BWTest &test, BWAPI::TilePosition goal, NavigationGrid *&grid)
+    void setupGridTest(BWTest &test, BWAPI::TilePosition goal, NavigationGrid *&grid, const std::string &map = "Fighting Spirit")
     {
         test.opponentModule = []()
         {
@@ -75,7 +77,7 @@ namespace
         {
             return new DoNothingModule();
         };
-        test.map = Maps::GetOne("Fighting Spirit");
+        test.map = Maps::GetOne(map);
         test.randomSeed = 42;
         test.frameLimit = 40;
         test.expectWin = false;
@@ -100,12 +102,16 @@ namespace
 
     void addBuilding(NavigationGrid *grid, BWAPI::UnitType type, BWAPI::TilePosition tile)
     {
+        std::cout << BWAPI::Broodwar->getFrameCount() << ": addBuilding: " << type << " @ " << tile << std::endl;
+
         Map::onBuildingLanded(type, tile);
         grid->addBlockingObject(tile, type.tileSize());
     }
 
     void removeBuilding(NavigationGrid *grid, BWAPI::UnitType type, BWAPI::TilePosition tile)
     {
+        std::cout << BWAPI::Broodwar->getFrameCount() << ": removeBuilding: " << type << " @ " << tile << std::endl;
+
         Map::onBuildingLifted(type, tile);
         grid->removeBlockingObject(tile, type.tileSize());
     }
@@ -273,6 +279,115 @@ TEST(NavigationGrid, DestinationBlockedChoke)
     };
     test.myInitialUnits = {
             UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(34, 122))),
+    };
+
+    test.run();
+}
+
+TEST(UpdateNavigationGrid, BlockedMainChokeBug)
+{
+    BWTest test;
+    NavigationGrid *grid;
+
+    setupGridTest(test, BWAPI::TilePosition(117, 7), grid, "Andromeda");
+
+    test.onFrameMine = [&]()
+    {
+        if (BWAPI::Broodwar->getFrameCount() == 1)
+        {
+            addBuilding(grid,
+                        BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                        BWAPI::TilePosition(BWAPI::WalkPosition(412,104)));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+        if (BWAPI::Broodwar->getFrameCount() == 2)
+        {
+            addBuilding(grid,
+                        BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                        BWAPI::TilePosition(BWAPI::WalkPosition(412,96)));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+        if (BWAPI::Broodwar->getFrameCount() == 3)
+        {
+            addBuilding(grid,
+                        BWAPI::UnitTypes::Protoss_Pylon,
+                        BWAPI::TilePosition(BWAPI::WalkPosition(420,96)));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+        if (BWAPI::Broodwar->getFrameCount() == 4)
+        {
+            addBuilding(grid,
+                        BWAPI::UnitTypes::Protoss_Nexus,
+                        BWAPI::TilePosition(BWAPI::WalkPosition(412,84)));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+        if (BWAPI::Broodwar->getFrameCount() == 5)
+        {
+            addBuilding(grid,
+                        BWAPI::UnitTypes::Protoss_Forge,
+                        BWAPI::TilePosition(BWAPI::WalkPosition(428,96)));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+        if (BWAPI::Broodwar->getFrameCount() == 6)
+        {
+            addBuilding(grid,
+                        BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                        BWAPI::TilePosition(BWAPI::WalkPosition(404,104)));
+            addBuilding(grid,
+                        BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                        BWAPI::TilePosition(BWAPI::WalkPosition(396,100)));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+        if (BWAPI::Broodwar->getFrameCount() == 7)
+        {
+            addBuilding(grid,
+                        BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                        BWAPI::TilePosition(BWAPI::WalkPosition(420,104)));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+        if (BWAPI::Broodwar->getFrameCount() == 8)
+        {
+            removeBuilding(grid,
+                        BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                        BWAPI::TilePosition(BWAPI::WalkPosition(404,104)));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+        if (BWAPI::Broodwar->getFrameCount() == 9)
+        {
+            removeBuilding(grid,
+                        BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                        BWAPI::TilePosition(BWAPI::WalkPosition(396,100)));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+        if (BWAPI::Broodwar->getFrameCount() == 10)
+        {
+            addBuilding(grid,
+                        BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                        BWAPI::TilePosition(BWAPI::WalkPosition(440,100)));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+
+        CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
     };
 
     test.run();
