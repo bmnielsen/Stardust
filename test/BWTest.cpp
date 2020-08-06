@@ -503,6 +503,8 @@ void BWTest::runGame(bool opponent)
 
                 for (auto &logFilename : Log::LogFiles())
                 {
+                    if (!std::filesystem::exists(logFilename)) continue;
+
                     std::ostringstream newLogFilename;
                     newLogFilename << logDirectory.str() << "/" << logFilename.substr(logFilename.rfind('/') + 1);
                     std::filesystem::rename(logFilename, newLogFilename.str());
