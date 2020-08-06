@@ -202,7 +202,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
 
     // Run combat sim
-    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits);
+    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors);
 
     // If the sim result is nothing, and none of our units have a target, move instead of attacking
     if (simResult.myPercentLost() <= 0.001 && simResult.enemyPercentLost() <= 0.001)
@@ -254,5 +254,5 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     // TODO: Run retreat sim?
 
     cluster.setActivity(UnitCluster::Activity::Regrouping);
-    cluster.regroup(unitsAndTargets, enemyUnits, simResult, targetPosition);
+    cluster.regroup(unitsAndTargets, enemyUnits, detectors, simResult, targetPosition);
 }

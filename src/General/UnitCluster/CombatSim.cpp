@@ -18,7 +18,7 @@ namespace
     int baseScore[BWAPI::UnitTypes::Enum::MAX];
     int scaledScore[BWAPI::UnitTypes::Enum::MAX];
 
-    auto inline makeUnit(const Unit &unit, int target = 0)
+    auto inline makeUnit(const Unit &unit, bool mobileDetection, int target = 0)
     {
         BWAPI::UnitType weaponType;
         switch (unit->type)
@@ -82,7 +82,7 @@ namespace
                 .setShieldUpgrades(0)
 
                 .setStimmed(unit->stimmedUntil > BWAPI::Broodwar->getFrameCount())
-                .setUndetected(unit->undetected)
+                .setUndetected(mobileDetection ? false : unit->undetected)
 
                 .setID(unit->id)
                 .setTarget(target)
@@ -140,8 +140,11 @@ namespace CombatSim
     }
 }
 
-CombatSimResult
-UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &targets, bool attacking, Choke *choke)
+CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                                          std::set<Unit> &targets,
+                                          std::set<MyUnit> &detectors,
+                                          bool attacking,
+                                          Choke *choke)
 {
     if (unitsAndTargets.empty() || targets.empty())
     {
@@ -197,8 +200,8 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
     {
         auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
         bool added = attacking
-                     ? sim.addIfCombatUnitPlayer1(makeUnit(unitAndTarget.first, target))
-                     : sim.addIfCombatUnitPlayer2(makeUnit(unitAndTarget.first, target));
+                     ? sim.addIfCombatUnitPlayer1(makeUnit(unitAndTarget.first, false, target))
+                     : sim.addIfCombatUnitPlayer2(makeUnit(unitAndTarget.first, false, target));
 
         if (added)
         {
@@ -207,6 +210,17 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
 #if DEBUG_COMBATSIM_CSV
             if (unitAndTarget.first->id < minUnitId) minUnitId = unitAndTarget.first->id;
 #endif
+        }
+    }
+
+    // Determine if we have mobile detection with this cluster
+    bool haveMobileDetection = false;
+    for (const auto &detector : detectors)
+    {
+        if (vanguard && vanguard->getDistance(detector) < 640)
+        {
+            haveMobileDetection = true;
+            break;
         }
     }
 
@@ -221,8 +235,8 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         if (!unit->type.isWorker() || (BWAPI::Broodwar->getFrameCount() - unit->lastSeenAttacking) < 120)
         {
             bool added = attacking
-                         ? sim.addIfCombatUnitPlayer2(makeUnit(unit))
-                         : sim.addIfCombatUnitPlayer1(makeUnit(unit));
+                         ? sim.addIfCombatUnitPlayer2(makeUnit(unit, haveMobileDetection))
+                         : sim.addIfCombatUnitPlayer1(makeUnit(unit, haveMobileDetection));
 
             if (added)
             {

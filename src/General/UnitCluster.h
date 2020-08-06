@@ -50,6 +50,7 @@ public:
 
     virtual void regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                          std::set<Unit> &enemyUnits,
+                         std::set<MyUnit> &detectors,
                          const CombatSimResult &simResult,
                          BWAPI::Position targetPosition);
 
@@ -66,8 +67,11 @@ public:
                    BWAPI::Position defendEnd,
                    std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets);
 
-    CombatSimResult
-    runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &targets, bool attacking = true, Choke *choke = nullptr);
+    CombatSimResult runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                                 std::set<Unit> &targets,
+                                 std::set<MyUnit> &detectors,
+                                 bool attacking = true,
+                                 Choke *choke = nullptr);
 
     void addSimResult(CombatSimResult &simResult, bool attack);
 

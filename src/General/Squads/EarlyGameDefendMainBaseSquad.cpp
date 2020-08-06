@@ -270,7 +270,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     }
 
     // Run combat sim
-    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, false);
+    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors, false);
 
     // Make the attack / retreat decision based on the sim result
     // TODO: Needs tuning
