@@ -149,8 +149,23 @@ namespace
 
     bool isWallIn()
     {
-        // FIXME: Verify there are actual wall buildings
-        return Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingBlocked;
+        // The enemy is considered walled-in if our scout was unable to get into the base and
+        // there is no path from our main to their base
+
+        // TODO: This is too strict - the scout might get into the base before the wall-in is finished
+
+        if (Strategist::getWorkerScoutStatus() != Strategist::WorkerScoutStatus::ScoutingBlocked) return false;
+        if (BWAPI::Broodwar->getFrameCount() > 6000) return false;
+
+        auto enemyMain = Map::getEnemyStartingMain();
+        auto mainChoke = Map::getMyMainChoke();
+        if (!enemyMain || !mainChoke) return false;
+
+        auto grid = PathFinding::getNavigationGrid(enemyMain->getTilePosition());
+        if (!grid) return false;
+
+        auto node = (*grid)[mainChoke->center];
+        return node.nextNode == nullptr;
     }
 
     bool isMidGame()
