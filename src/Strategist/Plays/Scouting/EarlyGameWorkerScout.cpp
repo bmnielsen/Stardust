@@ -364,7 +364,7 @@ void EarlyGameWorkerScout::update()
         if (!UnitUtil::CanAttackGround(unit->type)) continue;
         if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
 
-        int detectionLimit = std::max(128, Players::weaponRange(unit->player, unit->type.groundWeapon()) + 64);
+        int detectionLimit = std::max(128, unit->groundRange() + 64);
         int dist = scout->getDistance(unit);
         if (dist >= detectionLimit) continue;
 

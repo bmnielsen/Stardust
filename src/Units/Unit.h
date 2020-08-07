@@ -97,6 +97,12 @@ public:
 
     [[nodiscard]] bool isTransport() const;
 
+    [[nodiscard]] int groundRange() const;
+
+    [[nodiscard]] int airRange() const;
+
+    [[nodiscard]] int range(const Unit &target) const;
+
     [[nodiscard]] BWAPI::WeaponType getWeapon(const Unit &target) const;
 
     [[nodiscard]] bool isInOurWeaponRange(const Unit &target,

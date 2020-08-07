@@ -37,7 +37,7 @@ namespace
         }
 
         // Short circuit: Enemy unit which is far enough outside its range is lower priority than a worker.
-        int enemyRange = Players::weaponRange(target->player, attacker->isFlying ? targetType.airWeapon() : targetType.groundWeapon());
+        int enemyRange = target->range(attacker);
         if (enemyRange &&
             !targetType.isWorker() &&
             attacker->getDistance(target) > 32 + enemyRange)

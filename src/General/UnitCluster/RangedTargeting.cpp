@@ -144,7 +144,7 @@ namespace
         if (target->canAttack(attacker) && !targetType.isWorker())
         {
             // Enemy unit which is far enough outside its range is lower priority than a worker.
-            int enemyRange = Players::weaponRange(target->player, target->getWeapon(attacker));
+            int enemyRange = target->range(attacker);
             if (attacker->getDistance(target) > 48 + enemyRange)
             {
                 return 8;

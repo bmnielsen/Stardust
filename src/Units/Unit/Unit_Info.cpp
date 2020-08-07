@@ -61,6 +61,31 @@ bool UnitImpl::isTransport() const
            (type == BWAPI::UnitTypes::Zerg_Overlord && Players::upgradeLevel(player, BWAPI::UpgradeTypes::Ventral_Sacs) > 0);
 }
 
+int UnitImpl::groundRange() const
+{
+    auto weaponUnitType = type;
+    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+
+    int range = Players::weaponRange(player, weaponUnitType.groundWeapon());
+    if (type == BWAPI::UnitTypes::Terran_Bunker) range += 32;
+    return range;
+}
+
+int UnitImpl::airRange() const
+{
+    auto weaponUnitType = type;
+    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+
+    int range = Players::weaponRange(player, weaponUnitType.airWeapon());
+    if (type == BWAPI::UnitTypes::Terran_Bunker) range += 32;
+    return range;
+}
+
+int UnitImpl::range(const Unit &target) const
+{
+    return target->isFlying ? airRange() : groundRange();
+}
+
 BWAPI::WeaponType UnitImpl::getWeapon(const Unit &target) const
 {
     auto weaponUnitType = type;
@@ -71,21 +96,13 @@ BWAPI::WeaponType UnitImpl::getWeapon(const Unit &target) const
 
 bool UnitImpl::isInOurWeaponRange(const Unit &target, BWAPI::Position predictedTargetPosition, int buffer) const
 {
-    auto weaponUnitType = type;
-    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
-
-    int range = Players::weaponRange(player, target->isFlying ? weaponUnitType.airWeapon() : weaponUnitType.groundWeapon());
-    if (type == BWAPI::UnitTypes::Terran_Bunker) range += 32;
+    int range = target->isFlying ? airRange() : groundRange();
     return getDistance(target, predictedTargetPosition) <= (range + buffer);
 }
 
 bool UnitImpl::isInEnemyWeaponRange(const Unit &attacker, BWAPI::Position predictedAttackerPosition, int buffer) const
 {
-    auto weaponUnitType = attacker->type;
-    if (attacker->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
-
-    int range = Players::weaponRange(attacker->player, isFlying ? weaponUnitType.airWeapon() : weaponUnitType.groundWeapon());
-    if (attacker->type == BWAPI::UnitTypes::Terran_Bunker) range += 32;
+    int range = isFlying ? attacker->airRange() : attacker->groundRange();
     return getDistance(attacker, predictedAttackerPosition) <= (range + buffer);
 }
 

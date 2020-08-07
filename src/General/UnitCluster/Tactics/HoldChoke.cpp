@@ -64,7 +64,7 @@ void UnitCluster::holdChoke(Choke *choke,
 
         // If the target is close enough to the defend end, attack with all units
         if (target->getDistance(defendEnd) <= std::max(choke->width / 2,
-                                                       std::min(Players::weaponRange(myUnit->player, myUnit->type.groundWeapon()), centerDist)))
+                                                       std::min(myUnit->groundRange(), centerDist)))
         {
             meleeShouldAttack = true;
             rangedShouldAttack = true;
@@ -170,7 +170,7 @@ void UnitCluster::holdChoke(Choke *choke,
             else
             {
                 targetPos = rangedTarget;
-                distDiff = targetDist - Players::weaponRange(myUnit->player, myUnit->type.groundWeapon());
+                distDiff = targetDist - myUnit->groundRange();
             }
         }
         else
@@ -186,7 +186,7 @@ void UnitCluster::holdChoke(Choke *choke,
                 // Unit is in its target's attack range
                 targetPos = unitAndTarget.second->lastPosition;
                 distDiff = myUnit->getDistance(unitAndTarget.second)
-                           - Players::weaponRange(unitAndTarget.second->player, unitAndTarget.second->type.groundWeapon())
+                           - unitAndTarget.second->groundRange()
                            - 32;
             }
             else

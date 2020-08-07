@@ -97,8 +97,8 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
     }
 
     // If the target is already in range, just attack it
-    int range = Players::weaponRange(player, getWeapon(target));
-    if (dist <= range)
+    int myRange = range(target);
+    if (dist <= myRange)
     {
         attack(target->bwapiUnit, forceAttackCommand);
         return;
@@ -107,14 +107,14 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
     // If the target is predicted to be in range shortly, attack it
     auto predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
     auto predictedDist = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, predictedTargetPosition);
-    if (predictedDist <= range)
+    if (predictedDist <= myRange)
     {
         attack(target->bwapiUnit, forceAttackCommand);
         return;
     }
 
     // If the target is stationary or is close and moving towards us, attack it
-    if (predictedTargetPosition == target->lastPosition || (predictedDist <= dist && predictedDist < std::min(range + 64, 128)))
+    if (predictedTargetPosition == target->lastPosition || (predictedDist <= dist && predictedDist < std::min(myRange + 64, 128)))
     {
         attack(target->bwapiUnit, forceAttackCommand);
         return;

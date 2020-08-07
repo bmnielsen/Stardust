@@ -286,7 +286,7 @@ bool Plasma::clusterMove(UnitCluster &cluster, BWAPI::Position targetPosition)
         }
 
         // Attack if ready
-        int weaponRange = Players::weaponRange(myUnit->player, myUnit->type.groundWeapon());
+        int weaponRange = myUnit->groundRange();
         if (bestEgg->isVisible() &&
             bestDist <= weaponRange &&
             myUnit->cooldownUntil < (BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames() + 2))

@@ -47,7 +47,7 @@ namespace
 
         // In open terrain, collision values scale based on the unit range
         // Rationale: melee units have a smaller area to maneuver in, so they interfere with each other more
-        int collisionValue = unit->isFlying ? 0 : std::max(0, 6 - Players::weaponRange(unit->player, weaponType.groundWeapon()) / 32);
+        int collisionValue = unit->isFlying ? 0 : std::max(0, 6 - (unit->groundRange() / 32));
 
         // In a choke, collision values depend on unit size
         // We allow no collision between full-size units and a stack of two smaller-size units
@@ -67,11 +67,11 @@ namespace
                 .setGroundCooldown(Players::unitCooldown(unit->player, weaponType)
                                    / std::max(weaponType.maxGroundHits() * weaponType.groundWeapon().damageFactor(), 1))
                 .setGroundDamage(groundDamage)
-                .setGroundMaxRange(Players::weaponRange(unit->player, weaponType.groundWeapon()))
+                .setGroundMaxRange(unit->groundRange())
                 .setAirCooldown(Players::unitCooldown(unit->player, weaponType)
                                 / std::max(weaponType.maxAirHits() * weaponType.airWeapon().damageFactor(), 1))
                 .setAirDamage(airDamage)
-                .setAirMaxRange(Players::weaponRange(unit->player, weaponType.airWeapon()))
+                .setAirMaxRange(unit->airRange())
 
                 .setElevation(BWAPI::Broodwar->getGroundHeight(unit->lastPosition.x << 3, unit->lastPosition.y << 3))
                 .setAttackerCount(unit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)

@@ -106,7 +106,7 @@ bool MyDragoon::isReady() const
         BWAPI::Position myPredictedPosition = predictPosition(framesToNextAttack);
         BWAPI::Position targetPredictedPosition = targetUnit->predictPosition(framesToNextAttack);
         int predictedDistance = Geo::EdgeToEdgeDistance(type, myPredictedPosition, targetUnit->type, targetPredictedPosition);
-        return predictedDistance > Players::weaponRange(player, getWeapon(targetUnit));
+        return predictedDistance > range(targetUnit);
     }
 
     return true;
@@ -123,8 +123,8 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
         return;
     }
 
-    int range = Players::weaponRange(player, getWeapon(target));
-    int targetRange = Players::weaponRange(target->player, UnitUtil::GetGroundWeapon(target->type));
+    int myRange = range(target);
+    int targetRange = target->groundRange();
     BWAPI::Position predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
     int currentDistanceToTarget = getDistance(target);
     int predictedDistanceToTarget = getDistance(target, predictedTargetPosition);
@@ -152,27 +152,27 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
         // For targets moving away from us, desire to be closer so we don't kite out of range and never catch them
     else if (currentDistanceToTarget < predictedDistanceToTarget)
     {
-        desiredDistance = std::min(range - 48, targetRange + 16);
+        desiredDistance = std::min(myRange - 48, targetRange + 16);
     }
 
         // The target is stationary or moving towards us, so kite it if we can
-    else if (range >= targetRange)
+    else if (myRange >= targetRange)
     {
         int cooldownDistance = (int) ((double) (cooldown - BWAPI::Broodwar->getRemainingLatencyFrames() - 2) * type.topSpeed());
-        desiredDistance = std::min(range, range + (cooldownDistance - (predictedDistanceToTarget - range)) / 2);
+        desiredDistance = std::min(myRange, myRange + (cooldownDistance - (predictedDistanceToTarget - myRange)) / 2);
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(id) << "Kiting: cdwn=" << cooldown << "; dist=" << predictedDistanceToTarget << "; range=" << range << "; des="
+        CherryVis::log(id) << "Kiting: cdwn=" << cooldown << "; dist=" << predictedDistanceToTarget << "; range=" << myRange << "; des="
                            << desiredDistance;
 #endif
 
         // If the target's range is much lower than ours, keep a bit closer
-        if (targetRange <= (range - 64)) desiredDistance -= 32;
+        if (targetRange <= (myRange - 64)) desiredDistance -= 32;
     }
 
         // All others: desire to be at our range
     else
     {
-        desiredDistance = range;
+        desiredDistance = myRange;
     }
 
     // Compute boids

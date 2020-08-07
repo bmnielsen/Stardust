@@ -413,8 +413,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         auto enemyPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames());
 
         // Move towards the enemy if we are well out of their attack range
-        int enemyRange = Players::weaponRange(target->player, target->getWeapon(unit));
-        if (enemyPosition.isValid() && unit->getDistance(target, enemyPosition) > (enemyRange + 64))
+        if (enemyPosition.isValid() && unit->getDistance(target, enemyPosition) > (target->range(unit) + 64))
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unitAndTarget.first->id) << "Retreating: stay close to enemy @ " << BWAPI::WalkPosition(enemyPosition);
