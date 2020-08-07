@@ -18,6 +18,13 @@ namespace Bullets
     {
         for (auto bullet : BWAPI::Broodwar->getBullets())
         {
+            // Ignore invalid bullets
+            if (!bullet->exists() || !bullet->isVisible() ||
+                (!bullet->getSource() && !bullet->getTarget()))
+            {
+                continue;
+            }
+
             if (seenBullets.find(bullet->getID()) == seenBullets.end())
             {
                 Units::onBulletCreate(bullet);

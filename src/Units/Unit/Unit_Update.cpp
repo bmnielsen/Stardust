@@ -4,6 +4,10 @@
 #include "Players.h"
 #include "Map.h"
 
+#if INSTRUMENTATION_ENABLED
+#define UPCOMING_ATTACKS_DEBUG false
+#endif
+
 namespace
 {
     bool isUndetected(BWAPI::Unit unit)
@@ -137,32 +141,54 @@ void UnitImpl::update(BWAPI::Unit unit)
     for (auto it = upcomingAttacks.begin(); it != upcomingAttacks.end();)
     {
         // Remove bullets when they have hit
-        if (it->bullet && (!it->bullet->exists() || it->bullet->getID() != it->bulletId
-                           || it->bullet->getPosition().getApproxDistance(it->bullet->getTargetPosition()) == 0))
+        if (it->bullet)
         {
-            it = upcomingAttacks.erase(it);
-            continue;
+            if (!it->bullet->exists() || it->bullet->getID() != it->bulletId
+                || it->bullet->getPosition().getApproxDistance(it->bullet->getTargetPosition()) == 0)
+            {
+#if UPCOMING_ATTACKS_DEBUG
+                CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as bullet has hit";
+#endif
+                it = upcomingAttacks.erase(it);
+                continue;
+            }
         }
 
             // Clear if the attacker is dead, no longer visible, or out of range
         else if (!it->attacker || !it->attacker->exists() || !it->attacker->bwapiUnit->isVisible() || !isInEnemyWeaponRange(it->attacker))
         {
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as the attacker is gone";
+#endif
             it = upcomingAttacks.erase(it);
             continue;
         }
 
             // Clear when the attacker has finished making an attack
-        else if ((isFlying ? it->attacker->bwapiUnit->getAirWeaponCooldown() : it->attacker->bwapiUnit->getGroundWeaponCooldown())
-                 > BWAPI::Broodwar->getRemainingLatencyFrames()
+        else if ((isFlying ? it->attacker->bwapiUnit->getAirWeaponCooldown() : it->attacker->bwapiUnit->getGroundWeaponCooldown()) > 0
                  && !it->attacker->bwapiUnit->isAttackFrame())
         {
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as it is on cooldown";
+#endif
             it = upcomingAttacks.erase(it);
             continue;
         }
 
         upcomingDamage += it->damage;
+#if UPCOMING_ATTACKS_DEBUG
+        CherryVis::log(id) << "Added upcoming attack (" << it->damage << ") from " << *(it->attacker);
+#endif
         it++;
     }
+
+#if UPCOMING_ATTACKS_DEBUG
+    if (upcomingDamage > 0)
+    {
+        CherryVis::log(id) << "Total value of upcoming attacks is " << upcomingDamage
+                           << "; current health is " << lastHealth << " (" << lastShields << ")";
+    }
+#endif
 
     doomed = (upcomingDamage >= (lastHealth + lastShields));
     if (doomed) CherryVis::log(id) << "DOOMED!";
@@ -179,7 +205,7 @@ void UnitImpl::updateUnitInFog()
     if (!burrowed && positionVisible && lastBurrowing == BWAPI::Broodwar->getFrameCount() - 1)
     {
         // Update grid
-        Players::grid(player).unitMoved(type, lastPosition,  true, type, lastPosition, false);
+        Players::grid(player).unitMoved(type, lastPosition, true, type, lastPosition, false);
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitMoved (observed burrowing)";
         Log::Debug() << *this << ": Grid::unitMoved (observed burrowing)";
@@ -264,7 +290,7 @@ void UnitImpl::addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet)
 
     upcomingAttacks.emplace_back(attacker,
                                  bullet,
-                                 Players::attackDamage(bullet->getSource()->getPlayer(), bullet->getSource()->getType(), player, type));
+                                 Players::attackDamage(attacker->player, attacker->type, player, type));
 }
 
 void UnitImpl::updateGrid(BWAPI::Unit unit)
