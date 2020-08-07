@@ -6,19 +6,6 @@
 
 namespace BWAPI
 {
-    class UnitType;
-}
-
-namespace std
-{
-    template<>
-    struct less<BWAPI::UnitType>{
-        bool operator()(const BWAPI::UnitType& a, const BWAPI::UnitType& b) const;
-    };
-}
-
-namespace BWAPI
-{
   // Forward Declarations
   class TechType;
   class UpgradeType;

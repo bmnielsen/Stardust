@@ -30,7 +30,7 @@ namespace BWAPI
   //--------------------------------------------- GET ID -----------------------------------------------------
   int UnitImpl::getID() const
   {
-    return bwunit.getUnitID();
+    return id;
   }
   //--------------------------------------------- GET REPLAY ID ----------------------------------------------
   int UnitImpl::getReplayID() const

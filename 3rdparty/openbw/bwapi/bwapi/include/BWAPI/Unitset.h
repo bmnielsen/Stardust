@@ -4,14 +4,6 @@
 #include <BWAPI/Filters.h>
 #include <iterator>
 
-namespace std
-{
-    template<>
-    struct less<BWAPI::Unit>{
-        bool operator()(const BWAPI::Unit& a, const BWAPI::Unit& b) const;
-    };
-}
-
 namespace BWAPI
 {
   // Forward declarations

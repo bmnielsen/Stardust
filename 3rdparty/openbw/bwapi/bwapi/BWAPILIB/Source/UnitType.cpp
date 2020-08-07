@@ -14,11 +14,6 @@
 
 template class std::allocator<BWAPI::UnitType>;
 
-bool std::less<BWAPI::UnitType>::operator()(const BWAPI::UnitType &a, const BWAPI::UnitType &b) const
-{
-    return (int)a < (int)b;
-}
-
 namespace BWAPI
 {
   // NAMES

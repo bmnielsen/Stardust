@@ -3,22 +3,11 @@
 
 namespace BWAPI
 {
-    // Forward Declarations
-    class ForceInterface;
-    typedef ForceInterface *Force;
-    class Playerset;
-}
+  // Forward Declarations
+  class ForceInterface;
+  typedef ForceInterface *Force;
+  class Playerset;
 
-namespace std
-{
-    template<>
-    struct less<BWAPI::Force>{
-        bool operator()(const BWAPI::Force& a, const BWAPI::Force& b) const;
-    };
-}
-
-namespace BWAPI
-{
   /// <summary>A container that holds a group of Forces.</summary>
   ///
   /// @see BWAPI::Force

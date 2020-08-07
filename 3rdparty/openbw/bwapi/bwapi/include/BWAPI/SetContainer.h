@@ -1,11 +1,10 @@
 #pragma once
-#include <set>
 #include <unordered_set>
 
 namespace BWAPI
 {
   template <class T, class HashT>
-  using SetContainerUnderlyingT = std::set < T >;
+  using SetContainerUnderlyingT = std::unordered_set < T, HashT >;
 
   /// <summary>This container is used to wrap convenience functions for BWAPI and be used as a
   /// bridge with a built-in set type.</summary>

@@ -4,11 +4,6 @@
 
 #include <utility>
 
-bool std::less<BWAPI::Region>::operator()(const BWAPI::Region &a, const BWAPI::Region &b) const
-{
-    return a == nullptr || (b != nullptr && a->getID() < b->getID());
-}
-
 namespace BWAPI
 {
   Position Regionset::getCenter() const

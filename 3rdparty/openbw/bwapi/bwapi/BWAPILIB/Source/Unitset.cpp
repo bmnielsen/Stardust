@@ -5,19 +5,7 @@
 #include <BWAPI/Game.h>
 #include <BWAPI/TechType.h>
 
-#include <BWAPI/Bullet.h>
-
 #include <utility>
-
-bool std::less<BWAPI::Unit>::operator()(const BWAPI::Unit &a, const BWAPI::Unit &b) const
-{
-    return a == nullptr || (b != nullptr && a->getID() < b->getID());
-}
-
-bool std::less<BWAPI::Bullet>::operator()(const BWAPI::Bullet &a, const BWAPI::Bullet &b) const
-{
-    return a == nullptr || (b != nullptr && a->getID() < b->getID());
-}
 
 namespace BWAPI
 {
