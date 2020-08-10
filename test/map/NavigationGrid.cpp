@@ -54,7 +54,8 @@ namespace
 
                     if (!Map::isWalkable(current->x, current->y))
                     {
-                        std::cout << BWAPI::Broodwar->getFrameCount() << ": Path from " << node << " goes through unwalkable tile " << *current << std::endl;
+                        std::cout << BWAPI::Broodwar->getFrameCount() << ": Path from " << node << " goes through unwalkable tile " << *current
+                                  << std::endl;
                         return false;
                     }
 
@@ -67,7 +68,11 @@ namespace
         return true;
     }
 
-    void setupGridTest(BWTest &test, BWAPI::TilePosition goal, NavigationGrid *&grid, const std::string &map = "Fighting Spirit")
+    void setupGridTest(BWTest &test,
+                       BWAPI::TilePosition goal,
+                       NavigationGrid *&grid,
+                       const std::string &map = "Fighting Spirit",
+                       int randomSeed = 42)
     {
         test.opponentModule = []()
         {
@@ -78,7 +83,7 @@ namespace
             return new DoNothingModule();
         };
         test.map = Maps::GetOne(map);
-        test.randomSeed = 42;
+        test.randomSeed = randomSeed;
         test.frameLimit = 40;
         test.expectWin = false;
         test.writeReplay = true;
@@ -297,7 +302,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
         {
             addBuilding(grid,
                         BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                        BWAPI::TilePosition(BWAPI::WalkPosition(412,104)));
+                        BWAPI::TilePosition(BWAPI::WalkPosition(412, 104)));
 
             grid->update();
             EXPECT_TRUE(validateGrid(*grid));
@@ -306,7 +311,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
         {
             addBuilding(grid,
                         BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                        BWAPI::TilePosition(BWAPI::WalkPosition(412,96)));
+                        BWAPI::TilePosition(BWAPI::WalkPosition(412, 96)));
 
             grid->update();
             EXPECT_TRUE(validateGrid(*grid));
@@ -315,7 +320,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
         {
             addBuilding(grid,
                         BWAPI::UnitTypes::Protoss_Pylon,
-                        BWAPI::TilePosition(BWAPI::WalkPosition(420,96)));
+                        BWAPI::TilePosition(BWAPI::WalkPosition(420, 96)));
 
             grid->update();
             EXPECT_TRUE(validateGrid(*grid));
@@ -324,7 +329,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
         {
             addBuilding(grid,
                         BWAPI::UnitTypes::Protoss_Nexus,
-                        BWAPI::TilePosition(BWAPI::WalkPosition(412,84)));
+                        BWAPI::TilePosition(BWAPI::WalkPosition(412, 84)));
 
             grid->update();
             EXPECT_TRUE(validateGrid(*grid));
@@ -333,7 +338,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
         {
             addBuilding(grid,
                         BWAPI::UnitTypes::Protoss_Forge,
-                        BWAPI::TilePosition(BWAPI::WalkPosition(428,96)));
+                        BWAPI::TilePosition(BWAPI::WalkPosition(428, 96)));
 
             grid->update();
             EXPECT_TRUE(validateGrid(*grid));
@@ -342,10 +347,10 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
         {
             addBuilding(grid,
                         BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                        BWAPI::TilePosition(BWAPI::WalkPosition(404,104)));
+                        BWAPI::TilePosition(BWAPI::WalkPosition(404, 104)));
             addBuilding(grid,
                         BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                        BWAPI::TilePosition(BWAPI::WalkPosition(396,100)));
+                        BWAPI::TilePosition(BWAPI::WalkPosition(396, 100)));
 
             grid->update();
             EXPECT_TRUE(validateGrid(*grid));
@@ -354,7 +359,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
         {
             addBuilding(grid,
                         BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                        BWAPI::TilePosition(BWAPI::WalkPosition(420,104)));
+                        BWAPI::TilePosition(BWAPI::WalkPosition(420, 104)));
 
             grid->update();
             EXPECT_TRUE(validateGrid(*grid));
@@ -362,8 +367,8 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
         if (BWAPI::Broodwar->getFrameCount() == 8)
         {
             removeBuilding(grid,
-                        BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                        BWAPI::TilePosition(BWAPI::WalkPosition(404,104)));
+                           BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                           BWAPI::TilePosition(BWAPI::WalkPosition(404, 104)));
 
             grid->update();
             EXPECT_TRUE(validateGrid(*grid));
@@ -371,8 +376,8 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
         if (BWAPI::Broodwar->getFrameCount() == 9)
         {
             removeBuilding(grid,
-                        BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                        BWAPI::TilePosition(BWAPI::WalkPosition(396,100)));
+                           BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                           BWAPI::TilePosition(BWAPI::WalkPosition(396, 100)));
 
             grid->update();
             EXPECT_TRUE(validateGrid(*grid));
@@ -381,10 +386,34 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
         {
             addBuilding(grid,
                         BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                        BWAPI::TilePosition(BWAPI::WalkPosition(440,100)));
+                        BWAPI::TilePosition(BWAPI::WalkPosition(440, 100)));
 
             grid->update();
             EXPECT_TRUE(validateGrid(*grid));
+        }
+
+        CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
+    };
+
+    test.run();
+}
+
+TEST(UpdateNavigationGrid, PylonEmpireOfTheSun)
+{
+    BWTest test;
+    NavigationGrid *grid;
+
+    setupGridTest(test, BWAPI::TilePosition(7, 119), grid, "Empire", 79141);
+
+    test.onFrameMine = [&]()
+    {
+        if (BWAPI::Broodwar->getFrameCount() == 2)
+        {
+            addBuilding(grid, BWAPI::UnitTypes::Protoss_Pylon, BWAPI::TilePosition(115, 120));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+            EXPECT_TRUE((*grid)[BWAPI::TilePosition(118, 122)].cost < USHRT_MAX);
         }
 
         CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
