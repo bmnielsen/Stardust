@@ -161,12 +161,14 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
             // Move away from the second node if the next node is under threat or in a narrow choke
             // Do nothing if the first node is not under threat or in a narrow choke and the second node is
             int length = goalWeight;
-            if (grid.staticGroundThreat(nextNodeCenter) > 0 || (insideChoke && Map::isInNarrowChoke(BWAPI::TilePosition(nextNodeCenter))))
+            if (nextNodeCenter.isValid() &&
+                (grid.staticGroundThreat(nextNodeCenter) > 0 || (insideChoke && Map::isInNarrowChoke(BWAPI::TilePosition(nextNodeCenter)))))
             {
                 length = -goalWeight;
                 pullingBack = true;
             }
-            else if (grid.staticGroundThreat(secondNodeCenter) > 0 || (insideChoke && Map::isInNarrowChoke(BWAPI::TilePosition(nextNodeCenter))))
+            else if (secondNodeCenter.isValid() &&
+                     (grid.staticGroundThreat(secondNodeCenter) > 0 || (insideChoke && Map::isInNarrowChoke(BWAPI::TilePosition(nextNodeCenter)))))
             {
                 length = 0;
             }
