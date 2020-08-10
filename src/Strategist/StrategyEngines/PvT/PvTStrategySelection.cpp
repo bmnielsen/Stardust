@@ -59,10 +59,10 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                     case TerranStrategy::TwoFactory:
                         strategy = OurStrategy::Defensive;
                         continue;
-                    case TerranStrategy::WallIn:
                     case TerranStrategy::FastExpansion:
                         strategy = OurStrategy::FastExpansion;
                         continue;
+                    case TerranStrategy::WallIn:
                     case TerranStrategy::Normal:
                         strategy = OurStrategy::Normal;
                         continue;
