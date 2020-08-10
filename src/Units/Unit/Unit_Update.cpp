@@ -52,6 +52,8 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , frameLastMoved(BWAPI::Broodwar->getFrameCount())
         , lastHealth(unit->getHitPoints())
         , lastShields(unit->getShields())
+        , health(unit->getHitPoints())
+        , shields(unit->getShields())
         , completed(unit->isCompleted())
         , estimatedCompletionFrame(-1)
         , isFlying(unit->isFlying())
@@ -109,11 +111,15 @@ void UnitImpl::update(BWAPI::Unit unit)
     {
         lastHealth = unit->getHitPoints();
         lastShields = unit->getShields();
+        health = unit->getHitPoints();
+        shields = unit->getShields();
     }
     else if (lastHealth == 0)
     {
         lastHealth = unit->getType().maxHitPoints();
         lastShields = unit->getType().maxShields();
+        health = unit->getType().maxHitPoints();
+        shields = unit->getType().maxShields();
     }
 
     burrowed = unit->isBurrowed();
@@ -186,12 +192,26 @@ void UnitImpl::update(BWAPI::Unit unit)
     if (upcomingDamage > 0)
     {
         CherryVis::log(id) << "Total value of upcoming attacks is " << upcomingDamage
-                           << "; current health is " << lastHealth << " (" << lastShields << ")";
+                           << "; current health is " << health << " (" << shields << ")";
     }
 #endif
 
-    doomed = (upcomingDamage >= (lastHealth + lastShields));
-    if (doomed) CherryVis::log(id) << "DOOMED!";
+    if (upcomingDamage > 0 && shields > 0)
+    {
+        int shieldDamage = std::min(shields, upcomingDamage);
+        upcomingDamage -= shieldDamage;
+        shields -= shieldDamage;
+    }
+    if (upcomingDamage > 0)
+    {
+        health = std::max(0, health - upcomingDamage);
+        doomed = (health <= 0);
+        if (doomed) CherryVis::log(id) << "DOOMED!";
+    }
+    else
+    {
+        doomed = false;
+    }
 }
 
 void UnitImpl::updateUnitInFog()

@@ -44,8 +44,10 @@ public:
     bool beingManufacturedOrCarried;    // Whether the unit is currently being manufactured or carried
     bool frameLastMoved;                // Last frame on which the unit changed position
 
-    int lastHealth;                     // Health when last seen
-    int lastShields;                    // Shields when last seen
+    int lastHealth;                     // Health when last seen, adjusted for upcoming attacks
+    int lastShields;                    // Shields when last seen, adjusted for upcoming attacks
+    int health;                         // Estimated health of the unit, adjusted for upcoming attacks
+    int shields;                        // Estimated shields of the unit, adjusted for upcoming attacks
 
     bool completed;                     // Whether the unit was completed
     int estimatedCompletionFrame;       // If not completed, the frame when we expect the unit to complete
