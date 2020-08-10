@@ -10,6 +10,7 @@ public:
             , scout(nullptr)
             , targetBase(nullptr)
             , closestDistanceToTargetBase(INT_MAX)
+            , lastDistanceToTargetBase(INT_MAX)
             , lastForewardMotionFrame(0)
             , fixedPosition(BWAPI::TilePositions::Invalid)
             , hidingUntil(0) {}
@@ -29,6 +30,7 @@ private:
     MyUnit scout;
     Base *targetBase;
     int closestDistanceToTargetBase;
+    int lastDistanceToTargetBase;
     int lastForewardMotionFrame;
     std::map<int, std::set<BWAPI::TilePosition>> scoutTiles;
     std::set<const BWEM::Area *> scoutAreas;

@@ -251,14 +251,32 @@ void NavigationGrid::addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosi
 
 void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
 {
-    // Step one: add all blocking tiles to a queue and collect all of their path origins
+    // Step one: add all blocking tiles to a queue and collect all of their neighbours
+    // These will act as potential origins for recomputed paths
     std::set<GridNode *> origins;
+    auto addOrigin = [&](unsigned short x, unsigned short y)
+    {
+        if (x >= BWAPI::Broodwar->mapWidth() || y >= BWAPI::Broodwar->mapHeight())
+        {
+            return;
+        }
+
+        origins.insert(&grid[x + y * BWAPI::Broodwar->mapWidth()]);
+    };
     std::queue<GridNode *> queue;
     for (const auto &tile : tiles)
     {
         auto &node = grid[tile.x + tile.y * BWAPI::Broodwar->mapWidth()];
-        if (node.nextNode) origins.insert(node.nextNode);
         queue.push(&node);
+
+        addOrigin(node.x + 1, node.y);
+        addOrigin(node.x - 1, node.y);
+        addOrigin(node.x, node.y + 1);
+        addOrigin(node.x, node.y - 1);
+        addOrigin(node.x - 1, node.y - 1);
+        addOrigin(node.x + 1, node.y - 1);
+        addOrigin(node.x - 1, node.y + 1);
+        addOrigin(node.x + 1, node.y + 1);
     }
 
     // Step two: invalidate every path that goes through the blocking tiles

@@ -623,6 +623,7 @@ void EarlyGameWorkerScout::updateTargetBase()
 
     targetBase = nullptr;
     closestDistanceToTargetBase = INT_MAX;
+    lastDistanceToTargetBase = INT_MAX;
     lastForewardMotionFrame = BWAPI::Broodwar->getFrameCount();
 
     // Assign the enemy starting main if we know it
@@ -692,12 +693,17 @@ bool EarlyGameWorkerScout::isScoutBlocked()
     }
 
     // Decreasing distance is fine
-    if (node.cost < closestDistanceToTargetBase)
+    // Increasing distance is fine if it jumps quite a bit - this generally means we've scouted a building that changes the path
+    if (node.cost < closestDistanceToTargetBase ||
+        node.cost > (lastDistanceToTargetBase + 50))
     {
         closestDistanceToTargetBase = node.cost;
+        lastDistanceToTargetBase = node.cost;
         lastForewardMotionFrame = BWAPI::Broodwar->getFrameCount();
         return false;
     }
+
+    lastDistanceToTargetBase = node.cost;
 
     // Non-decreasing distance is fine if we are still far away from the enemy base
     if (node.cost > 1500) return false;
