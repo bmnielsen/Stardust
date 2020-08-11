@@ -32,7 +32,7 @@ std::pair<BWAPI::TilePosition, int> getStartPositionAndSeed(std::shared_ptr<Maps
 
 TEST(MapAnalysis, FindStartLocationSeeds)
 {
-    auto maps = Maps::Get("cog");
+    auto maps = Maps::Get("aiide");
     for (auto &map : maps)
     {
         std::map<BWAPI::TilePosition, int> startPositionToSeed;
@@ -72,7 +72,7 @@ TEST(MapAnalysis, FindStartLocationSeeds)
 TEST(MapAnalysis, GetMapHashes)
 {
     std::vector<std::pair<std::string, std::string>> mapsAndHashes;
-    Maps::RunOnEach(Maps::Get("cog"), [&](BWTest test)
+    Maps::RunOnEach(Maps::Get("aiide"), [&](BWTest test)
     {
         test.myModule = []()
         {
