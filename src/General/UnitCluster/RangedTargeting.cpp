@@ -274,17 +274,10 @@ namespace
     }
 }
 
-Unit UnitCluster::ChooseRangedTarget(const MyUnit &attacker, std::set<Unit> &targets, BWAPI::Position targetPosition)
+Unit UnitCluster::ChooseRangedTarget(const MyUnit &attacker, std::set<Unit> &targets, BWAPI::Position targetPosition, bool targetIsReachableEnemyBase)
 {
     int bestScore = -999999;
     Unit bestTarget = nullptr;
-
-    // Determine if the target is a base that is owned by the enemy and still has a resource depot
-    auto targetBase = Map::baseNear(targetPosition);
-    bool targetIsEnemyBase = targetBase
-            && targetBase->owner == BWAPI::Broodwar->enemy()
-            && targetBase->resourceDepot
-            && targetBase->resourceDepot->exists();
 
     int distanceToTarget = attacker->getDistance(targetPosition);
 
@@ -299,9 +292,8 @@ Unit UnitCluster::ChooseRangedTarget(const MyUnit &attacker, std::set<Unit> &tar
             continue;
         }
 
-
         // If we are targeting an enemy base, ignore outlying buildings (except static defense)
-        if (targetIsEnemyBase && distanceToTarget > 200 && target->getType().isBuilding() && !targetUnit->canAttackGround())
+        if (targetIsReachableEnemyBase && distanceToTarget > 200 && target->getType().isBuilding() && !targetUnit->canAttackGround())
         {
             continue;
         }
