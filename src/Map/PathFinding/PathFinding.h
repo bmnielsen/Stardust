@@ -27,6 +27,13 @@ namespace PathFinding
     // Tiles that affect pathfinding (e.g. a mineral line) have been removed
     void removeBlockingTiles(const std::set<BWAPI::TilePosition> &tiles);
 
+    // Returns false if the given predicate returns false at any node in the path between start and end.
+    // If there is no grid for the end tile, returns true.
+    // If there is no path between the tiles, returns false.
+    bool checkGridPath(BWAPI::TilePosition start,
+                       BWAPI::TilePosition end,
+                       const std::function<bool(const NavigationGrid::GridNode &gridNode)> &predicate);
+
     // Options for use in the BWEM-based pathfinding methods
     enum class PathFindingOptions
     {

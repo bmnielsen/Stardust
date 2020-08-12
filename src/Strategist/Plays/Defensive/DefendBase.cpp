@@ -117,8 +117,19 @@ void DefendBase::update()
                            unit->type == BWAPI::UnitTypes::Terran_Vulture);
     }
 
+    // Update detection - release observers when no longer needed, request observers when needed
+    auto &detectors = squad->getDetectors();
+    if (!squad->needsDetection() && !detectors.empty())
+    {
+        status.removedUnits.insert(status.removedUnits.end(), detectors.begin(), detectors.end());
+    }
+    else if (squad->needsDetection() && detectors.empty())
+    {
+        status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Observer, squad->getTargetPosition());
+    }
+
     // Release any units in the squad if they are no longer required
-    if (enemyValue == 0)
+    if (enemyValue == 0 || (squad->needsDetection() && detectors.empty()))
     {
         status.removedUnits = squad->getUnits();
         workerDefenseSquad->disband();
@@ -144,7 +155,14 @@ void DefendBase::update()
     // TODO: Request zealot or dragoon when we have that capability
     if (requestedUnits > 0)
     {
-        status.unitRequirements.emplace_back(requestedUnits, BWAPI::UnitTypes::Protoss_Dragoon, base->getPosition());
+        // Only reserve units that have a safe path to the base
+        auto enemyGrid = Players::grid(BWAPI::Broodwar->enemy());
+        auto gridNodePredicate = [&enemyGrid](const NavigationGrid::GridNode &gridNode)
+        {
+            return gridNode.cost < 300 || enemyGrid.groundThreat(gridNode.center()) == 0;
+        };
+
+        status.unitRequirements.emplace_back(requestedUnits, BWAPI::UnitTypes::Protoss_Dragoon, base->getPosition(), gridNodePredicate);
     }
 }
 
@@ -174,6 +192,18 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
                                                                            buildLocation);
             }
         }
+    }
+
+    // Build an observer if we need one
+    for (auto &unitRequirement : status.unitRequirements)
+    {
+        if (unitRequirement.type != BWAPI::UnitTypes::Protoss_Observer) continue;
+        if (unitRequirement.count < 1) continue;
+
+        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 unitRequirement.type,
+                                                                 unitRequirement.count,
+                                                                 1);
     }
 }
 

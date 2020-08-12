@@ -131,6 +131,13 @@ namespace Strategist
                          it = reassignableUnits.erase(it))
                     {
                         if (it->currentPlay == play) continue;
+                        if (unitRequirement.gridNodePredicate &&
+                            !PathFinding::checkGridPath(it->unit->getTilePosition(),
+                                                        BWAPI::TilePosition(unitRequirement.position),
+                                                        unitRequirement.gridNodePredicate))
+                        {
+                            continue;
+                        }
 
                         if (it->currentPlay != nullptr) it->currentPlay->removeUnit(it->unit);
                         play->addUnit(it->unit);

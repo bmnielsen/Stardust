@@ -18,8 +18,13 @@ struct PlayUnitRequirement
     int count;
     BWAPI::UnitType type;
     BWAPI::Position position;
+    const std::function<bool(const NavigationGrid::GridNode &gridNode)> &gridNodePredicate;
 
-    PlayUnitRequirement(int count, BWAPI::UnitType type, BWAPI::Position position) : count(count), type(type), position(position) {}
+    PlayUnitRequirement(int count,
+                        BWAPI::UnitType type,
+                        BWAPI::Position position,
+                        const std::function<bool(const NavigationGrid::GridNode &gridNode)> &gridNodePredicate = nullptr)
+            : count(count), type(type), position(position), gridNodePredicate(gridNodePredicate) {}
 };
 
 struct PlayStatus
@@ -65,6 +70,6 @@ public:
     // Called when a play is being disbanded (either removed completely or transitioned to a different play).
     // It is the play's responsibility to call either removedUnitCallback or movableUnitCallback for all units that have been assigned
     // to it via addUnit (and not removed earlier through status.removedUnits).
-    virtual void disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
-                         const std::function<void(const MyUnit&)> &movableUnitCallback);
+    virtual void disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
+                         const std::function<void(const MyUnit &)> &movableUnitCallback);
 };
