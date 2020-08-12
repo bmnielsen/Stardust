@@ -5,6 +5,7 @@
 #include "Builder.h"
 #include "UnitUtil.h"
 #include "Workers.h"
+#include "Players.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -314,9 +315,10 @@ void PvT::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    // TODO: Use scouting information
-
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1)
+    // Build an observer when we are on two gas or the enemy has cloaked wraith tech
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
+        Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Control_Tower) ||
+        Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Cloaking_Field))
     {
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                  BWAPI::UnitTypes::Protoss_Observer,
