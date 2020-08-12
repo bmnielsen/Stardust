@@ -9,7 +9,7 @@ TEST(Locutus, RunForever)
     while (count < 40)
     {
         BWTest test;
-        test.maps = Maps::Get("cog");
+        test.maps = Maps::Get("aiide");
         test.opponentRace = BWAPI::Races::Protoss;
         test.opponentModule = []()
         {

@@ -8,8 +8,8 @@ TEST(Steamhammer, RunForever)
     while (count < 40)
     {
         BWTest test;
-        test.opponentRace = BWAPI::Races::Random;
-        //test.map = Maps::GetOne("Destination");
+        test.opponentRace = BWAPI::Races::Zerg;
+        test.map = Maps::Get("aiide");
         test.opponentModule = []()
         {
             auto module = new UAlbertaBot::UAlbertaBotModule();
