@@ -24,6 +24,13 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
 
     auto canTransitionFromAntiMarineRush = [&]()
     {
+        // Transition immediately if we've discovered a different enemy strategy
+        if (newEnemyStrategy != TerranStrategy::ProxyRush &&
+            newEnemyStrategy != TerranStrategy::MarineRush)
+        {
+            return true;
+        }
+
         // Require Dragoon Range
         // TODO: This is probably much too conservative
         if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0) return false;

@@ -94,9 +94,10 @@ namespace
         if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
             Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
         {
-            // Expect first barracks or command center by frame 2400
+            // Expect first barracks, refinery or command center by frame 2400
             if (BWAPI::Broodwar->getFrameCount() > 2400
                 && !countAtLeast(BWAPI::UnitTypes::Terran_Barracks, 1)
+                && !countAtLeast(BWAPI::UnitTypes::Terran_Refinery, 1)
                 && !countAtLeast(BWAPI::UnitTypes::Terran_Command_Center, 2))
             {
                 return true;
