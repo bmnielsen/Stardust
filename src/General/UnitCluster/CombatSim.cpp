@@ -226,9 +226,11 @@ CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &
 
     // Add enemy units
     int enemyCount = 0;
+    bool enemyHasUndetectedUnits = false;
     for (auto &unit : targets)
     {
         if (!unit->completed) continue;
+        if (unit->undetected && !haveMobileDetection) enemyHasUndetectedUnits = true;
 
         // Only include workers if they have been seen attacking recently
         // TODO: Handle worker rushes
@@ -302,7 +304,14 @@ CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &
             int halfwayEnemy = score(attacking ? sim.getState().second : sim.getState().first);
             if (halfwayMine >= initialMine && halfwayEnemy >= initialEnemy)
             {
-                return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, halfwayMine, halfwayEnemy, narrowChoke);
+                return CombatSimResult(myCount,
+                                       enemyCount,
+                                       initialMine,
+                                       initialEnemy,
+                                       halfwayMine,
+                                       halfwayEnemy,
+                                       enemyHasUndetectedUnits,
+                                       narrowChoke);
             }
         }
 
@@ -337,7 +346,7 @@ CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &
     CherryVis::log() << debug.str();
 #endif
 
-    return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, narrowChoke);
+    return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, enemyHasUndetectedUnits, narrowChoke);
 }
 
 void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)

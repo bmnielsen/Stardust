@@ -12,12 +12,14 @@ namespace
     {
         // We attack in the following cases:
         // - Attacking costs us nothing
+        // - The enemy has undetected units that do not damage us much
         // - We gain a high percentage value, even if we lose absolute value
         //   This handles the case where our army is much larger than the enemy's
         // - We gain some value without losing an unacceptably-large proportion of our army
         //   This criterion does not apply if our aggression value is low
         bool attack =
                 (simResult.myPercentLost() <= 0.001) ||
+                (simResult.enemyHasUndetectedUnits && simResult.myPercentLost() <= 0.15) ||
                 (simResult.percentGain() > (0.2 / aggression)) ||
                 (aggression > 0.99 && simResult.valueGain() > 0 && (simResult.percentGain() > -0.05 || simResult.myPercentageOfTotal() > 0.9));
 
