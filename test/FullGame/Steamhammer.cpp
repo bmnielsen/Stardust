@@ -9,7 +9,7 @@ TEST(Steamhammer, RunForever)
     {
         BWTest test;
         test.opponentRace = BWAPI::Races::Zerg;
-        test.map = Maps::Get("aiide");
+        test.maps = Maps::Get("aiide");
         test.opponentModule = []()
         {
             auto module = new UAlbertaBot::UAlbertaBotModule();
