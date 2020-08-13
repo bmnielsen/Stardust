@@ -48,7 +48,7 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
     }
 
     // Filter the units to get a set of units it makes sense to do worker defense against
-    // The input set is already filtered to only contain units we consider to be threats
+    // The input set is already filtered to only contain units we consider to be threats to the base
     std::set<Unit> enemyUnits;
     int workerCount = 0;
     int combatUnitCount = 0;
@@ -58,6 +58,9 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
         if (unit->isFlying) continue;
         if (UnitUtil::IsRangedUnit(unit->type)) continue;
         if (unit->undetected) continue;
+
+        // Make sure the unit is close to our base center
+        if (unit->getDistance(base->getPosition()) > 400) continue;
 
         // Now determine if the unit is worth attacking
         // This is the case if:

@@ -98,6 +98,23 @@ void DefendBase::update()
                    ? unit->lastPosition.getApproxDistance(base->getPosition())
                    : PathFinding::GetGroundDistance(unit->lastPosition, base->getPosition(), unit->type);
         if (dist == -1 || dist > 1000) continue;
+
+        // Skip this unit if it is closer to another one of our bases
+        bool closerToOtherBase = false;
+        for (auto &otherBase : Map::getMyBases())
+        {
+            if (otherBase == base) continue;
+            int otherBaseDist = unit->isFlying
+                                ? unit->lastPosition.getApproxDistance(otherBase->getPosition())
+                                : PathFinding::GetGroundDistance(unit->lastPosition, otherBase->getPosition(), unit->type);
+            if (otherBaseDist < dist)
+            {
+                closerToOtherBase = true;
+                break;
+            }
+        }
+        if (closerToOtherBase) continue;
+
         if (dist > 500)
         {
             auto predictedPosition = unit->predictPosition(5);
