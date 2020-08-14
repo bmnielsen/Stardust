@@ -61,8 +61,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , stimmedUntil(BWAPI::Broodwar->getFrameCount() + unit->getStimTimer())
         , undetected(isUndetected(unit))
         , burrowed(unit->isBurrowed())
-        , lastBurrowing(unit->getOrder() == BWAPI::Orders::Burrowing ? BWAPI::Broodwar->getFrameCount() : 0)
-        , doomed(false) {}
+        , lastBurrowing(unit->getOrder() == BWAPI::Orders::Burrowing ? BWAPI::Broodwar->getFrameCount() : 0) {}
 
 void UnitImpl::created()
 {
@@ -146,6 +145,16 @@ void UnitImpl::update(BWAPI::Unit unit)
     int upcomingDamage = 0;
     for (auto it = upcomingAttacks.begin(); it != upcomingAttacks.end();)
     {
+        // Remove attacks when they expire
+        if (BWAPI::Broodwar->getFrameCount() >= it->expiryFrame)
+        {
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as it has expired";
+#endif
+            it = upcomingAttacks.erase(it);
+            continue;
+        }
+
         // Remove bullets when they have hit
         if (it->bullet)
         {
@@ -165,17 +174,6 @@ void UnitImpl::update(BWAPI::Unit unit)
         {
 #if UPCOMING_ATTACKS_DEBUG
             CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as the attacker is gone";
-#endif
-            it = upcomingAttacks.erase(it);
-            continue;
-        }
-
-            // Clear when the attacker has finished making an attack
-        else if ((isFlying ? it->attacker->bwapiUnit->getAirWeaponCooldown() : it->attacker->bwapiUnit->getGroundWeaponCooldown()) > 0
-                 && !it->attacker->bwapiUnit->isAttackFrame())
-        {
-#if UPCOMING_ATTACKS_DEBUG
-            CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as it is on cooldown";
 #endif
             it = upcomingAttacks.erase(it);
             continue;
@@ -205,12 +203,7 @@ void UnitImpl::update(BWAPI::Unit unit)
     if (upcomingDamage > 0)
     {
         health = std::max(0, health - upcomingDamage);
-        doomed = (health <= 0);
-        if (doomed) CherryVis::log(id) << "DOOMED!";
-    }
-    else
-    {
-        doomed = false;
+        if (health <= 0) CherryVis::log(id) << "DOOMED!";
     }
 }
 
@@ -242,7 +235,7 @@ void UnitImpl::updateUnitInFog()
         {
             // Assume the unit is still burrowed here unless we have detection on the position or the unit was doomed before it burrowed
             auto grid = Players::grid(BWAPI::Broodwar->self());
-            if (!doomed && grid.detection(lastPosition) == 0) return;
+            if (health > 0 && grid.detection(lastPosition) == 0) return;
         }
 
         lastPositionValid = false;
@@ -299,7 +292,7 @@ void UnitImpl::updateUnitInFog()
 
 void UnitImpl::addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet)
 {
-    // Remove any existing upcoming attack from this attacker
+    // Bullets always remove any existing upcoming attack from this attacker
     for (auto it = upcomingAttacks.begin(); it != upcomingAttacks.end();)
     {
         if (it->attacker == attacker)
@@ -311,6 +304,25 @@ void UnitImpl::addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet)
     upcomingAttacks.emplace_back(attacker,
                                  bullet,
                                  Players::attackDamage(attacker->player, attacker->type, player, type));
+}
+
+void UnitImpl::addUpcomingAttack(const Unit &attacker)
+{
+    // Zealots deal damage twice, once after 2 frames and once after 4 frames
+    if (attacker->type == BWAPI::UnitTypes::Protoss_Zealot)
+    {
+        int damagePerHit = Players::attackDamage(attacker->player, attacker->type, player, type) / 2;
+        upcomingAttacks.emplace_back(attacker, 2, damagePerHit);
+        upcomingAttacks.emplace_back(attacker, 4, damagePerHit);
+    }
+
+    // Dragoon bullets are created after 7 frames
+    if (attacker->type == BWAPI::UnitTypes::Protoss_Dragoon)
+    {
+        upcomingAttacks.emplace_back(attacker, 7, Players::attackDamage(attacker->player, attacker->type, player, type));
+    }
+
+    // TODO: Track additional unit types
 }
 
 void UnitImpl::updateGrid(BWAPI::Unit unit)

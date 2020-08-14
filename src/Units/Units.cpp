@@ -731,9 +731,12 @@ namespace Units
             bullet->getType() == BWAPI::BulletTypes::Halo_Rockets ||            // Valkyrie
             bullet->getType() == BWAPI::BulletTypes::Subterranean_Spines)       // Lurker
         {
-            auto target = get(bullet->getTarget());
             auto source = get(bullet->getSource());
-            if (target) target->addUpcomingAttack(source, bullet);
+            auto target = get(bullet->getTarget());
+            if (source && target)
+            {
+                target->addUpcomingAttack(source, bullet);
+            }
         }
     }
 

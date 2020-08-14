@@ -2,6 +2,7 @@
 #include "MyUnit.h"
 
 #include "UnitUtil.h"
+#include "Units.h"
 #include "Geo.h"
 #include "Map.h"
 
@@ -30,6 +31,20 @@ void MyUnitImpl::update(BWAPI::Unit unit)
     if (!unit || !unit->exists()) return;
 
     if (unit->getPosition() != lastPosition) frameLastMoved = BWAPI::Broodwar->getFrameCount();
+
+    // If this unit has just gone on cooldown, add an upcoming attack on its target
+    if (bwapiUnit->getLastCommand().type == BWAPI::UnitCommandTypes::Attack_Unit)
+    {
+        auto cooldown = std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown());
+        if (cooldown > 0 && cooldown > (cooldownUntil - BWAPI::Broodwar->getFrameCount() + 1))
+        {
+            auto target = Units::get(bwapiUnit->getLastCommand().getTarget());
+            if (target)
+            {
+                target->addUpcomingAttack(Units::get(bwapiUnit));
+            }
+        }
+    }
 
     UnitImpl::update(unit);
 

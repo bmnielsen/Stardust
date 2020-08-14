@@ -12,14 +12,23 @@ struct UpcomingAttack
 {
     Unit attacker;
     BWAPI::Bullet bullet;
-    int bulletId;
+    int bulletId;           // Bullet objects are re-used, so keep track of the original ID
+    int expiryFrame;        // The frame at which this upcoming attack "expires" (i.e. results in a bullet or deals damage)
     int damage;
 
     UpcomingAttack(Unit attacker, BWAPI::Bullet bullet, int damage)
             : attacker(std::move(attacker))
             , bullet(bullet)
             , bulletId(bullet ? bullet->getID() : -1)
+            , expiryFrame(INT_MAX)
             , damage(damage) {}
+
+    UpcomingAttack(Unit attacker, int frames, int damage)
+    : attacker(std::move(attacker))
+    , bullet(nullptr)
+    , bulletId(-1)
+    , expiryFrame(BWAPI::Broodwar->getFrameCount() + frames)
+    , damage(damage) {}
 };
 
 class UnitImpl
@@ -63,7 +72,6 @@ public:
 
     std::vector<UpcomingAttack>
             upcomingAttacks;            // List of attacks of this unit that are expected soon
-    bool doomed;                        // Whether this unit is likely to be dead after the upcoming attacks are finished
 
     explicit UnitImpl(BWAPI::Unit unit);
 
@@ -76,6 +84,8 @@ public:
     void updateUnitInFog();
 
     void addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet);
+
+    void addUpcomingAttack(const Unit &attacker);
 
     /* Information stuff, see Unit_Info.cpp */
 
