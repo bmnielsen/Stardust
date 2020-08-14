@@ -91,7 +91,7 @@ bool MyDragoon::isReady() const
 
     // If the next attack is predicted to happen within remaining latency frames, we may want to leave the dragoon alone
     int framesToNextAttack = nextAttackPredictedAt - BWAPI::Broodwar->getFrameCount();
-    if (framesToNextAttack > 0 && framesToNextAttack < BWAPI::Broodwar->getRemainingLatencyFrames())
+    if (framesToNextAttack > 0 && framesToNextAttack <= BWAPI::Broodwar->getRemainingLatencyFrames())
     {
         BWAPI::Unit target = bwapiUnit->getLastCommand().getTarget();
 
