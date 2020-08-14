@@ -246,7 +246,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
             break;
     }
 
-    if (attack)
+    if (attack || ignoreCombatSim)
     {
         cluster.setActivity(UnitCluster::Activity::Attacking);
         cluster.attack(unitsAndTargets, targetPosition);

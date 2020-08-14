@@ -55,7 +55,7 @@ public:
                          BWAPI::Position targetPosition);
 
     std::vector<std::pair<MyUnit, Unit>>
-    selectTargets(std::set<Unit> &targets, BWAPI::Position targetPosition);
+    selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPosition);
 
     virtual void attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition);
 

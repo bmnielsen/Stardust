@@ -167,38 +167,3 @@ void UnitCluster::setSubActivity(SubActivity newSubActivity)
 
     currentSubActivity = newSubActivity;
 }
-
-std::vector<std::pair<MyUnit, Unit>>
-UnitCluster::selectTargets(std::set<Unit> &targets, BWAPI::Position targetPosition)
-{
-    // For our targeting we want to know if we are attacking a reachable enemy base
-    // Criteria:
-    // - Target is near a base
-    // - The base is owned by the enemy
-    // - The base has a resource depot or hasn't been scouted yet
-    // - The base has a navigation grid path from our main choke (i.e. hasn't been walled-off)
-    auto targetBase = Map::baseNear(targetPosition);
-    bool targetIsReachableEnemyBase = targetBase
-                                      && targetBase->owner == BWAPI::Broodwar->enemy()
-                                      && (targetBase->lastScouted == -1 || (targetBase->resourceDepot && targetBase->resourceDepot->exists()));
-    if (targetIsReachableEnemyBase && Map::getMyMainChoke())
-    {
-        auto grid = PathFinding::getNavigationGrid(targetBase->getTilePosition());
-        if (grid)
-        {
-            auto node = (*grid)[Map::getMyMainChoke()->center];
-            targetIsReachableEnemyBase = node.nextNode != nullptr;
-        }
-    }
-
-    std::vector<std::pair<MyUnit, Unit>> result;
-
-    for (auto &unit : units)
-    {
-        result.emplace_back(std::make_pair(unit, UnitUtil::IsRangedUnit(unit->type)
-                                                 ? ChooseRangedTarget(unit, targets, targetPosition, targetIsReachableEnemyBase)
-                                                 : ChooseMeleeTarget(unit, targets, targetPosition, targetIsReachableEnemyBase)));
-    }
-
-    return result;
-}
