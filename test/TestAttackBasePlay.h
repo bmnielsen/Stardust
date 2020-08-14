@@ -9,7 +9,7 @@ class TestAttackBasePlay : public Play
 public:
     explicit TestAttackBasePlay(Base *base)
             : Play((std::ostringstream() << "Test attack base @ " << base->getTilePosition()).str())
-            , squad(std::make_shared<AttackBaseSquad>(base)) { General::addSquad(squad); };
+            , squad(std::make_shared<AttackBaseSquad>(base)) { squad->ignoreCombatSim = true; General::addSquad(squad); };
 
     [[nodiscard]] bool receivesUnassignedUnits() const override { return true; }
 
