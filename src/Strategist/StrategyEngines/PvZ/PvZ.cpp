@@ -11,6 +11,7 @@
 #include "Plays/MainArmy/AttackEnemyMain.h"
 #include "Plays/MainArmy/MopUp.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
+#include "Plays/Scouting/EjectEnemyScout.h"
 
 namespace
 {
@@ -28,6 +29,7 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays)
 {
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
+    plays.emplace_back(std::make_shared<EjectEnemyScout>());
     plays.emplace_back(std::make_shared<DefendMyMain>());
 }
 
