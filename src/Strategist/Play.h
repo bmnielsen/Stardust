@@ -18,13 +18,13 @@ struct PlayUnitRequirement
     int count;
     BWAPI::UnitType type;
     BWAPI::Position position;
-    const std::function<bool(const NavigationGrid::GridNode &gridNode)> &gridNodePredicate;
+    const std::function<bool(const NavigationGrid::GridNode &gridNode)> gridNodePredicate;
 
     PlayUnitRequirement(int count,
                         BWAPI::UnitType type,
                         BWAPI::Position position,
-                        const std::function<bool(const NavigationGrid::GridNode &gridNode)> &gridNodePredicate = nullptr)
-            : count(count), type(type), position(position), gridNodePredicate(gridNodePredicate) {}
+                        const std::function<bool(const NavigationGrid::GridNode &gridNode)> gridNodePredicate = nullptr)
+            : count(count), type(type), position(position), gridNodePredicate(std::move(gridNodePredicate)) {}
 };
 
 struct PlayStatus
