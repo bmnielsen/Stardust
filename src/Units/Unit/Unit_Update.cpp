@@ -308,21 +308,31 @@ void UnitImpl::addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet)
 
 void UnitImpl::addUpcomingAttack(const Unit &attacker)
 {
-    // Zealots deal damage twice, once after 2 frames and once after 4 frames
-    if (attacker->type == BWAPI::UnitTypes::Protoss_Zealot)
-    {
-        int damagePerHit = Players::attackDamage(attacker->player, attacker->type, player, type) / 2;
-        upcomingAttacks.emplace_back(attacker, 2, damagePerHit);
-        upcomingAttacks.emplace_back(attacker, 4, damagePerHit);
-    }
+    // Probes and air units all have their bullets created on the same frame as their cooldown starts, so nothing is needed for them
 
-    // Dragoon bullets are created after 7 frames
-    if (attacker->type == BWAPI::UnitTypes::Protoss_Dragoon)
-    {
-        upcomingAttacks.emplace_back(attacker, 7, Players::attackDamage(attacker->player, attacker->type, player, type));
-    }
+    // TODO: Carrier and reaver when we have them (if they even make sense)
 
-    // TODO: Track additional unit types
+    switch (attacker->type)
+    {
+        case BWAPI::UnitTypes::Protoss_Zealot:
+        {
+            // Zealots deal damage twice, once after 2 frames and once after 4 frames
+            int damagePerHit = Players::attackDamage(attacker->player, attacker->type, player, type) / 2;
+            upcomingAttacks.emplace_back(attacker, 2, damagePerHit);
+            upcomingAttacks.emplace_back(attacker, 4, damagePerHit);
+            break;
+        }
+        case BWAPI::UnitTypes::Protoss_Dragoon:
+            upcomingAttacks.emplace_back(attacker, 7, Players::attackDamage(attacker->player, attacker->type, player, type));
+            break;
+        case BWAPI::UnitTypes::Protoss_Dark_Templar:
+        case BWAPI::UnitTypes::Protoss_Archon:
+            upcomingAttacks.emplace_back(attacker, 4, Players::attackDamage(attacker->player, attacker->type, player, type));
+            break;
+        case BWAPI::UnitTypes::Protoss_Photon_Cannon:
+            upcomingAttacks.emplace_back(attacker, 6, Players::attackDamage(attacker->player, attacker->type, player, type));
+            break;
+    }
 }
 
 void UnitImpl::updateGrid(BWAPI::Unit unit)
