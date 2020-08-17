@@ -152,7 +152,12 @@ void StardustAIModule::onFrame()
         }
     }
 
-    // We update units as the first thing, since we want to use our own abstraction over BWAPI::Unit everywhere
+    // First priority is to update unit-related things, as most of our other stuff relies on our unit abstraction being updated
+
+    // We start with bullets though as they interact directly with units
+    Bullets::update();
+    Timer::checkpoint("Bullets::update");
+
     Units::update();
     Timer::checkpoint("Units::update");
 
@@ -179,9 +184,6 @@ void StardustAIModule::onFrame()
     // Update general information things
     Players::update();
     Timer::checkpoint("Players::update");
-
-    Bullets::update();
-    Timer::checkpoint("Bullets::update");
 
     WorkerOrderTimer::update();
     Timer::checkpoint("WorkerOrderTimer::update");
