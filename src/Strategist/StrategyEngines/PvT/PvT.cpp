@@ -64,7 +64,7 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     if (mainArmyPlay)
     {
-        if (enemyStrategy == TerranStrategy::GasSteal)
+        if (hasEnemyStolenOurGas())
         {
             setMainPlay<DefendMyMain>(mainArmyPlay);
         }
@@ -118,6 +118,15 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     handleDetection(prioritizedProductionGoals);
 
     // Main army production
+    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+    auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
+    auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
+
+    int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
+    int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+
+    handleGasStealProduction(prioritizedProductionGoals, zealotCount);
+
     switch (ourStrategy)
     {
         case OurStrategy::EarlyGameDefense:
@@ -135,13 +144,6 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::AntiMarineRush:
         {
-            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-            auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-            int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
-            int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
-
             // If we have no dragoons yet, get four zealots
             // Otherwise keep two zealots while pumping dragoons
             int zealotsRequired = (dragoonCount == 0 ? 4 : 2) - zealotCount;

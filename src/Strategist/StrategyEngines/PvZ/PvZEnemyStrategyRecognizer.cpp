@@ -7,7 +7,6 @@
 std::map<PvZ::ZergStrategy, std::string> PvZ::ZergStrategyNames = {
         {ZergStrategy::Unknown,            "Unknown"},
         {ZergStrategy::ZerglingRush,       "ZerglingRush"},
-        {ZergStrategy::GasSteal,           "GasSteal"},
         {ZergStrategy::PoolBeforeHatchery, "PoolBeforeHatchery"},
         {ZergStrategy::HatcheryBeforePool, "HatcheryBeforePool"},
         {ZergStrategy::ZerglingAllIn,      "ZerglingAllIn"},
@@ -46,19 +45,6 @@ namespace
 
         return createdBeforeFrame(BWAPI::UnitTypes::Zerg_Spawning_Pool, 1500) ||
                createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 2500);
-    }
-
-    bool isGasSteal()
-    {
-        for (const Unit &unit : Units::allEnemyOfType(BWAPI::Broodwar->enemy()->getRace().getRefinery()))
-        {
-            if (!unit->lastPositionValid) continue;
-            if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) != Map::getMyMain()->getArea()) continue;
-
-            return true;
-        }
-
-        return false;
     }
 
     bool isZerglingAllIn()
@@ -112,7 +98,6 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
         {
             case ZergStrategy::Unknown:
                 if (isZerglingRush()) return ZergStrategy::ZerglingRush;
-                if (isGasSteal()) return ZergStrategy::GasSteal;
 
                 // Default to something reasonable if our scouting completely fails
                 if (BWAPI::Broodwar->getFrameCount() > 4000)
@@ -147,18 +132,10 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
                 }
 
                 break;
-            case ZergStrategy::GasSteal:
-                if (!isGasSteal())
-                {
-                    strategy = ZergStrategy::Unknown;
-                    continue;
-                }
-                break;
             case ZergStrategy::PoolBeforeHatchery:
                 // We might detect a rush late on large maps or if scouting is denied
                 if (isZerglingRush()) return ZergStrategy::ZerglingRush;
 
-                if (isGasSteal()) return ZergStrategy::GasSteal;
                 if (isZerglingAllIn()) return ZergStrategy::ZerglingAllIn;
 
                 if (isTurtle())
@@ -175,7 +152,6 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
 
                 break;
             case ZergStrategy::HatcheryBeforePool:
-                if (isGasSteal()) return ZergStrategy::GasSteal;
                 if (isZerglingAllIn()) return ZergStrategy::ZerglingAllIn;
 
                 if (isTurtle())
@@ -192,8 +168,6 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
 
                 break;
             case ZergStrategy::ZerglingAllIn:
-                if (isGasSteal()) return ZergStrategy::GasSteal;
-
                 if (!isZerglingAllIn())
                 {
                     strategy = ZergStrategy::PoolBeforeHatchery;
@@ -208,8 +182,6 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
 
                 break;
             case ZergStrategy::Turtle:
-                if (isGasSteal()) return ZergStrategy::GasSteal;
-
                 if (hasLairTech())
                 {
                     strategy = ZergStrategy::Lair;
@@ -218,8 +190,6 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
 
                 break;
             case ZergStrategy::Lair:
-                if (isGasSteal()) return ZergStrategy::GasSteal;
-
                 break;
         }
 

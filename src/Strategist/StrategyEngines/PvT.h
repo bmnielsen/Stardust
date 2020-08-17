@@ -21,7 +21,6 @@ private:
     enum class TerranStrategy
     {
         Unknown,
-        GasSteal,           // Refinery in our main
         ProxyRush,          // Detected by seeing fewer buildings than expected in main
         MarineRush,         // Detected by seeing early gates or early zealots
         WallIn,             // Detected by scout blocked by buildings

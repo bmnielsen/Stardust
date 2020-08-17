@@ -6,26 +6,12 @@
 
 std::map<PlasmaStrategyEngine::EnemyStrategy, std::string> PlasmaStrategyEngine::EnemyStrategyNames = {
         {EnemyStrategy::Unknown,   "Unknown"},
-        {EnemyStrategy::GasSteal,  "GasSteal"},
         {EnemyStrategy::ProxyRush, "ProxyRush"},
         {EnemyStrategy::Normal,    "Normal"},
 };
 
 namespace
 {
-    bool isGasSteal()
-    {
-        for (const Unit &unit : Units::allEnemyOfType(BWAPI::Broodwar->enemy()->getRace().getRefinery()))
-        {
-            if (!unit->lastPositionValid) continue;
-            if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) != Map::getMyMain()->getArea()) continue;
-
-            return true;
-        }
-
-        return false;
-    }
-
     bool isProxy()
     {
         if (BWAPI::Broodwar->getFrameCount() >= 10000) return false;
@@ -66,20 +52,10 @@ PlasmaStrategyEngine::EnemyStrategy PlasmaStrategyEngine::recognizeEnemyStrategy
                     continue;
                 }
 
-                if (isGasSteal()) return EnemyStrategy::GasSteal;
                 if (isProxy()) return EnemyStrategy::ProxyRush;
 
                 break;
-            case EnemyStrategy::GasSteal:
-                if (!isGasSteal())
-                {
-                    strategy = EnemyStrategy::Unknown;
-                    continue;
-                }
-                break;
             case EnemyStrategy::ProxyRush:
-                if (isGasSteal()) return EnemyStrategy::GasSteal;
-
                 if (!isProxy())
                 {
                     strategy = EnemyStrategy::Normal;
@@ -88,8 +64,6 @@ PlasmaStrategyEngine::EnemyStrategy PlasmaStrategyEngine::recognizeEnemyStrategy
 
                 break;
             case EnemyStrategy::Normal:
-                if (isGasSteal()) return EnemyStrategy::GasSteal;
-
                 break;
         }
 

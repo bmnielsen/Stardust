@@ -22,6 +22,11 @@ public:
     virtual std::string getOurStrategy() { return "Unknown"; }
 
 protected:
+    static bool hasEnemyStolenOurGas();
+
+    static void handleGasStealProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+            int &zealotCount);
+
     static void upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                BWAPI::UpgradeType upgradeType,
                                BWAPI::UnitType unitType,

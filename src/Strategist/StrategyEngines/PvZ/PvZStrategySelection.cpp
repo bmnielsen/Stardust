@@ -51,7 +51,6 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                 switch (newEnemyStrategy)
                 {
                     case ZergStrategy::Unknown:
-                    case ZergStrategy::GasSteal:
                         return strategy;
                     case ZergStrategy::ZerglingRush:
                     case ZergStrategy::ZerglingAllIn:

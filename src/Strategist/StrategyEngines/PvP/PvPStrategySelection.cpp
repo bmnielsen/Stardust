@@ -72,7 +72,6 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                 switch (newEnemyStrategy)
                 {
                     case ProtossStrategy::Unknown:
-                    case ProtossStrategy::GasSteal:
                         return strategy;
                     case ProtossStrategy::ProxyRush:
                     case ProtossStrategy::ZealotRush:

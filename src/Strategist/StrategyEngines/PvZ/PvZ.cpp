@@ -63,7 +63,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     if (mainArmyPlay)
     {
-        if (enemyStrategy == ZergStrategy::GasSteal)
+        if (hasEnemyStolenOurGas())
         {
             setMainPlay<DefendMyMain>(mainArmyPlay);
         }
@@ -143,6 +143,15 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     // Default to gather gas - we will only set to false later if we are being rushed
     setGasGathering(true);
 
+    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+    auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
+    auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
+
+    int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
+    int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+
+    handleGasStealProduction(prioritizedProductionGoals, zealotCount);
+
     // Main army production
     switch (ourStrategy)
     {
@@ -157,13 +166,6 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::AntiAllIn:
         {
-            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-            auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-            int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
-            int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
-
             // Get at least six zealots before dragoons, more if our choke is hard to defend
             int desiredZealots = 6;
             auto mainChoke = Map::getMyMainChoke();
@@ -222,12 +224,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             // Build a couple of zealots though if we have seen zerglings on the way and have nothing to defend with
             if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 0)
             {
-                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-                auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-                auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-                int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
-                                completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+                int unitCount = zealotCount + dragoonCount;
                 if (unitCount < 2)
                 {
                     prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -255,12 +252,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::Defensive:
         {
             // Build at least four zealots then transition into dragoons
-            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-            auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-            int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
-                            completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+            int unitCount = zealotCount + dragoonCount;
             if (unitCount < 4)
             {
                 prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -285,12 +277,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::Normal:
         {
             // Build at least three zealots then transition into dragoons
-            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-            auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-            int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
-                            completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+            int unitCount = zealotCount + dragoonCount;
             if (unitCount < 3)
             {
                 prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -319,13 +306,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             int requiredZealots = 0;
             if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 6)
             {
-                requiredZealots = std::min(10, Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 2);
-
-                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-                auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-                auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-                requiredZealots -= completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
+                requiredZealots = std::min(10, Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 2) - zealotCount;
             }
 
             if (requiredZealots > 0)

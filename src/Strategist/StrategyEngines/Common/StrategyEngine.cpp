@@ -4,6 +4,30 @@
 #include "StrategyEngine.h"
 
 #include "Map.h"
+#include "Units.h"
+
+bool StrategyEngine::hasEnemyStolenOurGas()
+{
+    return Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0 &&
+           Map::getMyMain()->geysers().empty();
+}
+
+void StrategyEngine::handleGasStealProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                              int &zealotCount)
+{
+    // Hop out now if we know it isn't a gas steal
+    if (!hasEnemyStolenOurGas() || zealotCount > 0)
+    {
+        return;
+    }
+
+    // Ensure we have two zealots
+    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                               BWAPI::UnitTypes::Protoss_Zealot,
+                                                               1,
+                                                               1);
+    zealotCount = 1;
+}
 
 void StrategyEngine::UpdateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays)
 {

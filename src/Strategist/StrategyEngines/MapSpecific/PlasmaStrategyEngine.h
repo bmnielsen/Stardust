@@ -23,7 +23,6 @@ private:
     enum class EnemyStrategy
     {
         Unknown,
-        GasSteal,           // Assimilator in our main
         ProxyRush,          // Detected by seeing fewer buildings than expected in main
         Normal,             // Final state when we are satisfied the enemy is not doing a rush
     };

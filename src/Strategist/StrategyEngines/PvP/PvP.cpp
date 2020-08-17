@@ -70,7 +70,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     if (mainArmyPlay)
     {
-        if (enemyStrategy == ProtossStrategy::GasSteal)
+        if (hasEnemyStolenOurGas())
         {
             setMainPlay<DefendMyMain>(mainArmyPlay);
         }
@@ -206,7 +206,6 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             switch (enemyStrategy)
             {
                 case ProtossStrategy::Unknown:
-                case ProtossStrategy::GasSteal:
                 case ProtossStrategy::ProxyRush:
                 case ProtossStrategy::BlockScouting:
                 case ProtossStrategy::DragoonAllIn:
@@ -256,6 +255,15 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     // Default to gather gas - we will only set to false later if we are being rushed
     setGasGathering(true);
 
+    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+    auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
+    auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
+
+    int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
+    int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+
+    handleGasStealProduction(prioritizedProductionGoals, zealotCount);
+
     auto oneGateCoreOpening = [&](int numZealots)
     {
         // If our core is done or we want no zealots just return dragoons
@@ -267,13 +275,6 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1);
             return;
         }
-
-        auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-        auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-        auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-        int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
-        int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
 
         // Ensure gas before zealot
         if (Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0)
@@ -324,13 +325,6 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::AntiZealotRush:
         {
-            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-            auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-            int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
-            int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
-
             // We get at least four zealots, but ensure we match enemy zealot production to avoid getting overrun
             int desiredZealots = 4 + (Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) * 3) / 4;
             int zealotsRequired = desiredZealots - zealotCount;

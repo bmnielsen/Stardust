@@ -5,6 +5,7 @@
 #include "General.h"
 #include "Units.h"
 #include "UnitUtil.h"
+#include "Workers.h"
 
 namespace
 {
@@ -92,12 +93,41 @@ void DefendMyMain::update()
             squad->addUnit(reservedGasStealAttacker);
             reservedGasStealAttacker = nullptr;
         }
+
+        // Pull three workers to attack the gas steal once we have at least one zealot in progress
+        if (reservedWorkerGasStealAttackers.size() < 3 && Units::countAll(BWAPI::UnitTypes::Protoss_Zealot) > 0)
+        {
+            std::vector<std::pair<MyUnit, Unit>> dummyUnitsAndTargets;
+
+            for (int i = 0; i < (3 - reservedWorkerGasStealAttackers.size()); i++)
+            {
+                auto worker = Workers::getClosestReassignableWorker(Map::getMyMain()->getPosition(), false);
+                if (!worker) break;
+
+                Workers::reserveWorker(worker);
+                worker->attackUnit(gasSteal, dummyUnitsAndTargets);
+                reservedWorkerGasStealAttackers.push_back(worker);
+            }
+        }
     }
-    else if (reservedGasStealAttacker)
+    else
     {
         // Release the reserved gas steal attacker when it is no longer needed
-        squad->addUnit(reservedGasStealAttacker);
-        reservedGasStealAttacker = nullptr;
+        if (reservedGasStealAttacker)
+        {
+            squad->addUnit(reservedGasStealAttacker);
+            reservedGasStealAttacker = nullptr;
+        }
+
+        // Release the worker gas steal attackers when they are no longer needed
+        if (!reservedWorkerGasStealAttackers.empty())
+        {
+            for (auto workerGasStealAttacker : reservedWorkerGasStealAttackers)
+            {
+                Workers::releaseWorker(workerGasStealAttacker);
+            }
+            reservedWorkerGasStealAttackers.clear();
+        }
     }
 
     // If there are more than two workers, consider this to be a worker rush and add them to the set of combat units
@@ -179,6 +209,11 @@ void DefendMyMain::disband(const std::function<void(const MyUnit &)> &removedUni
     if (reservedGasStealAttacker)
     {
         movableUnitCallback(reservedGasStealAttacker);
+    }
+
+    for (auto workerGasStealAttacker : reservedWorkerGasStealAttackers)
+    {
+        Workers::releaseWorker(workerGasStealAttacker);
     }
 }
 

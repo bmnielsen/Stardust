@@ -6,7 +6,6 @@
 
 std::map<PvT::TerranStrategy, std::string> PvT::TerranStrategyNames = {
         {TerranStrategy::Unknown,       "Unknown"},
-        {TerranStrategy::GasSteal,      "GasSteal"},
         {TerranStrategy::ProxyRush,     "ProxyRush"},
         {TerranStrategy::MarineRush,    "MarineRush"},
         {TerranStrategy::WallIn,        "WallIn"},
@@ -35,19 +34,6 @@ namespace
         if (timings.size() < count) return false;
 
         return timings[count - 1].first < frame;
-    }
-
-    bool isGasSteal()
-    {
-        for (const Unit &unit : Units::allEnemyOfType(BWAPI::Broodwar->enemy()->getRace().getRefinery()))
-        {
-            if (!unit->lastPositionValid) continue;
-            if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) != Map::getMyMain()->getArea()) continue;
-
-            return true;
-        }
-
-        return false;
     }
 
     bool isFastExpansion()
@@ -186,7 +172,6 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
         {
             case TerranStrategy::Unknown:
                 if (isMarineRush()) return TerranStrategy::MarineRush;
-                if (isGasSteal()) return TerranStrategy::GasSteal;
                 if (isProxy()) return TerranStrategy::ProxyRush;
                 if (isWallIn()) return TerranStrategy::WallIn;
                 if (isFastExpansion()) return TerranStrategy::FastExpansion;
@@ -205,13 +190,6 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                     continue;
                 }
 
-                break;
-            case TerranStrategy::GasSteal:
-                if (!isGasSteal())
-                {
-                    strategy = TerranStrategy::Unknown;
-                    continue;
-                }
                 break;
             case TerranStrategy::ProxyRush:
                 // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their command center
@@ -235,7 +213,6 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 break;
             case TerranStrategy::WallIn:
                 if (isMarineRush()) return TerranStrategy::MarineRush;
-                if (isGasSteal()) return TerranStrategy::GasSteal;
                 if (isFastExpansion()) return TerranStrategy::FastExpansion;
 
                 if (isMidGame())
@@ -247,7 +224,6 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 break;
             case TerranStrategy::TwoFactory:
                 if (isMarineRush()) return TerranStrategy::MarineRush;
-                if (isGasSteal()) return TerranStrategy::GasSteal;
 
                 if (isMidGame())
                 {
@@ -259,7 +235,6 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
             case TerranStrategy::FastExpansion:
             case TerranStrategy::Normal:
                 if (isMarineRush()) return TerranStrategy::MarineRush;
-                if (isGasSteal()) return TerranStrategy::GasSteal;
 
                 if (isMidGame())
                 {
@@ -269,8 +244,6 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
 
                 break;
             case TerranStrategy::MidGame:
-                if (isGasSteal()) return TerranStrategy::GasSteal;
-
                 break;
         }
 

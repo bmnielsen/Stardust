@@ -57,7 +57,6 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                 switch (newEnemyStrategy)
                 {
                     case TerranStrategy::Unknown:
-                    case TerranStrategy::GasSteal:
                         return strategy;
                     case TerranStrategy::ProxyRush:
                     case TerranStrategy::MarineRush:

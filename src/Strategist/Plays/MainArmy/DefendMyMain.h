@@ -29,4 +29,5 @@ private:
     std::shared_ptr<WorkerDefenseSquad> workerDefenseSquad;
     int lastRegroupFrame;
     MyUnit reservedGasStealAttacker;
+    std::vector<MyUnit> reservedWorkerGasStealAttackers;
 };

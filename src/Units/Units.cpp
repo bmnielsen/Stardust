@@ -13,7 +13,7 @@
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_PROBE_STATUS false
 #define DEBUG_ZEALOT_STATUS true
-#define DEBUG_DRAGOON_STATUS false
+#define DEBUG_DRAGOON_STATUS true
 #define DEBUG_DT_STATUS true
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS false
@@ -112,6 +112,9 @@ namespace Units
             {
                 return;
             }
+
+            // Don't track a gas steal
+            if (unit->type.isRefinery() && unit->getDistance(Map::getMyMain()->getPosition()) < 300) return;
 
             // If this is the opponent's initial depot, update the element we already added
             if (unit->type.isResourceDepot() && !enemyUnitTimings[unit->type].empty() && Map::getEnemyStartingMain()
