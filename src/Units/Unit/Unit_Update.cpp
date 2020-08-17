@@ -180,9 +180,6 @@ void UnitImpl::update(BWAPI::Unit unit)
         }
 
         upcomingDamage += it->damage;
-#if UPCOMING_ATTACKS_DEBUG
-        CherryVis::log(id) << "Added upcoming attack (" << it->damage << ") from " << *(it->attacker);
-#endif
         it++;
     }
 
@@ -296,10 +293,19 @@ void UnitImpl::addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet)
     for (auto it = upcomingAttacks.begin(); it != upcomingAttacks.end();)
     {
         if (it->attacker == attacker)
+        {
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Removing upcoming attack from " << *attacker << " because of created bullet";
+#endif
             it = upcomingAttacks.erase(it);
+        }
         else
             it++;
     }
+
+#if UPCOMING_ATTACKS_DEBUG
+    CherryVis::log(id) << "Adding upcoming attack (bullet) from " << *attacker;
+#endif
 
     upcomingAttacks.emplace_back(attacker,
                                  bullet,
@@ -316,6 +322,10 @@ void UnitImpl::addUpcomingAttack(const Unit &attacker)
     {
         case BWAPI::UnitTypes::Protoss_Zealot:
         {
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Adding upcoming attacks from " << *attacker;
+#endif
+
             // Zealots deal damage twice, once after 2 frames and once after 4 frames
             int damagePerHit = Players::attackDamage(attacker->player, attacker->type, player, type) / 2;
             upcomingAttacks.emplace_back(attacker, 2, damagePerHit);
@@ -323,13 +333,23 @@ void UnitImpl::addUpcomingAttack(const Unit &attacker)
             break;
         }
         case BWAPI::UnitTypes::Protoss_Dragoon:
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Adding upcoming attack from " << *attacker;
+#endif
+
             upcomingAttacks.emplace_back(attacker, 7, Players::attackDamage(attacker->player, attacker->type, player, type));
             break;
         case BWAPI::UnitTypes::Protoss_Dark_Templar:
         case BWAPI::UnitTypes::Protoss_Archon:
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Adding upcoming attack from " << *attacker;
+#endif
             upcomingAttacks.emplace_back(attacker, 4, Players::attackDamage(attacker->player, attacker->type, player, type));
             break;
         case BWAPI::UnitTypes::Protoss_Photon_Cannon:
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Adding upcoming attack from " << *attacker;
+#endif
             upcomingAttacks.emplace_back(attacker, 6, Players::attackDamage(attacker->player, attacker->type, player, type));
             break;
     }

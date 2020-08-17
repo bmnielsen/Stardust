@@ -10,60 +10,49 @@ namespace
 {
     int targetPriority(Unit target)
     {
-        // Roughly based on the target prioritization in Locutus that originally came from Steamhammer/UAlbertaBot
+        // This is similar to the target prioritization in Locutus that originally came from Steamhammer/UAlbertaBot
 
         const BWAPI::UnitType targetType = target->type;
-
-        // An addon other than a completed comsat is boring
-        if (targetType.isAddon() && !(targetType == BWAPI::UnitTypes::Terran_Comsat_Station && target->completed))
+        auto closeToOurBase = [&target]()
         {
-            return 1;
-        }
+            auto ourBasePosition = BWAPI::Position(Map::getMyMain()->getPosition());
+            return target->getDistance(ourBasePosition);
+        };
 
-        // if the target is building something near our base something is fishy
-        auto ourBasePosition = BWAPI::Position(Map::getMyMain()->getPosition());
-        if (target->getDistance(ourBasePosition) < 1000)
-        {
-            if (target->type.isWorker() && (target->bwapiUnit->isConstructing() || target->bwapiUnit->isRepairing()))
-            {
-                return 12;
-            }
-            if (target->type.isBuilding())
-            {
-                // This includes proxy buildings, which deserve high priority.
-                // But when bases are close together, it can include innocent buildings.
-                // We also don't want to disrupt priorities in case of proxy buildings
-                // supported by units; we may want to target the units first.
-                if (target->canAttackGround() || target->canAttackAir())
-                {
-                    return 10;
-                }
-                return 8;
-            }
-        }
-
-        if ((targetType == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine && !target->burrowed) ||
-                targetType == BWAPI::UnitTypes::Zerg_Infested_Terran)
-            {
-                return 12;
-            }
-
-        // Observers are very high priority if we have dark templar
-        if (targetType == BWAPI::UnitTypes::Protoss_Observer &&
-            Units::countCompleted(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
+        if (targetType == BWAPI::UnitTypes::Zerg_Infested_Terran ||
+            targetType == BWAPI::UnitTypes::Protoss_High_Templar ||
+            targetType == BWAPI::UnitTypes::Protoss_Reaver ||
+            (targetType == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine && !target->burrowed) ||
+            (targetType == BWAPI::UnitTypes::Protoss_Observer && Units::countCompleted(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0))
         {
             return 12;
         }
 
-        if (targetType == BWAPI::UnitTypes::Protoss_High_Templar ||
-            targetType == BWAPI::UnitTypes::Protoss_Reaver)
-        {
-            return 12;
-        }
-
-        if (targetType == BWAPI::UnitTypes::Protoss_Arbiter)
+        if (targetType == BWAPI::UnitTypes::Protoss_Arbiter ||
+            targetType == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode)
         {
             return 11;
+        }
+
+        if (targetType == BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode ||
+            targetType == BWAPI::UnitTypes::Terran_Dropship ||
+            targetType == BWAPI::UnitTypes::Protoss_Shuttle ||
+            targetType == BWAPI::UnitTypes::Terran_Science_Vessel ||
+            targetType == BWAPI::UnitTypes::Zerg_Scourge ||
+            targetType == BWAPI::UnitTypes::Protoss_Observer ||
+            targetType == BWAPI::UnitTypes::Zerg_Nydus_Canal)
+        {
+            return 10;
+        }
+
+        // Proxies
+        if (target->type.isBuilding() && closeToOurBase())
+        {
+            if (target->canAttackGround() || target->canAttackAir())
+            {
+                return 10;
+            }
+            return 8;
         }
 
         if (targetType == BWAPI::UnitTypes::Terran_Bunker)
@@ -71,36 +60,13 @@ namespace
             return 9;
         }
 
-        // Droppers are as bad as threats. They may be loaded and are often isolated and safer to attack.
-        if (targetType == BWAPI::UnitTypes::Terran_Dropship ||
-            targetType == BWAPI::UnitTypes::Protoss_Shuttle)
-        {
-            return 10;
-        }
-
-        // Also as bad are other dangerous things.
-        if (targetType == BWAPI::UnitTypes::Terran_Science_Vessel ||
-            targetType == BWAPI::UnitTypes::Zerg_Scourge ||
-            targetType == BWAPI::UnitTypes::Protoss_Observer)
-        {
-            return 10;
-        }
-
-        // Sieged tanks are slightly more important than unsieged tanks
-        if (targetType == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode)
-        {
-            return 9;
-        }
-
-        // Anything that can attack and isn't a worker
-        if (!targetType.isWorker() && (target->canAttackGround() || target->canAttackAir()))
-        {
-            return 8;
-        }
-
-        // Next are workers.
         if (targetType.isWorker())
         {
+            if ((target->bwapiUnit->isConstructing() || target->bwapiUnit->isRepairing()) && closeToOurBase())
+            {
+                return 12;
+            }
+
             // Blocking a narrow choke makes you critical.
             if (Map::isInNarrowChoke(target->getTilePosition()))
             {
@@ -127,78 +93,61 @@ namespace
             // Workers that have attacked in the last four seconds
             if ((BWAPI::Broodwar->getFrameCount() - target->lastSeenAttacking) < 96)
             {
-                return 9;
+                return 8;
             }
 
-            // SCVs constructing are also important.
             if (target->bwapiUnit->isConstructing())
             {
-                return 9;
+                return 7;
             }
 
+            return 6;
+        }
+
+        if (target->canAttackGround() || target->canAttackAir())
+        {
             return 8;
         }
 
-        // Important combat units that we may not have targeted above
-        if (targetType == BWAPI::UnitTypes::Protoss_Carrier ||
-            targetType == BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode)
-        {
-            return 8;
-        }
-        // Nydus canal is the most important building to kill.
-        if (targetType == BWAPI::UnitTypes::Zerg_Nydus_Canal)
-        {
-            return 10;
-        }
-        // Spellcasters are as important as key buildings.
-        // Also remember to target other non-threat combat units.
         if (targetType.isSpellcaster() ||
-            targetType.groundWeapon() != BWAPI::WeaponTypes::None ||
-            targetType.airWeapon() != BWAPI::WeaponTypes::None)
+            targetType == BWAPI::UnitTypes::Protoss_Templar_Archives ||
+            targetType == BWAPI::UnitTypes::Zerg_Spawning_Pool)
         {
             return 7;
         }
-        // Templar tech and spawning pool are more important.
-        if (targetType == BWAPI::UnitTypes::Protoss_Templar_Archives)
-        {
-            return 7;
-        }
-        if (targetType == BWAPI::UnitTypes::Zerg_Spawning_Pool)
-        {
-            return 7;
-        }
-        // Don't forget the nexus/cc/hatchery.
+
         if (targetType.isResourceDepot())
         {
             return 6;
         }
-        if (targetType == BWAPI::UnitTypes::Protoss_Pylon)
+
+        if (targetType == BWAPI::UnitTypes::Protoss_Pylon ||
+            targetType == BWAPI::UnitTypes::Terran_Factory ||
+            targetType == BWAPI::UnitTypes::Terran_Armory)
         {
             return 5;
         }
-        if (targetType == BWAPI::UnitTypes::Terran_Factory || targetType == BWAPI::UnitTypes::Terran_Armory)
+
+        if (targetType.isAddon())
         {
-            return 5;
+            return 1;
         }
-        // Downgrade unfinished/unpowered buildings, with exceptions.
-        if (targetType.isBuilding() &&
-            (!target->completed || !target->bwapiUnit->isPowered()) &&
-            !(targetType.isResourceDepot() ||
-              targetType.groundWeapon() != BWAPI::WeaponTypes::None ||
-              targetType.airWeapon() != BWAPI::WeaponTypes::None ||
-              targetType == BWAPI::UnitTypes::Terran_Bunker))
+
+        if (!target->completed || (targetType.requiresPsi() && !target->bwapiUnit->isPowered()))
         {
             return 2;
         }
+
         if (targetType.gasPrice() > 0)
         {
             return 4;
         }
+
         if (targetType.mineralPrice() > 0)
         {
             return 3;
         }
-        // Finally everything else.
+
         return 1;
     }
 
@@ -318,7 +267,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             }
 
             // If we are targeting an enemy base, ignore outlying buildings (except static defense)
-            if (targetIsReachableEnemyBase && distanceToTarget > 200 && target.unit->type.isBuilding() && !target.unit->canAttackGround())
+            if (target.priority < 7 && targetIsReachableEnemyBase && distanceToTarget > 200)
             {
                 continue;
             }
@@ -343,7 +292,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             const int range = unit->getDistance(target.unit);
             int distToRange = std::max(0, range - (target.unit->isFlying ? unit->airRange() : unit->groundRange()));
             int framesToAttack = std::max(unit->cooldownUntil - BWAPI::Broodwar->getFrameCount(),
-                                          (int) ((double) distToRange / unit->type.topSpeed()));
+                                          (int) ((double) distToRange / unit->type.topSpeed()) + BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
 
             if (framesToAttack < attacker.framesToAttack)
             {
@@ -393,6 +342,9 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         int bestAttackerCount = 0;
         int bestDist = INT_MAX;
 
+        int cooldownMoveFrames = std::max(0,
+                                          unit->cooldownUntil - BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getRemainingLatencyFrames() - 2);
+
         int distanceToTarget = unit->getDistance(targetPosition);
         for (auto &potentialTarget : attacker.targets)
         {
@@ -400,7 +352,9 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
             // Initialize the score as a formula of the target priority and how far outside our attack range it is
             // Each priority step is equivalent to 2 tiles
-            const int targetDist = unit->getDistance(potentialTarget->unit);
+            // If the unit is on cooldown, we assume it can move towards the target before attacking
+            const int targetDist = unit->getDistance(potentialTarget->unit) -
+                                   (int) ((double) cooldownMoveFrames * unit->type.topSpeed());
             const int range = potentialTarget->unit->isFlying ? unit->airRange() : unit->groundRange();
             int score = 2 * 32 * potentialTarget->priority - std::max(0, targetDist - range);
 
@@ -410,7 +364,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             // This is what provides some focus fire behaviour, as we simulate previous attacker's hits
             double healthPercentage = (double) potentialTarget->healthIncludingShields /
                                       (double) (potentialTarget->unit->type.maxHitPoints() + potentialTarget->unit->type.maxShields());
-            score += (int) (128.0 * (1.0 - healthPercentage));
+            score += (int) (160.0 * (1.0 - healthPercentage));
 
             // Avoid defensive matrix
             if (potentialTarget->unit->bwapiUnit->isDefenseMatrixed())
