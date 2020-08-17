@@ -5,6 +5,8 @@
 #include "Map.h"
 #include "Geo.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 /*
  * Contains a base, here defined as somewhere the enemy has static defense.
  *

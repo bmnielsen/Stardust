@@ -6,6 +6,8 @@
 #include "UnitUtil.h"
 #include "StrategyEngines/MapSpecific/PlasmaStrategyEngine.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 namespace
 {
     BWAPI::Position getStartPosition(BWAPI::Unit patch, BWAPI::Unit otherPatch)

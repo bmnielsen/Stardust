@@ -8,6 +8,8 @@
 #include "UnitUtil.h"
 #include "General.h"
 
+#include "DebugFlag_CombatSim.h"
+
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_COMBATSIM_CSV false  // Writes a CSV file for each cluster with detailed sim information
 #endif

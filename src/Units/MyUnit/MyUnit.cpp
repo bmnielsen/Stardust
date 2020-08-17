@@ -4,7 +4,8 @@
 #include "UnitUtil.h"
 #include "Units.h"
 #include "Geo.h"
-#include "Map.h"
+
+#include "DebugFlag_UnitOrders.h"
 
 MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         : UnitImpl(unit)

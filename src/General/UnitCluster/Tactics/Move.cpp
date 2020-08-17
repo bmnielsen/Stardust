@@ -5,6 +5,8 @@
 #include "UnitUtil.h"
 #include "Geo.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 /*
  * Cluster movement
  *

@@ -6,6 +6,8 @@
 #include "Geo.h"
 #include "UnitUtil.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 /*
  * Holds a choke.
  *

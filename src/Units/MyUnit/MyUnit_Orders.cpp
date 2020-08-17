@@ -1,5 +1,7 @@
 #include "MyUnit.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 void MyUnitImpl::move(BWAPI::Position position, bool force)
 {
     if (issuedOrderThisFrame)

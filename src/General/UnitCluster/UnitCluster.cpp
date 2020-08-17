@@ -4,6 +4,8 @@
 #include "UnitUtil.h"
 #include "Map.h"
 
+#include "DebugFlag_CombatSim.h"
+
 #if INSTRUMENTATION_ENABLED
 #define DEBUG_CLUSTER_MEMBERSHIP true // Also in Squad.cpp
 #endif

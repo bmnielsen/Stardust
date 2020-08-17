@@ -3,6 +3,8 @@
 #include "Units.h"
 #include "Map.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition)
 {
     // If this map has chokes that may need to be cleared, check if this cluster needs to do so to reach its target

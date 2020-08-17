@@ -2,8 +2,10 @@
 
 #include "Units.h"
 #include "Map.h"
-#include "Players.h"
 #include "UnitUtil.h"
+
+#include "DebugFlag_CombatSim.h"
+#include "DebugFlag_UnitOrders.h"
 
 namespace
 {

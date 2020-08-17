@@ -7,6 +7,8 @@
 #include "WorkerOrderTimer.h"
 #include "Geo.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 namespace Workers
 {
     namespace

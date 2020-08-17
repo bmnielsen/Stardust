@@ -2,7 +2,8 @@
 
 #include "Units.h"
 #include "UnitUtil.h"
-#include "Map.h"
+
+#include "DebugFlag_CombatSim.h"
 
 #include <iomanip>
 

@@ -6,6 +6,8 @@
 #include "BuildingPlacement.h"
 #include "Map.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 namespace Builder
 {
     namespace

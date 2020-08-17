@@ -12,8 +12,9 @@
 // These defines configure a per-frame summary of various unit type's orders, commands, etc.
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_PROBE_STATUS false
-#define DEBUG_ZEALOT_STATUS false
+#define DEBUG_ZEALOT_STATUS true
 #define DEBUG_DRAGOON_STATUS false
+#define DEBUG_DT_STATUS true
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS false
 #define DEBUG_PRODUCINGBUILDING_STATUS true
@@ -565,6 +566,9 @@ namespace Units
 #endif
 #if DEBUG_DRAGOON_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Dragoon;
+#endif
+#if DEBUG_DT_STATUS
+            output = output || unit->type == BWAPI::UnitTypes::Protoss_Dark_Templar;
 #endif
 #if DEBUG_SHUTTLE_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Shuttle;

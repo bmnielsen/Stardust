@@ -3,6 +3,8 @@
 #include "PathFinding.h"
 #include "Map.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 /*
  * In order to support multiple different triggers and forms of movement, it is done in two phases. First the move command is queued, then
  * the most recent move command is issued at the end of the frame. This allows high-priority movement like evading storms to take priority.

@@ -3,7 +3,8 @@
 #include "Units.h"
 #include "Map.h"
 #include "Geo.h"
-#include "Players.h"
+
+#include "DebugFlag_CombatSim.h"
 
 /*
  * Orders a cluster to regroup.

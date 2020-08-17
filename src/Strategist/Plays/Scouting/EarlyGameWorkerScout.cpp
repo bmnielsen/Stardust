@@ -8,9 +8,11 @@
 #include "Players.h"
 #include "Geo.h"
 #include "Opponent.h"
+#include "Strategist.h"
+
+#include "DebugFlag_UnitOrders.h"
 
 #include <bwem.h>
-#include <Strategist/Strategist.h>
 
 #if INSTRUMENTATION_ENABLED
 #define OUTPUT_SCOUTTILE_HEATMAP true

@@ -5,6 +5,8 @@
 #include "PathFinding.h"
 #include "Units.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 namespace
 {
     bool hasPathWithoutDetection(BWAPI::Position start, BWAPI::Position end)
