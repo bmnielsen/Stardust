@@ -13,16 +13,17 @@ TEST(Locutus, RunForever)
         test.opponentRace = BWAPI::Races::Protoss;
         test.opponentModule = []()
         {
-            return new UAlbertaBot::LocutusBotModule();
+            Locutus::LocutusBotModule::setStrategy("4GateGoon");
+            return new Locutus::LocutusBotModule();
         };
         test.onStartOpponent = [&test]()
         {
-            std::cout << "Locutus strategy: " << UAlbertaBot::LocutusBotModule::getStrategyName() << std::endl;
+            std::cout << "Locutus strategy: " << Locutus::LocutusBotModule::getStrategyName() << std::endl;
             if (test.sharedMemory)
             {
                 strncpy(test.sharedMemory,
-                        UAlbertaBot::LocutusBotModule::getStrategyName().c_str(),
-                        std::min(255UL, UAlbertaBot::LocutusBotModule::getStrategyName().size()));
+                        Locutus::LocutusBotModule::getStrategyName().c_str(),
+                        std::min(255UL, Locutus::LocutusBotModule::getStrategyName().size()));
             }
 
             std::cout.setstate(std::ios_base::failbit);
@@ -57,8 +58,8 @@ TEST(Locutus, RunAsLocutus)
     test.opponentRace = BWAPI::Races::Protoss;
     test.myModule = []()
     {
-        UAlbertaBot::LocutusBotModule::setStrategy("ForgeExpand");
-        return new UAlbertaBot::LocutusBotModule();
+        Locutus::LocutusBotModule::setStrategy("ForgeExpand");
+        return new Locutus::LocutusBotModule();
     };
     test.opponentModule = []()
     {
@@ -66,7 +67,7 @@ TEST(Locutus, RunAsLocutus)
     };
     test.onStartMine = []()
     {
-        std::cout << "Locutus strategy: " << UAlbertaBot::LocutusBotModule::getStrategyName() << std::endl;
+        std::cout << "Locutus strategy: " << Locutus::LocutusBotModule::getStrategyName() << std::endl;
     };
     test.onStartOpponent = []()
     {
@@ -80,7 +81,7 @@ TEST(Locutus, RunAsLocutus)
         {
             replayName << "_LOSS";
         }
-        replayName << "_" << UAlbertaBot::LocutusBotModule::getStrategyName();
+        replayName << "_" << Locutus::LocutusBotModule::getStrategyName();
         replayName << "_" << test.randomSeed;
         test.replayName = replayName.str();
     };
@@ -91,13 +92,13 @@ TEST(Locutus, RunAsLocutus)
 TEST(Locutus, 4GateGoon)
 {
     BWTest test;
-    test.map = Maps::GetOne("Roadrunner");
-    test.randomSeed = 24270;
+    test.map = Maps::GetOne("Aztec");
+    test.randomSeed = 59451;
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
-        UAlbertaBot::LocutusBotModule::setStrategy("4GateGoon");
-        return new UAlbertaBot::LocutusBotModule();
+        Locutus::LocutusBotModule::setStrategy("4GateGoon");
+        return new Locutus::LocutusBotModule();
     };
 
     test.run();
@@ -111,8 +112,8 @@ TEST(Locutus, ForgeExpand)
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
-        UAlbertaBot::LocutusBotModule::setStrategy("ForgeExpand");
-        return new UAlbertaBot::LocutusBotModule();
+        Locutus::LocutusBotModule::setStrategy("ForgeExpand");
+        return new Locutus::LocutusBotModule();
     };
 
     test.run();
@@ -126,8 +127,8 @@ TEST(Locutus, 99Gate)
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
-        UAlbertaBot::LocutusBotModule::setStrategy("9-9Gate");
-        return new UAlbertaBot::LocutusBotModule();
+        Locutus::LocutusBotModule::setStrategy("9-9Gate");
+        return new Locutus::LocutusBotModule();
     };
 
     test.run();
@@ -141,8 +142,8 @@ TEST(Locutus, Proxy99Gate)
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
-        UAlbertaBot::LocutusBotModule::setStrategy("Proxy9-9Gate");
-        return new UAlbertaBot::LocutusBotModule();
+        Locutus::LocutusBotModule::setStrategy("Proxy9-9Gate");
+        return new Locutus::LocutusBotModule();
     };
 
     test.run();
@@ -156,8 +157,8 @@ TEST(Locutus, 1012Gate)
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
-        UAlbertaBot::LocutusBotModule::setStrategy("10-12Gate");
-        return new UAlbertaBot::LocutusBotModule();
+        Locutus::LocutusBotModule::setStrategy("10-12Gate");
+        return new Locutus::LocutusBotModule();
     };
 
     test.run();
@@ -169,8 +170,8 @@ TEST(Locutus, 2GateDTRush)
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
-        UAlbertaBot::LocutusBotModule::setStrategy("2GateDTRush");
-        return new UAlbertaBot::LocutusBotModule();
+        Locutus::LocutusBotModule::setStrategy("2GateDTRush");
+        return new Locutus::LocutusBotModule();
     };
 
     test.run();
@@ -182,8 +183,8 @@ TEST(Locutus, CannonFirst4GateGoon)
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
-        UAlbertaBot::LocutusBotModule::setStrategy("CannonFirst4GateGoon");
-        return new UAlbertaBot::LocutusBotModule();
+        Locutus::LocutusBotModule::setStrategy("CannonFirst4GateGoon");
+        return new Locutus::LocutusBotModule();
     };
 
     test.run();
@@ -198,8 +199,8 @@ TEST(Locutus, PlasmaProxy2Gate)
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
-        UAlbertaBot::LocutusBotModule::setStrategy("PlasmaProxy2Gate");
-        return new UAlbertaBot::LocutusBotModule();
+        Locutus::LocutusBotModule::setStrategy("PlasmaProxy2Gate");
+        return new Locutus::LocutusBotModule();
     };
 
     test.run();

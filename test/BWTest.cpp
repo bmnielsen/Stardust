@@ -523,7 +523,7 @@ void BWTest::runGame(bool opponent)
     {
         // Move opponent learning files to read
         moveFileToReadIfExists("bwapi-data/write/om_Startest.txt"); // Steamhammer
-        moveFileToReadIfExists("bwapi-data/write/om_locutusstartest.txt"); // Locutus
+        moveFileToReadIfExists("bwapi-data/write/omlocutus_startest.txt"); // Locutus
     }
     h->bwgame.leaveGame();
 }
