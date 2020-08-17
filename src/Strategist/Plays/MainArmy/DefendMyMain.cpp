@@ -187,7 +187,7 @@ bool DefendMyMain::canTransitionToAttack() const
     return squad->canTransitionToAttack();
 }
 
-void DefendMyMain::removeUnit(MyUnit unit)
+void DefendMyMain::removeUnit(const MyUnit &unit)
 {
     if (unit == reservedGasStealAttacker)
     {

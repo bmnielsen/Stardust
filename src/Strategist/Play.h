@@ -53,10 +53,10 @@ public:
     virtual std::shared_ptr<Squad> getSquad() { return nullptr; }
 
     // Add a unit to the play. By default, this adds it to the play's squad, if it has one.
-    virtual void addUnit(MyUnit unit);
+    virtual void addUnit(const MyUnit &unit);
 
     // Remove a unit from the play. By default, this removes it from the play's squad, if it has one.
-    virtual void removeUnit(MyUnit unit);
+    virtual void removeUnit(const MyUnit &unit);
 
     // Runs at the start of the Strategist's frame and updates the play status.
     virtual void update() {}

@@ -18,14 +18,16 @@ public:
         if (dragoon) movableUnitCallback(dragoon);
     }
 
-    void addUnit(MyUnit unit) override
+    void addUnit(const MyUnit &unit) override
     {
         dragoon = unit;
+        Play::addUnit(unit);
     }
 
-    void removeUnit(MyUnit unit) override
+    void removeUnit(const MyUnit &unit) override
     {
         dragoon = nullptr;
+        Play::removeUnit(unit);
     }
 
 private:

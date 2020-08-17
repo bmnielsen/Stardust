@@ -15,9 +15,9 @@ public:
 
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 
-    void addUnit(MyUnit unit) override;
+    void addUnit(const MyUnit &unit) override;
 
-    void removeUnit(MyUnit unit) override;
+    void removeUnit(const MyUnit &unit) override;
 
 private:
     MyUnit shuttle;
