@@ -21,8 +21,8 @@ void StrategyEngine::handleGasStealProduction(std::map<int, std::vector<Producti
         return;
     }
 
-    // Ensure we have two zealots
-    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+    // Ensure we have a zealot
+    prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                BWAPI::UnitTypes::Protoss_Zealot,
                                                                1,
                                                                1);

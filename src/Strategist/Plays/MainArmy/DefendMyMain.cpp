@@ -94,20 +94,33 @@ void DefendMyMain::update()
             reservedGasStealAttacker = nullptr;
         }
 
-        // Pull three workers to attack the gas steal once we have at least one zealot in progress
-        if (reservedWorkerGasStealAttackers.size() < 3 && Units::countAll(BWAPI::UnitTypes::Protoss_Zealot) > 0)
+        // Pull workers to attack the gas steal
+        int desiredWorkers = 2;
+        if (Units::countAll(BWAPI::UnitTypes::Protoss_Zealot) > 0) desiredWorkers = 5;
+        if (reservedWorkerGasStealAttackers.size() < desiredWorkers)
         {
-            std::vector<std::pair<MyUnit, Unit>> dummyUnitsAndTargets;
-
-            for (int i = 0; i < (3 - reservedWorkerGasStealAttackers.size()); i++)
+            for (int i = 0; i < (desiredWorkers - reservedWorkerGasStealAttackers.size()); i++)
             {
                 auto worker = Workers::getClosestReassignableWorker(Map::getMyMain()->getPosition(), false);
                 if (!worker) break;
 
                 Workers::reserveWorker(worker);
-                worker->attackUnit(gasSteal, dummyUnitsAndTargets);
                 reservedWorkerGasStealAttackers.push_back(worker);
             }
+        }
+        else if (reservedWorkerGasStealAttackers.size() > desiredWorkers)
+        {
+            auto it = reservedWorkerGasStealAttackers.begin();
+            Workers::releaseWorker(*it);
+            reservedWorkerGasStealAttackers.erase(it);
+        }
+
+        // Execute attack with our reserved units
+        std::vector<std::pair<MyUnit, Unit>> dummyUnitsAndTargets;
+        if (reservedGasStealAttacker) reservedGasStealAttacker->attackUnit(gasSteal, dummyUnitsAndTargets);
+        for (auto &worker : reservedWorkerGasStealAttackers)
+        {
+            worker->attackUnit(gasSteal, dummyUnitsAndTargets);
         }
     }
     else
