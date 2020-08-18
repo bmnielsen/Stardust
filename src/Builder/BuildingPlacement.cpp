@@ -791,6 +791,11 @@ namespace BuildingPlacement
                 {
                     auto tilePosition = geyser->getTilePosition();
                     if (!tilePosition.isValid()) tilePosition = geyser->getInitialTilePosition();
+                    if (!tilePosition.isValid())
+                    {
+                        Log::Get() << "WARNING: Geyser at base " << base->getTilePosition() << " has invalid tile position";
+                        continue;
+                    }
 
                     if (Builder::isPendingHere(tilePosition)) continue;
 

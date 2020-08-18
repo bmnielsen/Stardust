@@ -14,6 +14,13 @@ namespace
                 return unit;
             }
         }
+        for (auto unit : BWAPI::Broodwar->getStaticGeysers())
+        {
+            if (unit->getTilePosition() == tile) return unit;
+        }
+
+        Log::Get() << "WARNING: Unable to find geyser or refinery @ " << tile;
+
         return nullptr;
     }
 }
@@ -61,13 +68,7 @@ std::vector<BWAPI::Unit> Base::geysers() const
             geyser = findGeyser((*it)->getInitialTilePosition());
             if (geyser)
             {
-                Log::Get() << "UNKNOWN GEYSER TYPE, recovered";
-
                 *it = geyser;
-            }
-            else
-            {
-                Log::Get() << "UNKNOWN GEYSER TYPE, could not find alternative";
             }
         }
 
