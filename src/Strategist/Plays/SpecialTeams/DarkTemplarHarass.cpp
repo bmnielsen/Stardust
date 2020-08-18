@@ -118,12 +118,6 @@ namespace
 
     void moveToBase(MyUnit &unit, Base *base)
     {
-        if (unit->getDistance(base->getPosition()) < 400)
-        {
-            unit->moveTo(base->mineralLineCenter);
-            return;
-        }
-
         auto grid = PathFinding::getNavigationGrid(base->getTilePosition());
         if (grid)
         {
@@ -168,7 +162,9 @@ namespace
         auto base = getBaseToHarass(unit);
         if (base)
         {
-            if (unit->getDistance(base->mineralLineCenter) > 320)
+            if (unit->getDistance(base->mineralLineCenter) > 320 ||
+                Map::isInNarrowChoke(base->getTilePosition()) ||
+                BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) != base->getArea())
             {
 #if DEBUG_UNIT_ORDERS
                 CherryVis::log(unit->id) << "Moving to harass base @ " << BWAPI::WalkPosition(base->getPosition());
