@@ -96,7 +96,7 @@ void DefendMyMain::update()
 
         // Pull workers to attack the gas steal
         int desiredWorkers = 2;
-        if (Units::countAll(BWAPI::UnitTypes::Protoss_Zealot) > 0) desiredWorkers = 5;
+        if (Units::countAll(BWAPI::UnitTypes::Protoss_Zealot) > 0) desiredWorkers = 4;
         if (reservedWorkerGasStealAttackers.size() < desiredWorkers)
         {
             for (int i = 0; i < (desiredWorkers - reservedWorkerGasStealAttackers.size()); i++)
