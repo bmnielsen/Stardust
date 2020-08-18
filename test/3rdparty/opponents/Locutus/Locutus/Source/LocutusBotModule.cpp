@@ -105,6 +105,11 @@ void LocutusBotModule::setStrategy(std::string strategy)
     Config::StardustTestStrategyName = strategy;
 }
 
+void LocutusBotModule::forceGasSteal()
+{
+    Config::StardustTestForceGasSteal = true;
+}
+
 std::string LocutusBotModule::getStrategyName()
 {
     return Config::Strategy::StrategyName;

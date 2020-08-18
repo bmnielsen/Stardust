@@ -177,7 +177,12 @@ void ParseUtils::ParseConfigFile(const std::string & filename)
 		Config::Strategy::SurrenderWhenHopeIsLost = GetBoolByRace("SurrenderWhenHopeIsLost", strategy);
 		Config::Strategy::TrainingMode = GetBoolByRace("TrainingMode", strategy);
 
-		bool openingStrategyDecided = false;
+        if (Config::StardustTestForceGasSteal)
+        {
+            OpponentModel::Instance().setRecommendGasSteal(true);
+        }
+
+        bool openingStrategyDecided = false;
 
 		// 0. Parse all the openings.
 		// Besides making them all available, this checks that they are syntatically valid.
