@@ -50,5 +50,7 @@ private:
     BWAPI::TilePosition tile;
     const BWEM::Base *bwemBase;
 
+    mutable std::vector<BWAPI::Unit> geyserUnits;
+
     void analyzeMineralLine();
 };

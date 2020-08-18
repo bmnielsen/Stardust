@@ -789,10 +789,13 @@ namespace BuildingPlacement
 
                 for (auto geyser : base->geysers())
                 {
-                    if (Builder::isPendingHere(geyser->getInitialTilePosition())) continue;
+                    auto tilePosition = geyser->getTilePosition();
+                    if (!tilePosition.isValid()) tilePosition = geyser->getInitialTilePosition();
+
+                    if (Builder::isPendingHere(tilePosition)) continue;
 
                     // TODO: Order in some logical way
-                    _availableGeysers.emplace(Block::Location(geyser->getInitialTilePosition()), 0, 0, 0);
+                    _availableGeysers.emplace(Block::Location(tilePosition), 0, 0, 0);
                 }
             }
         }
