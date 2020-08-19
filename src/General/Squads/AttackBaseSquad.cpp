@@ -230,7 +230,6 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
 
     // TODO: If our units can't do any damage (e.g. ground-only vs. air, melee vs. kiting ranged units), do something else
 
-
     // Make the final decision based on what state we are currently in
 
     bool attack;
@@ -252,6 +251,43 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
         cluster.setActivity(UnitCluster::Activity::Attacking);
         cluster.attack(unitsAndTargets, targetPosition);
         return;
+    }
+
+    // Check if our cluster should try to link up with a closer cluster
+    if (currentVanguardCluster && currentVanguardCluster->center != cluster.center)
+    {
+        // Link up if our vanguard unit is closer to the vanguard cluster than its current target
+        bool linkUp = false;
+        for (auto &unitAndTarget : unitsAndTargets)
+        {
+            if (unitAndTarget.first != cluster.vanguard) continue;
+
+            if (!unitAndTarget.second || !unitAndTarget.second->lastPositionValid)
+            {
+                linkUp = true;
+                break;
+            }
+
+            int distTarget = PathFinding::GetGroundDistance(
+                    unitAndTarget.first->lastPosition,
+                    unitAndTarget.second->lastPosition,
+                    unitAndTarget.first->type);
+            int distVanguardCluster = PathFinding::GetGroundDistance(unitAndTarget.first->lastPosition,
+                                                                     currentVanguardCluster->center,
+                                                                     unitAndTarget.first->type);
+            if (distTarget != -1 && distVanguardCluster != -1 && distVanguardCluster < distTarget)
+            {
+                linkUp = true;
+                break;
+            }
+        }
+
+        if (linkUp)
+        {
+            cluster.setActivity(UnitCluster::Activity::Moving);
+            cluster.move(currentVanguardCluster->center);
+            return;
+        }
     }
 
     // TODO: Run retreat sim?
