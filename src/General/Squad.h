@@ -31,13 +31,20 @@ public:
 
     [[nodiscard]] std::shared_ptr<UnitCluster> vanguardCluster(int *distToTargetPosition = nullptr) const;
 
-    explicit Squad(std::string label) : label(std::move(label)), targetPosition(BWAPI::Positions::Invalid) {}
+    explicit Squad(std::string label)
+            : label(std::move(label))
+            , targetPosition(BWAPI::Positions::Invalid)
+            , vanguardClusterDistToTargetPosition(INT_MAX) {}
 
 protected:
     BWAPI::Position targetPosition;
 
     std::set<std::shared_ptr<UnitCluster>> clusters;
     std::map<MyUnit, std::shared_ptr<UnitCluster>> unitToCluster;
+
+    std::shared_ptr<UnitCluster> currentVanguardCluster;
+    int vanguardClusterDistToTargetPosition;
+
     std::set<Unit> enemiesNeedingDetection;
     std::set<MyUnit> detectors;
 

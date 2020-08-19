@@ -210,6 +210,21 @@ void Squad::updateClusters()
             addUnitToBestCluster(unit);
         }
     }
+
+    // Find the vanguard cluster
+    currentVanguardCluster = nullptr;
+    vanguardClusterDistToTargetPosition = INT_MAX;
+    for (const auto &cluster : clusters)
+    {
+        int dist = PathFinding::GetGroundDistance(
+                cluster->vanguard ? cluster->vanguard->lastPosition : cluster->center,
+                targetPosition);
+        if (dist < vanguardClusterDistToTargetPosition)
+        {
+            vanguardClusterDistToTargetPosition = dist;
+            currentVanguardCluster = cluster;
+        }
+    }
 }
 
 void Squad::execute()
@@ -265,26 +280,12 @@ bool Squad::hasClusterWithActivity(UnitCluster::Activity activity) const
 
 std::shared_ptr<UnitCluster> Squad::vanguardCluster(int *distToTargetPosition) const
 {
-    int minDist = INT_MAX;
-    std::shared_ptr<UnitCluster> vanguard = nullptr;
-    for (const auto &cluster : clusters)
-    {
-        int dist = PathFinding::GetGroundDistance(
-                cluster->vanguard ? cluster->vanguard->lastPosition : cluster->center,
-                targetPosition);
-        if (dist < minDist)
-        {
-            minDist = dist;
-            vanguard = cluster;
-        }
-    }
-
     if (distToTargetPosition)
     {
-        *distToTargetPosition = minDist;
+        *distToTargetPosition = vanguardClusterDistToTargetPosition;
     }
 
-    return vanguard;
+    return currentVanguardCluster;
 }
 
 void Squad::updateDetectionNeeds(std::set<Unit> &enemyUnits)
