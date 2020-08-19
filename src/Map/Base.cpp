@@ -38,6 +38,7 @@ Base::Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase)
 {
     for (auto &geyser : _bwemBase->Geysers())
     {
+        geyserTiles.push_back(geyser->Unit()->getInitialTilePosition());
         geyserUnits.push_back(geyser->Unit());
     }
 
@@ -58,26 +59,22 @@ std::vector<BWAPI::Unit> Base::mineralPatches() const
 std::vector<BWAPI::Unit> Base::geysers() const
 {
     std::vector<BWAPI::Unit> result;
-    for (auto it = geyserUnits.begin(); it != geyserUnits.end(); it++)
+    for (size_t i = 0; i < geyserUnits.size(); i++)
     {
-        auto &geyser = *it;
-
-        if (geyser->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser &&
-            !geyser->getType().isRefinery())
+        if (!geyserUnits[i] ||
+            (geyserUnits[i]->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser &&
+             !geyserUnits[i]->getType().isRefinery()))
         {
-            geyser = findGeyser((*it)->getInitialTilePosition());
-            if (geyser)
-            {
-                *it = geyser;
-            }
+            geyserUnits[i] = findGeyser(geyserTiles[i]);
+            if (!geyserUnits[i]) continue;
         }
 
-        if (geyser->getType().isRefinery())
+        if (geyserUnits[i]->getType().isRefinery())
         {
             continue;
         }
 
-        result.push_back(geyser);
+        result.push_back(geyserUnits[i]);
     }
 
     return result;
@@ -86,23 +83,19 @@ std::vector<BWAPI::Unit> Base::geysers() const
 std::vector<BWAPI::Unit> Base::refineries() const
 {
     std::vector<BWAPI::Unit> result;
-    for (auto it = geyserUnits.begin(); it != geyserUnits.end(); it++)
+    for (size_t i = 0; i < geyserUnits.size(); i++)
     {
-        auto &geyser = *it;
-
-        if (geyser->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser &&
-            !geyser->getType().isRefinery())
+        if (!geyserUnits[i] ||
+            (geyserUnits[i]->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser &&
+             !geyserUnits[i]->getType().isRefinery()))
         {
-            geyser = findGeyser((*it)->getInitialTilePosition());
-            if (geyser)
-            {
-                *it = geyser;
-            }
+            geyserUnits[i] = findGeyser(geyserTiles[i]);
+            if (!geyserUnits[i]) continue;
         }
 
-        if (geyser->getType().isRefinery() && geyser->getPlayer() == BWAPI::Broodwar->self())
+        if (geyserUnits[i]->getType().isRefinery() && geyserUnits[i]->getPlayer() == BWAPI::Broodwar->self())
         {
-            result.push_back(geyser);
+            result.push_back(geyserUnits[i]);
         }
     }
 
