@@ -13,7 +13,8 @@ TEST(Locutus, RunForever)
         test.opponentRace = BWAPI::Races::Protoss;
         test.opponentModule = []()
         {
-            Locutus::LocutusBotModule::setStrategy("4GateGoon");
+//            Locutus::LocutusBotModule::setStrategy("4GateGoon");
+//            Locutus::LocutusBotModule::forceGasSteal();
             return new Locutus::LocutusBotModule();
         };
         test.onStartOpponent = [&test]()
