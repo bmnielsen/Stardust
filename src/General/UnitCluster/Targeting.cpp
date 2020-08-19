@@ -6,6 +6,10 @@
 #include "Map.h"
 #include "Players.h"
 
+#if INSTRUMENTATION_ENABLED_VERBOSE
+#define DEBUG_TARGETING false  // Writes verbose log info to debug for each unit targeting
+#endif
+
 namespace
 {
     int targetPriority(Unit target)
@@ -214,11 +218,20 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         targets.emplace_back(targetUnit);
     }
 
+#if DEBUG_TARGETING
+    std::ostringstream dbg;
+    dbg << "Targeting for cluster " << BWAPI::TilePosition(center) << " - targetIsReachableEnemyBase=" << targetIsReachableEnemyBase;
+#endif
+
     // Perform a pre-scan to get valid targets and the frame at which we can attack them for each unit
     std::vector<Attacker> attackers;
     attackers.reserve(units.size());
     for (const auto &unit : units)
     {
+#if DEBUG_TARGETING
+        dbg << "\n" << *unit << " target filtering:";
+#endif
+
         // If the unit isn't ready, lock it to its current target and skip targeting completely
         if (!unit->isReady())
         {
@@ -244,6 +257,11 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 }
             }
 
+#if DEBUG_TARGETING
+            dbg << "\n Not ready, locking to current target";
+            if (targetUnit) dbg << " " << *targetUnit;
+#endif
+
             result.emplace_back(std::make_pair(unit, targetUnit));
             continue;
         }
@@ -263,12 +281,18 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 unit->health <= 0 ||
                 !unit->canAttack(target.unit))
             {
+#if DEBUG_TARGETING
+                dbg << "\n Skipping " << *target.unit << " because of type / detection / health / can't attack";
+#endif
                 continue;
             }
 
             // If we are targeting an enemy base, ignore outlying buildings (except static defense)
             if (target.priority < 7 && targetIsReachableEnemyBase && distanceToTarget > 200)
             {
+#if DEBUG_TARGETING
+                dbg << "\n Skipping " << *target.unit << " as priority < 7, targetIsReachableEnemyBase, distanceToTarget > 200";
+#endif
                 continue;
             }
 
@@ -277,16 +301,25 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 && unit->type != BWAPI::UnitTypes::Protoss_Reaver
                 && target.unit->bwapiUnit->isUnderDarkSwarm())
             {
+#if DEBUG_TARGETING
+                dbg << "\n Skipping " << *target.unit << " as under dark swarm";
+#endif
                 continue;
             }
 
             // Melee cannot hit targets under disruption web and don't want to attack targets under storm
             if (!isRanged && (target.unit->bwapiUnit->isUnderDisruptionWeb() || target.unit->bwapiUnit->isUnderStorm()))
             {
+#if DEBUG_TARGETING
+                dbg << "\n Skipping " << *target.unit << " as under disruption web";
+#endif
                 continue;
             }
 
             // This is a suitable target
+#if DEBUG_TARGETING
+            dbg << "\n Added target " << *target.unit;
+#endif
             attacker.targets.emplace_back(&target);
 
             const int range = unit->getDistance(target.unit);
@@ -337,6 +370,10 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
     {
         auto &unit = attacker.unit;
 
+#if DEBUG_TARGETING
+        dbg << "\n" << *unit << " target scoring:";
+#endif
+
         Target *bestTarget = nullptr;
         int bestScore = -999999;
         int bestAttackerCount = 0;
@@ -348,7 +385,13 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         int distanceToTarget = unit->getDistance(targetPosition);
         for (auto &potentialTarget : attacker.targets)
         {
-            if (potentialTarget->healthIncludingShields <= 0) continue;
+            if (potentialTarget->healthIncludingShields <= 0)
+            {
+#if DEBUG_TARGETING
+                dbg << "\n Skipping target scoring " << *potentialTarget->unit << " as it is predicted to be dead";
+#endif
+                continue;
+            }
 
             // Initialize the score as a formula of the target priority and how far outside our attack range it is
             // Each priority step is equivalent to 2 tiles
@@ -446,6 +489,12 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 }
             }
 
+#if DEBUG_TARGETING
+            dbg << "\n Target " << *potentialTarget->unit << " scored: score=" << score
+                << ", attackerCount=" << potentialTarget->attackerCount
+                << ", dist=" << targetDist;
+#endif
+
             // See if this is the best target
             // Criteria:
             // - Score is higher
@@ -459,6 +508,10 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 bestAttackerCount = potentialTarget->attackerCount;
                 bestDist = targetDist;
                 bestTarget = potentialTarget;
+
+#if DEBUG_TARGETING
+                dbg << " (best)";
+#endif
             }
         }
 
@@ -466,12 +519,24 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         {
             bestTarget->dealDamage(unit);
             result.emplace_back(std::make_pair(attacker.unit, bestTarget->unit));
+
+#if DEBUG_TARGETING
+            dbg << "\n Selected target: " << *bestTarget->unit;
+#endif
         }
         else
         {
             result.emplace_back(std::make_pair(attacker.unit, nullptr));
+
+#if DEBUG_TARGETING
+            dbg << "\n No target";
+#endif
         }
     }
+
+#if DEBUG_TARGETING
+    Log::Debug() << dbg.str();
+#endif
 
     return result;
 }
