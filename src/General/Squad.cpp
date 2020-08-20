@@ -11,12 +11,11 @@ namespace
     // Units are added to a cluster if they are within this distance of the cluster center
     const int ADD_THRESHOLD = 320;
 
-    // Clusters are combined if their centers are within this distance of each other
+    // Clusters are combined if their centers are within this distance of each other, adjusted for cluster size
     const int COMBINE_THRESHOLD = 320;
 
-    // Units are removed from a cluster if they are further than this distance from the cluster center
-    // This is deliberately large to try to avoid too much reshuffling of clusters
-    const int REMOVE_THRESHOLD = COMBINE_THRESHOLD + ADD_THRESHOLD;
+    // Units are removed from a cluster if they are further than this distance from the cluster center, adjusted for cluster size
+    const int REMOVE_THRESHOLD = 480;
 
     // Determines whether we need detection to effectively fight the given unit.
     bool unitNeedsDetection(const Unit &unit)
@@ -51,12 +50,13 @@ bool Squad::canAddUnitToCluster(const MyUnit &unit, const std::shared_ptr<UnitCl
 
 bool Squad::shouldCombineClusters(const std::shared_ptr<UnitCluster> &first, const std::shared_ptr<UnitCluster> &second) const
 {
-    return PathFinding::GetGroundDistance(first->center, second->center, BWAPI::UnitTypes::Protoss_Dragoon) <= COMBINE_THRESHOLD;
+    return PathFinding::GetGroundDistance(first->center, second->center, BWAPI::UnitTypes::Protoss_Dragoon) <=
+           (COMBINE_THRESHOLD + std::min(first->units.size(), second->units.size()) * 32);
 }
 
 bool Squad::shouldRemoveFromCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster) const
 {
-    return unit->getDistance(cluster->center) > REMOVE_THRESHOLD;
+    return unit->getDistance(cluster->center) > (REMOVE_THRESHOLD + cluster->units.size() * 32);
 }
 
 void Squad::addUnitToBestCluster(const MyUnit &unit)
@@ -152,7 +152,7 @@ void Squad::updateClusters()
     }
 
     // Find clusters that should be combined
-    for (auto firstIt = clusters.begin(); firstIt != clusters.end(); )
+    for (auto firstIt = clusters.begin(); firstIt != clusters.end();)
     {
         auto secondIt = firstIt;
         for (secondIt++; secondIt != clusters.end();)
