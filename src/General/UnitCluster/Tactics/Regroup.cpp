@@ -118,6 +118,13 @@ namespace
 #endif
         return false;
     }
+
+    bool shouldStandGround(const CombatSimResult &initialSimResult)
+    {
+        // For now just stand ground if the sim result indicates no damage to our units
+        // We may want to make this less strict later
+        return initialSimResult.myPercentLost() < 0.001;
+    }
 }
 
 void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
@@ -126,62 +133,138 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                           const CombatSimResult &simResult,
                           BWAPI::Position targetPosition)
 {
-    // If this is the first regrouping frame, determine the type of regrouping to use
-    if (currentSubActivity == SubActivity::None)
+    // First choose which regrouping mode we want to use
+    switch (currentSubActivity)
     {
-        // Does the enemy have static defense?
-        bool staticDefense = false;
-        for (const auto &unit : enemyUnits)
+        case SubActivity::None:
         {
-            if (unit->isStaticGroundDefense())
+            // Does the enemy have static defense?
+            bool staticDefense = false;
+            for (const auto &unit : enemyUnits)
             {
-                staticDefense = true;
-                break;
+                if (unit->isStaticGroundDefense())
+                {
+                    staticDefense = true;
+                    break;
+                }
             }
-        }
 
-        if (staticDefense && shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            if (staticDefense && shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            {
+                setSubActivity(SubActivity::ContainStaticDefense);
+            }
+            else if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            {
+                setSubActivity(SubActivity::ContainChoke);
+            }
+            else
+            {
+                setSubActivity(SubActivity::Flee);
+            }
+
+            break;
+        }
+        case SubActivity::ContainStaticDefense:
         {
-            setSubActivity(SubActivity::ContainStaticDefense);
+            if (!shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            {
+                setSubActivity(SubActivity::Flee);
+            }
+            break;
         }
-        else if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+        case SubActivity::ContainChoke:
         {
-            setSubActivity(SubActivity::ContainChoke);
+            if (!shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            {
+                setSubActivity(SubActivity::Flee);
+            }
+            break;
         }
-        else
+        case SubActivity::StandGround:
         {
-            setSubActivity(SubActivity::Flee);
+            // Flee if it is no longer safe to stand ground
+            if (!shouldStandGround(simResult))
+            {
+                setSubActivity(SubActivity::Flee);
+            }
+
+            break;
+        }
+        case SubActivity::Flee:
+        {
+            // We might flee through a choke that we can contain from the other side
+            if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            {
+                setSubActivity(SubActivity::ContainChoke);
+            }
+
+            // While fleeing we will often link up with reinforcements, or the enemy will not pursue, so it makes sense to stand ground instead
+            if (shouldStandGround(simResult))
+            {
+                setSubActivity(SubActivity::StandGround);
+            }
+
+            break;
         }
     }
-    else if ((currentSubActivity == SubActivity::ContainStaticDefense
-              && !shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult))
-             || (currentSubActivity == SubActivity::ContainChoke && !shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult)))
-    {
-        setSubActivity(SubActivity::Flee);
-    }
 
-    if (currentSubActivity == SubActivity::Flee)
+    // Now execute the regrouping activity
+    switch (currentSubActivity)
     {
-        // TODO: Support fleeing elsewhere
-        move(Map::getMyMain()->getPosition());
-    }
+        case SubActivity::None:
+        {
+            Log::Get() << "WARNING: Cluster @ " << BWAPI::TilePosition(center) << " has no valid regroup subactivity to execute";
 
-    if (currentSubActivity == SubActivity::ContainStaticDefense)
-    {
-        containBase(unitsAndTargets, enemyUnits, targetPosition);
-    }
+            break;
+        }
+        case SubActivity::ContainStaticDefense:
+        {
+            containBase(unitsAndTargets, enemyUnits, targetPosition);
 
-    if (currentSubActivity == SubActivity::ContainChoke)
-    {
-        auto end1Dist = PathFinding::GetGroundDistance(targetPosition,
-                                                       simResult.narrowChoke->end1Center,
-                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                       PathFinding::PathFindingOptions::UseNearestBWEMArea);
-        auto end2Dist = PathFinding::GetGroundDistance(targetPosition,
-                                                       simResult.narrowChoke->end2Center,
-                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                       PathFinding::PathFindingOptions::UseNearestBWEMArea);
-        auto chokeDefendEnd = end1Dist < end2Dist ? simResult.narrowChoke->end2Center : simResult.narrowChoke->end1Center;
-        holdChoke(simResult.narrowChoke, chokeDefendEnd, unitsAndTargets);
+            break;
+        }
+        case SubActivity::ContainChoke:
+        {
+            auto end1Dist = PathFinding::GetGroundDistance(targetPosition,
+                                                           simResult.narrowChoke->end1Center,
+                                                           BWAPI::UnitTypes::Protoss_Dragoon,
+                                                           PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            auto end2Dist = PathFinding::GetGroundDistance(targetPosition,
+                                                           simResult.narrowChoke->end2Center,
+                                                           BWAPI::UnitTypes::Protoss_Dragoon,
+                                                           PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            auto chokeDefendEnd = end1Dist < end2Dist ? simResult.narrowChoke->end2Center : simResult.narrowChoke->end1Center;
+            holdChoke(simResult.narrowChoke, chokeDefendEnd, unitsAndTargets);
+
+            break;
+        }
+        case SubActivity::StandGround:
+        {
+            // If the center of the cluster is walkable, move towards it
+            // Otherwise move towards the vanguard with the assumption that the center will become walkable soon
+            // (otherwise this results in forward motion as units move ahead and become the new vanguard)
+            if (Map::isWalkable(BWAPI::TilePosition(center)))
+            {
+                move(center);
+            }
+            else if (vanguard)
+            {
+                move(vanguard->lastPosition);
+            }
+            else
+            {
+                // Flee if we for some reason don't have a vanguard unit
+                move(Map::getMyMain()->getPosition());
+            }
+
+            break;
+        }
+        case SubActivity::Flee:
+        {
+            // TODO: Support fleeing elsewhere
+            move(Map::getMyMain()->getPosition());
+
+            break;
+        }
     }
 }

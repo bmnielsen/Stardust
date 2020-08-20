@@ -21,6 +21,7 @@ namespace
             {UnitCluster::SubActivity::None,                 "None"},
             {UnitCluster::SubActivity::ContainStaticDefense, "ContainStaticDefense"},
             {UnitCluster::SubActivity::ContainChoke,         "ContainChoke"},
+            {UnitCluster::SubActivity::StandGround,          "StandGround"},
             {UnitCluster::SubActivity::Flee,                 "Flee"}
     };
 }

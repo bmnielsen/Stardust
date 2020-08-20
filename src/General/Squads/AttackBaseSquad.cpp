@@ -85,6 +85,16 @@ namespace
             return false;
         }
 
+        // If the fight is now across a choke, abort the attack immediately
+        // We probably want to try to hold the choke instead
+        if (simResult.narrowChoke && !previousSimResult.narrowChoke)
+        {
+#if DEBUG_COMBATSIM
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": aborting as the fight is now across a narrow choke";
+#endif
+            return false;
+        }
+
         // Otherwise only abort the attack when the sim has been stable for a number of frames
         if (cluster.recentSimResults.size() < 24)
         {

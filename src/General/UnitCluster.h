@@ -14,7 +14,7 @@ public:
     };
     enum class SubActivity
     {
-        None, ContainStaticDefense, ContainChoke, Flee
+        None, ContainStaticDefense, ContainChoke, StandGround, Flee
     };
 
     BWAPI::Position center;
