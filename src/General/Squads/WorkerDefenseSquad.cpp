@@ -16,9 +16,13 @@ namespace
             int dist = myUnit->getDistance(enemy);
             if (dist < bestTargetDist || (dist == bestTargetDist && (enemy->lastHealth + enemy->lastShields) < bestTargetHealth))
             {
-                if (!allowRetreating && (myUnit->getDistance(enemy, enemy->predictPosition(1)) > dist))
+                if (!allowRetreating)
                 {
-                    continue;
+                    auto predictedEnemyPosition = enemy->predictPosition(1);
+                    if (predictedEnemyPosition.isValid() && myUnit->getDistance(enemy, predictedEnemyPosition) > dist)
+                    {
+                        continue;
+                    }
                 }
 
                 bestTarget = enemy;
@@ -87,7 +91,8 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
         }
 
         auto comingPosition = unit->predictPosition(24);
-        if (comingPosition.isValid() && Map::isInOwnMineralLine(BWAPI::TilePosition(comingPosition)))
+        if (!comingPosition.isValid()) comingPosition = unit->lastPosition;
+        if (Map::isInOwnMineralLine(BWAPI::TilePosition(comingPosition)))
         {
             addUnit();
             continue;
@@ -202,6 +207,7 @@ void WorkerDefenseSquad::executeFullWorkerDefense(std::set<Unit> &enemyUnits, co
         workersAndTargets.emplace_back(std::make_pair(worker, bestTarget));
 
         auto predictedPosition = bestTarget->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        if (!predictedPosition.isValid()) predictedPosition = bestTarget->lastPosition;
         if (worker->isInOurWeaponRange(bestTarget, predictedPosition) ||
             worker->isInEnemyWeaponRange(bestTarget, predictedPosition))
         {

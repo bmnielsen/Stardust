@@ -106,8 +106,13 @@ bool MyDragoon::isReady() const
         // Otherwise only allow switching targets if the current one is expected to be too far away to attack
         BWAPI::Position myPredictedPosition = predictPosition(framesToNextAttack);
         BWAPI::Position targetPredictedPosition = targetUnit->predictPosition(framesToNextAttack);
-        int predictedDistance = Geo::EdgeToEdgeDistance(type, myPredictedPosition, targetUnit->type, targetPredictedPosition);
-        return predictedDistance > range(targetUnit);
+        if (myPredictedPosition.isValid() && targetPredictedPosition.isValid())
+        {
+            int predictedDistance = Geo::EdgeToEdgeDistance(type, myPredictedPosition, targetUnit->type, targetPredictedPosition);
+            return predictedDistance > range(targetUnit);
+        }
+
+        return false;
     }
 
     return true;
@@ -127,6 +132,7 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
     int myRange = range(target);
     int targetRange = target->groundRange();
     BWAPI::Position predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+    if (!predictedTargetPosition.isValid()) predictedTargetPosition = target->lastPosition;
     int currentDistanceToTarget = getDistance(target);
     int predictedDistanceToTarget = getDistance(target, predictedTargetPosition);
 

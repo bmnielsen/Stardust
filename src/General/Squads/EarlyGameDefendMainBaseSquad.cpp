@@ -378,6 +378,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
 
         // Attack if we are in the mineral line and in range of the enemy (or the enemy is in range of us)
         auto enemyPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        if (!enemyPosition.isValid()) enemyPosition = target->lastPosition;
         if (Map::isInOwnMineralLine(unit->tilePositionX, unit->tilePositionY) &&
             (unit->isInOurWeaponRange(target, enemyPosition) || unit->isInEnemyWeaponRange(target, enemyPosition)))
         {
@@ -413,9 +414,10 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         }
 
         auto enemyPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        if (!enemyPosition.isValid()) enemyPosition = target->lastPosition;
 
         // Move towards the enemy if we are well out of their attack range
-        if (enemyPosition.isValid() && unit->getDistance(target, enemyPosition) > (target->range(unit) + 64))
+        if (unit->getDistance(target, enemyPosition) > (target->range(unit) + 64))
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unitAndTarget.first->id) << "Retreating: stay close to enemy @ " << BWAPI::WalkPosition(enemyPosition);

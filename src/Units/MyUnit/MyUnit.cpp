@@ -111,6 +111,7 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
     // We do this if there is a high likelihood we are moving backwards because of pathing issues
     bool forceAttackCommand = false;
     auto predictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+    if (!predictedPosition.isValid()) predictedPosition = lastPosition;
     if (bwapiUnit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 6))
     {
         forceAttackCommand = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, target->lastPosition) > dist;
@@ -126,6 +127,7 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
 
     // If the target is predicted to be in range shortly, attack it
     auto predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+    if (!predictedTargetPosition.isValid()) predictedTargetPosition = target->lastPosition;
     auto predictedDist = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, predictedTargetPosition);
     if (predictedDist <= myRange)
     {
@@ -143,6 +145,7 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
     // Plot an intercept course
     auto interceptPosition = intercept(target);
     if (!interceptPosition.isValid()) interceptPosition = target->predictPosition(5);
+    if (!interceptPosition.isValid()) interceptPosition = target->lastPosition;
     moveTo(interceptPosition);
 }
 

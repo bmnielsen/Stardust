@@ -118,6 +118,8 @@ void DefendBase::update()
         if (dist > 500)
         {
             auto predictedPosition = unit->predictPosition(5);
+            if (!predictedPosition.isValid()) continue;
+
             int predictedDist = unit->isFlying
                                 ? predictedPosition.getApproxDistance(base->getPosition())
                                 : PathFinding::GetGroundDistance(predictedPosition, base->getPosition(), unit->type);

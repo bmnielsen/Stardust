@@ -75,6 +75,7 @@ void UnitCluster::holdChoke(Choke *choke,
 
         // If the target is about to be in our weapon range, attack with ranged or all units
         auto predictedTargetPos = unitAndTarget.second->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        if (!predictedTargetPos.isValid()) predictedTargetPos = unitAndTarget.second->lastPosition;
         if (!myUnit->isInOurWeaponRange(target, predictedTargetPos)) continue;
         if (UnitUtil::IsRangedUnit(myUnit->type))
         {
@@ -198,10 +199,10 @@ void UnitCluster::holdChoke(Choke *choke,
             }
         }
 
-        unitsAndMoveTargets.emplace_back(std::make_tuple(myUnit,
-                                                         myUnit->predictPosition(BWAPI::Broodwar->getLatencyFrames()),
-                                                         distDiff,
-                                                         targetPos));
+        auto predictedPosition = myUnit->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        if (!predictedPosition.isValid()) predictedPosition = myUnit->lastPosition;
+
+        unitsAndMoveTargets.emplace_back(std::make_tuple(myUnit, predictedPosition, distDiff, targetPos));
     }
 
     // Now execute move orders

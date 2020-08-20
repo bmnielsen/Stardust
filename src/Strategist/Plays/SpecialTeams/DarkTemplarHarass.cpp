@@ -101,7 +101,8 @@ namespace
 
             if (dist < bestTargetDist || (dist == bestTargetDist && (enemy->lastHealth + enemy->lastShields) < bestTargetHealth))
             {
-                if (!allowRetreating && (myUnit->getDistance(enemy, enemy->predictPosition(1)) > dist))
+                auto predictedEnemyPosition = enemy->predictPosition(1);
+                if (predictedEnemyPosition.isValid() && myUnit->getDistance(enemy, predictedEnemyPosition) > dist)
                 {
                     continue;
                 }
