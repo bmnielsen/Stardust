@@ -738,8 +738,26 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
+    // If our strategy is anti-zealot-rush and there is an enemy combat unit in our base, we have worse things to worry about
+    if (ourStrategy == OurStrategy::AntiZealotRush)
+    {
+        for (const auto &unit : Units::allEnemy())
+        {
+            if (!unit->lastPositionValid) continue;
+            if (!UnitUtil::IsCombatUnit(unit->type)) continue;
+            if (!unit->type.canAttack()) continue;
+
+            for (const auto &area : Map::getMyMainAreas())
+            {
+                if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)
+                {
+                    return;
+                }
+            }
+        }
+    }
+
     // Break out if we have detected a strategy that precludes a dark templar rush now
-    if (ourStrategy == OurStrategy::AntiZealotRush) return;
     if ((enemyStrategy == ProtossStrategy::EarlyForge && BWAPI::Broodwar->getFrameCount() < 6000)
         || (enemyStrategy == ProtossStrategy::ProxyRush && BWAPI::Broodwar->getFrameCount() < 6000)
         || (enemyStrategy == ProtossStrategy::ZealotRush && BWAPI::Broodwar->getFrameCount() < 6000)
