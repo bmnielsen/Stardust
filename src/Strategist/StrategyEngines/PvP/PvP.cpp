@@ -587,8 +587,9 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     // The logic here is to look ahead to make sure we already have detection available when we need it
 
     // Break out if we already have an observer
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) > 0 || Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observer) > 0)
+    if (Units::countAll(BWAPI::UnitTypes::Protoss_Observer) > 0)
     {
+        CherryVis::setBoardValue("detection", "have-observer");
         return;
     }
 
@@ -728,12 +729,14 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     {
         buildCannon(0, true);
         buildObserver();
+        CherryVis::setBoardValue("detection", "emergency-build-cannon-and-observer");
         return;
     }
 
     // Get an observer when we have a second gas
     if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1)
     {
+        CherryVis::setBoardValue("detection", "macro-build-observer");
         buildObserver();
         return;
     }
@@ -751,6 +754,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
             {
                 if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)
                 {
+                    CherryVis::setBoardValue("detection", "anti-zealot-rush");
                     return;
                 }
             }
@@ -767,6 +771,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         || (enemyStrategy == ProtossStrategy::FastExpansion && BWAPI::Broodwar->getFrameCount() < 7000)
         || (enemyStrategy == ProtossStrategy::Turtle && BWAPI::Broodwar->getFrameCount() < 8000))
     {
+        CherryVis::setBoardValue("detection", "strategy-exception");
         return;
     }
 
@@ -775,6 +780,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     if (!enemyMain)
     {
         buildCannon(7800);
+        CherryVis::setBoardValue("detection", "cannon-at-7000");
         return;
     }
 
@@ -842,10 +848,12 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     if (templarArchiveTimings.empty())
     {
         buildCannon(frame);
+        CherryVis::setBoardValue("detection", (std::ostringstream() << "cannon-at-" << frame).str());
     }
     else
     {
         buildObserver(frame);
         buildCannon(frame, true);
+        CherryVis::setBoardValue("detection", (std::ostringstream() << "cannon-and-observer-at-" << frame).str());
     }
 }
