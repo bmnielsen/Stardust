@@ -176,11 +176,11 @@ namespace
         // Otherwise work off of goon timings
         if (BWAPI::Broodwar->getFrameCount() < 7000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 6);
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 7);
         }
         if (BWAPI::Broodwar->getFrameCount() < 8000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 6) ||
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 7) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8000, 10);
         }
         if (BWAPI::Broodwar->getFrameCount() < 9000)
