@@ -78,10 +78,11 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 int count = 0;
                 for (const auto &unit : vanguardCluster->units)
                 {
-                    if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon) hasDragoon = true;
-
-                    int distToVanguard = unit->getDistance(vanguardCluster->vanguard);
-                    if (distToVanguard < 160) count++;
+                    if (unit->getDistance(vanguardCluster->vanguard) < 160)
+                    {
+                        if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon) hasDragoon = true;
+                        count++;
+                    }
                 }
 
                 if (count >= requiredUnitCount && (!requireDragoon || hasDragoon))
