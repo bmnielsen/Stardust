@@ -78,9 +78,5 @@ public:
     void addRegroupSimResult(CombatSimResult &simResult, bool contain);
 
 protected:
-    static Unit ChooseMeleeTarget(const MyUnit &attacker, std::set<Unit> &targets, BWAPI::Position targetPosition, bool targetIsReachableEnemyBase);
-
-    static Unit ChooseRangedTarget(const MyUnit &attacker, std::set<Unit> &targets, BWAPI::Position targetPosition, bool targetIsReachableEnemyBase);
-
     int area;
 };
