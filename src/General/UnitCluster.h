@@ -46,6 +46,10 @@ public:
 
     void setSubActivity(SubActivity newSubActivity);
 
+    std::string getCurrentActivity() const;
+
+    std::string getCurrentSubActivity() const;
+
     virtual void move(BWAPI::Position targetPosition);
 
     virtual void regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,

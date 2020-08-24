@@ -170,3 +170,13 @@ void UnitCluster::setSubActivity(SubActivity newSubActivity)
 
     currentSubActivity = newSubActivity;
 }
+
+std::string UnitCluster::getCurrentActivity() const
+{
+    return ActivityNames[currentActivity]
+}
+
+std::string UnitCluster::getCurrentSubActivity() const
+{
+    return SubActivityNames[currentSubActivity];
+}

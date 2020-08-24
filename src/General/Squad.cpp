@@ -225,6 +225,18 @@ void Squad::updateClusters()
             currentVanguardCluster = cluster;
         }
     }
+
+#if INSTRUMENTATION_ENABLED
+    std::vector<std::string> values;
+    for (const auto &cluster : clusters)
+    {
+        values.push_back((std::ostringstream() << "center: " << BWAPI::WalkPosition(cluster->center)
+                                               << "\nactivity: " << cluster->getCurrentActivity()
+                                               << "\nsub-activity: " << cluster->getCurrentSubActivity()
+                                               << "\ntarget: " << BWAPI::WalkPosition(targetPosition)).str());
+    }
+    CherryVis::setBoardListValue((std::ostringstream() << label << "_clusters").str(), values);
+#endif
 }
 
 void Squad::execute()
