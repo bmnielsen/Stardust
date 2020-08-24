@@ -69,6 +69,35 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         }
         else
         {
+            auto transitionToAttack = [&](int requiredUnitCount, bool requireDragoon)
+            {
+                auto vanguardCluster = mainArmyPlay->getSquad()->vanguardCluster();
+                if (!vanguardCluster || !vanguardCluster->vanguard) return;
+
+                bool hasDragoon = false;
+                int count = 0;
+                for (const auto &unit : vanguardCluster->units)
+                {
+                    if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon) hasDragoon = true;
+
+                    int distToVanguard = unit->getDistance(vanguardCluster->vanguard);
+                    if (distToVanguard < 160) count++;
+                }
+
+                if (count >= requiredUnitCount && (!requireDragoon || hasDragoon))
+                {
+                    auto enemyMain = Map::getEnemyMain();
+                    if (enemyMain)
+                    {
+                        setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
+                    }
+                    else
+                    {
+                        setMainPlay<MopUp>(mainArmyPlay);
+                    }
+                }
+            };
+
             switch (ourStrategy)
             {
                 case OurStrategy::EarlyGameDefense:
@@ -77,25 +106,22 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     setMainPlay<DefendMyMain>(mainArmyPlay);
                     break;
                 case OurStrategy::FastExpansion:
+                {
+                    // For fast expands go on the attack as soon as we have three units
+                    if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                    {
+                        transitionToAttack(3, false);
+                    }
+
+                    break;
+                }
                 case OurStrategy::Normal:
                 case OurStrategy::MidGame:
                 {
-                    // Transition from a defend squad when the vanguard cluster has 3 units
+                    // For normal strategies go on the attack when we have at least four units, one of which is a dragoon
                     if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
                     {
-                        auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                        if (vanguard && vanguard->units.size() >= 3)
-                        {
-                            auto enemyMain = Map::getEnemyMain();
-                            if (enemyMain)
-                            {
-                                setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
-                            }
-                            else
-                            {
-                                setMainPlay<MopUp>(mainArmyPlay);
-                            }
-                        }
+                        transitionToAttack(4, true);
                     }
 
                     break;
