@@ -173,7 +173,7 @@ void UnitCluster::setSubActivity(SubActivity newSubActivity)
 
 std::string UnitCluster::getCurrentActivity() const
 {
-    return ActivityNames[currentActivity]
+    return ActivityNames[currentActivity];
 }
 
 std::string UnitCluster::getCurrentSubActivity() const
