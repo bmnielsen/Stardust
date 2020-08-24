@@ -400,9 +400,9 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory))
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                           BWAPI::UnitTypes::Protoss_Dark_Templar,
-                                                                           2 - dtCount,
-                                                                           2);
+                                                                         BWAPI::UnitTypes::Protoss_Dark_Templar,
+                                                                         2 - dtCount,
+                                                                         2);
             }
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -734,7 +734,8 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     }
 
     // Get an observer when we have a second gas
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1)
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
+        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && BWAPI::Broodwar->getFrameCount() > 10000))
     {
         CherryVis::setBoardValue("detection", "macro-build-observer");
         buildObserver();
