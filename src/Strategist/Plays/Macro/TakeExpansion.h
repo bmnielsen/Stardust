@@ -6,7 +6,7 @@
 class TakeExpansion : public Play
 {
 public:
-    explicit TakeExpansion(BWAPI::TilePosition depotPosition);
+    explicit TakeExpansion(Base *base);
 
     void update() override;
 
@@ -18,5 +18,6 @@ public:
     BWAPI::TilePosition depotPosition;
 
 protected:
+    Base *base;
     MyUnit builder;
 };

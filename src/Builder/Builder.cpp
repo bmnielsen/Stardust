@@ -138,8 +138,9 @@ namespace Builder
                     if (building.type == BWAPI::UnitTypes::Protoss_Nexus)
                     {
                         auto base = Map::baseNear(BWAPI::Position(building.tile));
-                        if (base)
+                        if (base && !base->blockedByEnemy)
                         {
+                            Log::Get() << "Base @ " << base->getTilePosition() << " is blocked by an enemy unit";
                             base->blockedByEnemy = true;
                         }
                     }

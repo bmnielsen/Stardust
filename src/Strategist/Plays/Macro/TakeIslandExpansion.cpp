@@ -6,8 +6,8 @@
 #include "Geo.h"
 #include "Map.h"
 
-TakeIslandExpansion::TakeIslandExpansion(BWAPI::TilePosition depotPosition)
-        : TakeExpansion(depotPosition)
+TakeIslandExpansion::TakeIslandExpansion(Base *base)
+        : TakeExpansion(base)
         , shuttle(nullptr) {}
 
 void TakeIslandExpansion::update()

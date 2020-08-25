@@ -726,7 +726,7 @@ namespace Workers
 
     void releaseWorker(const MyUnit &unit)
     {
-        if (!unit || !unit->exists() || !unit->type.isWorker() || !unit->completed) return;
+        if (!unit || !unit->exists() || !unit->type.isWorker() || !unit->completed || workerJob[unit] != Job::Reserved) return;
 
         workerJob[unit] = Job::None;
     }

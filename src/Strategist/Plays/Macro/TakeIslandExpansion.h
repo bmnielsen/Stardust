@@ -6,7 +6,7 @@
 class TakeIslandExpansion : public TakeExpansion
 {
 public:
-    explicit TakeIslandExpansion(BWAPI::TilePosition depotPosition);
+    explicit TakeIslandExpansion(Base *base);
 
     void update() override;
 
