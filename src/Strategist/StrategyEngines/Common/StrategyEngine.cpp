@@ -1,6 +1,7 @@
 #include <Strategist/Plays/MainArmy/DefendMyMain.h>
 #include <Strategist/Plays/MainArmy/AttackEnemyMain.h>
 #include <Strategist/Plays/Defensive/DefendBase.h>
+#include <Strategist/Plays/Scouting/ScoutEnemyExpos.h>
 #include "StrategyEngine.h"
 
 #include "Map.h"
@@ -86,9 +87,17 @@ void StrategyEngine::UpdateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
     // Add missing plays
     for (auto &baseToDefend : basesToDefend)
     {
-        plays.emplace_back(std::make_shared<DefendBase>(baseToDefend));
+        plays.emplace(plays.begin(), std::make_shared<DefendBase>(baseToDefend));
         CherryVis::log() << "Added defend base play for base @ " << BWAPI::WalkPosition(baseToDefend->getPosition());
     }
 
     // TODO: Ordering?
+}
+
+void StrategyEngine::scoutExpos(std::vector<std::shared_ptr<Play>> &plays, int startingFrame)
+{
+    if (BWAPI::Broodwar->getFrameCount() < startingFrame) return;
+    if (getPlay<ScoutEnemyExpos>(plays) != nullptr) return;
+
+    plays.emplace_back(std::make_shared<ScoutEnemyExpos>());
 }

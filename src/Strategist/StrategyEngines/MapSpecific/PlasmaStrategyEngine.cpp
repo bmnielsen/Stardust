@@ -91,6 +91,7 @@ void PlasmaStrategyEngine::updatePlays(std::vector<std::shared_ptr<Play>> &plays
 
     UpdateDefendBasePlays(plays);
     defaultExpansions(plays);
+    scoutExpos(plays, 15000);
 }
 
 void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &plays,

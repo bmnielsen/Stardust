@@ -146,8 +146,8 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     UpdateDefendBasePlays(plays);
-
     defaultExpansions(plays);
+    scoutExpos(plays, 10000);
 }
 
 void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,

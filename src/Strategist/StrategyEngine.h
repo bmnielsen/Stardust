@@ -41,6 +41,8 @@ protected:
 
     static void defaultExpansions(std::vector<std::shared_ptr<Play>> &plays);
 
+    static void scoutExpos(std::vector<std::shared_ptr<Play>> &plays, int startingFrame);
+
     template<class T>
     static T *getPlay(std::vector<std::shared_ptr<Play>> &plays)
     {

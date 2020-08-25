@@ -33,6 +33,4 @@ public:
 private:
     Unit scout;
     MyUnit dragoon;
-
-    bool findScout();
 };

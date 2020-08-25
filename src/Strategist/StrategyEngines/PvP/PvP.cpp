@@ -167,7 +167,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         {
             if (!antiCannonRushPlay)
             {
-                plays.insert(plays.begin(), std::make_shared<AntiCannonRush>());
+                plays.emplace(plays.begin(), std::make_shared<AntiCannonRush>());
             }
         }
         else if (antiCannonRushPlay && enemyStrategy == ProtossStrategy::FastExpansion)
@@ -231,8 +231,8 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     UpdateDefendBasePlays(plays);
-
     defaultExpansions(plays);
+    scoutExpos(plays, 15000);
 }
 
 void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
