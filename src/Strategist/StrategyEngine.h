@@ -25,7 +25,7 @@ protected:
     static bool hasEnemyStolenOurGas();
 
     static void handleGasStealProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-            int &zealotCount);
+                                         int &zealotCount);
 
     static void upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                BWAPI::UpgradeType upgradeType,
@@ -40,6 +40,9 @@ protected:
     static void defaultGroundUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
     static void defaultExpansions(std::vector<std::shared_ptr<Play>> &plays);
+
+    static void takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
+                                     std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
     static void scoutExpos(std::vector<std::shared_ptr<Play>> &plays, int startingFrame);
 

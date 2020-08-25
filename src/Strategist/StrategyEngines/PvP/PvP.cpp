@@ -451,18 +451,6 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     if (!natural || natural->ownedSince != -1) return;
     if (Builder::isPendingHere(natural->getTilePosition())) return;
 
-    auto takeNatural = [&]()
-    {
-        auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(natural->getTilePosition()),
-                                                              BuildingPlacement::builderFrames(BuildingPlacement::Neighbourhood::MainBase,
-                                                                                               natural->getTilePosition(),
-                                                                                               BWAPI::UnitTypes::Protoss_Nexus),
-                                                              0, 0);
-        prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                 BWAPI::UnitTypes::Protoss_Nexus,
-                                                                 buildLocation);
-    };
-
     // If we have a backdoor natural, expand if we are gas blocked
     // This generally happens when we are teching to DT or observers
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
@@ -471,7 +459,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             BWAPI::Broodwar->self()->gas() < 100 &&
             (BWAPI::Broodwar->self()->supplyTotal() - BWAPI::Broodwar->self()->supplyUsed()) >= 6)
         {
-            takeNatural();
+            takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
     }
@@ -485,7 +473,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             break;
 
         case OurStrategy::FastExpansion:
-            takeNatural();
+            takeNaturalExpansion(plays, prioritizedProductionGoals);
             break;
 
         case OurStrategy::Normal:
@@ -514,7 +502,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // Always expand in this situation if we are gas blocked
             if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100)
             {
-                takeNatural();
+                takeNaturalExpansion(plays, prioritizedProductionGoals);
                 break;
             }
 
@@ -527,7 +515,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 return;
             }
 
-            takeNatural();
+            takeNaturalExpansion(plays, prioritizedProductionGoals);
             break;
         }
         case OurStrategy::DTExpand:
@@ -554,7 +542,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 return;
             }
 
-            takeNatural();
+            takeNaturalExpansion(plays, prioritizedProductionGoals);
             break;
         }
     }

@@ -369,25 +369,13 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     if (!natural || natural->ownedSince != -1) return;
     if (Builder::isPendingHere(natural->getTilePosition())) return;
 
-    auto takeNatural = [&]()
-    {
-        auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(natural->getTilePosition()),
-                                                              BuildingPlacement::builderFrames(BuildingPlacement::Neighbourhood::MainBase,
-                                                                                               natural->getTilePosition(),
-                                                                                               BWAPI::UnitTypes::Protoss_Nexus),
-                                                              0, 0);
-        prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                 BWAPI::UnitTypes::Protoss_Nexus,
-                                                                 buildLocation);
-    };
-
     // If we have a backdoor natural, expand when our third goon is being produced or we have lots of money
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
     {
         if (BWAPI::Broodwar->self()->minerals() > 450 ||
             Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon) > 2)
         {
-            takeNatural();
+            takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
     }
@@ -401,7 +389,7 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             break;
 
         case OurStrategy::FastExpansion:
-            takeNatural();
+            takeNaturalExpansion(plays, prioritizedProductionGoals);
             break;
 
         case OurStrategy::Normal:
@@ -433,7 +421,7 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 return;
             }
 
-            takeNatural();
+            takeNaturalExpansion(plays, prioritizedProductionGoals);
             break;
         }
     }
