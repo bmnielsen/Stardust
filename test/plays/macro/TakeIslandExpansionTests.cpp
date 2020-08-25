@@ -36,7 +36,7 @@ TEST(TakeIslandExpansion, CanTakeIslandExpansion)
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<SaturateBases>());
-        openingPlays.emplace_back(std::make_shared<TakeIslandExpansion>(islandBase->getTilePosition()));
+        openingPlays.emplace_back(std::make_shared<TakeIslandExpansion>(islandBase));
         Strategist::setOpening(openingPlays);
     };
 
