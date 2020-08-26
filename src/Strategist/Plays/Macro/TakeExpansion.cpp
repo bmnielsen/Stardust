@@ -124,11 +124,20 @@ void TakeExpansion::update()
         base->blockedByEnemy = false;
     }
 
-    Builder::build(BWAPI::UnitTypes::Protoss_Nexus, depotPosition, builder);
+    if (!Builder::isPendingHere(depotPosition))
+    {
+        Builder::build(BWAPI::UnitTypes::Protoss_Nexus, depotPosition, builder);
+    }
 
     // Treat the play as complete when the nexus is finished
     auto nexus = Units::myBuildingAt(depotPosition);
     if (nexus && nexus->completed)
+    {
+        status.complete = true;
+    }
+
+    // Also cancel the play if the base becomes owned by someone else in the meantime
+    if (base->owner)
     {
         status.complete = true;
     }
