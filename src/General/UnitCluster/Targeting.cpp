@@ -162,7 +162,7 @@ namespace
         int healthIncludingShields; // Estimated health reduced by incoming bullets and earlier attackers
         int attackerCount;          // How many attackers have this target in their closeTargets vector
 
-        Target(Unit unit)
+        explicit Target(const Unit& unit)
                 : unit(unit)
                 , priority(targetPriority(unit))
                 , healthIncludingShields(unit->health + unit->shields)
@@ -181,7 +181,7 @@ namespace
         int framesToAttack;                 // The number of frames before this attacker can attack something
         std::vector<Target *> closeTargets; // All targets that can be attacked at framesToAttack
 
-        Attacker(MyUnit unit) : unit(unit), framesToAttack(INT_MAX) {}
+        explicit Attacker(MyUnit unit) : unit(std::move(unit)), framesToAttack(INT_MAX) {}
     };
 }
 
