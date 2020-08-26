@@ -201,13 +201,22 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
         int neededCannons = desiredCannons() - cannons.size();
         if (neededCannons > 0)
         {
-            auto location = *cannonLocations.begin();
-            if (!Builder::pendingHere(location))
+            // Build only one at a time to avoid starving army production
+            bool incompleteCannon = false;
+            for (const auto &cannon : cannons)
             {
-                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(*cannonLocations.begin()), 0, 0, 0);
-                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                           BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                                                                           buildLocation);
+                if (!cannon->completed) incompleteCannon = true;
+            }
+            if (!incompleteCannon)
+            {
+                auto location = *cannonLocations.begin();
+                if (!Builder::pendingHere(location))
+                {
+                    auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(*cannonLocations.begin()), 0, 0, 0);
+                    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                               BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                                                               buildLocation);
+                }
             }
         }
     }
