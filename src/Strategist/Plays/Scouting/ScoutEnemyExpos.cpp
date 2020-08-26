@@ -136,7 +136,7 @@ void ScoutEnemyExpos::update()
             auto scaledVector = Geo::ScaleVector(scout->lastPosition - nearestThreat->lastPosition, 96);
             if (scaledVector.isValid())
             {
-                scout->moveTo(scaledVector);
+                scout->moveTo(scout->lastPosition + scaledVector);
 
 #if DEBUG_UNIT_ORDERS
                 CherryVis::log(scout->id) << "Scout: move to " << BWAPI::WalkPosition(scaledVector) << " to avoid " << *nearestThreat;
