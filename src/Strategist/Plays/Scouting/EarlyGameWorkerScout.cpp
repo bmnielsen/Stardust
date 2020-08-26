@@ -427,6 +427,7 @@ void EarlyGameWorkerScout::update()
         auto grid = Players::grid(BWAPI::Broodwar->enemy());
         auto avoidThreatTiles = [&](BWAPI::TilePosition tile)
         {
+            if (!Map::isWalkable(tile)) return false;
             if (scoutAreas.find(BWEM::Map::Instance().GetNearestArea(tile)) == scoutAreas.end())
             {
                 return false;

@@ -78,10 +78,9 @@ namespace PathFinding
     // Initializes the path finding search
     void initializeSearch();
 
-    // Searches for the shortest walkable path from start to end
-    // By default, any walkable tile (as determined by Map::isWalkable) can be part of the returned path
-    // If a tileValidator is passed, only tiles for which it returns true can be part of the returned path
-    // If an endRadius is specified, the search will stop as soon as a node is found within that radius (pixels) of the end tile
+    // Searches for the shortest path from start to end.
+    // If a tileValidator is passed, only tiles for which it returns true can be part of the returned path.
+    // If a closeEnoughToEnd predicate is specified, the search will stop as soon as a node is found for which it returns true.
     std::vector<BWAPI::TilePosition> Search(BWAPI::TilePosition start,
                                             BWAPI::TilePosition end,
                                             const std::function<bool(const BWAPI::TilePosition &)> &tileValidator = nullptr,
