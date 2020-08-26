@@ -10,6 +10,7 @@
 #define PRIORITY_BASEDEFENSE 4
 #define PRIORITY_NORMAL 5
 #define PRIORITY_MAINARMY 6
+#define PRIORITY_LOWEST 7
 
 class Play;
 

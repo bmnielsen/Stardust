@@ -201,22 +201,28 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
         int neededCannons = desiredCannons() - cannons.size();
         if (neededCannons > 0)
         {
-            // Build only one at a time to avoid starving army production
-            bool incompleteCannon = false;
-            for (const auto &cannon : cannons)
+            // Reduce the priority of the cannon if we already have one in progress, unless we need a lot of them
+            // This is to try to balance building static defense with army production
+            int priority = PRIORITY_MAINARMY;
+            if (neededCannons == 1)
             {
-                if (!cannon->completed) incompleteCannon = true;
-            }
-            if (!incompleteCannon)
-            {
-                auto location = *cannonLocations.begin();
-                if (!Builder::pendingHere(location))
+                for (const auto &cannon : cannons)
                 {
-                    auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(*cannonLocations.begin()), 0, 0, 0);
-                    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                               BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                                                                               buildLocation);
+                    if (!cannon->completed)
+                    {
+                        priority = PRIORITY_LOWEST;
+                        break;
+                    }
                 }
+            }
+
+            auto location = *cannonLocations.begin();
+            if (!Builder::pendingHere(location))
+            {
+                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(*cannonLocations.begin()), 0, 0, 0);
+                prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                  BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                                                  buildLocation);
             }
         }
     }
