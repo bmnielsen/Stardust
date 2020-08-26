@@ -5,6 +5,7 @@
 #include "Builder.h"
 #include "Strategist.h"
 #include "Workers.h"
+#include "Players.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -454,9 +455,12 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    // TODO: Use scouting information
-
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1)
+    // Build an observer when we are on two gas or the enemy has lurker tech
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
+        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && BWAPI::Broodwar->getFrameCount() > 10000) ||
+        Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker_Egg) ||
+        Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker) ||
+        Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Lurker_Aspect))
     {
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                  BWAPI::UnitTypes::Protoss_Observer,

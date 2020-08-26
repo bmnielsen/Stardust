@@ -309,6 +309,7 @@ void PvT::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
 
     // Build an observer when we are on two gas or the enemy has cloaked wraith tech
     if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
+        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && BWAPI::Broodwar->getFrameCount() > 10000) ||
         Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Control_Tower) ||
         Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Cloaking_Field))
     {
