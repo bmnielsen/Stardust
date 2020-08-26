@@ -91,7 +91,7 @@ namespace Strategist
                 {
                     typeToReassignableUnits[unit->type].emplace_back(unit);
                 }
-                else if (playIt->second->receivesUnassignedUnits())
+                else
                 {
                     typeToReassignableUnits[unit->type].emplace_back(unit, playIt->second);
                 }
@@ -105,7 +105,28 @@ namespace Strategist
             std::shared_ptr<Play> playReceivingUnassignedUnits = nullptr;
             for (auto &play : plays)
             {
-                if (play->receivesUnassignedUnits()) playReceivingUnassignedUnits = play;
+                if (play->receivesUnassignedUnits())
+                {
+                    playReceivingUnassignedUnits = play;
+                }
+
+                // Remove reassignable units already belonging to this play
+                // This also makes them unavailable to later (lower-priority) plays
+                // TODO: Need to figure out how to allow the scout squad to take a detector from the main army squad when it doesn't need it
+                for (auto &typeAndReassignableUnits : typeToReassignableUnits)
+                {
+                    for (auto it = typeAndReassignableUnits.second.begin(); it != typeAndReassignableUnits.second.end(); )
+                    {
+                        if (it->currentPlay == play)
+                        {
+                            it = typeAndReassignableUnits.second.erase(it);
+                        }
+                        else
+                        {
+                            it++;
+                        }
+                    }
+                }
 
                 for (auto &unitRequirement : play->status.unitRequirements)
                 {
