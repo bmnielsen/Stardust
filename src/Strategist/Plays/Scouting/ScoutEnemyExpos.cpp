@@ -4,6 +4,7 @@
 #include "Map.h"
 #include "Units.h"
 #include "Players.h"
+#include "Geo.h"
 
 void ScoutEnemyExpos::update()
 {
@@ -110,6 +111,47 @@ void ScoutEnemyExpos::update()
         return grid.airThreat((tile.x << 2U) + 2, (tile.y << 2U) + 2) == 0 &&
                grid.detection((tile.x << 2U) + 2, (tile.y << 2U) + 2) == 0;
     };
+
+    // If the current position of the observer is a threat, move away from whatever is threatening it
+    if (!avoidThreatTiles(scout->getTilePosition()))
+    {
+        Unit nearestThreat = nullptr;
+        int nearestThreatDist = INT_MAX;
+        for (auto &unit : Units::allEnemy())
+        {
+            if (!unit->lastPositionValid) continue;
+            if (unit->type.isDetector() || unit->canAttackAir())
+            {
+                int dist = scout->getDistance(unit);
+                if (dist < nearestThreatDist)
+                {
+                    nearestThreat = unit;
+                    nearestThreatDist = dist;
+                }
+            }
+        }
+
+        if (nearestThreat)
+        {
+            auto scaledVector = Geo::ScaleVector(scout->lastPosition - nearestThreat->lastPosition, 96);
+            if (scaledVector.isValid())
+            {
+                scout->moveTo(scaledVector);
+
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(scout->id) << "Scout: move to " << BWAPI::WalkPosition(scaledVector) << " to avoid " << *nearestThreat;
+#endif
+                return;
+            }
+        }
+
+        scout->moveTo(Map::getMyMain()->getPosition());
+
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(scout->id) << "Scout: move to main to avoid unknown threat";
+#endif
+        return;
+    }
 
     auto path = PathFinding::Search(scout->getTilePosition(), tile, avoidThreatTiles);
 
