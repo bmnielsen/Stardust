@@ -7,7 +7,9 @@ class ScoutEnemyExpos : public Play
 public:
     ScoutEnemyExpos()
             : Play("ScoutEnemyExpos")
-            , scout(nullptr) {}
+            , scout(nullptr)
+            , targetBase(nullptr)
+            , usingSearchPath(true) {}
 
     void update() override;
 
@@ -22,4 +24,6 @@ public:
 
 private:
     MyUnit scout;
+    Base *targetBase;
+    bool usingSearchPath;
 };

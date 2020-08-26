@@ -3,38 +3,49 @@
 #include "Workers.h"
 #include "Map.h"
 #include "Units.h"
+#include "Players.h"
 
 void ScoutEnemyExpos::update()
 {
     // Clear the scout if it is dead
     if (scout && !scout->exists()) scout = nullptr;
 
+    // Clear the target base if it has been scouted
+    if (targetBase && (targetBase->owner != nullptr || (BWAPI::Broodwar->getFrameCount() - targetBase->lastScouted) < 1000))
+    {
+        targetBase = nullptr;
+    }
+
     // Pick a target base
     // We score them based on three factors:
     // - How soon we expect the enemy to expand to the base (i.e. order of base in vector)
     // - How long it has been since we scouted the base
     // - How close our scout is to the base
-    Base *targetBase = nullptr;
-    double bestScore = 0.0;
-    int scoreFactor = 0;
-    for (auto base : Map::getUntakenExpansions(BWAPI::Broodwar->enemy()))
+    if (!targetBase)
     {
-        int framesSinceScouted = BWAPI::Broodwar->getFrameCount() - base->lastScouted;
-        scoreFactor++;
+        usingSearchPath = true;
 
-        double score = (double) framesSinceScouted / (double) scoreFactor;
-
-        if (scout)
+        double bestScore = 0.0;
+        int scoreFactor = 0;
+        for (auto base : Map::getUntakenExpansions(BWAPI::Broodwar->enemy()))
         {
-            int dist = scout->getDistance(base->getPosition());
-            if (dist == -1) continue;
-            score /= ((double) dist / 2000.0);
-        }
+            int framesSinceScouted = BWAPI::Broodwar->getFrameCount() - base->lastScouted;
+            scoreFactor++;
 
-        if (score > bestScore)
-        {
-            bestScore = score;
-            targetBase = base;
+            double score = (double) framesSinceScouted / (double) scoreFactor;
+
+            if (scout)
+            {
+                int dist = scout->getDistance(base->getPosition());
+                if (dist == -1) continue;
+                score /= ((double) dist / 2000.0);
+            }
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                targetBase = base;
+            }
         }
     }
 
@@ -73,12 +84,52 @@ void ScoutEnemyExpos::update()
         status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Observer, targetBase->getPosition());
     }
 
-    // Move the scout
-    if (scout)
+    // If we don't have a scout, clear the target base for next time
+    if (!scout)
     {
-        // TODO: Path to avoid threats
+        targetBase = nullptr;
+        return;
+    }
 
+    // This is a quick hack to prevent us from searching for non-existant paths every frame and timing out
+    if (!usingSearchPath)
+    {
         scout->moveTo(targetBase->getPosition());
+
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(scout->id) << "Scout: target directly to scout tile " << BWAPI::WalkPosition(targetPos);
+#endif
+        return;
+    }
+
+    // Search for a path that avoids enemy threats
+    auto tile = BWAPI::TilePosition(targetBase->getPosition());
+    auto grid = Players::grid(BWAPI::Broodwar->enemy());
+    auto avoidThreatTiles = [&grid](BWAPI::TilePosition tile)
+    {
+        return grid.airThreat((tile.x << 2U) + 2, (tile.y << 2U) + 2) == 0 &&
+               grid.detection((tile.x << 2U) + 2, (tile.y << 2U) + 2) == 0;
+    };
+
+    auto path = PathFinding::Search(scout->getTilePosition(), tile, avoidThreatTiles);
+
+    if (path.size() < 5)
+    {
+        usingSearchPath = false;
+        scout->moveTo(targetBase->getPosition());
+
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(scout->id) << "Scout: target directly to scout tile " << BWAPI::WalkPosition(targetPos);
+#endif
+    }
+    else
+    {
+        scout->moveTo(BWAPI::Position(path[4]) + BWAPI::Position(16, 16));
+
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(scout->id) << "Scout: target next path waypoint "
+                                  << BWAPI::WalkPosition(BWAPI::Position(path[2]) + BWAPI::Position(16, 16));
+#endif
     }
 }
 
