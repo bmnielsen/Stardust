@@ -137,7 +137,7 @@ void TakeExpansion::update()
     }
 
     // Also cancel the play if the base becomes owned by someone else in the meantime
-    if (base->owner)
+    if (!nexus && base->owner == BWAPI::Broodwar->enemy())
     {
         status.complete = true;
     }
