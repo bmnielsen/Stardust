@@ -10,6 +10,8 @@ public:
 
     void update() override;
 
+    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
+
     [[nodiscard]] bool constructionStarted() const;
 
     void disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
@@ -20,4 +22,6 @@ public:
 protected:
     Base *base;
     MyUnit builder;
+    BWAPI::UnitType requiredBlockClearBuilding;
+    BWAPI::TilePosition requiredBlockClearBuildingTile;
 };

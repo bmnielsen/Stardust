@@ -16,14 +16,18 @@ public:
             : type(type)
             , count(count)
             , producerLimit(producerLimit)
-            , location(std::move(location)) {}
+            , location(std::move(location))
+            , reservedBuilder(nullptr) {}
 
     // Constructor for buildings at a specific build location
-    UnitProductionGoal(BWAPI::UnitType type, BuildingPlacement::BuildLocation location)
+    UnitProductionGoal(BWAPI::UnitType type,
+                       BuildingPlacement::BuildLocation location,
+                       MyUnit reservedBuilder = nullptr)
             : type(type)
             , count(1)
             , producerLimit(1)
-            , location(location) {}
+            , location(location)
+            , reservedBuilder(std::move(reservedBuilder)) {}
 
     // The unit type
     [[nodiscard]] BWAPI::UnitType unitType() const { return type; }
@@ -40,6 +44,10 @@ public:
     // Will either be a neighbourhood for the building placer, or, if the item is a building, potentially a specific tile position
     [[nodiscard]] ProductionLocation getLocation() const { return location; };
 
+    // For buildings with a fixed tile location, gets a builder we already reserved to build it.
+    // This is useful for plays that "own" a worker and want to build something with it.
+    [[nodiscard]] MyUnit getReservedBuilder() const { return reservedBuilder; };
+
     friend std::ostream &operator<<(std::ostream &os, const UnitProductionGoal &goal)
     {
         os << goal.count << "x" << goal.type;
@@ -51,4 +59,5 @@ private:
     int count;
     int producerLimit;
     ProductionLocation location;
+    MyUnit reservedBuilder;
 };

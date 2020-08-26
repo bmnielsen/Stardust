@@ -10,7 +10,9 @@ TakeExpansion::TakeExpansion(Base *base)
         : Play((std::ostringstream() << "Take expansion @ " << base->getTilePosition()).str())
         , depotPosition(base->getTilePosition())
         , base(base)
-        , builder(nullptr) {}
+        , builder(nullptr)
+        , requiredBlockClearBuilding(BWAPI::UnitTypes::None)
+        , requiredBlockClearBuildingTile(BWAPI::TilePositions::Invalid) {}
 
 void TakeExpansion::update()
 {
@@ -33,6 +35,8 @@ void TakeExpansion::update()
     }
 
     // If the base is blocked by an enemy unit, build a cannon to clear it
+    requiredBlockClearBuilding = BWAPI::UnitTypes::None;
+    requiredBlockClearBuildingTile = BWAPI::TilePositions::Invalid;
     if (base->blockedByEnemy)
     {
         // If there are no static defense locations available, cancel the play
@@ -53,7 +57,8 @@ void TakeExpansion::update()
         {
             if (!Builder::pendingHere(baseStaticDefenseLocations.first))
             {
-                Builder::build(BWAPI::UnitTypes::Protoss_Pylon, baseStaticDefenseLocations.first, builder);
+                requiredBlockClearBuilding = BWAPI::UnitTypes::Protoss_Pylon;
+                requiredBlockClearBuildingTile = baseStaticDefenseLocations.first;
             }
 
             return;
@@ -67,7 +72,8 @@ void TakeExpansion::update()
             {
                 if (!Builder::pendingHere(*baseStaticDefenseLocations.second.begin()))
                 {
-                    Builder::build(BWAPI::UnitTypes::Protoss_Photon_Cannon, *baseStaticDefenseLocations.second.begin(), builder);
+                    requiredBlockClearBuilding = BWAPI::UnitTypes::Protoss_Photon_Cannon;
+                    requiredBlockClearBuildingTile = *baseStaticDefenseLocations.second.begin();
                 }
 
                 return;
@@ -78,7 +84,7 @@ void TakeExpansion::update()
 
         // Try to find the blocking unit
         Unit blocker = nullptr;
-        for (auto unit : Units::allEnemy())
+        for (const auto& unit : Units::allEnemy())
         {
             if (unit->isFlying) continue;
             if (!unit->lastPositionValid) continue;
@@ -140,6 +146,19 @@ void TakeExpansion::update()
     if (!nexus && base->owner == BWAPI::Broodwar->enemy())
     {
         status.complete = true;
+    }
+}
+
+void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+{
+    // Build any buildings needed to clear a blocking unit
+    if (requiredBlockClearBuilding != BWAPI::UnitTypes::None)
+    {
+        auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(requiredBlockClearBuildingTile), 0, 0, 0);
+        prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   requiredBlockClearBuilding,
+                                                                   buildLocation,
+                                                                   builder);
     }
 }
 

@@ -115,6 +115,7 @@ namespace Producer
             bool isPrerequisite;
             Building *queuedBuilding;
             mutable BuildingPlacement::BuildLocation buildLocation;
+            mutable MyUnit reservedBuilder;
             mutable int estimatedWorkerMovementTime;
 
             ProductionItem(const Type &type,
@@ -130,6 +131,7 @@ namespace Producer
                     , isPrerequisite(isPrerequisite)
                     , queuedBuilding(nullptr)
                     , buildLocation(InvalidBuildLocation)
+                    , reservedBuilder(nullptr)
                     , estimatedWorkerMovementTime(0) {}
 
             // Constructor for pending buildings
@@ -142,6 +144,7 @@ namespace Producer
                     , isPrerequisite(false)
                     , queuedBuilding(queuedBuilding)
                     , buildLocation(InvalidBuildLocation)
+                    , reservedBuilder(nullptr)
                     , estimatedWorkerMovementTime(0) {}
         };
 
@@ -1524,7 +1527,8 @@ namespace Producer
                         const ProductionLocation &location,
                         int countToProduce,
                         int producerLimit,
-                        BWAPI::UnitType prerequisite = BWAPI::UnitTypes::None)
+                        BWAPI::UnitType prerequisite,
+                        MyUnit reservedBuilder)
         {
             int toProduce = countToProduce;
 
@@ -1583,6 +1587,7 @@ namespace Producer
                 auto buildingItem = std::make_shared<ProductionItem>(type, prerequisitesAvailable, location);
                 buildingItem->estimatedWorkerMovementTime = buildLocation->builderFrames;
                 buildingItem->buildLocation = *buildLocation;
+                buildingItem->reservedBuilder = std::move(reservedBuilder);
                 resolveResourceBlocks(buildingItem, prerequisiteItems, true);
                 return;
             }
@@ -1797,7 +1802,9 @@ namespace Producer
                 handleGoal(unitProductionGoal->unitType(),
                            unitProductionGoal->getLocation(),
                            unitProductionGoal->countToProduce(),
-                           unitProductionGoal->getProducerLimit());
+                           unitProductionGoal->getProducerLimit(),
+                           BWAPI::UnitTypes::None,
+                           unitProductionGoal->getReservedBuilder());
             }
             else if (auto upgradeProductionGoal = std::get_if<UpgradeProductionGoal>(&goal))
             {
@@ -1805,7 +1812,8 @@ namespace Producer
                            std::monostate(),
                            1,
                            upgradeProductionGoal->getProducerLimit(),
-                           upgradeProductionGoal->prerequisiteForNextLevel());
+                           upgradeProductionGoal->prerequisiteForNextLevel(),
+                           nullptr);
             }
             else
             {
@@ -1866,7 +1874,9 @@ namespace Producer
                     }
 
                     int arrivalFrame;
-                    auto builder = Builder::getBuilderUnit(item->buildLocation.location.tile, *unitType, &arrivalFrame);
+                    auto builder = item->reservedBuilder
+                                   ? item->reservedBuilder
+                                   : Builder::getBuilderUnit(item->buildLocation.location.tile, *unitType, &arrivalFrame);
                     if (builder && arrivalFrame >= item->startFrame)
                     {
                         Builder::build(*unitType, item->buildLocation.location.tile, builder, BWAPI::Broodwar->getFrameCount() + item->startFrame);
