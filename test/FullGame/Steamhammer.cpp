@@ -9,11 +9,14 @@ TEST(Steamhammer, RunForever)
     {
         BWTest test;
         test.opponentRace = BWAPI::Races::Zerg;
-        test.maps = Maps::Get("aiide");
+//        test.maps = Maps::Get("aiide");
+        test.map = Maps::GetOne("Destination");
+        test.randomSeed = 94484;
+        test.frameLimit = 20000;
         test.opponentModule = []()
         {
             auto module = new UAlbertaBot::UAlbertaBotModule();
-            //Config::StardustTestStrategyName = "12HatchTurtle";
+            Config::StardustTestStrategyName = "11HatchTurtleHydra";
             return module;
         };
         test.onStartOpponent = [&test]()
@@ -313,6 +316,24 @@ TEST(Steamhammer, 11HatchTurtleLurker)
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
         Config::StardustTestStrategyName = "11HatchTurtleLurker";
+        Config::StardustTestForceGasSteal = true;
+        return module;
+    };
+
+    test.run();
+}
+
+TEST(Steamhammer, 11HatchTurtleHydra)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Destination");
+    test.randomSeed = 94484;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.frameLimit = 20000;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "11HatchTurtleHydra";
         Config::StardustTestForceGasSteal = true;
         return module;
     };
