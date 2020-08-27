@@ -59,13 +59,11 @@ public:
                          BWAPI::Position targetPosition);
 
     std::vector<std::pair<MyUnit, Unit>>
-    selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPosition);
+    selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPosition, bool staticPosition = false);
 
     virtual void attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition);
 
-    void containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
-                     std::set<Unit> &enemyUnits,
-                     BWAPI::Position targetPosition);
+    void containBase(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
 
     void holdChoke(Choke *choke,
                    BWAPI::Position defendEnd,

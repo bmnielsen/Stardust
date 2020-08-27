@@ -219,7 +219,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::ContainStaticDefense:
         {
-            containBase(unitsAndTargets, enemyUnits, targetPosition);
+            containBase(enemyUnits, targetPosition);
 
             break;
         }

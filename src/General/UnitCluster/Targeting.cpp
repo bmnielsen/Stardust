@@ -183,32 +183,39 @@ namespace
 
         explicit Attacker(MyUnit unit) : unit(std::move(unit)), framesToAttack(INT_MAX) {}
     };
+
+    bool isTargetReachableEnemyBase(BWAPI::Position targetPosition)
+    {
+        // First check if the target is an enemy base
+        auto targetBase = Map::baseNear(targetPosition);
+        if (!targetBase) return false;
+        if (targetBase->owner != BWAPI::Broodwar->enemy()) return false;
+        if (targetBase->lastScouted != -1 && (!targetBase->resourceDepot || !targetBase->resourceDepot->exists())) return false;
+
+        // Next check if we can path to it
+        if (!Map::getMyMainChoke()) return true;
+
+        auto grid = PathFinding::getNavigationGrid(targetBase->getTilePosition());
+        if (!grid) return true;
+
+        auto node = (*grid)[Map::getMyMainChoke()->center];
+        return node.nextNode != nullptr;
+    }
 }
 
 std::vector<std::pair<MyUnit, Unit>>
-UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPosition)
+UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPosition, bool staticPosition)
 {
     std::vector<std::pair<MyUnit, Unit>> result;
 
     // For our targeting we want to know if we are attacking a reachable enemy base
     // Criteria:
+    // - Not in static position mode
     // - Target is near a base
     // - The base is owned by the enemy
     // - The base has a resource depot or hasn't been scouted yet
     // - The base has a navigation grid path from our main choke (i.e. hasn't been walled-off)
-    auto targetBase = Map::baseNear(targetPosition);
-    bool targetIsReachableEnemyBase = targetBase
-                                      && targetBase->owner == BWAPI::Broodwar->enemy()
-                                      && (targetBase->lastScouted == -1 || (targetBase->resourceDepot && targetBase->resourceDepot->exists()));
-    if (targetIsReachableEnemyBase && Map::getMyMainChoke())
-    {
-        auto grid = PathFinding::getNavigationGrid(targetBase->getTilePosition());
-        if (grid)
-        {
-            auto node = (*grid)[Map::getMyMainChoke()->center];
-            targetIsReachableEnemyBase = node.nextNode != nullptr;
-        }
-    }
+    bool targetIsReachableEnemyBase = !staticPosition && isTargetReachableEnemyBase(targetPosition);
 
     // Create the target objects
     std::vector<Target> targets;
@@ -312,6 +319,15 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             {
 #if DEBUG_TARGETING
                 dbg << "\n Skipping " << *target.unit << " as under disruption web";
+#endif
+                continue;
+            }
+
+            // In static position mode, units only attack what they are in range of
+            if (staticPosition && !unit->isInOurWeaponRange(target.unit))
+            {
+#if DEBUG_TARGETING
+                dbg << "\n Skipping " << *target.unit << " as we are in a static position and it is not in range";
 #endif
                 continue;
             }

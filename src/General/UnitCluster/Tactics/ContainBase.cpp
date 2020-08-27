@@ -16,15 +16,17 @@
 namespace
 {
     const int goalWeight = 64;
-    const int goalWeightInRangeOfStaticDefense = 128;
+    const int goalWeightInRangeOfThreat = 128;
     const double separationDetectionLimitFactor = 1.5;
     const double separationWeight = 96.0;
 }
 
-void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
-                              std::set<Unit> &enemyUnits,
+void UnitCluster::containBase(std::set<Unit> &enemyUnits,
                               BWAPI::Position targetPosition)
 {
+    // Perform target selection again to get targets we can attack safely
+    auto unitsAndTargets = selectTargets(enemyUnits, targetPosition, true);
+
     auto &grid = Players::grid(BWAPI::Broodwar->enemy());
     auto navigationGrid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
 
@@ -38,26 +40,59 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
         // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
         if (!myUnit->isReady()) continue;
 
-        bool inRangeOfStaticDefense = false;
-        int closestStaticDefenseDist = INT_MAX;
-        Unit closestStaticDefense = nullptr;
-        for (auto &unit : enemyUnits)
+        // Determine if this unit is being threatened by something
+        Unit threat = nullptr;
+        bool staticDefenseThreat = false;
         {
-            if (!unit->isStaticGroundDefense()) continue;
-            if (!unit->completed) continue;
-
-            int dist = myUnit->getDistance(unit);
-            if (dist < closestStaticDefenseDist)
+            int closestDist = INT_MAX;
+            int myRange = myUnit->groundRange();
+            for (auto &unit : enemyUnits)
             {
-                closestStaticDefenseDist = dist;
-                closestStaticDefense = unit;
-            }
+                if (!unit->completed) continue;
+                if (!unit->canAttack(myUnit)) continue;
 
-            if (myUnit->isInEnemyWeaponRange(unit)) inRangeOfStaticDefense = true;
+                int enemyRange = unit->groundRange();
+
+                // For static defense, just take any we are almost in range of
+                if (unit->isStaticGroundDefense())
+                {
+                    int dist = myUnit->getDistance(unit);
+                    if (dist > (enemyRange + 16)) continue;
+
+                    if (dist < closestDist || !staticDefenseThreat)
+                    {
+                        threat = unit;
+                        closestDist = dist;
+                        staticDefenseThreat = true;
+                    }
+
+                    continue;
+                }
+
+                // Ignore non-static-defense if we have found a static defense threat
+                if (staticDefenseThreat) continue;
+
+                // Don't worry about units with a lower range
+                if (enemyRange <= myRange) continue;
+
+                int dist = myUnit->getDistance(unit);
+
+                // Don't worry about units that are further away from what we have already found
+                if (dist >= closestDist) continue;
+
+                // Don't worry about units we can attack
+                if (dist <= myRange) continue;
+
+                // Don't worry about units that are well out of their attack range
+                if (dist > (enemyRange + 32)) continue;
+
+                threat = unit;
+                closestDist = dist;
+            }
         }
 
         // If this unit is not in range of static defense and is in range of its target, attack
-        if (unitAndTarget.second && !inRangeOfStaticDefense && myUnit->isInOurWeaponRange(unitAndTarget.second))
+        if (unitAndTarget.second && !staticDefenseThreat && myUnit->isInOurWeaponRange(unitAndTarget.second))
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(myUnit->id) << "Contain: Attacking " << *unitAndTarget.second;
@@ -73,11 +108,10 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
         int goalX = 0;
         int goalY = 0;
 
-        // If in range of static defense, just move away from it
-        if (inRangeOfStaticDefense)
+        // If in range of a threat, just move away from it
+        if (threat)
         {
-            auto scaled = Geo::ScaleVector(myUnit->lastPosition - closestStaticDefense->lastPosition,
-                                           goalWeightInRangeOfStaticDefense);
+            auto scaled = Geo::ScaleVector(myUnit->lastPosition - threat->lastPosition, goalWeightInRangeOfThreat);
             if (scaled != BWAPI::Positions::Invalid)
             {
                 goalX = scaled.x;
@@ -86,7 +120,7 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
             pullingBack = true;
 
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(myUnit->id) << "Contain (goal boid): Moving away from " << BWAPI::WalkPosition(closestStaticDefense->lastPosition);
+            CherryVis::log(myUnit->id) << "Contain (goal boid): Moving away from " << *threat;
 #endif
         }
         else
@@ -188,25 +222,28 @@ void UnitCluster::containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTarg
         // Separation boid
         int separationX = 0;
         int separationY = 0;
-        for (const auto &otherUnitAndTarget : unitsAndTargets)
+        if (!pullingBack)
         {
-            if (otherUnitAndTarget.first == myUnit) continue;
-
-            auto other = otherUnitAndTarget.first;
-
-            auto dist = myUnit->getDistance(other);
-            double detectionLimit = std::max(myUnit->type.width(), other->type.width()) * separationDetectionLimitFactor;
-            if (dist >= (int) detectionLimit) continue;
-
-            // We are within the detection limit
-            // Push away with maximum force at 0 distance, no force at detection limit
-            double distFactor = 1.0 - (double) dist / detectionLimit;
-            auto vector = Geo::ScaleVector(myUnit->lastPosition - other->lastPosition,
-                                           (int) (distFactor * distFactor * separationWeight));
-            if (vector != BWAPI::Positions::Invalid)
+            for (const auto &otherUnitAndTarget : unitsAndTargets)
             {
-                separationX += vector.x;
-                separationY += vector.y;
+                if (otherUnitAndTarget.first == myUnit) continue;
+
+                auto other = otherUnitAndTarget.first;
+
+                auto dist = myUnit->getDistance(other);
+                double detectionLimit = std::max(myUnit->type.width(), other->type.width()) * separationDetectionLimitFactor;
+                if (dist >= (int) detectionLimit) continue;
+
+                // We are within the detection limit
+                // Push away with maximum force at 0 distance, no force at detection limit
+                double distFactor = 1.0 - (double) dist / detectionLimit;
+                auto vector = Geo::ScaleVector(myUnit->lastPosition - other->lastPosition,
+                                               (int) (distFactor * distFactor * separationWeight));
+                if (vector != BWAPI::Positions::Invalid)
+                {
+                    separationX += vector.x;
+                    separationY += vector.y;
+                }
             }
         }
 
