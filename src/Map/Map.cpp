@@ -390,6 +390,27 @@ namespace Map
             }
         }
 
+        bool checkCreep(Base *base)
+        {
+            for (int x = -8; x <= 11; x++)
+            {
+                if (x == 0) x = 4;
+                for (int y = -5; y <= 7; y++)
+                {
+                    if (y == 0) y = 2;
+
+                    BWAPI::TilePosition tile = {base->getTilePosition().x + x, base->getTilePosition().y + y};
+                    if (!tile.isValid()) continue;
+                    if (BWAPI::Broodwar->hasCreep(tile))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         void validateBaseOwnership(Base *base, Unit recentlyDestroyedBuilding = nullptr)
         {
             if (!base->owner) return;
@@ -412,6 +433,10 @@ namespace Map
             }
             else
             {
+                // For the case where we are doing periodic re-evaluation, assume the base is still owned
+                // by the enemy if it has creep
+                if (!recentlyDestroyedBuilding && checkCreep(base)) return;
+
                 for (auto &unit : Units::allEnemy())
                 {
                     if (isNearbyBuilding(unit)) return;
@@ -435,27 +460,6 @@ namespace Map
 
             // Check if the destruction of the unit results in the base ownership changing
             validateBaseOwnership(nearbyBase, unit);
-        }
-
-        void checkCreep(Base *base)
-        {
-            for (int x = -8; x <= 11; x++)
-            {
-                if (x == 0) x = 4;
-                for (int y = -5; y <= 7; y++)
-                {
-                    if (y == 0) y = 2;
-
-                    BWAPI::TilePosition tile = {base->getTilePosition().x + x, base->getTilePosition().y + y};
-                    if (!tile.isValid()) continue;
-                    if (BWAPI::Broodwar->hasCreep(tile))
-                    {
-                        setBaseOwner(base, BWAPI::Broodwar->enemy());
-                        base->lastScouted = BWAPI::Broodwar->getFrameCount();
-                        return;
-                    }
-                }
-            }
         }
 
         // Writes the tile walkability grid to CherryVis
@@ -1132,9 +1136,11 @@ namespace Map
             else if (
                     (base->ownedSince == -1 || base->ownedSince < (BWAPI::Broodwar->getFrameCount() - 2500)) &&
                     BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran &&
-                    BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss)
+                    BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss &&
+                    checkCreep(base))
             {
-                checkCreep(base);
+                setBaseOwner(base, BWAPI::Broodwar->enemy());
+                base->lastScouted = BWAPI::Broodwar->getFrameCount();
             }
         }
 
