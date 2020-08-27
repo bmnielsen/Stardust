@@ -1873,7 +1873,7 @@ namespace Producer
                         continue;
                     }
 
-                    int arrivalFrame;
+                    int arrivalFrame = 0;
                     auto builder = item->reservedBuilder
                                    ? item->reservedBuilder
                                    : Builder::getBuilderUnit(item->buildLocation.location.tile, *unitType, &arrivalFrame);
