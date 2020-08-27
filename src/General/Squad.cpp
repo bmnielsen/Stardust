@@ -307,6 +307,14 @@ std::shared_ptr<UnitCluster> Squad::vanguardCluster(int *distToTargetPosition) c
     return currentVanguardCluster;
 }
 
+bool Squad::isInVanguardCluster(MyUnit &unit) const
+{
+    auto clusterIt = unitToCluster.find(unit);
+    if (clusterIt == unitToCluster.end()) return false;
+
+    return clusterIt->second == currentVanguardCluster;
+}
+
 void Squad::updateDetectionNeeds(std::set<Unit> &enemyUnits)
 {
     for (const auto &unit : enemyUnits)

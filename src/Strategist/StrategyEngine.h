@@ -60,5 +60,7 @@ protected:
         return nullptr;
     }
 
-    static void UpdateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays);
+    static void updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays);
+
+    static void updateAttackExpansionPlays(std::vector<std::shared_ptr<Play>> &plays);
 };

@@ -115,7 +115,7 @@ namespace Strategist
                 // TODO: Need to figure out how to allow the scout squad to take a detector from the main army squad when it doesn't need it
                 for (auto &typeAndReassignableUnits : typeToReassignableUnits)
                 {
-                    for (auto it = typeAndReassignableUnits.second.begin(); it != typeAndReassignableUnits.second.end(); )
+                    for (auto it = typeAndReassignableUnits.second.begin(); it != typeAndReassignableUnits.second.end();)
                     {
                         if (it->currentPlay == play)
                         {
@@ -152,6 +152,11 @@ namespace Strategist
                          it = reassignableUnits.erase(it))
                     {
                         if (it->currentPlay == play) continue;
+                        if (!unitRequirement.allowFromVanguardCluster && it->currentPlay && it->currentPlay->getSquad()
+                            && it->currentPlay->getSquad()->isInVanguardCluster(it->unit))
+                        {
+                            continue;
+                        }
                         if (unitRequirement.gridNodePredicate &&
                             !PathFinding::checkGridPath(it->unit->getTilePosition(),
                                                         BWAPI::TilePosition(unitRequirement.position),

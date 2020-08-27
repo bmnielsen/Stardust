@@ -105,7 +105,8 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         }
     }
 
-    UpdateDefendBasePlays(plays);
+    updateDefendBasePlays(plays);
+    updateAttackExpansionPlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 15000);
 }
