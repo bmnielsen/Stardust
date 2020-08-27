@@ -421,3 +421,75 @@ TEST(UpdateNavigationGrid, PylonEmpireOfTheSun)
 
     test.run();
 }
+
+TEST(UpdateNavigationGrid, HeartbreakRidgeBug)
+{
+    BWTest test;
+    NavigationGrid *grid;
+
+    setupGridTest(test, BWAPI::TilePosition(7, 37), grid, "Heartbreak", 79141);
+
+    test.onFrameMine = [&]()
+    {
+        if (BWAPI::Broodwar->getFrameCount() == 2)
+        {
+            addBuilding(grid, BWAPI::UnitTypes::Zerg_Hatchery, BWAPI::TilePosition(13, 66));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+
+        if (BWAPI::Broodwar->getFrameCount() == 3)
+        {
+            addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(17, 67));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+
+        if (BWAPI::Broodwar->getFrameCount() == 4)
+        {
+            addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(19, 67));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+
+        if (BWAPI::Broodwar->getFrameCount() == 5)
+        {
+            addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(21, 66));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+
+        if (BWAPI::Broodwar->getFrameCount() == 6)
+        {
+            removeBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(21, 66));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+
+        if (BWAPI::Broodwar->getFrameCount() == 7)
+        {
+            addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(21, 67));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
+
+        if (BWAPI::Broodwar->getFrameCount() == 8)
+        {
+            addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(21, 65));
+
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+            EXPECT_TRUE((*grid)[BWAPI::TilePosition(32, 70)].cost < USHRT_MAX);
+        }
+
+        CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
+    };
+
+    test.run();
+}
