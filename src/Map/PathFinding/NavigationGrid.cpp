@@ -123,56 +123,60 @@ void NavigationGrid::update()
         // Don't allow diagonal connections through blocked tiles
         if (direction % 2 == 1 && (!allowDiagonalConnectionThrough(x, current->y) || !allowDiagonalConnectionThrough(current->x, y))) return;
 
-        // If the target node is already connected, remove the reverse connection
-        if (node.nextNode)
-        {
-            if (node.nextNode->x < node.x)
-            {
-                if (node.nextNode->y < node.y)
-                {
-                    node.nextNode->prevNodes &= ~(1U << 5U);
-                }
-                else if (node.nextNode->y > node.y)
-                {
-                    node.nextNode->prevNodes &= ~(1U << 1U);
-                }
-                else
-                {
-                    node.nextNode->prevNodes &= ~(1U << 0U);
-                }
-            }
-            else if (node.nextNode->x > node.x)
-            {
-                if (node.nextNode->y < node.y)
-                {
-                    node.nextNode->prevNodes &= ~(1U << 7U);
-                }
-                else if (node.nextNode->y > node.y)
-                {
-                    node.nextNode->prevNodes &= ~(1U << 3U);
-                }
-                else
-                {
-                    node.nextNode->prevNodes &= ~(1U << 2U);
-                }
-            }
-            else
-            {
-                if (node.nextNode->y < node.y)
-                {
-                    node.nextNode->prevNodes &= ~(1U << 4U);
-                }
-                else
-                {
-                    node.nextNode->prevNodes &= ~(1U << 6U);
-                }
-            }
-        }
-
-        // Create the connection
+        // Make the connection if it isn't already done
         node.cost = cost;
-        node.nextNode = current;
-        current->prevNodes |= 1U << direction;
+        if (node.nextNode != current)
+        {
+            // Remove the reverse connection if the node was previously connected to another one
+            if (node.nextNode)
+            {
+                if (node.nextNode->x < node.x)
+                {
+                    if (node.nextNode->y < node.y)
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 3U);
+                    }
+                    else if (node.nextNode->y > node.y)
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 7U);
+                    }
+                    else
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 2U);
+                    }
+                }
+                else if (node.nextNode->x > node.x)
+                {
+                    if (node.nextNode->y < node.y)
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 1U);
+                    }
+                    else if (node.nextNode->y > node.y)
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 5U);
+                    }
+                    else
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 0U);
+                    }
+                }
+                else
+                {
+                    if (node.nextNode->y < node.y)
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 6U);
+                    }
+                    else
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 4U);
+                    }
+                }
+            }
+
+            // Create the connection
+            node.nextNode = current;
+            current->prevNodes |= 1U << direction;
+        }
 
         // Queue the node if it is walkable
         if (walkableAndNotMineralLine(x, y))
@@ -251,35 +255,28 @@ void NavigationGrid::addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosi
 
 void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
 {
-    // Step one: add all blocking tiles to a queue and collect all of their neighbours
-    // These will act as potential origins for recomputed paths
-    std::set<GridNode *> origins;
-    auto addOrigin = [&](unsigned short x, unsigned short y)
+    // First, invalidate every path that goes through the tiles
+    // Then push all still-valid tiles bordering an invalidated tile to the update queue
+    // When the grid is updated, all of the invalidated tiles will receive a new path from these bordering tiles
+
+    std::queue<GridNode *> queue;
+    for (const auto &tile : tiles)
+    {
+        auto &node = grid[tile.x + tile.y * BWAPI::Broodwar->mapWidth()];
+        queue.push(&node);
+    }
+
+    std::vector<GridNode *> bordering;
+    auto addBordering = [&](unsigned short x, unsigned short y)
     {
         if (x >= BWAPI::Broodwar->mapWidth() || y >= BWAPI::Broodwar->mapHeight())
         {
             return;
         }
 
-        origins.insert(&grid[x + y * BWAPI::Broodwar->mapWidth()]);
+        bordering.push_back(&grid[x + y * BWAPI::Broodwar->mapWidth()]);
     };
-    std::queue<GridNode *> queue;
-    for (const auto &tile : tiles)
-    {
-        auto &node = grid[tile.x + tile.y * BWAPI::Broodwar->mapWidth()];
-        queue.push(&node);
 
-        addOrigin(node.x + 1, node.y);
-        addOrigin(node.x - 1, node.y);
-        addOrigin(node.x, node.y + 1);
-        addOrigin(node.x, node.y - 1);
-        addOrigin(node.x - 1, node.y - 1);
-        addOrigin(node.x + 1, node.y - 1);
-        addOrigin(node.x - 1, node.y + 1);
-        addOrigin(node.x + 1, node.y + 1);
-    }
-
-    // Step two: invalidate every path that goes through the blocking tiles
     auto visit = [&](NavigationGrid::GridNode *current, unsigned short x, unsigned short y)
     {
         auto &node = grid[x + y * BWAPI::Broodwar->mapWidth()];
@@ -287,7 +284,17 @@ void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles
         node.cost = USHRT_MAX;
         node.nextNode = nullptr;
         if (node.prevNodes) queue.push(&node);
+
+        addBordering(x + 1, y);
+        addBordering(x - 1, y);
+        addBordering(x, y + 1);
+        addBordering(x, y - 1);
+        addBordering(x - 1, y - 1);
+        addBordering(x + 1, y - 1);
+        addBordering(x - 1, y + 1);
+        addBordering(x + 1, y + 1);
     };
+
     while (!queue.empty())
     {
         GridNode *current = queue.front();
@@ -306,13 +313,13 @@ void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles
         current->prevNodes = 0;
     }
 
-    // Step three: push all valid original next nodes to the update queue for use in assigning new paths
-    for (auto &origin : origins)
+    // Push all valid bordering tiles to the update queue
+    for (auto &borderingNode : bordering)
     {
-        if (origin->nextNode)
+        if (borderingNode->nextNode)
         {
-            nodeQueue.push(std::make_tuple(origin->cost + 10, origin, false));
-            nodeQueue.push(std::make_tuple(origin->cost + 14, origin, true));
+            nodeQueue.push(std::make_tuple(borderingNode->cost + 10, borderingNode, false));
+            nodeQueue.push(std::make_tuple(borderingNode->cost + 14, borderingNode, true));
         }
     }
 }
