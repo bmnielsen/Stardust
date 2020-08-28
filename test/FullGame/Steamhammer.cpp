@@ -9,14 +9,11 @@ TEST(Steamhammer, RunForever)
     {
         BWTest test;
         test.opponentRace = BWAPI::Races::Zerg;
-//        test.maps = Maps::Get("aiide");
-        test.map = Maps::GetOne("Destination");
-        test.randomSeed = 94484;
-        test.frameLimit = 20000;
+        test.maps = Maps::Get("aiide");
         test.opponentModule = []()
         {
             auto module = new UAlbertaBot::UAlbertaBotModule();
-            Config::StardustTestStrategyName = "11HatchTurtleHydra";
+//            Config::StardustTestStrategyName = "11HatchTurtleHydra";
             return module;
         };
         test.onStartOpponent = [&test]()
