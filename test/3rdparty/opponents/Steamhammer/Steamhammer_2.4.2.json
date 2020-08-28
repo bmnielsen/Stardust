@@ -827,7 +827,9 @@
 
 			"Sparkle 1HatchMuta"	: { "Race" : "Zerg", "OpeningBuildOrder" : ["5 x drone", "overlord", "extractor", "drone", "spawning pool", "3 x drone", "lair", "5 x drone", "hatchery", "spire", "go queue barrier", "zergling", "drone", "3 x overlord", "zerg flyer carapace", "8 x mutalisk", "go queue barrier", "extractor", "4 x mutalisk"]},
 			"Sparkle 2HatchMuta"	: { "Race" : "Zerg", "OpeningBuildOrder" : ["4 x drone", "overlord", "4 x drone", "hatchery", "spawning pool", "extractor", "3 x drone", "2 x zergling", "lair", "zergling", "go queue barrier", "5 x drone", "spire", "go queue barrier", "extractor", "3 x drone", "3 x overlord", "zerg flyer carapace", "12 x mutalisk", "hatchery", "pneumatized carapace"]},
-			"Sparkle 3HatchMuta"	: { "Race" : "Zerg", "OpeningBuildOrder" : ["4 x drone", "overlord", "4 x drone", "hatchery", "spawning pool", "2 x drone", "hatchery", "extractor", "3 x zergling", "3 x drone", "lair", "5 x drone", "go queue barrier", "extractor", "5 x drone", "spire", "7 x drone", "3 x overlord", "zerg flyer carapace", "12 x mutalisk", "evolution chamber", "pneumatized carapace", "2 x drone", "queens nest"]}
+			"Sparkle 3HatchMuta"	: { "Race" : "Zerg", "OpeningBuildOrder" : ["4 x drone", "overlord", "4 x drone", "hatchery", "spawning pool", "2 x drone", "hatchery", "extractor", "3 x zergling", "3 x drone", "lair", "5 x drone", "go queue barrier", "extractor", "5 x drone", "spire", "7 x drone", "3 x overlord", "zerg flyer carapace", "12 x mutalisk", "evolution chamber", "pneumatized carapace", "2 x drone", "queens nest"]},
+
+			"ZZZKMutaRush"			: { "Race" : "Zerg", "OpeningBuildOrder" : ["go nonadaptive", "5 x drone", "overlord", "spawning pool", "3 x drone", "extractor", "4 x drone", "lair", "zergling", "hatchery @ macro", "drone", "2 x zergling", "overlord", "spire", "drone", "overlord", "10 x mutalisk" ]}
 		}
 	}
 }

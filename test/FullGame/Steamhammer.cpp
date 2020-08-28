@@ -341,6 +341,23 @@ TEST(Steamhammer, 11HatchTurtleHydra)
     test.run();
 }
 
+TEST(Steamhammer, ZZZKMutaRush)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Destination");
+    test.randomSeed = 94484;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.frameLimit = 20000;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "ZZZKMutaRush";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, 12HatchTurtle)
 {
     BWTest test;
