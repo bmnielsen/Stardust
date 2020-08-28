@@ -1140,7 +1140,8 @@ namespace Map
                     checkCreep(base))
             {
                 setBaseOwner(base, BWAPI::Broodwar->enemy());
-                base->lastScouted = BWAPI::Broodwar->getFrameCount();
+
+                // Don't set lastScouted as this refers to when the depot location was seen
             }
         }
 
