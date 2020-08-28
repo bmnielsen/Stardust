@@ -223,7 +223,6 @@ namespace
 
             if (naturalChoke)
             {
-                CherryVis::log() << "Reference position is enemy natural choke @ " << BWAPI::WalkPosition(naturalChoke->center);
                 referencePosition = naturalChoke->center;
             }
         }
@@ -250,8 +249,6 @@ namespace
                 }
             }
         }
-
-        CherryVis::log() << "Best tile @ " << BWAPI::WalkPosition(bestTile);
 
         return bestTile;
     }
