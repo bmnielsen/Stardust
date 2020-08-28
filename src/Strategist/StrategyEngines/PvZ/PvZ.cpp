@@ -104,7 +104,6 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             {
                 case OurStrategy::EarlyGameDefense:
                 case OurStrategy::AntiAllIn:
-                case OurStrategy::Defensive:
                     setMainPlay<DefendMyMain>(mainArmyPlay);
                     break;
                 case OurStrategy::FastExpansion:
@@ -117,6 +116,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
                     break;
                 }
+                case OurStrategy::Defensive:
                 case OurStrategy::Normal:
                 case OurStrategy::MidGame:
                 {
