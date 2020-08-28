@@ -29,13 +29,13 @@ namespace
             (targetType == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine && !target->burrowed) ||
             (targetType == BWAPI::UnitTypes::Protoss_Observer && Units::countCompleted(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0))
         {
-            return 12;
+            return 15;
         }
 
         if (targetType == BWAPI::UnitTypes::Protoss_Arbiter ||
             targetType == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode)
         {
-            return 11;
+            return 14;
         }
 
         if (targetType == BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode ||
@@ -46,7 +46,7 @@ namespace
             targetType == BWAPI::UnitTypes::Protoss_Observer ||
             targetType == BWAPI::UnitTypes::Zerg_Nydus_Canal)
         {
-            return 10;
+            return 13;
         }
 
         // Proxies
@@ -54,27 +54,27 @@ namespace
         {
             if (target->canAttackGround() || target->canAttackAir())
             {
-                return 10;
+                return 12;
             }
-            return 8;
+            return 10;
         }
 
         if (targetType == BWAPI::UnitTypes::Terran_Bunker)
         {
-            return 9;
+            return 11;
         }
 
         if (targetType.isWorker())
         {
             if ((target->bwapiUnit->isConstructing() || target->bwapiUnit->isRepairing()) && closeToOurBase())
             {
-                return 12;
+                return 15;
             }
 
             // Blocking a narrow choke makes you critical.
             if (Map::isInNarrowChoke(target->getTilePosition()))
             {
-                return 11;
+                return 14;
             }
 
             // Repairing
@@ -83,41 +83,39 @@ namespace
                 // Something that can shoot
                 if (target->bwapiUnit->getOrderTarget()->getType().groundWeapon() != BWAPI::WeaponTypes::None)
                 {
-                    return 11;
+                    return 14;
                 }
 
                 // A bunker: only target the workers if we can't outrange the bunker
                 if (target->bwapiUnit->getOrderTarget()->getType() == BWAPI::UnitTypes::Terran_Bunker &&
                     Players::weaponRange(target->player, BWAPI::UnitTypes::Terran_Marine.groundWeapon()) > 128)
                 {
-                    return 10;
+                    return 13;
                 }
             }
 
             // Workers that have attacked in the last four seconds
             if ((BWAPI::Broodwar->getFrameCount() - target->lastSeenAttacking) < 96)
             {
-                return 8;
+                return 11;
             }
 
             if (target->bwapiUnit->isConstructing())
             {
-                return 7;
+                return 10;
             }
 
-            return 6;
+            return 9;
         }
 
         if (target->canAttackGround() || target->canAttackAir())
         {
-            return 8;
+            return 11;
         }
 
-        if (targetType.isSpellcaster() ||
-            targetType == BWAPI::UnitTypes::Protoss_Templar_Archives ||
-            targetType == BWAPI::UnitTypes::Zerg_Spawning_Pool)
+        if (targetType.isSpellcaster())
         {
-            return 7;
+            return 10;
         }
 
         if (targetType.isResourceDepot())
@@ -126,6 +124,7 @@ namespace
         }
 
         if (targetType == BWAPI::UnitTypes::Protoss_Pylon ||
+            targetType == BWAPI::UnitTypes::Zerg_Spawning_Pool ||
             targetType == BWAPI::UnitTypes::Terran_Factory ||
             targetType == BWAPI::UnitTypes::Terran_Armory)
         {
@@ -162,7 +161,7 @@ namespace
         int healthIncludingShields; // Estimated health reduced by incoming bullets and earlier attackers
         int attackerCount;          // How many attackers have this target in their closeTargets vector
 
-        explicit Target(const Unit& unit)
+        explicit Target(const Unit &unit)
                 : unit(unit)
                 , priority(targetPriority(unit))
                 , healthIncludingShields(unit->health + unit->shields)
@@ -323,13 +322,29 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 continue;
             }
 
+            const int range = unit->getDistance(target.unit);
+            int distToRange = std::max(0, range - (target.unit->isFlying ? unit->airRange() : unit->groundRange()));
+
             // In static position mode, units only attack what they are in range of
-            if (staticPosition && !unit->isInOurWeaponRange(target.unit))
+            if (staticPosition && distToRange > 0)
             {
 #if DEBUG_TARGETING
                 dbg << "\n Skipping " << *target.unit << " as we are in a static position and it is not in range";
 #endif
                 continue;
+            }
+
+            // Skip targets that are out of range and moving away from us, unless we are close to our target position
+            if (distanceToTarget > 500 && distToRange > 0)
+            {
+                auto predictedTargetPosition = target.unit->predictPosition(1);
+                if (predictedTargetPosition.isValid() && unit->getDistance(target.unit, predictedTargetPosition) > range)
+                {
+#if DEBUG_TARGETING
+                    dbg << "\n Skipping " << *target.unit << " as it is out of range and moving away from us";
+#endif
+                    continue;
+                }
             }
 
             // This is a suitable target
@@ -338,8 +353,6 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 #endif
             attacker.targets.emplace_back(&target);
 
-            const int range = unit->getDistance(target.unit);
-            int distToRange = std::max(0, range - (target.unit->isFlying ? unit->airRange() : unit->groundRange()));
             int framesToAttack = std::max(unit->cooldownUntil - BWAPI::Broodwar->getFrameCount(),
                                           (int) ((double) distToRange / unit->type.topSpeed()) + BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
 
