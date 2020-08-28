@@ -199,27 +199,39 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
     if (!cannonLocations.empty())
     {
         int neededCannons = desiredCannons() - cannons.size();
-        if (neededCannons > 0)
+        for (int i = 0; i < neededCannons && i < cannonLocations.size(); i++)
         {
-            // Reduce the priority of the cannon if we already have one in progress, unless we need a lot of them
-            // This is to try to balance building static defense with army production
+            // Determine the priority
+            // By default it is equivalent to main army
+            // If it is the main in the early game, give it higher priority
+            // If it is the last cannon, give it lower priority until the others are completed
             int priority = PRIORITY_MAINARMY;
-            if (neededCannons == 1)
+            if (base == Map::getMyMain() && BWAPI::Broodwar->getFrameCount() < 12000)
             {
-                for (const auto &cannon : cannons)
+                priority = PRIORITY_NORMAL;
+            }
+            else if (i == (neededCannons - 1))
+            {
+                if (i > 0)
                 {
-                    if (!cannon->completed)
+                    priority = PRIORITY_LOWEST;
+                }
+                else
+                {
+                    for (const auto &cannon : cannons)
                     {
-                        priority = PRIORITY_LOWEST;
-                        break;
+                        if (!cannon->completed)
+                        {
+                            priority = PRIORITY_LOWEST;
+                            break;
+                        }
                     }
                 }
             }
 
-            auto location = *cannonLocations.begin();
-            if (!Builder::pendingHere(location))
+            if (!Builder::pendingHere(cannonLocations[i]))
             {
-                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(*cannonLocations.begin()), 0, 0, 0);
+                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(cannonLocations[i]), 0, 0, 0);
                 prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                   BWAPI::UnitTypes::Protoss_Photon_Cannon,
                                                                   buildLocation);
