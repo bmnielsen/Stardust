@@ -20,7 +20,7 @@ namespace
         auto closeToOurBase = [&target]()
         {
             auto ourBasePosition = BWAPI::Position(Map::getMyMain()->getPosition());
-            return target->getDistance(ourBasePosition);
+            return target->getDistance(ourBasePosition) < 1000;
         };
 
         if (targetType == BWAPI::UnitTypes::Zerg_Infested_Terran ||
