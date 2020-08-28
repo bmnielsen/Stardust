@@ -82,9 +82,9 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
     // Start when we have completed our second nexus
     if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
     {
-        // Upgrade past 1 and on two forges when we have completed our third gas
+        // Upgrade past 1 and on two forges when we have completed our third nexus
         int maxLevel, forgeCount;
-        if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 3)
+        if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 3)
         {
             maxLevel = 3;
             forgeCount = 2;
@@ -123,6 +123,17 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
                                                                      forgeCount);
         }
 
-        // TODO: Upgrade shields when maxed
+        // Upgrade shields when we are maxed
+        if (BWAPI::Broodwar->self()->supplyUsed() > 300 &&
+            BWAPI::Broodwar->self()->minerals() > 1000 &&
+            BWAPI::Broodwar->self()->gas() > 600)
+        {
+            if (weaponLevel < 3 && armorLevel < 3) forgeCount = 3;
+            prioritizedProductionGoals[PRIORITY_NORMAL]
+                    .emplace_back(std::in_place_type<UpgradeProductionGoal>,
+                                  BWAPI::UpgradeTypes::Protoss_Plasma_Shields,
+                                  BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Plasma_Shields) + 1,
+                                  forgeCount);
+        }
     }
 }
