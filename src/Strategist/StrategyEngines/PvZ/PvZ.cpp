@@ -204,7 +204,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             // Also bump up the number of zealots if the enemy has a lot of lings
-            desiredZealots = std::min(desiredZealots, 2 + Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 3);
+            desiredZealots = std::max(desiredZealots, 2 + Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 3);
 
             int zealotsRequired = desiredZealots - zealotCount;
 
@@ -280,13 +280,14 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::Defensive:
         {
-            // Build at least four zealots then transition into dragoons
+            // Scale our desired zealots based on enemy ling count, with a minimum of 3
+            int desiredZealots = std::max(3, 1 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) + 2) / 3);
             int unitCount = zealotCount + dragoonCount;
-            if (unitCount < 4)
+            if (unitCount < desiredZealots)
             {
                 prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
-                                                                              4 - unitCount,
+                                                                              desiredZealots - unitCount,
                                                                               2);
             }
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
