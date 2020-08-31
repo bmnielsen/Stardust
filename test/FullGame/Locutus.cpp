@@ -93,8 +93,6 @@ TEST(Locutus, RunAsLocutus)
 TEST(Locutus, 4GateGoon)
 {
     BWTest test;
-    test.map = Maps::GetOne("Aztec");
-    test.randomSeed = 59451;
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
