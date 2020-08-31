@@ -49,6 +49,49 @@ namespace
         return attack;
     }
 
+    // This returns the number of consecutive frames the sim has agreed on its current value.
+    // It also returns the total number of attack and regroup frames within the window.
+    int consecutiveSimResults(std::deque<std::pair<CombatSimResult, bool>> &recentSimResults,
+                              int *attack,
+                              int *regroup,
+                              int limit)
+    {
+        *attack = 0;
+        *regroup = 0;
+
+        if (recentSimResults.empty()) return 0;
+
+        bool firstResult = recentSimResults.rbegin()->second;
+        bool isConsecutive = true;
+        int consecutive = 0;
+        int count = 0;
+        for (auto it = recentSimResults.rbegin(); it != recentSimResults.rend() && count < limit; it++)
+        {
+            if (isConsecutive)
+            {
+                if (it->second == firstResult)
+                {
+                    consecutive++;
+                }
+                else
+                {
+                    isConsecutive = false;
+                }
+            }
+
+            if (it->second)
+            {
+                (*attack)++;
+            }
+            else
+            {
+                (*regroup)++;
+            }
+        }
+
+        return consecutive;
+    }
+
     bool shouldContinueAttack(UnitCluster &cluster, CombatSimResult &simResult)
     {
         // Always continue if we are close to maxed
@@ -95,33 +138,35 @@ namespace
             return false;
         }
 
-        // Otherwise only abort the attack when the sim has been stable for a number of frames
-        if (cluster.recentSimResults.size() < 24)
+        int attackFrames;
+        int regroupFrames;
+        int consecutiveRetreatFrames = consecutiveSimResults(cluster.recentSimResults, &attackFrames, &regroupFrames, 48);
+
+        // Continue if the sim hasn't been stable for 6 frames
+        if (consecutiveRetreatFrames < 6)
         {
 #if DEBUG_COMBATSIM
-            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing as we have fewer than 24 frames of sim data";
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing attack as the sim has not yet been stable for 6 frames";
 #endif
             return true;
         }
 
-        int count = 0;
-        for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 24; it++)
+        // Continue if the sim has recommended attacking more than regrouping
+        if (attackFrames > regroupFrames)
         {
-            if (it->second)
-            {
 #if DEBUG_COMBATSIM
-                CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                                 << ": continuing as a sim result within the past 24 frames recommended attacking";
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing attack; regroup=" << regroupFrames
+                             << " vs. attack=" << attackFrames;
 #endif
-                return true;
-            }
-            count++;
+            return true;
         }
 
+        // Abort
 #if DEBUG_COMBATSIM
-        CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                         << ": aborting as the sim has recommended regrouping for the past 24 frames";
+        CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": aborting attack; regroup=" << regroupFrames
+                         << " vs. attack=" << attackFrames;
 #endif
+
         return false;
     }
 
@@ -149,24 +194,39 @@ namespace
 
         if (!attack) return false;
 
-        // Stop the retreat when we have 48 frames of recommending attack with the same number of friendly units
+        int attackFrames;
+        int regroupFrames;
+        int consecutiveAttackFrames = consecutiveSimResults(cluster.recentSimResults, &attackFrames, &regroupFrames, 72);
+
+        // Continue if the sim hasn't been stable for 12 frames
+        if (consecutiveAttackFrames < 12)
+        {
+#if DEBUG_COMBATSIM
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing regroup as the sim has not yet been stable for 12 frames";
+#endif
+            return false;
+        }
+
+        // Continue if the sim has recommended regrouping more than attacking
+        if (regroupFrames > attackFrames)
+        {
+#if DEBUG_COMBATSIM
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing regroup; regroup=" << regroupFrames
+                             << " vs. attack=" << attackFrames;
+#endif
+            return false;
+        }
+
+        // Continue if our number of units has increased in the past 48 frames.
+        // This gives our reinforcements time to link up with the rest of the cluster before engaging.
         int count = 0;
         for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 48; it++)
         {
-            if (!it->second)
+            if (simResult.myUnitCount > it->first.myUnitCount)
             {
 #if DEBUG_COMBATSIM
                 CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                                 << ": aborting as the sim has recommended regrouping within the past 48 frames";
-#endif
-                return false;
-            }
-
-            if (simResult.myUnitCount != it->first.myUnitCount)
-            {
-#if DEBUG_COMBATSIM
-                CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                                 << ": aborting as the number of friendly units has changed within the past 48 frames";
+                                 << ": continuing regroup as more friendly units have joined the cluster in the past 48 frames";
 #endif
                 return false;
             }
@@ -174,21 +234,12 @@ namespace
             count++;
         }
 
-        if (count < 48)
-        {
+        // Start the attack
 #if DEBUG_COMBATSIM
-            CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                             << ": aborting as we have fewer than 48 frames of sim data";
+        CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": starting attack; regroup=" << regroupFrames
+                         << " vs. attack=" << attackFrames;
 #endif
-            return false;
-        }
 
-        // TODO: check that the sim result has been stable
-
-#if DEBUG_COMBATSIM
-        CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                         << ": starting attack as the sim has recommended doing so for the past 48 frames";
-#endif
         return true;
     }
 }
