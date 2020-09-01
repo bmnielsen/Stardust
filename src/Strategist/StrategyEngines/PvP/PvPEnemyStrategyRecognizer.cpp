@@ -71,34 +71,7 @@ namespace
         if (isFastExpansion()) return false;
         if (BWAPI::Broodwar->getFrameCount() >= 5000) return false;
 
-        // If the enemy main has been scouted, determine if there is a proxy by looking at what they have built
-        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
-            Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
-        {
-            // Expect first pylon by frame 1300
-            if (BWAPI::Broodwar->getFrameCount() > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
-
-            // Expect first gateway or forge by frame 2200
-            if (BWAPI::Broodwar->getFrameCount() > 2200
-                && !countAtLeast(BWAPI::UnitTypes::Protoss_Gateway, 1)
-                && !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1))
-            {
-                return true;
-            }
-
-            // If the enemy hasn't built a forge, expect a second pylon by frame 4000 if we still have a live scout
-            if (BWAPI::Broodwar->getFrameCount() > 4000 &&
-                Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted &&
-                !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1) &&
-                !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 2))
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        // Otherwise check if we have directly scouted an enemy building in a proxy location
+        // Check if we have directly scouted an enemy building in a proxy location
         auto enemyMain = Map::getEnemyStartingMain();
         auto enemyNatural = Map::getEnemyStartingNatural();
         for (const auto &enemyUnit : Units::allEnemy())
@@ -135,6 +108,33 @@ namespace
             }
 
             return true;
+        }
+
+        // If the enemy main has been scouted, determine if there is a proxy by looking at what they have built
+        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
+            Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
+        {
+            // Expect first pylon by frame 1300
+            if (BWAPI::Broodwar->getFrameCount() > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
+
+            // Expect first gateway or forge by frame 2200
+            if (BWAPI::Broodwar->getFrameCount() > 2200
+                && !countAtLeast(BWAPI::UnitTypes::Protoss_Gateway, 1)
+                && !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1))
+            {
+                return true;
+            }
+
+            // If the enemy hasn't built a forge, expect a second pylon by frame 4000 if we still have a live scout
+            if (BWAPI::Broodwar->getFrameCount() > 4000 &&
+                Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted &&
+                !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1) &&
+                !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 2))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         return false;
