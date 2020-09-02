@@ -87,6 +87,8 @@ namespace
             {
                 (*regroup)++;
             }
+
+            count++;
         }
 
         return consecutive;
