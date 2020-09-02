@@ -114,7 +114,8 @@ TEST(AttackBunker, FourGoons)
     test.opponentRace = BWAPI::Races::Terran;
     test.map = Maps::GetOne("Tau");
     test.randomSeed = 65145;
-    test.frameLimit = 2000;
+    test.frameLimit = 5000;
+    test.expectWin = false;
 
     test.myInitialUnits = {
             UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(41, 31))),
