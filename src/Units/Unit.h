@@ -58,6 +58,8 @@ public:
     int health;                         // Estimated health of the unit, adjusted for upcoming attacks
     int shields;                        // Estimated shields of the unit, adjusted for upcoming attacks
 
+    int lastHealFrame;                  // Last frame the unit was healed or repaired
+
     bool completed;                     // Whether the unit was completed
     int estimatedCompletionFrame;       // If not completed, the frame when we expect the unit to complete
 
@@ -94,6 +96,8 @@ public:
     [[nodiscard]] bool exists() const { return bwapiUnit != nullptr; };
 
     [[nodiscard]] virtual bool isBeingManufacturedOrCarried() const { return false; };
+
+    [[nodiscard]] bool isBeingHealed() const { return BWAPI::Broodwar->getFrameCount() < (lastHealFrame + 24); };
 
     [[nodiscard]] bool isAttackable() const;
 

@@ -169,6 +169,8 @@ namespace
 
         void dealDamage(const MyUnit &attacker)
         {
+            if (unit->isBeingHealed()) return;
+
             healthIncludingShields -= Players::attackDamage(attacker->player, attacker->type, unit->player, unit->type);
         }
     };

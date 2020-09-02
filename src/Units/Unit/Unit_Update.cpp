@@ -54,6 +54,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , lastShields(unit->getShields())
         , health(unit->getHitPoints())
         , shields(unit->getShields())
+        , lastHealFrame(-1)
         , completed(unit->isCompleted())
         , estimatedCompletionFrame(-1)
         , isFlying(unit->isFlying())
@@ -103,6 +104,11 @@ void UnitImpl::update(BWAPI::Unit unit)
     lastPositionValid = true;
     lastPositionVisible = true;
     beingManufacturedOrCarried = isBeingManufacturedOrCarried();
+
+    if (player->getRace() == BWAPI::Races::Terran && unit->isCompleted() && unit->getHitPoints() > lastHealth)
+    {
+        lastHealFrame = BWAPI::Broodwar->getFrameCount();
+    }
 
     // Cloaked units show up with 0 hit points and shields, so default to max and otherwise don't touch them
     undetected = isUndetected(unit);
@@ -191,16 +197,20 @@ void UnitImpl::update(BWAPI::Unit unit)
     }
 #endif
 
-    if (upcomingDamage > 0 && shields > 0)
+    // Do not simulate damage if the unit is being healed
+    if (!isBeingHealed())
     {
-        int shieldDamage = std::min(shields, upcomingDamage);
-        upcomingDamage -= shieldDamage;
-        shields -= shieldDamage;
-    }
-    if (upcomingDamage > 0)
-    {
-        health = std::max(0, health - upcomingDamage);
-        if (health <= 0) CherryVis::log(id) << "DOOMED!";
+        if (upcomingDamage > 0 && shields > 0)
+        {
+            int shieldDamage = std::min(shields, upcomingDamage);
+            upcomingDamage -= shieldDamage;
+            shields -= shieldDamage;
+        }
+        if (upcomingDamage > 0)
+        {
+            health = std::max(0, health - upcomingDamage);
+            if (health <= 0) CherryVis::log(id) << "DOOMED!";
+        }
     }
 }
 
