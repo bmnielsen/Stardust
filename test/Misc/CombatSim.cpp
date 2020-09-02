@@ -348,3 +348,78 @@ TEST(CombatSim, Ramp)
     test.run();
 }
 
+TEST(CombatSim, TankMinRange)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.myModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.map = Maps::GetOne("Mancha");
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.writeReplay = false;
+
+    test.onStartMine = []()
+    {
+        Log::initialize();
+        CherryVis::initialize();
+        Map::initialize();
+        CombatSim::initialize();
+        Log::SetDebug(true);
+
+        {
+            FAP::FastAPproximation sim;
+
+            sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(7, 30))));
+            sim.addIfCombatUnitPlayer2(makeUnit(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode, BWAPI::Position(BWAPI::TilePosition(7, 31))));
+
+            int initialMine = score(sim.getState().first);
+            int initialEnemy = score(sim.getState().second);
+
+            sim.simulate(144);
+
+            int finalMine = score(sim.getState().first);
+            int finalEnemy = score(sim.getState().second);
+
+            int diff = (initialEnemy - finalEnemy) - (initialMine - finalMine);
+
+            std::cout << "Scores for sieged tank starting in min range: " << diff << " ("
+                      << initialMine << "-" << initialEnemy << " : "
+                      << finalMine << "-" << finalEnemy << ")" << std::endl;
+
+            // Expect no loss
+            EXPECT_EQ(initialMine, finalMine);
+        }
+
+        {
+            FAP::FastAPproximation sim;
+
+            sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(7, 30))));
+            sim.addIfCombatUnitPlayer2(makeUnit(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode, BWAPI::Position(BWAPI::TilePosition(14, 35))));
+
+            int initialMine = score(sim.getState().first);
+            int initialEnemy = score(sim.getState().second);
+
+            sim.simulate(144);
+
+            int finalMine = score(sim.getState().first);
+            int finalEnemy = score(sim.getState().second);
+
+            int diff = (initialEnemy - finalEnemy) - (initialMine - finalMine);
+
+            std::cout << "Scores for sieged tank starting outside min range: " << diff << " ("
+                      << initialMine << "-" << initialEnemy << " : "
+                      << finalMine << "-" << finalEnemy << ")" << std::endl;
+            
+            EXPECT_GT(finalMine, initialMine - 40);
+        }
+    };
+
+    test.run();
+}
+
