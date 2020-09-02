@@ -93,7 +93,7 @@ namespace FAP {
 
     template<bool choke = false>
     int distSquared(FAPUnit<UnitExtension> const &u1, const FAPUnit<UnitExtension> &u2);
-    static int isInRange(FAPUnit<UnitExtension> const &attacker, const FAPUnit<UnitExtension> &target, int range);
+    static int isInRange(FAPUnit<UnitExtension> const &attacker, const FAPUnit<UnitExtension> &target, int minRange, int maxRange);
     static bool isSuicideUnit(BWAPI::UnitType ut);
 
     template<bool tankSplash, bool choke>
@@ -289,7 +289,10 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
-  int FastAPproximation<UnitExtension>::isInRange(FAPUnit<UnitExtension> const &attacker, const FAPUnit<UnitExtension> &target, int range) {
+  int FastAPproximation<UnitExtension>::isInRange(FAPUnit<UnitExtension> const &attacker,
+                                                  const FAPUnit<UnitExtension> &target,
+                                                  int minRange,
+                                                  int maxRange) {
     // Compute edge-to-edge x and y offsets
     int xDist =
       attacker.x > target.x
@@ -303,20 +306,26 @@ namespace FAP {
     if (yDist < 0) yDist = 0;
 
     // Do the BW approximate distance calculation
+    int dist;
+
     if (xDist < yDist)
     {
-      if (xDist < (yDist >> 2))
-        return yDist <= range;
-
-      unsigned int minCalc = (3 * xDist) >> 3;
-      return ((minCalc >> 5) + minCalc + yDist - (yDist >> 4) - (yDist >> 6)) <= range;
+      if (xDist < (yDist >> 2)) {
+        dist = yDist;
+      } else {
+        unsigned int minCalc = (3 * xDist) >> 3;
+        dist = ((minCalc >> 5) + minCalc + yDist - (yDist >> 4) - (yDist >> 6));
+      }
+    } else {
+      if (yDist < (xDist >> 2)) {
+        dist = xDist;
+      } else {
+        unsigned int minCalc = (3 * yDist) >> 3;
+        dist = ((minCalc >> 5) + minCalc + xDist - (xDist >> 4) - (xDist >> 6));
+      }
     }
 
-    if (yDist < (xDist >> 2))
-      return xDist <= range;
-
-    unsigned int minCalc = (3 * yDist) >> 3;
-    return ((minCalc >> 5) + minCalc + xDist - (xDist >> 4) - (xDist >> 6)) <= range;
+    return dist >= minRange && dist <= maxRange;
   }
 
   template<typename UnitExtension>
@@ -414,6 +423,11 @@ namespace FAP {
           closestDistSquared = distSquared(fu, *enemyIt);
           break;
         }
+      }
+
+      // Clear the target if it wasn't found or if it is within the unit's minimum range
+      if (closestEnemy == enemyUnits.end() || closestDistSquared < fu.groundMinRangeSquared) {
+        fu.target = 0;
       }
     }
 
@@ -513,7 +527,7 @@ namespace FAP {
         if constexpr (choke) {
           // Defending unit moves to defend the choke if it is not in the same side as its target or is not in its target's attack range
           if (fu.player == 2 && (chokeGeometry->tileSide[fu.cell] != chokeGeometry->tileSide[closestEnemy->cell]
-                              || !isInRange(*closestEnemy, fu, (fu.flying ? closestEnemy->airMaxRange : closestEnemy->groundMaxRange)))) {
+                              || !isInRange(*closestEnemy, fu, (fu.flying ? 0 : closestEnemy->groundMinRange), (fu.flying ? closestEnemy->airMaxRange : closestEnemy->groundMaxRange)))) {
             defendChoke(fu, *closestEnemy);
             return;
           }
@@ -528,7 +542,7 @@ namespace FAP {
         }
 
         // Move towards the enemy if it is out of range or is a sieged tank
-        if (!isInRange(fu, *closestEnemy, (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange)) ||
+        if (!isInRange(fu, *closestEnemy, (closestEnemy->flying ? 0 : fu.groundMinRange), (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange)) ||
           closestEnemy->unitType == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) {
           moveTowards(fu, *closestEnemy);
         } else if (fu.attackCooldownRemaining > 1) {
@@ -551,7 +565,7 @@ namespace FAP {
       didSomething = true;
     }
 
-    if (closestEnemy != enemyUnits.end() && isInRange(fu, *closestEnemy, (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange))) {
+    if (closestEnemy != enemyUnits.end() && isInRange(fu, *closestEnemy, (closestEnemy->flying ? 0 : fu.groundMinRange), (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange))) {
       if (closestEnemy->flying) {
         dealDamage(*closestEnemy, fu.airDamage, fu.airDamageType);
         fu.attackCooldownRemaining = fu.airCooldown;
@@ -629,7 +643,7 @@ namespace FAP {
           // - This unit is in the target's attack range
           // - The target is close to the near end of the choke
           auto sideDiff = chokeGeometry->tileSide[fu.cell] - chokeGeometry->tileSide[closestEnemy->cell];
-          bool attack = sideDiff == 0 || isInRange(*closestEnemy, fu, (fu.flying ? closestEnemy->airMaxRange : closestEnemy->groundMaxRange));
+          bool attack = sideDiff == 0 || isInRange(*closestEnemy, fu, (fu.flying ? 0 : closestEnemy->groundMinRange), (fu.flying ? closestEnemy->airMaxRange : closestEnemy->groundMaxRange));
           if (!attack) {
             int distChokeEntranceSquared =
                   (closestEnemy->x - chokeGeometry->forward[3 + sideDiff].x) * (closestEnemy->x - chokeGeometry->forward[3 + sideDiff].x) +
