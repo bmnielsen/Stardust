@@ -148,13 +148,12 @@ namespace Strategist
                     // Pick the unit(s) with the lowest distance
                     std::sort(reassignableUnits.begin(), reassignableUnits.end(), ReassignableUnit::cmp);
                     for (auto it = reassignableUnits.begin();
-                         it != reassignableUnits.end() && unitRequirement.count > 0;
-                         it = reassignableUnits.erase(it))
+                         it != reassignableUnits.end() && unitRequirement.count > 0;)
                     {
-                        if (it->currentPlay == play) continue;
                         if (!unitRequirement.allowFromVanguardCluster && it->currentPlay && it->currentPlay->getSquad()
                             && it->currentPlay->getSquad()->isInVanguardCluster(it->unit))
                         {
+                            it++;
                             continue;
                         }
                         if (unitRequirement.gridNodePredicate &&
@@ -162,6 +161,7 @@ namespace Strategist
                                                         BWAPI::TilePosition(unitRequirement.position),
                                                         unitRequirement.gridNodePredicate))
                         {
+                            it++;
                             continue;
                         }
 
@@ -176,6 +176,8 @@ namespace Strategist
                         CherryVis::log(it->unit->id) << "Added to play: " << play->label;
 
                         unitRequirement.count--;
+
+                        it = reassignableUnits.erase(it);
                     }
 
                     // "Reserve" incomplete units if possible
