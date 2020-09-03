@@ -165,9 +165,16 @@ namespace Strategist
                             continue;
                         }
 
-                        if (it->currentPlay != nullptr) it->currentPlay->removeUnit(it->unit);
-                        play->addUnit(it->unit);
+                        if (it->currentPlay != nullptr)
+                        {
+                            it->currentPlay->removeUnit(it->unit);
+                            CherryVis::log(it->unit->id) << "Removed from play: " << it->currentPlay->label;
+                        }
+
                         unitToPlay[it->unit] = play;
+                        play->addUnit(it->unit);
+                        CherryVis::log(it->unit->id) << "Added to play: " << play->label;
+
                         unitRequirement.count--;
                     }
 
@@ -189,10 +196,16 @@ namespace Strategist
                 {
                     for (auto &reassignableUnit : typeAndReassignableUnits.second)
                     {
-                        if (reassignableUnit.currentPlay != nullptr) continue;
+                        if (reassignableUnit.currentPlay != nullptr)
+                        {
+                            Log::Get() << "WARNING: Unit assigned to unknown play: " << *reassignableUnit.unit
+                                       << " in " << reassignableUnit.currentPlay->label;
+                            continue;
+                        }
 
-                        playReceivingUnassignedUnits->addUnit(reassignableUnit.unit);
                         unitToPlay[reassignableUnit.unit] = playReceivingUnassignedUnits;
+                        playReceivingUnassignedUnits->addUnit(reassignableUnit.unit);
+                        CherryVis::log(reassignableUnit.unit->id) << "Added to play: " << playReceivingUnassignedUnits->label;
                     }
                 }
                 for (const auto &typeAndIncompleteUnits : typeToIncompleteUnits)
@@ -434,6 +447,7 @@ namespace Strategist
             {
                 (*it)->removeUnit(unit);
                 unitToPlay.erase(unit);
+                CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
             };
 
             // Update our unit map for units released from the play
@@ -448,8 +462,10 @@ namespace Strategist
             {
                 auto moveUnit = [&](const MyUnit &unit)
                 {
-                    (*it)->status.transitionTo->addUnit(unit);
                     unitToPlay[unit] = (*it)->status.transitionTo;
+                    (*it)->status.transitionTo->addUnit(unit);
+                    CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
+                    CherryVis::log(unit->id) << "Added to play: " << (*it)->status.transitionTo->label;
                 };
 
                 (*it)->disband(removeUnit, moveUnit);

@@ -9,8 +9,6 @@ void Play::addUnit(const MyUnit &unit)
     {
         getSquad()->addUnit(unit);
     }
-
-    CherryVis::log(unit->id) << "Added to play: " << label;
 }
 
 void Play::removeUnit(const MyUnit &unit)
@@ -19,8 +17,6 @@ void Play::removeUnit(const MyUnit &unit)
     {
         getSquad()->removeUnit(unit);
     }
-
-    CherryVis::log(unit->id) << "Removed from play: " << label;
 }
 
 void Play::disband(const std::function<void(const MyUnit&)> &removedUnitCallback,

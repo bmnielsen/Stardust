@@ -21,13 +21,11 @@ public:
     void addUnit(const MyUnit &unit) override
     {
         dragoon = unit;
-        Play::addUnit(unit);
     }
 
     void removeUnit(const MyUnit &unit) override
     {
         dragoon = nullptr;
-        Play::removeUnit(unit);
     }
 
 private:

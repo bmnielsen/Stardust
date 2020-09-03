@@ -105,11 +105,9 @@ void TakeIslandExpansion::addPrioritizedProductionGoals(std::map<int, std::vecto
 void TakeIslandExpansion::addUnit(const MyUnit &unit)
 {
     if (unit->type == BWAPI::UnitTypes::Protoss_Shuttle) shuttle = unit;
-    Play::addUnit(unit);
 }
 
 void TakeIslandExpansion::removeUnit(const MyUnit &unit)
 {
     if (shuttle == unit) shuttle = nullptr;
-    Play::removeUnit(unit);
 }
