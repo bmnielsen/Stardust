@@ -15,6 +15,33 @@ TEST(Initialization, AllCOG)
     });
 }
 
+TEST(Initialization, AllAIIDE)
+{
+    Maps::RunOnEachStartLocation(Maps::Get("aiide"), [](BWTest test)
+    {
+        test.opponentModule = []()
+        {
+            return new DoNothingModule();
+        };
+        test.frameLimit = 10;
+        test.expectWin = false;
+        test.run();
+    });
+}
+
+TEST(Initialization, FightingSpirit)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Fighting");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.run();
+}
+
 TEST(Initialization, GreatBarrierReef)
 {
     BWTest test;
