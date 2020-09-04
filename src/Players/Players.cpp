@@ -119,4 +119,9 @@ namespace Players
     {
         return getUpgradeTracker(player)->upgradeLevel(type);
     }
+
+    void setWeaponRange(BWAPI::Player player, BWAPI::WeaponType wpn, int range)
+    {
+        getUpgradeTracker(player)->setWeaponRange(wpn, range, grid(player));
+    }
 }
