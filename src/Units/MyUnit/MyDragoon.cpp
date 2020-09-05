@@ -122,22 +122,18 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
 {
     int cooldown = target->isFlying ? bwapiUnit->getAirWeaponCooldown() : bwapiUnit->getGroundWeaponCooldown();
 
+    // If we are not on cooldown, defer to normal unit attack
+    if (cooldown <= BWAPI::Broodwar->getRemainingLatencyFrames() + 2)
+    {
+        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
+        return;
+    }
+
     int myRange = range(target);
     int targetRange = target->groundRange();
     bool rangingBunker = target->type == BWAPI::UnitTypes::Terran_Bunker && myRange > targetRange;
 
     int currentDistanceToTarget = getDistance(target);
-
-    // Attack if we should do so:
-    // - We are not on cooldown
-    // - We are not ranging a bunker, or are ranging a bunker and are at an appropriate range
-    if (cooldown <= (BWAPI::Broodwar->getRemainingLatencyFrames() + 2) &&
-        (!rangingBunker || (currentDistanceToTarget <= myRange
-                            && currentDistanceToTarget > targetRange)))
-    {
-        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
-        return;
-    }
 
     BWAPI::Position predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
     int predictedDistanceToTarget;
@@ -250,46 +246,6 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
         double scalingFactor = distFactor * distFactor * separationWeight / centerDist;
         separationX -= (int) ((double) (other.first->lastPosition.x - lastPosition.x) * scalingFactor);
         separationY -= (int) ((double) (other.first->lastPosition.y - lastPosition.y) * scalingFactor);
-    }
-
-    // Clear the separation boid when ranging bunkers if it would take us into bunker range
-    if (rangingBunker && currentDistanceToTarget > targetRange && (separationX != 0 || separationY != 0))
-    {
-        auto separationPos = lastPosition + BWAPI::Position(separationX, separationY);
-        int separationDist = Geo::EdgeToEdgeDistance(type,
-                                                     separationPos,
-                                                     target->type,
-                                                     predictedTargetPosition);
-        if (separationDist < myRange)
-        {
-            // Push the separation position out of the target's range
-            // This will allow us to move a bit laterally but not towards the bunker
-            auto vector = separationPos - predictedTargetPosition;
-            auto scaledVector = Geo::ScaleVector(vector, Geo::ApproximateDistance(vector.x, 0, vector.y, 0) + myRange - separationDist);
-            CherryVis::log(id) << "vector: " << vector << "; scale to="
-                               << (Geo::ApproximateDistance(vector.x, 0, vector.y, 0) + myRange - separationDist)
-                               << "; scaled=" << scaledVector;
-
-            if (scaledVector != BWAPI::Positions::Invalid)
-            {
-                CherryVis::log(id) << "Adjusting separation: originally (" << separationX << "," << separationY << "), "
-                                   << "dist=" << separationDist
-                                   << ", now (" << (lastPosition.x - (predictedTargetPosition.x + scaledVector.x))
-                                   << "," << (lastPosition.y - (predictedTargetPosition.y + scaledVector.y))
-                                   << ")";
-                CherryVis::log(id) << "Original pos: " << BWAPI::WalkPosition(separationPos)
-                << "; scaled pos: " << BWAPI::WalkPosition(predictedTargetPosition + scaledVector)
-                << "; new pos: " << BWAPI::WalkPosition(lastPosition + BWAPI::Position(predictedTargetPosition.x + scaledVector.x - lastPosition.x, predictedTargetPosition.y + scaledVector.y - lastPosition.y));
-
-                separationX = predictedTargetPosition.x + scaledVector.x - lastPosition.x;
-                separationY = predictedTargetPosition.y + scaledVector.y - lastPosition.y;
-            }
-            else
-            {
-                separationX = 0;
-                separationY = 0;
-            }
-        }
     }
 
     // TODO: Collision with buildings / terrain
