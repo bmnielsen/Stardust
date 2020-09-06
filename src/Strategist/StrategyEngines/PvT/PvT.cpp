@@ -189,6 +189,21 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::Normal:
         case OurStrategy::MidGame:
         {
+            // Produce zealots if the enemy has a lot of tanks
+            int enemyTanks = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
+                             Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode);
+            if (enemyTanks > 4)
+            {
+                int desiredZealots = std::min(dragoonCount / 2, 5 + enemyTanks);
+                if (desiredZealots > zealotCount)
+                {
+                    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                               BWAPI::UnitTypes::Protoss_Zealot,
+                                                                               desiredZealots - zealotCount,
+                                                                               -1);
+                }
+            }
+
             // For now all of these just go mass dragoon
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
