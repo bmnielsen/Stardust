@@ -46,7 +46,7 @@ TEST(Iron, RunOne)
 {
     BWTest test;
     test.opponentRace = BWAPI::Races::Terran;
-    test.maps = Maps::Get("cog");
+    test.maps = Maps::Get("aiide");
     test.opponentModule = []()
     {
         return new iron::Iron();
