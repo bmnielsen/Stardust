@@ -520,6 +520,19 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 }
             }
 
+            // Give a big bonus to SCVs repairing a bunker that we can attack without coming into range of the bunker
+            if (potentialTarget->unit->bwapiUnit->isRepairing() &&
+                potentialTarget->unit->bwapiUnit->getOrderTarget() &&
+                potentialTarget->unit->bwapiUnit->getOrderTarget()->getType() == BWAPI::UnitTypes::Terran_Bunker &&
+                unit->getDistance(potentialTarget->unit) <= range)
+            {
+                auto bunker = Units::get(potentialTarget->unit->bwapiUnit->getOrderTarget());
+                if (bunker && !unit->isInEnemyWeaponRange(bunker))
+                {
+                    score += 256;
+                }
+            }
+
 #if DEBUG_TARGETING
             dbg << "\n Target " << *potentialTarget->unit << " scored: score=" << score
                 << ", attackerCount=" << potentialTarget->attackerCount
