@@ -20,7 +20,7 @@ namespace
     int baseScore[BWAPI::UnitTypes::Enum::MAX];
     int scaledScore[BWAPI::UnitTypes::Enum::MAX];
 
-    auto inline makeUnit(const Unit &unit, bool mobileDetection, int target = 0)
+    auto inline makeUnit(const Unit &unit, const Unit &vanguard, bool mobileDetection, int target = 0)
     {
         BWAPI::UnitType weaponType;
         switch (unit->type)
@@ -84,7 +84,7 @@ namespace
                 .setShieldUpgrades(0)
 
                 .setStimmed(unit->stimmedUntil > BWAPI::Broodwar->getFrameCount())
-                .setUndetected(mobileDetection ? false : unit->undetected)
+                .setUndetected(unit->isCliffedTank(vanguard) || (unit->undetected && !mobileDetection))
 
                 .setID(unit->id)
                 .setTarget(target)
@@ -202,8 +202,8 @@ CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &
     {
         auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
         bool added = attacking
-                     ? sim.addIfCombatUnitPlayer1(makeUnit(unitAndTarget.first, false, target))
-                     : sim.addIfCombatUnitPlayer2(makeUnit(unitAndTarget.first, false, target));
+                     ? sim.addIfCombatUnitPlayer1(makeUnit(unitAndTarget.first, vanguard, false, target))
+                     : sim.addIfCombatUnitPlayer2(makeUnit(unitAndTarget.first, vanguard, false, target));
 
         if (added)
         {
@@ -239,8 +239,8 @@ CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &
         if (!unit->type.isWorker() || (BWAPI::Broodwar->getFrameCount() - unit->lastSeenAttacking) < 120)
         {
             bool added = attacking
-                         ? sim.addIfCombatUnitPlayer2(makeUnit(unit, haveMobileDetection))
-                         : sim.addIfCombatUnitPlayer1(makeUnit(unit, haveMobileDetection));
+                         ? sim.addIfCombatUnitPlayer2(makeUnit(unit, vanguard, haveMobileDetection))
+                         : sim.addIfCombatUnitPlayer1(makeUnit(unit, vanguard, haveMobileDetection));
 
             if (added)
             {

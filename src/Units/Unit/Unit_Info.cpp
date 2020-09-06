@@ -3,6 +3,7 @@
 #include "UnitUtil.h"
 #include "Geo.h"
 #include "Players.h"
+#include "PathFinding.h"
 
 std::ostream &operator<<(std::ostream &os, const UnitImpl &unit)
 {
@@ -23,6 +24,16 @@ bool UnitImpl::isAttackable() const
            bwapiUnit->isVisible() &&
            !undetected &&
            !bwapiUnit->isStasised();
+}
+
+bool UnitImpl::isCliffedTank(const Unit &attacker) const
+{
+    if (!attacker) return false;
+    if (type != BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) return false;
+
+    int dist = getDistance(attacker);
+    int groundDistance = PathFinding::GetGroundDistance(lastPosition, attacker->lastPosition, attacker->type);
+    return groundDistance > (dist * 2);
 }
 
 bool UnitImpl::canAttack(const Unit &target) const

@@ -101,6 +101,8 @@ public:
 
     [[nodiscard]] bool isAttackable() const;
 
+    [[nodiscard]] bool isCliffedTank(const Unit &attacker) const;
+
     [[nodiscard]] bool canAttack(const Unit &target) const;
 
     [[nodiscard]] bool canBeAttackedBy(const Unit &attacker) const;

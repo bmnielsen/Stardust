@@ -160,12 +160,14 @@ namespace
         int priority;               // Base priority computed by targetPriority above
         int healthIncludingShields; // Estimated health reduced by incoming bullets and earlier attackers
         int attackerCount;          // How many attackers have this target in their closeTargets vector
+        bool cliffedTank;
 
-        explicit Target(const Unit &unit)
+        explicit Target(const Unit &unit, const MyUnit &vanguard)
                 : unit(unit)
                 , priority(targetPriority(unit))
                 , healthIncludingShields(unit->health + unit->shields)
-                , attackerCount(0) {}
+                , attackerCount(0)
+                , cliffedTank(unit->isCliffedTank(vanguard)) {}
 
         void dealDamage(const MyUnit &attacker)
         {
@@ -223,7 +225,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
     targets.reserve(targetUnits.size());
     for (const auto &targetUnit : targetUnits)
     {
-        targets.emplace_back(targetUnit);
+        targets.emplace_back(targetUnit, vanguard);
     }
 
 #if DEBUG_TARGETING
@@ -332,6 +334,15 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             {
 #if DEBUG_TARGETING
                 dbg << "\n Skipping " << *target.unit << " as we are in a static position and it is not in range";
+#endif
+                continue;
+            }
+
+            // Cliffed tanks can only be attacked by units in range with vision
+            if (target.cliffedTank && (distToRange > 0 || !target.unit->bwapiUnit->isVisible()))
+            {
+#if DEBUG_TARGETING
+                dbg << "\n Skipping " << *target.unit << " as it is a cliffed tank";
 #endif
                 continue;
             }
