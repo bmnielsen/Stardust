@@ -159,7 +159,9 @@ namespace
     {
         // TODO: Extend this
         return BWAPI::Broodwar->getFrameCount() > 10000 &&
-               countAtLeast(BWAPI::UnitTypes::Terran_Command_Center, 2);
+               (countAtLeast(BWAPI::UnitTypes::Terran_Command_Center, 2) ||
+                (Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
+                 Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode)) > 4);
     }
 }
 

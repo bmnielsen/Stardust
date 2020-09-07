@@ -187,6 +187,31 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::FastExpansion:
         case OurStrategy::Defensive:
         case OurStrategy::Normal:
+        {
+            // If any zealots are in production, cancel them
+            // This happens when the enemy strategy was misrecognized as a rush
+            if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot) > 0)
+            {
+                for (auto gateway : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Gateway))
+                {
+                    if (gateway->bwapiUnit->getBuildType() == BWAPI::UnitTypes::Protoss_Zealot)
+                    {
+                        gateway->bwapiUnit->cancelTrain();
+                    }
+                }
+            }
+
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+
+            // Default upgrades
+            handleUpgrades(prioritizedProductionGoals);
+
+            break;
+        }
+
         case OurStrategy::MidGame:
         {
             // Produce zealots if the enemy has a lot of tanks
