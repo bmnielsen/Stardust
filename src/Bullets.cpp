@@ -23,14 +23,14 @@ namespace Bullets
             // Ignore bullets where the target has died in the meantime
             if (!bullet->getTarget()) return;
 
-            // Get the closest visible bunker to the target
+            // Get the closest visible bunker to the bullet
             int bestDist = INT_MAX;
             BWAPI::Unit bunker = nullptr;
             for (auto &unit : BWAPI::Broodwar->enemy()->getUnits())
             {
                 if (!unit->exists() || !unit->isVisible() || !unit->isCompleted()) continue;
                 if (unit->getType() != BWAPI::UnitTypes::Terran_Bunker) continue;
-                int dist = unit->getDistance(bullet->getTarget());
+                int dist = unit->getDistance(bullet->getPosition());
                 if (dist < bestDist)
                 {
                     bestDist = dist;
@@ -38,6 +38,9 @@ namespace Bullets
                 }
             }
             if (!bunker) return;
+
+            // The bullet seems to always be located 7 pixels "inside" the target, so use this to compute distance between bunker and target
+            bestDist -= 7;
 
             // Now use this to determine if the marines have the range upgrade
             // We get some false positives, so use a relatively conservative distance range and
@@ -47,8 +50,8 @@ namespace Bullets
                 bulletsSeenAtExtendedMarineRange++;
                 if (bulletsSeenAtExtendedMarineRange > 4)
                 {
-                    CherryVis::log() << "Detected ranged marines in bunker @ " << bunker->getTilePosition()
-                                     << "; target @ " << bullet->getTarget()->getTilePosition() << "; dist=" << bestDist;
+                    CherryVis::log() << "Detected ranged marines in bunker @ " << BWAPI::WalkPosition(bunker->getTilePosition())
+                                     << "; target @ " << BWAPI::WalkPosition(bullet->getTarget()->getTilePosition()) << "; dist=" << bestDist;
                     Log::Get() << "Detected ranged marines in bunker @ " << bunker->getTilePosition()
                                << "; target @ " << bullet->getTarget()->getTilePosition() << "; dist=" << bestDist;
                     Players::setWeaponRange(BWAPI::Broodwar->enemy(), BWAPI::WeaponTypes::Gauss_Rifle, 160);
