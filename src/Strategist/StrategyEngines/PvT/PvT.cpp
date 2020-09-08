@@ -198,6 +198,11 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             {
                 for (auto gateway : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Gateway))
                 {
+                    Log::Get() << "Gateway order=" << gateway->bwapiUnit->getOrder()
+                        << "; build type=" << gateway->bwapiUnit->getBuildType()
+                        << "; isTraining=" << gateway->bwapiUnit->isTraining()
+                        << "; queueLength=" << gateway->bwapiUnit->getTrainingQueue().size();
+                    
                     if (gateway->bwapiUnit->getBuildType() == BWAPI::UnitTypes::Protoss_Zealot)
                     {
                         gateway->bwapiUnit->cancelTrain();
