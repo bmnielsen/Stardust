@@ -44,7 +44,7 @@ namespace Builder
 
             // Move towards the build position
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(building.builder->id) << "moveTo: Build location";
+            CherryVis::log(building.builder->id) << "moveTo: Build location " << BWAPI::WalkPosition(building.getPosition());
 #endif
             building.builder->moveTo(building.getPosition());
         }

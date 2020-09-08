@@ -161,6 +161,7 @@ void MyUnitImpl::moveToNextWaypoint()
             CherryVis::log(id) << "Order: Moving to target position " << BWAPI::WalkPosition(targetPosition);
 #endif
 
+            chokePath.clear();
             currentlyMovingTowards = targetPosition;
             move(currentlyMovingTowards);
             return;
