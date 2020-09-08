@@ -310,13 +310,7 @@ void UnitCluster::holdChoke(Choke *choke,
 
         // Find a walkable position along the vector
         auto totalVector = BWAPI::Position(totalX, totalY);
-        int dist = Geo::ApproximateDistance(0, totalX, 0, totalY) - 16;
-        auto pos = myUnit->lastPosition + totalVector;
-        while (dist > 10 && (!pos.isValid() || !BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos))))
-        {
-            pos = myUnit->lastPosition + Geo::ScaleVector(totalVector, dist);
-            dist -= 16;
-        }
+        auto pos = Geo::WalkablePositionAlongVector(myUnit->lastPosition, totalVector);
 
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(myUnit->id) << "HoldChoke boids towards " << BWAPI::WalkPosition(rangedTarget)

@@ -13,11 +13,11 @@ namespace
 
     // Boid parameters for kiting
     // TODO: These parameters need to be tuned
-    const double targetWeight = 32.0;
+    const double targetWeight = 64.0;
     const double separationDetectionLimitFactor = 1.5;
     const double separationWeight = 96.0;
+    const int collisionWeight = 3;
 }
-
 
 MyDragoon::MyDragoon(BWAPI::Unit unit)
         : MyUnitImpl(unit)
@@ -248,16 +248,30 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
         separationY -= (int) ((double) (other.first->lastPosition.y - lastPosition.y) * scalingFactor);
     }
 
-    // TODO: Collision with buildings / terrain
-
-    // Put them all together to get the target direction
+    // Combine to the total so far
     int totalX = targetX + separationX;
     int totalY = targetY + separationY;
+    auto pos = Geo::WalkablePositionAlongVector(lastPosition, BWAPI::Position(totalX, totalY));
 
-    auto pos = BWAPI::Position(lastPosition.x + totalX, lastPosition.y + totalY);
+    // If the position is walkable, handle collision
+    int collisionX = 0;
+    int collisionY = 0;
+    if (pos.isValid())
+    {
+        auto collisionVector = Map::collisionVector(pos.x >> 5, pos.y >> 5);
+        if (collisionVector.x != 0 || collisionVector.y != 0)
+        {
+            collisionX = collisionVector.x * collisionWeight;
+            collisionY = collisionVector.y * collisionWeight;
+            pos = Geo::WalkablePositionAlongVector(lastPosition,
+                                                   Geo::ScaleVector(BWAPI::Position(totalX + collisionX, totalY + collisionY), 64));
+        }
+    }
+
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(id) << "Kiting boids; target=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(targetX, targetY))
                        << "; separation=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(separationX, separationY))
+                       << "; collision=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(collisionX, collisionY))
                        << "; target=" << BWAPI::WalkPosition(pos);
 #endif
 

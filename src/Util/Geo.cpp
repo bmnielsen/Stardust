@@ -219,4 +219,17 @@ namespace Geo
         double scale = (double) length / (double) magnitude;
         return BWAPI::Position((int) ((double) vector.x * scale), (int) ((double) vector.y * scale));
     }
+
+    BWAPI::Position WalkablePositionAlongVector(BWAPI::Position start, BWAPI::Position vector)
+    {
+        int dist = Geo::ApproximateDistance(0, vector.x, 0, vector.y) - 16;
+        auto pos = start + vector;
+        while (dist > 10 && (!pos.isValid() || !BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos))))
+        {
+            pos = start + Geo::ScaleVector(vector, dist);
+            dist -= 16;
+        }
+
+        return pos;
+    }
 }

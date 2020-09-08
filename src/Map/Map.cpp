@@ -724,6 +724,18 @@ namespace Map
                 }
             }
 
+            // For collision vectors, mark the edges of the map as unwalkable
+            for (int tileX = -1; tileX <= BWAPI::Broodwar->mapWidth(); tileX++)
+            {
+                updateCollisionVectors(tileX, -1, false);
+                updateCollisionVectors(tileX, BWAPI::Broodwar->mapHeight(), false);
+            }
+            for (int tileY = 0; tileY <= BWAPI::Broodwar->mapHeight(); tileY++)
+            {
+                updateCollisionVectors(-1, tileY, false);
+                updateCollisionVectors(BWAPI::Broodwar->mapWidth(), tileY, false);
+            }
+
             // TODO: Consider map-specific overrides for maps with very narrow ramps, like Plasma
 
             // Compute proximity to unwalkable tiles
