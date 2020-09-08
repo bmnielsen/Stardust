@@ -317,6 +317,14 @@ void UnitImpl::addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet)
     CherryVis::log(id) << "Adding upcoming attack (bullet) from " << *attacker;
 #endif
 
+    // If the attack is from low-ground to high-ground, don't add the attack
+    // The reason for this is that we don't know if the attack will actually do damage, so it can cause more harm than good
+    if (!attacker->isFlying
+        && BWAPI::Broodwar->getGroundHeight(attacker->getTilePosition()) < BWAPI::Broodwar->getGroundHeight(tilePositionX, tilePositionY))
+    {
+        return;
+    }
+
     upcomingAttacks.emplace_back(attacker,
                                  bullet,
                                  Players::attackDamage(attacker->player, attacker->type, player, type));

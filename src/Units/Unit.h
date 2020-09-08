@@ -24,11 +24,11 @@ struct UpcomingAttack
             , damage(damage) {}
 
     UpcomingAttack(Unit attacker, int frames, int damage)
-    : attacker(std::move(attacker))
-    , bullet(nullptr)
-    , bulletId(-1)
-    , expiryFrame(BWAPI::Broodwar->getFrameCount() + frames)
-    , damage(damage) {}
+            : attacker(std::move(attacker))
+            , bullet(nullptr)
+            , bulletId(-1)
+            , expiryFrame(BWAPI::Broodwar->getFrameCount() + frames)
+            , damage(damage) {}
 };
 
 class UnitImpl

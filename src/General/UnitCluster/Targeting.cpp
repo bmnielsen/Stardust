@@ -173,7 +173,16 @@ namespace
         {
             if (unit->isBeingHealed()) return;
 
-            healthIncludingShields -= Players::attackDamage(attacker->player, attacker->type, unit->player, unit->type);
+            int damage = Players::attackDamage(attacker->player, attacker->type, unit->player, unit->type);
+
+            // For low-ground to high-ground attacks, simulate half damage
+            if (!attacker->isFlying && UnitUtil::IsRangedUnit(attacker->type) &&
+                BWAPI::Broodwar->getGroundHeight(attacker->getTilePosition()) < BWAPI::Broodwar->getGroundHeight(unit->getTilePosition()))
+            {
+                damage /= 2;
+            }
+
+            healthIncludingShields -= damage;
         }
     };
 
