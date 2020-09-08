@@ -93,3 +93,51 @@ TEST(DragoonKiting, DragoonVsZergling)
 
     test.run();
 }
+
+// One dragoon vs. one zealot in a confined space
+TEST(DragoonKiting, DragoonVsZealotConfinedSpace)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        return new AttackNearestUnitModule();
+    };
+    test.map = Maps::GetOne("Tau");
+    test.randomSeed = 65145;
+    test.frameLimit = 500;
+    test.expectWin = false;
+
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(100, 7)),
+    };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(103, 9)),
+    };
+
+    Base *baseToAttack = nullptr;
+
+    // Order the dragoon to attack the bottom base
+    test.onStartMine = [&baseToAttack]()
+    {
+        baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(116, 8)));
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        Strategist::setOpening(openingPlays);
+    };
+
+    test.onEndMine = [](bool win)
+    {
+        for (auto &unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (unit->getType() != BWAPI::UnitTypes::Protoss_Dragoon) continue;
+
+            // Shields will be approx. 30 if we don't kite
+            EXPECT_GT(unit->getShields(), 70);
+        }
+    };
+
+    test.run();
+}
