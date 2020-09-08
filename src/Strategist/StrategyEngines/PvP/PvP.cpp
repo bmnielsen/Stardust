@@ -263,6 +263,10 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
     int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
 
+    int inProgressCount = Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot)
+                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon)
+                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dark_Templar);
+
     handleGasStealProduction(prioritizedProductionGoals, zealotCount);
 
     auto oneGateCoreOpening = [&](int numZealots)
@@ -406,14 +410,9 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                          2);
             }
 
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       -1,
-                                                                       -1);
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Zealot,
-                                                                       -1,
-                                                                       -1);
+            int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
+            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
+            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
 
             // Default upgrades
             handleUpgrades(prioritizedProductionGoals);

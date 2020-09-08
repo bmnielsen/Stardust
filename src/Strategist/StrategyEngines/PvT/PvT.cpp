@@ -126,6 +126,10 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
     int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
 
+    int inProgressCount = Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot)
+                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon)
+                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dark_Templar);
+
     handleGasStealProduction(prioritizedProductionGoals, zealotCount);
 
     switch (ourStrategy)
@@ -201,10 +205,9 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 }
             }
 
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       -1,
-                                                                       -1);
+            // Try to keep at least two army units in production while taking our natural
+            int higherPriorityCount = 2 - inProgressCount;
+            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
 
             // Default upgrades
             handleUpgrades(prioritizedProductionGoals);
@@ -214,6 +217,8 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::MidGame:
         {
+            int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
+
             // Produce zealots if the enemy has a lot of tanks
             int enemyTanks = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
                              Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode);
@@ -222,22 +227,15 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 int desiredZealots = std::min(dragoonCount / 2, 5 + enemyTanks);
                 if (desiredZealots > zealotCount)
                 {
-                    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                               BWAPI::UnitTypes::Protoss_Zealot,
-                                                                               desiredZealots - zealotCount,
-                                                                               -1);
+                    mainArmyProduction(prioritizedProductionGoals,
+                                       BWAPI::UnitTypes::Protoss_Zealot,
+                                       desiredZealots - zealotCount,
+                                       higherPriorityCount);
                 }
             }
 
-            // For now all of these just go mass dragoon
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       -1,
-                                                                       -1);
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Zealot,
-                                                                       -1,
-                                                                       -1);
+            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
+            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
 
             // Default upgrades
             handleUpgrades(prioritizedProductionGoals);

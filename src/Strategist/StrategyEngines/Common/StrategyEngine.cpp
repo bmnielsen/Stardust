@@ -31,6 +31,49 @@ void StrategyEngine::handleGasStealProduction(std::map<int, std::vector<Producti
     zealotCount = 1;
 }
 
+void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                               BWAPI::UnitType unitType,
+                               int count,
+                               int &highPriorityCount)
+{
+    if (count == -1)
+    {
+        if (highPriorityCount > 0)
+        {
+            prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                     unitType,
+                                                                                     std::max(highPriorityCount, count),
+                                                                                     -1);
+            highPriorityCount = 0;
+        }
+        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   unitType,
+                                                                   -1,
+                                                                   -1);
+        return;
+    }
+
+    if (highPriorityCount > 0)
+    {
+        prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                 unitType,
+                                                                                 std::max(highPriorityCount, count),
+                                                                                 -1);
+        if (highPriorityCount < count)
+        {
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       unitType,
+                                                                       count - highPriorityCount,
+                                                                       -1);
+            highPriorityCount = 0;
+        }
+        else
+        {
+            highPriorityCount -= count;
+        }
+    }
+}
+
 void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays)
 {
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);

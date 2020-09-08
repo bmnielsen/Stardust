@@ -191,9 +191,9 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
-                // Transition to mid-game when the enemy has done so
+                // Transition to mid-game when the enemy has done so or we are on two bases
                 // TODO: This is very vaguely defined
-                if (newEnemyStrategy == ProtossStrategy::MidGame)
+                if (newEnemyStrategy == ProtossStrategy::MidGame || Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
                 {
                     strategy = OurStrategy::MidGame;
                     continue;

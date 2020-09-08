@@ -2,6 +2,7 @@
 
 #include "Map.h"
 #include "Plays/MainArmy/DefendMyMain.h"
+#include "Units.h"
 
 std::map<PvZ::OurStrategy, std::string> PvZ::OurStrategyNames = {
         {OurStrategy::EarlyGameDefense, "EarlyGameDefense"},
@@ -143,9 +144,9 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                     continue;
                 }
 
-                // Transition to mid-game when the enemy has lair tech
+                // Transition to mid-game when the enemy has lair tech or we are on two bases
                 // TODO: Also transition to mid-game in other cases
-                if (newEnemyStrategy == ZergStrategy::Lair)
+                if (newEnemyStrategy == ZergStrategy::Lair || Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
                 {
                     strategy = OurStrategy::MidGame;
                     continue;

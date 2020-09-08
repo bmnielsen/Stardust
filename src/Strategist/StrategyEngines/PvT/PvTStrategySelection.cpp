@@ -2,6 +2,7 @@
 
 #include "Map.h"
 #include "Plays/MainArmy/DefendMyMain.h"
+#include "Units.h"
 
 std::map<PvT::OurStrategy, std::string> PvT::OurStrategyNames = {
         {OurStrategy::EarlyGameDefense, "EarlyGameDefense"},
@@ -142,9 +143,9 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                     continue;
                 }
 
-                // Transition to mid-game when the enemy has done so
+                // Transition to mid-game when the enemy has done so or we are on two bases
                 // TODO: This is very vaguely defined
-                if (newEnemyStrategy == TerranStrategy::MidGame)
+                if (newEnemyStrategy == TerranStrategy::MidGame || Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
                 {
                     strategy = OurStrategy::MidGame;
                     continue;
