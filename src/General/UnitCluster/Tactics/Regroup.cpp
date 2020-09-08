@@ -3,6 +3,7 @@
 #include "Units.h"
 #include "Map.h"
 #include "Geo.h"
+#include "Players.h"
 
 #include "DebugFlag_CombatSim.h"
 
@@ -66,6 +67,14 @@ namespace
                             const CombatSimResult &initialSimResult)
     {
         if (!initialSimResult.narrowChoke) return false;
+
+        // Never contain a choke that is covered by enemy static defense at both ends
+        auto grid = Players::grid(BWAPI::Broodwar->enemy());
+        if (grid.staticGroundThreat(initialSimResult.narrowChoke->end1Center) > 0 &&
+            grid.staticGroundThreat(initialSimResult.narrowChoke->end2Center) > 0)
+        {
+            return false;
+        }
 
         auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors, false, initialSimResult.narrowChoke);
 
