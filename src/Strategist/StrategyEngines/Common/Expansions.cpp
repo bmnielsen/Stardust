@@ -6,6 +6,7 @@
 #include "Strategist.h"
 
 #include "Plays/Macro/TakeExpansion.h"
+#include "Plays/MainArmy/AttackEnemyMain.h"
 
 void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays)
 {
@@ -28,36 +29,56 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Determine whether we want to expand now
-    bool wantToExpand = true;
-
-    // Count our completed basic gateway units
-    int army = Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) + Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon);
-
-    // Never expand if we don't have a reasonable-sized army
-    if (army < 5) wantToExpand = false;
-
-    // TODO: Don't expand if we are on the defensive
-
-    // Expand if we have no bases with more than 3 available mineral assignments
-    // If the enemy is contained, set the threshold to 6 instead
-    if (wantToExpand)
+    auto wantToExpand = [&]()
     {
+        // Expand if we have no bases with more than 3 available mineral assignments
+        // If the enemy is contained, set the threshold to 6 instead
         // Adjust by the number of pending expansions to avoid instability when a build worker is reserved for the expansion
         int availableMineralAssignmentsThreshold = (Strategist::isEnemyContained() ? 6 : 3) + takeExpansionPlays.size();
-
         for (auto base : Map::getMyBases())
         {
             if (Workers::availableMineralAssignments(base) > availableMineralAssignmentsThreshold)
             {
-                wantToExpand = false;
-                break;
+                return false;
             }
         }
-    }
 
-    // TODO: Checks that depend on what the enemy is doing, whether the enemy is contained, etc.
+        // Only expand when our army is on the offensive
+        auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+        if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return false;
 
-    if (wantToExpand)
+        // Sanity check that the play has a squad
+        auto squad = mainArmyPlay->getSquad();
+        if (!squad) return false;
+
+        // Get the vanguard cluster with its distance to the target base
+        int dist;
+        auto vanguardCluster = squad->vanguardCluster(&dist);
+        if (!vanguardCluster) return false;
+
+        // Don't expand if the cluster has fewer than five units
+        if (vanguardCluster->units.size() < 5) return false;
+
+        // Don't expand if the cluster is not at least 2/3 of the way towards the target base
+        int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
+        if (dist * 2 > distToMain) return false;
+
+        // Expand if we are gas blocked - we have the resources for the nexus anyway
+        if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100) return true;
+
+        // Cluster should not be moving or fleeing
+        // In other words, we want the cluster to be in some kind of stable attack or contain state
+        if (vanguardCluster->currentActivity == UnitCluster::Activity::Moving
+            || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
+                && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
+        {
+            return false;
+        }
+
+        return true;
+    };
+
+    if (wantToExpand())
     {
         // TODO: Logic for when we should queue multiple expansions simultaneously
         if (takeExpansionPlays.empty())
