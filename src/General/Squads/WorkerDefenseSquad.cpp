@@ -3,6 +3,7 @@
 #include "UnitUtil.h"
 #include "Map.h"
 #include "Workers.h"
+#include "Units.h"
 
 namespace
 {
@@ -130,9 +131,26 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
         return;
     }
 
+    // Count how many cannons we have defending the mineral line
+    int cannons = 0;
+    {
+        auto baseDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
+        if (baseDefenseLocations.first != BWAPI::TilePositions::Invalid)
+        {
+            for (auto cannonLocation : baseDefenseLocations.second)
+            {
+                auto cannon = Units::myBuildingAt(cannonLocation);
+                if (cannon && cannon->completed && cannon->bwapiUnit->isPowered())
+                {
+                    cannons++;
+                }
+            }
+        }
+    }
+
     // If the enemy has us outnumbered by more than one unit, rally all of our workers
     auto squadUnits = defendBaseSquad->getUnits();
-    if (combatUnitCount - squadUnits.size() > 1)
+    if (combatUnitCount - (squadUnits.size() + cannons * 2) > 1)
     {
         executeFullWorkerDefense(enemyUnits, squadUnits);
         return;
