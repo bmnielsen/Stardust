@@ -118,10 +118,6 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
                 goalY = scaled.y;
             }
             pullingBack = true;
-
-#if DEBUG_UNIT_ORDERS
-            CherryVis::log(myUnit->id) << "Contain (goal boid): Moving away from " << *threat;
-#endif
         }
         else
         {
