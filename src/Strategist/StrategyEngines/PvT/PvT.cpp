@@ -196,16 +196,11 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             // This happens when the enemy strategy was misrecognized as a rush
             if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot) > 0)
             {
-                for (auto gateway : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Gateway))
+                for (const auto &gateway : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Gateway))
                 {
-                    Log::Get() << "Gateway order=" << gateway->bwapiUnit->getOrder()
-                        << "; build type=" << gateway->bwapiUnit->getBuildType()
-                        << "; isTraining=" << gateway->bwapiUnit->isTraining()
-                        << "; queueLength=" << gateway->bwapiUnit->getTrainingQueue().size();
-                    
-                    if (gateway->bwapiUnit->getBuildType() == BWAPI::UnitTypes::Protoss_Zealot)
+                    if (!gateway->bwapiUnit->getTrainingQueue().empty() && *gateway->bwapiUnit->getTrainingQueue().begin() == BWAPI::UnitTypes::Protoss_Zealot)
                     {
-                        gateway->bwapiUnit->cancelTrain();
+                        gateway->bwapiUnit->cancelTrain(0);
                     }
                 }
             }
