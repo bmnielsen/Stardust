@@ -49,6 +49,9 @@ protected:
     static void takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                      std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
+    static void cancelNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
+                                       std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+
     static void scoutExpos(std::vector<std::shared_ptr<Play>> &plays, int startingFrame);
 
     template<class T>

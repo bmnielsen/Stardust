@@ -4,6 +4,7 @@
 #include "Units.h"
 #include "Workers.h"
 #include "Strategist.h"
+#include "Builder.h"
 
 #include "Plays/Macro/TakeExpansion.h"
 #include "Plays/MainArmy/AttackEnemyMain.h"
@@ -137,7 +138,10 @@ void StrategyEngine::takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &pl
         {
             if (auto takeExpansionPlay = std::dynamic_pointer_cast<TakeExpansion>(play))
             {
-                hasNaturalPlay = true;
+                if (takeExpansionPlay->depotPosition == natural->getTilePosition())
+                {
+                    hasNaturalPlay = true;
+                }
             }
         }
 
@@ -162,4 +166,29 @@ void StrategyEngine::takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &pl
     prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                              BWAPI::UnitTypes::Protoss_Nexus,
                                                              buildLocation);
+}
+
+void StrategyEngine::cancelNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
+                                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+{
+    auto natural = Map::getMyNatural();
+
+    for (auto it = plays.begin(); it != plays.end(); )
+    {
+        if (auto takeExpansionPlay = std::dynamic_pointer_cast<TakeExpansion>(*it))
+        {
+            if (takeExpansionPlay->depotPosition == natural->getTilePosition())
+            {
+                Log::Get() << "Cancelled TakeExpansion play for natural";
+                CherryVis::log() << "Cancelled TakeExpansion play for natural";
+
+                it = plays.erase(it);
+                continue;
+            }
+        }
+
+        it++;
+    }
+
+    Builder::cancel(natural->getTilePosition());
 }

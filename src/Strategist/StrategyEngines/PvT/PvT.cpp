@@ -248,10 +248,9 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                  std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    // Hop out if the natural has already been (or is being) taken
+    // Hop out if the natural has already been taken
     auto natural = Map::getMyNatural();
     if (!natural || natural->ownedSince != -1) return;
-    if (Builder::isPendingHere(natural->getTilePosition())) return;
 
     // If we have a backdoor natural, expand when our second goon is being produced or we have lots of money
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
@@ -274,7 +273,7 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::FastExpansion:
             takeNaturalExpansion(plays, prioritizedProductionGoals);
-            break;
+            return;
 
         case OurStrategy::Normal:
         case OurStrategy::MidGame:
@@ -283,18 +282,18 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // that is close to the enemy base
 
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return;
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) break;
 
             auto squad = mainArmyPlay->getSquad();
-            if (!squad || squad->getUnits().size() < 4) return;
+            if (!squad || squad->getUnits().size() < 4) break;
 
             int dist;
             auto vanguardCluster = squad->vanguardCluster(&dist);
-            if (!vanguardCluster) return;
+            if (!vanguardCluster) break;
 
             // Cluster should be at least 2/3 of the way to the target base
             int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
-            if (dist * 2 > distToMain) return;
+            if (dist * 2 > distToMain) break;
 
             // Cluster should not be moving or fleeing
             // In other words, we want the cluster to be in some kind of stable attack or contain state
@@ -302,12 +301,15 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
                     && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
             {
-                return;
+                break;
             }
+
             takeNaturalExpansion(plays, prioritizedProductionGoals);
-            break;
+            return;
         }
     }
+
+    cancelNaturalExpansion(plays, prioritizedProductionGoals);
 }
 
 void PvT::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)

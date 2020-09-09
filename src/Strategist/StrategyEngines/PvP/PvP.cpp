@@ -446,10 +446,9 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                  std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    // Hop out if the natural has already been (or is being) taken
+    // Hop out if the natural has already been taken
     auto natural = Map::getMyNatural();
     if (!natural || natural->ownedSince != -1) return;
-    if (Builder::isPendingHere(natural->getTilePosition())) return;
 
     // If we have a backdoor natural, expand if we are gas blocked
     // This generally happens when we are teching to DT or observers
@@ -474,7 +473,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::FastExpansion:
             takeNaturalExpansion(plays, prioritizedProductionGoals);
-            break;
+            return;
 
         case OurStrategy::Normal:
         case OurStrategy::MidGame:
@@ -483,27 +482,27 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // that is close to the enemy base
 
             // We never expand before frame 10000 unless the enemy has done so
-            if (BWAPI::Broodwar->getFrameCount() < 10000 && Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) < 2) return;
+            if (BWAPI::Broodwar->getFrameCount() < 10000 && Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) < 2) break;
 
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return;
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) break;
 
             auto squad = mainArmyPlay->getSquad();
-            if (!squad || squad->getUnits().size() < 5) return;
+            if (!squad || squad->getUnits().size() < 5) break;
 
             int dist;
             auto vanguardCluster = squad->vanguardCluster(&dist);
-            if (!vanguardCluster) return;
+            if (!vanguardCluster) break;
 
             // Cluster should be at least 2/3 of the way to the target base
             int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
-            if (dist * 2 > distToMain) return;
+            if (dist * 2 > distToMain) break;
 
             // Always expand in this situation if we are gas blocked
             if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100)
             {
                 takeNaturalExpansion(plays, prioritizedProductionGoals);
-                break;
+                return;
             }
 
             // Cluster should not be moving or fleeing
@@ -512,40 +511,42 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
                     && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
             {
-                return;
+                break;
             }
 
             takeNaturalExpansion(plays, prioritizedProductionGoals);
-            break;
+            return;
         }
         case OurStrategy::DTExpand:
         {
             // Take our natural as soon as the army has moved beyond it
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return;
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) break;
 
             auto squad = mainArmyPlay->getSquad();
-            if (!squad) return;
+            if (!squad) break;
 
             auto vanguardCluster = squad->vanguardCluster();
-            if (!vanguardCluster) return;
+            if (!vanguardCluster) break;
 
             // Ensure the cluster is at least 10 tiles further from the natural than it is from the main
             int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
             int distToNatural = PathFinding::GetGroundDistance(natural->getPosition(), vanguardCluster->center);
-            if (distToNatural < 500 || distToMain < (distToNatural + 500)) return;
+            if (distToNatural < 500 || distToMain < (distToNatural + 500)) break;
 
             // Cluster should not be fleeing
             if (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
                 && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee)
             {
-                return;
+                break;
             }
 
             takeNaturalExpansion(plays, prioritizedProductionGoals);
-            break;
+            return;
         }
     }
+
+    cancelNaturalExpansion(plays, prioritizedProductionGoals);
 }
 
 void PvP::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
