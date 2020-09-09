@@ -45,7 +45,7 @@ namespace Bullets
             // Now use this to determine if the marines have the range upgrade
             // We get some false positives, so use a relatively conservative distance range and
             // make sure we have seen a few volleys
-            if (bestDist > 180 && bestDist <= 192)
+            if (bestDist >= 190 && bestDist <= 192)
             {
                 bulletsSeenAtExtendedMarineRange++;
                 if (bulletsSeenAtExtendedMarineRange > 4)
