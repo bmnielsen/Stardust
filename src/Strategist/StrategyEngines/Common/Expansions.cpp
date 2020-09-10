@@ -60,9 +60,11 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         // Don't expand if the cluster has fewer than five units
         if (vanguardCluster->units.size() < 5) return false;
 
-        // Don't expand if the cluster is not at least 2/3 of the way towards the target base
-        int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
-        if (dist * 2 > distToMain) return false;
+        // Don't expand if the cluster's vanguard is closer to our own main
+        int distToMain = PathFinding::GetGroundDistance(
+                Map::getMyMain()->getPosition(),
+                vanguardCluster->vanguard ? vanguardCluster->vanguard->lastPosition : vanguardCluster->center);
+        if (dist > distToMain) return false;
 
         // Expand if we are gas blocked - we have the resources for the nexus anyway
         if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100) return true;
