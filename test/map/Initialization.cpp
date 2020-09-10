@@ -29,6 +29,20 @@ TEST(Initialization, AllAIIDE)
     });
 }
 
+TEST(Initialization, Roadkill)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Roadkill");
+    test.randomSeed = 38186;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.run();
+}
+
 TEST(Initialization, FightingSpirit)
 {
     BWTest test;
