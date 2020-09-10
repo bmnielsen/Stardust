@@ -10,7 +10,7 @@ BWAPI::Position Block::center() const
     return BWAPI::Position(topLeft) + BWAPI::Position(width() * 16, height() * 16);
 }
 
-bool Block::tilesReserved(BWAPI::TilePosition tile, BWAPI::TilePosition size)
+bool Block::tilesReserved(BWAPI::TilePosition tile, BWAPI::TilePosition size, bool permanent)
 {
     if (!Geo::Overlaps(tile, size.x, size.y, topLeft, width(), height())) return false;
 
@@ -33,6 +33,11 @@ bool Block::tilesReserved(BWAPI::TilePosition tile, BWAPI::TilePosition size)
     removeOverlapping(medium, 3, 2);
     removeOverlapping(large, 4, 3);
 
+    if (permanent)
+    {
+        permanentTileReservations.emplace_back(std::make_pair(tile, size));
+    }
+
     return true;
 }
 
@@ -48,6 +53,13 @@ bool Block::tilesFreed(BWAPI::TilePosition tile, BWAPI::TilePosition size)
     // The freed tiles may free up some of the initial build locations, so place them again
     placeLocations();
     removeUsed();
+
+    // However, we may have some permanent reservations, so re-apply them
+    for (const auto &permanentTileReservation : permanentTileReservations)
+    {
+        tilesReserved(permanentTileReservation.first, permanentTileReservation.second);
+    }
+
     return true;
 }
 

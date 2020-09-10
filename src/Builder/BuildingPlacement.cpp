@@ -565,7 +565,7 @@ namespace BuildingPlacement
             }
             else if (closestBlockLocation.isValid())
             {
-                closestBlockLocationBlock->tilesReserved(closestBlockLocation, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize());
+                closestBlockLocationBlock->tilesReserved(closestBlockLocation, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize(), true);
                 chokeCannonPlacement = closestBlockLocation;
                 chokeCannonBlock = closestBlockLocationBlock;
             }
