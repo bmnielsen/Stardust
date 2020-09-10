@@ -348,15 +348,41 @@ void PvT::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    // Build an observer when we are on two gas or the enemy has cloaked wraith tech
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
-        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && BWAPI::Broodwar->getFrameCount() > 10000) ||
-        Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Control_Tower) ||
-        Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Cloaking_Field))
+    auto buildObserver = [&]()
     {
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                  BWAPI::UnitTypes::Protoss_Observer,
                                                                  1,
                                                                  1);
+    };
+
+    // Build an observer if the enemy has cloaked wraith tech
+    if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Control_Tower) ||
+        Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Cloaking_Field))
+    {
+        buildObserver();
+        return;
+    }
+
+    // Never build obs on one base
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) < 2 &&
+        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) < 2 || BWAPI::Broodwar->getFrameCount() < 10000))
+    {
+        return;
+    }
+
+    // Build an observer if we have seen a spider mine
+    if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Vulture_Spider_Mine))
+    {
+        buildObserver();
+        return;
+    }
+
+    // Build an observer when we are on three bases
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 2 ||
+        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2 && BWAPI::Broodwar->getFrameCount() > 15000))
+    {
+        buildObserver();
+        return;
     }
 }
