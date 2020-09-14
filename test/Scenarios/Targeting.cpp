@@ -81,7 +81,7 @@ TEST(Targeting, DragoonsVsDragoons)
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack, true));
         Strategist::setOpening(openingPlays);
     };
 
@@ -133,7 +133,7 @@ TEST(Targeting, DragoonsVsZerglingsAllInRange)
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack, true));
         Strategist::setOpening(openingPlays);
     };
 
@@ -184,7 +184,7 @@ TEST(Targeting, DragoonsVsZerglingsSplitRange)
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack, true));
         Strategist::setOpening(openingPlays);
     };
 
@@ -234,7 +234,7 @@ TEST(Targeting, MixedVsZerglings)
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack, true));
         Strategist::setOpening(openingPlays);
     };
 
