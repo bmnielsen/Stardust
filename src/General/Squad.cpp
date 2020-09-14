@@ -107,10 +107,19 @@ void Squad::removeUnit(const MyUnit &unit)
     auto cluster = clusterIt->second;
     unitToCluster.erase(clusterIt);
 
-    cluster->removeUnit(unit);
-    if (cluster->units.empty())
+    auto unitIt = cluster->units.find(unit);
+    if (unitIt != cluster->units.end())
     {
-        clusters.erase(cluster);
+        cluster->removeUnit(unitIt, targetPosition);
+
+#if DEBUG_CLUSTER_MEMBERSHIP
+        CherryVis::log(unit->id) << "Removed from cluster @ " << BWAPI::WalkPosition(cluster->center);
+#endif
+
+        if (cluster->units.empty())
+        {
+            clusters.erase(cluster);
+        }
     }
 }
 
@@ -206,7 +215,7 @@ void Squad::updateClusters()
             }
 
             auto unit = *unitIt;
-            unitIt = cluster->removeUnit(unitIt);
+            unitIt = cluster->removeUnit(unitIt, targetPosition);
             addUnitToBestCluster(unit);
         }
     }
@@ -216,12 +225,9 @@ void Squad::updateClusters()
     vanguardClusterDistToTargetPosition = INT_MAX;
     for (const auto &cluster : clusters)
     {
-        int dist = PathFinding::GetGroundDistance(
-                cluster->vanguard ? cluster->vanguard->lastPosition : cluster->center,
-                targetPosition);
-        if (dist < vanguardClusterDistToTargetPosition)
+        if (cluster->vanguardDistToTarget < vanguardClusterDistToTargetPosition)
         {
-            vanguardClusterDistToTargetPosition = dist;
+            vanguardClusterDistToTargetPosition = cluster->vanguardDistToTarget;
             currentVanguardCluster = cluster;
         }
     }

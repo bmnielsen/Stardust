@@ -21,6 +21,10 @@ public:
     MyUnit vanguard;
     std::set<MyUnit> units;
 
+    int vanguardDistToTarget;
+    int vanguardDistToMain;
+    double percentageToEnemyMain;
+
     Activity currentActivity;
     SubActivity currentSubActivity;
     int lastActivityChange;
@@ -36,9 +40,7 @@ public:
 
     void addUnit(const MyUnit &unit);
 
-    void removeUnit(const MyUnit &unit);
-
-    std::set<MyUnit>::iterator removeUnit(std::set<MyUnit>::iterator unitIt);
+    std::set<MyUnit>::iterator removeUnit(std::set<MyUnit>::iterator unitIt, BWAPI::Position targetPosition);
 
     void updatePositions(BWAPI::Position targetPosition);
 
@@ -46,9 +48,9 @@ public:
 
     void setSubActivity(SubActivity newSubActivity);
 
-    std::string getCurrentActivity() const;
+    [[nodiscard]] std::string getCurrentActivity() const;
 
-    std::string getCurrentSubActivity() const;
+    [[nodiscard]] std::string getCurrentSubActivity() const;
 
     virtual void move(BWAPI::Position targetPosition);
 
