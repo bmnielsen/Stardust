@@ -15,9 +15,23 @@ TEST(Initialization, AllCOG)
     });
 }
 
-TEST(Initialization, AllAIIDE)
+TEST(Initialization, AllAIIDEStartLocations)
 {
     Maps::RunOnEachStartLocation(Maps::Get("aiide"), [](BWTest test)
+    {
+        test.opponentModule = []()
+        {
+            return new DoNothingModule();
+        };
+        test.frameLimit = 10;
+        test.expectWin = false;
+        test.run();
+    });
+}
+
+TEST(Initialization, AllAIIDEMaps)
+{
+    Maps::RunOnEach(Maps::Get("aiide"), [](BWTest test)
     {
         test.opponentModule = []()
         {
