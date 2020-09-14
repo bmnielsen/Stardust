@@ -11,29 +11,55 @@ namespace
 {
     bool shouldAttack(UnitCluster &cluster, const CombatSimResult &simResult, double aggression = 1.0)
     {
-        // We attack in the following cases:
-        // - Attacking costs us nothing
-        // - The enemy has undetected units that do not damage us much
-        // - We gain a high percentage value, even if we lose absolute value
-        //   This handles the case where our army is much larger than the enemy's
-        // - We gain some value without losing an unacceptably-large proportion of our army
-        //   This criterion does not apply if our aggression value is low
-        bool attack =
-                (simResult.myPercentLost() <= 0.001) ||
-                (simResult.enemyHasUndetectedUnits && simResult.myPercentLost() <= 0.15) ||
-                (simResult.percentGain() > (0.2 / aggression)) ||
-                (aggression > 0.99 && simResult.valueGain() > 0 && (simResult.percentGain() > -0.05 || simResult.myPercentageOfTotal() > 0.9));
+        // Compute the distance factor, an adjustment based on where our army is relative to our main and the target position
+        // In open terrain, be more aggressive closer to our base and less aggressive closer to the target base
+        // Across a choke, be less aggressive when either close to our base or close to the target base
+        double distanceFactor = 1.0;
+        if (!simResult.narrowChoke)
+        {
+            distanceFactor = 1.2 - 0.4 * cluster.percentageToEnemyMain;
+        }
+        else if (cluster.percentageToEnemyMain < 0.3 || cluster.percentageToEnemyMain > 0.7)
+        {
+            distanceFactor = 0.8;
+        }
+
+        auto attack = [&]()
+        {
+            // Always attack if we don't lose anything
+            if (simResult.myPercentLost() <= 0.001) return true;
+
+            // Attack if the enemy has undetected units that do not damage us much
+            // This handles cases where e.g. our army is being attacked by a single cloaked wraith -
+            // we want to ignore it
+            if (simResult.enemyHasUndetectedUnits && simResult.myPercentLost() <= 0.15) return true;
+
+            // Attack if the percentage gain, adjusted for aggression and distance factor, is acceptable
+            // A percentage gain here means the enemy loses a larger percentage of their army than we do
+            if (simResult.percentGain() > (0.2 / (aggression * distanceFactor))) return true;
+
+            // Finally attack in cases where we think we will gain acceptable value, despite losing a higher percentage of our army
+            if (aggression > 0.99 && simResult.valueGain() > (simResult.initialMine - simResult.finalMine) / 2 &&
+                (simResult.percentGain() > -0.05 || simResult.myPercentageOfTotal() > 0.9))
+            {
+                return true;
+            }
+
+            return false;
+        };
+
+        bool result = attack();
 
 #if DEBUG_COMBATSIM
         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                         << std::setprecision(2) << "-" << aggression
+                         << std::setprecision(2) << "-" << aggression << "-" << distanceFactor
                          << ": %l=" << simResult.myPercentLost()
                          << "; vg=" << simResult.valueGain()
                          << "; %g=" << simResult.percentGain()
-                         << (attack ? "; ATTACK" : "; RETREAT");
+                         << (result ? "; ATTACK" : "; RETREAT");
 #endif
 
-        return attack;
+        return result;
     }
 
     bool shouldStartAttack(UnitCluster &cluster, CombatSimResult &simResult)
