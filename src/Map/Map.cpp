@@ -206,9 +206,24 @@ namespace Map
             }
         }
 
-        void setBaseOwner(Base *base, BWAPI::Player owner)
+        void setBaseOwner(Base *base, BWAPI::Player owner, Unit resourceDepot = nullptr)
         {
-            if (base->owner == owner) return;
+            auto setResourceDepot = [&]()
+            {
+                if (!resourceDepot) return;
+
+                base->resourceDepot = resourceDepot;
+                if (resourceDepot->player == BWAPI::Broodwar->self())
+                {
+                    resourceDepot->bwapiUnit->setRallyPoint(base->mineralLineCenter);
+                }
+            };
+
+            if (base->owner == owner)
+            {
+                setResourceDepot();
+                return;
+            }
 
             // If the base previously had an owner, remove it from their list of owned bases
             if (base->owner)
@@ -254,6 +269,7 @@ namespace Map
             base->owner = owner;
             base->ownedSince = BWAPI::Broodwar->getFrameCount();
             base->resourceDepot = nullptr;
+            setResourceDepot();
 
             // If the base has a new owner, add it to their list of owned bases
             if (owner)
@@ -328,32 +344,23 @@ namespace Map
                 }
 
                 // Is this unit a resource depot that is closer than the existing resource depot registered for this base?
-                bool isCloserDepot = false;
+                Unit depot = nullptr;
                 if (unit->type.isResourceDepot())
                 {
                     if (nearbyBase->resourceDepot && nearbyBase->resourceDepot->exists())
                     {
                         int existingDist = nearbyBase->resourceDepot->lastPosition.getApproxDistance(nearbyBase->getPosition());
                         int newDist = unit->lastPosition.getApproxDistance(nearbyBase->getPosition());
-                        isCloserDepot = newDist < existingDist;
+                        if (newDist < existingDist) depot = unit;
                     }
                     else
-                        isCloserDepot = true;
+                        depot = unit;
                 }
 
                 // If the base was previously unowned, or this is a closer depot, change the ownership
-                if (!nearbyBase->owner || isCloserDepot)
+                if (!nearbyBase->owner || depot)
                 {
-                    setBaseOwner(nearbyBase, unit->player);
-
-                    if (isCloserDepot)
-                    {
-                        nearbyBase->resourceDepot = unit;
-                        if (unit->player == BWAPI::Broodwar->self())
-                        {
-                            unit->bwapiUnit->setRallyPoint(nearbyBase->mineralLineCenter);
-                        }
-                    }
+                    setBaseOwner(nearbyBase, unit->player, depot);
                 }
             }
 
