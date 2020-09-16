@@ -11,7 +11,7 @@
 
 // These defines configure a per-frame summary of various unit type's orders, commands, etc.
 #if INSTRUMENTATION_ENABLED_VERBOSE
-#define DEBUG_PROBE_STATUS true
+#define DEBUG_PROBE_STATUS false
 #define DEBUG_ZEALOT_STATUS false
 #define DEBUG_DRAGOON_STATUS false
 #define DEBUG_DT_STATUS false
