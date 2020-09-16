@@ -31,14 +31,14 @@ void MyUnitImpl::update(BWAPI::Unit unit)
     if (!unit || !unit->exists()) return;
 
     // If this unit has just gone on cooldown, add an upcoming attack on its target
-    if (bwapiUnit->getLastCommand().type == BWAPI::UnitCommandTypes::Attack_Unit ||
+    if (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit ||
         bwapiUnit->getOrder() == BWAPI::Orders::AttackUnit)
     {
         auto cooldown = std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown());
         if (cooldown > 0 && cooldown > (cooldownUntil - BWAPI::Broodwar->getFrameCount() + 1))
         {
             auto target = Units::get(
-                    (bwapiUnit->getLastCommand().type == BWAPI::UnitCommandTypes::Attack_Unit)
+                    (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit)
                     ? bwapiUnit->getLastCommand().getTarget()
                     : bwapiUnit->getOrderTarget());
             if (target)
