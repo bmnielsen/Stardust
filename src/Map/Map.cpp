@@ -160,7 +160,10 @@ namespace Map
             std::vector<std::pair<int, Base *>> scoredBases;
             for (auto base : bases)
             {
-                if (base->owner) continue;
+                // Skip bases that are already taken
+                // We consider any based owned by a different player than us to be taken
+                // We consider bases owned by us to be taken if the resource depot exists
+                if (base->owner && (player != BWAPI::Broodwar->self() || (base->resourceDepot && base->resourceDepot->exists()))) continue;
 
                 // Want to be close to our own base
                 int distanceFromUs = closestBaseDistance(base, myBases);
