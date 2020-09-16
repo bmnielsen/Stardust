@@ -11,18 +11,7 @@ namespace
 {
     bool shouldAttack(UnitCluster &cluster, const CombatSimResult &simResult, double aggression = 1.0)
     {
-        // Compute the distance factor, an adjustment based on where our army is relative to our main and the target position
-        // In open terrain, be more aggressive closer to our base and less aggressive closer to the target base
-        // Across a choke, be less aggressive when either close to our base or close to the target base
         double distanceFactor = 1.0;
-        if (!simResult.narrowChoke)
-        {
-            distanceFactor = 1.2 - 0.4 * cluster.percentageToEnemyMain;
-        }
-        else if (cluster.percentageToEnemyMain < 0.3 || cluster.percentageToEnemyMain > 0.7)
-        {
-            distanceFactor = 0.8;
-        }
 
         auto attack = [&]()
         {
@@ -34,16 +23,31 @@ namespace
             // we want to ignore it
             if (simResult.enemyHasUndetectedUnits && simResult.myPercentLost() <= 0.15) return true;
 
-            // Attack if the percentage gain, adjusted for aggression and distance factor, is acceptable
-            // A percentage gain here means the enemy loses a larger percentage of their army than we do
-            if (simResult.percentGain() > (0.2 / (aggression * distanceFactor))) return true;
-
-            // Finally attack in cases where we think we will gain acceptable value, despite losing a higher percentage of our army
+            // Attack in cases where we think we will kill 50% more value than we lose
             if (aggression > 0.99 && simResult.valueGain() > (simResult.initialMine - simResult.finalMine) / 2 &&
                 (simResult.percentGain() > -0.05 || simResult.myPercentageOfTotal() > 0.9))
             {
                 return true;
             }
+
+            // Compute the distance factor, an adjustment based on where our army is relative to our main and the target position
+            distanceFactor = 1.2 - 0.4 * cluster.percentageToEnemyMain;
+
+            // Give an extra penalty to narrow chokes close to the enemy base
+            if (simResult.narrowChoke && cluster.percentageToEnemyMain > 0.7)
+            {
+                distanceFactor *= 0.8;
+            }
+
+            // Attack if we expect to end the fight with a sufficiently larger army and aren't losing an unacceptable percentage of it
+            if (simResult.myPercentageOfTotal() > (1.0 - 0.45 * distanceFactor) && simResult.percentGain() > -0.05 * distanceFactor)
+            {
+                return true;
+            }
+
+            // Attack if the percentage gain, adjusted for aggression and distance factor, is acceptable
+            // A percentage gain here means the enemy loses a larger percentage of their army than we do
+            if (simResult.percentGain() > (0.2 / (aggression * distanceFactor))) return true;
 
             return false;
         };

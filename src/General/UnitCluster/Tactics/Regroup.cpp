@@ -78,12 +78,46 @@ namespace
 
         auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors, false, initialSimResult.narrowChoke);
 
-        bool contain = simResult.myPercentLost() <= 0.001 ||
-                       (simResult.valueGain() > 0 && simResult.percentGain() > -0.3) ||
-                       simResult.percentGain() > -0.2;
+        double distanceFactor = 1.0;
+        auto attack = [&]()
+        {
+            // Always attack if we don't lose anything
+            if (simResult.myPercentLost() <= 0.001) return true;
+
+            // Attack in cases where we think we will kill 50% more value than we lose
+            if (simResult.valueGain() > (simResult.initialMine - simResult.finalMine) / 2 &&
+                (simResult.percentGain() > -0.05 || simResult.myPercentageOfTotal() > 0.9))
+            {
+                return true;
+            }
+
+            // Compute the distance factor, an adjustment based on where our army is relative to our main and the target position
+            distanceFactor = 1.2 - 0.4 * cluster.percentageToEnemyMain;
+
+            // Give an extra bonus to narrow chokes close to our base
+            if (simResult.narrowChoke && cluster.percentageToEnemyMain < 0.3)
+            {
+                distanceFactor *= 1.2;
+            }
+
+            // Attack if we expect to end the fight with a sufficiently larger army and aren't losing an unacceptable percentage of it
+            if (simResult.myPercentageOfTotal() > (1.0 - 0.45 * distanceFactor) && simResult.percentGain() > -0.05 * distanceFactor)
+            {
+                return true;
+            }
+
+            // Attack if the percentage gain, adjusted for distance factor, is acceptable
+            // A percentage gain here means the enemy loses a larger percentage of their army than we do
+            if (simResult.percentGain() > (1.0 - distanceFactor)) return true;
+
+            return false;
+        };
+
+        bool contain = attack();
 
 #if DEBUG_COMBATSIM
         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
+                         << std::setprecision(2) << "-" << distanceFactor
                          << ": %l=" << simResult.myPercentLost()
                          << "; vg=" << simResult.valueGain()
                          << "; %g=" << simResult.percentGain()

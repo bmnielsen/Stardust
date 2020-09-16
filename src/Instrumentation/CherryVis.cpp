@@ -93,6 +93,8 @@ namespace CherryVis
 
         std::unordered_map<std::string, HeatmapFile> heatmapNameToHeatmapFile;
 
+        bool disabled = false;
+
         void log(const std::string &str, int unitId)
         {
             if (unitId == -1)
@@ -310,6 +312,8 @@ namespace CherryVis
     void gameEnd()
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         std::vector<nlohmann::json> heatmaps;
         for (auto heatmapNameAndHeatmapFile : heatmapNameToHeatmapFile)
         {
@@ -349,4 +353,11 @@ namespace CherryVis
         traceFile.close();
 #endif
     }
+}
+
+void CherryVis::disable()
+{
+#if CHERRYVIS_ENABLED
+    disabled = true;
+#endif
 }

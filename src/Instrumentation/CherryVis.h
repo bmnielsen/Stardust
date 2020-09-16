@@ -52,4 +52,6 @@ namespace CherryVis
     void frameEnd(int frame);
 
     void gameEnd();
+
+    void disable();
 }

@@ -158,30 +158,39 @@ CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &
 #endif
 
     // Check if the armies are separated by a narrow choke
+    // We consider this to be the case if our cluster center is on one side of the choke and their furthest unit is on the other side
     Choke *narrowChoke = choke;
     if (!narrowChoke)
     {
-        // Start by computing the enemy army center
-        int enemyPositionXAccumulator = 0;
-        int enemyPositionYAccumulator = 0;
+        auto furthest = BWAPI::Positions::Invalid;
+        auto furthestDist = 0;
         for (const auto &unit : targets)
         {
-            enemyPositionXAccumulator += unit->lastPosition.x;
-            enemyPositionYAccumulator += unit->lastPosition.y;
-        }
-        BWAPI::Position enemyCenter(enemyPositionXAccumulator / targets.size(), enemyPositionYAccumulator / targets.size());
+            if (!unit->completed) continue;
+            if (!unit->lastPositionValid) continue;
 
-        // Now find a narrow choke on the path between the armies
-        for (auto &bwemChoke : PathFinding::GetChokePointPath(center,
-                                                              enemyCenter,
-                                                              BWAPI::UnitTypes::Protoss_Dragoon,
-                                                              PathFinding::PathFindingOptions::UseNearestBWEMArea))
-        {
-            auto thisChoke = Map::choke(bwemChoke);
-            if (thisChoke->isNarrowChoke)
+            int dist = unit->getDistance(center);
+            if (dist > furthestDist)
             {
-                narrowChoke = thisChoke;
-                break;
+                furthestDist = dist;
+                furthest = unit->lastPosition;
+            }
+        }
+
+        if (furthest.isValid())
+        {
+            // Now find a narrow choke on the path between the armies
+            for (auto &bwemChoke : PathFinding::GetChokePointPath(center,
+                                                                  furthest,
+                                                                  BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                  PathFinding::PathFindingOptions::UseNearestBWEMArea))
+            {
+                auto thisChoke = Map::choke(bwemChoke);
+                if (thisChoke->isNarrowChoke)
+                {
+                    narrowChoke = thisChoke;
+                    break;
+                }
             }
         }
     }
