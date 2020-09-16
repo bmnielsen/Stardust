@@ -7,6 +7,8 @@
 
 #include "DebugFlag_CombatSim.h"
 
+#include <iomanip>
+
 /*
  * Orders a cluster to regroup.
  *
