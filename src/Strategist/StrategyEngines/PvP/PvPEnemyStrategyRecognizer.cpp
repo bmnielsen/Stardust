@@ -181,26 +181,26 @@ namespace
         if (BWAPI::Broodwar->getFrameCount() < 8000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 7) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8000, 10);
+                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7600, 10);
         }
         if (BWAPI::Broodwar->getFrameCount() < 9000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8000, 10) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 14);
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7600, 10) ||
+                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8700, 14);
         }
         if (BWAPI::Broodwar->getFrameCount() < 10000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 14) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10000, 18);
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8700, 14) ||
+                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9800, 18);
         }
         if (BWAPI::Broodwar->getFrameCount() < 11000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10000, 18) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 11000, 22);
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9800, 18) ||
+                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10900, 22);
         }
         if (BWAPI::Broodwar->getFrameCount() < 12000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 11000, 22) ||
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10900, 22) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 12000, 26);
         }
 
