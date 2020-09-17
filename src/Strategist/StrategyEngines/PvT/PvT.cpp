@@ -198,10 +198,15 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             {
                 for (const auto &gateway : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Gateway))
                 {
-                    if (!gateway->bwapiUnit->getTrainingQueue().empty() && *gateway->bwapiUnit->getTrainingQueue().begin() == BWAPI::UnitTypes::Protoss_Zealot)
-                    {
-                        gateway->bwapiUnit->cancelTrain(0);
-                    }
+                    if (gateway->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Cancel_Train) continue;
+                    if (gateway->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Cancel_Train_Slot) continue;
+
+                    auto trainingQueue = gateway->bwapiUnit->getTrainingQueue();
+                    if (trainingQueue.empty()) continue;
+                    if (*trainingQueue.begin() != BWAPI::UnitTypes::Protoss_Zealot) continue;
+
+                    Log::Get() << "Cancelling zealot production from gateway @ " << gateway->getTilePosition();
+                    gateway->bwapiUnit->cancelTrain(0);
                 }
             }
 

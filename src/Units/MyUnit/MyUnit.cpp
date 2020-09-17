@@ -55,6 +55,8 @@ void MyUnitImpl::update(BWAPI::Unit unit)
 
     // Guard against buildings having a deep training queue
     if (BWAPI::Broodwar->self()->supplyUsed() < 380 &&
+        unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Cancel_Train &&
+        unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Cancel_Train_Slot &&
         unit->getTrainingQueue().size() > 1 &&
         unit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))
     {
