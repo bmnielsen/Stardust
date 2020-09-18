@@ -381,3 +381,46 @@ void UnitCluster::addRegroupSimResult(CombatSimResult &simResult, bool contain)
 
     recentRegroupSimResults.emplace_back(std::make_pair(simResult, contain));
 }
+
+int UnitCluster::consecutiveSimResults(std::deque<std::pair<CombatSimResult, bool>> &simResults,
+                          int *attack,
+                          int *regroup,
+                          int limit)
+{
+    *attack = 0;
+    *regroup = 0;
+
+    if (simResults.empty()) return 0;
+
+    bool firstResult = simResults.rbegin()->second;
+    bool isConsecutive = true;
+    int consecutive = 0;
+    int count = 0;
+    for (auto it = simResults.rbegin(); it != simResults.rend() && count < limit; it++)
+    {
+        if (isConsecutive)
+        {
+            if (it->second == firstResult)
+            {
+                consecutive++;
+            }
+            else
+            {
+                isConsecutive = false;
+            }
+        }
+
+        if (it->second)
+        {
+            (*attack)++;
+        }
+        else
+        {
+            (*regroup)++;
+        }
+
+        count++;
+    }
+
+    return consecutive;
+}

@@ -56,7 +56,7 @@ namespace
                          << ": %l=" << simResult.myPercentLost()
                          << "; vg=" << simResult.valueGain()
                          << "; %g=" << simResult.percentGain()
-                         << (contain ? "; CONTAIN_STATIC" : "; FLEE");
+                         << (contain ? "; CONTAIN_STATIC" : "; DON'T_CONTAIN_STATIC");
 #endif
 
         return contain;
@@ -123,44 +123,110 @@ namespace
                          << ": %l=" << simResult.myPercentLost()
                          << "; vg=" << simResult.valueGain()
                          << "; %g=" << simResult.percentGain()
-                         << (contain ? "; CONTAIN_CHOKE" : "; FLEE");
+                         << (contain ? "; CONTAIN_CHOKE" : "; DON'T_CONTAIN_CHOKE");
 #endif
 
         cluster.addRegroupSimResult(simResult, contain);
 
-        // Always do a contain if the sim tells us to
-        if (contain) return true;
-
-        // If this is the first run of the contain sim for this fight, withdraw
-        if (cluster.recentRegroupSimResults.size() < 2) return false;
-
-        // Otherwise withdraw only when the sim has been stable for a number of frames
-        if (cluster.recentRegroupSimResults.size() < 24)
+        // What we decide depends on the current regroup activity
+        switch (cluster.currentSubActivity)
         {
-#if DEBUG_COMBATSIM
-            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing contain as we have fewer than 24 frames of sim data";
-#endif
-            return true;
-        }
-
-        int count = 0;
-        for (auto it = cluster.recentRegroupSimResults.rbegin(); it != cluster.recentRegroupSimResults.rend() && count < 24; it++)
-        {
-            if (it->second)
+            case UnitCluster::SubActivity::None:
+                // This is the first regroup frame, so go with the sim
+                return contain;
+            case UnitCluster::SubActivity::ContainChoke:
             {
+                // Continue the contain if the sim recommends it
+                if (contain) return true;
+
+                int containFrames;
+                int fleeFrames;
+                int consecutiveFleeFrames = UnitCluster::consecutiveSimResults(cluster.recentRegroupSimResults, &containFrames, &fleeFrames, 48);
+
+                // Continue if the sim hasn't been stable for 6 frames
+                if (consecutiveFleeFrames < 6)
+                {
 #if DEBUG_COMBATSIM
-                CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                                 << ": continuing contain as a sim result within the past 24 frames recommended containing";
+                    CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing contain as the sim has not yet been stable for 6 frames";
 #endif
+                    return true;
+                }
+
+                // Continue if the sim has recommended containing more than fleeing
+                if (containFrames > fleeFrames)
+                {
+#if DEBUG_COMBATSIM
+                    CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing contain; flee=" << fleeFrames
+                                     << " vs. contain=" << containFrames;
+#endif
+                    return true;
+                }
+
+                // Abort
+#if DEBUG_COMBATSIM
+                CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": aborting contain; flee=" << fleeFrames
+                                 << " vs. contain=" << containFrames;
+#endif
+                return false;
+            }
+            case UnitCluster::SubActivity::StandGround:
+            case UnitCluster::SubActivity::Flee:
+            {
+                if (!contain) return false;
+
+                int containFrames;
+                int fleeFrames;
+                int consecutiveContainFrames = UnitCluster::consecutiveSimResults(cluster.recentRegroupSimResults, &containFrames, &fleeFrames, 72);
+
+                // Continue if the sim hasn't been stable for 12 frames
+                if (consecutiveContainFrames < 12)
+                {
+#if DEBUG_COMBATSIM
+                    CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": not containing as the sim has not yet been stable for 12 frames";
+#endif
+                    return false;
+                }
+
+                // Continue if the sim has recommended fleeing more than containing
+                if (fleeFrames > containFrames)
+                {
+#if DEBUG_COMBATSIM
+                    CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing regroup; flee=" << fleeFrames
+                                     << " vs. contain=" << containFrames;
+#endif
+                    return false;
+                }
+
+                // Continue if our number of units has increased in the past 24 frames.
+                // This gives our reinforcements time to link up with the rest of the cluster before containing.
+                int count = 0;
+                for (auto it = cluster.recentRegroupSimResults.rbegin(); it != cluster.recentRegroupSimResults.rend() && count < 24; it++)
+                {
+                    if (simResult.myUnitCount > it->first.myUnitCount)
+                    {
+#if DEBUG_COMBATSIM
+                        CherryVis::log() << BWAPI::WalkPosition(cluster.center)
+                                         << ": waiting to contain as more friendly units have joined the cluster in the past 24 frames";
+#endif
+                        return false;
+                    }
+
+                    count++;
+                }
+
+                // Start the contain
+#if DEBUG_COMBATSIM
+                CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": starting contain; flee=" << fleeFrames
+                                 << " vs. contain=" << containFrames;
+#endif
+
                 return true;
             }
-            count++;
+            case UnitCluster::SubActivity::ContainStaticDefense:
+                // Both of these states do not consider containing a choke
+                break;
         }
 
-#if DEBUG_COMBATSIM
-        CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                         << ": aborting as the sim has recommended fleeing for the past 24 frames";
-#endif
         return false;
     }
 
@@ -227,9 +293,14 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::StandGround:
         {
-            // Flee if it is no longer safe to stand ground
-            if (!shouldStandGround(simResult))
+            // We might be standing ground near a choke that we are now able to contain
+            if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
             {
+                setSubActivity(SubActivity::ContainChoke);
+            }
+            else if (!shouldStandGround(simResult))
+            {
+                // Flee if it is no longer safe to stand ground
                 setSubActivity(SubActivity::Flee);
             }
 
@@ -242,10 +313,9 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             {
                 setSubActivity(SubActivity::ContainChoke);
             }
-
-            // While fleeing we will often link up with reinforcements, or the enemy will not pursue, so it makes sense to stand ground instead
-            if (shouldStandGround(simResult))
+            else if (shouldStandGround(simResult))
             {
+                // While fleeing we will often link up with reinforcements, or the enemy will not pursue, so it makes sense to stand ground instead
                 setSubActivity(SubActivity::StandGround);
             }
 

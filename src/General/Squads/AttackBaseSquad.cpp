@@ -79,51 +79,6 @@ namespace
         return attack;
     }
 
-    // This returns the number of consecutive frames the sim has agreed on its current value.
-    // It also returns the total number of attack and regroup frames within the window.
-    int consecutiveSimResults(std::deque<std::pair<CombatSimResult, bool>> &recentSimResults,
-                              int *attack,
-                              int *regroup,
-                              int limit)
-    {
-        *attack = 0;
-        *regroup = 0;
-
-        if (recentSimResults.empty()) return 0;
-
-        bool firstResult = recentSimResults.rbegin()->second;
-        bool isConsecutive = true;
-        int consecutive = 0;
-        int count = 0;
-        for (auto it = recentSimResults.rbegin(); it != recentSimResults.rend() && count < limit; it++)
-        {
-            if (isConsecutive)
-            {
-                if (it->second == firstResult)
-                {
-                    consecutive++;
-                }
-                else
-                {
-                    isConsecutive = false;
-                }
-            }
-
-            if (it->second)
-            {
-                (*attack)++;
-            }
-            else
-            {
-                (*regroup)++;
-            }
-
-            count++;
-        }
-
-        return consecutive;
-    }
-
     bool shouldContinueAttack(UnitCluster &cluster, CombatSimResult &simResult)
     {
         // Always continue if we are close to maxed
@@ -172,7 +127,7 @@ namespace
 
         int attackFrames;
         int regroupFrames;
-        int consecutiveRetreatFrames = consecutiveSimResults(cluster.recentSimResults, &attackFrames, &regroupFrames, 48);
+        int consecutiveRetreatFrames = UnitCluster::consecutiveSimResults(cluster.recentSimResults, &attackFrames, &regroupFrames, 48);
 
         // Continue if the sim hasn't been stable for 6 frames
         if (consecutiveRetreatFrames < 6)
@@ -228,7 +183,7 @@ namespace
 
         int attackFrames;
         int regroupFrames;
-        int consecutiveAttackFrames = consecutiveSimResults(cluster.recentSimResults, &attackFrames, &regroupFrames, 72);
+        int consecutiveAttackFrames = UnitCluster::consecutiveSimResults(cluster.recentSimResults, &attackFrames, &regroupFrames, 72);
 
         // Continue if the sim hasn't been stable for 12 frames
         if (consecutiveAttackFrames < 12)
