@@ -1680,6 +1680,7 @@ namespace Producer
             // Step 3: Repeatedly commit a unit from the earliest producer available, or a new one if applicable, until we have built enough
             //         or don't have resources for more
 
+            bool committedSomething = false;
             while (toProduce == -1 || toProduce > 0)
             {
                 // Find the earliest available producer
@@ -1714,6 +1715,8 @@ namespace Producer
                     // If the item was created and committed, continue the loop now
                     if (commitImmediately && result)
                     {
+                        committedSomething = true;
+
                         if (toProduce > 0) toProduce--;
                         bestProducer->items.insert(bestProducerItem);
 
@@ -1773,7 +1776,18 @@ namespace Producer
                     newProducer->items.insert(newProducerItem);
                 }
 
+                committedSomething = true;
+
                 if (toProduce > 0) toProduce--;
+            }
+
+            // If we have prerequisites but didn't produce anything, try to produce the first prerequisite instead
+            // This situation comes up when we don't predict to be able to produce the unit within our prediction window
+            // So producing the first prerequisite allows us to keep things moving until the item can be produced at a later frame
+            if (!prerequisiteItems.empty() && !committedSomething)
+            {
+                ProductionItemSet emptyPrerequisites;
+                resolveResourceBlocks(*prerequisiteItems.begin(), emptyPrerequisites, true);
             }
         }
 
