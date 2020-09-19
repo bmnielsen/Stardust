@@ -683,9 +683,14 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
 
         // Get the cannon location
         auto cannonLocations = BuildingPlacement::mainChokeCannonLocations();
+        MyUnit chokeCannon = nullptr;
         if (cannonLocations.first != BWAPI::TilePositions::Invalid)
         {
-            buildCannonAt(cannonLocations.first, cannonLocations.second);
+            chokeCannon = Units::myBuildingAt(cannonLocations.second);
+            if (!chokeCannon)
+            {
+                buildCannonAt(cannonLocations.first, cannonLocations.second);
+            }
         }
         else
         {
@@ -694,21 +699,40 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
 
         if (alsoAtBases)
         {
-            auto buildAtBase = [&buildCannonAt](Base *base)
+            auto buildAtBase = [&buildCannonAt](Base *base, int count = 1)
             {
                 if (!base || base->owner != BWAPI::Broodwar->self()) return;
 
                 auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
                 if (baseStaticDefenseLocations.first != BWAPI::TilePositions::Invalid)
                 {
-                    buildCannonAt(baseStaticDefenseLocations.first, *baseStaticDefenseLocations.second.begin());
+                    for (const auto &location : baseStaticDefenseLocations.second)
+                    {
+                        if (count < 1) break;
+
+                        if (Units::myBuildingAt(location))
+                        {
+                            count--;
+                            continue;
+                        }
+
+                        buildCannonAt(baseStaticDefenseLocations.first, location);
+                        return;
+                    }
                 }
             };
 
-            buildAtBase(Map::getMyMain());
+            if (!chokeCannon || !chokeCannon->completed)
+            {
+                buildAtBase(Map::getMyMain());
+            }
             if (!Map::mapSpecificOverride()->hasBackdoorNatural())
             {
-                buildAtBase(Map::getMyNatural());
+                buildAtBase(Map::getMyNatural(), 2);
+            }
+            if (chokeCannon && chokeCannon->completed)
+            {
+                buildAtBase(Map::getMyMain());
             }
         }
     };
