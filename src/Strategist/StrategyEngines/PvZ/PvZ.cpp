@@ -416,7 +416,8 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
                     && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
             {
-                break;
+                // We don't cancel a queued expansion in this case
+                return;
             }
 
             takeNaturalExpansion(plays, prioritizedProductionGoals);
