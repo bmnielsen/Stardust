@@ -110,7 +110,7 @@ namespace
 
             // Attack if the percentage gain, adjusted for distance factor, is acceptable
             // A percentage gain here means the enemy loses a larger percentage of their army than we do
-            if (simResult.percentGain() > (1.0 - distanceFactor)) return true;
+            if (simResult.percentGain() > (1.0 - distanceFactor - 0.1)) return true;
 
             return false;
         };
@@ -141,7 +141,7 @@ namespace
 
                 int containFrames;
                 int fleeFrames;
-                int consecutiveFleeFrames = UnitCluster::consecutiveSimResults(cluster.recentRegroupSimResults, &containFrames, &fleeFrames, 48);
+                int consecutiveFleeFrames = UnitCluster::consecutiveSimResults(cluster.recentRegroupSimResults, &containFrames, &fleeFrames, 24);
 
                 // Continue if the sim hasn't been stable for 6 frames
                 if (consecutiveFleeFrames < 6)
@@ -176,13 +176,13 @@ namespace
 
                 int containFrames;
                 int fleeFrames;
-                int consecutiveContainFrames = UnitCluster::consecutiveSimResults(cluster.recentRegroupSimResults, &containFrames, &fleeFrames, 72);
+                int consecutiveContainFrames = UnitCluster::consecutiveSimResults(cluster.recentRegroupSimResults, &containFrames, &fleeFrames, 24);
 
-                // Continue if the sim hasn't been stable for 12 frames
-                if (consecutiveContainFrames < 12)
+                // Continue if the sim hasn't been stable for 6 frames
+                if (consecutiveContainFrames < 6)
                 {
 #if DEBUG_COMBATSIM
-                    CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": not containing as the sim has not yet been stable for 12 frames";
+                    CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": not containing as the sim has not yet been stable for 6 frames";
 #endif
                     return false;
                 }
@@ -191,22 +191,22 @@ namespace
                 if (fleeFrames > containFrames)
                 {
 #if DEBUG_COMBATSIM
-                    CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing regroup; flee=" << fleeFrames
+                    CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing flee; flee=" << fleeFrames
                                      << " vs. contain=" << containFrames;
 #endif
                     return false;
                 }
 
-                // Continue if our number of units has increased in the past 24 frames.
+                // Continue if our number of units has increased in the past 12 frames.
                 // This gives our reinforcements time to link up with the rest of the cluster before containing.
                 int count = 0;
-                for (auto it = cluster.recentRegroupSimResults.rbegin(); it != cluster.recentRegroupSimResults.rend() && count < 24; it++)
+                for (auto it = cluster.recentRegroupSimResults.rbegin(); it != cluster.recentRegroupSimResults.rend() && count < 12; it++)
                 {
                     if (simResult.myUnitCount > it->first.myUnitCount)
                     {
 #if DEBUG_COMBATSIM
                         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                                         << ": waiting to contain as more friendly units have joined the cluster in the past 24 frames";
+                                         << ": waiting to contain as more friendly units have joined the cluster in the past 12 frames";
 #endif
                         return false;
                     }
