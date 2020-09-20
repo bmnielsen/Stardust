@@ -268,9 +268,7 @@ int DefendBase::desiredCannons()
     int enemyAirUnits =
             Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) +
             Units::countEnemy(BWAPI::UnitTypes::Terran_Wraith) +
-            Units::countEnemy(BWAPI::UnitTypes::Terran_Dropship) +
-            Units::countEnemy(BWAPI::UnitTypes::Protoss_Scout) +
-            Units::countEnemy(BWAPI::UnitTypes::Protoss_Shuttle);
+            Units::countEnemy(BWAPI::UnitTypes::Protoss_Scout);
 
     // Could the enemy have air units?
 
