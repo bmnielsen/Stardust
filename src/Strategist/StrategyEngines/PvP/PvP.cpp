@@ -481,8 +481,15 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // In this case we want to expand when we consider it safe to do so: we have an attacking or containing army
             // that is close to the enemy base
 
-            // We never expand before frame 10000 unless the enemy has done so
-            if (BWAPI::Broodwar->getFrameCount() < 10000 && Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) < 2) break;
+            // We never expand before frame 10000 unless the enemy has done so or is doing an opening that will not give
+            // immediate pressure
+            if (BWAPI::Broodwar->getFrameCount() < 10000 &&
+                Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) < 2 &&
+                enemyStrategy != ProtossStrategy::EarlyRobo &&
+                enemyStrategy != ProtossStrategy::Turtle)
+            {
+                break;
+            }
 
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) break;
