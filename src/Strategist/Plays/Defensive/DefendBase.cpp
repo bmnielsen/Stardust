@@ -337,7 +337,7 @@ int DefendBase::desiredCannons()
     {
         if (enemyAirUnits > 6) return 4;
         if (enemyAirThreat) return 3;
-        if (enemyDropThreat && BWAPI::Broodwar->getFrameCount() > 8000) return 2;
+        if (enemyDropThreat && BWAPI::Broodwar->getFrameCount() > 8000) return 1;
         return 0;
     }
 
