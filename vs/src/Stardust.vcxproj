@@ -1,0 +1,193 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{E8EF6F60-2273-3A31-93E7-432605FC32DD}</ProjectGuid>
+    <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
+    <Keyword>Win32Proj</Keyword>
+    <Platform>Win32</Platform>
+    <ProjectName>Stardust</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)\..\vs\src\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Stardust.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Stardust</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">.dll</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty;$(SolutionDir)\..\src;$(SolutionDir)\..\src\Builder;$(SolutionDir)\..\src\General;$(SolutionDir)\..\src\Instrumentation;$(SolutionDir)\..\src\Map;$(SolutionDir)\..\src\Map\PathFinding;$(SolutionDir)\..\src\Players;$(SolutionDir)\..\src\Producer;$(SolutionDir)\..\src\Strategist;$(SolutionDir)\..\src\Units;$(SolutionDir)\..\src\Util;$(SolutionDir)\..\src\Workers;$(SolutionDir)\..\3rdparty\BWAPILIB\include;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;WITHOUT_POSIX;CMAKE_INTDIR="Release";Stardust_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;WITHOUT_POSIX;CMAKE_INTDIR=\"Release\";Stardust_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty;$(SolutionDir)\..\src;$(SolutionDir)\..\src\Builder;$(SolutionDir)\..\src\General;$(SolutionDir)\..\src\Instrumentation;$(SolutionDir)\..\src\Map;$(SolutionDir)\..\src\Map\PathFinding;$(SolutionDir)\..\src\Players;$(SolutionDir)\..\src\Producer;$(SolutionDir)\..\src\Strategist;$(SolutionDir)\..\src\Units;$(SolutionDir)\..\src\Util;$(SolutionDir)\..\src\Workers;$(SolutionDir)\..\3rdparty\BWAPILIB\include;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty;$(SolutionDir)\..\src;$(SolutionDir)\..\src\Builder;$(SolutionDir)\..\src\General;$(SolutionDir)\..\src\Instrumentation;$(SolutionDir)\..\src\Map;$(SolutionDir)\..\src\Map\PathFinding;$(SolutionDir)\..\src\Players;$(SolutionDir)\..\src\Producer;$(SolutionDir)\..\src\Strategist;$(SolutionDir)\..\src\Units;$(SolutionDir)\..\src\Util;$(SolutionDir)\..\src\Workers;$(SolutionDir)\..\3rdparty\BWAPILIB\include;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>..\3rdparty\BWAPILIB\Release\BWAPILIB.lib;..\3rdparty\BWEM\Release\BWEM.lib;..\3rdparty\BWAPILIB\Release\BWAPILIB.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:X86</AdditionalOptions>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>$(SolutionDir)/src/Release/Stardust.lib</ImportLibrary>
+      <ProgramDataBaseFile>$(SolutionDir)/src/Release/Stardust.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="$(SolutionDir)\..\src\Builder\Block.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Builder\Builder.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Builder\Building.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Builder\BuildingPlacement.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Bullets.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Dll.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\CombatSimResult.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\General.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\Squad.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\Squads\AttackBaseSquad.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\Squads\DefendBaseSquad.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\Squads\EarlyGameDefendMainBaseSquad.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\Squads\MopUpSquad.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\Squads\WorkerDefenseSquad.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\CombatSim.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Detectors.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\MeleeTargeting.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\RangedTargeting.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Attack.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\ContainBase.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\HoldChoke.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Move.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Regroup.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\UnitCluster.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Instrumentation\CherryVis.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Instrumentation\Log.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Instrumentation\Timer.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\Base.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\Choke.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\Map.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Alchemist.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Fortress.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Plasma.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\NavigationGrid.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding_BWEM.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding_Grids.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding_Search.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Opponent.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Players\Grid.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Players\Players.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Players\UpgradeTracker.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Producer\Producer.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Producer\ProductionGoal.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Producer\ProductionGoals\UpgradeProductionGoal.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\StardustAIModule.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Play.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Defensive\AntiCannonRush.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Defensive\DefendBase.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\SaturateBases.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\TakeExpansion.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\TakeIslandExpansion.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\AttackEnemyMain.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\DefendMyMain.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\MainArmyPlay.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\MopUp.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\EarlyGameWorkerScout.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\DarkTemplarHarass.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Strategist.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\Expansions.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\StrategyEngine.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\Upgrades.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\MapSpecific\PlasmaEnemyStrategyRecognizer.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\MapSpecific\PlasmaStrategyEngine.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvP\PvP.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvP\PvPEnemyStrategyRecognizer.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvP\PvPStrategySelection.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvT\PvT.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvT\PvTEnemyStrategyRecognizer.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvT\PvTStrategySelection.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvU\PvU.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvZ\PvZ.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvZ\PvZEnemyStrategyRecognizer.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvZ\PvZStrategySelection.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyDragoon.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyUnit.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyUnit_Move.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyUnit_Orders.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyWorker.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Units\Unit\Unit_Info.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Units\Unit\Unit_Update.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Units\Units.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Util\Geo.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Util\UnitUtil.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\WorkerOrderTimer.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\Workers.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(SolutionDir)\..\vs\ZERO_CHECK.vcxproj">
+      <Project>{425FD9D9-B79B-3E95-B6BC-8E6ED1353D48}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)\..\vs\3rdparty\BWAPILIB\BWAPILIB.vcxproj">
+      <Project>{7B9D001C-3ECF-3960-A03B-2C4719D94E96}</Project>
+      <Name>BWAPILIB</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)\..\vs\3rdparty\BWEM\BWEM.vcxproj">
+      <Project>{3BF8709C-7777-3C81-84F4-9B50BE4D24C4}</Project>
+      <Name>BWEM</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

@@ -1,0 +1,113 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{7B9D001C-3ECF-3960-A03B-2C4719D94E96}</ProjectGuid>
+    <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
+    <Keyword>Win32Proj</Keyword>
+    <Platform>Win32</Platform>
+    <ProjectName>BWAPILIB</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)\3rdparty\BWAPILIB\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">BWAPILIB.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">BWAPILIB</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty\BWAPILIB\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) -w</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;WITHOUT_POSIX;CMAKE_INTDIR="Release";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;WITHOUT_POSIX;CMAKE_INTDIR=\"Release\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty\BWAPILIB\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty\BWAPILIB\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:X86</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  
+  <ItemGroup>
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\AIModule.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\BWAPI.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\BroodwarOutputDevice.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\BulletType.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Color.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\DamageType.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Error.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Event.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\ExplosionType.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Filters.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Forceset.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Game.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\GameType.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Order.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Player.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\PlayerType.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Playerset.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Position.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Race.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Region.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Regionset.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Streams.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\TechType.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Unit.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\UnitCommandType.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\UnitSizeType.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\UnitType.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\Unitset.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\UpgradeType.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\Source\WeaponType.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\3rdparty\BWAPILIB\UnitCommand.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
