@@ -101,13 +101,12 @@
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\WorkerDefenseSquad.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\CombatSim.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Detectors.cpp" />
-    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\MeleeTargeting.cpp" />
-    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\RangedTargeting.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Attack.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\ContainBase.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\HoldChoke.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Move.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Regroup.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Targeting.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\UnitCluster.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Instrumentation\CherryVis.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Instrumentation\Log.cpp" />
@@ -140,7 +139,10 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\DefendMyMain.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\MainArmyPlay.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\MopUp.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Offensive\AttackExpansion.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\EarlyGameWorkerScout.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\EjectEnemyScout.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\ScoutEnemyExpos.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\DarkTemplarHarass.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Strategist.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\Expansions.cpp" />
