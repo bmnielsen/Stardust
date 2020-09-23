@@ -9,13 +9,13 @@
 namespace
 {
     // Units are added to a cluster if they are within this distance of the cluster center
-    const int ADD_THRESHOLD = 320;
+    const int ADD_THRESHOLD = 480;
 
     // Clusters are combined if their centers are within this distance of each other, adjusted for cluster size
-    const int COMBINE_THRESHOLD = 320;
+    const int COMBINE_THRESHOLD = 480;
 
     // Units are removed from a cluster if they are further than this distance from the cluster center, adjusted for cluster size
-    const int REMOVE_THRESHOLD = 480;
+    const int REMOVE_THRESHOLD = 640;
 
     // Determines whether we need detection to effectively fight the given unit.
     bool unitNeedsDetection(const Unit &unit)
@@ -51,7 +51,7 @@ bool Squad::canAddUnitToCluster(const MyUnit &unit, const std::shared_ptr<UnitCl
 bool Squad::shouldCombineClusters(const std::shared_ptr<UnitCluster> &first, const std::shared_ptr<UnitCluster> &second) const
 {
     return PathFinding::GetGroundDistance(first->center, second->center, BWAPI::UnitTypes::Protoss_Dragoon) <=
-           (COMBINE_THRESHOLD + std::min(first->units.size(), second->units.size()) * 32);
+           (COMBINE_THRESHOLD + (first->units.size() + second->units.size()) * 32);
 }
 
 bool Squad::shouldRemoveFromCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster) const
