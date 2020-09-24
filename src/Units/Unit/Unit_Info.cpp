@@ -78,7 +78,7 @@ int UnitImpl::groundRange() const
     if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
 
     int range = Players::weaponRange(player, weaponUnitType.groundWeapon());
-    if (type == BWAPI::UnitTypes::Terran_Bunker) range += 32;
+    if (type == BWAPI::UnitTypes::Terran_Bunker) range += 48;
     return range;
 }
 
@@ -88,7 +88,7 @@ int UnitImpl::airRange() const
     if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
 
     int range = Players::weaponRange(player, weaponUnitType.airWeapon());
-    if (type == BWAPI::UnitTypes::Terran_Bunker) range += 32;
+    if (type == BWAPI::UnitTypes::Terran_Bunker) range += 48;
     return range;
 }
 
