@@ -390,3 +390,62 @@ TEST(AttackBunker, ManyGoonsNarrowSpace)
 
     test.run();
 }
+
+TEST(AttackBunker, FullGame)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new BunkerModule();
+    };
+    test.opponentRace = BWAPI::Races::Terran;
+    test.map = Maps::GetOne("Tau");
+    test.randomSeed = 65145;
+    test.frameLimit = 15000;
+    test.expectWin = false;
+
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(122, 9))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(122, 10))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(122, 11))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(122, 12))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(123, 9))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(123, 10))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(123, 11))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(123, 12))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(91, 118))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Pylon, BWAPI::TilePosition(115, 10)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Pylon, BWAPI::TilePosition(115, 8)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Gateway, BWAPI::TilePosition(113, 12)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Cybernetics_Core, BWAPI::TilePosition(112, 10)),
+    };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Bunker, BWAPI::Position(BWAPI::TilePosition(50, 105))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(BWAPI::TilePosition(50, 109))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(BWAPI::TilePosition(51, 109))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(BWAPI::TilePosition(52, 109))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(BWAPI::TilePosition(53, 109))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(49, 110))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(50, 110))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(51, 110))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(52, 110))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(53, 110))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(54, 110))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Barracks, BWAPI::Position(BWAPI::TilePosition(93, 114))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Factory, BWAPI::Position(BWAPI::TilePosition(89, 114))),
+    };
+//
+//    test.onStartMine = []()
+//    {
+//        auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(116, 8)));
+//
+//        Strategist::setStrategyEngine(std::make_unique<UpgradeGoonRangeStrategyEngine>());
+//
+//        std::vector<std::shared_ptr<Play>> openingPlays;
+//        openingPlays.emplace_back(std::make_shared<AttackEnemyMain>(baseToAttack));
+//        Strategist::setOpening(openingPlays);
+//    };
+
+    test.run();
+}
