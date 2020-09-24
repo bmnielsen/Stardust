@@ -122,18 +122,44 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
 {
     int cooldown = target->isFlying ? bwapiUnit->getAirWeaponCooldown() : bwapiUnit->getGroundWeaponCooldown();
 
-    // If we are not on cooldown, defer to normal unit attack
-    if (cooldown <= BWAPI::Broodwar->getRemainingLatencyFrames() + 2)
+    int myRange = range(target);
+    int targetRange = target->groundRange();
+    bool rangingBunker = target->type == BWAPI::UnitTypes::Terran_Bunker && myRange > targetRange;
+
+    // If we are not on cooldown, defer to normal unit attack unless we are ranging a bunker
+    if (!rangingBunker && cooldown <= BWAPI::Broodwar->getRemainingLatencyFrames() + 2)
     {
         MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
         return;
     }
 
-    int myRange = range(target);
-    int targetRange = target->groundRange();
-    bool rangingBunker = target->type == BWAPI::UnitTypes::Terran_Bunker && myRange > targetRange;
-
     int currentDistanceToTarget = getDistance(target);
+
+    // Handle ranging a bunker and not on cooldown
+    if (rangingBunker && cooldown <= BWAPI::Broodwar->getRemainingLatencyFrames() + 2)
+    {
+        // What we do depends on where we are and where we're going
+        // - Well out of range: attack
+        // - In range, out of range of the bunker, and not moving towards it: attack
+        // - Out of range and expect momentum to put us in range: stop
+        // - In range and moving towards the bunker: fall through to move boids
+
+        auto myPredictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames());
+        int predictedDistanceToTarget = Geo::EdgeToEdgeDistance(type, myPredictedPosition, target->type, target->lastPosition);
+
+        if (predictedDistanceToTarget > myRange ||
+            (currentDistanceToTarget > targetRange && currentDistanceToTarget <= myRange && predictedDistanceToTarget >= currentDistanceToTarget))
+        {
+            MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
+            return;
+        }
+
+        if (currentDistanceToTarget > myRange && predictedDistanceToTarget <= myRange)
+        {
+            stop();
+            return;
+        }
+    }
 
     BWAPI::Position predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
     int predictedDistanceToTarget;
@@ -177,7 +203,8 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
 
     else if (rangingBunker)
     {
-        desiredDistance = currentDistanceToTarget > myRange ? (myRange - 24) : myRange;
+        // Move closer, then back up a bit to the desired range
+        desiredDistance = currentDistanceToTarget > myRange ? (myRange - 12) : myRange;
     }
 
         // The target is stationary or moving towards us, so kite it if we can
@@ -185,13 +212,15 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
     {
         int cooldownDistance = (int) ((double) (cooldown - BWAPI::Broodwar->getRemainingLatencyFrames() - 2) * type.topSpeed());
         desiredDistance = std::min(myRange, myRange + (cooldownDistance - (predictedDistanceToTarget - myRange)) / 2);
+
+        // If the target's range is much lower than ours, keep a bit closer
+        // Exception for SCVs since they might be repairing something dangerous
+        if (target->type != BWAPI::UnitTypes::Terran_SCV && targetRange <= (myRange - 64)) desiredDistance -= 32;
+
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Kiting: cdwn=" << cooldown << "; dist=" << predictedDistanceToTarget << "; range=" << myRange << "; des="
                            << desiredDistance;
 #endif
-
-        // If the target's range is much lower than ours, keep a bit closer
-        if (targetRange <= (myRange - 64)) desiredDistance -= 32;
     }
 
         // All others: desire to be at our range
@@ -214,38 +243,42 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
     }
 
     // Separation boid: don't block friendly units that are not in range of their targets
+    // Skipped for SCVs as they might be repairing something we don't want to get closer to
     int separationX = 0;
     int separationY = 0;
-    for (const auto &other : unitsAndTargets)
+    if (target->type != BWAPI::UnitTypes::Terran_SCV)
     {
-        if (other.first->id == id) continue;
-        if (!other.second) continue;
-
-        // Check if the other unit is within our detection limit
-        auto dist = getDistance(other.first);
-        double detectionLimit = std::max(type.width(), other.first->type.width()) * separationDetectionLimitFactor;
-        if (dist >= (int) detectionLimit) continue;
-
-        // If we are ranging a bunker and are currently in range, skip separation except from units that are caught too close to the bunker
-        if (rangingBunker && currentDistanceToTarget <= myRange)
+        for (const auto &other : unitsAndTargets)
         {
-            if (other.second->type != BWAPI::UnitTypes::Terran_Bunker || !other.first->isInEnemyWeaponRange(other.second))
+            if (other.first->id == id) continue;
+            if (!other.second) continue;
+
+            // Check if the other unit is within our detection limit
+            auto dist = getDistance(other.first);
+            double detectionLimit = std::max(type.width(), other.first->type.width()) * separationDetectionLimitFactor;
+            if (dist >= (int) detectionLimit) continue;
+
+            // If we are ranging a bunker and are currently in range, skip separation except from units that are caught too close to the bunker
+            if (rangingBunker && currentDistanceToTarget <= myRange)
+            {
+                if (other.second->type != BWAPI::UnitTypes::Terran_Bunker || !other.first->isInEnemyWeaponRange(other.second))
+                {
+                    continue;
+                }
+            }
+                // Otherwise skip units in range of their targets
+            else if (other.first->isInOurWeaponRange(other.second))
             {
                 continue;
             }
-        }
-            // Otherwise skip units in range of their targets
-        else if (other.first->isInOurWeaponRange(other.second))
-        {
-            continue;
-        }
 
-        // Push away with maximum force at 0 distance, no force at detection limit
-        double distFactor = 1.0 - (double) dist / detectionLimit;
-        int centerDist = Geo::ApproximateDistance(lastPosition.x, other.first->lastPosition.x, lastPosition.y, other.first->lastPosition.y);
-        double scalingFactor = distFactor * distFactor * separationWeight / centerDist;
-        separationX -= (int) ((double) (other.first->lastPosition.x - lastPosition.x) * scalingFactor);
-        separationY -= (int) ((double) (other.first->lastPosition.y - lastPosition.y) * scalingFactor);
+            // Push away with maximum force at 0 distance, no force at detection limit
+            double distFactor = 1.0 - (double) dist / detectionLimit;
+            int centerDist = Geo::ApproximateDistance(lastPosition.x, other.first->lastPosition.x, lastPosition.y, other.first->lastPosition.y);
+            double scalingFactor = distFactor * distFactor * separationWeight / centerDist;
+            separationX -= (int) ((double) (other.first->lastPosition.x - lastPosition.x) * scalingFactor);
+            separationY -= (int) ((double) (other.first->lastPosition.y - lastPosition.y) * scalingFactor);
+        }
     }
 
     // Combine to the total so far
