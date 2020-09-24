@@ -40,7 +40,8 @@ protected:
     static void upgradeWhenUnitStarted(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                        BWAPI::UpgradeType upgradeType,
                                        BWAPI::UnitType unitType,
-                                       bool requireProducer = false);
+                                       bool requireProducer = false,
+                                       int priority = PRIORITY_NORMAL);
 
     static void defaultGroundUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 

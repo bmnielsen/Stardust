@@ -186,7 +186,9 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 }
 
                 // Default to something reasonable if we don't detect anything else
-                if (BWAPI::Broodwar->getFrameCount() > 4000)
+                if (BWAPI::Broodwar->getFrameCount() > 4000 ||
+                    Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
+                    Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
                 {
                     strategy = TerranStrategy::Normal;
                     continue;

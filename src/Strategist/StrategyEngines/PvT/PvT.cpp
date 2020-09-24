@@ -145,6 +145,9 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        -1);
+
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+
             break;
         }
         case OurStrategy::AntiMarineRush:
@@ -210,18 +213,21 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 }
             }
 
+            // Default upgrades
+            handleUpgrades(prioritizedProductionGoals);
+
             // Try to keep at least two army units in production while taking our natural
             int higherPriorityCount = 2 - inProgressCount;
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
-
-            // Default upgrades
-            handleUpgrades(prioritizedProductionGoals);
 
             break;
         }
 
         case OurStrategy::MidGame:
         {
+            // Default upgrades
+            handleUpgrades(prioritizedProductionGoals);
+
             int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
 
             // Produce zealots if the enemy has a lot of tanks
@@ -241,9 +247,6 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
-
-            // Default upgrades
-            handleUpgrades(prioritizedProductionGoals);
 
             break;
         }
@@ -323,7 +326,11 @@ void PvT::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
     // For PvT dragoon range is important to get early, so start it as soon as we have a finished core unless the enemy is rushing us
     if (ourStrategy != OurStrategy::AntiMarineRush)
     {
-        upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Cybernetics_Core);
+        upgradeWhenUnitStarted(prioritizedProductionGoals,
+                               BWAPI::UpgradeTypes::Singularity_Charge,
+                               BWAPI::UnitTypes::Protoss_Cybernetics_Core,
+                               false,
+                               PRIORITY_MAINARMYBASEPRODUCTION);
     }
     else
     {
