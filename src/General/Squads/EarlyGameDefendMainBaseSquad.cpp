@@ -303,7 +303,18 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         attack = !shouldAbortAttack(cluster, simResult);
     }
 
-    if (attack || (!enemiesNeedingDetection.empty() && choke) || (!enemyInOurBase && choke && choke->isNarrowChoke))
+    // If the enemy has cloaked units and we have a choke, always stay at the choke
+    // Rationale: we want to plug the choke to keep the cloked units from getting in until we get detection
+    if (!enemiesNeedingDetection.empty() && choke) attack = true;
+
+    // Unless fighting against Protoss, always defend at the choke whenever there are no units in the base
+    if (BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss &&
+        !enemyInOurBase && choke && choke->isNarrowChoke)
+    {
+        attack = true;
+    }
+
+    if (attack)
     {
         cluster.setActivity(UnitCluster::Activity::Attacking);
 
