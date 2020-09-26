@@ -120,7 +120,7 @@ namespace
 
         if (targetType.isResourceDepot())
         {
-            return 6;
+            return 7;
         }
 
         if (targetType == BWAPI::UnitTypes::Protoss_Pylon ||
