@@ -15,7 +15,7 @@
 #include <bwem.h>
 
 #if INSTRUMENTATION_ENABLED
-#define OUTPUT_SCOUTTILE_HEATMAP true
+#define OUTPUT_SCOUTTILE_HEATMAP false
 #endif
 
 namespace
@@ -227,6 +227,13 @@ namespace
             }
         }
 
+        // Use our natural's height as the reference height
+        auto referenceHeight = -1;
+        if (Map::getEnemyStartingNatural())
+        {
+            referenceHeight = BWAPI::Broodwar->getGroundHeight(Map::getEnemyStartingNatural()->getTilePosition());
+        }
+
         auto tileSightRange = BWAPI::UnitTypes::Protoss_Probe.sightRange() / 32;
         int bestDist = INT_MAX;
         BWAPI::TilePosition bestTile = BWAPI::TilePositions::Invalid;
@@ -237,6 +244,8 @@ namespace
                 auto here = BWAPI::TilePosition(enemyMainChoke->center) + BWAPI::TilePosition(x, y);
                 if (!here.isValid()) continue;
                 if (!Map::isWalkable(here)) continue;
+
+                if (referenceHeight != -1 && BWAPI::Broodwar->getGroundHeight(here) != referenceHeight) continue;
 
                 int chokeDist = enemyMainChoke->center.getApproxDistance(BWAPI::Position(here) + BWAPI::Position(16, 16));
                 if (chokeDist > BWAPI::UnitTypes::Protoss_Probe.sightRange()) continue;
