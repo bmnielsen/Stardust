@@ -33,11 +33,12 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
         int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
                         completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
 
-        // Transition immediately if we've discovered a different enemy strategy
+        // Transition immediately if we've discovered a different enemy strategy and have at least three completed dragoons
         if (newEnemyStrategy != ProtossStrategy::BlockScouting &&
             newEnemyStrategy != ProtossStrategy::ProxyRush &&
             newEnemyStrategy != ProtossStrategy::ZealotRush &&
-            newEnemyStrategy != ProtossStrategy::ZealotAllIn)
+            newEnemyStrategy != ProtossStrategy::ZealotAllIn &&
+            completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] > 2)
         {
             if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) <= unitCount) return true;
         }
@@ -209,7 +210,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     strategy = OurStrategy::Normal;
                     continue;
                 }
-                
+
                 // Transition to mid-game when we have taken our natural
                 auto natural = Map::getMyNatural();
                 if (!natural || natural->ownedSince != -1)
