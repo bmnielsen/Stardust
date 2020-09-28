@@ -776,10 +776,19 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
             {
                 if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)
                 {
-                    CherryVis::setBoardValue("detection", "anti-zealot-rush");
+                    CherryVis::setBoardValue("detection", "enemy-in-base");
                     return;
                 }
             }
+        }
+
+        // Add some frame stops to ensure we don't build a cannon while the enemy is still producing zealots
+        if ((BWAPI::Broodwar->getFrameCount() < 7000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 8) ||
+            (BWAPI::Broodwar->getFrameCount() < 8000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 10) ||
+            (BWAPI::Broodwar->getFrameCount() < 9000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 12))
+        {
+            CherryVis::setBoardValue("detection", "anti-zealot-rush");
+            return;
         }
     }
 
