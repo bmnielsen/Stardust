@@ -6,6 +6,29 @@ namespace PathFinding
 {
     namespace
     {
+        // Define some positions for use in searching outwards from a point at tile resolution
+        const BWAPI::Position tileSpiral[] = {
+                BWAPI::Position(-32, 0),
+                BWAPI::Position(0, -32),
+                BWAPI::Position(32, 0),
+                BWAPI::Position(0, -32),
+                BWAPI::Position(-32, -32),
+                BWAPI::Position(32, -32),
+                BWAPI::Position(32, 32),
+                BWAPI::Position(-32, 32),
+                BWAPI::Position(-64, 0),
+                BWAPI::Position(0, -64),
+                BWAPI::Position(64, 0),
+                BWAPI::Position(0, -64),
+                BWAPI::Position(-64, -32),
+                BWAPI::Position(-32, -64),
+                BWAPI::Position(32, -64),
+                BWAPI::Position(64, -32),
+                BWAPI::Position(64, 32),
+                BWAPI::Position(32, 64),
+                BWAPI::Position(-32, 64),
+                BWAPI::Position(-64, 32)};
+
         inline bool validChoke(const BWEM::ChokePoint *choke, int minChokeWidth, bool allowMineralWalk)
         {
             const auto &chokeData = Map::choke(choke);
@@ -14,22 +37,56 @@ namespace PathFinding
             return !choke->Blocked() && !chokeData->requiresMineralWalk;
         }
 
+        bool useNearestBWEMArea(PathFindingOptions options)
+        {
+            return ((int) options & (int) PathFindingOptions::UseNearestBWEMArea) != 0;
+        }
+
+        bool useNeighbouringBWEMArea(PathFindingOptions options)
+        {
+            return ((int) options & (int) PathFindingOptions::UseNeighbouringBWEMArea) != 0;
+        }
+
+        // Adjusts the position so it can be used for BWEM pathfinding given the options
+        BWAPI::Position adjustForBWEMPathFinding(BWAPI::Position position, PathFindingOptions options)
+        {
+            // If we are allowing using the nearest area, accept the input position
+            if (useNearestBWEMArea(options)) return position;
+
+            // If the input position has an area, accept it
+            auto wp = BWAPI::WalkPosition(position);
+            if (BWEM::Map::Instance().GetArea(wp)) return position;
+
+            // If we want to use a neighbour, try to find one and adjust the position
+            if (useNeighbouringBWEMArea(options))
+            {
+                for (const auto &offset : tileSpiral)
+                {
+                    auto here = position + offset;
+                    if (!here.isValid()) continue;
+                    if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(here))) return here;
+                }
+            }
+
+            return BWAPI::Positions::Invalid;
+        }
+
         // Creates a BWEM-style choke point path using an algorithm similar to BWEB's tile-resolution path finding.
         // Used when we want to generate paths with additional constraints beyond what BWEM provides, like taking
         // choke width and mineral walking into consideration.
         BWEM::CPPath CustomChokePointPath(
                 BWAPI::Position start,
                 BWAPI::Position end,
-                bool useNearestBWEMArea,
+                PathFindingOptions options,
                 BWAPI::UnitType unitType,
                 int *pathLength)
         {
             if (pathLength) *pathLength = -1;
 
-            const BWEM::Area *startArea = useNearestBWEMArea ? BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(start))
-                                                             : BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(start));
-            const BWEM::Area *targetArea = useNearestBWEMArea ? BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(end))
-                                                              : BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(end));
+            const BWEM::Area *startArea = useNearestBWEMArea(options) ? BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(start))
+                                                                      : BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(start));
+            const BWEM::Area *targetArea = useNearestBWEMArea(options) ? BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(end))
+                                                                       : BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(end));
             if (!startArea || !targetArea)
             {
                 return {};
@@ -128,13 +185,13 @@ namespace PathFinding
 
     int GetGroundDistance(BWAPI::Position start, BWAPI::Position end, BWAPI::UnitType unitType, PathFindingOptions options)
     {
-        // Parse options
-        bool useNearestBWEMArea = ((int) options & (int) PathFindingOptions::UseNearestBWEMArea) != 0;
-
-        // If either of the points is not in a BWEM area, fall back to air distance unless the caller overrides this
-        if (!useNearestBWEMArea
-            && (!BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(start)) || !BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(end))))
+        // Adjust the start and end positions based on the options
+        auto adjustedStart = adjustForBWEMPathFinding(start, options);
+        auto adjustedEnd = adjustForBWEMPathFinding(end, options);
+        if (adjustedStart == BWAPI::Positions::Invalid || adjustedEnd == BWAPI::Positions::Invalid)
+        {
             return start.getApproxDistance(end);
+        }
 
         int dist;
         GetChokePointPath(start, end, unitType, options, &dist);
@@ -150,16 +207,13 @@ namespace PathFinding
     {
         if (pathLength) *pathLength = -1;
 
-        // Parse options
-        bool useNearestBWEMArea = ((int) options & (int) PathFindingOptions::UseNearestBWEMArea) != 0;
-
-        // If either of the points is not in a BWEM area, it is probably over unwalkable terrain
-        if (!useNearestBWEMArea
-            && (!BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(start)) || !BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(end))))
-            return BWEM::CPPath();
+        // Adjust the start and end positions based on the options
+        auto adjustedStart = adjustForBWEMPathFinding(start, options);
+        auto adjustedEnd = adjustForBWEMPathFinding(end, options);
+        if (adjustedStart == BWAPI::Positions::Invalid || adjustedEnd == BWAPI::Positions::Invalid) return BWEM::CPPath();
 
         // Start with the BWEM path
-        auto bwemPath = BWEM::Map::Instance().GetPath(start, end, pathLength);
+        auto bwemPath = BWEM::Map::Instance().GetPath(adjustedStart, adjustedEnd, pathLength);
 
         // We can always use BWEM's default pathfinding if:
         // - The minimum choke width is equal to or greater than the unit width
@@ -188,7 +242,7 @@ namespace PathFinding
             return bwemPath;
 
         // Otherwise do our own path analysis
-        return CustomChokePointPath(start, end, useNearestBWEMArea, unitType, pathLength);
+        return CustomChokePointPath(adjustedStart, adjustedEnd, options, unitType, pathLength);
     }
 
     int ExpectedTravelTime(BWAPI::Position start, BWAPI::Position end, BWAPI::UnitType unitType, PathFindingOptions options)

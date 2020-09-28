@@ -38,7 +38,8 @@ namespace PathFinding
     enum class PathFindingOptions
     {
         Default = 0,
-        UseNearestBWEMArea = 1 << 0
+        UseNearestBWEMArea = 1 << 0,
+        UseNeighbouringBWEMArea = 1 << 1,
     };
 
     // Gets the ground distance between two points pathing through BWEM chokepoints.
