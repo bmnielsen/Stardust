@@ -247,10 +247,16 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     auto setGasGathering = [](bool gather)
     {
         int current = Workers::desiredGasWorkers();
-        int desired = (gather || Workers::availableMineralAssignments() < 2)
-                      ? (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) * 3)
-                      : 0;
-        Workers::addDesiredGasWorkers(desired - current);
+        int delta;
+        if (gather)
+        {
+            delta = Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) * 3 - current;
+        }
+        else
+        {
+            delta = -std::min(current, Workers::availableMineralAssignments());
+        }
+        Workers::addDesiredGasWorkers(delta);
     };
 
     // Default to gather gas - we will only set to false later if we are being rushed
