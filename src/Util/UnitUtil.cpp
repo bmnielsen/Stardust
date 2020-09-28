@@ -103,6 +103,7 @@ namespace UnitUtil
 
     bool IsCombatUnit(BWAPI::UnitType type)
     {
+        if (IsStationaryAttacker(type)) return true; // So we include static defense
         if (type.isWorker() || type.isBuilding()) return false;
 
         return
@@ -120,6 +121,7 @@ namespace UnitUtil
     {
         return type == BWAPI::UnitTypes::Protoss_Photon_Cannon ||
                type == BWAPI::UnitTypes::Zerg_Sunken_Colony ||
+               type == BWAPI::UnitTypes::Zerg_Spore_Colony ||
                type == BWAPI::UnitTypes::Zerg_Lurker ||
                type == BWAPI::UnitTypes::Terran_Missile_Turret ||
                type == BWAPI::UnitTypes::Terran_Bunker ||
