@@ -310,7 +310,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
         {
             if (unitAndTarget.first != cluster.vanguard) continue;
 
-            if (!unitAndTarget.second || !unitAndTarget.second->lastPositionValid)
+            if (!unitAndTarget.second || !unitAndTarget.second->simPositionValid)
             {
                 linkUp = true;
                 break;
@@ -318,11 +318,13 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
 
             int distTarget = PathFinding::GetGroundDistance(
                     unitAndTarget.first->lastPosition,
-                    unitAndTarget.second->lastPosition,
-                    unitAndTarget.first->type);
+                    unitAndTarget.second->simPosition,
+                    unitAndTarget.first->type,
+                    PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
             int distVanguardCluster = PathFinding::GetGroundDistance(unitAndTarget.first->lastPosition,
                                                                      currentVanguardCluster->center,
-                                                                     unitAndTarget.first->type);
+                                                                     unitAndTarget.first->type,
+                                                                     PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
             if (distTarget != -1 && distVanguardCluster != -1 && distVanguardCluster < distTarget)
             {
                 linkUp = true;

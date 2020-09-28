@@ -58,7 +58,7 @@ namespace
 
         return FAP::makeUnit<>()
                 .setUnitType(unit->type)
-                .setPosition(unit->lastPosition)
+                .setPosition(unit->simPosition)
                 .setHealth(unit->lastHealth)
                 .setShields(unit->lastShields)
                 .setFlying(unit->isFlying)
@@ -75,7 +75,7 @@ namespace
                 .setAirDamage(airDamage)
                 .setAirMaxRange(unit->airRange())
 
-                .setElevation(BWAPI::Broodwar->getGroundHeight(unit->lastPosition.x << 3, unit->lastPosition.y << 3))
+                .setElevation(BWAPI::Broodwar->getGroundHeight(unit->simPosition.x << 3, unit->simPosition.y << 3))
                 .setAttackerCount(unit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
                 .setAttackCooldownRemaining(std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount()))
 
@@ -167,13 +167,13 @@ CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &
         for (const auto &unit : targets)
         {
             if (!unit->completed) continue;
-            if (!unit->lastPositionValid) continue;
+            if (!unit->simPositionValid) continue;
 
             int dist = unit->getDistance(center);
             if (dist > furthestDist)
             {
                 furthestDist = dist;
-                furthest = unit->lastPosition;
+                furthest = unit->simPosition;
             }
         }
 
@@ -183,7 +183,7 @@ CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &
             for (auto &bwemChoke : PathFinding::GetChokePointPath(center,
                                                                   furthest,
                                                                   BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                  PathFinding::PathFindingOptions::UseNearestBWEMArea))
+                                                                  PathFinding::PathFindingOptions::UseNeighbouringBWEMArea))
             {
                 auto thisChoke = Map::choke(bwemChoke);
                 if (thisChoke->isNarrowChoke)

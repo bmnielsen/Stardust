@@ -55,6 +55,8 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , beingManufacturedOrCarried(false)
         , frameLastMoved(BWAPI::Broodwar->getFrameCount())
         , predictedPosition(BWAPI::Positions::Invalid)
+        , simPosition(unit->getPosition())
+        , simPositionValid(true)
         , lastHealth(unit->getHitPoints())
         , lastShields(unit->getShields())
         , health(unit->getHitPoints())
@@ -105,10 +107,10 @@ void UnitImpl::update(BWAPI::Unit unit)
 
     tilePositionX = unit->getPosition().x >> 5U;
     tilePositionY = unit->getPosition().y >> 5U;
-    lastPosition = unit->getPosition();
+    lastPosition = simPosition = unit->getPosition();
     predictedPosition = BWAPI::Positions::Invalid;
     offsetToVanguardUnit = {};
-    lastPositionValid = true;
+    lastPositionValid = simPositionValid = true;
     lastPositionVisible = true;
     beingManufacturedOrCarried = isBeingManufacturedOrCarried();
 
@@ -223,28 +225,45 @@ void UnitImpl::update(BWAPI::Unit unit)
 
 void UnitImpl::updateUnitInFog()
 {
-    updatePredictedPosition();
-
-    // If we've already detected that this unit has moved from its last known location, skip it
-    if (!lastPositionValid) return;
-
     bool positionVisible = BWAPI::Broodwar->isVisible(tilePositionX, tilePositionY);
 
     // Detect burrowed units we have observed burrowing
-    if (!burrowed && positionVisible && lastBurrowing == BWAPI::Broodwar->getFrameCount() - 1)
+    if (lastBurrowing == BWAPI::Broodwar->getFrameCount() - 1 && !burrowed && positionVisible)
     {
         // Update grid
         Players::grid(player).unitMoved(type, lastPosition, true, type, lastPosition, false);
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitMoved (observed burrowing)";
-        Log::Debug() << *this << ": Grid::unitMoved (observed burrowing)";
+    Log::Debug() << *this << ": Grid::unitMoved (observed burrowing)";
 #endif
 
         burrowed = true;
     }
 
-    // If the last position has been visible for two consecutive frames, the unit is gone
-    if (positionVisible && lastPositionVisible)
+    // Update position prediction
+    updatePredictedPosition();
+    auto predictedPositionValid = predictedPosition.isValid();
+    if (predictedPositionValid)
+    {
+        simPosition = predictedPosition;
+        simPositionValid = true;
+    }
+    else
+    {
+        simPositionValid = lastPositionValid;
+    }
+
+    // If we've already detected that this unit has moved from its last known location, skip it
+    if (!lastPositionValid) return;
+
+    // If the unit has a valid predicted position, treat its last position as invalid
+    if (predictedPositionValid)
+    {
+        lastPositionValid = false;
+    }
+
+        // If the last position has been visible for two consecutive frames, the unit is gone
+    else if (positionVisible && lastPositionVisible)
     {
         // Units that we know have been burrowed at this position might still be there
         if (burrowed)
@@ -284,6 +303,8 @@ void UnitImpl::updateUnitInFog()
     // For the grid, treat units with invalid last position as destroyed
     if (!lastPositionValid)
     {
+        simPositionValid = predictedPositionValid;
+
         Players::grid(player).unitDestroyed(type, lastPosition, completed, burrowed);
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitDestroyed (!LPV) " << lastPosition;
@@ -590,9 +611,12 @@ void UnitImpl::updatePredictedPosition()
     // If the unit just entered the fog, record the offset
     if (lastSeen == BWAPI::Broodwar->getFrameCount() - 1)
     {
-        // First reject units that are not interesting (i.e. are not ground combat units)
+        // First reject units that are not interesting (i.e. are not mobile ground combat units)
         // When we start using corsairs vs. mutas we'll probably need to simulate air unit movement as well
         if (isFlying) return;
+        if (burrowed) return;
+        if (type.isBuilding()) return;
+        if (type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) return;
         if (!UnitUtil::IsCombatUnit(type)) return;
 
         // Now attempt to get the vanguard unit of the vanguard attack squad cluster
@@ -614,8 +638,11 @@ void UnitImpl::updatePredictedPosition()
                            << "; dist=" << offsetToVanguardUnit.first
                            << "; diff=" << (offsetToVanguardUnit.second * 57.2958);
 #endif
+
         // For the initial frame the predicted position is the last position
         predictedPosition = lastPosition;
+
+
         return;
     }
 

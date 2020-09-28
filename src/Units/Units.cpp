@@ -841,7 +841,7 @@ namespace Units
         for (auto &unit : enemyUnits)
         {
             if (predicate && !predicate(unit)) continue;
-            if (unit->lastPositionValid && unit->lastPosition.getApproxDistance(position) <= radius)
+            if (unit->simPositionValid && unit->simPosition.getApproxDistance(position) <= radius)
                 units.insert(unit);
         }
     }

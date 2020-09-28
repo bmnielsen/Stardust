@@ -60,6 +60,9 @@ public:
 
     BWAPI::Position predictedPosition;  // For units in the fog, the predicted position based on the above offset
 
+    BWAPI::Position simPosition;        // The position to use for this unit in combat simulation / targeting / etc.
+    bool simPositionValid;              // Whether the simulation position is valid
+
     int lastHealth;                     // Health when last seen, adjusted for upcoming attacks
     int lastShields;                    // Shields when last seen, adjusted for upcoming attacks
     int health;                         // Estimated health of the unit, adjusted for upcoming attacks
