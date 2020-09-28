@@ -302,7 +302,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     }
 
     // Check if our cluster should try to link up with a closer cluster
-    if (currentVanguardCluster && currentVanguardCluster->center != cluster.center)
+    if (currentVanguardCluster && currentVanguardCluster->vanguard && currentVanguardCluster->center != cluster.center)
     {
         // Link up if our vanguard unit is closer to the vanguard cluster than its current target
         bool linkUp = false;
@@ -310,7 +310,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
         {
             if (unitAndTarget.first != cluster.vanguard) continue;
 
-            if (!unitAndTarget.second || !unitAndTarget.second->simPositionValid)
+            if (!unitAndTarget.second || !unitAndTarget.second->lastPositionValid)
             {
                 linkUp = true;
                 break;
@@ -318,24 +318,22 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
 
             int distTarget = PathFinding::GetGroundDistance(
                     unitAndTarget.first->lastPosition,
-                    unitAndTarget.second->simPosition,
+                    unitAndTarget.second->lastPosition,
                     unitAndTarget.first->type,
                     PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
             int distVanguardCluster = PathFinding::GetGroundDistance(unitAndTarget.first->lastPosition,
-                                                                     currentVanguardCluster->center,
+                                                                     currentVanguardCluster->vanguard->lastPosition,
                                                                      unitAndTarget.first->type,
                                                                      PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
-            if (distTarget != -1 && distVanguardCluster != -1 && distVanguardCluster < distTarget)
-            {
-                linkUp = true;
-                break;
-            }
+            linkUp = (distTarget == -1 || distVanguardCluster == -1 || distVanguardCluster < distTarget);
+
+            break;
         }
 
         if (linkUp)
         {
             cluster.setActivity(UnitCluster::Activity::Moving);
-            cluster.move(currentVanguardCluster->center);
+            cluster.move(currentVanguardCluster->vanguard->lastPosition);
             return;
         }
     }
