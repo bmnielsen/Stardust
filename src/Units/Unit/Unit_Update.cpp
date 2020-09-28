@@ -3,9 +3,13 @@
 #include "Geo.h"
 #include "Players.h"
 #include "Map.h"
+#include "General.h"
+#include "UnitUtil.h"
+#include <iomanip>
 
 #if INSTRUMENTATION_ENABLED
 #define UPCOMING_ATTACKS_DEBUG false
+#define PREDICTED_POSITIONS_DEBUG true
 #endif
 
 namespace
@@ -50,6 +54,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , lastPositionVisible(true)
         , beingManufacturedOrCarried(false)
         , frameLastMoved(BWAPI::Broodwar->getFrameCount())
+        , predictedPosition(BWAPI::Positions::Invalid)
         , lastHealth(unit->getHitPoints())
         , lastShields(unit->getShields())
         , health(unit->getHitPoints())
@@ -101,6 +106,8 @@ void UnitImpl::update(BWAPI::Unit unit)
     tilePositionX = unit->getPosition().x >> 5U;
     tilePositionY = unit->getPosition().y >> 5U;
     lastPosition = unit->getPosition();
+    predictedPosition = BWAPI::Positions::Invalid;
+    offsetToVanguardUnit = {};
     lastPositionValid = true;
     lastPositionVisible = true;
     beingManufacturedOrCarried = isBeingManufacturedOrCarried();
@@ -216,6 +223,8 @@ void UnitImpl::update(BWAPI::Unit unit)
 
 void UnitImpl::updateUnitInFog()
 {
+    updatePredictedPosition();
+
     // If we've already detected that this unit has moved from its last known location, skip it
     if (!lastPositionValid) return;
 
@@ -526,4 +535,105 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
     }
 
     // TODO: Workers in a refinery
+}
+
+// Called when updating a unit that is in the fog
+// The basic idea is to record the location of enemy combat units when they go into the fog relative to our attack squad's vanguard
+// We then use this offset to predict where the enemy unit is, regardless of whether we or the enemy are fleeing
+void UnitImpl::updatePredictedPosition()
+{
+    MyUnit vanguard = nullptr;
+    double vanguardDirection = 0.0;
+    auto getAttackEnemyMainVanguard = [&]()
+    {
+        auto squad = General::getAttackBaseSquad(Map::getEnemyMain());
+        if (!squad) return false;
+
+        auto vanguardCluster = squad->vanguardCluster();
+        if (!vanguardCluster) return false;
+
+        vanguard = vanguardCluster->vanguard;
+        if (!vanguard) return false;
+
+        auto waypoint = BWAPI::Positions::Invalid;
+        auto grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(squad->getTargetPosition()));
+        if (grid)
+        {
+            auto &node = (*grid)[vanguard->getTilePosition()];
+            if (node.nextNode && node.nextNode->nextNode && node.nextNode->nextNode->nextNode)
+            {
+                waypoint = node.nextNode->nextNode->nextNode->center();
+            }
+        }
+
+        if (waypoint == BWAPI::Positions::Invalid)
+        {
+            auto path = PathFinding::GetChokePointPath(vanguard->lastPosition, squad->getTargetPosition(), vanguard->type);
+            for (const auto &bwemChoke : path)
+            {
+                auto chokeCenter = Map::choke(bwemChoke)->center;
+                if (vanguard->getDistance(chokeCenter) > 128)
+                {
+                    waypoint = chokeCenter;
+                    break;
+                }
+            }
+        }
+
+        if (waypoint == BWAPI::Positions::Invalid) waypoint = squad->getTargetPosition();
+
+        vanguardDirection = atan2(vanguard->lastPosition.y - waypoint.y, vanguard->lastPosition.x - waypoint.x);
+
+        return true;
+    };
+
+    // If the unit just entered the fog, record the offset
+    if (lastSeen == BWAPI::Broodwar->getFrameCount() - 1)
+    {
+        // First reject units that are not interesting (i.e. are not ground combat units)
+        // When we start using corsairs vs. mutas we'll probably need to simulate air unit movement as well
+        if (isFlying) return;
+        if (!UnitUtil::IsCombatUnit(type)) return;
+
+        // Now attempt to get the vanguard unit of the vanguard attack squad cluster
+        if (!getAttackEnemyMainVanguard()) return;
+
+        // Skip units too far away
+        auto vanguardDist = vanguard->lastPosition.getDistance(lastPosition);
+        if (vanguardDist > 640) return;
+
+        // Set the distance and angle
+        auto angle = atan2(vanguard->lastPosition.y - lastPosition.y, vanguard->lastPosition.x - lastPosition.x);
+        offsetToVanguardUnit = std::make_pair(vanguardDist, vanguardDirection - angle);
+
+#if PREDICTED_POSITIONS_DEBUG
+        CherryVis::log(id) << "Offset to vanguard @ " << BWAPI::WalkPosition(vanguard->lastPosition)
+                           << std::setprecision(3)
+                           << ": vanguardDirection=" << (vanguardDirection * 57.2958)
+                           << ": angle=" << (angle * 57.2958)
+                           << "; dist=" << offsetToVanguardUnit.first
+                           << "; diff=" << (offsetToVanguardUnit.second * 57.2958);
+#endif
+        // For the initial frame the predicted position is the last position
+        predictedPosition = lastPosition;
+        return;
+    }
+
+    // If we have an offset, predict the position
+    if (offsetToVanguardUnit.first == 0) return;
+
+    if (!getAttackEnemyMainVanguard())
+    {
+        predictedPosition = BWAPI::Positions::Invalid;
+        return;
+    }
+
+    auto a = vanguardDirection - offsetToVanguardUnit.second;
+    predictedPosition = BWAPI::Position(
+            vanguard->lastPosition.x - (int) std::round((double) offsetToVanguardUnit.first * std::cos(a)),
+            vanguard->lastPosition.y - (int) std::round((double) offsetToVanguardUnit.first * std::sin(a)));
+
+#if PREDICTED_POSITIONS_DEBUG
+    CherryVis::log(id) << "Predicted position: " << BWAPI::WalkPosition(predictedPosition);
+#endif
 }

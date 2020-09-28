@@ -53,6 +53,13 @@ public:
     bool beingManufacturedOrCarried;    // Whether the unit is currently being manufactured or carried
     int frameLastMoved;                 // Last frame on which the unit changed position
 
+    // For units in the fog, the offset to our vanguard unit they had when they disappeared
+    // The first part of the pair is the distance to our vanguard unit
+    // The second is the angle offset from our vanguard unit's path to the enemy base
+    std::pair<int, double> offsetToVanguardUnit;
+
+    BWAPI::Position predictedPosition;  // For units in the fog, the predicted position based on the above offset
+
     int lastHealth;                     // Health when last seen, adjusted for upcoming attacks
     int lastShields;                    // Shields when last seen, adjusted for upcoming attacks
     int health;                         // Estimated health of the unit, adjusted for upcoming attacks
@@ -151,6 +158,8 @@ public:
 
 private:
     void updateGrid(BWAPI::Unit unit);
+
+    void updatePredictedPosition();
 };
 
 std::ostream &operator<<(std::ostream &os, const UnitImpl &unit);
