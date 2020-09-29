@@ -230,8 +230,10 @@ namespace
         return false;
     }
 
-    bool shouldStandGround(const CombatSimResult &initialSimResult)
+    bool shouldStandGround(const CombatSimResult &initialSimResult, bool hasValidTarget)
     {
+        if (!hasValidTarget) return true;
+
         // For now just stand ground if the sim result indicates no damage to our units
         // We may want to make this less strict later
         return initialSimResult.myPercentLost() < 0.001;
@@ -242,7 +244,8 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                           std::set<Unit> &enemyUnits,
                           std::set<MyUnit> &detectors,
                           const CombatSimResult &simResult,
-                          BWAPI::Position targetPosition)
+                          BWAPI::Position targetPosition,
+                          bool hasValidTarget)
 {
     // First choose which regrouping mode we want to use
     switch (currentSubActivity)
@@ -267,6 +270,10 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             else if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
             {
                 setSubActivity(SubActivity::ContainChoke);
+            }
+            else if (shouldStandGround(simResult, hasValidTarget))
+            {
+                setSubActivity(SubActivity::StandGround);
             }
             else
             {
@@ -298,7 +305,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             {
                 setSubActivity(SubActivity::ContainChoke);
             }
-            else if (!shouldStandGround(simResult))
+            else if (!shouldStandGround(simResult, hasValidTarget))
             {
                 // Flee if it is no longer safe to stand ground
                 setSubActivity(SubActivity::Flee);
@@ -313,7 +320,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             {
                 setSubActivity(SubActivity::ContainChoke);
             }
-            else if (shouldStandGround(simResult))
+            else if (shouldStandGround(simResult, hasValidTarget))
             {
                 // While fleeing we will often link up with reinforcements, or the enemy will not pursue, so it makes sense to stand ground instead
                 setSubActivity(SubActivity::StandGround);

@@ -252,29 +252,30 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     // Select targets
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
 
-    // Run combat sim
-    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors);
-
-    // If the sim result is nothing, and none of our units have a target, move instead of attacking
-    if (simResult.myPercentLost() <= 0.001 && simResult.enemyPercentLost() <= 0.001)
+    // Scan the targets to see if any of our units have a valid target that has been seen recently
+    bool hasValidTarget = false;
+    for (const auto &unitAndTarget : unitsAndTargets)
     {
-        bool hasTarget = false;
-        for (const auto &unitAndTarget : unitsAndTargets)
+        if (!unitAndTarget.second) continue;
+
+        // A stationary attacker is valid if we are close to their attack range
+        if (unitAndTarget.second->lastPositionValid && UnitUtil::IsStationaryAttacker(unitAndTarget.second->type)
+            && unitAndTarget.first->isInEnemyWeaponRange(unitAndTarget.second, 96))
         {
-            if (unitAndTarget.second)
-            {
-                hasTarget = true;
-                break;
-            }
+            hasValidTarget = true;
+            break;
         }
 
-        if (!hasTarget)
+        // Other targets are valid if they have been seen in the past 5 seconds
+        if (unitAndTarget.second->lastSeen > (BWAPI::Broodwar->getFrameCount() - 120))
         {
-            cluster.setActivity(UnitCluster::Activity::Moving);
-            cluster.move(targetPosition);
-            return;
+            hasValidTarget = true;
+            break;
         }
     }
+
+    // Run combat sim
+    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors);
 
     // TODO: If our units can't do any damage (e.g. ground-only vs. air, melee vs. kiting ranged units), do something else
 
@@ -296,6 +297,14 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
 
     if (attack || ignoreCombatSim)
     {
+        // Move instead if none of our units have a valid target
+        if (!hasValidTarget)
+        {
+            cluster.setActivity(UnitCluster::Activity::Moving);
+            cluster.move(targetPosition);
+            return;
+        }
+
         cluster.setActivity(UnitCluster::Activity::Attacking);
         cluster.attack(unitsAndTargets, targetPosition);
         return;
@@ -341,5 +350,5 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     // TODO: Run retreat sim?
 
     cluster.setActivity(UnitCluster::Activity::Regrouping);
-    cluster.regroup(unitsAndTargets, enemyUnits, detectors, simResult, targetPosition);
+    cluster.regroup(unitsAndTargets, enemyUnits, detectors, simResult, targetPosition, hasValidTarget);
 }

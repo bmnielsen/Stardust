@@ -58,7 +58,8 @@ public:
                          std::set<Unit> &enemyUnits,
                          std::set<MyUnit> &detectors,
                          const CombatSimResult &simResult,
-                         BWAPI::Position targetPosition);
+                         BWAPI::Position targetPosition,
+                         bool hasValidTarget = true);
 
     std::vector<std::pair<MyUnit, Unit>>
     selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPosition, bool staticPosition = false);
