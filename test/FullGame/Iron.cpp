@@ -100,3 +100,24 @@ TEST(Iron, RunAsIron)
     test.expectWin = false;
     test.run();
 }
+
+TEST(Iron, TestMopUp)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.map = Maps::GetOne("Andromeda");
+    test.randomSeed = 42;
+    test.opponentModule = []()
+    {
+        return new iron::Iron();
+    };
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::TilePosition(40, 116)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Supply_Depot, BWAPI::TilePosition(41, 117)),
+    };
+    test.onStartOpponent = []()
+    {
+        std::cout.setstate(std::ios_base::failbit);
+    };
+    test.run();
+}
