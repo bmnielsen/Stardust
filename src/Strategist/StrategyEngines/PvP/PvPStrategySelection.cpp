@@ -55,6 +55,16 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
     {
         if (ourStrategy != OurStrategy::DTExpand && BWAPI::Broodwar->getFrameCount() > 9000) return false;
 
+        // Make sure our main choke is easily defensible
+        auto choke = Map::getMyMainChoke();
+        if (!choke) return false;
+        if (Map::getMyMain() && Map::getMyNatural() &&
+            BWAPI::Broodwar->getGroundHeight(Map::getMyMain()->getTilePosition())
+            <= BWAPI::Broodwar->getGroundHeight(Map::getMyNatural()->getTilePosition()))
+        {
+            return false;
+        }
+
         return !(Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Forge) ||
                  Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Photon_Cannon) ||
                  Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Robotics_Facility) ||
