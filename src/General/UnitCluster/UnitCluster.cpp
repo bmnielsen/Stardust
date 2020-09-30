@@ -4,6 +4,8 @@
 #include "UnitUtil.h"
 #include "Map.h"
 
+#include "DebugFlag_CombatSim.h"
+
 #if INSTRUMENTATION_ENABLED
 #define DEBUG_CLUSTER_MEMBERSHIP true // Also in Squad.cpp
 #endif
@@ -19,6 +21,7 @@ namespace
             {UnitCluster::SubActivity::None,                 "None"},
             {UnitCluster::SubActivity::ContainStaticDefense, "ContainStaticDefense"},
             {UnitCluster::SubActivity::ContainChoke,         "ContainChoke"},
+            {UnitCluster::SubActivity::StandGround,          "StandGround"},
             {UnitCluster::SubActivity::Flee,                 "Flee"}
     };
 }
@@ -62,33 +65,30 @@ void UnitCluster::addUnit(const MyUnit &unit)
 #endif
 }
 
-void UnitCluster::removeUnit(const MyUnit &unit)
-{
-    auto unitIt = units.find(unit);
-    if (unitIt == units.end()) return;
-
-    removeUnit(unitIt);
-
-#if DEBUG_CLUSTER_MEMBERSHIP
-    CherryVis::log(unit->id) << "Removed from cluster @ " << BWAPI::WalkPosition(center);
-#endif
-}
-
-std::set<MyUnit>::iterator UnitCluster::removeUnit(std::set<MyUnit>::iterator unitIt)
+std::set<MyUnit>::iterator UnitCluster::removeUnit(std::set<MyUnit>::iterator unitIt, BWAPI::Position targetPosition)
 {
     auto unit = *unitIt;
 
     auto newUnitIt = units.erase(unitIt);
+
+    // Guard against divide-by-zero, but this shouldn't happen as we don't remove the last unit from a cluster in this way
     if (units.empty()) return newUnitIt;
 
-    center = BWAPI::Position(
-            ((center.x * (units.size() + 1)) - unit->lastPosition.x) / units.size(),
-            ((center.y * (units.size() + 1)) - unit->lastPosition.y) / units.size());
-
-    area -= unit->type.width() * unit->type.height();
-    if (area < 0)
+    if (vanguard == unit)
     {
-        Log::Get() << "ERROR: Cluster area negative after removing " << *unit;
+        updatePositions(targetPosition);
+    }
+    else
+    {
+        center = BWAPI::Position(
+                ((center.x * (units.size() + 1)) - unit->lastPosition.x) / units.size(),
+                ((center.y * (units.size() + 1)) - unit->lastPosition.y) / units.size());
+
+        area -= unit->type.width() * unit->type.height();
+        if (area < 0)
+        {
+            Log::Get() << "ERROR: Cluster area negative after removing " << *unit;
+        }
     }
 
     return newUnitIt;
@@ -98,10 +98,10 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
 {
     int sumX = 0;
     int sumY = 0;
-    MyUnit closestToTarget = nullptr;
-    int closestToTargetDist = INT_MAX;
-    MyUnit furthestFromMain = nullptr;
-    int furthestFromMainDist = 0;
+    auto mainPosition = Map::getMyMain()->getPosition();
+    vanguard = nullptr;
+    vanguardDistToMain = -1;
+    vanguardDistToTarget = INT_MAX;
     for (auto unitIt = units.begin(); unitIt != units.end();)
     {
         auto unit = *unitIt;
@@ -117,19 +117,23 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
         sumY += unit->lastPosition.y;
 
         int dist = PathFinding::GetGroundDistance(targetPosition, unit->lastPosition, unit->type);
-        if (dist != -1 && dist < closestToTargetDist)
+        if (dist > vanguardDistToTarget)
         {
-            closestToTargetDist = dist;
-            closestToTarget = unit;
+            unitIt++;
+            continue;
         }
 
-        if (!closestToTarget)
+        int mainDist = PathFinding::GetGroundDistance(mainPosition, unit->lastPosition, unit->type);
+        if (dist != -1 || (mainDist != -1 && vanguardDistToTarget == INT_MAX && mainDist > vanguardDistToMain))
         {
-            int mainDist = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), unit->lastPosition, unit->type);
-            if (mainDist != -1 && mainDist > furthestFromMainDist)
+            vanguard = unit;
+            if (dist != -1)
             {
-                furthestFromMainDist = mainDist;
-                furthestFromMain = unit;
+                vanguardDistToTarget = dist;
+            }
+            if (mainDist != -1)
+            {
+                vanguardDistToMain = mainDist;
             }
         }
 
@@ -139,7 +143,20 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     if (units.empty()) return;
 
     center = BWAPI::Position(sumX / units.size(), sumY / units.size());
-    vanguard = closestToTarget ? closestToTarget : furthestFromMain;
+
+    // Ensure the vanguard and vanguard distances are set if we for whatever reason couldn't get any proper distances above
+    if (!vanguard) vanguard = *units.begin();
+    if (vanguardDistToTarget == INT_MAX) vanguardDistToTarget = vanguard->getDistance(targetPosition);
+    if (vanguardDistToMain == -1) vanguardDistToMain = vanguard->getDistance(mainPosition);
+
+    if (vanguardDistToTarget > 0 || vanguardDistToMain > 0)
+    {
+        percentageToEnemyMain = (double)vanguardDistToMain / (double)(vanguardDistToMain + vanguardDistToTarget);
+    }
+    else
+    {
+        percentageToEnemyMain = 0.5;
+    }
 }
 
 void UnitCluster::setActivity(UnitCluster::Activity newActivity, SubActivity newSubActivity)
@@ -168,17 +185,12 @@ void UnitCluster::setSubActivity(SubActivity newSubActivity)
     currentSubActivity = newSubActivity;
 }
 
-std::vector<std::pair<MyUnit, Unit>>
-UnitCluster::selectTargets(std::set<Unit> &targets, BWAPI::Position targetPosition)
+std::string UnitCluster::getCurrentActivity() const
 {
-    std::vector<std::pair<MyUnit, Unit>> result;
+    return ActivityNames[currentActivity];
+}
 
-    for (auto &unit : units)
-    {
-        result.emplace_back(std::make_pair(unit, UnitUtil::IsRangedUnit(unit->type)
-                                                 ? ChooseRangedTarget(unit, targets, targetPosition)
-                                                 : ChooseMeleeTarget(unit, targets, targetPosition)));
-    }
-
-    return result;
+std::string UnitCluster::getCurrentSubActivity() const
+{
+    return SubActivityNames[currentSubActivity];
 }

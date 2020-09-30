@@ -14,9 +14,10 @@
 #define DEBUG_PROBE_STATUS false
 #define DEBUG_ZEALOT_STATUS false
 #define DEBUG_DRAGOON_STATUS false
+#define DEBUG_DT_STATUS false
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS false
-#define DEBUG_PRODUCINGBUILDING_STATUS true
+#define DEBUG_PRODUCINGBUILDING_STATUS false
 #define DEBUG_ENEMY_STATUS false
 #endif
 
@@ -111,6 +112,9 @@ namespace Units
             {
                 return;
             }
+
+            // Don't track a gas steal
+            if (unit->type.isRefinery() && unit->getDistance(Map::getMyMain()->getPosition()) < 300) return;
 
             // If this is the opponent's initial depot, update the element we already added
             if (unit->type.isResourceDepot() && !enemyUnitTimings[unit->type].empty() && Map::getEnemyStartingMain()
@@ -566,6 +570,9 @@ namespace Units
 #if DEBUG_DRAGOON_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Dragoon;
 #endif
+#if DEBUG_DT_STATUS
+            output = output || unit->type == BWAPI::UnitTypes::Protoss_Dark_Templar;
+#endif
 #if DEBUG_SHUTTLE_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Shuttle;
 #endif
@@ -731,9 +738,12 @@ namespace Units
             bullet->getType() == BWAPI::BulletTypes::Halo_Rockets ||            // Valkyrie
             bullet->getType() == BWAPI::BulletTypes::Subterranean_Spines)       // Lurker
         {
-            auto target = get(bullet->getTarget());
             auto source = get(bullet->getSource());
-            if (target) target->addUpcomingAttack(source, bullet);
+            auto target = get(bullet->getTarget());
+            if (source && target)
+            {
+                target->addUpcomingAttack(source, bullet);
+            }
         }
     }
 
@@ -831,7 +841,7 @@ namespace Units
         for (auto &unit : enemyUnits)
         {
             if (predicate && !predicate(unit)) continue;
-            if (unit->lastPositionValid && unit->lastPosition.getApproxDistance(position) <= radius)
+            if (unit->simPositionValid && unit->simPosition.getApproxDistance(position) <= radius)
                 units.insert(unit);
         }
     }

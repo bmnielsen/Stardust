@@ -8,6 +8,8 @@
 #include "UnitUtil.h"
 #include "General.h"
 
+#include "DebugFlag_CombatSim.h"
+
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_COMBATSIM_CSV false  // Writes a CSV file for each cluster with detailed sim information
 #endif
@@ -18,7 +20,7 @@ namespace
     int baseScore[BWAPI::UnitTypes::Enum::MAX];
     int scaledScore[BWAPI::UnitTypes::Enum::MAX];
 
-    auto inline makeUnit(const Unit &unit, int target = 0)
+    auto inline makeUnit(const Unit &unit, const Unit &vanguard, bool mobileDetection, int target = 0)
     {
         BWAPI::UnitType weaponType;
         switch (unit->type)
@@ -47,7 +49,7 @@ namespace
 
         // In open terrain, collision values scale based on the unit range
         // Rationale: melee units have a smaller area to maneuver in, so they interfere with each other more
-        int collisionValue = unit->isFlying ? 0 : std::max(0, 6 - Players::weaponRange(unit->player, weaponType.groundWeapon()) / 32);
+        int collisionValue = unit->isFlying ? 0 : std::max(0, 6 - (unit->groundRange() / 32));
 
         // In a choke, collision values depend on unit size
         // We allow no collision between full-size units and a stack of two smaller-size units
@@ -56,7 +58,7 @@ namespace
 
         return FAP::makeUnit<>()
                 .setUnitType(unit->type)
-                .setPosition(unit->lastPosition)
+                .setPosition(unit->simPosition)
                 .setHealth(unit->lastHealth)
                 .setShields(unit->lastShields)
                 .setFlying(unit->isFlying)
@@ -67,13 +69,13 @@ namespace
                 .setGroundCooldown(Players::unitCooldown(unit->player, weaponType)
                                    / std::max(weaponType.maxGroundHits() * weaponType.groundWeapon().damageFactor(), 1))
                 .setGroundDamage(groundDamage)
-                .setGroundMaxRange(Players::weaponRange(unit->player, weaponType.groundWeapon()))
+                .setGroundMaxRange(unit->groundRange())
                 .setAirCooldown(Players::unitCooldown(unit->player, weaponType)
                                 / std::max(weaponType.maxAirHits() * weaponType.airWeapon().damageFactor(), 1))
                 .setAirDamage(airDamage)
-                .setAirMaxRange(Players::weaponRange(unit->player, weaponType.airWeapon()))
+                .setAirMaxRange(unit->airRange())
 
-                .setElevation(BWAPI::Broodwar->getGroundHeight(unit->lastPosition.x << 3, unit->lastPosition.y << 3))
+                .setElevation(BWAPI::Broodwar->getGroundHeight(unit->simPosition.x << 3, unit->simPosition.y << 3))
                 .setAttackerCount(unit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
                 .setAttackCooldownRemaining(std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount()))
 
@@ -82,7 +84,7 @@ namespace
                 .setShieldUpgrades(0)
 
                 .setStimmed(unit->stimmedUntil > BWAPI::Broodwar->getFrameCount())
-                .setUndetected(unit->undetected)
+                .setUndetected(unit->isCliffedTank(vanguard) || (unit->undetected && !mobileDetection))
 
                 .setID(unit->id)
                 .setTarget(target)
@@ -140,8 +142,11 @@ namespace CombatSim
     }
 }
 
-CombatSimResult
-UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &targets, bool attacking, Choke *choke)
+CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                                          std::set<Unit> &targets,
+                                          std::set<MyUnit> &detectors,
+                                          bool attacking,
+                                          Choke *choke)
 {
     if (unitsAndTargets.empty() || targets.empty())
     {
@@ -153,30 +158,39 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
 #endif
 
     // Check if the armies are separated by a narrow choke
+    // We consider this to be the case if our cluster center is on one side of the choke and their furthest unit is on the other side
     Choke *narrowChoke = choke;
     if (!narrowChoke)
     {
-        // Start by computing the enemy army center
-        int enemyPositionXAccumulator = 0;
-        int enemyPositionYAccumulator = 0;
+        auto furthest = BWAPI::Positions::Invalid;
+        auto furthestDist = 0;
         for (const auto &unit : targets)
         {
-            enemyPositionXAccumulator += unit->lastPosition.x;
-            enemyPositionYAccumulator += unit->lastPosition.y;
-        }
-        BWAPI::Position enemyCenter(enemyPositionXAccumulator / targets.size(), enemyPositionYAccumulator / targets.size());
+            if (!unit->completed) continue;
+            if (!unit->simPositionValid) continue;
 
-        // Now find a narrow choke on the path between the armies
-        for (auto &bwemChoke : PathFinding::GetChokePointPath(center,
-                                                              enemyCenter,
-                                                              BWAPI::UnitTypes::Protoss_Dragoon,
-                                                              PathFinding::PathFindingOptions::UseNearestBWEMArea))
-        {
-            auto thisChoke = Map::choke(bwemChoke);
-            if (thisChoke->isNarrowChoke)
+            int dist = unit->getDistance(center);
+            if (dist > furthestDist)
             {
-                narrowChoke = thisChoke;
-                break;
+                furthestDist = dist;
+                furthest = unit->simPosition;
+            }
+        }
+
+        if (furthest.isValid())
+        {
+            // Now find a narrow choke on the path between the armies
+            for (auto &bwemChoke : PathFinding::GetChokePointPath(center,
+                                                                  furthest,
+                                                                  BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                  PathFinding::PathFindingOptions::UseNeighbouringBWEMArea))
+            {
+                auto thisChoke = Map::choke(bwemChoke);
+                if (thisChoke->isNarrowChoke)
+                {
+                    narrowChoke = thisChoke;
+                    break;
+                }
             }
         }
     }
@@ -197,8 +211,8 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
     {
         auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
         bool added = attacking
-                     ? sim.addIfCombatUnitPlayer1(makeUnit(unitAndTarget.first, target))
-                     : sim.addIfCombatUnitPlayer2(makeUnit(unitAndTarget.first, target));
+                     ? sim.addIfCombatUnitPlayer1(makeUnit(unitAndTarget.first, vanguard, false, target))
+                     : sim.addIfCombatUnitPlayer2(makeUnit(unitAndTarget.first, vanguard, false, target));
 
         if (added)
         {
@@ -210,19 +224,32 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
     }
 
+    // Determine if we have mobile detection with this cluster
+    bool haveMobileDetection = false;
+    for (const auto &detector : detectors)
+    {
+        if (vanguard && vanguard->getDistance(detector) < 640)
+        {
+            haveMobileDetection = true;
+            break;
+        }
+    }
+
     // Add enemy units
     int enemyCount = 0;
+    bool enemyHasUndetectedUnits = false;
     for (auto &unit : targets)
     {
         if (!unit->completed) continue;
+        if (unit->undetected && !haveMobileDetection) enemyHasUndetectedUnits = true;
 
         // Only include workers if they have been seen attacking recently
         // TODO: Handle worker rushes
         if (!unit->type.isWorker() || (BWAPI::Broodwar->getFrameCount() - unit->lastSeenAttacking) < 120)
         {
             bool added = attacking
-                         ? sim.addIfCombatUnitPlayer2(makeUnit(unit))
-                         : sim.addIfCombatUnitPlayer1(makeUnit(unit));
+                         ? sim.addIfCombatUnitPlayer2(makeUnit(unit, vanguard, haveMobileDetection))
+                         : sim.addIfCombatUnitPlayer1(makeUnit(unit, vanguard, haveMobileDetection));
 
             if (added)
             {
@@ -288,7 +315,14 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             int halfwayEnemy = score(attacking ? sim.getState().second : sim.getState().first);
             if (halfwayMine >= initialMine && halfwayEnemy >= initialEnemy)
             {
-                return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, halfwayMine, halfwayEnemy, narrowChoke);
+                return CombatSimResult(myCount,
+                                       enemyCount,
+                                       initialMine,
+                                       initialEnemy,
+                                       halfwayMine,
+                                       halfwayEnemy,
+                                       enemyHasUndetectedUnits,
+                                       narrowChoke);
             }
         }
 
@@ -323,7 +357,7 @@ UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
     CherryVis::log() << debug.str();
 #endif
 
-    return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, narrowChoke);
+    return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, enemyHasUndetectedUnits, narrowChoke);
 }
 
 void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
@@ -346,4 +380,47 @@ void UnitCluster::addRegroupSimResult(CombatSimResult &simResult, bool contain)
     }
 
     recentRegroupSimResults.emplace_back(std::make_pair(simResult, contain));
+}
+
+int UnitCluster::consecutiveSimResults(std::deque<std::pair<CombatSimResult, bool>> &simResults,
+                          int *attack,
+                          int *regroup,
+                          int limit)
+{
+    *attack = 0;
+    *regroup = 0;
+
+    if (simResults.empty()) return 0;
+
+    bool firstResult = simResults.rbegin()->second;
+    bool isConsecutive = true;
+    int consecutive = 0;
+    int count = 0;
+    for (auto it = simResults.rbegin(); it != simResults.rend() && count < limit; it++)
+    {
+        if (isConsecutive)
+        {
+            if (it->second == firstResult)
+            {
+                consecutive++;
+            }
+            else
+            {
+                isConsecutive = false;
+            }
+        }
+
+        if (it->second)
+        {
+            (*attack)++;
+        }
+        else
+        {
+            (*regroup)++;
+        }
+
+        count++;
+    }
+
+    return consecutive;
 }

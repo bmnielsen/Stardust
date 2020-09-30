@@ -14,12 +14,16 @@ public:
     };
     enum class SubActivity
     {
-        None, ContainStaticDefense, ContainChoke, Flee
+        None, ContainStaticDefense, ContainChoke, StandGround, Flee
     };
 
     BWAPI::Position center;
     MyUnit vanguard;
     std::set<MyUnit> units;
+
+    int vanguardDistToTarget;
+    int vanguardDistToMain;
+    double percentageToEnemyMain;
 
     Activity currentActivity;
     SubActivity currentSubActivity;
@@ -36,9 +40,7 @@ public:
 
     void addUnit(const MyUnit &unit);
 
-    void removeUnit(const MyUnit &unit);
-
-    std::set<MyUnit>::iterator removeUnit(std::set<MyUnit>::iterator unitIt);
+    std::set<MyUnit>::iterator removeUnit(std::set<MyUnit>::iterator unitIt, BWAPI::Position targetPosition);
 
     void updatePositions(BWAPI::Position targetPosition);
 
@@ -46,37 +48,47 @@ public:
 
     void setSubActivity(SubActivity newSubActivity);
 
+    [[nodiscard]] std::string getCurrentActivity() const;
+
+    [[nodiscard]] std::string getCurrentSubActivity() const;
+
     virtual void move(BWAPI::Position targetPosition);
 
     virtual void regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                          std::set<Unit> &enemyUnits,
+                         std::set<MyUnit> &detectors,
                          const CombatSimResult &simResult,
-                         BWAPI::Position targetPosition);
+                         BWAPI::Position targetPosition,
+                         bool hasValidTarget = true);
 
     std::vector<std::pair<MyUnit, Unit>>
-    selectTargets(std::set<Unit> &targets, BWAPI::Position targetPosition);
+    selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPosition, bool staticPosition = false);
 
     virtual void attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition);
 
-    void containBase(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
-                     std::set<Unit> &enemyUnits,
-                     BWAPI::Position targetPosition);
+    void containBase(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
 
     void holdChoke(Choke *choke,
                    BWAPI::Position defendEnd,
                    std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets);
 
-    CombatSimResult
-    runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, std::set<Unit> &targets, bool attacking = true, Choke *choke = nullptr);
+    CombatSimResult runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                                 std::set<Unit> &targets,
+                                 std::set<MyUnit> &detectors,
+                                 bool attacking = true,
+                                 Choke *choke = nullptr);
 
     void addSimResult(CombatSimResult &simResult, bool attack);
 
     void addRegroupSimResult(CombatSimResult &simResult, bool contain);
 
+    // This returns the number of consecutive frames the sim has agreed on its current value.
+    // It also returns the total number of attack and regroup frames within the window.
+    static int consecutiveSimResults(std::deque<std::pair<CombatSimResult, bool>> &simResults,
+                                     int *attack,
+                                     int *regroup,
+                                     int limit);
+
 protected:
-    static Unit ChooseMeleeTarget(const MyUnit &attacker, std::set<Unit> &targets, BWAPI::Position targetPosition);
-
-    static Unit ChooseRangedTarget(const MyUnit &attacker, std::set<Unit> &targets, BWAPI::Position targetPosition);
-
     int area;
 };

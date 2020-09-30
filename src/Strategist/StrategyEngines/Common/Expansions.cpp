@@ -4,8 +4,10 @@
 #include "Units.h"
 #include "Workers.h"
 #include "Strategist.h"
+#include "Builder.h"
 
 #include "Plays/Macro/TakeExpansion.h"
+#include "Plays/MainArmy/AttackEnemyMain.h"
 
 void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays)
 {
@@ -28,36 +30,58 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Determine whether we want to expand now
-    bool wantToExpand = true;
-
-    // Count our completed basic gateway units
-    int army = Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) + Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon);
-
-    // Never expand if we don't have a reasonable-sized army
-    if (army < 5) wantToExpand = false;
-
-    // TODO: Don't expand if we are on the defensive
-
-    // Expand if we have no bases with more than 3 available mineral assignments
-    // If the enemy is contained, set the threshold to 6 instead
-    if (wantToExpand)
+    auto wantToExpand = [&]()
     {
+        // Expand if we have no bases with more than 3 available mineral assignments
+        // If the enemy is contained, set the threshold to 6 instead
         // Adjust by the number of pending expansions to avoid instability when a build worker is reserved for the expansion
         int availableMineralAssignmentsThreshold = (Strategist::isEnemyContained() ? 6 : 3) + takeExpansionPlays.size();
-
         for (auto base : Map::getMyBases())
         {
             if (Workers::availableMineralAssignments(base) > availableMineralAssignmentsThreshold)
             {
-                wantToExpand = false;
-                break;
+                return false;
             }
         }
-    }
 
-    // TODO: Checks that depend on what the enemy is doing, whether the enemy is contained, etc.
+        // Only expand when our army is on the offensive
+        auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+        if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return false;
 
-    if (wantToExpand)
+        // Sanity check that the play has a squad
+        auto squad = mainArmyPlay->getSquad();
+        if (!squad) return false;
+
+        // Get the vanguard cluster with its distance to the target base
+        int dist;
+        auto vanguardCluster = squad->vanguardCluster(&dist);
+        if (!vanguardCluster) return false;
+
+        // Don't expand if the cluster has fewer than five units
+        if (vanguardCluster->units.size() < 5) return false;
+
+        // Don't expand if the cluster's vanguard is closer to our own main
+        int distToMain = PathFinding::GetGroundDistance(
+                Map::getMyMain()->getPosition(),
+                vanguardCluster->vanguard ? vanguardCluster->vanguard->lastPosition : vanguardCluster->center);
+        if (dist > distToMain) return false;
+
+        // Expand if we are gas blocked - we have the resources for the nexus anyway
+        if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100) return true;
+
+        // Cluster should not be moving or fleeing
+        // In other words, we want the cluster to be in some kind of stable attack or contain state
+        if (vanguardCluster->currentActivity == UnitCluster::Activity::Moving
+            || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
+                && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
+        {
+            return false;
+        }
+
+        return true;
+    };
+
+    if (wantToExpand())
     {
         // TODO: Logic for when we should queue multiple expansions simultaneously
         if (takeExpansionPlays.empty())
@@ -69,7 +93,17 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
             {
                 if (expansion->gas() == 0) continue;
 
-                auto play = std::make_shared<TakeExpansion>(expansion->getTilePosition());
+                // Don't take expansions that are blocked by the enemy and that we don't know how to unblock
+                if (expansion->blockedByEnemy)
+                {
+                    auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(expansion);
+                    if (baseStaticDefenseLocations.first == BWAPI::TilePositions::Invalid || baseStaticDefenseLocations.second.empty())
+                    {
+                        continue;
+                    }
+                }
+
+                auto play = std::make_shared<TakeExpansion>(expansion);
                 plays.emplace(plays.begin(), play);
 
                 Log::Get() << "Queued expansion to " << play->depotPosition;
@@ -91,4 +125,72 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
             }
         }
     }
+}
+
+void StrategyEngine::takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
+                                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+{
+    auto natural = Map::getMyNatural();
+
+    // If the natural is blocked, use a TakeExpansion play, since it knows how to resolve it
+    if (natural->blockedByEnemy)
+    {
+        bool hasNaturalPlay = false;
+        for (auto &play : plays)
+        {
+            if (auto takeExpansionPlay = std::dynamic_pointer_cast<TakeExpansion>(play))
+            {
+                if (takeExpansionPlay->depotPosition == natural->getTilePosition())
+                {
+                    hasNaturalPlay = true;
+                }
+            }
+        }
+
+        if (!hasNaturalPlay)
+        {
+            Log::Get() << "Added TakeExpansion play for natural to handle blocking enemy unit";
+            CherryVis::log() << "Added TakeExpansion play for natural to handle blocking enemy unit";
+
+            plays.emplace(plays.begin(), std::make_shared<TakeExpansion>(natural));
+        }
+
+        return;
+    }
+
+    // Otherwise just queue the natural nexus as any normal macro item
+
+    auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(natural->getTilePosition()),
+                                                          BuildingPlacement::builderFrames(BuildingPlacement::Neighbourhood::MainBase,
+                                                                                           natural->getTilePosition(),
+                                                                                           BWAPI::UnitTypes::Protoss_Nexus),
+                                                          0, 0);
+    prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                             BWAPI::UnitTypes::Protoss_Nexus,
+                                                             buildLocation);
+}
+
+void StrategyEngine::cancelNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
+                                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+{
+    auto natural = Map::getMyNatural();
+
+    for (auto it = plays.begin(); it != plays.end(); )
+    {
+        if (auto takeExpansionPlay = std::dynamic_pointer_cast<TakeExpansion>(*it))
+        {
+            if (takeExpansionPlay->depotPosition == natural->getTilePosition())
+            {
+                Log::Get() << "Cancelled TakeExpansion play for natural";
+                CherryVis::log() << "Cancelled TakeExpansion play for natural";
+
+                it = plays.erase(it);
+                continue;
+            }
+        }
+
+        it++;
+    }
+
+    Builder::cancel(natural->getTilePosition());
 }

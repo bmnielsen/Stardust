@@ -3,6 +3,14 @@
 #include "Geo.h"
 #include "Players.h"
 #include "Map.h"
+#include "General.h"
+#include "UnitUtil.h"
+#include <iomanip>
+
+#if INSTRUMENTATION_ENABLED
+#define UPCOMING_ATTACKS_DEBUG false
+#define PREDICTED_POSITIONS_DEBUG true
+#endif
 
 namespace
 {
@@ -46,8 +54,14 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , lastPositionVisible(true)
         , beingManufacturedOrCarried(false)
         , frameLastMoved(BWAPI::Broodwar->getFrameCount())
+        , predictedPosition(BWAPI::Positions::Invalid)
+        , simPosition(unit->getPosition())
+        , simPositionValid(true)
         , lastHealth(unit->getHitPoints())
         , lastShields(unit->getShields())
+        , health(unit->getHitPoints())
+        , shields(unit->getShields())
+        , lastHealFrame(-1)
         , completed(unit->isCompleted())
         , estimatedCompletionFrame(-1)
         , isFlying(unit->isFlying())
@@ -55,8 +69,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , stimmedUntil(BWAPI::Broodwar->getFrameCount() + unit->getStimTimer())
         , undetected(isUndetected(unit))
         , burrowed(unit->isBurrowed())
-        , lastBurrowing(unit->getOrder() == BWAPI::Orders::Burrowing ? BWAPI::Broodwar->getFrameCount() : 0)
-        , doomed(false) {}
+        , lastBurrowing(unit->getOrder() == BWAPI::Orders::Burrowing ? BWAPI::Broodwar->getFrameCount() : 0) {}
 
 void UnitImpl::created()
 {
@@ -94,10 +107,17 @@ void UnitImpl::update(BWAPI::Unit unit)
 
     tilePositionX = unit->getPosition().x >> 5U;
     tilePositionY = unit->getPosition().y >> 5U;
-    lastPosition = unit->getPosition();
-    lastPositionValid = true;
+    lastPosition = simPosition = unit->getPosition();
+    predictedPosition = BWAPI::Positions::Invalid;
+    offsetToVanguardUnit = {};
+    lastPositionValid = simPositionValid = true;
     lastPositionVisible = true;
     beingManufacturedOrCarried = isBeingManufacturedOrCarried();
+
+    if (player->getRace() == BWAPI::Races::Terran && unit->isCompleted() && unit->getHitPoints() > lastHealth)
+    {
+        lastHealFrame = BWAPI::Broodwar->getFrameCount();
+    }
 
     // Cloaked units show up with 0 hit points and shields, so default to max and otherwise don't touch them
     undetected = isUndetected(unit);
@@ -105,11 +125,15 @@ void UnitImpl::update(BWAPI::Unit unit)
     {
         lastHealth = unit->getHitPoints();
         lastShields = unit->getShields();
+        health = unit->getHitPoints();
+        shields = unit->getShields();
     }
     else if (lastHealth == 0)
     {
         lastHealth = unit->getType().maxHitPoints();
         lastShields = unit->getType().maxShields();
+        health = unit->getType().maxHitPoints();
+        shields = unit->getType().maxShields();
     }
 
     burrowed = unit->isBurrowed();
@@ -136,26 +160,36 @@ void UnitImpl::update(BWAPI::Unit unit)
     int upcomingDamage = 0;
     for (auto it = upcomingAttacks.begin(); it != upcomingAttacks.end();)
     {
-        // Remove bullets when they have hit
-        if (it->bullet && (!it->bullet->exists() || it->bullet->getID() != it->bulletId
-                           || it->bullet->getPosition().getApproxDistance(it->bullet->getTargetPosition()) == 0))
+        // Remove attacks when they expire
+        if (BWAPI::Broodwar->getFrameCount() >= it->expiryFrame)
         {
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as it has expired";
+#endif
             it = upcomingAttacks.erase(it);
             continue;
+        }
+
+        // Remove bullets when they have hit
+        if (it->bullet)
+        {
+            if (!it->bullet->exists() || it->bullet->getID() != it->bulletId
+                || it->bullet->getPosition().getApproxDistance(it->bullet->getTargetPosition()) == 0)
+            {
+#if UPCOMING_ATTACKS_DEBUG
+                CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as bullet has hit";
+#endif
+                it = upcomingAttacks.erase(it);
+                continue;
+            }
         }
 
             // Clear if the attacker is dead, no longer visible, or out of range
         else if (!it->attacker || !it->attacker->exists() || !it->attacker->bwapiUnit->isVisible() || !isInEnemyWeaponRange(it->attacker))
         {
-            it = upcomingAttacks.erase(it);
-            continue;
-        }
-
-            // Clear when the attacker has finished making an attack
-        else if ((isFlying ? it->attacker->bwapiUnit->getAirWeaponCooldown() : it->attacker->bwapiUnit->getGroundWeaponCooldown())
-                 > BWAPI::Broodwar->getRemainingLatencyFrames()
-                 && !it->attacker->bwapiUnit->isAttackFrame())
-        {
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as the attacker is gone";
+#endif
             it = upcomingAttacks.erase(it);
             continue;
         }
@@ -164,39 +198,79 @@ void UnitImpl::update(BWAPI::Unit unit)
         it++;
     }
 
-    doomed = (upcomingDamage >= (lastHealth + lastShields));
-    if (doomed) CherryVis::log(id) << "DOOMED!";
+#if UPCOMING_ATTACKS_DEBUG
+    if (upcomingDamage > 0)
+    {
+        CherryVis::log(id) << "Total value of upcoming attacks is " << upcomingDamage
+                           << "; current health is " << health << " (" << shields << ")";
+    }
+#endif
+
+    // Do not simulate damage if the unit is being healed
+    if (!isBeingHealed())
+    {
+        if (upcomingDamage > 0 && shields > 0)
+        {
+            int shieldDamage = std::min(shields, upcomingDamage);
+            upcomingDamage -= shieldDamage;
+            shields -= shieldDamage;
+        }
+        if (upcomingDamage > 0)
+        {
+            health = std::max(0, health - upcomingDamage);
+            if (health <= 0) CherryVis::log(id) << "DOOMED!";
+        }
+    }
 }
 
 void UnitImpl::updateUnitInFog()
 {
-    // If we've already detected that this unit has moved from its last known location, skip it
-    if (!lastPositionValid) return;
-
     bool positionVisible = BWAPI::Broodwar->isVisible(tilePositionX, tilePositionY);
 
     // Detect burrowed units we have observed burrowing
-    if (!burrowed && positionVisible && lastBurrowing == BWAPI::Broodwar->getFrameCount() - 1)
+    if (lastBurrowing == BWAPI::Broodwar->getFrameCount() - 1 && !burrowed && positionVisible)
     {
         // Update grid
-        Players::grid(player).unitMoved(type, lastPosition,  true, type, lastPosition, false);
+        Players::grid(player).unitMoved(type, lastPosition, true, type, lastPosition, false);
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitMoved (observed burrowing)";
-        Log::Debug() << *this << ": Grid::unitMoved (observed burrowing)";
+    Log::Debug() << *this << ": Grid::unitMoved (observed burrowing)";
 #endif
 
         burrowed = true;
     }
 
-    // If the last position has been visible for two consecutive frames, the unit is gone
-    if (positionVisible && lastPositionVisible)
+    // Update position prediction
+    updatePredictedPosition();
+    auto predictedPositionValid = predictedPosition.isValid();
+    if (predictedPositionValid)
+    {
+        simPosition = predictedPosition;
+        simPositionValid = true;
+    }
+    else
+    {
+        simPositionValid = lastPositionValid;
+    }
+
+    // If we've already detected that this unit has moved from its last known location, skip it
+    if (!lastPositionValid) return;
+
+    // If the unit has a valid predicted position, treat its last position as invalid
+    if (predictedPositionValid)
+    {
+        lastPositionValid = false;
+    }
+
+        // If the last position has been visible for two consecutive frames, the unit is gone
+    else if (positionVisible && lastPositionVisible)
     {
         // Units that we know have been burrowed at this position might still be there
         if (burrowed)
         {
             // Assume the unit is still burrowed here unless we have detection on the position or the unit was doomed before it burrowed
             auto grid = Players::grid(BWAPI::Broodwar->self());
-            if (!doomed && grid.detection(lastPosition) == 0) return;
+            if (health > 0 && grid.detection(lastPosition) == 0) return;
         }
 
         lastPositionValid = false;
@@ -229,6 +303,8 @@ void UnitImpl::updateUnitInFog()
     // For the grid, treat units with invalid last position as destroyed
     if (!lastPositionValid)
     {
+        simPositionValid = predictedPositionValid;
+
         Players::grid(player).unitDestroyed(type, lastPosition, completed, burrowed);
 #if DEBUG_GRID_UPDATES
         CherryVis::log(id) << "Grid::unitDestroyed (!LPV) " << lastPosition;
@@ -253,18 +329,78 @@ void UnitImpl::updateUnitInFog()
 
 void UnitImpl::addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet)
 {
-    // Remove any existing upcoming attack from this attacker
+    // Bullets always remove any existing upcoming attack from this attacker
     for (auto it = upcomingAttacks.begin(); it != upcomingAttacks.end();)
     {
         if (it->attacker == attacker)
+        {
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Removing upcoming attack from " << *attacker << " because of created bullet";
+#endif
             it = upcomingAttacks.erase(it);
+        }
         else
             it++;
     }
 
+#if UPCOMING_ATTACKS_DEBUG
+    CherryVis::log(id) << "Adding upcoming attack (bullet) from " << *attacker;
+#endif
+
+    // If the attack is from low-ground to high-ground, don't add the attack
+    // The reason for this is that we don't know if the attack will actually do damage, so it can cause more harm than good
+    if (!attacker->isFlying
+        && BWAPI::Broodwar->getGroundHeight(attacker->getTilePosition()) < BWAPI::Broodwar->getGroundHeight(tilePositionX, tilePositionY))
+    {
+        return;
+    }
+
     upcomingAttacks.emplace_back(attacker,
                                  bullet,
-                                 Players::attackDamage(bullet->getSource()->getPlayer(), bullet->getSource()->getType(), player, type));
+                                 Players::attackDamage(attacker->player, attacker->type, player, type));
+}
+
+void UnitImpl::addUpcomingAttack(const Unit &attacker)
+{
+    // Probes and air units all have their bullets created on the same frame as their cooldown starts, so nothing is needed for them
+
+    // TODO: Carrier and reaver when we have them (if they even make sense)
+
+    switch (attacker->type)
+    {
+        case BWAPI::UnitTypes::Protoss_Zealot:
+        {
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Adding upcoming attacks from " << *attacker;
+#endif
+
+            // Zealots deal damage twice, once after 2 frames and once after 4 frames
+            int damagePerHit = Players::attackDamage(attacker->player, attacker->type, player, type) / 2;
+            upcomingAttacks.emplace_back(attacker, 2, damagePerHit);
+            upcomingAttacks.emplace_back(attacker, 4, damagePerHit);
+            break;
+        }
+        case BWAPI::UnitTypes::Protoss_Dragoon:
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Adding upcoming attack from " << *attacker;
+#endif
+
+            upcomingAttacks.emplace_back(attacker, 7, Players::attackDamage(attacker->player, attacker->type, player, type));
+            break;
+        case BWAPI::UnitTypes::Protoss_Dark_Templar:
+        case BWAPI::UnitTypes::Protoss_Archon:
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Adding upcoming attack from " << *attacker;
+#endif
+            upcomingAttacks.emplace_back(attacker, 4, Players::attackDamage(attacker->player, attacker->type, player, type));
+            break;
+        case BWAPI::UnitTypes::Protoss_Photon_Cannon:
+#if UPCOMING_ATTACKS_DEBUG
+            CherryVis::log(id) << "Adding upcoming attack from " << *attacker;
+#endif
+            upcomingAttacks.emplace_back(attacker, 6, Players::attackDamage(attacker->player, attacker->type, player, type));
+            break;
+    }
 }
 
 void UnitImpl::updateGrid(BWAPI::Unit unit)
@@ -420,4 +556,111 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
     }
 
     // TODO: Workers in a refinery
+}
+
+// Called when updating a unit that is in the fog
+// The basic idea is to record the location of enemy combat units when they go into the fog relative to our attack squad's vanguard
+// We then use this offset to predict where the enemy unit is, regardless of whether we or the enemy are fleeing
+void UnitImpl::updatePredictedPosition()
+{
+    MyUnit vanguard = nullptr;
+    double vanguardDirection = 0.0;
+    auto getAttackEnemyMainVanguard = [&]()
+    {
+        auto squad = General::getAttackBaseSquad(Map::getEnemyMain());
+        if (!squad) return false;
+
+        auto vanguardCluster = squad->vanguardCluster();
+        if (!vanguardCluster) return false;
+
+        vanguard = vanguardCluster->vanguard;
+        if (!vanguard) return false;
+
+        auto waypoint = BWAPI::Positions::Invalid;
+        auto grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(squad->getTargetPosition()));
+        if (grid)
+        {
+            auto &node = (*grid)[vanguard->getTilePosition()];
+            if (node.nextNode && node.nextNode->nextNode && node.nextNode->nextNode->nextNode)
+            {
+                waypoint = node.nextNode->nextNode->nextNode->center();
+            }
+        }
+
+        if (waypoint == BWAPI::Positions::Invalid)
+        {
+            auto path = PathFinding::GetChokePointPath(vanguard->lastPosition, squad->getTargetPosition(), vanguard->type);
+            for (const auto &bwemChoke : path)
+            {
+                auto chokeCenter = Map::choke(bwemChoke)->center;
+                if (vanguard->getDistance(chokeCenter) > 128)
+                {
+                    waypoint = chokeCenter;
+                    break;
+                }
+            }
+        }
+
+        if (waypoint == BWAPI::Positions::Invalid) waypoint = squad->getTargetPosition();
+
+        vanguardDirection = atan2(vanguard->lastPosition.y - waypoint.y, vanguard->lastPosition.x - waypoint.x);
+
+        return true;
+    };
+
+    // If the unit just entered the fog, record the offset
+    if (lastSeen == BWAPI::Broodwar->getFrameCount() - 1)
+    {
+        // First reject units that are not interesting (i.e. are not mobile ground combat units)
+        // When we start using corsairs vs. mutas we'll probably need to simulate air unit movement as well
+        if (isFlying) return;
+        if (burrowed) return;
+        if (type.isBuilding()) return;
+        if (type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) return;
+        if (!UnitUtil::IsCombatUnit(type)) return;
+
+        // Now attempt to get the vanguard unit of the vanguard attack squad cluster
+        if (!getAttackEnemyMainVanguard()) return;
+
+        // Skip units too far away
+        auto vanguardDist = vanguard->lastPosition.getDistance(lastPosition);
+        if (vanguardDist > 640) return;
+
+        // Set the distance and angle
+        auto angle = atan2(vanguard->lastPosition.y - lastPosition.y, vanguard->lastPosition.x - lastPosition.x);
+        offsetToVanguardUnit = std::make_pair(vanguardDist, vanguardDirection - angle);
+
+#if PREDICTED_POSITIONS_DEBUG
+        CherryVis::log(id) << "Offset to vanguard @ " << BWAPI::WalkPosition(vanguard->lastPosition)
+                           << std::setprecision(3)
+                           << ": vanguardDirection=" << (vanguardDirection * 57.2958)
+                           << ": angle=" << (angle * 57.2958)
+                           << "; dist=" << offsetToVanguardUnit.first
+                           << "; diff=" << (offsetToVanguardUnit.second * 57.2958);
+#endif
+
+        // For the initial frame the predicted position is the last position
+        predictedPosition = lastPosition;
+
+
+        return;
+    }
+
+    // If we have an offset, predict the position
+    if (offsetToVanguardUnit.first == 0) return;
+
+    if (!getAttackEnemyMainVanguard())
+    {
+        predictedPosition = BWAPI::Positions::Invalid;
+        return;
+    }
+
+    auto a = vanguardDirection - offsetToVanguardUnit.second;
+    predictedPosition = BWAPI::Position(
+            vanguard->lastPosition.x - (int) std::round((double) offsetToVanguardUnit.first * std::cos(a)),
+            vanguard->lastPosition.y - (int) std::round((double) offsetToVanguardUnit.first * std::sin(a)));
+
+#if PREDICTED_POSITIONS_DEBUG
+    CherryVis::log(id) << "Predicted position: " << BWAPI::WalkPosition(predictedPosition);
+#endif
 }

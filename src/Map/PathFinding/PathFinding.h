@@ -27,11 +27,19 @@ namespace PathFinding
     // Tiles that affect pathfinding (e.g. a mineral line) have been removed
     void removeBlockingTiles(const std::set<BWAPI::TilePosition> &tiles);
 
+    // Returns false if the given predicate returns false at any node in the path between start and end.
+    // If there is no grid for the end tile, returns true.
+    // If there is no path between the tiles, returns false.
+    bool checkGridPath(BWAPI::TilePosition start,
+                       BWAPI::TilePosition end,
+                       const std::function<bool(const NavigationGrid::GridNode &gridNode)> &predicate);
+
     // Options for use in the BWEM-based pathfinding methods
     enum class PathFindingOptions
     {
         Default = 0,
-        UseNearestBWEMArea = 1 << 0
+        UseNearestBWEMArea = 1 << 0,
+        UseNeighbouringBWEMArea = 1 << 1,
     };
 
     // Gets the ground distance between two points pathing through BWEM chokepoints.
@@ -71,10 +79,9 @@ namespace PathFinding
     // Initializes the path finding search
     void initializeSearch();
 
-    // Searches for the shortest walkable path from start to end
-    // By default, any walkable tile (as determined by Map::isWalkable) can be part of the returned path
-    // If a tileValidator is passed, only tiles for which it returns true can be part of the returned path
-    // If an endRadius is specified, the search will stop as soon as a node is found within that radius (pixels) of the end tile
+    // Searches for the shortest path from start to end.
+    // If a tileValidator is passed, only tiles for which it returns true can be part of the returned path.
+    // If a closeEnoughToEnd predicate is specified, the search will stop as soon as a node is found for which it returns true.
     std::vector<BWAPI::TilePosition> Search(BWAPI::TilePosition start,
                                             BWAPI::TilePosition end,
                                             const std::function<bool(const BWAPI::TilePosition &)> &tileValidator = nullptr,

@@ -28,6 +28,8 @@ public:
 
     int upgradeLevel(BWAPI::UpgradeType type);
 
+    void setWeaponRange(BWAPI::WeaponType wpn, int range, Grid &grid);
+
 private:
     BWAPI::Player player;
 

@@ -71,6 +71,7 @@ namespace FAP {
     int groundDamage;
     int groundCooldown;
     int groundMaxRange;
+    int groundMinRange;
     int groundMaxRangeSquared;
     int groundMinRangeSquared;
     BWAPI::DamageType groundDamageType;
@@ -219,7 +220,7 @@ namespace FAP {
     }
 
     auto constexpr setGroundMinRange(int groundMinRange) && {
-      unit.groundMinRangeSquared = groundMinRange;
+      unit.groundMinRangeSquared = unit.groundMinRange = groundMinRange;
       return std::move(*this).template addFlag<UnitValues::groundMinRange>();
     }
 

@@ -5,6 +5,8 @@
 #include "Map.h"
 #include "Geo.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 /*
  * For now detectors just try to keep detection on the closest unit to them requiring detection. If there are no units requiring detection,
  * they try to stay on top of the squad vanguard unit (cluster vanguard unit closest to the target position).

@@ -34,7 +34,7 @@ public:
 
     [[nodiscard]] virtual int height() const = 0;
 
-    BWAPI::Position center() const;
+    [[nodiscard]] BWAPI::Position center() const;
 
     [[nodiscard]] virtual bool allowTopEdge() const { return true; }
 
@@ -44,7 +44,7 @@ public:
 
     [[nodiscard]] virtual bool allowCorner() const { return true; }
 
-    bool tilesReserved(BWAPI::TilePosition tile, BWAPI::TilePosition size);
+    bool tilesReserved(BWAPI::TilePosition tile, BWAPI::TilePosition size, bool permanent = false);
 
     virtual bool tilesUsed(BWAPI::TilePosition tile, BWAPI::TilePosition size);
 
@@ -62,4 +62,7 @@ protected:
     virtual void placeLocations() = 0;
 
     void removeUsed();
+
+private:
+    std::vector<std::pair<BWAPI::TilePosition, BWAPI::TilePosition>> permanentTileReservations;
 };

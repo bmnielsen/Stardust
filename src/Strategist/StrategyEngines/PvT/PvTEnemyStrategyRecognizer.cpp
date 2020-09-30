@@ -6,7 +6,6 @@
 
 std::map<PvT::TerranStrategy, std::string> PvT::TerranStrategyNames = {
         {TerranStrategy::Unknown,       "Unknown"},
-        {TerranStrategy::GasSteal,      "GasSteal"},
         {TerranStrategy::ProxyRush,     "ProxyRush"},
         {TerranStrategy::MarineRush,    "MarineRush"},
         {TerranStrategy::WallIn,        "WallIn"},
@@ -35,19 +34,6 @@ namespace
         if (timings.size() < count) return false;
 
         return timings[count - 1].first < frame;
-    }
-
-    bool isGasSteal()
-    {
-        for (const Unit &unit : Units::allEnemyOfType(BWAPI::Broodwar->enemy()->getRace().getRefinery()))
-        {
-            if (!unit->lastPositionValid) continue;
-            if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) != Map::getMyMain()->getArea()) continue;
-
-            return true;
-        }
-
-        return false;
     }
 
     bool isFastExpansion()
@@ -90,21 +76,6 @@ namespace
     {
         if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
 
-        // If the enemy main has been scouted, determine if there is a proxy by looking at what they have built
-        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
-            Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
-        {
-            // Expect first barracks or command center by frame 2400
-            if (BWAPI::Broodwar->getFrameCount() > 2400
-                && !countAtLeast(BWAPI::UnitTypes::Terran_Barracks, 1)
-                && !countAtLeast(BWAPI::UnitTypes::Terran_Command_Center, 2))
-            {
-                return true;
-            }
-
-            return false;
-        }
-
         // Otherwise check if we have directly scouted an enemy building in a proxy location
         auto enemyMain = Map::getEnemyStartingMain();
         auto enemyNatural = Map::getEnemyStartingNatural();
@@ -144,20 +115,53 @@ namespace
             return true;
         }
 
+        // If the enemy main has been scouted, determine if there is a proxy by looking at what they have built
+        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
+            Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
+        {
+            // Expect first barracks, refinery or command center by frame 2400
+            if (BWAPI::Broodwar->getFrameCount() > 2400
+                && !countAtLeast(BWAPI::UnitTypes::Terran_Barracks, 1)
+                && !countAtLeast(BWAPI::UnitTypes::Terran_Refinery, 1)
+                && !countAtLeast(BWAPI::UnitTypes::Terran_Command_Center, 2))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         return false;
     }
 
     bool isWallIn()
     {
-        // FIXME: Verify there are actual wall buildings
-        return Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingBlocked;
+        // The enemy is considered walled-in if our scout was unable to get into the base and
+        // there is no path from our main to their base
+
+        // TODO: This is too strict - the scout might get into the base before the wall-in is finished
+
+        if (Strategist::getWorkerScoutStatus() != Strategist::WorkerScoutStatus::ScoutingBlocked) return false;
+        if (BWAPI::Broodwar->getFrameCount() > 6000) return false;
+
+        auto enemyMain = Map::getEnemyStartingMain();
+        auto mainChoke = Map::getMyMainChoke();
+        if (!enemyMain || !mainChoke) return false;
+
+        auto grid = PathFinding::getNavigationGrid(enemyMain->getTilePosition());
+        if (!grid) return false;
+
+        auto node = (*grid)[mainChoke->center];
+        return node.nextNode == nullptr;
     }
 
     bool isMidGame()
     {
         // TODO: Extend this
         return BWAPI::Broodwar->getFrameCount() > 10000 &&
-               countAtLeast(BWAPI::UnitTypes::Terran_Command_Center, 2);
+               (countAtLeast(BWAPI::UnitTypes::Terran_Command_Center, 2) ||
+                (Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
+                 Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode)) > 4);
     }
 }
 
@@ -170,7 +174,6 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
         {
             case TerranStrategy::Unknown:
                 if (isMarineRush()) return TerranStrategy::MarineRush;
-                if (isGasSteal()) return TerranStrategy::GasSteal;
                 if (isProxy()) return TerranStrategy::ProxyRush;
                 if (isWallIn()) return TerranStrategy::WallIn;
                 if (isFastExpansion()) return TerranStrategy::FastExpansion;
@@ -183,19 +186,14 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 }
 
                 // Default to something reasonable if we don't detect anything else
-                if (BWAPI::Broodwar->getFrameCount() > 4000)
+                if (BWAPI::Broodwar->getFrameCount() > 4000 ||
+                    Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
+                    Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
                 {
                     strategy = TerranStrategy::Normal;
                     continue;
                 }
 
-                break;
-            case TerranStrategy::GasSteal:
-                if (!isGasSteal())
-                {
-                    strategy = TerranStrategy::Unknown;
-                    continue;
-                }
                 break;
             case TerranStrategy::ProxyRush:
                 // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their command center
@@ -219,7 +217,6 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 break;
             case TerranStrategy::WallIn:
                 if (isMarineRush()) return TerranStrategy::MarineRush;
-                if (isGasSteal()) return TerranStrategy::GasSteal;
                 if (isFastExpansion()) return TerranStrategy::FastExpansion;
 
                 if (isMidGame())
@@ -231,7 +228,6 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 break;
             case TerranStrategy::TwoFactory:
                 if (isMarineRush()) return TerranStrategy::MarineRush;
-                if (isGasSteal()) return TerranStrategy::GasSteal;
 
                 if (isMidGame())
                 {
@@ -243,7 +239,6 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
             case TerranStrategy::FastExpansion:
             case TerranStrategy::Normal:
                 if (isMarineRush()) return TerranStrategy::MarineRush;
-                if (isGasSteal()) return TerranStrategy::GasSteal;
 
                 if (isMidGame())
                 {
@@ -253,8 +248,6 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
 
                 break;
             case TerranStrategy::MidGame:
-                if (isGasSteal()) return TerranStrategy::GasSteal;
-
                 break;
         }
 

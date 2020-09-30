@@ -5,6 +5,8 @@
 #include "PathFinding.h"
 #include "Units.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 namespace
 {
     bool hasPathWithoutDetection(BWAPI::Position start, BWAPI::Position end)
@@ -99,7 +101,8 @@ namespace
 
             if (dist < bestTargetDist || (dist == bestTargetDist && (enemy->lastHealth + enemy->lastShields) < bestTargetHealth))
             {
-                if (!allowRetreating && (myUnit->getDistance(enemy, enemy->predictPosition(1)) > dist))
+                auto predictedEnemyPosition = enemy->predictPosition(1);
+                if (predictedEnemyPosition.isValid() && myUnit->getDistance(enemy, predictedEnemyPosition) > dist)
                 {
                     continue;
                 }
@@ -116,12 +119,6 @@ namespace
 
     void moveToBase(MyUnit &unit, Base *base)
     {
-        if (unit->getDistance(base->getPosition()) < 400)
-        {
-            unit->moveTo(base->mineralLineCenter);
-            return;
-        }
-
         auto grid = PathFinding::getNavigationGrid(base->getTilePosition());
         if (grid)
         {
@@ -166,7 +163,9 @@ namespace
         auto base = getBaseToHarass(unit);
         if (base)
         {
-            if (unit->getDistance(base->mineralLineCenter) > 320)
+            if (unit->getDistance(base->mineralLineCenter) > 320 ||
+                Map::isInNarrowChoke(base->getTilePosition()) ||
+                BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) != base->getArea())
             {
 #if DEBUG_UNIT_ORDERS
                 CherryVis::log(unit->id) << "Moving to harass base @ " << BWAPI::WalkPosition(base->getPosition());

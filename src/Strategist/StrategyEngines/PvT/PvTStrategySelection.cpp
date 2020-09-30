@@ -2,6 +2,7 @@
 
 #include "Map.h"
 #include "Plays/MainArmy/DefendMyMain.h"
+#include "Units.h"
 
 std::map<PvT::OurStrategy, std::string> PvT::OurStrategyNames = {
         {OurStrategy::EarlyGameDefense, "EarlyGameDefense"},
@@ -24,6 +25,13 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
 
     auto canTransitionFromAntiMarineRush = [&]()
     {
+        // Transition immediately if we've discovered a different enemy strategy
+        if (newEnemyStrategy != TerranStrategy::ProxyRush &&
+            newEnemyStrategy != TerranStrategy::MarineRush)
+        {
+            return true;
+        }
+
         // Require Dragoon Range
         // TODO: This is probably much too conservative
         if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0) return false;
@@ -50,7 +58,6 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                 switch (newEnemyStrategy)
                 {
                     case TerranStrategy::Unknown:
-                    case TerranStrategy::GasSteal:
                         return strategy;
                     case TerranStrategy::ProxyRush:
                     case TerranStrategy::MarineRush:
@@ -59,10 +66,10 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                     case TerranStrategy::TwoFactory:
                         strategy = OurStrategy::Defensive;
                         continue;
-                    case TerranStrategy::WallIn:
                     case TerranStrategy::FastExpansion:
                         strategy = OurStrategy::FastExpansion;
                         continue;
+                    case TerranStrategy::WallIn:
                     case TerranStrategy::Normal:
                         strategy = OurStrategy::Normal;
                         continue;
@@ -136,9 +143,9 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                     continue;
                 }
 
-                // Transition to mid-game when the enemy has done so
+                // Transition to mid-game when the enemy has done so or we are on two bases
                 // TODO: This is very vaguely defined
-                if (newEnemyStrategy == TerranStrategy::MidGame)
+                if (newEnemyStrategy == TerranStrategy::MidGame || Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
                 {
                     strategy = OurStrategy::MidGame;
                     continue;

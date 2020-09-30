@@ -24,7 +24,6 @@ private:
     {
         Unknown,
         ZerglingRush,           // Detected by seeing early pool or early lings
-        GasSteal,               // Extractor in our main
         PoolBeforeHatchery,     // e.g. 9-pool or overpool
         HatcheryBeforePool,     // e.g. 10 or 12 hatch
         ZerglingAllIn,          // Builds that get mass zerglings before other tech

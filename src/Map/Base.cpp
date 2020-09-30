@@ -2,6 +2,29 @@
 
 #include "Geo.h"
 
+namespace
+{
+    BWAPI::Unit findGeyser(BWAPI::TilePosition tile)
+    {
+        for (auto unit : BWAPI::Broodwar->getAllUnits())
+        {
+            if (unit->getTilePosition() != tile) continue;
+            if (unit->getType().isRefinery() || unit->getType() == BWAPI::UnitTypes::Resource_Vespene_Geyser)
+            {
+                return unit;
+            }
+        }
+        for (auto unit : BWAPI::Broodwar->getStaticGeysers())
+        {
+            if (unit->getTilePosition() == tile) return unit;
+        }
+
+        Log::Get() << "WARNING: Unable to find geyser or refinery @ " << tile;
+
+        return nullptr;
+    }
+}
+
 Base::Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase)
         : owner(nullptr)
         , resourceDepot(nullptr)
@@ -13,6 +36,12 @@ Base::Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase)
         , tile(_tile)
         , bwemBase(_bwemBase)
 {
+    for (auto &geyser : _bwemBase->Geysers())
+    {
+        geyserTiles.push_back(geyser->Unit()->getInitialTilePosition());
+        geyserUnits.push_back(geyser->Unit());
+    }
+
     analyzeMineralLine();
 }
 
@@ -30,10 +59,22 @@ std::vector<BWAPI::Unit> Base::mineralPatches() const
 std::vector<BWAPI::Unit> Base::geysers() const
 {
     std::vector<BWAPI::Unit> result;
-    for (auto geyser : bwemBase->Geysers())
+    for (size_t i = 0; i < geyserUnits.size(); i++)
     {
-        if (geyser->Unit()->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser) continue;
-        result.push_back(geyser->Unit());
+        if (!geyserUnits[i] ||
+            (geyserUnits[i]->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser &&
+             !geyserUnits[i]->getType().isRefinery()))
+        {
+            geyserUnits[i] = findGeyser(geyserTiles[i]);
+            if (!geyserUnits[i]) continue;
+        }
+
+        if (geyserUnits[i]->getType().isRefinery())
+        {
+            continue;
+        }
+
+        result.push_back(geyserUnits[i]);
     }
 
     return result;
@@ -42,10 +83,20 @@ std::vector<BWAPI::Unit> Base::geysers() const
 std::vector<BWAPI::Unit> Base::refineries() const
 {
     std::vector<BWAPI::Unit> result;
-    for (auto geyser : bwemBase->Geysers())
+    for (size_t i = 0; i < geyserUnits.size(); i++)
     {
-        if (geyser->Unit()->getPlayer() != BWAPI::Broodwar->self()) continue;
-        result.push_back(geyser->Unit());
+        if (!geyserUnits[i] ||
+            (geyserUnits[i]->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser &&
+             !geyserUnits[i]->getType().isRefinery()))
+        {
+            geyserUnits[i] = findGeyser(geyserTiles[i]);
+            if (!geyserUnits[i]) continue;
+        }
+
+        if (geyserUnits[i]->getType().isRefinery() && geyserUnits[i]->getPlayer() == BWAPI::Broodwar->self())
+        {
+            result.push_back(geyserUnits[i]);
+        }
     }
 
     return result;

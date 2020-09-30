@@ -15,7 +15,7 @@ void DefendBaseSquad::execute(UnitCluster &cluster)
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
 
     // Run combat sim
-    // auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, false);
+    // auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors, false);
 
     // TODO: Interpret result
 

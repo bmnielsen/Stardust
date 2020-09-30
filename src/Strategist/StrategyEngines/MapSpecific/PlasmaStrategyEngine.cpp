@@ -62,29 +62,37 @@ void PlasmaStrategyEngine::updatePlays(std::vector<std::shared_ptr<Play>> &plays
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     if (mainArmyPlay)
     {
-        switch (enemyStrategy)
+        if (hasEnemyStolenOurGas())
         {
-            case EnemyStrategy::Unknown:
-            case EnemyStrategy::GasSteal:
-            case EnemyStrategy::ProxyRush:
-                setMainPlay<DefendMyMain>(mainArmyPlay);
-                break;
-            case EnemyStrategy::Normal:
-                auto enemyMain = Map::getEnemyMain();
-                if (enemyMain)
-                {
-                    setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
-                }
-                else
-                {
-                    setMainPlay<MopUp>(mainArmyPlay);
-                }
-                break;
+            setMainPlay<DefendMyMain>(mainArmyPlay);
+        }
+        else
+        {
+            switch (enemyStrategy)
+            {
+                case EnemyStrategy::Unknown:
+                case EnemyStrategy::ProxyRush:
+                    setMainPlay<DefendMyMain>(mainArmyPlay);
+                    break;
+                case EnemyStrategy::Normal:
+                    auto enemyMain = Map::getEnemyMain();
+                    if (enemyMain)
+                    {
+                        setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
+                    }
+                    else
+                    {
+                        setMainPlay<MopUp>(mainArmyPlay);
+                    }
+                    break;
+            }
         }
     }
 
-    UpdateDefendBasePlays(plays);
+    updateDefendBasePlays(plays);
+    updateAttackExpansionPlays(plays);
     defaultExpansions(plays);
+    scoutExpos(plays, 15000);
 }
 
 void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
@@ -96,7 +104,6 @@ void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &
     switch (enemyStrategy)
     {
         case EnemyStrategy::Unknown:
-        case EnemyStrategy::GasSteal:
         {
             // Get two zealots before goons
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);

@@ -12,13 +12,22 @@ struct UpcomingAttack
 {
     Unit attacker;
     BWAPI::Bullet bullet;
-    int bulletId;
+    int bulletId;           // Bullet objects are re-used, so keep track of the original ID
+    int expiryFrame;        // The frame at which this upcoming attack "expires" (i.e. results in a bullet or deals damage)
     int damage;
 
     UpcomingAttack(Unit attacker, BWAPI::Bullet bullet, int damage)
             : attacker(std::move(attacker))
             , bullet(bullet)
             , bulletId(bullet ? bullet->getID() : -1)
+            , expiryFrame(INT_MAX)
+            , damage(damage) {}
+
+    UpcomingAttack(Unit attacker, int frames, int damage)
+            : attacker(std::move(attacker))
+            , bullet(nullptr)
+            , bulletId(-1)
+            , expiryFrame(BWAPI::Broodwar->getFrameCount() + frames)
             , damage(damage) {}
 };
 
@@ -42,10 +51,24 @@ public:
     bool lastPositionValid;             // Whether this position is still valid, i.e. we haven't seen the position empty later
     bool lastPositionVisible;           // Whether the last position was visible on the previous frame
     bool beingManufacturedOrCarried;    // Whether the unit is currently being manufactured or carried
-    bool frameLastMoved;                // Last frame on which the unit changed position
+    int frameLastMoved;                 // Last frame on which the unit changed position
 
-    int lastHealth;                     // Health when last seen
-    int lastShields;                    // Shields when last seen
+    // For units in the fog, the offset to our vanguard unit they had when they disappeared
+    // The first part of the pair is the distance to our vanguard unit
+    // The second is the angle offset from our vanguard unit's path to the enemy base
+    std::pair<int, double> offsetToVanguardUnit;
+
+    BWAPI::Position predictedPosition;  // For units in the fog, the predicted position based on the above offset
+
+    BWAPI::Position simPosition;        // The position to use for this unit in combat simulation / targeting / etc.
+    bool simPositionValid;              // Whether the simulation position is valid
+
+    int lastHealth;                     // Health when last seen, adjusted for upcoming attacks
+    int lastShields;                    // Shields when last seen, adjusted for upcoming attacks
+    int health;                         // Estimated health of the unit, adjusted for upcoming attacks
+    int shields;                        // Estimated shields of the unit, adjusted for upcoming attacks
+
+    int lastHealFrame;                  // Last frame the unit was healed or repaired
 
     bool completed;                     // Whether the unit was completed
     int estimatedCompletionFrame;       // If not completed, the frame when we expect the unit to complete
@@ -61,7 +84,6 @@ public:
 
     std::vector<UpcomingAttack>
             upcomingAttacks;            // List of attacks of this unit that are expected soon
-    bool doomed;                        // Whether this unit is likely to be dead after the upcoming attacks are finished
 
     explicit UnitImpl(BWAPI::Unit unit);
 
@@ -75,6 +97,8 @@ public:
 
     void addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet);
 
+    void addUpcomingAttack(const Unit &attacker);
+
     /* Information stuff, see Unit_Info.cpp */
 
     [[nodiscard]] BWAPI::TilePosition getTilePosition() const;
@@ -83,7 +107,11 @@ public:
 
     [[nodiscard]] virtual bool isBeingManufacturedOrCarried() const { return false; };
 
+    [[nodiscard]] bool isBeingHealed() const { return BWAPI::Broodwar->getFrameCount() < (lastHealFrame + 24); };
+
     [[nodiscard]] bool isAttackable() const;
+
+    [[nodiscard]] bool isCliffedTank(const Unit &attacker) const;
 
     [[nodiscard]] bool canAttack(const Unit &target) const;
 
@@ -96,6 +124,12 @@ public:
     [[nodiscard]] bool isStaticGroundDefense() const;
 
     [[nodiscard]] bool isTransport() const;
+
+    [[nodiscard]] int groundRange() const;
+
+    [[nodiscard]] int airRange() const;
+
+    [[nodiscard]] int range(const Unit &target) const;
 
     [[nodiscard]] BWAPI::WeaponType getWeapon(const Unit &target) const;
 
@@ -127,6 +161,8 @@ public:
 
 private:
     void updateGrid(BWAPI::Unit unit);
+
+    void updatePredictedPosition();
 };
 
 std::ostream &operator<<(std::ostream &os, const UnitImpl &unit);

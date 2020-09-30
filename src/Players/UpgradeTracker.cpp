@@ -264,3 +264,47 @@ int UpgradeTracker::upgradeLevel(BWAPI::UpgradeType type)
     _upgradeLevel[type] = current;
     return current;
 }
+
+void UpgradeTracker::setWeaponRange(BWAPI::WeaponType wpn, int range, Grid &grid)
+{
+    int current = player->weaponMaxRange(wpn);
+
+    auto weaponAndRange = _weaponRange.find(wpn);
+    if (weaponAndRange != _weaponRange.end())
+    {
+        current = weaponAndRange->second;
+    }
+
+    if (range <= current) return;
+
+    // Update the grid for all known units with this weapon type
+    auto updateGrid = [&](const Unit &unit)
+    {
+        auto weaponUnitType = unit->type;
+        if (unit->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+
+        if (unit->lastPositionValid && !unit->beingManufacturedOrCarried &&
+            (weaponUnitType.groundWeapon() == wpn ||
+             weaponUnitType.airWeapon() == wpn))
+        {
+            grid.unitWeaponRangeUpgraded(unit->type, unit->lastPosition, wpn, current, range);
+
+#if DEBUG_GRID_UPDATES
+            CherryVis::log(unit->id) << "Grid::weaponRangeUpgraded from " << weaponAndRange.second << " to " << current;
+                    Log::Debug() << *unit << ": Grid::weaponRangeUpgraded from " << weaponAndRange.second << " to " << current;
+#endif
+        }
+    };
+    if (player == BWAPI::Broodwar->self())
+    {
+        for (auto &unit : Units::allMine())
+        { updateGrid(unit); }
+    }
+    else
+    {
+        for (auto &unit : Units::allEnemy())
+        { updateGrid(unit); }
+    }
+
+    _weaponRange[wpn] = range;
+}

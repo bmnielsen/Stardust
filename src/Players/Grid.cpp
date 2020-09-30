@@ -94,7 +94,7 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool bu
     {
         _groundThreat.add(
                 type,
-                upgradeTracker->weaponRange(weaponUnitType.groundWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                upgradeTracker->weaponRange(weaponUnitType.groundWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                 position,
                 upgradeTracker->weaponDamage(weaponUnitType.groundWeapon()) * weaponUnitType.maxGroundHits()
                 * weaponUnitType.groundWeapon().damageFactor() * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
@@ -103,7 +103,7 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool bu
         {
             _staticGroundThreat.add(
                     type,
-                    upgradeTracker->weaponRange(weaponUnitType.groundWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                    upgradeTracker->weaponRange(weaponUnitType.groundWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                     position,
                     upgradeTracker->weaponDamage(weaponUnitType.groundWeapon()) * weaponUnitType.maxGroundHits()
                     * weaponUnitType.groundWeapon().damageFactor() * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
@@ -132,7 +132,7 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool bu
     {
         _airThreat.add(
                 weaponUnitType,
-                upgradeTracker->weaponRange(weaponUnitType.airWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                upgradeTracker->weaponRange(weaponUnitType.airWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                 position,
                 upgradeTracker->weaponDamage(weaponUnitType.airWeapon()) * weaponUnitType.maxAirHits() * weaponUnitType.airWeapon().damageFactor()
                 * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
@@ -182,7 +182,7 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
     {
         _groundThreat.add(
                 type,
-                upgradeTracker->weaponRange(weaponUnitType.groundWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                upgradeTracker->weaponRange(weaponUnitType.groundWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                 position,
                 -upgradeTracker->weaponDamage(weaponUnitType.groundWeapon()) * weaponUnitType.maxGroundHits()
                 * weaponUnitType.groundWeapon().damageFactor() * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
@@ -191,7 +191,7 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
         {
             _staticGroundThreat.add(
                     type,
-                    upgradeTracker->weaponRange(weaponUnitType.groundWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                    upgradeTracker->weaponRange(weaponUnitType.groundWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                     position,
                     -upgradeTracker->weaponDamage(weaponUnitType.groundWeapon()) * weaponUnitType.maxGroundHits()
                     * weaponUnitType.groundWeapon().damageFactor() * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
@@ -220,7 +220,7 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
     {
         _airThreat.add(
                 type,
-                upgradeTracker->weaponRange(weaponUnitType.airWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                upgradeTracker->weaponRange(weaponUnitType.airWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                 position,
                 -upgradeTracker->weaponDamage(weaponUnitType.airWeapon()) * weaponUnitType.maxAirHits() * weaponUnitType.airWeapon().damageFactor()
                 * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
@@ -245,7 +245,7 @@ void Grid::unitWeaponDamageUpgraded(BWAPI::UnitType type, BWAPI::Position positi
     {
         _groundThreat.add(
                 type,
-                upgradeTracker->weaponRange(weapon) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                upgradeTracker->weaponRange(weapon) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                 position,
                 (newDamage - formerDamage) * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
 
@@ -253,7 +253,7 @@ void Grid::unitWeaponDamageUpgraded(BWAPI::UnitType type, BWAPI::Position positi
         {
             _staticGroundThreat.add(
                     type,
-                    upgradeTracker->weaponRange(weapon) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                    upgradeTracker->weaponRange(weapon) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                     position,
                     (newDamage - formerDamage) * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
         }
@@ -263,7 +263,7 @@ void Grid::unitWeaponDamageUpgraded(BWAPI::UnitType type, BWAPI::Position positi
     {
         _airThreat.add(
                 type,
-                upgradeTracker->weaponRange(weapon) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                upgradeTracker->weaponRange(weapon) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                 position,
                 (newDamage - formerDamage) * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
     }
@@ -277,14 +277,14 @@ void Grid::unitWeaponRangeUpgraded(BWAPI::UnitType type, BWAPI::Position positio
     {
         _groundThreat.add(
                 type,
-                formerRange + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                formerRange + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                 position,
                 -upgradeTracker->weaponDamage(weapon) * type.maxGroundHits() * type.groundWeapon().damageFactor()
                 * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
 
         _groundThreat.add(
                 type,
-                newRange + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                newRange + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                 position,
                 upgradeTracker->weaponDamage(weapon) * type.maxGroundHits() * type.groundWeapon().damageFactor()
                 * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
@@ -293,14 +293,14 @@ void Grid::unitWeaponRangeUpgraded(BWAPI::UnitType type, BWAPI::Position positio
         {
             _staticGroundThreat.add(
                     type,
-                    formerRange + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                    formerRange + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                     position,
                     -upgradeTracker->weaponDamage(weapon) * type.maxGroundHits() * type.groundWeapon().damageFactor()
                     * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
 
             _staticGroundThreat.add(
                     type,
-                    newRange + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                    newRange + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                     position,
                     upgradeTracker->weaponDamage(weapon) * type.maxGroundHits() * type.groundWeapon().damageFactor()
                     * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
@@ -311,14 +311,14 @@ void Grid::unitWeaponRangeUpgraded(BWAPI::UnitType type, BWAPI::Position positio
     {
         _airThreat.add(
                 type,
-                formerRange + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                formerRange + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                 position,
                 -upgradeTracker->weaponDamage(weapon) * type.maxAirHits() * type.airWeapon().damageFactor()
                 * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
 
         _airThreat.add(
                 type,
-                newRange + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 32 : 0),
+                newRange + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                 position,
                 upgradeTracker->weaponDamage(weapon) * type.maxAirHits() * type.airWeapon().damageFactor()
                 * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));

@@ -22,6 +22,16 @@ public:
     virtual std::string getOurStrategy() { return "Unknown"; }
 
 protected:
+    static bool hasEnemyStolenOurGas();
+
+    static void handleGasStealProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                         int &zealotCount);
+
+    static void mainArmyProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                   BWAPI::UnitType unitType,
+                                   int count,
+                                   int &highPriorityCount);
+
     static void upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                BWAPI::UpgradeType upgradeType,
                                BWAPI::UnitType unitType,
@@ -30,11 +40,20 @@ protected:
     static void upgradeWhenUnitStarted(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                        BWAPI::UpgradeType upgradeType,
                                        BWAPI::UnitType unitType,
-                                       bool requireProducer = false);
+                                       bool requireProducer = false,
+                                       int priority = PRIORITY_NORMAL);
 
     static void defaultGroundUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
     static void defaultExpansions(std::vector<std::shared_ptr<Play>> &plays);
+
+    static void takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
+                                     std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+
+    static void cancelNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
+                                       std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+
+    static void scoutExpos(std::vector<std::shared_ptr<Play>> &plays, int startingFrame);
 
     template<class T>
     static T *getPlay(std::vector<std::shared_ptr<Play>> &plays)
@@ -50,5 +69,7 @@ protected:
         return nullptr;
     }
 
-    static void UpdateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays);
+    static void updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays);
+
+    static void updateAttackExpansionPlays(std::vector<std::shared_ptr<Play>> &plays);
 };

@@ -6,8 +6,8 @@
 #include "Geo.h"
 #include "Map.h"
 
-TakeIslandExpansion::TakeIslandExpansion(BWAPI::TilePosition depotPosition)
-        : TakeExpansion(depotPosition)
+TakeIslandExpansion::TakeIslandExpansion(Base *base)
+        : TakeExpansion(base)
         , shuttle(nullptr) {}
 
 void TakeIslandExpansion::update()
@@ -102,12 +102,12 @@ void TakeIslandExpansion::addPrioritizedProductionGoals(std::map<int, std::vecto
     }
 }
 
-void TakeIslandExpansion::addUnit(MyUnit unit)
+void TakeIslandExpansion::addUnit(const MyUnit &unit)
 {
     if (unit->type == BWAPI::UnitTypes::Protoss_Shuttle) shuttle = unit;
 }
 
-void TakeIslandExpansion::removeUnit(MyUnit unit)
+void TakeIslandExpansion::removeUnit(const MyUnit &unit)
 {
     if (shuttle == unit) shuttle = nullptr;
 }

@@ -13,6 +13,8 @@ public:
     int finalMine;
     int finalEnemy;
 
+    bool enemyHasUndetectedUnits;
+
     Choke *narrowChoke;
 
     CombatSimResult(int myUnitCount,
@@ -21,6 +23,7 @@ public:
                     int initialEnemy,
                     int finalMine,
                     int finalEnemy,
+                    bool enemyHasUndetectedUnits,
                     Choke *narrowChoke)
             : frame(BWAPI::Broodwar->getFrameCount())
             , myUnitCount(myUnitCount)
@@ -29,9 +32,10 @@ public:
             , initialEnemy(initialEnemy)
             , finalMine(finalMine)
             , finalEnemy(finalEnemy)
+            , enemyHasUndetectedUnits(enemyHasUndetectedUnits)
             , narrowChoke(narrowChoke) {}
 
-    CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0, nullptr) {};
+    CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0, false, nullptr) {};
 
     // What percentage of my army value was lost during the sim
     [[nodiscard]] double myPercentLost() const;

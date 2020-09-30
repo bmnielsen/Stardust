@@ -565,7 +565,7 @@ namespace BuildingPlacement
             }
             else if (closestBlockLocation.isValid())
             {
-                closestBlockLocationBlock->tilesReserved(closestBlockLocation, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize());
+                closestBlockLocationBlock->tilesReserved(closestBlockLocation, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize(), true);
                 chokeCannonPlacement = closestBlockLocation;
                 chokeCannonBlock = closestBlockLocationBlock;
             }
@@ -789,10 +789,18 @@ namespace BuildingPlacement
 
                 for (auto geyser : base->geysers())
                 {
-                    if (Builder::isPendingHere(geyser->getInitialTilePosition())) continue;
+                    auto tilePosition = geyser->getTilePosition();
+                    if (!tilePosition.isValid()) tilePosition = geyser->getInitialTilePosition();
+                    if (!tilePosition.isValid())
+                    {
+                        Log::Get() << "WARNING: Geyser at base " << base->getTilePosition() << " has invalid tile position";
+                        continue;
+                    }
+
+                    if (Builder::isPendingHere(tilePosition)) continue;
 
                     // TODO: Order in some logical way
-                    _availableGeysers.emplace(Block::Location(geyser->getInitialTilePosition()), 0, 0, 0);
+                    _availableGeysers.emplace(Block::Location(tilePosition), 0, 0, 0);
                 }
             }
         }

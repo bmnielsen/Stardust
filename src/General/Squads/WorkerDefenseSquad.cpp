@@ -3,6 +3,7 @@
 #include "UnitUtil.h"
 #include "Map.h"
 #include "Workers.h"
+#include "Units.h"
 
 namespace
 {
@@ -16,9 +17,13 @@ namespace
             int dist = myUnit->getDistance(enemy);
             if (dist < bestTargetDist || (dist == bestTargetDist && (enemy->lastHealth + enemy->lastShields) < bestTargetHealth))
             {
-                if (!allowRetreating && (myUnit->getDistance(enemy, enemy->predictPosition(1)) > dist))
+                if (!allowRetreating)
                 {
-                    continue;
+                    auto predictedEnemyPosition = enemy->predictPosition(1);
+                    if (predictedEnemyPosition.isValid() && myUnit->getDistance(enemy, predictedEnemyPosition) > dist)
+                    {
+                        continue;
+                    }
                 }
 
                 bestTarget = enemy;
@@ -48,7 +53,7 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
     }
 
     // Filter the units to get a set of units it makes sense to do worker defense against
-    // The input set is already filtered to only contain units we consider to be threats
+    // The input set is already filtered to only contain units we consider to be threats to the base
     std::set<Unit> enemyUnits;
     int workerCount = 0;
     int combatUnitCount = 0;
@@ -58,6 +63,9 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
         if (unit->isFlying) continue;
         if (UnitUtil::IsRangedUnit(unit->type)) continue;
         if (unit->undetected) continue;
+
+        // Make sure the unit is close to our base center
+        if (unit->getDistance(base->getPosition()) > 400) continue;
 
         // Now determine if the unit is worth attacking
         // This is the case if:
@@ -84,7 +92,8 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
         }
 
         auto comingPosition = unit->predictPosition(24);
-        if (comingPosition.isValid() && Map::isInOwnMineralLine(BWAPI::TilePosition(comingPosition)))
+        if (!comingPosition.isValid()) comingPosition = unit->lastPosition;
+        if (Map::isInOwnMineralLine(BWAPI::TilePosition(comingPosition)))
         {
             addUnit();
             continue;
@@ -122,9 +131,26 @@ void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::share
         return;
     }
 
+    // Count how many cannons we have defending the mineral line
+    int cannons = 0;
+    {
+        auto baseDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
+        if (baseDefenseLocations.first != BWAPI::TilePositions::Invalid)
+        {
+            for (auto cannonLocation : baseDefenseLocations.second)
+            {
+                auto cannon = Units::myBuildingAt(cannonLocation);
+                if (cannon && cannon->completed && cannon->bwapiUnit->isPowered())
+                {
+                    cannons++;
+                }
+            }
+        }
+    }
+
     // If the enemy has us outnumbered by more than one unit, rally all of our workers
     auto squadUnits = defendBaseSquad->getUnits();
-    if (combatUnitCount - squadUnits.size() > 1)
+    if (combatUnitCount - (squadUnits.size() + cannons * 2) > 1)
     {
         executeFullWorkerDefense(enemyUnits, squadUnits);
         return;
@@ -199,6 +225,7 @@ void WorkerDefenseSquad::executeFullWorkerDefense(std::set<Unit> &enemyUnits, co
         workersAndTargets.emplace_back(std::make_pair(worker, bestTarget));
 
         auto predictedPosition = bestTarget->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        if (!predictedPosition.isValid()) predictedPosition = bestTarget->lastPosition;
         if (worker->isInOurWeaponRange(bestTarget, predictedPosition) ||
             worker->isInEnemyWeaponRange(bestTarget, predictedPosition))
         {

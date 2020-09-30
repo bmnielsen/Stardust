@@ -1,5 +1,8 @@
 #include "Squad.h"
 
+#include "Squads/AttackBaseSquad.h"
+#include "Base.h"
+
 namespace General
 {
     namespace
@@ -36,5 +39,21 @@ namespace General
     void removeSquad(const std::shared_ptr<Squad> &squad)
     {
         squads.erase(squad);
+    }
+
+    AttackBaseSquad *getAttackBaseSquad(Base *targetBase)
+    {
+        for (auto &squad : squads)
+        {
+            if (auto match = std::dynamic_pointer_cast<AttackBaseSquad>(squad))
+            {
+                if (match->getTargetPosition() == targetBase->getPosition())
+                {
+                    return match.get();
+                }
+            }
+        }
+
+        return nullptr;
     }
 }

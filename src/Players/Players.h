@@ -29,4 +29,6 @@ namespace Players
     bool hasResearched(BWAPI::Player player, BWAPI::TechType type);
 
     int upgradeLevel(BWAPI::Player player, BWAPI::UpgradeType type);
+
+    void setWeaponRange(BWAPI::Player player, BWAPI::WeaponType wpn, int range);
 }

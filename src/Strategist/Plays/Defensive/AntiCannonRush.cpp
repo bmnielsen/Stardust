@@ -5,6 +5,8 @@
 #include "Units.h"
 #include "UnitUtil.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 /*
  * This play is added by the strategy engine when the enemy could be doing a cannon rush - either we have no
  * scouting information (scout hasn't arrived or enemy blocked it), have scouted an early forge, or have scouted

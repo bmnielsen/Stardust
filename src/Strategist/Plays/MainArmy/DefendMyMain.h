@@ -17,7 +17,7 @@ public:
 
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 
-    void removeUnit(MyUnit unit) override;
+    void removeUnit(const MyUnit &unit) override;
 
     void disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
                  const std::function<void(const MyUnit&)> &movableUnitCallback) override;
@@ -29,4 +29,5 @@ private:
     std::shared_ptr<WorkerDefenseSquad> workerDefenseSquad;
     int lastRegroupFrame;
     MyUnit reservedGasStealAttacker;
+    std::vector<MyUnit> reservedWorkerGasStealAttackers;
 };

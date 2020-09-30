@@ -3,6 +3,8 @@
 #include "PathFinding.h"
 #include "Map.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 /*
  * In order to support multiple different triggers and forms of movement, it is done in two phases. First the move command is queued, then
  * the most recent move command is issued at the end of the frame. This allows high-priority movement like evading storms to take priority.
@@ -159,6 +161,7 @@ void MyUnitImpl::moveToNextWaypoint()
             CherryVis::log(id) << "Order: Moving to target position " << BWAPI::WalkPosition(targetPosition);
 #endif
 
+            chokePath.clear();
             currentlyMovingTowards = targetPosition;
             move(currentlyMovingTowards);
             return;
@@ -429,7 +432,7 @@ bool MyUnitImpl::unstickMoveUnit()
     }
 
     // If we haven't moved for the past 48 frames, assume previous attempts to unstick the unit have failed and try to reset completely
-    if (lastMoveFrame < (BWAPI::Broodwar->getFrameCount() - 48))
+    if (frameLastMoved < (BWAPI::Broodwar->getFrameCount() - 48))
     {
 #ifdef DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Unstick by sending stop command";

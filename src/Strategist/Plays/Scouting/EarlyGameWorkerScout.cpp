@@ -8,12 +8,14 @@
 #include "Players.h"
 #include "Geo.h"
 #include "Opponent.h"
+#include "Strategist.h"
+
+#include "DebugFlag_UnitOrders.h"
 
 #include <bwem.h>
-#include <Strategist/Strategist.h>
 
 #if INSTRUMENTATION_ENABLED
-#define OUTPUT_SCOUTTILE_HEATMAP true
+#define OUTPUT_SCOUTTILE_HEATMAP false
 #endif
 
 namespace
@@ -221,9 +223,15 @@ namespace
 
             if (naturalChoke)
             {
-                CherryVis::log() << "Reference position is enemy natural choke @ " << BWAPI::WalkPosition(naturalChoke->center);
                 referencePosition = naturalChoke->center;
             }
+        }
+
+        // Use our natural's height as the reference height
+        auto referenceHeight = -1;
+        if (Map::getEnemyStartingNatural())
+        {
+            referenceHeight = BWAPI::Broodwar->getGroundHeight(Map::getEnemyStartingNatural()->getTilePosition());
         }
 
         auto tileSightRange = BWAPI::UnitTypes::Protoss_Probe.sightRange() / 32;
@@ -237,6 +245,8 @@ namespace
                 if (!here.isValid()) continue;
                 if (!Map::isWalkable(here)) continue;
 
+                if (referenceHeight != -1 && BWAPI::Broodwar->getGroundHeight(here) != referenceHeight) continue;
+
                 int chokeDist = enemyMainChoke->center.getApproxDistance(BWAPI::Position(here) + BWAPI::Position(16, 16));
                 if (chokeDist > BWAPI::UnitTypes::Protoss_Probe.sightRange()) continue;
 
@@ -248,8 +258,6 @@ namespace
                 }
             }
         }
-
-        CherryVis::log() << "Best tile @ " << BWAPI::WalkPosition(bestTile);
 
         return bestTile;
     }
@@ -364,7 +372,7 @@ void EarlyGameWorkerScout::update()
         if (!UnitUtil::CanAttackGround(unit->type)) continue;
         if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
 
-        int detectionLimit = std::max(128, Players::weaponRange(unit->player, unit->type.groundWeapon()) + 64);
+        int detectionLimit = std::max(128, unit->groundRange() + 64);
         int dist = scout->getDistance(unit);
         if (dist >= detectionLimit) continue;
 
@@ -425,6 +433,7 @@ void EarlyGameWorkerScout::update()
         auto grid = Players::grid(BWAPI::Broodwar->enemy());
         auto avoidThreatTiles = [&](BWAPI::TilePosition tile)
         {
+            if (!Map::isWalkable(tile)) return false;
             if (scoutAreas.find(BWEM::Map::Instance().GetNearestArea(tile)) == scoutAreas.end())
             {
                 return false;
@@ -623,6 +632,7 @@ void EarlyGameWorkerScout::updateTargetBase()
 
     targetBase = nullptr;
     closestDistanceToTargetBase = INT_MAX;
+    lastDistanceToTargetBase = INT_MAX;
     lastForewardMotionFrame = BWAPI::Broodwar->getFrameCount();
 
     // Assign the enemy starting main if we know it
@@ -692,12 +702,17 @@ bool EarlyGameWorkerScout::isScoutBlocked()
     }
 
     // Decreasing distance is fine
-    if (node.cost < closestDistanceToTargetBase)
+    // Increasing distance is fine if it jumps quite a bit - this generally means we've scouted a building that changes the path
+    if (node.cost < closestDistanceToTargetBase ||
+        node.cost > (lastDistanceToTargetBase + 50))
     {
         closestDistanceToTargetBase = node.cost;
+        lastDistanceToTargetBase = node.cost;
         lastForewardMotionFrame = BWAPI::Broodwar->getFrameCount();
         return false;
     }
+
+    lastDistanceToTargetBase = node.cost;
 
     // Non-decreasing distance is fine if we are still far away from the enemy base
     if (node.cost > 1500) return false;

@@ -4,7 +4,7 @@
 #include "Map.h"
 
 #if INSTRUMENTATION_ENABLED
-#define NAVIGATION_HEATMAP_ENABLED false
+#define NAVIGATION_HEATMAP_ENABLED true
 #define OUTPUT_GRID_TIMING false
 #endif
 
@@ -123,56 +123,60 @@ void NavigationGrid::update()
         // Don't allow diagonal connections through blocked tiles
         if (direction % 2 == 1 && (!allowDiagonalConnectionThrough(x, current->y) || !allowDiagonalConnectionThrough(current->x, y))) return;
 
-        // If the target node is already connected, remove the reverse connection
-        if (node.nextNode)
-        {
-            if (node.nextNode->x < node.x)
-            {
-                if (node.nextNode->y < node.y)
-                {
-                    node.nextNode->prevNodes &= ~(1U << 5U);
-                }
-                else if (node.nextNode->y > node.y)
-                {
-                    node.nextNode->prevNodes &= ~(1U << 1U);
-                }
-                else
-                {
-                    node.nextNode->prevNodes &= ~(1U << 0U);
-                }
-            }
-            else if (node.nextNode->x > node.x)
-            {
-                if (node.nextNode->y < node.y)
-                {
-                    node.nextNode->prevNodes &= ~(1U << 7U);
-                }
-                else if (node.nextNode->y > node.y)
-                {
-                    node.nextNode->prevNodes &= ~(1U << 3U);
-                }
-                else
-                {
-                    node.nextNode->prevNodes &= ~(1U << 2U);
-                }
-            }
-            else
-            {
-                if (node.nextNode->y < node.y)
-                {
-                    node.nextNode->prevNodes &= ~(1U << 4U);
-                }
-                else
-                {
-                    node.nextNode->prevNodes &= ~(1U << 6U);
-                }
-            }
-        }
-
-        // Create the connection
+        // Make the connection if it isn't already done
         node.cost = cost;
-        node.nextNode = current;
-        current->prevNodes |= 1U << direction;
+        if (node.nextNode != current)
+        {
+            // Remove the reverse connection if the node was previously connected to another one
+            if (node.nextNode)
+            {
+                if (node.nextNode->x < node.x)
+                {
+                    if (node.nextNode->y < node.y)
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 3U);
+                    }
+                    else if (node.nextNode->y > node.y)
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 7U);
+                    }
+                    else
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 2U);
+                    }
+                }
+                else if (node.nextNode->x > node.x)
+                {
+                    if (node.nextNode->y < node.y)
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 1U);
+                    }
+                    else if (node.nextNode->y > node.y)
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 5U);
+                    }
+                    else
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 0U);
+                    }
+                }
+                else
+                {
+                    if (node.nextNode->y < node.y)
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 6U);
+                    }
+                    else
+                    {
+                        node.nextNode->prevNodes &= ~(1U << 4U);
+                    }
+                }
+            }
+
+            // Create the connection
+            node.nextNode = current;
+            current->prevNodes |= 1U << direction;
+        }
 
         // Queue the node if it is walkable
         if (walkableAndNotMineralLine(x, y))

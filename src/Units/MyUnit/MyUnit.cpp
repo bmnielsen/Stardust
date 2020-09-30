@@ -2,8 +2,10 @@
 #include "MyUnit.h"
 
 #include "UnitUtil.h"
+#include "Units.h"
 #include "Geo.h"
-#include "Map.h"
+
+#include "DebugFlag_UnitOrders.h"
 
 MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         : UnitImpl(unit)
@@ -15,7 +17,6 @@ MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         , gridNode(nullptr)
         , lastMoveFrame(0)
         , unstickUntil(-1)
-        , frameLastMoved(0)
 {
 }
 
@@ -29,7 +30,23 @@ void MyUnitImpl::update(BWAPI::Unit unit)
 {
     if (!unit || !unit->exists()) return;
 
-    if (unit->getPosition() != lastPosition) frameLastMoved = BWAPI::Broodwar->getFrameCount();
+    // If this unit has just gone on cooldown, add an upcoming attack on its target
+    if (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit ||
+        bwapiUnit->getOrder() == BWAPI::Orders::AttackUnit)
+    {
+        auto cooldown = std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown());
+        if (cooldown > 0 && cooldown > (cooldownUntil - BWAPI::Broodwar->getFrameCount() + 1))
+        {
+            auto target = Units::get(
+                    (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit)
+                    ? bwapiUnit->getLastCommand().getTarget()
+                    : bwapiUnit->getOrderTarget());
+            if (target)
+            {
+                target->addUpcomingAttack(Units::get(bwapiUnit));
+            }
+        }
+    }
 
     UnitImpl::update(unit);
 
@@ -38,6 +55,8 @@ void MyUnitImpl::update(BWAPI::Unit unit)
 
     // Guard against buildings having a deep training queue
     if (BWAPI::Broodwar->self()->supplyUsed() < 380 &&
+        unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Cancel_Train &&
+        unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Cancel_Train_Slot &&
         unit->getTrainingQueue().size() > 1 &&
         unit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))
     {
@@ -91,14 +110,15 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
     // We do this if there is a high likelihood we are moving backwards because of pathing issues
     bool forceAttackCommand = false;
     auto predictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+    if (!predictedPosition.isValid()) predictedPosition = lastPosition;
     if (bwapiUnit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 6))
     {
         forceAttackCommand = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, target->lastPosition) > dist;
     }
 
     // If the target is already in range, just attack it
-    int range = Players::weaponRange(player, getWeapon(target));
-    if (dist <= range)
+    int myRange = range(target);
+    if (dist <= myRange)
     {
         attack(target->bwapiUnit, forceAttackCommand);
         return;
@@ -106,15 +126,16 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
 
     // If the target is predicted to be in range shortly, attack it
     auto predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+    if (!predictedTargetPosition.isValid()) predictedTargetPosition = target->lastPosition;
     auto predictedDist = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, predictedTargetPosition);
-    if (predictedDist <= range)
+    if (predictedDist <= myRange)
     {
         attack(target->bwapiUnit, forceAttackCommand);
         return;
     }
 
     // If the target is stationary or is close and moving towards us, attack it
-    if (predictedTargetPosition == target->lastPosition || (predictedDist <= dist && predictedDist < std::min(range + 64, 128)))
+    if (predictedTargetPosition == target->lastPosition || (predictedDist <= dist && predictedDist < std::min(myRange + 64, 128)))
     {
         attack(target->bwapiUnit, forceAttackCommand);
         return;
@@ -123,6 +144,7 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
     // Plot an intercept course
     auto interceptPosition = intercept(target);
     if (!interceptPosition.isValid()) interceptPosition = target->predictPosition(5);
+    if (!interceptPosition.isValid()) interceptPosition = target->lastPosition;
     moveTo(interceptPosition);
 }
 

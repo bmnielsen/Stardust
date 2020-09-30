@@ -6,6 +6,8 @@
 #include "BuildingPlacement.h"
 #include "Map.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 namespace Builder
 {
     namespace
@@ -42,7 +44,7 @@ namespace Builder
 
             // Move towards the build position
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(building.builder->id) << "moveTo: Build location";
+            CherryVis::log(building.builder->id) << "moveTo: Build location " << BWAPI::WalkPosition(building.getPosition());
 #endif
             building.builder->moveTo(building.getPosition());
         }
@@ -136,8 +138,9 @@ namespace Builder
                     if (building.type == BWAPI::UnitTypes::Protoss_Nexus)
                     {
                         auto base = Map::baseNear(BWAPI::Position(building.tile));
-                        if (base)
+                        if (base && !base->blockedByEnemy)
                         {
+                            Log::Get() << "Base @ " << base->getTilePosition() << " is blocked by an enemy unit";
                             base->blockedByEnemy = true;
                         }
                     }

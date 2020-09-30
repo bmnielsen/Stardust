@@ -18,14 +18,16 @@ public:
         }
     }
 
-    void addUnit(MyUnit unit) override
+    void addUnit(const MyUnit &unit) override
     {
         units.insert(unit);
+        Play::addUnit(unit);
     }
 
-    void removeUnit(MyUnit unit) override
+    void removeUnit(const MyUnit &unit) override
     {
         units.erase(unit);
+        Play::removeUnit(unit);
     }
 
 protected:

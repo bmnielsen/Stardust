@@ -14,6 +14,7 @@
 #include "base.h"
 #include "BaseFinder.h"
 #include <map>
+#include <set>
 
 using namespace BWAPI;
 using namespace UnitTypes::Enum;

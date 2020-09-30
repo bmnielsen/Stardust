@@ -101,9 +101,6 @@ protected:
     // If we have sent a command to the unit to unstick it, when we should next send a normal command again.
     int unstickUntil;
 
-    // The frame when the unit last changed position
-    int frameLastMoved;
-
     void initiateMove();
 
     virtual void resetMoveData();

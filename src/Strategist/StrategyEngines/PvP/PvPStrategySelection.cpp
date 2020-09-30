@@ -33,11 +33,12 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
         int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
                         completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
 
-        // Transition immediately if we've discovered a different enemy strategy
+        // Transition immediately if we've discovered a different enemy strategy and have at least three completed dragoons
         if (newEnemyStrategy != ProtossStrategy::BlockScouting &&
             newEnemyStrategy != ProtossStrategy::ProxyRush &&
             newEnemyStrategy != ProtossStrategy::ZealotRush &&
-            newEnemyStrategy != ProtossStrategy::ZealotAllIn)
+            newEnemyStrategy != ProtossStrategy::ZealotAllIn &&
+            completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] > 2)
         {
             if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) <= unitCount) return true;
         }
@@ -53,6 +54,16 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
     auto isDTExpandFeasible = [&]()
     {
         if (ourStrategy != OurStrategy::DTExpand && BWAPI::Broodwar->getFrameCount() > 9000) return false;
+
+        // Make sure our main choke is easily defensible
+        auto choke = Map::getMyMainChoke();
+        if (!choke) return false;
+        if (Map::getMyMain() && Map::getMyNatural() &&
+            BWAPI::Broodwar->getGroundHeight(Map::getMyMain()->getTilePosition())
+            <= BWAPI::Broodwar->getGroundHeight(Map::getMyNatural()->getTilePosition()))
+        {
+            return false;
+        }
 
         return !(Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Forge) ||
                  Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Photon_Cannon) ||
@@ -72,7 +83,6 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                 switch (newEnemyStrategy)
                 {
                     case ProtossStrategy::Unknown:
-                    case ProtossStrategy::GasSteal:
                         return strategy;
                     case ProtossStrategy::ProxyRush:
                     case ProtossStrategy::ZealotRush:
@@ -192,9 +202,9 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
-                // Transition to mid-game when the enemy has done so
+                // Transition to mid-game when the enemy has done so or we are on two bases
                 // TODO: This is very vaguely defined
-                if (newEnemyStrategy == ProtossStrategy::MidGame)
+                if (newEnemyStrategy == ProtossStrategy::MidGame || Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
                 {
                     strategy = OurStrategy::MidGame;
                     continue;
@@ -210,7 +220,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     strategy = OurStrategy::Normal;
                     continue;
                 }
-                
+
                 // Transition to mid-game when we have taken our natural
                 auto natural = Map::getMyNatural();
                 if (!natural || natural->ownedSince != -1)

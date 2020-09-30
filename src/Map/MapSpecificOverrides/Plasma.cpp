@@ -6,6 +6,8 @@
 #include "UnitUtil.h"
 #include "StrategyEngines/MapSpecific/PlasmaStrategyEngine.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 namespace
 {
     BWAPI::Position getStartPosition(BWAPI::Unit patch, BWAPI::Unit otherPatch)
@@ -286,7 +288,7 @@ bool Plasma::clusterMove(UnitCluster &cluster, BWAPI::Position targetPosition)
         }
 
         // Attack if ready
-        int weaponRange = Players::weaponRange(myUnit->player, myUnit->type.groundWeapon());
+        int weaponRange = myUnit->groundRange();
         if (bestEgg->isVisible() &&
             bestDist <= weaponRange &&
             myUnit->cooldownUntil < (BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames() + 2))

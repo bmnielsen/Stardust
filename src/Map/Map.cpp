@@ -22,6 +22,7 @@ namespace Map
 
         std::vector<bool> tileWalkability;
         std::vector<int> tileUnwalkableProximity;
+        std::vector<BWAPI::Position> tileCollisionVector;
         bool tileWalkabilityUpdated;
 
         std::vector<bool> inOwnMineralLine;
@@ -159,7 +160,10 @@ namespace Map
             std::vector<std::pair<int, Base *>> scoredBases;
             for (auto base : bases)
             {
-                if (base->owner) continue;
+                // Skip bases that are already taken
+                // We consider any based owned by a different player than us to be taken
+                // We consider bases owned by us to be taken if the resource depot exists
+                if (base->owner && (player != BWAPI::Broodwar->self() || (base->resourceDepot && base->resourceDepot->exists()))) continue;
 
                 // Want to be close to our own base
                 int distanceFromUs = closestBaseDistance(base, myBases);
@@ -202,9 +206,24 @@ namespace Map
             }
         }
 
-        void setBaseOwner(Base *base, BWAPI::Player owner)
+        void setBaseOwner(Base *base, BWAPI::Player owner, Unit resourceDepot = nullptr)
         {
-            if (base->owner == owner) return;
+            auto setResourceDepot = [&]()
+            {
+                if (!resourceDepot) return;
+
+                base->resourceDepot = resourceDepot;
+                if (resourceDepot->player == BWAPI::Broodwar->self())
+                {
+                    resourceDepot->bwapiUnit->setRallyPoint(base->mineralLineCenter);
+                }
+            };
+
+            if (base->owner == owner)
+            {
+                setResourceDepot();
+                return;
+            }
 
             // If the base previously had an owner, remove it from their list of owned bases
             if (base->owner)
@@ -250,6 +269,7 @@ namespace Map
             base->owner = owner;
             base->ownedSince = BWAPI::Broodwar->getFrameCount();
             base->resourceDepot = nullptr;
+            setResourceDepot();
 
             // If the base has a new owner, add it to their list of owned bases
             if (owner)
@@ -324,32 +344,23 @@ namespace Map
                 }
 
                 // Is this unit a resource depot that is closer than the existing resource depot registered for this base?
-                bool isCloserDepot = false;
+                Unit depot = nullptr;
                 if (unit->type.isResourceDepot())
                 {
                     if (nearbyBase->resourceDepot && nearbyBase->resourceDepot->exists())
                     {
                         int existingDist = nearbyBase->resourceDepot->lastPosition.getApproxDistance(nearbyBase->getPosition());
                         int newDist = unit->lastPosition.getApproxDistance(nearbyBase->getPosition());
-                        isCloserDepot = newDist < existingDist;
+                        if (newDist < existingDist) depot = unit;
                     }
                     else
-                        isCloserDepot = true;
+                        depot = unit;
                 }
 
                 // If the base was previously unowned, or this is a closer depot, change the ownership
-                if (!nearbyBase->owner || isCloserDepot)
+                if (!nearbyBase->owner || depot)
                 {
-                    setBaseOwner(nearbyBase, unit->player);
-
-                    if (isCloserDepot)
-                    {
-                        nearbyBase->resourceDepot = unit;
-                        if (unit->player == BWAPI::Broodwar->self())
-                        {
-                            unit->bwapiUnit->setRallyPoint(nearbyBase->mineralLineCenter);
-                        }
-                    }
+                    setBaseOwner(nearbyBase, unit->player, depot);
                 }
             }
 
@@ -390,6 +401,27 @@ namespace Map
             }
         }
 
+        bool checkCreep(Base *base)
+        {
+            for (int x = -8; x <= 11; x++)
+            {
+                if (x == 0) x = 4;
+                for (int y = -5; y <= 7; y++)
+                {
+                    if (y == 0) y = 2;
+
+                    BWAPI::TilePosition tile = {base->getTilePosition().x + x, base->getTilePosition().y + y};
+                    if (!tile.isValid()) continue;
+                    if (BWAPI::Broodwar->hasCreep(tile))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         void validateBaseOwnership(Base *base, Unit recentlyDestroyedBuilding = nullptr)
         {
             if (!base->owner) return;
@@ -412,6 +444,10 @@ namespace Map
             }
             else
             {
+                // For the case where we are doing periodic re-evaluation, assume the base is still owned
+                // by the enemy if it has creep
+                if (!recentlyDestroyedBuilding && checkCreep(base)) return;
+
                 for (auto &unit : Units::allEnemy())
                 {
                     if (isNearbyBuilding(unit)) return;
@@ -435,27 +471,6 @@ namespace Map
 
             // Check if the destruction of the unit results in the base ownership changing
             validateBaseOwnership(nearbyBase, unit);
-        }
-
-        void checkCreep(Base *base)
-        {
-            for (int x = -8; x <= 11; x++)
-            {
-                if (x == 0) x = 4;
-                for (int y = -5; y <= 7; y++)
-                {
-                    if (y == 0) y = 2;
-
-                    BWAPI::TilePosition tile = {base->getTilePosition().x + x, base->getTilePosition().y + y};
-                    if (!tile.isValid()) continue;
-                    if (BWAPI::Broodwar->hasCreep(tile))
-                    {
-                        setBaseOwner(base, BWAPI::Broodwar->enemy());
-                        base->lastScouted = BWAPI::Broodwar->getFrameCount();
-                        return;
-                    }
-                }
-            }
         }
 
         // Writes the tile walkability grid to CherryVis
@@ -484,6 +499,28 @@ namespace Map
             }
 
             CherryVis::addHeatmap("TileUnwalkableProximity", tileUnwalkableProximityCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+
+            std::vector<long> tileCollisionVectorXCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            {
+                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                {
+                    tileCollisionVectorXCVis[x + y * BWAPI::Broodwar->mapWidth()] = tileCollisionVector[x + y * BWAPI::Broodwar->mapWidth()].x;
+                }
+            }
+
+            CherryVis::addHeatmap("TileCollisionVectorX", tileCollisionVectorXCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+
+            std::vector<long> tileCollisionVectorYCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            {
+                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                {
+                    tileCollisionVectorYCVis[x + y * BWAPI::Broodwar->mapWidth()] = tileCollisionVector[x + y * BWAPI::Broodwar->mapWidth()].y;
+                }
+            }
+
+            CherryVis::addHeatmap("TileCollisionVectorY", tileCollisionVectorYCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 #endif
         }
 
@@ -544,6 +581,45 @@ namespace Map
             tileUnwalkableProximity[tileX + tileY * BWAPI::Broodwar->mapWidth()] = result;
         }
 
+        void updateCollisionVectors(int tileX, int tileY, bool walkable)
+        {
+            auto updateTile = [&tileX, &tileY](int offsetX, int offsetY, int deltaX, int deltaY)
+            {
+                int x = tileX + offsetX;
+                if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) return;
+
+                int y = tileY + offsetY;
+                if (y < 0 || y >= BWAPI::Broodwar->mapHeight()) return;
+
+                auto &pos = tileCollisionVector[x + y * BWAPI::Broodwar->mapWidth()];
+                pos.x += deltaX;
+                pos.y += deltaY;
+            };
+
+            if (walkable)
+            {
+                updateTile(-1, -1, 10, 10);
+                updateTile(-1, 0, 14, 0);
+                updateTile(-1, 1, 10, -10);
+                updateTile(0, 1, 0, -14);
+                updateTile(1, 1, -10, -10);
+                updateTile(1, 0, -14, 0);
+                updateTile(1, -1, -10, 10);
+                updateTile(0, -1, 0, 14);
+            }
+            else
+            {
+                updateTile(-1, -1, -10, -10);
+                updateTile(-1, 0, -14, 0);
+                updateTile(-1, 1, -10, 10);
+                updateTile(0, 1, 0, 14);
+                updateTile(1, 1, 10, 10);
+                updateTile(1, 0, 14, 0);
+                updateTile(1, -1, 10, -10);
+                updateTile(0, -1, 0, -14);
+            }
+        }
+
         // Updates the tile walkability grid based on appearance or disappearance of a building, mineral field, etc.
         bool updateTileWalkability(BWAPI::TilePosition tile, BWAPI::TilePosition size, bool walkable)
         {
@@ -556,6 +632,7 @@ namespace Map
                     if (tileWalkability[(tile.x + x) + (tile.y + y) * BWAPI::Broodwar->mapWidth()] != walkable)
                     {
                         tileWalkability[(tile.x + x) + (tile.y + y) * BWAPI::Broodwar->mapWidth()] = walkable;
+                        updateCollisionVectors(tile.x + x, tile.y + y, walkable);
                         updated = true;
                     }
                 }
@@ -647,6 +724,7 @@ namespace Map
                             if (!BWAPI::Broodwar->isWalkable((tileX << 2U) + walkX, (tileY << 2U) + walkY))
                             {
                                 walkable = false;
+                                updateCollisionVectors(tileX, tileY, false);
                                 goto breakInnerLoop;
                             }
                         }
@@ -654,6 +732,18 @@ namespace Map
                     breakInnerLoop:
                     tileWalkability[tileX + tileY * BWAPI::Broodwar->mapWidth()] = walkable;
                 }
+            }
+
+            // For collision vectors, mark the edges of the map as unwalkable
+            for (int tileX = -1; tileX <= BWAPI::Broodwar->mapWidth(); tileX++)
+            {
+                updateCollisionVectors(tileX, -1, false);
+                updateCollisionVectors(tileX, BWAPI::Broodwar->mapHeight(), false);
+            }
+            for (int tileY = 0; tileY <= BWAPI::Broodwar->mapHeight(); tileY++)
+            {
+                updateCollisionVectors(-1, tileY, false);
+                updateCollisionVectors(BWAPI::Broodwar->mapWidth(), tileY, false);
             }
 
             // TODO: Consider map-specific overrides for maps with very narrow ramps, like Plasma
@@ -897,6 +987,8 @@ namespace Map
         myStartingMainAreas.clear();
         tileWalkability.clear();
         tileUnwalkableProximity.clear();
+        tileCollisionVector.clear();
+        tileCollisionVector.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), BWAPI::Position(0, 0));
         tileWalkabilityUpdated = false;
         inOwnMineralLine.clear();
         inOwnMineralLine.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
@@ -1132,9 +1224,12 @@ namespace Map
             else if (
                     (base->ownedSince == -1 || base->ownedSince < (BWAPI::Broodwar->getFrameCount() - 2500)) &&
                     BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran &&
-                    BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss)
+                    BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss &&
+                    checkCreep(base))
             {
-                checkCreep(base);
+                setBaseOwner(base, BWAPI::Broodwar->enemy());
+
+                // Don't set lastScouted as this refers to when the depot location was seen
             }
         }
 
@@ -1400,6 +1495,11 @@ namespace Map
     int unwalkableProximity(int x, int y)
     {
         return tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()];
+    }
+
+    BWAPI::Position collisionVector(int x, int y)
+    {
+        return tileCollisionVector[x + y * BWAPI::Broodwar->mapWidth()];
     }
 
     bool isInOwnMineralLine(BWAPI::TilePosition tile)

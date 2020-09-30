@@ -5,12 +5,14 @@
 #include "Builder.h"
 #include "Strategist.h"
 #include "Workers.h"
+#include "Players.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Plays/MainArmy/AttackEnemyMain.h"
 #include "Plays/MainArmy/MopUp.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
+#include "Plays/Scouting/EjectEnemyScout.h"
 
 namespace
 {
@@ -28,6 +30,7 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays)
 {
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
+    plays.emplace_back(std::make_shared<EjectEnemyScout>());
     plays.emplace_back(std::make_shared<DefendMyMain>());
 }
 
@@ -61,39 +64,66 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     if (mainArmyPlay)
     {
-        if (enemyStrategy == ZergStrategy::GasSteal)
+        if (hasEnemyStolenOurGas())
         {
             setMainPlay<DefendMyMain>(mainArmyPlay);
         }
         else
         {
+            auto transitionToAttack = [&](int requiredUnitCount, bool requireDragoon)
+            {
+                auto vanguardCluster = mainArmyPlay->getSquad()->vanguardCluster();
+                if (!vanguardCluster || !vanguardCluster->vanguard) return;
+
+                bool hasDragoon = false;
+                int count = 0;
+                for (const auto &unit : vanguardCluster->units)
+                {
+                    if (unit->getDistance(vanguardCluster->vanguard) < 200)
+                    {
+                        if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon) hasDragoon = true;
+                        count++;
+                    }
+                }
+
+                if (count >= requiredUnitCount && (!requireDragoon || hasDragoon))
+                {
+                    auto enemyMain = Map::getEnemyMain();
+                    if (enemyMain)
+                    {
+                        setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
+                    }
+                    else
+                    {
+                        setMainPlay<MopUp>(mainArmyPlay);
+                    }
+                }
+            };
+
             switch (ourStrategy)
             {
                 case OurStrategy::EarlyGameDefense:
                 case OurStrategy::AntiAllIn:
-                case OurStrategy::Defensive:
                     setMainPlay<DefendMyMain>(mainArmyPlay);
                     break;
                 case OurStrategy::FastExpansion:
+                {
+                    // For fast expands go on the attack as soon as we have three units
+                    if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                    {
+                        transitionToAttack(3, false);
+                    }
+
+                    break;
+                }
+                case OurStrategy::Defensive:
                 case OurStrategy::Normal:
                 case OurStrategy::MidGame:
                 {
-                    // Transition from a defend squad when the vanguard cluster has 3 units
+                    // For normal strategies go on the attack when we have at least four units, one of which is a dragoon
                     if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
                     {
-                        auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                        if (vanguard && vanguard->units.size() >= 3)
-                        {
-                            auto enemyMain = Map::getEnemyMain();
-                            if (enemyMain)
-                            {
-                                setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
-                            }
-                            else
-                            {
-                                setMainPlay<MopUp>(mainArmyPlay);
-                            }
-                        }
+                        transitionToAttack(4, true);
                     }
 
                     break;
@@ -116,9 +146,10 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         }
     }
 
-    UpdateDefendBasePlays(plays);
-
+    updateDefendBasePlays(plays);
+    updateAttackExpansionPlays(plays);
     defaultExpansions(plays);
+    scoutExpos(plays, 10000);
 }
 
 void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
@@ -141,6 +172,19 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     // Default to gather gas - we will only set to false later if we are being rushed
     setGasGathering(true);
 
+    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+    auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
+    auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
+
+    int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
+    int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+
+    int inProgressCount = Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot)
+                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon)
+                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dark_Templar);
+
+    handleGasStealProduction(prioritizedProductionGoals, zealotCount);
+
     // Main army production
     switch (ourStrategy)
     {
@@ -155,13 +199,6 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::AntiAllIn:
         {
-            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-            auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-            int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
-            int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
-
             // Get at least six zealots before dragoons, more if our choke is hard to defend
             int desiredZealots = 6;
             auto mainChoke = Map::getMyMainChoke();
@@ -171,7 +208,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             // Also bump up the number of zealots if the enemy has a lot of lings
-            desiredZealots = std::min(desiredZealots, 2 + Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 3);
+            desiredZealots = std::max(desiredZealots, 2 + Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 3);
 
             int zealotsRequired = desiredZealots - zealotCount;
 
@@ -220,12 +257,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             // Build a couple of zealots though if we have seen zerglings on the way and have nothing to defend with
             if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 0)
             {
-                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-                auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-                auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-                int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
-                                completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+                int unitCount = zealotCount + dragoonCount;
                 if (unitCount < 2)
                 {
                     prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -252,18 +284,14 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::Defensive:
         {
-            // Build at least four zealots then transition into dragoons
-            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-            auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-            int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
-                            completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
-            if (unitCount < 4)
+            // Scale our desired zealots based on enemy ling count, with a minimum of 3
+            int desiredZealots = std::max(3, 1 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) + 2) / 3);
+            int unitCount = zealotCount + dragoonCount;
+            if (unitCount < desiredZealots)
             {
                 prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
-                                                                              4 - unitCount,
+                                                                              desiredZealots - unitCount,
                                                                               2);
             }
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -283,12 +311,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::Normal:
         {
             // Build at least three zealots then transition into dragoons
-            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-            auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-            int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
-                            completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+            int unitCount = zealotCount + dragoonCount;
             if (unitCount < 3)
             {
                 prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -313,36 +336,22 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // TODO: Higher-tech units
 
+            int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
+
             // Keep some zealots in the mix if the opponent has a lot of lings
             int requiredZealots = 0;
             if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 6)
             {
-                requiredZealots = std::min(10, Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 2);
-
-                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-                auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
-                auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
-
-                requiredZealots -= completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
+                requiredZealots = std::min(10, Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 2) - zealotCount;
             }
 
             if (requiredZealots > 0)
             {
-                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                           BWAPI::UnitTypes::Protoss_Zealot,
-                                                                           requiredZealots,
-                                                                           -1);
+                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, requiredZealots, higherPriorityCount);
             }
 
-            // Otherwise our default is to produce dragoons
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       -1,
-                                                                       -1);
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Zealot,
-                                                                       -1,
-                                                                       -1);
+            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
+            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
 
             handleUpgrades(prioritizedProductionGoals);
 
@@ -354,22 +363,9 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                  std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    // Hop out if the natural has already been (or is being) taken
+    // Hop out if the natural has already been taken
     auto natural = Map::getMyNatural();
     if (!natural || natural->ownedSince != -1) return;
-    if (Builder::isPendingHere(natural->getTilePosition())) return;
-
-    auto takeNatural = [&]()
-    {
-        auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(natural->getTilePosition()),
-                                                              BuildingPlacement::builderFrames(BuildingPlacement::Neighbourhood::MainBase,
-                                                                                               natural->getTilePosition(),
-                                                                                               BWAPI::UnitTypes::Protoss_Nexus),
-                                                              0, 0);
-        prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                 BWAPI::UnitTypes::Protoss_Nexus,
-                                                                 buildLocation);
-    };
 
     // If we have a backdoor natural, expand when our third goon is being produced or we have lots of money
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
@@ -377,7 +373,7 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         if (BWAPI::Broodwar->self()->minerals() > 450 ||
             Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon) > 2)
         {
-            takeNatural();
+            takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
     }
@@ -391,8 +387,8 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             break;
 
         case OurStrategy::FastExpansion:
-            takeNatural();
-            break;
+            takeNaturalExpansion(plays, prioritizedProductionGoals);
+            return;
 
         case OurStrategy::Normal:
         case OurStrategy::MidGame:
@@ -401,18 +397,18 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // that is close to the enemy base
 
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return;
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) break;
 
             auto squad = mainArmyPlay->getSquad();
-            if (!squad || squad->getUnits().size() < 5) return;
+            if (!squad || squad->getUnits().size() < 5) break;
 
             int dist;
             auto vanguardCluster = squad->vanguardCluster(&dist);
-            if (!vanguardCluster) return;
+            if (!vanguardCluster) break;
 
             // Cluster should be at least 2/3 of the way to the target base
             int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
-            if (dist * 2 > distToMain) return;
+            if (dist * 2 > distToMain) break;
 
             // Cluster should not be moving or fleeing
             // In other words, we want the cluster to be in some kind of stable attack or contain state
@@ -420,13 +416,16 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
                     && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
             {
+                // We don't cancel a queued expansion in this case
                 return;
             }
 
-            takeNatural();
-            break;
+            takeNaturalExpansion(plays, prioritizedProductionGoals);
+            return;
         }
     }
+
+    cancelNaturalExpansion(plays, prioritizedProductionGoals);
 }
 
 void PvZ::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
@@ -456,9 +455,12 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    // TODO: Use scouting information
-
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1)
+    // Build an observer when we are on two gas or the enemy has lurker tech
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
+        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && BWAPI::Broodwar->getFrameCount() > 10000) ||
+        Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker_Egg) ||
+        Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker) ||
+        Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Lurker_Aspect))
     {
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                  BWAPI::UnitTypes::Protoss_Observer,

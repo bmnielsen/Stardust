@@ -1,6 +1,6 @@
 #include "PathFinding.h"
 
-#include "Map.h"
+#include "Geo.h"
 
 #if INSTRUMENTATION_ENABLED
 #define OUTPUT_SEARCH_TIMING false
@@ -9,24 +9,29 @@
 namespace
 {
     std::vector<BWAPI::TilePosition> parents;
+    int nextID;
 
     struct PathNode
     {
         PathNode(BWAPI::TilePosition tile, int dist, int estimatedCost)
                 : tile(tile)
                 , dist(dist)
-                , estimatedCost(estimatedCost) {}
+                , estimatedCost(estimatedCost)
+        {
+            id = nextID++;
+        }
 
         BWAPI::TilePosition tile;
         int dist;
         int estimatedCost;
+        int id;
     };
 
     struct PathNodeComparator
     {
         bool operator()(PathNode &a, PathNode &b) const
         {
-            return a.estimatedCost > b.estimatedCost;
+            return a.estimatedCost > b.estimatedCost || (a.estimatedCost == b.estimatedCost && a.id < b.id);
         }
     };
 }
@@ -55,9 +60,18 @@ namespace PathFinding
         };
 #endif
 
+        // Estimated distance using diagonal moves
+        auto distToEnd = [&end](BWAPI::TilePosition tile)
+        {
+            int diff1 = std::abs(tile.x - end.x);
+            int diff2 = std::abs(tile.y - end.y);
+            if (diff1 > diff2) std::swap(diff1, diff2);
+            return diff2 * 10 + diff1 * 4;
+        };
+
         auto tileValid = [&tileValidator](BWAPI::TilePosition tile)
         {
-            return Map::isWalkable(tile) && (!tileValidator || tileValidator(tile));
+            return !tileValidator || tileValidator(tile);
         };
 
         std::priority_queue<PathNode, std::vector<PathNode>, PathNodeComparator> nodeQueue;
@@ -76,12 +90,13 @@ namespace PathFinding
                 return;
             }
 
-            int newDist = node.dist + (diagonal ? 45 : 32);
-            nodeQueue.emplace(tile, newDist, newDist + BWAPI::Position(tile).getApproxDistance(BWAPI::Position(end)));
+            int newDist = node.dist + (diagonal ? 14 : 10);
+            nodeQueue.emplace(tile, newDist, newDist + distToEnd(tile));
             parents[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = node.tile;
         };
 
-        nodeQueue.emplace(start, 0, BWAPI::Position(start).getApproxDistance(BWAPI::Position(end)));
+        nextID = 0;
+        nodeQueue.emplace(start, 0, distToEnd(start));
         parents[start.x + start.y * BWAPI::Broodwar->mapWidth()] = BWAPI::TilePositions::Invalid;
         while (!nodeQueue.empty())
         {
@@ -116,11 +131,10 @@ namespace PathFinding
             visit(current, BWAPI::TilePosition(0, 1));
             visit(current, BWAPI::TilePosition(-1, 0));
             visit(current, BWAPI::TilePosition(0, -1));
-            // Diagonals are currently causing problems, maybe because of poor distance estimates, so disabled for now
-//            visit(current, BWAPI::TilePosition(1, 1), true);
-//            visit(current, BWAPI::TilePosition(-1, 1), true);
-//            visit(current, BWAPI::TilePosition(-1, 1), true);
-//            visit(current, BWAPI::TilePosition(-1, -1), true);
+            visit(current, BWAPI::TilePosition(1, 1), true);
+            visit(current, BWAPI::TilePosition(-1, 1), true);
+            visit(current, BWAPI::TilePosition(-1, -1), true);
+            visit(current, BWAPI::TilePosition(1, -1), true);
         }
 
 #if OUTPUT_SEARCH_TIMING

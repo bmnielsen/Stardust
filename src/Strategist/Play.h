@@ -7,9 +7,11 @@
 #define PRIORITY_EMERGENCY 1
 #define PRIORITY_WORKERS 2
 #define PRIORITY_DEPOTS 3
-#define PRIORITY_BASEDEFENSE 4
-#define PRIORITY_NORMAL 5
-#define PRIORITY_MAINARMY 6
+#define PRIORITY_BASEDEFENSE 4              // Generally early-game defenders
+#define PRIORITY_MAINARMYBASEPRODUCTION 5   // What we consider to be the minimum allowable production for our main army
+#define PRIORITY_NORMAL 6
+#define PRIORITY_MAINARMY 7
+#define PRIORITY_LOWEST 8
 
 class Play;
 
@@ -18,8 +20,19 @@ struct PlayUnitRequirement
     int count;
     BWAPI::UnitType type;
     BWAPI::Position position;
+    bool allowFromVanguardCluster;
+    const std::function<bool(const NavigationGrid::GridNode &gridNode)> gridNodePredicate;
 
-    PlayUnitRequirement(int count, BWAPI::UnitType type, BWAPI::Position position) : count(count), type(type), position(position) {}
+    PlayUnitRequirement(int count,
+                        BWAPI::UnitType type,
+                        BWAPI::Position position,
+                        const std::function<bool(const NavigationGrid::GridNode &gridNode)> gridNodePredicate = nullptr,
+                        bool allowFromVanguardCluster = true)
+            : count(count)
+            , type(type)
+            , position(position)
+            , allowFromVanguardCluster(allowFromVanguardCluster)
+            , gridNodePredicate(std::move(gridNodePredicate)) {}
 };
 
 struct PlayStatus
@@ -48,10 +61,10 @@ public:
     virtual std::shared_ptr<Squad> getSquad() { return nullptr; }
 
     // Add a unit to the play. By default, this adds it to the play's squad, if it has one.
-    virtual void addUnit(MyUnit unit);
+    virtual void addUnit(const MyUnit &unit);
 
     // Remove a unit from the play. By default, this removes it from the play's squad, if it has one.
-    virtual void removeUnit(MyUnit unit);
+    virtual void removeUnit(const MyUnit &unit);
 
     // Runs at the start of the Strategist's frame and updates the play status.
     virtual void update() {}
@@ -65,6 +78,6 @@ public:
     // Called when a play is being disbanded (either removed completely or transitioned to a different play).
     // It is the play's responsibility to call either removedUnitCallback or movableUnitCallback for all units that have been assigned
     // to it via addUnit (and not removed earlier through status.removedUnits).
-    virtual void disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
-                         const std::function<void(const MyUnit&)> &movableUnitCallback);
+    virtual void disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
+                         const std::function<void(const MyUnit &)> &movableUnitCallback);
 };

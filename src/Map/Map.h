@@ -83,6 +83,8 @@ namespace Map
 
     int unwalkableProximity(int x, int y);
 
+    BWAPI::Position collisionVector(int x, int y);
+
     bool isInOwnMineralLine(BWAPI::TilePosition tile);
 
     bool isInOwnMineralLine(int x, int y);

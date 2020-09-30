@@ -6,7 +6,6 @@
 
 std::map<PvP::ProtossStrategy, std::string> PvP::ProtossStrategyNames = {
         {ProtossStrategy::Unknown,         "Unknown"},
-        {ProtossStrategy::GasSteal,        "GasSteal"},
         {ProtossStrategy::ProxyRush,       "ProxyRush"},
         {ProtossStrategy::ZealotRush,      "ZealotRush"},
         {ProtossStrategy::EarlyForge,      "EarlyForge"},
@@ -52,19 +51,6 @@ namespace
         return secondTimings.size() < secondCount || firstTimings[firstCount - 1].first <= secondTimings[secondCount - 1].first;
     }
 
-    bool isGasSteal()
-    {
-        for (const Unit &unit : Units::allEnemyOfType(BWAPI::Broodwar->enemy()->getRace().getRefinery()))
-        {
-            if (!unit->lastPositionValid) continue;
-            if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) != Map::getMyMain()->getArea()) continue;
-
-            return true;
-        }
-
-        return false;
-    }
-
     bool isFastExpansion()
     {
         return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Nexus, 6000, 2);
@@ -85,34 +71,7 @@ namespace
         if (isFastExpansion()) return false;
         if (BWAPI::Broodwar->getFrameCount() >= 5000) return false;
 
-        // If the enemy main has been scouted, determine if there is a proxy by looking at what they have built
-        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
-            Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
-        {
-            // Expect first pylon by frame 1300
-            if (BWAPI::Broodwar->getFrameCount() > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
-
-            // Expect first gateway or forge by frame 2200
-            if (BWAPI::Broodwar->getFrameCount() > 2200
-                && !countAtLeast(BWAPI::UnitTypes::Protoss_Gateway, 1)
-                && !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1))
-            {
-                return true;
-            }
-
-            // If the enemy hasn't built a forge, expect a second pylon by frame 4000 if we still have a live scout
-            if (BWAPI::Broodwar->getFrameCount() > 4000 &&
-                Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted &&
-                !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1) &&
-                !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 2))
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        // Otherwise check if we have directly scouted an enemy building in a proxy location
+        // Check if we have directly scouted an enemy building in a proxy location
         auto enemyMain = Map::getEnemyStartingMain();
         auto enemyNatural = Map::getEnemyStartingNatural();
         for (const auto &enemyUnit : Units::allEnemy())
@@ -149,6 +108,33 @@ namespace
             }
 
             return true;
+        }
+
+        // If the enemy main has been scouted, determine if there is a proxy by looking at what they have built
+        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
+            Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
+        {
+            // Expect first pylon by frame 1300
+            if (BWAPI::Broodwar->getFrameCount() > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
+
+            // Expect first gateway or forge by frame 2200
+            if (BWAPI::Broodwar->getFrameCount() > 2200
+                && !countAtLeast(BWAPI::UnitTypes::Protoss_Gateway, 1)
+                && !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1))
+            {
+                return true;
+            }
+
+            // If the enemy hasn't built a forge, expect a second pylon by frame 4000 if we still have a live scout
+            if (BWAPI::Broodwar->getFrameCount() > 4000 &&
+                Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted &&
+                !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1) &&
+                !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 2))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         return false;
@@ -190,31 +176,31 @@ namespace
         // Otherwise work off of goon timings
         if (BWAPI::Broodwar->getFrameCount() < 7000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 6);
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 7);
         }
         if (BWAPI::Broodwar->getFrameCount() < 8000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 6) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8000, 10);
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 7) ||
+                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7600, 10);
         }
         if (BWAPI::Broodwar->getFrameCount() < 9000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8000, 10) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 14);
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7600, 10) ||
+                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8700, 14);
         }
         if (BWAPI::Broodwar->getFrameCount() < 10000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 14) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10000, 18);
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8700, 14) ||
+                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9800, 18);
         }
         if (BWAPI::Broodwar->getFrameCount() < 11000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10000, 18) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 11000, 22);
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9800, 18) ||
+                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10900, 22);
         }
         if (BWAPI::Broodwar->getFrameCount() < 12000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 11000, 22) ||
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10900, 22) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 12000, 26);
         }
 
@@ -276,7 +262,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
         {
             case ProtossStrategy::Unknown:
                 if (isZealotRush()) return ProtossStrategy::ZealotRush;
-                if (isGasSteal()) return ProtossStrategy::GasSteal;
                 if (isProxy()) return ProtossStrategy::ProxyRush;
 
                 // If the enemy blocks our scouting, set their strategy accordingly
@@ -318,13 +303,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 }
 
                 break;
-            case ProtossStrategy::GasSteal:
-                if (!isGasSteal())
-                {
-                    strategy = ProtossStrategy::Unknown;
-                    continue;
-                }
-                break;
             case ProtossStrategy::ProxyRush:
                 // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their nexus
                 if (!isProxy())
@@ -346,8 +324,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
 
                 break;
             case ProtossStrategy::EarlyForge:
-                if (isGasSteal()) return ProtossStrategy::GasSteal;
-
                 // The expected transition from here is into turtle or fast expansion, but detect others if the forge was a fake-out
                 if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
                 if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
@@ -382,7 +358,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 // We might detect a zealot rush late on large maps or if scouting is denied
                 if (isZealotRush()) return ProtossStrategy::ZealotRush;
 
-                if (isGasSteal()) return ProtossStrategy::GasSteal;
                 if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
                 if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
                 if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
@@ -408,7 +383,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 break;
             case ProtossStrategy::OneGateCore:
             case ProtossStrategy::FastExpansion:
-                if (isGasSteal()) return ProtossStrategy::GasSteal;
                 if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
                 if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
                 if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
@@ -434,7 +408,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 break;
             case ProtossStrategy::BlockScouting:
                 // An enemy that blocks our scouting could be doing anything, but we suspect some kind of rush or all-in
-                if (isGasSteal()) return ProtossStrategy::GasSteal;
                 if (isProxy()) return ProtossStrategy::ProxyRush; // If we see a proxy building somewhere
                 if (isZealotRush()) return ProtossStrategy::ZealotRush;
                 if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
@@ -449,8 +422,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
 
                 break;
             case ProtossStrategy::ZealotAllIn:
-                if (isGasSteal()) return ProtossStrategy::GasSteal;
-
                 // Enemy might transition from early zealot pressure into dark templar
                 if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
 
@@ -468,7 +439,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
 
                 break;
             case ProtossStrategy::DragoonAllIn:
-                if (isGasSteal()) return ProtossStrategy::GasSteal;
                 if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
 
                 if (!isDragoonAllIn() && isEarlyRobo())
@@ -485,7 +455,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
 
                 break;
             case ProtossStrategy::Turtle:
-                if (isGasSteal()) return ProtossStrategy::GasSteal;
                 if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
                 if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
                 if (isProxy()) return ProtossStrategy::ProxyRush;
@@ -505,7 +474,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
 
                 break;
             case ProtossStrategy::EarlyRobo:
-                if (isGasSteal()) return ProtossStrategy::GasSteal;
                 if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
                 if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
                 if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
@@ -518,8 +486,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
 
                 break;
             case ProtossStrategy::DarkTemplarRush:
-                if (isGasSteal()) return ProtossStrategy::GasSteal;
-
                 if (!isDarkTemplarRush())
                 {
                     strategy = ProtossStrategy::OneGateCore;
@@ -534,8 +500,6 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
 
                 break;
             case ProtossStrategy::MidGame:
-                if (isGasSteal()) return ProtossStrategy::GasSteal;
-
                 break;
         }
 

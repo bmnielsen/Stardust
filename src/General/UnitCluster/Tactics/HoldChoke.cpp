@@ -6,6 +6,8 @@
 #include "Geo.h"
 #include "UnitUtil.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 /*
  * Holds a choke.
  *
@@ -27,24 +29,9 @@ void UnitCluster::holdChoke(Choke *choke,
 {
     // Basic idea:
     // - Melee units hold the line at the choke end
-    // - Ranged units keep in range of a point further inside the choke
+    // - Ranged units keep in range of the choke end
 
     BWAPI::Position farEnd = choke->end1Center == defendEnd ? choke->end2Center : choke->end1Center;
-
-    BWAPI::Position rangedTarget;
-    {
-        BWAPI::Position aheadOfEnd = defendEnd - Geo::ScaleVector(defendEnd - choke->center, 64);
-        BWAPI::Position aheadOfCenter = choke->center - Geo::ScaleVector(choke->center - farEnd, 32);
-        if (center.getApproxDistance(aheadOfEnd) < center.getApproxDistance(aheadOfCenter))
-        {
-            rangedTarget = aheadOfEnd;
-        }
-        else
-        {
-            rangedTarget = aheadOfCenter;
-        }
-    }
-
     int centerDist = choke->center.getApproxDistance(defendEnd);
     int meleeDist = std::max(choke->width / 2, centerDist);
 
@@ -64,7 +51,7 @@ void UnitCluster::holdChoke(Choke *choke,
 
         // If the target is close enough to the defend end, attack with all units
         if (target->getDistance(defendEnd) <= std::max(choke->width / 2,
-                                                       std::min(Players::weaponRange(myUnit->player, myUnit->type.groundWeapon()), centerDist)))
+                                                       std::min(myUnit->groundRange(), centerDist)))
         {
             meleeShouldAttack = true;
             rangedShouldAttack = true;
@@ -73,6 +60,7 @@ void UnitCluster::holdChoke(Choke *choke,
 
         // If the target is about to be in our weapon range, attack with ranged or all units
         auto predictedTargetPos = unitAndTarget.second->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        if (!predictedTargetPos.isValid()) predictedTargetPos = unitAndTarget.second->lastPosition;
         if (!myUnit->isInOurWeaponRange(target, predictedTargetPos)) continue;
         if (UnitUtil::IsRangedUnit(myUnit->type))
         {
@@ -160,17 +148,25 @@ void UnitCluster::holdChoke(Choke *choke,
 
         if (UnitUtil::IsRangedUnit(myUnit->type))
         {
-            int targetDist = myUnit->getDistance(rangedTarget);
-            if (targetDist < defendEndDist)
+            int targetDist = myUnit->getDistance(defendEnd);
+            int distToCenter = myUnit->getDistance(choke->center);
+            if (distToCenter < targetDist)
             {
-                // Unit is on the wrong side of the choke
+                // Unit is on wrong side of the defend end, closer to choke center
                 targetPos = defendEnd;
-                distDiff = defendEndDist;
+                distDiff = targetDist;
+            }
+            else if (distToCenter < centerDist)
+            {
+                // Unit is on wrong side of the defend end, closer to defend end
+                targetPos = choke->center;
+                distDiff = -targetDist - myUnit->groundRange();
             }
             else
             {
-                targetPos = rangedTarget;
-                distDiff = targetDist - Players::weaponRange(myUnit->player, myUnit->type.groundWeapon());
+                // Normal defend boid
+                targetPos = defendEnd;
+                distDiff = targetDist - myUnit->groundRange();
             }
         }
         else
@@ -186,7 +182,7 @@ void UnitCluster::holdChoke(Choke *choke,
                 // Unit is in its target's attack range
                 targetPos = unitAndTarget.second->lastPosition;
                 distDiff = myUnit->getDistance(unitAndTarget.second)
-                           - Players::weaponRange(unitAndTarget.second->player, unitAndTarget.second->type.groundWeapon())
+                           - unitAndTarget.second->groundRange()
                            - 32;
             }
             else
@@ -196,10 +192,10 @@ void UnitCluster::holdChoke(Choke *choke,
             }
         }
 
-        unitsAndMoveTargets.emplace_back(std::make_tuple(myUnit,
-                                                         myUnit->predictPosition(BWAPI::Broodwar->getLatencyFrames()),
-                                                         distDiff,
-                                                         targetPos));
+        auto predictedPosition = myUnit->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        if (!predictedPosition.isValid()) predictedPosition = myUnit->lastPosition;
+
+        unitsAndMoveTargets.emplace_back(std::make_tuple(myUnit, predictedPosition, distDiff, targetPos));
     }
 
     // Now execute move orders
@@ -219,11 +215,18 @@ void UnitCluster::holdChoke(Choke *choke,
             BWAPI::Position scaled;
             if (distDiff > 0)
             {
-                auto node = navigationGrid ? &(*navigationGrid)[myUnit->getTilePosition()] : nullptr;
-                auto nextNode = node ? node->nextNode : nullptr;
+                // Use the grid node to get to the choke center
+                NavigationGrid::GridNode *currentNode = nullptr;
+                NavigationGrid::GridNode *nextNode = nullptr;
+                if (targetPos == choke->center)
+                {
+                    currentNode = navigationGrid ? &(*navigationGrid)[myUnit->getTilePosition()] : nullptr;
+                    nextNode = currentNode ? currentNode->nextNode : nullptr;
+                }
+
                 if (nextNode)
                 {
-                    scaled = Geo::ScaleVector(nextNode->center() - node->center(), std::min(goalWeight, distDiff));
+                    scaled = Geo::ScaleVector(nextNode->center() - currentNode->center(), std::min(goalWeight, distDiff));
                 }
                 else
                 {
@@ -307,16 +310,10 @@ void UnitCluster::holdChoke(Choke *choke,
 
         // Find a walkable position along the vector
         auto totalVector = BWAPI::Position(totalX, totalY);
-        int dist = Geo::ApproximateDistance(0, totalX, 0, totalY) - 16;
-        auto pos = myUnit->lastPosition + totalVector;
-        while (dist > 10 && (!pos.isValid() || !BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos))))
-        {
-            pos = myUnit->lastPosition + Geo::ScaleVector(totalVector, dist);
-            dist -= 16;
-        }
+        auto pos = Geo::WalkablePositionAlongVector(myUnit->lastPosition, totalVector);
 
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(myUnit->id) << "HoldChoke boids towards " << BWAPI::WalkPosition(rangedTarget)
+        CherryVis::log(myUnit->id) << "HoldChoke boids towards " << BWAPI::WalkPosition(defendEnd)
                                    << "; distDiff=" << distDiff
                                    << ": goal=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX, goalY))
                                    << "; separation=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(separationX, separationY))

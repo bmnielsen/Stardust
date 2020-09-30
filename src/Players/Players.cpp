@@ -107,7 +107,7 @@ namespace Players
             }
         }
 
-        return std::max(128, damage);
+        return std::min(128, damage);
     }
 
     bool hasResearched(BWAPI::Player player, BWAPI::TechType type)
@@ -118,5 +118,10 @@ namespace Players
     int upgradeLevel(BWAPI::Player player, BWAPI::UpgradeType type)
     {
         return getUpgradeTracker(player)->upgradeLevel(type);
+    }
+
+    void setWeaponRange(BWAPI::Player player, BWAPI::WeaponType wpn, int range)
+    {
+        getUpgradeTracker(player)->setWeaponRange(wpn, range, grid(player));
     }
 }

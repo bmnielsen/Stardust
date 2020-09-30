@@ -91,7 +91,7 @@ namespace Strategist
                 {
                     typeToReassignableUnits[unit->type].emplace_back(unit);
                 }
-                else if (playIt->second->receivesUnassignedUnits())
+                else
                 {
                     typeToReassignableUnits[unit->type].emplace_back(unit, playIt->second);
                 }
@@ -105,7 +105,28 @@ namespace Strategist
             std::shared_ptr<Play> playReceivingUnassignedUnits = nullptr;
             for (auto &play : plays)
             {
-                if (play->receivesUnassignedUnits()) playReceivingUnassignedUnits = play;
+                if (play->receivesUnassignedUnits())
+                {
+                    playReceivingUnassignedUnits = play;
+                }
+
+                // Remove reassignable units already belonging to this play
+                // This also makes them unavailable to later (lower-priority) plays
+                // TODO: Need to figure out how to allow the scout squad to take a detector from the main army squad when it doesn't need it
+                for (auto &typeAndReassignableUnits : typeToReassignableUnits)
+                {
+                    for (auto it = typeAndReassignableUnits.second.begin(); it != typeAndReassignableUnits.second.end();)
+                    {
+                        if (it->currentPlay == play)
+                        {
+                            it = typeAndReassignableUnits.second.erase(it);
+                        }
+                        else
+                        {
+                            it++;
+                        }
+                    }
+                }
 
                 for (auto &unitRequirement : play->status.unitRequirements)
                 {
@@ -127,15 +148,36 @@ namespace Strategist
                     // Pick the unit(s) with the lowest distance
                     std::sort(reassignableUnits.begin(), reassignableUnits.end(), ReassignableUnit::cmp);
                     for (auto it = reassignableUnits.begin();
-                         it != reassignableUnits.end() && unitRequirement.count > 0;
-                         it = reassignableUnits.erase(it))
+                         it != reassignableUnits.end() && unitRequirement.count > 0;)
                     {
-                        if (it->currentPlay == play) continue;
+                        if (!unitRequirement.allowFromVanguardCluster && it->currentPlay && it->currentPlay->getSquad()
+                            && it->currentPlay->getSquad()->isInVanguardCluster(it->unit))
+                        {
+                            it++;
+                            continue;
+                        }
+                        if (unitRequirement.gridNodePredicate &&
+                            !PathFinding::checkGridPath(it->unit->getTilePosition(),
+                                                        BWAPI::TilePosition(unitRequirement.position),
+                                                        unitRequirement.gridNodePredicate))
+                        {
+                            it++;
+                            continue;
+                        }
 
-                        if (it->currentPlay != nullptr) it->currentPlay->removeUnit(it->unit);
-                        play->addUnit(it->unit);
+                        if (it->currentPlay != nullptr)
+                        {
+                            it->currentPlay->removeUnit(it->unit);
+                            CherryVis::log(it->unit->id) << "Removed from play: " << it->currentPlay->label;
+                        }
+
                         unitToPlay[it->unit] = play;
+                        play->addUnit(it->unit);
+                        CherryVis::log(it->unit->id) << "Added to play: " << play->label;
+
                         unitRequirement.count--;
+
+                        it = reassignableUnits.erase(it);
                     }
 
                     // "Reserve" incomplete units if possible
@@ -156,10 +198,16 @@ namespace Strategist
                 {
                     for (auto &reassignableUnit : typeAndReassignableUnits.second)
                     {
-                        if (reassignableUnit.currentPlay != nullptr) continue;
+                        if (reassignableUnit.currentPlay != nullptr)
+                        {
+                            Log::Get() << "WARNING: Unit assigned to unknown play: " << *reassignableUnit.unit
+                                       << " in " << reassignableUnit.currentPlay->label;
+                            continue;
+                        }
 
-                        playReceivingUnassignedUnits->addUnit(reassignableUnit.unit);
                         unitToPlay[reassignableUnit.unit] = playReceivingUnassignedUnits;
+                        playReceivingUnassignedUnits->addUnit(reassignableUnit.unit);
+                        CherryVis::log(reassignableUnit.unit->id) << "Added to play: " << playReceivingUnassignedUnits->label;
                     }
                 }
                 for (const auto &typeAndIncompleteUnits : typeToIncompleteUnits)
@@ -401,6 +449,7 @@ namespace Strategist
             {
                 (*it)->removeUnit(unit);
                 unitToPlay.erase(unit);
+                CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
             };
 
             // Update our unit map for units released from the play
@@ -415,8 +464,10 @@ namespace Strategist
             {
                 auto moveUnit = [&](const MyUnit &unit)
                 {
-                    (*it)->status.transitionTo->addUnit(unit);
                     unitToPlay[unit] = (*it)->status.transitionTo;
+                    (*it)->status.transitionTo->addUnit(unit);
+                    CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
+                    CherryVis::log(unit->id) << "Added to play: " << (*it)->status.transitionTo->label;
                 };
 
                 (*it)->disband(removeUnit, moveUnit);

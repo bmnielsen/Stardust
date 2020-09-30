@@ -35,6 +35,11 @@ public:
             return data[pos.x + pos.y * maxX];
         }
 
+        long at(int walkX, int walkY) const
+        {
+            return data[walkX + walkY * maxX];
+        }
+
         void add(BWAPI::UnitType type, int range, BWAPI::Position position, int delta);
     };
 
@@ -63,21 +68,31 @@ public:
 
     long collision(BWAPI::WalkPosition position) const { return _collision[position]; };
 
+    long collision(int walkX, int walkY) const { return _collision.at(walkX, walkY); };
+
     long groundThreat(BWAPI::Position position) const { return _groundThreat[position]; };
 
     long groundThreat(BWAPI::WalkPosition position) const { return _groundThreat[position]; };
+
+    long groundThreat(int walkX, int walkY) const { return _groundThreat.at(walkX, walkY); };
 
     long staticGroundThreat(BWAPI::Position position) const { return _staticGroundThreat[position]; };
 
     long staticGroundThreat(BWAPI::WalkPosition position) const { return _staticGroundThreat[position]; };
 
+    long staticGroundThreat(int walkX, int walkY) const { return _staticGroundThreat.at(walkX, walkY); };
+
     long airThreat(BWAPI::Position position) const { return _airThreat[position]; };
 
     long airThreat(BWAPI::WalkPosition position) const { return _airThreat[position]; };
 
+    long airThreat(int walkX, int walkY) const { return _airThreat.at(walkX, walkY); };
+
     long detection(BWAPI::Position position) const { return _detection[position]; };
 
     long detection(BWAPI::WalkPosition position) const { return _detection[position]; };
+
+    long detection(int walkX, int walkY) const { return _detection.at(walkX, walkY); };
 
     void dumpCollisionHeatmapIfChanged(const std::string &heatmapName) const { dumpHeatmapIfChanged(heatmapName, _collision); };
 

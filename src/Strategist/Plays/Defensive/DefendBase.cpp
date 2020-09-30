@@ -98,9 +98,28 @@ void DefendBase::update()
                    ? unit->lastPosition.getApproxDistance(base->getPosition())
                    : PathFinding::GetGroundDistance(unit->lastPosition, base->getPosition(), unit->type);
         if (dist == -1 || dist > 1000) continue;
+
+        // Skip this unit if it is closer to another one of our bases
+        bool closerToOtherBase = false;
+        for (auto &otherBase : Map::getMyBases())
+        {
+            if (otherBase == base) continue;
+            int otherBaseDist = unit->isFlying
+                                ? unit->lastPosition.getApproxDistance(otherBase->getPosition())
+                                : PathFinding::GetGroundDistance(unit->lastPosition, otherBase->getPosition(), unit->type);
+            if (otherBaseDist < dist)
+            {
+                closerToOtherBase = true;
+                break;
+            }
+        }
+        if (closerToOtherBase) continue;
+
         if (dist > 500)
         {
             auto predictedPosition = unit->predictPosition(5);
+            if (!predictedPosition.isValid()) continue;
+
             int predictedDist = unit->isFlying
                                 ? predictedPosition.getApproxDistance(base->getPosition())
                                 : PathFinding::GetGroundDistance(predictedPosition, base->getPosition(), unit->type);
@@ -117,8 +136,19 @@ void DefendBase::update()
                            unit->type == BWAPI::UnitTypes::Terran_Vulture);
     }
 
+    // Update detection - release observers when no longer needed, request observers when needed
+    auto &detectors = squad->getDetectors();
+    if (!squad->needsDetection() && !detectors.empty())
+    {
+        status.removedUnits.insert(status.removedUnits.end(), detectors.begin(), detectors.end());
+    }
+    else if (squad->needsDetection() && detectors.empty())
+    {
+        status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Observer, squad->getTargetPosition());
+    }
+
     // Release any units in the squad if they are no longer required
-    if (enemyValue == 0)
+    if (enemyValue == 0 || (squad->needsDetection() && detectors.empty()))
     {
         status.removedUnits = squad->getUnits();
         workerDefenseSquad->disband();
@@ -144,7 +174,13 @@ void DefendBase::update()
     // TODO: Request zealot or dragoon when we have that capability
     if (requestedUnits > 0)
     {
-        status.unitRequirements.emplace_back(requestedUnits, BWAPI::UnitTypes::Protoss_Dragoon, base->getPosition());
+        // Only reserve units that have a safe path to the base
+        auto gridNodePredicate = [](const NavigationGrid::GridNode &gridNode)
+        {
+            return gridNode.cost < 300 || Players::grid(BWAPI::Broodwar->enemy()).groundThreat(gridNode.center()) == 0;
+        };
+
+        status.unitRequirements.emplace_back(requestedUnits, BWAPI::UnitTypes::Protoss_Dragoon, base->getPosition(), gridNodePredicate);
     }
 }
 
@@ -163,17 +199,56 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
     if (!cannonLocations.empty())
     {
         int neededCannons = desiredCannons() - cannons.size();
-        if (neededCannons > 0)
+        for (int i = 0; i < neededCannons && i < cannonLocations.size(); i++)
         {
-            auto location = *cannonLocations.begin();
-            if (!Builder::pendingHere(location))
+            // Determine the priority
+            // By default it is equivalent to main army
+            // If it is the main in the early game, give it higher priority
+            // If it is the last cannon, give it lower priority until the others are completed
+            int priority = PRIORITY_MAINARMY;
+            if (base == Map::getMyMain() && BWAPI::Broodwar->getFrameCount() < 12000)
             {
-                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(*cannonLocations.begin()), 0, 0, 0);
-                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                           BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                                                                           buildLocation);
+                priority = PRIORITY_NORMAL;
+            }
+            else if (i == (neededCannons - 1))
+            {
+                if (i > 0)
+                {
+                    priority = PRIORITY_LOWEST;
+                }
+                else
+                {
+                    for (const auto &cannon : cannons)
+                    {
+                        if (!cannon->completed)
+                        {
+                            priority = PRIORITY_LOWEST;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!Builder::pendingHere(cannonLocations[i]))
+            {
+                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(cannonLocations[i]), 0, 0, 0);
+                prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                  BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                                                  buildLocation);
             }
         }
+    }
+
+    // Build an observer if we need one
+    for (auto &unitRequirement : status.unitRequirements)
+    {
+        if (unitRequirement.type != BWAPI::UnitTypes::Protoss_Observer) continue;
+        if (unitRequirement.count < 1) continue;
+
+        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 unitRequirement.type,
+                                                                 unitRequirement.count,
+                                                                 1);
     }
 }
 
@@ -193,9 +268,7 @@ int DefendBase::desiredCannons()
     int enemyAirUnits =
             Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) +
             Units::countEnemy(BWAPI::UnitTypes::Terran_Wraith) +
-            Units::countEnemy(BWAPI::UnitTypes::Terran_Dropship) +
-            Units::countEnemy(BWAPI::UnitTypes::Protoss_Scout) +
-            Units::countEnemy(BWAPI::UnitTypes::Protoss_Shuttle);
+            Units::countEnemy(BWAPI::UnitTypes::Protoss_Scout);
 
     // Could the enemy have air units?
 
@@ -264,7 +337,7 @@ int DefendBase::desiredCannons()
     {
         if (enemyAirUnits > 6) return 4;
         if (enemyAirThreat) return 3;
-        if (enemyDropThreat && BWAPI::Broodwar->getFrameCount() > 8000) return 2;
+        if (enemyDropThreat && BWAPI::Broodwar->getFrameCount() > 8000) return 1;
         return 0;
     }
 

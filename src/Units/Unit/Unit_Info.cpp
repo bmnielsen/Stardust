@@ -3,6 +3,7 @@
 #include "UnitUtil.h"
 #include "Geo.h"
 #include "Players.h"
+#include "PathFinding.h"
 
 std::ostream &operator<<(std::ostream &os, const UnitImpl &unit)
 {
@@ -23,6 +24,16 @@ bool UnitImpl::isAttackable() const
            bwapiUnit->isVisible() &&
            !undetected &&
            !bwapiUnit->isStasised();
+}
+
+bool UnitImpl::isCliffedTank(const Unit &attacker) const
+{
+    if (!attacker) return false;
+    if (type != BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) return false;
+
+    int dist = getDistance(attacker);
+    int groundDistance = PathFinding::GetGroundDistance(lastPosition, attacker->lastPosition, attacker->type);
+    return groundDistance > (dist * 2);
 }
 
 bool UnitImpl::canAttack(const Unit &target) const
@@ -61,6 +72,31 @@ bool UnitImpl::isTransport() const
            (type == BWAPI::UnitTypes::Zerg_Overlord && Players::upgradeLevel(player, BWAPI::UpgradeTypes::Ventral_Sacs) > 0);
 }
 
+int UnitImpl::groundRange() const
+{
+    auto weaponUnitType = type;
+    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+
+    int range = Players::weaponRange(player, weaponUnitType.groundWeapon());
+    if (type == BWAPI::UnitTypes::Terran_Bunker) range += 48;
+    return range;
+}
+
+int UnitImpl::airRange() const
+{
+    auto weaponUnitType = type;
+    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+
+    int range = Players::weaponRange(player, weaponUnitType.airWeapon());
+    if (type == BWAPI::UnitTypes::Terran_Bunker) range += 48;
+    return range;
+}
+
+int UnitImpl::range(const Unit &target) const
+{
+    return target->isFlying ? airRange() : groundRange();
+}
+
 BWAPI::WeaponType UnitImpl::getWeapon(const Unit &target) const
 {
     auto weaponUnitType = type;
@@ -71,21 +107,13 @@ BWAPI::WeaponType UnitImpl::getWeapon(const Unit &target) const
 
 bool UnitImpl::isInOurWeaponRange(const Unit &target, BWAPI::Position predictedTargetPosition, int buffer) const
 {
-    auto weaponUnitType = type;
-    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
-
-    int range = Players::weaponRange(player, target->isFlying ? weaponUnitType.airWeapon() : weaponUnitType.groundWeapon());
-    if (type == BWAPI::UnitTypes::Terran_Bunker) range += 32;
+    int range = target->isFlying ? airRange() : groundRange();
     return getDistance(target, predictedTargetPosition) <= (range + buffer);
 }
 
 bool UnitImpl::isInEnemyWeaponRange(const Unit &attacker, BWAPI::Position predictedAttackerPosition, int buffer) const
 {
-    auto weaponUnitType = attacker->type;
-    if (attacker->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
-
-    int range = Players::weaponRange(attacker->player, isFlying ? weaponUnitType.airWeapon() : weaponUnitType.groundWeapon());
-    if (attacker->type == BWAPI::UnitTypes::Terran_Bunker) range += 32;
+    int range = isFlying ? attacker->airRange() : attacker->groundRange();
     return getDistance(attacker, predictedAttackerPosition) <= (range + buffer);
 }
 

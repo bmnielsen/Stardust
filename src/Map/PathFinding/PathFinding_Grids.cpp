@@ -78,4 +78,23 @@ namespace PathFinding
             goalAndNavigationGrid.second.removeBlockingTiles(tiles);
         }
     }
+
+    bool checkGridPath(BWAPI::TilePosition start,
+                       BWAPI::TilePosition end,
+                       const std::function<bool(const NavigationGrid::GridNode &gridNode)> &predicate)
+    {
+        auto grid = getNavigationGrid(end);
+        if (!grid) return true;
+
+        auto node = &(*grid)[start];
+        for (int i = 0; i < 1000; i++)
+        {
+            if (node->cost < 30) return true;
+            if (!node->nextNode) return false;
+            if (!predicate(*node)) return false;
+            node = node->nextNode;
+        }
+
+        return true;
+    }
 }

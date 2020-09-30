@@ -2,7 +2,8 @@
 
 #include "Units.h"
 #include "UnitUtil.h"
-#include "Map.h"
+
+#include "DebugFlag_CombatSim.h"
 
 #include <iomanip>
 
@@ -10,27 +11,59 @@ namespace
 {
     bool shouldAttack(UnitCluster &cluster, const CombatSimResult &simResult, double aggression = 1.0)
     {
-        // We attack in the following cases:
-        // - Attacking costs us nothing
-        // - We gain a high percentage value, even if we lose absolute value
-        //   This handles the case where our army is much larger than the enemy's
-        // - We gain some value without losing an unacceptably-large proportion of our army
-        //   This criterion does not apply if our aggression value is low
-        bool attack =
-                (simResult.myPercentLost() <= 0.001) ||
-                (simResult.percentGain() > (0.2 / aggression)) ||
-                (aggression > 0.99 && simResult.valueGain() > 0 && (simResult.percentGain() > -0.05 || simResult.myPercentageOfTotal() > 0.9));
+        double distanceFactor = 1.0;
+
+        auto attack = [&]()
+        {
+            // Always attack if we don't lose anything
+            if (simResult.myPercentLost() <= 0.001) return true;
+
+            // Attack if the enemy has undetected units that do not damage us much
+            // This handles cases where e.g. our army is being attacked by a single cloaked wraith -
+            // we want to ignore it
+            if (simResult.enemyHasUndetectedUnits && simResult.myPercentLost() <= 0.15) return true;
+
+            // Attack in cases where we think we will kill 50% more value than we lose
+            if (aggression > 0.99 && simResult.valueGain() > (simResult.initialMine - simResult.finalMine) / 2 &&
+                (simResult.percentGain() > -0.05 || simResult.myPercentageOfTotal() > 0.9))
+            {
+                return true;
+            }
+
+            // Compute the distance factor, an adjustment based on where our army is relative to our main and the target position
+            distanceFactor = 1.2 - 0.4 * cluster.percentageToEnemyMain;
+
+            // Give an extra penalty to narrow chokes close to the enemy base
+            if (simResult.narrowChoke && cluster.percentageToEnemyMain > 0.7)
+            {
+                distanceFactor *= 0.8;
+            }
+
+            // Attack if we expect to end the fight with a sufficiently larger army and aren't losing an unacceptable percentage of it
+            if (simResult.myPercentageOfTotal() > (1.0 - 0.45 * distanceFactor) && simResult.percentGain() > -0.05 * distanceFactor)
+            {
+                return true;
+            }
+
+            // Attack if the percentage gain, adjusted for aggression and distance factor, is acceptable
+            // A percentage gain here means the enemy loses a larger percentage of their army than we do
+            if (simResult.percentGain() > (0.2 / (aggression * distanceFactor))) return true;
+
+            return false;
+        };
+
+        bool result = attack();
 
 #if DEBUG_COMBATSIM
         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                         << std::setprecision(2) << "-" << aggression
+                         << std::setprecision(2) << "-" << aggression << "-" << distanceFactor
                          << ": %l=" << simResult.myPercentLost()
                          << "; vg=" << simResult.valueGain()
                          << "; %g=" << simResult.percentGain()
-                         << (attack ? "; ATTACK" : "; RETREAT");
+                         << (result ? "; ATTACK" : "; RETREAT");
 #endif
 
-        return attack;
+        return result;
     }
 
     bool shouldStartAttack(UnitCluster &cluster, CombatSimResult &simResult)
@@ -82,33 +115,45 @@ namespace
             return false;
         }
 
-        // Otherwise only abort the attack when the sim has been stable for a number of frames
-        if (cluster.recentSimResults.size() < 24)
+        // If the fight is now across a choke, abort the attack immediately
+        // We probably want to try to hold the choke instead
+        if (simResult.narrowChoke && !previousSimResult.narrowChoke)
         {
 #if DEBUG_COMBATSIM
-            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing as we have fewer than 24 frames of sim data";
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": aborting as the fight is now across a narrow choke";
+#endif
+            return false;
+        }
+
+        int attackFrames;
+        int regroupFrames;
+        int consecutiveRetreatFrames = UnitCluster::consecutiveSimResults(cluster.recentSimResults, &attackFrames, &regroupFrames, 48);
+
+        // Continue if the sim hasn't been stable for 6 frames
+        if (consecutiveRetreatFrames < 6)
+        {
+#if DEBUG_COMBATSIM
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing attack as the sim has not yet been stable for 6 frames";
 #endif
             return true;
         }
 
-        int count = 0;
-        for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 24; it++)
+        // Continue if the sim has recommended attacking more than regrouping
+        if (attackFrames > regroupFrames)
         {
-            if (it->second)
-            {
 #if DEBUG_COMBATSIM
-                CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                                 << ": continuing as a sim result within the past 24 frames recommended attacking";
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing attack; regroup=" << regroupFrames
+                             << " vs. attack=" << attackFrames;
 #endif
-                return true;
-            }
-            count++;
+            return true;
         }
 
+        // Abort
 #if DEBUG_COMBATSIM
-        CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                         << ": aborting as the sim has recommended regrouping for the past 24 frames";
+        CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": aborting attack; regroup=" << regroupFrames
+                         << " vs. attack=" << attackFrames;
 #endif
+
         return false;
     }
 
@@ -136,24 +181,39 @@ namespace
 
         if (!attack) return false;
 
-        // Stop the retreat when we have 48 frames of recommending attack with the same number of friendly units
+        int attackFrames;
+        int regroupFrames;
+        int consecutiveAttackFrames = UnitCluster::consecutiveSimResults(cluster.recentSimResults, &attackFrames, &regroupFrames, 72);
+
+        // Continue if the sim hasn't been stable for 12 frames
+        if (consecutiveAttackFrames < 12)
+        {
+#if DEBUG_COMBATSIM
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing regroup as the sim has not yet been stable for 12 frames";
+#endif
+            return false;
+        }
+
+        // Continue if the sim has recommended regrouping more than attacking
+        if (regroupFrames > attackFrames)
+        {
+#if DEBUG_COMBATSIM
+            CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing regroup; regroup=" << regroupFrames
+                             << " vs. attack=" << attackFrames;
+#endif
+            return false;
+        }
+
+        // Continue if our number of units has increased in the past 48 frames.
+        // This gives our reinforcements time to link up with the rest of the cluster before engaging.
         int count = 0;
         for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 48; it++)
         {
-            if (!it->second)
+            if (simResult.myUnitCount > it->first.myUnitCount)
             {
 #if DEBUG_COMBATSIM
                 CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                                 << ": aborting as the sim has recommended regrouping within the past 48 frames";
-#endif
-                return false;
-            }
-
-            if (simResult.myUnitCount != it->first.myUnitCount)
-            {
-#if DEBUG_COMBATSIM
-                CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                                 << ": aborting as the number of friendly units has changed within the past 48 frames";
+                                 << ": continuing regroup as more friendly units have joined the cluster in the past 48 frames";
 #endif
                 return false;
             }
@@ -161,21 +221,12 @@ namespace
             count++;
         }
 
-        if (count < 48)
-        {
+        // Start the attack
 #if DEBUG_COMBATSIM
-            CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                             << ": aborting as we have fewer than 48 frames of sim data";
+        CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": starting attack; regroup=" << regroupFrames
+                         << " vs. attack=" << attackFrames;
 #endif
-            return false;
-        }
 
-        // TODO: check that the sim result has been stable
-
-#if DEBUG_COMBATSIM
-        CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                         << ": starting attack as the sim has recommended doing so for the past 48 frames";
-#endif
         return true;
     }
 }
@@ -201,32 +252,32 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     // Select targets
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
 
-    // Run combat sim
-    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits);
-
-    // If the sim result is nothing, and none of our units have a target, move instead of attacking
-    if (simResult.myPercentLost() <= 0.001 && simResult.enemyPercentLost() <= 0.001)
+    // Scan the targets to see if any of our units have a valid target that has been seen recently
+    bool hasValidTarget = false;
+    for (const auto &unitAndTarget : unitsAndTargets)
     {
-        bool hasTarget = false;
-        for (const auto &unitAndTarget : unitsAndTargets)
+        if (!unitAndTarget.second) continue;
+
+        // A stationary attacker is valid if we are close to their attack range
+        if (unitAndTarget.second->lastPositionValid && UnitUtil::IsStationaryAttacker(unitAndTarget.second->type)
+            && unitAndTarget.first->isInEnemyWeaponRange(unitAndTarget.second, 96))
         {
-            if (unitAndTarget.second)
-            {
-                hasTarget = true;
-                break;
-            }
+            hasValidTarget = true;
+            break;
         }
 
-        if (!hasTarget)
+        // Other targets are valid if they have been seen in the past 5 seconds
+        if (unitAndTarget.second->lastSeen > (BWAPI::Broodwar->getFrameCount() - 120))
         {
-            cluster.setActivity(UnitCluster::Activity::Moving);
-            cluster.move(targetPosition);
-            return;
+            hasValidTarget = true;
+            break;
         }
     }
 
-    // TODO: If our units can't do any damage (e.g. ground-only vs. air, melee vs. kiting ranged units), do something else
+    // Run combat sim
+    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors);
 
+    // TODO: If our units can't do any damage (e.g. ground-only vs. air, melee vs. kiting ranged units), do something else
 
     // Make the final decision based on what state we are currently in
 
@@ -244,15 +295,60 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
             break;
     }
 
-    if (attack)
+    if (attack || ignoreCombatSim)
     {
+        // Move instead if none of our units have a valid target
+        if (!hasValidTarget)
+        {
+            cluster.setActivity(UnitCluster::Activity::Moving);
+            cluster.move(targetPosition);
+            return;
+        }
+
         cluster.setActivity(UnitCluster::Activity::Attacking);
         cluster.attack(unitsAndTargets, targetPosition);
         return;
     }
 
+    // Check if our cluster should try to link up with a closer cluster
+    if (currentVanguardCluster && currentVanguardCluster->vanguard && currentVanguardCluster->center != cluster.center)
+    {
+        // Link up if our vanguard unit is closer to the vanguard cluster than its current target
+        bool linkUp = false;
+        for (auto &unitAndTarget : unitsAndTargets)
+        {
+            if (unitAndTarget.first != cluster.vanguard) continue;
+
+            if (!unitAndTarget.second || !unitAndTarget.second->lastPositionValid)
+            {
+                linkUp = true;
+                break;
+            }
+
+            int distTarget = PathFinding::GetGroundDistance(
+                    unitAndTarget.first->lastPosition,
+                    unitAndTarget.second->lastPosition,
+                    unitAndTarget.first->type,
+                    PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+            int distVanguardCluster = PathFinding::GetGroundDistance(unitAndTarget.first->lastPosition,
+                                                                     currentVanguardCluster->vanguard->lastPosition,
+                                                                     unitAndTarget.first->type,
+                                                                     PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+            linkUp = (distTarget == -1 || distVanguardCluster == -1 || distVanguardCluster < distTarget);
+
+            break;
+        }
+
+        if (linkUp)
+        {
+            cluster.setActivity(UnitCluster::Activity::Moving);
+            cluster.move(currentVanguardCluster->vanguard->lastPosition);
+            return;
+        }
+    }
+
     // TODO: Run retreat sim?
 
     cluster.setActivity(UnitCluster::Activity::Regrouping);
-    cluster.regroup(unitsAndTargets, enemyUnits, simResult, targetPosition);
+    cluster.regroup(unitsAndTargets, enemyUnits, detectors, simResult, targetPosition, hasValidTarget);
 }

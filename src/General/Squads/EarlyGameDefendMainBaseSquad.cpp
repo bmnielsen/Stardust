@@ -2,8 +2,10 @@
 
 #include "Units.h"
 #include "Map.h"
-#include "Players.h"
 #include "UnitUtil.h"
+
+#include "DebugFlag_CombatSim.h"
+#include "DebugFlag_UnitOrders.h"
 
 namespace
 {
@@ -270,7 +272,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     }
 
     // Run combat sim
-    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, false);
+    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors, false);
 
     // Make the attack / retreat decision based on the sim result
     // TODO: Needs tuning
@@ -301,7 +303,26 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         attack = !shouldAbortAttack(cluster, simResult);
     }
 
-    if (attack || (!enemiesNeedingDetection.empty() && choke) || (!enemyInOurBase && choke && choke->isNarrowChoke))
+    // If the enemy has cloaked units and we have a choke, always stay at the choke
+    // Rationale: we want to plug the choke to keep the cloked units from getting in until we get detection
+    if (!enemiesNeedingDetection.empty() && choke) attack = true;
+
+    // Hold the choke if we have enough zealots to block it
+    if (!attack && !enemyInOurBase && choke && choke->isNarrowChoke)
+    {
+        int zealotCount = 0;
+        for (const auto &unitAndTarget : unitsAndTargets)
+        {
+            if (unitAndTarget.first->type == BWAPI::UnitTypes::Protoss_Zealot)
+            {
+                zealotCount++;
+            }
+        }
+
+        if (zealotCount > (choke->width / 30)) attack = true;
+    }
+
+    if (attack)
     {
         cluster.setActivity(UnitCluster::Activity::Attacking);
 
@@ -322,7 +343,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         // Choose the type of micro depending on whether the enemy has static defense, we are holding a narrow choke, or neither
         if (hasStaticDefense)
         {
-            cluster.containBase(unitsAndTargets, enemyUnits, targetPosition);
+            cluster.containBase(enemyUnits, targetPosition);
         }
         else if (enemiesNeedingDetection.empty() && !enemyInOurBase && choke && choke->isNarrowChoke)
         {
@@ -376,6 +397,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
 
         // Attack if we are in the mineral line and in range of the enemy (or the enemy is in range of us)
         auto enemyPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        if (!enemyPosition.isValid()) enemyPosition = target->lastPosition;
         if (Map::isInOwnMineralLine(unit->tilePositionX, unit->tilePositionY) &&
             (unit->isInOurWeaponRange(target, enemyPosition) || unit->isInEnemyWeaponRange(target, enemyPosition)))
         {
@@ -411,10 +433,10 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         }
 
         auto enemyPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+        if (!enemyPosition.isValid()) enemyPosition = target->lastPosition;
 
         // Move towards the enemy if we are well out of their attack range
-        int enemyRange = Players::weaponRange(target->player, target->getWeapon(unit));
-        if (enemyPosition.isValid() && unit->getDistance(target, enemyPosition) > (enemyRange + 64))
+        if (unit->getDistance(target, enemyPosition) > (target->range(unit) + 64))
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unitAndTarget.first->id) << "Retreating: stay close to enemy @ " << BWAPI::WalkPosition(enemyPosition);

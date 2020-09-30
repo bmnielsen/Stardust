@@ -548,12 +548,12 @@ void Choke::analyzeNarrowChoke()
         unsigned int x;
         unsigned int y;
 
-        bool isValid()
+        [[nodiscard]] bool isValid() const
         {
             return x < (BWAPI::Broodwar->mapWidth() * 2) && y < (BWAPI::Broodwar->mapHeight() * 2);
         }
 
-        bool isWalkable()
+        [[nodiscard]] bool isWalkable() const
         {
             return BWAPI::Broodwar->isWalkable((x << 1U), (y << 1U)) &&
                    BWAPI::Broodwar->isWalkable((x << 1U) + 1, (y << 1U)) &&
@@ -561,25 +561,27 @@ void Choke::analyzeNarrowChoke()
                    BWAPI::Broodwar->isWalkable((x << 1U) + 1, (y << 1U) + 1);
         }
 
-        unsigned int index()
+        [[nodiscard]] unsigned int index() const
         {
             return x + y * BWAPI::Broodwar->mapWidth() * 2;
         }
 
-        BWAPI::TilePosition toTilePosition()
+        [[nodiscard]] BWAPI::TilePosition toTilePosition() const
         {
             return BWAPI::TilePosition(x >> 1U, y >> 1U);
         }
     };
 
-    // Add the initial tiles to the queue
+    // Initialize the queue by tracing each end of the choke
     std::deque<std::pair<int, HalfTile>> queue;
     std::deque<std::pair<int, HalfTile>> unwalkableQueue;
     auto addHalfTilesBetween = [&](BWAPI::Position start, BWAPI::Position end, int side)
     {
-        auto addInitialPosition = [&](BWAPI::Position pos)
+        auto addPosition = [&](BWAPI::Position pos)
         {
             auto tile = HalfTile(pos.x >> 4U, pos.y >> 4U);
+            tileSide[tile.index()] = side;
+
             if (visited[tile.index()]) return;
 
             visited[tile.index()] = true;
@@ -587,25 +589,25 @@ void Choke::analyzeNarrowChoke()
             chokeTiles.insert(tile.toTilePosition());
         };
 
-        addInitialPosition(start);
+        addPosition(start);
         BWAPI::Position diff = end - start;
         int dist = start.getApproxDistance(end);
         for (int d = 8; d < dist; d += 8)
         {
             auto v = Geo::ScaleVector(diff, d);
             if (v == BWAPI::Positions::Invalid) continue;
-            addInitialPosition(start + v);
+            addPosition(start + v);
         }
-        addInitialPosition(end);
+        addPosition(end);
     };
     addHalfTilesBetween(side1Ends[0], side2Ends[0], -2);
     addHalfTilesBetween(side1Ends[1], side2Ends[1], 1);
 
-    // Queue the center of the choke to be set to 0, unless the choke doesn't have a middle
+    // Queue the center of the choke to be set to 0, unless the center is on one of the traced ends
     auto centerTile = HalfTile(center);
     if (!visited[centerTile.index()])
     {
-        queue.emplace_back(std::make_pair(0, centerTile));
+        queue.emplace_front(std::make_pair(0, centerTile));
     }
 
     // Now flood-fill
@@ -644,6 +646,10 @@ void Choke::analyzeNarrowChoke()
         visit(tile, 0, 1);
         visit(tile, 0, -1);
     }
+
+    // Finally re-trace the ends to set them to 0
+    addHalfTilesBetween(side1Ends[0], side2Ends[0], 0);
+    addHalfTilesBetween(side1Ends[1], side2Ends[1], 0);
 
 #if DUMP_NARROW_CHOKE_HEATMAPS
     std::vector<long> chokeData(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 16);

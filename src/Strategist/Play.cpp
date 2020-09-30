@@ -3,32 +3,20 @@
 #include "General.h"
 #include "CherryVis.h"
 
-void Play::addUnit(MyUnit unit)
+void Play::addUnit(const MyUnit &unit)
 {
     if (getSquad() != nullptr)
     {
         getSquad()->addUnit(unit);
     }
-    else
-    {
-        Log::Get() << "WARNING: Adding unit to play without a Squad";
-    }
-
-    CherryVis::log(unit->id) << "Added to play: " << label;
 }
 
-void Play::removeUnit(MyUnit unit)
+void Play::removeUnit(const MyUnit &unit)
 {
     if (getSquad() != nullptr)
     {
         getSquad()->removeUnit(unit);
     }
-    else
-    {
-        Log::Get() << "WARNING: Removing unit from play without a Squad";
-    }
-
-    CherryVis::log(unit->id) << "Removed from play: " << label;
 }
 
 void Play::disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
