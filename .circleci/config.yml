@@ -8,6 +8,9 @@ jobs:
     executor: win/default
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - build
       - run:
           name: Download CMake
           command: |
@@ -16,6 +19,12 @@ jobs:
             Expand-Archive $Env:HOMEPATH\cmake-3.16.4-win64-x64.zip -DestinationPath "$Env:ProgramFiles"
             Rename-Item "$Env:ProgramFiles\cmake-3.16.4-win64-x64" -NewName CMake
       - run: .circleci\build.ps1
+      - save_cache:
+          key: build
+          paths:
+            - build
+      - store_artifacts:
+          path: build\src\RelWithDebInfo
 
 workflows:
   version: 2
