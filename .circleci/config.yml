@@ -15,7 +15,7 @@ jobs:
             Invoke-WebRequest -URI https://github.com/Kitware/CMake/releases/download/v3.16.4/cmake-3.16.4-win64-x64.zip -OutFile $Env:HOMEPATH\cmake-3.16.4-win64-x64.zip
             Expand-Archive $Env:HOMEPATH\cmake-3.16.4-win64-x64.zip -DestinationPath "$Env:ProgramFiles"
             Rename-Item "$Env:ProgramFiles\cmake-3.16.4-win64-x64" -NewName CMake
-      - run: .ci\build-project.ps1
+      - run: .circleci\build.ps1
 
 workflows:
   version: 2
