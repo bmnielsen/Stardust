@@ -2,7 +2,6 @@
 
 #include "Units.h"
 #include "Map.h"
-#include "Builder.h"
 #include "UnitUtil.h"
 #include "Workers.h"
 #include "Players.h"
@@ -195,21 +194,37 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::Defensive:
         case OurStrategy::Normal:
         {
-            // If any zealots are in production, cancel them
+            // If any zealots are in production, and we don't have an emergency production goal, cancel them
             // This happens when the enemy strategy was misrecognized as a rush
             if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot) > 0)
             {
-                for (const auto &gateway : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Gateway))
+                bool hasEmergencyZealotProduction = false;
+                for (const auto &productionGoal : prioritizedProductionGoals[PRIORITY_EMERGENCY])
                 {
-                    if (gateway->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Cancel_Train) continue;
-                    if (gateway->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Cancel_Train_Slot) continue;
+                    if (auto unitProductionGoal = std::get_if<UnitProductionGoal>(&productionGoal))
+                    {
+                        if (unitProductionGoal->unitType() == BWAPI::UnitTypes::Protoss_Zealot)
+                        {
+                            hasEmergencyZealotProduction = true;
+                            break;
+                        }
+                    }
+                }
 
-                    auto trainingQueue = gateway->bwapiUnit->getTrainingQueue();
-                    if (trainingQueue.empty()) continue;
-                    if (*trainingQueue.begin() != BWAPI::UnitTypes::Protoss_Zealot) continue;
+                if (!hasEmergencyZealotProduction)
+                {
+                    for (const auto &gateway : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Gateway))
+                    {
+                        if (gateway->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Cancel_Train) continue;
+                        if (gateway->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Cancel_Train_Slot) continue;
 
-                    Log::Get() << "Cancelling zealot production from gateway @ " << gateway->getTilePosition();
-                    gateway->bwapiUnit->cancelTrain(0);
+                        auto trainingQueue = gateway->bwapiUnit->getTrainingQueue();
+                        if (trainingQueue.empty()) continue;
+                        if (*trainingQueue.begin() != BWAPI::UnitTypes::Protoss_Zealot) continue;
+
+                        Log::Get() << "Cancelling zealot production from gateway @ " << gateway->getTilePosition();
+                        gateway->bwapiUnit->cancelTrain(0);
+                    }
                 }
             }
 

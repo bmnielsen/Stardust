@@ -206,6 +206,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             switch (enemyStrategy)
             {
                 case ProtossStrategy::Unknown:
+                case ProtossStrategy::WorkerRush:
                 case ProtossStrategy::ProxyRush:
                 case ProtossStrategy::BlockScouting:
                 case ProtossStrategy::DragoonAllIn:

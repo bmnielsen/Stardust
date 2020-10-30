@@ -21,6 +21,7 @@ private:
     enum class TerranStrategy
     {
         Unknown,
+        WorkerRush,         // Detected by seeing more than two workers in our main without other combat units
         ProxyRush,          // Detected by seeing fewer buildings than expected in main
         MarineRush,         // Detected by seeing early gates or early zealots
         WallIn,             // Detected by scout blocked by buildings

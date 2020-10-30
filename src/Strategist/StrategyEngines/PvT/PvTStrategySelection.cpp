@@ -26,7 +26,8 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
     auto canTransitionFromAntiMarineRush = [&]()
     {
         // Transition immediately if we've discovered a different enemy strategy
-        if (newEnemyStrategy != TerranStrategy::ProxyRush &&
+        if (newEnemyStrategy != TerranStrategy::WorkerRush &&
+            newEnemyStrategy != TerranStrategy::ProxyRush &&
             newEnemyStrategy != TerranStrategy::MarineRush)
         {
             return true;
@@ -59,6 +60,7 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                 {
                     case TerranStrategy::Unknown:
                         return strategy;
+                    case TerranStrategy::WorkerRush:
                     case TerranStrategy::ProxyRush:
                     case TerranStrategy::MarineRush:
                         strategy = OurStrategy::AntiMarineRush;
@@ -106,7 +108,8 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
             }
             case PvT::OurStrategy::Defensive:
             {
-                if (newEnemyStrategy == TerranStrategy::ProxyRush ||
+                if (newEnemyStrategy == TerranStrategy::WorkerRush ||
+                    newEnemyStrategy == TerranStrategy::ProxyRush ||
                     newEnemyStrategy == TerranStrategy::MarineRush)
                 {
                     strategy = OurStrategy::AntiMarineRush;
@@ -135,7 +138,8 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
             }
             case PvT::OurStrategy::Normal:
             {
-                if ((newEnemyStrategy == TerranStrategy::ProxyRush ||
+                if ((newEnemyStrategy == TerranStrategy::WorkerRush ||
+                     newEnemyStrategy == TerranStrategy::ProxyRush ||
                      newEnemyStrategy == TerranStrategy::MarineRush) &&
                     !canTransitionFromAntiMarineRush())
                 {

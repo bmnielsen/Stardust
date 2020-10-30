@@ -3,9 +3,11 @@
 #include "Units.h"
 #include "Map.h"
 #include "Strategist.h"
+#include "UnitUtil.h"
 
 std::map<PvZ::ZergStrategy, std::string> PvZ::ZergStrategyNames = {
         {ZergStrategy::Unknown,            "Unknown"},
+        {ZergStrategy::WorkerRush,         "WorkerRush"},
         {ZergStrategy::ZerglingRush,       "ZerglingRush"},
         {ZergStrategy::PoolBeforeHatchery, "PoolBeforeHatchery"},
         {ZergStrategy::HatcheryBeforePool, "HatcheryBeforePool"},
@@ -37,6 +39,36 @@ namespace
 
         auto &secondTimings = Units::getEnemyUnitTimings(second);
         return secondTimings.size() < secondCount || firstTimings[firstCount - 1].first <= secondTimings[secondCount - 1].first;
+    }
+
+    bool isWorkerRush()
+    {
+        if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
+
+        int workers = 0;
+        for (const Unit &unit : Units::allEnemy())
+        {
+            if (!unit->lastPositionValid) continue;
+            if (unit->type.isBuilding()) continue;
+
+            bool isInArea = false;
+            for (const auto &area : Map::getMyMainAreas())
+            {
+                if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)
+                {
+                    isInArea = true;
+                    break;
+                }
+            }
+            if (!isInArea) continue;
+
+            // If there is a normal combat unit in our main, it isn't a worker rush
+            if (UnitUtil::IsCombatUnit(unit->type) && unit->type.canAttack()) return false;
+
+            if (unit->type.isWorker()) workers++;
+        }
+
+        return workers > 2;
     }
 
     bool isZerglingRush()
@@ -97,6 +129,7 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
         switch (strategy)
         {
             case ZergStrategy::Unknown:
+                if (isWorkerRush()) return ZergStrategy::WorkerRush;
                 if (isZerglingRush()) return ZergStrategy::ZerglingRush;
 
                 // Default to something reasonable if our scouting completely fails
@@ -122,7 +155,17 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
                 }
 
                 break;
+            case ZergStrategy::WorkerRush:
+                if (!isWorkerRush())
+                {
+                    strategy = ZergStrategy::Unknown;
+                    continue;
+                }
+
+                break;
             case ZergStrategy::ZerglingRush:
+                if (isWorkerRush()) return ZergStrategy::WorkerRush;
+
                 // Consider the rush to be over after 6000 frames
                 // From there the PoolBeforeHatchery handler will potentially transition into ZerglingAllIn
                 if (BWAPI::Broodwar->getFrameCount() >= 6000)
@@ -133,6 +176,8 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
 
                 break;
             case ZergStrategy::PoolBeforeHatchery:
+                if (isWorkerRush()) return ZergStrategy::WorkerRush;
+
                 // We might detect a rush late on large maps or if scouting is denied
                 if (isZerglingRush()) return ZergStrategy::ZerglingRush;
 
@@ -152,6 +197,7 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
 
                 break;
             case ZergStrategy::HatcheryBeforePool:
+                if (isWorkerRush()) return ZergStrategy::WorkerRush;
                 if (isZerglingAllIn()) return ZergStrategy::ZerglingAllIn;
 
                 if (isTurtle())

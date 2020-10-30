@@ -3,9 +3,11 @@
 #include "Units.h"
 #include "Map.h"
 #include "Strategist.h"
+#include "UnitUtil.h"
 
 std::map<PvP::ProtossStrategy, std::string> PvP::ProtossStrategyNames = {
         {ProtossStrategy::Unknown,         "Unknown"},
+        {ProtossStrategy::WorkerRush,      "WorkerRush"},
         {ProtossStrategy::ProxyRush,       "ProxyRush"},
         {ProtossStrategy::ZealotRush,      "ZealotRush"},
         {ProtossStrategy::EarlyForge,      "EarlyForge"},
@@ -54,6 +56,36 @@ namespace
     bool isFastExpansion()
     {
         return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Nexus, 6000, 2);
+    }
+
+    bool isWorkerRush()
+    {
+        if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
+
+        int workers = 0;
+        for (const Unit &unit : Units::allEnemy())
+        {
+            if (!unit->lastPositionValid) continue;
+            if (unit->type.isBuilding()) continue;
+
+            bool isInArea = false;
+            for (const auto &area : Map::getMyMainAreas())
+            {
+                if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)
+                {
+                    isInArea = true;
+                    break;
+                }
+            }
+            if (!isInArea) continue;
+
+            // If there is a normal combat unit in our main, it isn't a worker rush
+            if (UnitUtil::IsCombatUnit(unit->type) && unit->type.canAttack()) return false;
+
+            if (unit->type.isWorker()) workers++;
+        }
+
+        return workers > 2;
     }
 
     bool isZealotRush()
@@ -261,6 +293,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
         switch (strategy)
         {
             case ProtossStrategy::Unknown:
+                if (isWorkerRush()) return ProtossStrategy::WorkerRush;
                 if (isZealotRush()) return ProtossStrategy::ZealotRush;
                 if (isProxy()) return ProtossStrategy::ProxyRush;
 
@@ -303,7 +336,17 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 }
 
                 break;
+            case ProtossStrategy::WorkerRush:
+                if (!isWorkerRush())
+                {
+                    strategy = ProtossStrategy::Unknown;
+                    continue;
+                }
+
+                break;
             case ProtossStrategy::ProxyRush:
+                if (isWorkerRush()) return ProtossStrategy::WorkerRush;
+
                 // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their nexus
                 if (!isProxy())
                 {
@@ -314,6 +357,8 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 // Otherwise intentionally fall through to zealot rush handling
 
             case ProtossStrategy::ZealotRush:
+                if (isWorkerRush()) return ProtossStrategy::WorkerRush;
+
                 // Consider the rush to be over after 6000 frames
                 // From there the TwoGate handler will potentially transition into ZealotAllIn
                 if (BWAPI::Broodwar->getFrameCount() >= 6000)
@@ -325,6 +370,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 break;
             case ProtossStrategy::EarlyForge:
                 // The expected transition from here is into turtle or fast expansion, but detect others if the forge was a fake-out
+                if (isWorkerRush()) return ProtossStrategy::WorkerRush;
                 if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
                 if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
                 if (isProxy()) return ProtossStrategy::ProxyRush;
@@ -355,6 +401,8 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
 
                 break;
             case ProtossStrategy::TwoGate:
+                if (isWorkerRush()) return ProtossStrategy::WorkerRush;
+
                 // We might detect a zealot rush late on large maps or if scouting is denied
                 if (isZealotRush()) return ProtossStrategy::ZealotRush;
 
@@ -408,6 +456,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 break;
             case ProtossStrategy::BlockScouting:
                 // An enemy that blocks our scouting could be doing anything, but we suspect some kind of rush or all-in
+                if (isWorkerRush()) return ProtossStrategy::WorkerRush;
                 if (isProxy()) return ProtossStrategy::ProxyRush; // If we see a proxy building somewhere
                 if (isZealotRush()) return ProtossStrategy::ZealotRush;
                 if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;

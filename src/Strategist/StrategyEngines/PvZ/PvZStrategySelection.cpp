@@ -37,7 +37,9 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                         completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
 
         // Transition when we have 15 units, or 10 if the enemy strategy is no longer recognized as an all-in
-        return unitCount >= 15 || (unitCount >= 10 && enemyStrategyStableFor > 480 && newEnemyStrategy != ZergStrategy::ZerglingRush
+        return unitCount >= 15 || (unitCount >= 10 && enemyStrategyStableFor > 480
+                                   && newEnemyStrategy != ZergStrategy::WorkerRush
+                                   && newEnemyStrategy != ZergStrategy::ZerglingRush
                                    && newEnemyStrategy != ZergStrategy::ZerglingAllIn);
     };
 
@@ -53,6 +55,7 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                 {
                     case ZergStrategy::Unknown:
                         return strategy;
+                    case ZergStrategy::WorkerRush:
                     case ZergStrategy::ZerglingRush:
                     case ZergStrategy::ZerglingAllIn:
                     {
@@ -109,7 +112,9 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
             }
             case PvZ::OurStrategy::Defensive:
             {
-                if (newEnemyStrategy == ZergStrategy::ZerglingRush || newEnemyStrategy == ZergStrategy::ZerglingAllIn)
+                if (newEnemyStrategy == ZergStrategy::WorkerRush ||
+                    newEnemyStrategy == ZergStrategy::ZerglingRush ||
+                    newEnemyStrategy == ZergStrategy::ZerglingAllIn)
                 {
                     strategy = OurStrategy::AntiAllIn;
                     continue;
@@ -137,7 +142,9 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
             }
             case PvZ::OurStrategy::Normal:
             {
-                if ((newEnemyStrategy == ZergStrategy::ZerglingRush || newEnemyStrategy == ZergStrategy::ZerglingAllIn) &&
+                if ((newEnemyStrategy == ZergStrategy::WorkerRush ||
+                     newEnemyStrategy == ZergStrategy::ZerglingRush ||
+                     newEnemyStrategy == ZergStrategy::ZerglingAllIn) &&
                     !canTransitionFromAntiAllIn())
                 {
                     strategy = OurStrategy::AntiAllIn;

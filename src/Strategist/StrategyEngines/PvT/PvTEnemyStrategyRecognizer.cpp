@@ -3,9 +3,11 @@
 #include "Units.h"
 #include "Map.h"
 #include "Strategist.h"
+#include "UnitUtil.h"
 
 std::map<PvT::TerranStrategy, std::string> PvT::TerranStrategyNames = {
         {TerranStrategy::Unknown,       "Unknown"},
+        {TerranStrategy::WorkerRush,    "WorkerRush"},
         {TerranStrategy::ProxyRush,     "ProxyRush"},
         {TerranStrategy::MarineRush,    "MarineRush"},
         {TerranStrategy::WallIn,        "WallIn"},
@@ -39,6 +41,36 @@ namespace
     bool isFastExpansion()
     {
         return createdBeforeFrame(BWAPI::UnitTypes::Terran_Command_Center, 7000, 2);
+    }
+
+    bool isWorkerRush()
+    {
+        if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
+
+        int workers = 0;
+        for (const Unit &unit : Units::allEnemy())
+        {
+            if (!unit->lastPositionValid) continue;
+            if (unit->type.isBuilding()) continue;
+
+            bool isInArea = false;
+            for (const auto &area : Map::getMyMainAreas())
+            {
+                if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)
+                {
+                    isInArea = true;
+                    break;
+                }
+            }
+            if (!isInArea) continue;
+
+            // If there is a normal combat unit in our main, it isn't a worker rush
+            if (UnitUtil::IsCombatUnit(unit->type) && unit->type.canAttack()) return false;
+
+            if (unit->type.isWorker()) workers++;
+        }
+
+        return workers > 2;
     }
 
     bool isMarineRush()
@@ -173,6 +205,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
         switch (strategy)
         {
             case TerranStrategy::Unknown:
+                if (isWorkerRush()) return TerranStrategy::WorkerRush;
                 if (isMarineRush()) return TerranStrategy::MarineRush;
                 if (isProxy()) return TerranStrategy::ProxyRush;
                 if (isWallIn()) return TerranStrategy::WallIn;
@@ -195,7 +228,17 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 }
 
                 break;
+            case TerranStrategy::WorkerRush:
+                if (!isWorkerRush())
+                {
+                    strategy = TerranStrategy::Unknown;
+                    continue;
+                }
+
+                break;
             case TerranStrategy::ProxyRush:
+                if (isWorkerRush()) return TerranStrategy::WorkerRush;
+
                 // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their command center
                 if (!isProxy())
                 {
@@ -206,6 +249,8 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 // Otherwise intentionally fall through to marine rush handling
 
             case TerranStrategy::MarineRush:
+                if (isWorkerRush()) return TerranStrategy::WorkerRush;
+
                 // Consider the rush to be over after 6000 frames
                 // From there the Normal handler will potentially transition into MarineAllIn
                 if (BWAPI::Broodwar->getFrameCount() >= 6000)
@@ -216,6 +261,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
 
                 break;
             case TerranStrategy::WallIn:
+                if (isWorkerRush()) return TerranStrategy::WorkerRush;
                 if (isMarineRush()) return TerranStrategy::MarineRush;
                 if (isFastExpansion()) return TerranStrategy::FastExpansion;
 
@@ -227,17 +273,9 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
 
                 break;
             case TerranStrategy::TwoFactory:
-                if (isMarineRush()) return TerranStrategy::MarineRush;
-
-                if (isMidGame())
-                {
-                    strategy = TerranStrategy::MidGame;
-                    continue;
-                }
-
-                break;
             case TerranStrategy::FastExpansion:
             case TerranStrategy::Normal:
+                if (isWorkerRush()) return TerranStrategy::WorkerRush;
                 if (isMarineRush()) return TerranStrategy::MarineRush;
 
                 if (isMidGame())
