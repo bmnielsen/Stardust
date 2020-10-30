@@ -556,6 +556,20 @@ TEST(Steamhammer, UAlbertaBotMarineRush)
     test.run();
 }
 
+TEST(Steamhammer, SCVRush)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "SCVRush";
+        return module;
+    };
+
+    test.run();
+}
+
 TEST(Steamhammer, RunOneRandom)
 {
     BWTest test;
