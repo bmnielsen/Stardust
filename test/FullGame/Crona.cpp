@@ -2,7 +2,7 @@
 #include "BananaBrain.h"
 #include "StardustAIModule.h"
 
-TEST(BananaBrain, RunForever)
+TEST(Crona, RunForever)
 {
     int count = 0;
     int lost = 0;
@@ -11,7 +11,7 @@ TEST(BananaBrain, RunForever)
         BWTest test;
         BananaBrain* bbModule;
         test.maps = Maps::Get("aiide");
-        test.opponentRace = BWAPI::Races::Protoss;
+        test.opponentRace = BWAPI::Races::Zerg;
         test.opponentModule = [&]()
         {
             bbModule = new BananaBrain();
@@ -19,7 +19,7 @@ TEST(BananaBrain, RunForever)
         };
         test.onStartOpponent = [&]()
         {
-            std::cout << "BananaBrain strategy: " << bbModule->strategyName << std::endl;
+            std::cout << "Crona strategy: " << bbModule->strategyName << std::endl;
             if (test.sharedMemory)
             {
                 strncpy(test.sharedMemory,
@@ -32,7 +32,7 @@ TEST(BananaBrain, RunForever)
         test.onEndMine = [&](bool won)
         {
             std::ostringstream replayName;
-            replayName << "BananaBrain_" << test.map->shortname();
+            replayName << "Crona_" << test.map->shortname();
             if (!won)
             {
                 replayName << "_LOSS";
@@ -53,21 +53,20 @@ TEST(BananaBrain, RunForever)
     }
 }
 
-TEST(BananaBrain, RunOne)
+TEST(Crona, RunOne)
 {
     BWTest test;
     BananaBrain* bbModule;
-    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentRace = BWAPI::Races::Zerg;
     test.maps = Maps::Get("aiide");
     test.opponentModule = [&]()
     {
         bbModule = new BananaBrain();
-        bbModule->strategyName = ProtossStrategy::kPvP_4GateGoon;
         return bbModule;
     };
     test.onStartOpponent = [&]()
     {
-        std::cout << "BananaBrain strategy: " << bbModule->strategyName << std::endl;
+        std::cout << "Crona strategy: " << bbModule->strategyName << std::endl;
         if (test.sharedMemory)
         {
             strncpy(test.sharedMemory,
@@ -80,7 +79,7 @@ TEST(BananaBrain, RunOne)
     test.onEndMine = [&test](bool won)
     {
         std::ostringstream replayName;
-        replayName << "BananaBrain_" << test.map->shortname();
+        replayName << "Crona_" << test.map->shortname();
         if (!won)
         {
             replayName << "_LOSS";
@@ -89,19 +88,5 @@ TEST(BananaBrain, RunOne)
         replayName << "_" << test.randomSeed;
         test.replayName = replayName.str();
     };
-    test.run();
-}
-
-TEST(BananaBrain, BBS)
-{
-    BWTest test;
-    test.opponentRace = BWAPI::Races::Terran;
-    test.opponentModule = []()
-    {
-        auto bbModule = new BananaBrain();
-        bbModule->strategyName = TerranStrategy::kTvP_BBS;
-        return bbModule;
-    };
-
     test.run();
 }
