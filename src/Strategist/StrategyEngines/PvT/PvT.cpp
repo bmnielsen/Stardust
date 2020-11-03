@@ -117,6 +117,25 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     handleNaturalExpansion(plays, prioritizedProductionGoals);
     handleDetection(prioritizedProductionGoals);
 
+    // Temporary hack to set the number of gas workers needed until the producer can do it
+    auto setGasGathering = [](bool gather)
+    {
+        int current = Workers::desiredGasWorkers();
+        int delta;
+        if (gather)
+        {
+            delta = Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) * 3 - current;
+        }
+        else
+        {
+            delta = -std::min(current, Workers::availableMineralAssignments());
+        }
+        Workers::addDesiredGasWorkers(delta);
+    };
+
+    // Default to gather gas - we will only set to false later if we are being rushed
+    setGasGathering(true);
+
     // Main army production
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
@@ -153,7 +172,8 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // If we have no dragoons yet, get four zealots
             // Otherwise keep two zealots while pumping dragoons
-            int zealotsRequired = (dragoonCount == 0 ? 4 : 2) - zealotCount;
+            int desiredZealots = (dragoonCount == 0 ? 4 : 2) + std::max(0, (Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) - 6) / 3);
+            int zealotsRequired = desiredZealots - zealotCount;
 
             // Get two zealots at highest priority
             if (dragoonCount == 0 && zealotCount < 2)
@@ -171,6 +191,11 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
                                                                               zealotsRequired,
                                                                               -1);
+
+                if (zealotsRequired > 1 || BWAPI::Broodwar->self()->gas() >= 50)
+                {
+                    setGasGathering(false);
+                }
             }
 
             // If the dragoon transition is just beginning, only order one so we keep producing zealots
