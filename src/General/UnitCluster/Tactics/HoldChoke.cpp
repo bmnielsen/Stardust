@@ -8,14 +8,6 @@
 
 #include "DebugFlag_UnitOrders.h"
 
-/*
- * Holds a choke.
- *
- * Basic idea:
- * - Melee units hold the line at the choke end
- * - Ranged units keep in range of a point further inside the choke
- */
-
 namespace
 {
     const int goalWeight = 96;
@@ -58,25 +50,46 @@ void UnitCluster::holdChoke(Choke *choke,
             break;
         }
 
-        // If the target is about to be in our weapon range, attack with ranged or all units
-        auto predictedTargetPos = unitAndTarget.second->predictPosition(BWAPI::Broodwar->getLatencyFrames());
-        if (!predictedTargetPos.isValid()) predictedTargetPos = unitAndTarget.second->lastPosition;
-        if (!myUnit->isInOurWeaponRange(target, predictedTargetPos)) continue;
+        // For ranged units, we attack when the unit is about to be in our weapon range
         if (UnitUtil::IsRangedUnit(myUnit->type))
         {
+            auto predictedTargetPos = unitAndTarget.second->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+            if (!predictedTargetPos.isValid()) predictedTargetPos = unitAndTarget.second->lastPosition;
+            if (!myUnit->isInOurWeaponRange(target, predictedTargetPos)) continue;
+
             rangedShouldAttack = true;
 
-            // If we don't outrange the target, attack with melee units as well
+            // We also attack with melee units if we don't outrange the target
             if (myUnit->isInEnemyWeaponRange(target, predictedTargetPos, 16))
             {
                 meleeShouldAttack = true;
                 break;
             }
+
+            continue;
         }
-        else
+
+        // For melee units vs. ranged units, attack if the target has us in range
+        if (UnitUtil::IsRangedUnit(target->type))
         {
-            meleeShouldAttack = true;
+            if (myUnit->isInEnemyWeaponRange(target, -16))
+            {
+                rangedShouldAttack = true;
+                meleeShouldAttack = true;
+                break;
+            }
+
+            continue;
+        }
+
+        // For melee units vs. melee units, attack if the target is about to be in range
+        {
+            auto predictedTargetPos = unitAndTarget.second->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+            if (!predictedTargetPos.isValid()) predictedTargetPos = unitAndTarget.second->lastPosition;
+            if (!myUnit->isInOurWeaponRange(target, predictedTargetPos)) continue;
+
             rangedShouldAttack = true;
+            meleeShouldAttack = true;
             break;
         }
     }
@@ -177,13 +190,13 @@ void UnitCluster::holdChoke(Choke *choke,
                 targetPos = defendEnd;
                 distDiff = defendEndDist;
             }
-            else if (unitAndTarget.second && myUnit->isInEnemyWeaponRange(unitAndTarget.second, 32))
+            else if (unitAndTarget.second && myUnit->isInEnemyWeaponRange(unitAndTarget.second, 48))
             {
                 // Unit is in its target's attack range
                 targetPos = unitAndTarget.second->lastPosition;
                 distDiff = myUnit->getDistance(unitAndTarget.second)
                            - unitAndTarget.second->groundRange()
-                           - 32;
+                           - 48;
             }
             else
             {
