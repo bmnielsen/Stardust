@@ -642,7 +642,6 @@ void UnitImpl::updatePredictedPosition()
         // For the initial frame the predicted position is the last position
         predictedPosition = lastPosition;
 
-
         return;
     }
 
