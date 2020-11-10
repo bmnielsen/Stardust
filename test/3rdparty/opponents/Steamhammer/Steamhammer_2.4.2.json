@@ -540,6 +540,8 @@
 
 			"SCVRush"				: { "Race" : "Terran", "OpeningGroup" : "bio", "OpeningBuildOrder" :
 			["5 x SCV", "go pull workers 8"]},
+			"Bio"					: { "Race" : "Terran", "OpeningGroup" : "bio", "OpeningBuildOrder" :
+			["4 x SCV", "2 x barracks", "SCV", "supply depot"]},
 
 			"8RaxDefense"			: { "Race" : "Terran", "OpeningGroup" : "anti-rush", "OpeningBuildOrder" :
 				["go defensive", "4 x SCV", "barracks", "3 x SCV", "marine", "bunker @ front", "SCV", "marine", "go scout once around", "SCV", "marine", "SCV", "marine", "SCV", "marine"]},

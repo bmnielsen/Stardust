@@ -82,3 +82,80 @@ TEST(RushDefense, Steamhammer9PoolSpeed)
 
     test.run();
 }
+
+TEST(RushDefense, SteamhammerBBS)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Python");
+    test.randomSeed = 30841;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "Bio";
+        return module;
+    };
+    test.frameLimit = 5000;
+    test.expectWin = false;
+
+    // Simulate a short rush distance 4-pool where the zerglings arrive as we have 11 probes
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Pylon, BWAPI::TilePosition(46, 119)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Pylon, BWAPI::TilePosition(43, 109)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Gateway, BWAPI::TilePosition(46, 121)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Gateway, BWAPI::TilePosition(50, 121)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(115, 37))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(40, 116))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(41, 116))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(40, 117))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(41, 117))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(40, 118))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(41, 118))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(40, 119))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(41, 119))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(40, 120))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(41, 120))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(40, 121))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(41, 121))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(BWAPI::TilePosition(60, 124))),
+    };
+
+    // Enemy zerglings
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Barracks, BWAPI::Position(BWAPI::TilePosition(113, 40))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Barracks, BWAPI::Position(BWAPI::TilePosition(113, 43))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(35, 120))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(121, 37))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(122, 37))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(121, 38))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(122, 38))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(121, 39))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(122, 39))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(121, 40))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(122, 40))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(121, 41))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Supply_Depot, BWAPI::Position(BWAPI::TilePosition(109, 40))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Supply_Depot, BWAPI::Position(BWAPI::TilePosition(109, 42))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(BWAPI::TilePosition(71, 107))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(BWAPI::TilePosition(72, 104))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(BWAPI::TilePosition(74, 98))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(BWAPI::TilePosition(75, 97))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(BWAPI::TilePosition(116, 61))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(BWAPI::TilePosition(116, 62))),
+    };
+
+//    test.onStartMine = []()
+//    {
+//        std::vector<std::shared_ptr<Play>> openingPlays;
+//        openingPlays.emplace_back(std::make_shared<DefendBase>(Map::getMyMain()));
+//        Strategist::setOpening(openingPlays);
+//    };
+//
+//    test.onFrameMine = []()
+//    {
+//        // Quit if we have no probes left
+//        if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) == 0) BWAPI::Broodwar->leaveGame();
+//    };
+
+    test.run();
+}
