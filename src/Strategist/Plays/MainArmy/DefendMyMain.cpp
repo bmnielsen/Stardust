@@ -29,8 +29,7 @@ void DefendMyMain::update()
     std::set<Unit> enemyCombatUnits;
     std::set<Unit> enemyWorkers;
     bool scoutHarass = true;
-    bool enemyFlyingUnit = false;
-    bool enemyRangedUnit = false;
+    bool requireDragoons = false;
     Unit gasSteal = nullptr;
     for (const Unit &unit : Units::allEnemy())
     {
@@ -56,8 +55,10 @@ void DefendMyMain::update()
         {
             scoutHarass = false;
             enemyCombatUnits.insert(unit);
-            if (unit->isFlying) enemyFlyingUnit = true;
-            if (UnitUtil::IsRangedUnit(unit->type)) enemyRangedUnit = true;
+            requireDragoons = requireDragoons ||
+                              (unit->isFlying ||
+                               unit->type == BWAPI::UnitTypes::Protoss_Dragoon ||
+                               unit->type == BWAPI::UnitTypes::Terran_Vulture);
         }
         else if (unit->type.isRefinery())
         {
@@ -135,7 +136,7 @@ void DefendMyMain::update()
         // Release the worker gas steal attackers when they are no longer needed
         if (!reservedWorkerGasStealAttackers.empty())
         {
-            for (auto workerGasStealAttacker : reservedWorkerGasStealAttackers)
+            for (const auto& workerGasStealAttacker : reservedWorkerGasStealAttackers)
             {
                 Workers::releaseWorker(workerGasStealAttacker);
             }
@@ -167,7 +168,7 @@ void DefendMyMain::update()
         // Produce dragoons instead under the following circumstances:
         // - The enemy has units that can only be effectively countered with dragoons
         // - The enemy is not zerg and we already have the prerequisites needed for dragoons
-        if (enemyFlyingUnit || enemyRangedUnit || (
+        if (requireDragoons || (
                 BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Zerg &&
                 Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0 &&
                 BWAPI::Broodwar->self()->gas() >= 50
