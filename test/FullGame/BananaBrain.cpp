@@ -2,6 +2,40 @@
 #include "BananaBrain.h"
 #include "StardustAIModule.h"
 
+namespace
+{
+    template<typename It>
+    It randomElement(It start, It end)
+    {
+        std::mt19937 rng((std::random_device()) ());
+        std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
+        std::advance(start, dis(rng));
+        return start;
+    }
+
+    std::string randomOpening()
+    {
+        std::vector<std::string> openings = {
+                ProtossStrategy::kPvP_NZCore,
+                ProtossStrategy::kPvP_ZCore,
+                ProtossStrategy::kPvP_ZZCore,
+                ProtossStrategy::kPvP_ZCoreZ,
+                ProtossStrategy::kPvP_1012Gate,
+                ProtossStrategy::kPvP_2GateDt,
+                ProtossStrategy::kPvP_2GateDtExpo,
+                ProtossStrategy::kPvP_2GateReaver,
+                ProtossStrategy::kPvP_3GateRobo,
+                ProtossStrategy::kPvP_3GateSpeedZeal,
+                ProtossStrategy::kPvP_4GateGoon,
+                ProtossStrategy::kPvP_12Nexus,
+                ProtossStrategy::kPvP_99Gate,
+                ProtossStrategy::kPvP_99ProxyGate
+        };
+
+        return *randomElement(openings.begin(), openings.end());
+    }
+}
+
 TEST(BananaBrain, RunForever)
 {
     int count = 0;
@@ -10,11 +44,12 @@ TEST(BananaBrain, RunForever)
     {
         BWTest test;
         BananaBrain* bbModule;
-        test.maps = Maps::Get("aiide");
+        test.maps = Maps::Get("sscait");
         test.opponentRace = BWAPI::Races::Protoss;
         test.opponentModule = [&]()
         {
             bbModule = new BananaBrain();
+            bbModule->strategyName = randomOpening();
             return bbModule;
         };
         test.onStartOpponent = [&]()
@@ -38,7 +73,12 @@ TEST(BananaBrain, RunForever)
                 replayName << "_LOSS";
                 lost++;
             }
-            if (test.sharedMemory) replayName << "_" << test.sharedMemory;
+            if (test.sharedMemory)
+            {
+                std::string opening = test.sharedMemory;
+                std::replace(opening.begin(), opening.end(), '/', '_');
+                replayName << "_" << opening;
+            }
             replayName << "_" << test.randomSeed;
             test.replayName = replayName.str();
 
@@ -58,11 +98,11 @@ TEST(BananaBrain, RunOne)
     BWTest test;
     BananaBrain* bbModule;
     test.opponentRace = BWAPI::Races::Protoss;
-    test.maps = Maps::Get("aiide");
+    test.maps = Maps::Get("sscait");
     test.opponentModule = [&]()
     {
         bbModule = new BananaBrain();
-        bbModule->strategyName = ProtossStrategy::kPvP_4GateGoon;
+        bbModule->strategyName = randomOpening();
         return bbModule;
     };
     test.onStartOpponent = [&]()
@@ -85,10 +125,43 @@ TEST(BananaBrain, RunOne)
         {
             replayName << "_LOSS";
         }
-        if (test.sharedMemory) replayName << "_" << test.sharedMemory;
+        if (test.sharedMemory)
+        {
+            std::string opening = test.sharedMemory;
+            std::replace(opening.begin(), opening.end(), '/', '_');
+            replayName << "_" << opening;
+        }
         replayName << "_" << test.randomSeed;
         test.replayName = replayName.str();
     };
+    test.run();
+}
+
+TEST(BananaBrain, 1012Gate)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ProtossStrategy::kPvP_3GateSpeedZeal;
+        return bbModule;
+    };
+
+    test.run();
+}
+
+TEST(BananaBrain, 2GateDT)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ProtossStrategy::kPvP_2GateDt;
+        return bbModule;
+    };
+
     test.run();
 }
 
