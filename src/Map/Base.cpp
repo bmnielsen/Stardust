@@ -19,7 +19,7 @@ namespace
             if (unit->getTilePosition() == tile) return unit;
         }
 
-        Log::Get() << "WARNING: Unable to find geyser or refinery @ " << tile;
+//        Log::Get() << "WARNING: Unable to find geyser or refinery @ " << tile;
 
         return nullptr;
     }
@@ -160,10 +160,10 @@ void Base::analyzeMineralLine()
     // Compute the tiles that are considered part of the mineral line
     // We do this by tracing lines from each mineral patch to the center of the resource depot and adding all surrounding tiles
     {
-        for (auto mineralPatch : mineralPatches())
+        auto handleTile = [&](BWAPI::TilePosition input)
         {
             std::vector<BWAPI::TilePosition> tilesBetween;
-            Geo::FindTilesBetween(BWAPI::TilePosition(mineralPatch->getPosition()), BWAPI::TilePosition(getPosition()), tilesBetween);
+            Geo::FindTilesBetween(input, BWAPI::TilePosition(getPosition()), tilesBetween);
             for (auto pos : tilesBetween)
             {
                 if (Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Nexus, getPosition(), BWAPI::Position(pos) + BWAPI::Position(16, 16))
@@ -182,9 +182,23 @@ void Base::analyzeMineralLine()
                     }
                 }
             }
+        };
+        for (auto mineralPatch : mineralPatches())
+        {
+            handleTile(mineralPatch->getInitialTilePosition());
+            handleTile(mineralPatch->getInitialTilePosition() + BWAPI::TilePosition(1, 0));
         }
-
-        // Assumption is we shouldn't add the tiles between the refinery and depot, but can be added here if necessary
+        for (auto geyserTile : geyserTiles)
+        {
+            handleTile(geyserTile);
+            handleTile(geyserTile + BWAPI::TilePosition(1, 0));
+            handleTile(geyserTile + BWAPI::TilePosition(2, 0));
+            handleTile(geyserTile + BWAPI::TilePosition(3, 0));
+            handleTile(geyserTile + BWAPI::TilePosition(0, 1));
+            handleTile(geyserTile + BWAPI::TilePosition(1, 1));
+            handleTile(geyserTile + BWAPI::TilePosition(2, 1));
+            handleTile(geyserTile + BWAPI::TilePosition(3, 1));
+        }
     }
 
     // Compute the best mineral patch to use for rallying workers during worker defense
