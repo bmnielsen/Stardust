@@ -159,9 +159,14 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     // Ensure we have an anti cannon rush play if the enemy strategy warrants it
     if (BWAPI::Broodwar->getFrameCount() < 6000)
     {
+        // If we've detected a proxy, keep track of whether we have identified it as a zealot rush
+        // Once we've either seen the proxied gateway or a zealot, we assume the enemy isn't doing a "proxy" cannon rush
+        bool zealotProxy = enemyStrategy == ProtossStrategy::ProxyRush &&
+                           (Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Gateway) || Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Zealot));
+
         auto antiCannonRushPlay = getPlay<AntiCannonRush>(plays);
         if (enemyStrategy == ProtossStrategy::EarlyForge ||
-            enemyStrategy == ProtossStrategy::ProxyRush ||
+            (enemyStrategy == ProtossStrategy::ProxyRush && !zealotProxy) ||
             enemyStrategy == ProtossStrategy::BlockScouting ||
             (enemyStrategy == ProtossStrategy::Unknown && BWAPI::Broodwar->getFrameCount() > 2000))
         {
@@ -170,7 +175,8 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 plays.emplace(plays.begin(), std::make_shared<AntiCannonRush>());
             }
         }
-        else if (antiCannonRushPlay && enemyStrategy == ProtossStrategy::FastExpansion)
+        else if (antiCannonRushPlay && (
+                enemyStrategy == ProtossStrategy::FastExpansion || zealotProxy))
         {
             antiCannonRushPlay->status.complete = true;
         }
