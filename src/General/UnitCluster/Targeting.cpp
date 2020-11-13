@@ -581,7 +581,12 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
         if (bestTarget)
         {
-            bestTarget->dealDamage(unit);
+            // Only simulate dealt damage if the unit is already in our weapon range
+            // Otherwise especially melee units will be simulated very badly
+            if (unit->isInOurWeaponRange(bestTarget->unit))
+            {
+                bestTarget->dealDamage(unit);
+            }
             result.emplace_back(std::make_pair(attacker.unit, bestTarget->unit));
 
 #if DEBUG_TARGETING
