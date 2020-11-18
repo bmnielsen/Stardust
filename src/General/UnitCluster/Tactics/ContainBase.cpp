@@ -4,6 +4,7 @@
 #include "Players.h"
 #include "Map.h"
 #include "Geo.h"
+#include "Boids.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -121,10 +122,11 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
         }
         else
         {
+            // Detect if we are inside a narrow choke that is threatened at one end but not the other
+            // In this case we would normally want to contain inside the choke, which is undesirable
             Choke *insideChoke = nullptr;
             if (Map::isInNarrowChoke(myUnit->getTilePosition()))
             {
-                // We don't want to contain inside a narrow choke, so if we are in one, we may want to move back
                 for (const auto &choke : Map::allChokes())
                 {
                     if (!choke->isNarrowChoke) continue;
@@ -224,22 +226,12 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
             {
                 if (otherUnitAndTarget.first == myUnit) continue;
 
-                auto other = otherUnitAndTarget.first;
-
-                auto dist = myUnit->getDistance(other);
-                double detectionLimit = std::max(myUnit->type.width(), other->type.width()) * separationDetectionLimitFactor;
-                if (dist >= (int) detectionLimit) continue;
-
-                // We are within the detection limit
-                // Push away with maximum force at 0 distance, no force at detection limit
-                double distFactor = 1.0 - (double) dist / detectionLimit;
-                auto vector = Geo::ScaleVector(myUnit->lastPosition - other->lastPosition,
-                                               (int) (distFactor * distFactor * separationWeight));
-                if (vector != BWAPI::Positions::Invalid)
-                {
-                    separationX += vector.x;
-                    separationY += vector.y;
-                }
+                Boids::AddSeparation(myUnit.get(),
+                                     otherUnitAndTarget.first,
+                                     separationDetectionLimitFactor,
+                                     separationWeight,
+                                     separationX,
+                                     separationY);
             }
         }
 

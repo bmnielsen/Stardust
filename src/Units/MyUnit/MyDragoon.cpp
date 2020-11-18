@@ -3,6 +3,7 @@
 #include "UnitUtil.h"
 #include "Units.h"
 #include "Geo.h"
+#include "Boids.h"
 #include "Map.h"
 
 #include "DebugFlag_UnitOrders.h"
@@ -253,11 +254,6 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
             if (other.first->id == id) continue;
             if (!other.second) continue;
 
-            // Check if the other unit is within our detection limit
-            auto dist = getDistance(other.first);
-            double detectionLimit = std::max(type.width(), other.first->type.width()) * separationDetectionLimitFactor;
-            if (dist >= (int) detectionLimit) continue;
-
             // If we are ranging a bunker and are currently in range, skip separation except from units that are caught too close to the bunker
             if (rangingBunker && currentDistanceToTarget <= myRange)
             {
@@ -272,12 +268,7 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
                 continue;
             }
 
-            // Push away with maximum force at 0 distance, no force at detection limit
-            double distFactor = 1.0 - (double) dist / detectionLimit;
-            int centerDist = Geo::ApproximateDistance(lastPosition.x, other.first->lastPosition.x, lastPosition.y, other.first->lastPosition.y);
-            double scalingFactor = distFactor * distFactor * separationWeight / centerDist;
-            separationX -= (int) ((double) (other.first->lastPosition.x - lastPosition.x) * scalingFactor);
-            separationY -= (int) ((double) (other.first->lastPosition.y - lastPosition.y) * scalingFactor);
+            Boids::AddSeparation(this, other.first, separationDetectionLimitFactor, separationWeight, separationX, separationY);
         }
     }
 

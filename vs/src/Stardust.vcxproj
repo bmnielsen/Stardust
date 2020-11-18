@@ -168,6 +168,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Units\Unit\Unit_Info.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\Unit\Unit_Update.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\Units.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Util\Boids.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Util\Geo.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Util\UnitUtil.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Workers\WorkerOrderTimer.cpp" />

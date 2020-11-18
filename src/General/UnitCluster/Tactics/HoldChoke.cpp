@@ -4,6 +4,7 @@
 #include "Players.h"
 #include "Map.h"
 #include "Geo.h"
+#include "Boids.h"
 #include "UnitUtil.h"
 
 #include "DebugFlag_UnitOrders.h"
@@ -111,7 +112,7 @@ void UnitCluster::holdChoke(Choke *choke,
         return UnitUtil::IsRangedUnit(myUnit->type) ? rangedShouldAttack : meleeShouldAttack;
     };
 
-    std::vector<std::tuple<MyUnit, BWAPI::Position, int, BWAPI::Position>> unitsAndMoveTargets;
+    std::vector<std::tuple<MyUnit, int, BWAPI::Position>> unitsAndMoveTargets;
     for (const auto &unitAndTarget : unitsAndTargets)
     {
         auto &myUnit = unitAndTarget.first;
@@ -205,10 +206,7 @@ void UnitCluster::holdChoke(Choke *choke,
             }
         }
 
-        auto predictedPosition = myUnit->predictPosition(BWAPI::Broodwar->getLatencyFrames());
-        if (!predictedPosition.isValid()) predictedPosition = myUnit->lastPosition;
-
-        unitsAndMoveTargets.emplace_back(std::make_tuple(myUnit, predictedPosition, distDiff, targetPos));
+        unitsAndMoveTargets.emplace_back(std::make_tuple(myUnit, distDiff, targetPos));
     }
 
     // Now execute move orders
@@ -216,9 +214,8 @@ void UnitCluster::holdChoke(Choke *choke,
     for (auto &moveUnit : unitsAndMoveTargets)
     {
         auto &myUnit = std::get<0>(moveUnit);
-        auto predictedPosition = std::get<1>(moveUnit);
-        auto distDiff = std::get<2>(moveUnit);
-        auto targetPos = std::get<3>(moveUnit);
+        auto distDiff = std::get<1>(moveUnit);
+        auto targetPos = std::get<2>(moveUnit);
 
         // Move to maintain the contain
         int goalX = 0;
@@ -267,27 +264,10 @@ void UnitCluster::holdChoke(Choke *choke,
             if (myUnit == other) continue;
 
             // Don't move out of the way of units already at their desired position
-            auto otherDistDiff = std::abs(std::get<2>(otherMoveUnit));
+            auto otherDistDiff = std::abs(std::get<1>(otherMoveUnit));
             if (otherDistDiff < 5) continue;
 
-            auto otherPredictedPosition = std::get<1>(otherMoveUnit);
-            auto dist = Geo::EdgeToEdgeDistance(myUnit->type,
-                                                predictedPosition,
-                                                other->type,
-                                                otherPredictedPosition);
-            double detectionLimit = std::max(myUnit->type.width(), other->type.width()) * separationDetectionLimitFactor;
-            if (dist >= (int) detectionLimit) continue;
-
-            // We are within the detection limit
-            // Push away with maximum force at 0 distance, no force at detection limit
-            double distFactor = 1.0 - (double) dist / detectionLimit;
-            auto vector = Geo::ScaleVector(myUnit->lastPosition - other->lastPosition,
-                                           (int) (distFactor * distFactor * separationWeight));
-            if (vector != BWAPI::Positions::Invalid)
-            {
-                separationX += vector.x;
-                separationY += vector.y;
-            }
+            Boids::AddSeparation(myUnit.get(), other, separationDetectionLimitFactor, separationWeight, separationX, separationY);
         }
 
         // Put them all together to get the target direction
