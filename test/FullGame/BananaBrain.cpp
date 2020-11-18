@@ -34,6 +34,18 @@ namespace
 
         return *randomElement(openings.begin(), openings.end());
     }
+
+    std::string randomZealotOpening()
+    {
+        std::vector<std::string> openings = {
+                ProtossStrategy::kPvP_1012Gate,
+                ProtossStrategy::kPvP_3GateSpeedZeal,
+                ProtossStrategy::kPvP_99Gate,
+                ProtossStrategy::kPvP_99ProxyGate
+        };
+
+        return *randomElement(openings.begin(), openings.end());
+    }
 }
 
 TEST(BananaBrain, RunForever)
@@ -49,6 +61,8 @@ TEST(BananaBrain, RunForever)
         test.opponentModule = [&]()
         {
             bbModule = new BananaBrain();
+            bbModule->strategyName = randomOpening();
+            bbModule->strategyName = randomZealotOpening();
             bbModule->strategyName = randomOpening();
             return bbModule;
         };
