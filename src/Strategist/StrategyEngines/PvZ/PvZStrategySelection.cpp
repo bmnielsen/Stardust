@@ -2,6 +2,7 @@
 
 #include "Map.h"
 #include "Plays/MainArmy/DefendMyMain.h"
+#include "Plays/MainArmy/AttackEnemyMain.h"
 #include "Units.h"
 
 std::map<PvZ::OurStrategy, std::string> PvZ::OurStrategyNames = {
@@ -129,7 +130,7 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                 }
 
                 auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-                if (mainArmyPlay && typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                if (mainArmyPlay && typeid(*mainArmyPlay) == typeid(AttackEnemyMain))
                 {
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                     if (vanguard && vanguard->units.size() >= 6)
