@@ -461,7 +461,11 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 {
     // Hop out if the natural has already been taken
     auto natural = Map::getMyNatural();
-    if (!natural || natural->ownedSince != -1) return;
+    if (!natural || natural->ownedSince != -1)
+    {
+        CherryVis::setBoardValue("natural", "complete");
+        return;
+    }
 
     // If we have a backdoor natural, expand if we are gas blocked
     // This generally happens when we are teching to DT or observers
@@ -471,6 +475,8 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             BWAPI::Broodwar->self()->gas() < 100 &&
             (BWAPI::Broodwar->self()->supplyTotal() - BWAPI::Broodwar->self()->supplyUsed()) >= 6)
         {
+            CherryVis::setBoardValue("natural", "take-backdoor");
+
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
@@ -482,9 +488,11 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::AntiZealotRush:
         case OurStrategy::Defensive:
             // Don't take our natural if the enemy could be rushing or doing an all-in
+            CherryVis::setBoardValue("natural", "wait-defensive");
             break;
 
         case OurStrategy::FastExpansion:
+            CherryVis::setBoardValue("natural", "take-fast-expo");
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
 
@@ -501,26 +509,44 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 enemyStrategy != ProtossStrategy::EarlyRobo &&
                 enemyStrategy != ProtossStrategy::Turtle)
             {
+                CherryVis::setBoardValue("natural", "too-early");
                 break;
             }
 
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) break;
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain))
+            {
+                CherryVis::setBoardValue("natural", "no-attack-play");
+                break;
+            }
 
             auto squad = mainArmyPlay->getSquad();
-            if (!squad || squad->getUnits().size() < 5) break;
+            if (!squad || squad->getUnits().size() < 5)
+            {
+                CherryVis::setBoardValue("natural", "attack-play-too-small");
+                break;
+            }
 
             int dist;
             auto vanguardCluster = squad->vanguardCluster(&dist);
-            if (!vanguardCluster) break;
+            if (!vanguardCluster)
+            {
+                CherryVis::setBoardValue("natural", "no-vanguard-cluster");
+                break;
+            }
 
             // Cluster should be at least 2/3 of the way to the target base
             int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
-            if (dist * 2 > distToMain) break;
+            if (dist * 2 > distToMain)
+            {
+                CherryVis::setBoardValue("natural", "vanguard-cluster-too-close");
+                break;
+            }
 
             // Always expand in this situation if we are gas blocked
             if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100)
             {
+                CherryVis::setBoardValue("natural", "take-gas-blocked");
                 takeNaturalExpansion(plays, prioritizedProductionGoals);
                 return;
             }
@@ -532,9 +558,11 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                     && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
             {
                 // We don't cancel a queued expansion in this case
+                CherryVis::setBoardValue("natural", "vanguard-cluster-not-attacking");
                 return;
             }
 
+            CherryVis::setBoardValue("natural", "take");
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
@@ -542,26 +570,45 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         {
             // Take our natural as soon as the army has moved beyond it
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) break;
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain))
+            {
+                CherryVis::setBoardValue("natural", "no-attack-play");
+                break;
+            }
 
             auto squad = mainArmyPlay->getSquad();
-            if (!squad) break;
+            if (!squad)
+            {
+                CherryVis::setBoardValue("natural", "no-attack-play-squad");
+                break;
+            }
 
             auto vanguardCluster = squad->vanguardCluster();
-            if (!vanguardCluster) break;
+            if (!vanguardCluster)
+            {
+                CherryVis::setBoardValue("natural", "no-vanguard-cluster");
+                break;
+            }
 
             // Ensure the cluster is at least 10 tiles further from the natural than it is from the main
             int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
             int distToNatural = PathFinding::GetGroundDistance(natural->getPosition(), vanguardCluster->center);
-            if (distToNatural < 500 || distToMain < (distToNatural + 500)) break;
+            if (distToNatural < 500 || distToMain < (distToNatural + 500))
+            {
+                CherryVis::setBoardValue("natural", "vanguard-too-close");
+                break;
+            }
 
             // Cluster should not be fleeing
             if (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
                 && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee)
             {
+                CherryVis::setBoardValue("natural", "vanguard-fleeing");
+
                 break;
             }
 
+            CherryVis::setBoardValue("natural", "take");
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }

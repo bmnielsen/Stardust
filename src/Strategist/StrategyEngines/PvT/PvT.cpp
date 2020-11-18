@@ -298,7 +298,11 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 {
     // Hop out if the natural has already been taken
     auto natural = Map::getMyNatural();
-    if (!natural || natural->ownedSince != -1) return;
+    if (!natural || natural->ownedSince != -1)
+    {
+        CherryVis::setBoardValue("natural", "complete");
+        return;
+    }
 
     // If we have a backdoor natural, expand when our second goon is being produced or we have lots of money
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
@@ -306,6 +310,8 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         if (BWAPI::Broodwar->self()->minerals() > 450 ||
             Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon) > 1)
         {
+            CherryVis::setBoardValue("natural", "take-backdoor");
+
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
@@ -317,9 +323,11 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::AntiMarineRush:
         case OurStrategy::Defensive:
             // Don't take our natural if the enemy could be rushing or doing an all-in
+            CherryVis::setBoardValue("natural", "wait-defensive");
             break;
 
         case OurStrategy::FastExpansion:
+            CherryVis::setBoardValue("natural", "take-fast-expo");
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
 
@@ -330,18 +338,34 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // that is close to the enemy base
 
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) break;
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain))
+            {
+                CherryVis::setBoardValue("natural", "no-attack-play");
+                break;
+            }
 
             auto squad = mainArmyPlay->getSquad();
-            if (!squad || squad->getUnits().size() < 4) break;
+            if (!squad || squad->getUnits().size() < 4)
+            {
+                CherryVis::setBoardValue("natural", "attack-play-too-small");
+                break;
+            }
 
             int dist;
             auto vanguardCluster = squad->vanguardCluster(&dist);
-            if (!vanguardCluster) break;
+            if (!vanguardCluster)
+            {
+                CherryVis::setBoardValue("natural", "no-vanguard-cluster");
+                break;
+            }
 
             // Cluster should be at least 2/3 of the way to the target base
             int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
-            if (dist * 2 > distToMain) break;
+            if (dist * 2 > distToMain)
+            {
+                CherryVis::setBoardValue("natural", "vanguard-cluster-too-close");
+                break;
+            }
 
             // Cluster should not be moving or fleeing
             // In other words, we want the cluster to be in some kind of stable attack or contain state
@@ -350,9 +374,11 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                     && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
             {
                 // We don't cancel a queued expansion in this case
+                CherryVis::setBoardValue("natural", "vanguard-cluster-not-attacking");
                 return;
             }
 
+            CherryVis::setBoardValue("natural", "take");
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
