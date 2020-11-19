@@ -272,39 +272,21 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
         }
     }
 
-    // Combine to the total so far
-    int totalX = targetX + separationX;
-    int totalY = targetY + separationY;
-    auto pos = Geo::WalkablePositionAlongVector(lastPosition, BWAPI::Position(totalX, totalY));
-
-    // If the position is walkable, handle collision
-    int collisionX = 0;
-    int collisionY = 0;
-    if (pos.isValid())
-    {
-        auto collisionVector = Map::collisionVector(pos.x >> 5, pos.y >> 5);
-        if (collisionVector.x != 0 || collisionVector.y != 0)
-        {
-            collisionX = collisionVector.x * collisionWeight;
-            collisionY = collisionVector.y * collisionWeight;
-            pos = Geo::WalkablePositionAlongVector(lastPosition,
-                                                   Geo::ScaleVector(BWAPI::Position(totalX + collisionX, totalY + collisionY), 64));
-        }
-    }
+    auto pos = Boids::ComputePosition(this, {targetX, separationX}, {targetY, separationY}, 0, collisionWeight);
 
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(id) << "Kiting boids; target=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(targetX, targetY))
                        << "; separation=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(separationX, separationY))
-                       << "; collision=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(collisionX, collisionY))
                        << "; target=" << BWAPI::WalkPosition(pos);
 #endif
 
-    if (pos.isValid())
+    // If the unit can't move in the desired direction, attack the target instead
+    if (pos == BWAPI::Positions::Invalid)
     {
-        moveTo(pos, true);
+        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
     }
     else
     {
-        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
+        moveTo(pos, true);
     }
 }

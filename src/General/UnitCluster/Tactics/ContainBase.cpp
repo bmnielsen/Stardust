@@ -235,24 +235,21 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
             }
         }
 
-        // Put them all together to get the target direction
-        int totalX = goalX + separationX;
-        int totalY = goalY + separationY;
-        auto total = Geo::ScaleVector(BWAPI::Position(totalX, totalY), 80);
-        auto pos = total == BWAPI::Positions::Invalid ? myUnit->lastPosition : (myUnit->lastPosition + total);
+        auto pos = Boids::ComputePosition(myUnit.get(), {goalX, separationX}, {goalY, separationY}, 80, 0);
 
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(myUnit->id) << "Contain boids towards " << BWAPI::WalkPosition(targetPosition)
                                    << "; cluster=" << BWAPI::WalkPosition(center)
                                    << ": goal=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX, goalY))
                                    << "; separation=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(separationX, separationY))
-                                   << "; total=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(totalX, totalY))
+                                   << "; total=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX+separationX, goalY+separationY))
                                    << "; target=" << BWAPI::WalkPosition(pos)
                                    << "; pullingBack=" << pullingBack;
 #endif
 
-        // If the position is invalid or unwalkable, either move towards the target or towards our main depending on whether we are pulling back
-        if (!pos.isValid() || !Map::isWalkable(BWAPI::TilePosition(pos)))
+        // If the unit can't move in the desired direction, either move towards the target or towards our main
+        // depending on whether we are pulling back
+        if (pos == BWAPI::Positions::Invalid)
         {
             myUnit->moveTo(pullingBack ? Map::getMyMain()->getPosition() : targetPosition);
         }

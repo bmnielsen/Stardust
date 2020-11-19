@@ -162,25 +162,25 @@ void UnitCluster::holdChoke(Choke *choke,
 
         if (UnitUtil::IsRangedUnit(myUnit->type))
         {
-            int targetDist = myUnit->getDistance(defendEnd);
             int distToCenter = myUnit->getDistance(choke->center);
-            if (distToCenter < targetDist)
+            if (distToCenter < defendEndDist)
             {
                 // Unit is on wrong side of the defend end, closer to choke center
-                targetPos = defendEnd;
-                distDiff = targetDist;
+                // If the unit is far away, use the choke center as the reference point
+                targetPos = (defendEndDist > std::max(centerDist, 32) * 2) ? choke->center : defendEnd;
+                distDiff = defendEndDist;
             }
             else if (distToCenter < centerDist)
             {
                 // Unit is on wrong side of the defend end, closer to defend end
                 targetPos = choke->center;
-                distDiff = -targetDist - myUnit->groundRange();
+                distDiff = -defendEndDist - myUnit->groundRange();
             }
             else
             {
                 // Normal defend boid
                 targetPos = defendEnd;
-                distDiff = targetDist - myUnit->groundRange();
+                distDiff = defendEndDist - myUnit->groundRange();
             }
         }
         else
@@ -270,51 +270,19 @@ void UnitCluster::holdChoke(Choke *choke,
             Boids::AddSeparation(myUnit.get(), other, separationDetectionLimitFactor, separationWeight, separationX, separationY);
         }
 
-        // Put them all together to get the target direction
-        int totalX = goalX + separationX;
-        int totalY = goalY + separationY;
-
-        // If the unit is in a no-go area, get out of it immediately
-        // TODO: This needs to be refactored to be usable from all tactics
-        if (Map::isInNoGoArea(myUnit->tilePositionX, myUnit->tilePositionY))
-        {
-            // Find the closest tile that is walkable and not in a no-go area
-            int closestDist = INT_MAX;
-            for (int x = myUnit->tilePositionX - 5; x < myUnit->tilePositionX + 5; x++)
-            {
-                if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
-
-                for (int y = myUnit->tilePositionY - 5; y < myUnit->tilePositionY + 5; y++)
-                {
-                    if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
-                    if (!Map::isWalkable(x, y)) continue;
-                    if (Map::isInNoGoArea(x, y)) continue;
-
-                    int dist = Geo::ApproximateDistance(myUnit->tilePositionX, x, myUnit->tilePositionY, y);
-                    if (dist < closestDist)
-                    {
-                        closestDist = dist;
-                        totalX = (x - myUnit->tilePositionX) * 32;
-                        totalY = (y - myUnit->tilePositionY) * 32;
-                    }
-                }
-            }
-        }
-
-        // Find a walkable position along the vector
-        auto totalVector = BWAPI::Position(totalX, totalY);
-        auto pos = Geo::WalkablePositionAlongVector(myUnit->lastPosition, totalVector);
+        auto pos = Boids::ComputePosition(myUnit.get(), {goalX, separationX}, {goalY, separationY}, 0, 0);
 
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(myUnit->id) << "HoldChoke boids towards " << BWAPI::WalkPosition(defendEnd)
                                    << "; distDiff=" << distDiff
                                    << ": goal=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX, goalY))
                                    << "; separation=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(separationX, separationY))
-                                   << "; total=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(totalX, totalY))
+                                   << "; total="
+                                   << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX + separationX, goalY + separationY))
                                    << "; target=" << BWAPI::WalkPosition(pos);
 #endif
 
-        if (pos.isValid() && BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos)))
+        if (pos != BWAPI::Positions::Invalid)
         {
             myUnit->moveTo(pos, true);
             continue;

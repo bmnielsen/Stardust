@@ -86,9 +86,9 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         if (grid)
         {
             auto &currentNode = (*grid)[unit->getTilePosition()];
-            if (currentNode.nextNode && currentNode.nextNode->nextNode && currentNode.nextNode->nextNode->nextNode)
+            if (currentNode.nextNode && currentNode.nextNode->nextNode)
             {
-                node = currentNode.nextNode->nextNode->nextNode;
+                node = currentNode.nextNode->nextNode;
             }
         }
 
@@ -155,23 +155,10 @@ void UnitCluster::move(BWAPI::Position targetPosition)
             Boids::AddSeparation(unit.get(), other, separationDetectionLimitFactor, separationWeight, separationX, separationY);
         }
 
-        // Put them all together to get the target direction
-        int totalX = goalX + cohesionX + separationX;
-        int totalY = goalY + cohesionY + separationY;
+        auto pos = Boids::ComputePosition(unit.get(), {goalX, cohesionX, separationX}, {goalY, cohesionY, separationY}, 80, 1);
 
-        // Cap it at 2 tiles away to edge of large unit
-        auto dist = Geo::ApproximateDistance(totalX, 0, totalY, 0);
-        if (dist > 80)
-        {
-            double scale = 80.0 / (double) dist;
-            totalX = (int) ((double) totalX * scale);
-            totalY = (int) ((double) totalY * scale);
-        }
-
-        auto pos = BWAPI::Position(unit->lastPosition.x + totalX, unit->lastPosition.y + totalY);
-
-        // If the target position is in unwalkable terrain, use the grid directly
-        if (!pos.isValid() || !Map::isWalkable(BWAPI::TilePosition(pos)))
+        // Default to the goal node if the unit can't move in the direction it wants to
+        if (pos == BWAPI::Positions::Invalid)
         {
             pos = BWAPI::Position((node->x << 5U) + 16, (node->y << 5U) + 16);
         }
@@ -185,7 +172,8 @@ void UnitCluster::move(BWAPI::Position targetPosition)
                                  << ": goal=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(goalX, goalY))
                                  << "; cohesion=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(cohesionX, cohesionY))
                                  << "; separation=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(separationX, separationY))
-                                 << "; total=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(totalX, totalY))
+                                 << "; total=" << BWAPI::WalkPosition(
+                unit->lastPosition + BWAPI::Position(goalX + cohesionX + separationX, goalY + cohesionY + separationY))
                                  << "; target=" << BWAPI::WalkPosition(pos);
 #endif
 
