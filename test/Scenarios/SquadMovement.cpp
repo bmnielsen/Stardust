@@ -272,7 +272,7 @@ TEST(SquadMovement, DragoonBall)
     };
     test.map = Maps::GetOne("Fighting Spirit");
     test.randomSeed = 42;
-    test.frameLimit = 600;
+    test.frameLimit = 800;
     test.expectWin = false;
 
     // Start the dragoons in a tight ball
