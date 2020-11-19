@@ -82,13 +82,18 @@ TEST(DragoonKiting, DragoonVsZergling)
 
     test.onEndMine = [](bool win)
     {
+        bool hasDragoon = false;
         for (auto &unit : BWAPI::Broodwar->self()->getUnits())
         {
             if (unit->getType() != BWAPI::UnitTypes::Protoss_Dragoon) continue;
 
+            hasDragoon = true;
+
             // Shields will be approx. 30 if we don't kite
             EXPECT_GT(unit->getShields(), 70);
         }
+
+        EXPECT_TRUE(hasDragoon);
     };
 
     test.run();
@@ -130,13 +135,18 @@ TEST(DragoonKiting, DragoonVsZealotConfinedSpace)
 
     test.onEndMine = [](bool win)
     {
+        bool hasDragoon = false;
         for (auto &unit : BWAPI::Broodwar->self()->getUnits())
         {
             if (unit->getType() != BWAPI::UnitTypes::Protoss_Dragoon) continue;
 
-            // Shields will be approx. 30 if we don't kite
-            EXPECT_GT(unit->getShields(), 70);
+            hasDragoon = true;
+
+            // Ensure no health damage
+            EXPECT_EQ(unit->getHitPoints(), unit->getType().maxHitPoints());
         }
+
+        EXPECT_TRUE(hasDragoon);
     };
 
     test.run();
