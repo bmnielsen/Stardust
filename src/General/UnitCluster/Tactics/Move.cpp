@@ -19,7 +19,6 @@
  * Collisions with unwalkable terrain are handled by having the unit ignore the boids and move only using the
  * grid. These cases are hopefully lessened by the fact that our navigation grid favours paths away from
  * unwalkable tiles.
- * TODO: Add some kind of collision with terrain boid
  */
 
 namespace
@@ -155,7 +154,7 @@ void UnitCluster::move(BWAPI::Position targetPosition)
             Boids::AddSeparation(unit.get(), other, separationDetectionLimitFactor, separationWeight, separationX, separationY);
         }
 
-        auto pos = Boids::ComputePosition(unit.get(), {goalX, cohesionX, separationX}, {goalY, cohesionY, separationY}, 80, 1);
+        auto pos = Boids::ComputePosition(unit.get(), {goalX, cohesionX, separationX}, {goalY, cohesionY, separationY}, 80, 0);
 
         // Default to the goal node if the unit can't move in the direction it wants to
         if (pos == BWAPI::Positions::Invalid)
