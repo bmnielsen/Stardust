@@ -6,6 +6,7 @@ add_subdirectory(3rdparty/opponents/Steamhammer)
 add_subdirectory(3rdparty/opponents/Locutus)
 add_subdirectory(3rdparty/opponents/Iron)
 add_subdirectory(3rdparty/opponents/BananaBrain)
+add_subdirectory(3rdparty/opponents/SAIDA)
 
 include_directories(${CMAKE_SOURCE_DIR}/3rdparty/googletest/include)
 
@@ -47,7 +48,7 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(tests PUBLIC DEBUG=1)
 endif()
 
-target_link_libraries(tests gtest gtest_main BWAPILIB Stardust Steamhammer Locutus Iron BananaBrain)
+target_link_libraries(tests gtest gtest_main BWAPILIB Stardust Steamhammer Locutus Iron BananaBrain SAIDA)
 target_compile_options(tests PRIVATE -Wall -Werror)
 
 file(COPY ${CMAKE_SOURCE_DIR}/test/3rdparty/maps DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
