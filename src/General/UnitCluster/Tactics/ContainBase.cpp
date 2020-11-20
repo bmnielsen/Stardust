@@ -29,7 +29,7 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
     auto unitsAndTargets = selectTargets(enemyUnits, targetPosition, true);
 
     auto &grid = Players::grid(BWAPI::Broodwar->enemy());
-    auto navigationGrid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
+    auto navigationGrid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition), true);
 
     for (const auto &unitAndTarget : unitsAndTargets)
     {

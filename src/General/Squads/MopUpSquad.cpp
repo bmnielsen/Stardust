@@ -109,7 +109,7 @@ void MopUpSquad::execute(UnitCluster &cluster)
     }
 
     // Move towards the accessible tile that we have seen longest ago
-    auto grid = PathFinding::getNavigationGrid(Map::getMyMain()->getTilePosition());
+    auto grid = PathFinding::getNavigationGrid(Map::getMyMain()->getTilePosition(), true);
     if (grid)
     {
         BWAPI::TilePosition bestTile = BWAPI::TilePositions::Invalid;

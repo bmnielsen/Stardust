@@ -13,16 +13,16 @@ namespace PathFinding
     void initializeGrids();
 
     // Gets the navigation grid to a specific goal position
-    NavigationGrid *getNavigationGrid(BWAPI::TilePosition goal);
+    NavigationGrid *getNavigationGrid(BWAPI::TilePosition goal, bool ignoreEnemyBuildings = false);
 
     // An object that affects pathfinding (e.g. a building) has been added
-    void addBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile);
+    void addBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile, bool isEnemyBuilding = false);
 
     // Tiles that affect pathfinding (e.g. a mineral line) have been added
     void addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles);
 
     // An object that affects pathfinding (e.g. a building) has been removed
-    void removeBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile);
+    void removeBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile, bool isEnemyBuilding = false);
 
     // Tiles that affect pathfinding (e.g. a mineral line) have been removed
     void removeBlockingTiles(const std::set<BWAPI::TilePosition> &tiles);

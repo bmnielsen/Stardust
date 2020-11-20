@@ -6,11 +6,11 @@ namespace PathFinding
 {
     namespace
     {
-        std::map<BWAPI::TilePosition, NavigationGrid> goalToNavigationGrid;
+        std::map<BWAPI::TilePosition, std::pair<NavigationGrid, NavigationGrid>> goalToNavigationGrid;
 
         void createNavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize = BWAPI::TilePositions::Invalid)
         {
-            goalToNavigationGrid.emplace(goal, NavigationGrid(goal, goalSize));
+            goalToNavigationGrid.emplace(goal, std::make_pair(NavigationGrid(goal, goalSize), NavigationGrid(goal, goalSize)));
         }
     }
 
@@ -33,25 +33,30 @@ namespace PathFinding
         }
     }
 
-    NavigationGrid *getNavigationGrid(BWAPI::TilePosition goal)
+    NavigationGrid *getNavigationGrid(BWAPI::TilePosition goal, bool ignoreEnemyBuildings)
     {
         for (auto &goalAndNavigationGrid : goalToNavigationGrid)
         {
             if (goalAndNavigationGrid.first.getApproxDistance(goal) < 5)
             {
-                goalAndNavigationGrid.second.update();
-                return &goalAndNavigationGrid.second;
+                auto &grid = ignoreEnemyBuildings ? goalAndNavigationGrid.second.second : goalAndNavigationGrid.second.first;
+                grid.update();
+                return &grid;
             }
         }
 
         return nullptr;
     }
 
-    void addBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile)
+    void addBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile, bool isEnemyBuilding)
     {
         for (auto &goalAndNavigationGrid : goalToNavigationGrid)
         {
-            goalAndNavigationGrid.second.addBlockingObject(tile, type.tileSize());
+            goalAndNavigationGrid.second.first.addBlockingObject(tile, type.tileSize());
+            if (!isEnemyBuilding)
+            {
+                goalAndNavigationGrid.second.second.addBlockingObject(tile, type.tileSize());
+            }
         }
     }
 
@@ -59,15 +64,20 @@ namespace PathFinding
     {
         for (auto &goalAndNavigationGrid : goalToNavigationGrid)
         {
-            goalAndNavigationGrid.second.addBlockingTiles(tiles);
+            goalAndNavigationGrid.second.first.addBlockingTiles(tiles);
+            goalAndNavigationGrid.second.second.addBlockingTiles(tiles);
         }
     }
 
-    void removeBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile)
+    void removeBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile, bool isEnemyBuilding)
     {
         for (auto &goalAndNavigationGrid : goalToNavigationGrid)
         {
-            goalAndNavigationGrid.second.removeBlockingObject(tile, type.tileSize());
+            goalAndNavigationGrid.second.first.removeBlockingObject(tile, type.tileSize());
+            if (!isEnemyBuilding)
+            {
+                goalAndNavigationGrid.second.second.removeBlockingObject(tile, type.tileSize());
+            }
         }
     }
 
@@ -75,7 +85,8 @@ namespace PathFinding
     {
         for (auto &goalAndNavigationGrid : goalToNavigationGrid)
         {
-            goalAndNavigationGrid.second.removeBlockingTiles(tiles);
+            goalAndNavigationGrid.second.first.removeBlockingTiles(tiles);
+            goalAndNavigationGrid.second.second.removeBlockingTiles(tiles);
         }
     }
 
