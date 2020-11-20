@@ -291,7 +291,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         attacker.closeTargets.reserve(targets.size());
 
         bool isRanged = UnitUtil::IsRangedUnit(unit->type);
-        int distanceToTarget = unit->getDistance(targetPosition);
+        int distanceToTargetPosition = unit->getDistance(targetPosition);
         for (auto &target : targets)
         {
             if (target.unit->type == BWAPI::UnitTypes::Zerg_Larva ||
@@ -307,10 +307,10 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             }
 
             // If we are targeting an enemy base, ignore outlying buildings (except static defense)
-            if (target.priority < 7 && targetIsReachableEnemyBase && distanceToTarget > 200)
+            if (target.priority < 7 && targetIsReachableEnemyBase && distanceToTargetPosition > 200)
             {
 #if DEBUG_TARGETING
-                dbg << "\n Skipping " << *target.unit << " as priority < 7, targetIsReachableEnemyBase, distanceToTarget > 200";
+                dbg << "\n Skipping " << *target.unit << " as priority < 7, targetIsReachableEnemyBase, distanceToTargetPosition > 200";
 #endif
                 continue;
             }
@@ -357,7 +357,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             }
 
             // Skip targets that are out of range and moving away from us, unless we are close to our target position
-            if (distanceToTarget > 500 && distToRange > 0)
+            if (distanceToTargetPosition > 500 && distToRange > 0)
             {
                 auto predictedTargetPosition = target.unit->predictPosition(1);
                 if (predictedTargetPosition.isValid() && unit->getDistance(target.unit, predictedTargetPosition) > range)
@@ -430,10 +430,11 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         int bestAttackerCount = 0;
         int bestDist = INT_MAX;
 
+        bool isRanged = UnitUtil::IsRangedUnit(unit->type);
         int cooldownMoveFrames = std::max(0,
                                           unit->cooldownUntil - BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getRemainingLatencyFrames() - 2);
 
-        int distanceToTarget = unit->getDistance(targetPosition);
+        int distanceToTargetPosition = unit->getDistance(targetPosition);
         for (auto &potentialTarget : attacker.targets)
         {
             if (potentialTarget->healthIncludingShields <= 0)
@@ -447,12 +448,19 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             // Initialize the score as a formula of the target priority and how far outside our attack range it is
             // Each priority step is equivalent to 2 tiles
             // If the unit is on cooldown, we assume it can move towards the target before attacking
-            const int targetDist = unit->getDistance(potentialTarget->unit) -
-                                   (int) ((double) cooldownMoveFrames * unit->type.topSpeed());
+            const int targetDist = unit->getDistance(potentialTarget->unit);
             const int range = potentialTarget->unit->isFlying ? unit->airRange() : unit->groundRange();
-            int score = 2 * 32 * potentialTarget->priority - std::max(0, targetDist - range);
+            int score = 2 * 32 * potentialTarget->priority
+                    - std::max(0, targetDist - (int) ((double) cooldownMoveFrames * unit->type.topSpeed()) - range);
 
             // Now adjust the score according to some rules
+
+            // If we are a melee unit, give a large bonus to units that are already in range
+            // Melee units have a more difficult time getting into position to attack other units if they are already in range of others
+            if (!isRanged && targetDist <= range)
+            {
+                score += 160.0;
+            }
 
             // Give a bonus to injured targets
             // This is what provides some focus fire behaviour, as we simulate previous attacker's hits
@@ -467,7 +475,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             }
 
             // Give a bonus for enemies that are closer to our target position (usually the enemy base)
-            if (potentialTarget->unit->getDistance(targetPosition) < distanceToTarget)
+            if (potentialTarget->unit->getDistance(targetPosition) < distanceToTargetPosition)
             {
                 score += 2 * 32;
             }
