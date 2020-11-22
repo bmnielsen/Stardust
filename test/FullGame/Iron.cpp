@@ -1,15 +1,14 @@
 #include "BWTest.h"
 #include "Iron.h"
-#include "StardustAIModule.h"
 
-TEST(Iron, RunForever)
+TEST(Iron, RunThirty)
 {
     int count = 0;
     int lost = 0;
-    while (count < 40)
+    while (count < 30)
     {
         BWTest test;
-        test.maps = Maps::Get("aiide");
+        test.maps = Maps::Get("sscait");
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
         {
@@ -46,7 +45,7 @@ TEST(Iron, RunOne)
 {
     BWTest test;
     test.opponentRace = BWAPI::Races::Terran;
-    test.maps = Maps::Get("aiide");
+    test.maps = Maps::Get("sscait");
     test.opponentModule = []()
     {
         return new iron::Iron();
@@ -66,38 +65,6 @@ TEST(Iron, RunOne)
         replayName << "_" << test.randomSeed;
         test.replayName = replayName.str();
     };
-    test.run();
-}
-
-TEST(Iron, RunAsIron)
-{
-    BWTest test;
-    test.myRace = BWAPI::Races::Terran;
-    test.opponentRace = BWAPI::Races::Protoss;
-    test.myModule = []()
-    {
-        return new iron::Iron();
-    };
-    test.opponentModule = []()
-    {
-        return new StardustAIModule();
-    };
-    test.onStartOpponent = []()
-    {
-        Log::SetOutputToConsole(true);
-    };
-    test.onEndMine = [&](bool won)
-    {
-        std::ostringstream replayName;
-        replayName << "Iron_" << test.map->shortname();
-        if (won)
-        {
-            replayName << "_LOSS";
-        }
-        replayName << "_" << test.randomSeed;
-        test.replayName = replayName.str();
-    };
-    test.expectWin = false;
     test.run();
 }
 

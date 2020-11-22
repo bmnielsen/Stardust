@@ -1,15 +1,14 @@
 #include "BWTest.h"
 #include "LocutusBotModule.h"
-#include "StardustAIModule.h"
 
-TEST(Locutus, RunForever)
+TEST(Locutus, RunThirty)
 {
     int count = 0;
     int lost = 0;
-    while (count < 40)
+    while (count < 30)
     {
         BWTest test;
-        test.maps = Maps::Get("aiide");
+        test.maps = Maps::Get("sscait");
         test.opponentRace = BWAPI::Races::Protoss;
         test.opponentModule = []()
         {
@@ -53,36 +52,38 @@ TEST(Locutus, RunForever)
     }
 }
 
-TEST(Locutus, RunAsLocutus)
+TEST(Locutus, RunOne)
 {
     BWTest test;
+    test.maps = Maps::Get("sscait");
     test.opponentRace = BWAPI::Races::Protoss;
-    test.myModule = []()
-    {
-        Locutus::LocutusBotModule::setStrategy("ForgeExpand");
-        return new Locutus::LocutusBotModule();
-    };
     test.opponentModule = []()
     {
-        return new StardustAIModule();
+//            Locutus::LocutusBotModule::setStrategy("4GateGoon");
+//            Locutus::LocutusBotModule::forceGasSteal();
+        return new Locutus::LocutusBotModule();
     };
-    test.onStartMine = []()
+    test.onStartOpponent = [&test]()
     {
         std::cout << "Locutus strategy: " << Locutus::LocutusBotModule::getStrategyName() << std::endl;
-    };
-    test.onStartOpponent = []()
-    {
-        Log::SetOutputToConsole(true);
+        if (test.sharedMemory)
+        {
+            strncpy(test.sharedMemory,
+                    Locutus::LocutusBotModule::getStrategyName().c_str(),
+                    std::min(255UL, Locutus::LocutusBotModule::getStrategyName().size()));
+        }
+
+        std::cout.setstate(std::ios_base::failbit);
     };
     test.onEndMine = [&](bool won)
     {
         std::ostringstream replayName;
         replayName << "Locutus_" << test.map->shortname();
-        if (won)
+        if (!won)
         {
             replayName << "_LOSS";
         }
-        replayName << "_" << Locutus::LocutusBotModule::getStrategyName();
+        if (test.sharedMemory) replayName << "_" << test.sharedMemory;
         replayName << "_" << test.randomSeed;
         test.replayName = replayName.str();
     };

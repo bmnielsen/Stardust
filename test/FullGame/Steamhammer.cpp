@@ -1,15 +1,15 @@
 #include "BWTest.h"
 #include "UAlbertaBotModule.h"
 
-TEST(Steamhammer, RunForever)
+TEST(Steamhammer, RunThirty)
 {
     int count = 0;
     int lost = 0;
-    while (count < 40)
+    while (count < 30)
     {
         BWTest test;
         test.opponentRace = BWAPI::Races::Zerg;
-        test.maps = Maps::Get("aiide");
+        test.maps = Maps::Get("sscait");
         test.opponentModule = []()
         {
             auto module = new UAlbertaBot::UAlbertaBotModule();
@@ -57,6 +57,7 @@ TEST(Steamhammer, RunOne)
     test.opponentRace = BWAPI::Races::Zerg;
 //    test.map = Maps::GetOne("Destination");
 //    test.randomSeed = 53123;
+    test.maps = Maps::Get("sscait");
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();

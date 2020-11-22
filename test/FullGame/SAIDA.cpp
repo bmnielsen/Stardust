@@ -1,15 +1,14 @@
 #include "BWTest.h"
 #include "MyBotModule.h"
-#include "StardustAIModule.h"
 
-TEST(SAIDA, RunForever)
+TEST(SAIDA, RunThirty)
 {
     int count = 0;
     int lost = 0;
-    while (count < 40)
+    while (count < 30)
     {
         BWTest test;
-        test.maps = Maps::Get("aiide");
+        test.maps = Maps::Get("sscait");
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
         {
@@ -46,7 +45,7 @@ TEST(SAIDA, RunOne)
 {
     BWTest test;
     test.opponentRace = BWAPI::Races::Terran;
-    test.maps = Maps::Get("aiide");
+    test.maps = Maps::Get("sscait");
     test.opponentModule = []()
     {
         return new MyBot::MyBotModule();
@@ -66,37 +65,5 @@ TEST(SAIDA, RunOne)
         replayName << "_" << test.randomSeed;
         test.replayName = replayName.str();
     };
-    test.run();
-}
-
-TEST(SAIDA, RunAsSAIDA)
-{
-    BWTest test;
-    test.myRace = BWAPI::Races::Terran;
-    test.opponentRace = BWAPI::Races::Protoss;
-    test.myModule = []()
-    {
-        return new MyBot::MyBotModule();
-    };
-    test.opponentModule = []()
-    {
-        return new StardustAIModule();
-    };
-    test.onStartOpponent = []()
-    {
-        Log::SetOutputToConsole(true);
-    };
-    test.onEndMine = [&](bool won)
-    {
-        std::ostringstream replayName;
-        replayName << "SAIDA_" << test.map->shortname();
-        if (won)
-        {
-            replayName << "_LOSS";
-        }
-        replayName << "_" << test.randomSeed;
-        test.replayName = replayName.str();
-    };
-    test.expectWin = false;
     test.run();
 }

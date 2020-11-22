@@ -2,15 +2,15 @@
 #include "BananaBrain.h"
 #include "StardustAIModule.h"
 
-TEST(Crona, RunForever)
+TEST(Crona, RunThirty)
 {
     int count = 0;
     int lost = 0;
-    while (count < 40)
+    while (count < 30)
     {
         BWTest test;
         BananaBrain* bbModule;
-        test.maps = Maps::Get("aiide");
+        test.maps = Maps::Get("sscait");
         test.opponentRace = BWAPI::Races::Zerg;
         test.opponentModule = [&]()
         {
@@ -58,7 +58,7 @@ TEST(Crona, RunOne)
     BWTest test;
     BananaBrain* bbModule;
     test.opponentRace = BWAPI::Races::Zerg;
-    test.maps = Maps::Get("aiide");
+    test.maps = Maps::Get("sscait");
     test.opponentModule = [&]()
     {
         bbModule = new BananaBrain();

@@ -48,11 +48,11 @@ namespace
     }
 }
 
-TEST(BananaBrain, RunForever)
+TEST(BananaBrain, RunThirty)
 {
     int count = 0;
     int lost = 0;
-    while (count < 40)
+    while (count < 30)
     {
         BWTest test;
         BananaBrain* bbModule;
