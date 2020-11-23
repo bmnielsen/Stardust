@@ -365,6 +365,17 @@ void MyUnitImpl::resetGrid()
             for (auto it = chokePath.rbegin(); it != chokePath.rend(); it++)
             {
                 grid = PathFinding::getNavigationGrid(BWAPI::TilePosition((*it)->Center()));
+
+                // Don't use a grid if the current node is invalid or if the goal is very close
+                if (grid)
+                {
+                    auto &node = (*grid)[getTilePosition()];
+                    if (!node.nextNode || node.cost < 30)
+                    {
+                        grid = nullptr;
+                    }
+                }
+
                 if (grid) break;
             }
         }
@@ -388,7 +399,7 @@ void MyUnitImpl::updateChokePath(const BWEM::Area *unitArea)
         }
 
         // If the choke is the only one left, break now
-        if (chokePath.size() == 1) return;
+        if (chokePath.size() == 1) break;
 
         // If the next choke also includes the area we are currently in, then it should be next
         auto secondChoke = chokePath[1];
@@ -397,8 +408,20 @@ void MyUnitImpl::updateChokePath(const BWEM::Area *unitArea)
             chokePath.pop_front();
         }
 
+        break;
+    }
+
+    if (chokePath.empty()) return;
+
+    // Finally pop the choke if the unit is close enough to it that we want to use the next choke
+    // Exceptions: choke requires mineral walk or choke is a ramp and we can't see the high elevation tile yet
+    auto nextChoke = Map::choke(chokePath[0]);
+    if (nextChoke->requiresMineralWalk || bwapiUnit->getDistance(nextChoke->center) > 100 ||
+        (nextChoke->isNarrowChoke && nextChoke->isRamp && !BWAPI::Broodwar->isVisible(nextChoke->highElevationTile)))
+    {
         return;
     }
+    chokePath.pop_front();
 }
 
 bool MyUnitImpl::unstickMoveUnit()
