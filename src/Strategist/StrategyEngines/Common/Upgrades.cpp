@@ -101,9 +101,10 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
     }
 }
 
-void StrategyEngine::upgradeWhenUnitStarted(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+void StrategyEngine::upgradeWhenUnitCreated(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                             BWAPI::UpgradeType upgradeType,
                                             BWAPI::UnitType unitType,
+                                            bool requireCompletedUnit,
                                             bool requireProducer,
                                             int priority)
 {
@@ -112,7 +113,7 @@ void StrategyEngine::upgradeWhenUnitStarted(std::map<int, std::vector<Production
     if (Units::isBeingUpgraded(upgradeType)) return;
 
     // Now check if we have at least one of the unit
-    if (Units::countIncomplete(unitType) == 0 && Units::countCompleted(unitType) == 0) return;
+    if (Units::countCompleted(unitType) == 0 && (requireCompletedUnit || Units::countIncomplete(unitType) == 0)) return;
 
     // Now check if we have the required producer, if specified
     if (requireProducer &&

@@ -37,9 +37,10 @@ protected:
                                BWAPI::UnitType unitType,
                                int unitCount);
 
-    static void upgradeWhenUnitStarted(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+    static void upgradeWhenUnitCreated(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                        BWAPI::UpgradeType upgradeType,
                                        BWAPI::UnitType unitType,
+                                       bool requireCompletedUnit = false,
                                        bool requireProducer = false,
                                        int priority = PRIORITY_NORMAL);
 
