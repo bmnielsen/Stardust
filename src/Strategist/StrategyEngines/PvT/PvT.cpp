@@ -80,11 +80,11 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 case OurStrategy::Normal:
                 case OurStrategy::MidGame:
                 {
-                    // Transition from a defend squad when the vanguard cluster has 3 units
+                    // Transition from a defend squad when the vanguard cluster has 2 units
                     if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
                     {
                         auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                        if (vanguard && vanguard->units.size() >= 3)
+                        if (vanguard && vanguard->units.size() >= 2)
                         {
                             auto enemyMain = Map::getEnemyMain();
                             if (enemyMain)
@@ -164,7 +164,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1,
                                                                        -1);
 
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
 
             break;
         }
@@ -253,21 +253,18 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 }
             }
 
-            // Default upgrades
-            handleUpgrades(prioritizedProductionGoals);
-
             // Try to keep at least two army units in production while taking our natural
             int higherPriorityCount = 2 - inProgressCount;
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
+
+            // Default upgrades
+            handleUpgrades(prioritizedProductionGoals);
 
             break;
         }
 
         case OurStrategy::MidGame:
         {
-            // Default upgrades
-            handleUpgrades(prioritizedProductionGoals);
-
             int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
 
             // Produce zealots if the enemy has a lot of tanks
@@ -287,6 +284,9 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
+
+            // Default upgrades
+            handleUpgrades(prioritizedProductionGoals);
 
             break;
         }
@@ -389,19 +389,12 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 
 void PvT::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    // For PvT dragoon range is important to get early, so start it as soon as we have a finished core unless the enemy is rushing us
-    if (ourStrategy != OurStrategy::AntiMarineRush)
-    {
-        upgradeWhenUnitStarted(prioritizedProductionGoals,
-                               BWAPI::UpgradeTypes::Singularity_Charge,
-                               BWAPI::UnitTypes::Protoss_Cybernetics_Core,
-                               false,
-                               PRIORITY_MAINARMYBASEPRODUCTION);
-    }
-    else
-    {
-        upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
-    }
+    // For PvT dragoon range is important to get early, so get it first unless the enemy is rushing us
+    upgradeAtCount(
+            prioritizedProductionGoals,
+            BWAPI::UpgradeTypes::Singularity_Charge,
+            BWAPI::UnitTypes::Protoss_Dragoon,
+            ourStrategy == OurStrategy::AntiMarineRush ? 2 : 0);
 
     // Basic infantry skill upgrades are queued when we have enough of them and are still building them
     upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 6);
