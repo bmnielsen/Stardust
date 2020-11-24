@@ -28,7 +28,6 @@ namespace
     // TODO: These parameters need to be tuned
     const double goalWeight = 128.0;
     const double cohesionWeight = 64.0;
-    const int cohesionIgnoreDistance = 300;
     const double separationDetectionLimitFactor = 2.0;
     const double separationWeight = 96.0;
 }
@@ -53,19 +52,12 @@ void UnitCluster::move(BWAPI::Position targetPosition)
 
     // Initialize flocking
     NavigationGrid *grid = nullptr;
-    NavigationGrid::GridNode *centerNode = nullptr;
     double cohesionFactor;
     if (shouldFlock)
     {
         grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
         if (grid)
         {
-            centerNode = &(*grid)[BWAPI::TilePosition(center)];
-            while (centerNode && centerNode->cost == USHRT_MAX)
-            {
-                centerNode = centerNode->nextNode;
-            }
-
             // Scaling factor for cohesion boid is based on the size of the squad
             cohesionFactor = cohesionWeight / sqrt(area / pi);
         }
@@ -120,28 +112,14 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         int cohesionX = 0;
         int cohesionY = 0;
 
-        // We ignore the cohesion boid if the center grid node is at a greatly lower cost, as this indicates a probable cliff
-        // between this unit and the rest of the cluster
-        if (!centerNode || (node->cost < cohesionIgnoreDistance) || (centerNode->cost > (node->cost - cohesionIgnoreDistance)))
+        // We ignore the cohesion boid if this unit is separated from the vanguard unit by a narrow choke
+        if (unit == vanguard || !PathFinding::SeparatingNarrowChoke(unit->lastPosition,
+                                                                    vanguard->lastPosition,
+                                                                    unit->type,
+                                                                    PathFinding::PathFindingOptions::UseNeighbouringBWEMArea))
         {
             cohesionX = (int) ((double) (center.x - unit->lastPosition.x) * cohesionFactor);
             cohesionY = (int) ((double) (center.y - unit->lastPosition.y) * cohesionFactor);
-
-            // For cases where we have no valid center node, check for unwalkable terrain directly
-            if (!centerNode)
-            {
-                std::vector<BWAPI::TilePosition> tiles;
-                Geo::FindTilesBetween(BWAPI::TilePosition(unit->lastPosition), BWAPI::TilePosition(center), tiles);
-                for (auto tile : tiles)
-                {
-                    if (!Map::isWalkable(tile))
-                    {
-                        cohesionX = 0;
-                        cohesionY = 0;
-                        break;
-                    }
-                }
-            }
         }
 
         // Separation

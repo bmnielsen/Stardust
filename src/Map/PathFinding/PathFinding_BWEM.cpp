@@ -245,6 +245,21 @@ namespace PathFinding
         return CustomChokePointPath(adjustedStart, adjustedEnd, options, unitType, pathLength);
     }
 
+    Choke *SeparatingNarrowChoke(
+            BWAPI::Position start,
+            BWAPI::Position end,
+            BWAPI::UnitType unitType,
+            PathFindingOptions options)
+    {
+        for (auto &bwemChoke : PathFinding::GetChokePointPath(start, end, unitType, options))
+        {
+            auto thisChoke = Map::choke(bwemChoke);
+            if (thisChoke->isNarrowChoke) return thisChoke;
+        }
+
+        return nullptr;
+    }
+
     int ExpectedTravelTime(BWAPI::Position start, BWAPI::Position end, BWAPI::UnitType unitType, PathFindingOptions options)
     {
         if (unitType.topSpeed() < 0.0001) return 0;

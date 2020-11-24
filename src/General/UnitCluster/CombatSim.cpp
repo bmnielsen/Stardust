@@ -179,19 +179,10 @@ CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &
 
         if (furthest.isValid())
         {
-            // Now find a narrow choke on the path between the armies
-            for (auto &bwemChoke : PathFinding::GetChokePointPath(center,
-                                                                  furthest,
-                                                                  BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                  PathFinding::PathFindingOptions::UseNeighbouringBWEMArea))
-            {
-                auto thisChoke = Map::choke(bwemChoke);
-                if (thisChoke->isNarrowChoke)
-                {
-                    narrowChoke = thisChoke;
-                    break;
-                }
-            }
+            narrowChoke = PathFinding::SeparatingNarrowChoke(center,
+                                                             furthest,
+                                                             BWAPI::UnitTypes::Protoss_Dragoon,
+                                                             PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
         }
     }
 
@@ -383,9 +374,9 @@ void UnitCluster::addRegroupSimResult(CombatSimResult &simResult, bool contain)
 }
 
 int UnitCluster::consecutiveSimResults(std::deque<std::pair<CombatSimResult, bool>> &simResults,
-                          int *attack,
-                          int *regroup,
-                          int limit)
+                                       int *attack,
+                                       int *regroup,
+                                       int limit)
 {
     *attack = 0;
     *regroup = 0;

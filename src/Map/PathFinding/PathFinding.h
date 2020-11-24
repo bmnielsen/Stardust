@@ -2,6 +2,7 @@
 
 #include "Common.h"
 #include "NavigationGrid.h"
+#include "Choke.h"
 #include <bwem.h>
 
 namespace PathFinding
@@ -64,6 +65,13 @@ namespace PathFinding
             BWAPI::UnitType unitType = BWAPI::UnitTypes::Protoss_Dragoon,
             PathFindingOptions options = PathFindingOptions::Default,
             int *pathLength = nullptr);
+
+    // Determines whether the ground path between two positions goes through a narrow choke.
+    Choke *SeparatingNarrowChoke(
+            BWAPI::Position start,
+            BWAPI::Position end,
+            BWAPI::UnitType unitType = BWAPI::UnitTypes::Protoss_Dragoon,
+            PathFindingOptions options = PathFindingOptions::Default);
 
     // Gets the expected time it will take the given unit type to move from the given start position
     // to the given end position.
