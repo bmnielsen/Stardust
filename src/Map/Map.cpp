@@ -803,7 +803,9 @@ namespace Map
         void computeLeafAreaTiles()
         {
             // Gather all "leaf" areas, which we define as areas that are only connected by narrow chokes
+            // We also always add our starting main areas as leaf areas
             std::set<const BWEM::Area *> leafAreas;
+            leafAreas.insert(myStartingMainAreas.begin(), myStartingMainAreas.end());
             for (const auto &area : BWEM::Map::Instance().Areas())
             {
                 for (const auto &bwemChoke : area.ChokePoints())
