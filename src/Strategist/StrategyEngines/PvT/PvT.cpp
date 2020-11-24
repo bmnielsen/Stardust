@@ -76,9 +76,7 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 case OurStrategy::Defensive:
                     setMainPlay<DefendMyMain>(mainArmyPlay);
                     break;
-                case OurStrategy::FastExpansion:
-                case OurStrategy::Normal:
-                case OurStrategy::MidGame:
+                default:
                 {
                     // Transition from a defend squad when the vanguard cluster has 2 units
                     if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
@@ -150,6 +148,29 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     handleGasStealProduction(prioritizedProductionGoals, zealotCount);
 
+    auto midAndLateGameMainArmyProduction = [&]()
+    {
+        int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
+
+        // Produce zealots if the enemy has a lot of tanks
+        int enemyTanks = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
+                         Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode);
+        if (enemyTanks > 4)
+        {
+            int desiredZealots = std::min(dragoonCount / 2, 5 + enemyTanks);
+            if (desiredZealots > zealotCount)
+            {
+                mainArmyProduction(prioritizedProductionGoals,
+                                   BWAPI::UnitTypes::Protoss_Zealot,
+                                   desiredZealots - zealotCount,
+                                   higherPriorityCount);
+            }
+        }
+
+        mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
+        mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
+    };
+
     switch (ourStrategy)
     {
         case OurStrategy::EarlyGameDefense:
@@ -217,7 +238,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::FastExpansion:
         case OurStrategy::Defensive:
-        case OurStrategy::Normal:
+        case OurStrategy::NormalOpening:
         {
             // If any zealots are in production, and we don't have an emergency production goal, cancel them
             // This happens when the enemy strategy was misrecognized as a rush
@@ -265,27 +286,33 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::MidGame:
         {
-            int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
-
-            // Produce zealots if the enemy has a lot of tanks
-            int enemyTanks = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
-                             Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode);
-            if (enemyTanks > 4)
-            {
-                int desiredZealots = std::min(dragoonCount / 2, 5 + enemyTanks);
-                if (desiredZealots > zealotCount)
-                {
-                    mainArmyProduction(prioritizedProductionGoals,
-                                       BWAPI::UnitTypes::Protoss_Zealot,
-                                       desiredZealots - zealotCount,
-                                       higherPriorityCount);
-                }
-            }
-
-            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
-            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
+            midAndLateGameMainArmyProduction();
 
             // Default upgrades
+            handleUpgrades(prioritizedProductionGoals);
+
+            break;
+        }
+
+        case OurStrategy::LateGameCarriers:
+        {
+            // Produce unlimited carriers off of two stargates, at slightly higher priority than main army
+            prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Carrier,
+                                                                       -1,
+                                                                       2);
+
+            midAndLateGameMainArmyProduction();
+
+            // Besides default upgrades, upgrade air weapons immediately
+            int weaponLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Air_Weapons);
+            if (weaponLevel < 3)
+            {
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+                                                                         BWAPI::UpgradeTypes::Protoss_Air_Weapons,
+                                                                         weaponLevel + 1,
+                                                                         1);
+            }
             handleUpgrades(prioritizedProductionGoals);
 
             break;
@@ -331,8 +358,7 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
 
-        case OurStrategy::Normal:
-        case OurStrategy::MidGame:
+        default:
         {
             // In this case we want to expand when we consider it safe to do so: we have an attacking or containing army
             // that is close to the enemy base

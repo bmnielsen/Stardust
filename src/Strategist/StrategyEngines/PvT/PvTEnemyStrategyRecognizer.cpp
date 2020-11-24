@@ -13,8 +13,9 @@ std::map<PvT::TerranStrategy, std::string> PvT::TerranStrategyNames = {
         {TerranStrategy::WallIn,        "WallIn"},
         {TerranStrategy::FastExpansion, "FastExpansion"},
         {TerranStrategy::TwoFactory,    "TwoFactory"},
-        {TerranStrategy::Normal,        "Normal"},
-        {TerranStrategy::MidGame,       "MidGame"},
+        {TerranStrategy::NormalOpening, "Normal"},
+        {TerranStrategy::MidGameMech,   "MidGameMech"},
+        {TerranStrategy::MidGameBio,    "MidGameBio"},
 };
 
 namespace
@@ -195,6 +196,20 @@ namespace
                 (Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
                  Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode)) > 4);
     }
+
+    bool isMidGameMech()
+    {
+        // For now we consider it mech if the sum of their mech units is higher than the sum of their bio units divided by two
+        int mech = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
+                   Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) +
+                   Units::countEnemy(BWAPI::UnitTypes::Terran_Vulture) +
+                   Units::countEnemy(BWAPI::UnitTypes::Terran_Goliath);
+        int bio = (Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) +
+                  Units::countEnemy(BWAPI::UnitTypes::Terran_Medic) +
+                  Units::countEnemy(BWAPI::UnitTypes::Terran_Firebat)) / 2;
+
+        return mech >= bio;
+    }
 }
 
 PvT::TerranStrategy PvT::recognizeEnemyStrategy()
@@ -223,7 +238,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                     Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
                     Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
                 {
-                    strategy = TerranStrategy::Normal;
+                    strategy = TerranStrategy::NormalOpening;
                     continue;
                 }
 
@@ -246,8 +261,15 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                     continue;
                 }
 
-                // Otherwise intentionally fall through to marine rush handling
+                // Consider the rush to be over after 6000 frames
+                // From there the Normal handler will potentially transition into MarineAllIn
+                if (BWAPI::Broodwar->getFrameCount() >= 6000)
+                {
+                    strategy = TerranStrategy::NormalOpening;
+                    continue;
+                }
 
+                break;
             case TerranStrategy::MarineRush:
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;
 
@@ -255,7 +277,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 // From there the Normal handler will potentially transition into MarineAllIn
                 if (BWAPI::Broodwar->getFrameCount() >= 6000)
                 {
-                    strategy = TerranStrategy::Normal;
+                    strategy = TerranStrategy::NormalOpening;
                     continue;
                 }
 
@@ -267,26 +289,38 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
 
                 if (isMidGame())
                 {
-                    strategy = TerranStrategy::MidGame;
+                    strategy = TerranStrategy::MidGameMech;
                     continue;
                 }
 
                 break;
             case TerranStrategy::TwoFactory:
             case TerranStrategy::FastExpansion:
-            case TerranStrategy::Normal:
+            case TerranStrategy::NormalOpening:
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;
                 if (isProxy()) return TerranStrategy::ProxyRush;
                 if (isMarineRush()) return TerranStrategy::MarineRush;
 
                 if (isMidGame())
                 {
-                    strategy = TerranStrategy::MidGame;
+                    strategy = TerranStrategy::MidGameMech;
                     continue;
                 }
 
                 break;
-            case TerranStrategy::MidGame:
+            case TerranStrategy::MidGameMech:
+                if (!isMidGameMech())
+                {
+                    strategy = TerranStrategy::MidGameBio;
+                    continue;
+                }
+                break;
+            case TerranStrategy::MidGameBio:
+                if (isMidGameMech())
+                {
+                    strategy = TerranStrategy::MidGameMech;
+                    continue;
+                }
                 break;
         }
 

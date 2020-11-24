@@ -131,21 +131,24 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
     // Start when we have completed our second nexus
     if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
     {
-        // Upgrade past 1 and on two forges when we have completed our third nexus
+        int weaponLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons);
+        int armorLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Armor);
+
+        // Upgrade past 1 and potentially on two forges when we have completed our third nexus
         int maxLevel, forgeCount;
         if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 3)
         {
             maxLevel = 3;
-            forgeCount = 2;
+            if (armorLevel >= 1 || Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Armor))
+            {
+                forgeCount = 2;
+            }
         }
         else
         {
             maxLevel = 1;
             forgeCount = 1;
         }
-
-        int weaponLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons);
-        int armorLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Armor);
 
         // Weapons -> 1, Armor -> 1, Weapons -> 3, Armor -> 3
         if ((weaponLevel == 0 || armorLevel >= 1) && weaponLevel < maxLevel &&
@@ -174,8 +177,8 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
 
         // Upgrade shields when we are maxed
         if (BWAPI::Broodwar->self()->supplyUsed() > 300 &&
-            BWAPI::Broodwar->self()->minerals() > 1000 &&
-            BWAPI::Broodwar->self()->gas() > 600)
+            BWAPI::Broodwar->self()->minerals() > 1500 &&
+            BWAPI::Broodwar->self()->gas() > 1000)
         {
             if (weaponLevel < 3 && armorLevel < 3) forgeCount = 3;
             prioritizedProductionGoals[PRIORITY_NORMAL]
