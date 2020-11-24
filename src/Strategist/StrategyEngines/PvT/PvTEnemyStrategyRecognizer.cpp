@@ -276,6 +276,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
             case TerranStrategy::FastExpansion:
             case TerranStrategy::Normal:
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;
+                if (isProxy()) return TerranStrategy::ProxyRush;
                 if (isMarineRush()) return TerranStrategy::MarineRush;
 
                 if (isMidGame())
