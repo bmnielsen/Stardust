@@ -152,12 +152,12 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     {
         int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
 
-        // Produce zealots if the enemy has a lot of tanks
+        // Counter tanks with speedlots once the enemy has at least four
         int enemyTanks = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
                          Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode);
-        if (enemyTanks > 4)
+        if (enemyTanks > 3)
         {
-            int desiredZealots = std::min(dragoonCount / 2, 5 + enemyTanks);
+            int desiredZealots = std::min(dragoonCount, enemyTanks * 2);
             if (desiredZealots > zealotCount)
             {
                 mainArmyProduction(prioritizedProductionGoals,
@@ -165,6 +165,8 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                    desiredZealots - zealotCount,
                                    higherPriorityCount);
             }
+
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 0);
         }
 
         mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
