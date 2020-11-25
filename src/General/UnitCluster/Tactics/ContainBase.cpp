@@ -31,6 +31,10 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
     auto &grid = Players::grid(BWAPI::Broodwar->enemy());
     auto navigationGrid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition), true);
 
+    // Do an initial scan to filter out not-ready units and gather their nearest threats
+    // The important thing to track is whether any of our units is in range of static defense
+    std::vector<std::tuple<MyUnit, Unit, Unit>> unitsAndTargetsAndThreats;
+    bool anyInRangeOfStaticDefense = false;
     for (const auto &unitAndTarget : unitsAndTargets)
     {
         auto &myUnit = unitAndTarget.first;
@@ -92,13 +96,24 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
             }
         }
 
-        // If this unit is not in range of static defense and is in range of its target, attack
-        if (unitAndTarget.second && !staticDefenseThreat && myUnit->isInOurWeaponRange(unitAndTarget.second))
+        unitsAndTargetsAndThreats.push_back(std::make_tuple(myUnit, unitAndTarget.second, threat));
+        anyInRangeOfStaticDefense = anyInRangeOfStaticDefense || staticDefenseThreat;
+    }
+
+    // Now perform micro on the filtered unit list
+    for (const auto &unitAndTargetAndThreat : unitsAndTargetsAndThreats)
+    {
+        auto &myUnit = std::get<0>(unitAndTargetAndThreat);
+        auto &target = std::get<1>(unitAndTargetAndThreat);
+        auto &threat = std::get<2>(unitAndTargetAndThreat);
+
+        // If no units are in range of static defense and this unit is in range of its target, attack
+        if (!anyInRangeOfStaticDefense && target && myUnit->isInOurWeaponRange(target))
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(myUnit->id) << "Contain: Attacking " << *unitAndTarget.second;
+            CherryVis::log(myUnit->id) << "Contain: Attacking " << *target;
 #endif
-            myUnit->attackUnit(unitAndTarget.second, unitsAndTargets, false);
+            myUnit->attackUnit(target, unitsAndTargets, false);
             continue;
         }
 
