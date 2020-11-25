@@ -8,6 +8,7 @@
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_TARGETING false  // Writes verbose log info to debug for each unit targeting
+#define DRAW_TARGETING true  // Draws lines between our units and their targets
 #endif
 
 namespace
@@ -281,6 +282,17 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             if (targetUnit) dbg << " " << *targetUnit;
 #endif
 
+#if DRAW_TARGETING
+            if (targetUnit)
+            {
+                CherryVis::drawLine(unit->lastPosition.x,
+                                    unit->lastPosition.y,
+                                    targetUnit->lastPosition.x,
+                                    targetUnit->lastPosition.y,
+                                    CherryVis::DrawColor::White);
+            }
+#endif
+
             result.emplace_back(std::make_pair(unit, targetUnit));
             continue;
         }
@@ -451,7 +463,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             const int targetDist = unit->getDistance(potentialTarget->unit);
             const int range = potentialTarget->unit->isFlying ? unit->airRange() : unit->groundRange();
             int score = 2 * 32 * potentialTarget->priority
-                    - std::max(0, targetDist - (int) ((double) cooldownMoveFrames * unit->type.topSpeed()) - range);
+                        - std::max(0, targetDist - (int) ((double) cooldownMoveFrames * unit->type.topSpeed()) - range);
 
             // Now adjust the score according to some rules
 
@@ -599,6 +611,14 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
 #if DEBUG_TARGETING
             dbg << "\n Selected target: " << *bestTarget->unit;
+#endif
+
+#if DRAW_TARGETING
+            CherryVis::drawLine(attacker.unit->lastPosition.x,
+                                attacker.unit->lastPosition.y,
+                                bestTarget->unit->lastPosition.x,
+                                bestTarget->unit->lastPosition.y,
+                                CherryVis::DrawColor::White);
 #endif
         }
         else
