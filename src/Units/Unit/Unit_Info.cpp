@@ -31,9 +31,11 @@ bool UnitImpl::isCliffedTank(const Unit &attacker) const
     if (!attacker) return false;
     if (type != BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) return false;
 
-    int dist = getDistance(attacker);
-    int groundDistance = PathFinding::GetGroundDistance(lastPosition, attacker->lastPosition, attacker->type);
-    return groundDistance > (dist * 2);
+    // For now let's assume the tank is not directly attackable if a narrow choke divides it from the rest of the cluster
+    return nullptr != PathFinding::SeparatingNarrowChoke(lastPosition,
+                                                         attacker->lastPosition,
+                                                         attacker->type,
+                                                         PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
 }
 
 bool UnitImpl::canAttack(const Unit &target) const
