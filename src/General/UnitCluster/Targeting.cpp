@@ -467,18 +467,25 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
             // Now adjust the score according to some rules
 
-            // If we are a melee unit, give a large bonus to units that are already in range
-            // Melee units have a more difficult time getting into position to attack other units if they are already in range of others
-            if (!isRanged && targetDist <= range)
+            // Give a bonus to units that are already in range
+            // Melee units get an extra bonus, as they have a more difficult time getting around blocking things
+            if (targetDist <= range)
             {
-                score += 160.0;
+                score += (isRanged ? 64.0 : 160.0);
             }
 
             // Give a bonus to injured targets
-            // This is what provides some focus fire behaviour, as we simulate previous attacker's hits
+            // This is what provides some focus fire behaviour, as we simulate previous attackers' hits
             double healthPercentage = (double) potentialTarget->healthIncludingShields /
                                       (double) (potentialTarget->unit->type.maxHitPoints() + potentialTarget->unit->type.maxShields());
             score += (int) (160.0 * (1.0 - healthPercentage));
+
+            // Penalize ranged units fighting uphill
+            if (isRanged && BWAPI::Broodwar->getGroundHeight(unit->tilePositionX, unit->tilePositionY) <
+                    BWAPI::Broodwar->getGroundHeight(potentialTarget->unit->tilePositionX, potentialTarget->unit->tilePositionY))
+            {
+                score -= 2 * 32;
+            }
 
             // Avoid defensive matrix
             if (potentialTarget->unit->bwapiUnit->isDefenseMatrixed())
