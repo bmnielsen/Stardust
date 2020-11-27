@@ -225,12 +225,15 @@ void Squad::updateClusters()
     vanguardClusterDistToTargetPosition = INT_MAX;
     for (const auto &cluster : clusters)
     {
+        cluster->isVanguardCluster = false;
+
         if (cluster->vanguardDistToTarget < vanguardClusterDistToTargetPosition)
         {
             vanguardClusterDistToTargetPosition = cluster->vanguardDistToTarget;
             currentVanguardCluster = cluster;
         }
     }
+    if (currentVanguardCluster) currentVanguardCluster->isVanguardCluster = true;
 
 #if INSTRUMENTATION_ENABLED
     std::vector<std::string> values;

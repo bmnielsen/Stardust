@@ -37,16 +37,21 @@ void UnitCluster::move(BWAPI::Position targetPosition)
     // Hook to allow the map-specific override to perform the move
     if (Map::mapSpecificOverride()->clusterMove(*this, targetPosition)) return;
 
-    // If any units are either in a leaf area or a narrow choke, do not do flocking
-    // In these cases it is very likely for parts of the cluster to get stuck on buildings or terrain, which is not handled well
-    bool shouldFlock = true;
-    for (const auto &unit : units)
+    // Determine if the cluster should flock
+    // Criteria:
+    // - Must be the vanguard cluster
+    // - No units may be in a leaf area or narrow choke (as this makes it likely that they will get stuck on buildings or terrain)
+    bool shouldFlock = isVanguardCluster;
+    if (shouldFlock)
     {
-        auto pos = unit->getTilePosition();
-        if (Map::isInNarrowChoke(pos) || Map::isInLeafArea(pos))
+        for (const auto &unit : units)
         {
-            shouldFlock = false;
-            break;
+            auto pos = unit->getTilePosition();
+            if (Map::isInNarrowChoke(pos) || Map::isInLeafArea(pos))
+            {
+                shouldFlock = false;
+                break;
+            }
         }
     }
 
