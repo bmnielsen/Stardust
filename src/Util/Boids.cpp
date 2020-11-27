@@ -3,6 +3,10 @@
 #include "Geo.h"
 #include "Map.h"
 
+#if INSTRUMENTATION_ENABLED_VERBOSE
+#define DRAW_BOIDS true  // Draws lines for each boid
+#endif
+
 namespace
 {
     BWAPI::Position WalkablePositionAlongVector(
@@ -61,6 +65,10 @@ namespace
             }
         }
 
+#if DRAW_BOIDS
+        CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, closestX, closestY, CherryVis::DrawColor::Purple);
+#endif
+
         return BWAPI::Position(closestX, closestY);
     }
 }
@@ -98,6 +106,37 @@ namespace Boids
             totalY += yval;
         }
 
+#if DRAW_BOIDS
+        for (int i = 0; i < x.size() && i < y.size(); i++)
+        {
+            if (x[i] == 0 && y[i] == 0) continue;
+
+            CherryVis::DrawColor color;
+            switch (i)
+            {
+                case 0:
+                    color = CherryVis::DrawColor::Yellow;
+                    break;
+                case 1:
+                    color = CherryVis::DrawColor::Green;
+                    break;
+                case 2:
+                    color = CherryVis::DrawColor::Orange;
+                    break;
+                default:
+                    color = CherryVis::DrawColor::Grey;
+                    break;
+            }
+
+            CherryVis::drawLine(
+                    unit->lastPosition.x,
+                    unit->lastPosition.y,
+                    unit->lastPosition.x + x[i],
+                    unit->lastPosition.y + y[i],
+                    color);
+        }
+#endif
+
         auto vector = (scale > 0)
                       ? Geo::ScaleVector(BWAPI::Position(totalX, totalY), scale)
                       : BWAPI::Position(totalX, totalY);
@@ -126,6 +165,15 @@ namespace Boids
             auto collisionVector = Map::collisionVector(collisionReferencePos.x >> 5, collisionReferencePos.y >> 5) * collisionWeight;
             if (collisionVector.x != 0 || collisionVector.y != 0)
             {
+#if DRAW_BOIDS
+                CherryVis::drawLine(
+                        unit->lastPosition.x,
+                        unit->lastPosition.y,
+                        collisionReferencePos.x + collisionVector.x,
+                        collisionReferencePos.y + collisionVector.y,
+                        CherryVis::DrawColor::Teal);
+#endif
+
                 auto totalVector = (collisionReferencePos + collisionVector) - unit->lastPosition;
 
                 // In the case of collisions, we always make sure to scale to at least 64
@@ -141,6 +189,13 @@ namespace Boids
                 }
             }
         }
+
+#if DRAW_BOIDS
+        if (pos != BWAPI::Positions::Invalid)
+        {
+            CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Blue);
+        }
+#endif
 
         return pos;
     }
