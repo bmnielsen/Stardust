@@ -362,48 +362,12 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 
         default:
         {
-            // In this case we want to expand when we consider it safe to do so: we have an attacking or containing army
-            // that is close to the enemy base
-
+            // Expand as soon as our main army transitions to attack
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain))
             {
                 CherryVis::setBoardValue("natural", "no-attack-play");
                 break;
-            }
-
-            auto squad = mainArmyPlay->getSquad();
-            if (!squad || squad->getUnits().size() < 4)
-            {
-                CherryVis::setBoardValue("natural", "attack-play-too-small");
-                break;
-            }
-
-            int dist;
-            auto vanguardCluster = squad->vanguardCluster(&dist);
-            if (!vanguardCluster)
-            {
-                CherryVis::setBoardValue("natural", "no-vanguard-cluster");
-                break;
-            }
-
-            // Cluster should be at least 2/3 of the way to the target base
-            int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
-            if (dist * 2 > distToMain)
-            {
-                CherryVis::setBoardValue("natural", "vanguard-cluster-too-close");
-                break;
-            }
-
-            // Cluster should not be moving or fleeing
-            // In other words, we want the cluster to be in some kind of stable attack or contain state
-            if (vanguardCluster->currentActivity == UnitCluster::Activity::Moving
-                || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
-                    && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
-            {
-                // We don't cancel a queued expansion in this case
-                CherryVis::setBoardValue("natural", "vanguard-cluster-not-attacking");
-                return;
             }
 
             CherryVis::setBoardValue("natural", "take");
