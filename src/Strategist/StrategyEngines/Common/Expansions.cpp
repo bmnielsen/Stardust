@@ -81,40 +81,9 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         return true;
     };
 
-    if (wantToExpand())
+    // If we don't want to expand, cancel any TakeExpansion plays that haven't started the nexus
+    if (!wantToExpand())
     {
-        // TODO: Logic for when we should queue multiple expansions simultaneously
-        if (takeExpansionPlays.empty())
-        {
-            // Create a TakeExpansion play for the next expansion
-            // TODO: Take island expansions where appropriate
-            // TODO: Take mineral-only expansions where appropriate
-            for (const auto &expansion : Map::getUntakenExpansions())
-            {
-                if (expansion->gas() == 0) continue;
-
-                // Don't take expansions that are blocked by the enemy and that we don't know how to unblock
-                if (expansion->blockedByEnemy)
-                {
-                    auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(expansion);
-                    if (baseStaticDefenseLocations.first == BWAPI::TilePositions::Invalid || baseStaticDefenseLocations.second.empty())
-                    {
-                        continue;
-                    }
-                }
-
-                auto play = std::make_shared<TakeExpansion>(expansion);
-                plays.emplace(plays.begin(), play);
-
-                Log::Get() << "Queued expansion to " << play->depotPosition;
-                CherryVis::log() << "Added TakeExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
-                break;
-            }
-        }
-    }
-    else
-    {
-        // Cancel any active TakeExpansion plays where the nexus hasn't started yet
         for (auto &takeExpansionPlay : takeExpansionPlays)
         {
             if (!takeExpansionPlay->constructionStarted())
@@ -124,6 +93,61 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
                 Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition;
             }
         }
+
+        return;
+    }
+
+    // We currently only take one expansion at a time
+    if (!takeExpansionPlays.empty()) return;
+
+    // Determine if we want to consider a mineral-only base
+    auto shouldTakeMineralOnly = []()
+    {
+        // Take a mineral-only if we have an excess of gas
+        if (BWAPI::Broodwar->self()->gas() > 1500) return true;
+
+        // Count the number of active gas and mineral-only bases we have
+        int gasBases = 0;
+        int mineralOnlyBases = 0;
+        for (const auto &base : Map::getMyBases())
+        {
+            if (base->gas() > 0)
+            {
+                gasBases++;
+            }
+            else if (base->minerals() > 1000)
+            {
+                mineralOnlyBases++;
+            }
+        }
+
+        // Take a mineral-only base for every three gas bases
+        return (gasBases - (mineralOnlyBases * 3) > 2);
+    };
+    bool takeMineralOnly = shouldTakeMineralOnly();
+
+    // Create a TakeExpansion play for the next expansion
+    // TODO: Take island expansions where appropriate
+    for (const auto &expansion : Map::getUntakenExpansions())
+    {
+        if (!takeMineralOnly && expansion->gas() == 0) continue;
+
+        // Don't take expansions that are blocked by the enemy and that we don't know how to unblock
+        if (expansion->blockedByEnemy)
+        {
+            auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(expansion);
+            if (baseStaticDefenseLocations.first == BWAPI::TilePositions::Invalid || baseStaticDefenseLocations.second.empty())
+            {
+                continue;
+            }
+        }
+
+        auto play = std::make_shared<TakeExpansion>(expansion);
+        plays.emplace(plays.begin(), play);
+
+        Log::Get() << "Queued expansion to " << play->depotPosition;
+        CherryVis::log() << "Added TakeExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
+        break;
     }
 }
 

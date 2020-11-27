@@ -189,7 +189,6 @@ namespace Map
                 int score = (distanceFromEnemy * 3) / 2 - distanceFromUs;
 
                 // Increase score based on available resources
-                // TODO: Find a solution for mineral-only bases
                 score += base->minerals() / 100;
                 score += base->gas() / 50;
 
