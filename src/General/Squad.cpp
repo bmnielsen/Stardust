@@ -2,6 +2,8 @@
 #include "PathFinding.h"
 #include "Players.h"
 
+#include "DebugFlag_CombatSim.h"
+
 #if INSTRUMENTATION_ENABLED
 #define DEBUG_CLUSTER_MEMBERSHIP true // Also in UnitCluster.cpp
 #endif
@@ -262,6 +264,34 @@ void Squad::execute()
     for (const auto &cluster : clusters)
     {
         execute(*cluster);
+
+#if DEBUG_COMBATSIM
+        std::ostringstream dbg;
+
+        dbg << label;
+
+        dbg << "\n" << cluster->getCurrentActivity();
+        if (cluster->currentSubActivity != UnitCluster::SubActivity::None) dbg << "-" << cluster->getCurrentSubActivity();
+
+        auto addSimResult = [&dbg](const std::pair<CombatSimResult, bool> &simResult)
+        {
+            if (simResult.first.frame != BWAPI::Broodwar->getFrameCount()) return;
+            
+            dbg << "\n"
+                << simResult.first.initialMine << "," << simResult.first.initialEnemy
+                << "-" << simResult.first.finalMine << "," << simResult.first.finalEnemy
+                << std::setprecision(2)
+                << ": %l=" << simResult.first.myPercentLost()
+                << "; vg=" << simResult.first.valueGain()
+                << "; %g=" << simResult.first.percentGain()
+                << (simResult.second ? "; ATTACK" : "; RETREAT");
+        };
+
+        if (!cluster->recentSimResults.empty()) addSimResult(*cluster->recentSimResults.rbegin());
+        if (!cluster->recentRegroupSimResults.empty()) addSimResult(*cluster->recentRegroupSimResults.rbegin());
+
+        CherryVis::drawText(cluster->center.x, cluster->center.y - 24, dbg.str());
+#endif
     }
 
     executeDetectors();

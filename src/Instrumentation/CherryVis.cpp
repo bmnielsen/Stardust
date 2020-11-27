@@ -300,6 +300,17 @@ namespace CherryVis
 #endif
     }
 
+    void drawText(int x, int y, const std::string &text)
+    {
+#if CHERRYVIS_ENABLED
+        frameDrawCommands.push_back({
+                                            {"code", 25},
+                                            {"args", nlohmann::json::array({x, y})},
+                                            {"str", text}
+                                    });
+#endif
+    }
+
     void frameEnd(int frame)
     {
 #if CHERRYVIS_ENABLED

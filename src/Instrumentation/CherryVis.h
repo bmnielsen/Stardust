@@ -68,6 +68,8 @@ namespace CherryVis
 
     void drawCircle(int x, int y, int radius, DrawColor color);
 
+    void drawText(int x, int y, const std::string &text);
+
     void frameEnd(int frame);
 
     void gameEnd();
