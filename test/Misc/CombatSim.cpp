@@ -102,19 +102,20 @@ namespace
         sim.addIfCombatUnitPlayer2(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(11, 67))));
     }
 
+    template<bool choke = false>
     void initializeRampSimUnits(FAP::FastAPproximation<> &sim)
     {
-        sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(7, 30))));
-        sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(8, 30))));
-        sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(9, 30))));
-        sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(7, 31))));
-        sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(8, 31))));
-        sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(9, 31))));
+        sim.addIfCombatUnitPlayer1<choke>(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(7, 30))));
+        sim.addIfCombatUnitPlayer1<choke>(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(8, 30))));
+        sim.addIfCombatUnitPlayer1<choke>(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(9, 30))));
+        sim.addIfCombatUnitPlayer1<choke>(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(7, 31))));
+        sim.addIfCombatUnitPlayer1<choke>(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(8, 31))));
+        sim.addIfCombatUnitPlayer1<choke>(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(9, 31))));
 
-        sim.addIfCombatUnitPlayer2(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(15, 24))));
-        sim.addIfCombatUnitPlayer2(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(15, 23))));
-        sim.addIfCombatUnitPlayer2(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(16, 25))));
-        sim.addIfCombatUnitPlayer2(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(17, 25))));
+        sim.addIfCombatUnitPlayer2<choke>(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(15, 24))));
+        sim.addIfCombatUnitPlayer2<choke>(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(15, 23))));
+        sim.addIfCombatUnitPlayer2<choke>(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(16, 25))));
+        sim.addIfCombatUnitPlayer2<choke>(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(17, 25))));
     }
 
     Choke *chokeNear(BWAPI::TilePosition tile)
@@ -313,7 +314,7 @@ TEST(CombatSim, Ramp)
 
             FAP::FastAPproximation sim;
             sim.setChokeGeometry(choke->tileSide, choke->end1Center, choke->end2Center, choke->end1Exit, choke->end2Exit);
-            initializeRampSimUnits(sim);
+            initializeRampSimUnits<true>(sim);
 
             int initialMine = score(sim.getState().first);
             int initialEnemy = score(sim.getState().second);
