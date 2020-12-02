@@ -4,6 +4,10 @@
 
 #include <vector>
 
+#define TANK_SPLASH_INNER_RADIUS_SQAURED 100
+#define TANK_SPLASH_MEDIAN_RADIUS_SQAURED 625
+#define TANK_SPLASH_OUTER_RADIUS_SQAURED 1600
+
 namespace FAP {
   template<typename T = std::tuple<>>
   auto makeUnit() {
@@ -575,13 +579,6 @@ namespace FAP {
 
         if constexpr (tankSplash) {
           if (fu.unitType == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) {
-            const int siegeTankBlastRadiusInner = fu.unitType.groundWeapon().innerSplashRadius();
-            const int siegeTankBlastRadiusMedian = fu.unitType.groundWeapon().medianSplashRadius();
-            const int siegeTankBlastRadiusOuter = fu.unitType.groundWeapon().outerSplashRadius();
-            const int siegeTankBlastRadiusInnerSquared = siegeTankBlastRadiusInner * siegeTankBlastRadiusInner;
-            const int siegeTankBlastRadiusMedianSquared = siegeTankBlastRadiusMedian * siegeTankBlastRadiusMedian;
-            const int siegeTankBlastRadiusOuterSquared = siegeTankBlastRadiusOuter * siegeTankBlastRadiusOuter;
-
             for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end();) {
               if (!enemyIt->flying && enemyIt != closestEnemy) {
                 bool killed = false;
@@ -597,15 +594,15 @@ namespace FAP {
                   return;
                 };
 
-                if (effectiveDistToClosestEnemySquared <= siegeTankBlastRadiusInnerSquared) { // inner
+                if (effectiveDistToClosestEnemySquared <= TANK_SPLASH_INNER_RADIUS_SQAURED) { // inner
                   dealDamage(*enemyIt, fu.groundDamage, fu.groundDamageType);
                   underTaker();
                 }
-                else if (effectiveDistToClosestEnemySquared > siegeTankBlastRadiusInnerSquared && effectiveDistToClosestEnemySquared <= siegeTankBlastRadiusMedianSquared) { // median
+                else if (effectiveDistToClosestEnemySquared > TANK_SPLASH_INNER_RADIUS_SQAURED && effectiveDistToClosestEnemySquared <= TANK_SPLASH_MEDIAN_RADIUS_SQAURED) { // median
                   dealDamage(*enemyIt, fu.groundDamage / 2, fu.groundDamageType);
                   underTaker();
                 }
-                else if (effectiveDistToClosestEnemySquared > siegeTankBlastRadiusMedianSquared && effectiveDistToClosestEnemySquared <= siegeTankBlastRadiusOuterSquared) { // outer
+                else if (effectiveDistToClosestEnemySquared > TANK_SPLASH_MEDIAN_RADIUS_SQAURED && effectiveDistToClosestEnemySquared <= TANK_SPLASH_OUTER_RADIUS_SQAURED) { // outer
                   dealDamage(*enemyIt, fu.groundDamage / 4, fu.groundDamageType);
                   underTaker();
                 }
