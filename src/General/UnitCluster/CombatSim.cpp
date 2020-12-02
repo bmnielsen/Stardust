@@ -104,6 +104,184 @@ namespace
 
         return result;
     }
+
+    template<bool choke>
+    CombatSimResult execute(
+            UnitCluster *cluster,
+                  std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                  std::set<Unit> &targets,
+                  std::set<MyUnit> &detectors,
+                  bool attacking,
+                  Choke *narrowChoke = nullptr)
+    {
+#if DEBUG_COMBATSIM_CSV
+        int minUnitId = INT_MAX;
+#endif
+
+        FAP::FastAPproximation sim;
+        if (narrowChoke)
+        {
+            sim.setChokeGeometry(narrowChoke->tileSide,
+                                 narrowChoke->end1Center,
+                                 narrowChoke->end2Center,
+                                 narrowChoke->end1Exit,
+                                 narrowChoke->end2Exit);
+        }
+
+        // Add our units with initial target
+        int myCount = 0;
+        for (auto &unitAndTarget : unitsAndTargets)
+        {
+            auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
+            bool added = attacking
+                         ? sim.addIfCombatUnitPlayer1<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, target))
+                         : sim.addIfCombatUnitPlayer2<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, target));
+
+            if (added)
+            {
+                myCount++;
+
+#if DEBUG_COMBATSIM_CSV
+                if (unitAndTarget.first->id < minUnitId) minUnitId = unitAndTarget.first->id;
+#endif
+            }
+        }
+
+        // Determine if we have mobile detection with this cluster
+        bool haveMobileDetection = false;
+        for (const auto &detector : detectors)
+        {
+            if (cluster->vanguard && cluster->vanguard->getDistance(detector) < 640)
+            {
+                haveMobileDetection = true;
+                break;
+            }
+        }
+
+        // Add enemy units
+        int enemyCount = 0;
+        bool enemyHasUndetectedUnits = false;
+        for (auto &unit : targets)
+        {
+            if (!unit->completed) continue;
+            if (unit->undetected && !haveMobileDetection) enemyHasUndetectedUnits = true;
+
+            // Only include workers if they have been seen attacking recently
+            // TODO: Handle worker rushes
+            if (!unit->type.isWorker() || (BWAPI::Broodwar->getFrameCount() - unit->lastSeenAttacking) < 120)
+            {
+                bool added = attacking
+                             ? sim.addIfCombatUnitPlayer2<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection))
+                             : sim.addIfCombatUnitPlayer1<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection));
+
+                if (added)
+                {
+                    enemyCount++;
+                }
+            }
+        }
+
+#if DEBUG_COMBATSIM_CSV
+    std::string simCsvLabel = (std::ostringstream() << "clustersim-" << minUnitId).str();
+    std::string actualCsvLabel = (std::ostringstream() << "clustersimactuals-" << minUnitId).str();
+    auto writeSimCsvLine = [&simCsvLabel](const auto &unit, int simFrame)
+    {
+        auto csv = Log::Csv(simCsvLabel);
+        csv << BWAPI::Broodwar->getFrameCount();
+        csv << simFrame;
+        csv << BWAPI::Broodwar->getFrameCount() + simFrame;
+        csv << unit.unitType;
+        csv << unit.id;
+        csv << unit.x;
+        csv << unit.y;
+        csv << unit.health;
+        csv << unit.shields;
+        csv << unit.attackCooldownRemaining;
+    };
+
+    auto writeActualCsvLine = [&actualCsvLabel](const Unit &unit)
+    {
+        auto csv = Log::Csv(actualCsvLabel);
+        csv << BWAPI::Broodwar->getFrameCount();
+        csv << "-";
+        csv << BWAPI::Broodwar->getFrameCount();
+        csv << unit->type;
+        csv << unit->id;
+        csv << unit->lastPosition.x;
+        csv << unit->lastPosition.y;
+        csv << unit->lastHealth;
+        csv << unit->lastShields;
+        csv << std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
+    };
+
+    for (auto &unitAndTarget : unitsAndTargets)
+    {
+        writeActualCsvLine(unitAndTarget.first);
+    }
+    for (auto &target : targets)
+    {
+        writeActualCsvLine(target);
+    }
+#endif
+
+        int initialMine = score(attacking ? sim.getState().first : sim.getState().second);
+        int initialEnemy = score(attacking ? sim.getState().second : sim.getState().first);
+
+        for (int i = 0; i < 144; i++)
+        {
+            sim.simulate<false, choke>(1);
+
+            // If nothing has happened after simming for three seconds, break now
+            if (i == 72)
+            {
+                int halfwayMine = score(attacking ? sim.getState().first : sim.getState().second);
+                int halfwayEnemy = score(attacking ? sim.getState().second : sim.getState().first);
+                if (halfwayMine >= initialMine && halfwayEnemy >= initialEnemy)
+                {
+                    return CombatSimResult(myCount,
+                                           enemyCount,
+                                           initialMine,
+                                           initialEnemy,
+                                           halfwayMine,
+                                           halfwayEnemy,
+                                           enemyHasUndetectedUnits,
+                                           narrowChoke);
+                }
+            }
+
+#if DEBUG_COMBATSIM_CSV
+            for (auto unit : *sim.getState().first)
+        {
+            writeSimCsvLine(unit, i);
+        }
+        for (auto unit : *sim.getState().second)
+        {
+            writeSimCsvLine(unit, i);
+        }
+#endif
+        }
+
+        int finalMine = score(attacking ? sim.getState().first : sim.getState().second);
+        int finalEnemy = score(attacking ? sim.getState().second : sim.getState().first);
+
+#if DEBUG_COMBATSIM
+        std::ostringstream debug;
+        debug << BWAPI::WalkPosition(cluster->center);
+        if (!attacking && narrowChoke)
+        {
+            debug << " (defend " << BWAPI::WalkPosition(narrowChoke->center) << ")";
+        }
+        else if (narrowChoke)
+        {
+            debug << " (through " << BWAPI::WalkPosition(narrowChoke->center) << ")";
+        }
+        debug << ": " << initialMine << "," << initialEnemy
+              << "-" << finalMine << "," << finalEnemy;
+        CherryVis::log() << debug.str();
+#endif
+
+        return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, enemyHasUndetectedUnits, narrowChoke);
+    }
 }
 
 namespace CombatSim
@@ -153,10 +331,6 @@ CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &
         return CombatSimResult();
     }
 
-#if DEBUG_COMBATSIM_CSV
-    int minUnitId = INT_MAX;
-#endif
-
     // Check if the armies are separated by a narrow choke
     // We consider this to be the case if our cluster center is on one side of the choke and their furthest unit is on the other side
     Choke *narrowChoke = choke;
@@ -186,169 +360,12 @@ CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &
         }
     }
 
-    FAP::FastAPproximation sim;
     if (narrowChoke)
     {
-        sim.setChokeGeometry(narrowChoke->tileSide,
-                             narrowChoke->end1Center,
-                             narrowChoke->end2Center,
-                             narrowChoke->end1Exit,
-                             narrowChoke->end2Exit);
+        return execute<true>(this, unitsAndTargets, targets, detectors, attacking, narrowChoke);
     }
 
-    // Add our units with initial target
-    int myCount = 0;
-    for (auto &unitAndTarget : unitsAndTargets)
-    {
-        auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
-        bool added = attacking
-                     ? sim.addIfCombatUnitPlayer1(makeUnit(unitAndTarget.first, vanguard, false, target))
-                     : sim.addIfCombatUnitPlayer2(makeUnit(unitAndTarget.first, vanguard, false, target));
-
-        if (added)
-        {
-            myCount++;
-
-#if DEBUG_COMBATSIM_CSV
-            if (unitAndTarget.first->id < minUnitId) minUnitId = unitAndTarget.first->id;
-#endif
-        }
-    }
-
-    // Determine if we have mobile detection with this cluster
-    bool haveMobileDetection = false;
-    for (const auto &detector : detectors)
-    {
-        if (vanguard && vanguard->getDistance(detector) < 640)
-        {
-            haveMobileDetection = true;
-            break;
-        }
-    }
-
-    // Add enemy units
-    int enemyCount = 0;
-    bool enemyHasUndetectedUnits = false;
-    for (auto &unit : targets)
-    {
-        if (!unit->completed) continue;
-        if (unit->undetected && !haveMobileDetection) enemyHasUndetectedUnits = true;
-
-        // Only include workers if they have been seen attacking recently
-        // TODO: Handle worker rushes
-        if (!unit->type.isWorker() || (BWAPI::Broodwar->getFrameCount() - unit->lastSeenAttacking) < 120)
-        {
-            bool added = attacking
-                         ? sim.addIfCombatUnitPlayer2(makeUnit(unit, vanguard, haveMobileDetection))
-                         : sim.addIfCombatUnitPlayer1(makeUnit(unit, vanguard, haveMobileDetection));
-
-            if (added)
-            {
-                enemyCount++;
-            }
-        }
-    }
-
-#if DEBUG_COMBATSIM_CSV
-    std::string simCsvLabel = (std::ostringstream() << "clustersim-" << minUnitId).str();
-    std::string actualCsvLabel = (std::ostringstream() << "clustersimactuals-" << minUnitId).str();
-    auto writeSimCsvLine = [&simCsvLabel](const auto &unit, int simFrame)
-    {
-        auto csv = Log::Csv(simCsvLabel);
-        csv << BWAPI::Broodwar->getFrameCount();
-        csv << simFrame;
-        csv << BWAPI::Broodwar->getFrameCount() + simFrame;
-        csv << unit.unitType;
-        csv << unit.id;
-        csv << unit.x;
-        csv << unit.y;
-        csv << unit.health;
-        csv << unit.shields;
-        csv << unit.attackCooldownRemaining;
-    };
-
-    auto writeActualCsvLine = [&actualCsvLabel](const Unit &unit)
-    {
-        auto csv = Log::Csv(actualCsvLabel);
-        csv << BWAPI::Broodwar->getFrameCount();
-        csv << "-";
-        csv << BWAPI::Broodwar->getFrameCount();
-        csv << unit->type;
-        csv << unit->id;
-        csv << unit->lastPosition.x;
-        csv << unit->lastPosition.y;
-        csv << unit->lastHealth;
-        csv << unit->lastShields;
-        csv << std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
-    };
-
-    for (auto &unitAndTarget : unitsAndTargets)
-    {
-        writeActualCsvLine(unitAndTarget.first);
-    }
-    for (auto &target : targets)
-    {
-        writeActualCsvLine(target);
-    }
-#endif
-
-    int initialMine = score(attacking ? sim.getState().first : sim.getState().second);
-    int initialEnemy = score(attacking ? sim.getState().second : sim.getState().first);
-
-    for (int i = 0; i < 144; i++)
-    {
-        sim.simulate(1);
-
-        // If nothing has happened after simming for three seconds, break now
-        if (i == 72)
-        {
-            int halfwayMine = score(attacking ? sim.getState().first : sim.getState().second);
-            int halfwayEnemy = score(attacking ? sim.getState().second : sim.getState().first);
-            if (halfwayMine >= initialMine && halfwayEnemy >= initialEnemy)
-            {
-                return CombatSimResult(myCount,
-                                       enemyCount,
-                                       initialMine,
-                                       initialEnemy,
-                                       halfwayMine,
-                                       halfwayEnemy,
-                                       enemyHasUndetectedUnits,
-                                       narrowChoke);
-            }
-        }
-
-#if DEBUG_COMBATSIM_CSV
-        for (auto unit : *sim.getState().first)
-        {
-            writeSimCsvLine(unit, i);
-        }
-        for (auto unit : *sim.getState().second)
-        {
-            writeSimCsvLine(unit, i);
-        }
-#endif
-    }
-
-    int finalMine = score(attacking ? sim.getState().first : sim.getState().second);
-    int finalEnemy = score(attacking ? sim.getState().second : sim.getState().first);
-
-#if DEBUG_COMBATSIM
-    std::ostringstream debug;
-    debug << BWAPI::WalkPosition(center);
-    if (!attacking && narrowChoke)
-    {
-        debug << " (defend " << BWAPI::WalkPosition(narrowChoke->center) << ")";
-    }
-    else if (narrowChoke)
-    {
-        debug << " (through " << BWAPI::WalkPosition(narrowChoke->center) << ")";
-    }
-    debug << ": " << initialMine << "," << initialEnemy
-          << "-" << finalMine << "," << finalEnemy;
-    CherryVis::log() << debug.str();
-#endif
-
-    return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, enemyHasUndetectedUnits, narrowChoke);
+    return execute<false>(this, unitsAndTargets, targets, detectors, attacking);
 }
 
 void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
