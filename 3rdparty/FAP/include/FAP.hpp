@@ -37,14 +37,14 @@ namespace FAP {
      * \brief Adds the unit to the simulator for player 1, only if it is a combat unit
      * \param fu The FAPUnit to add
      */
-    template<UnitValues uv, bool choke = false>
+    template<bool choke = false, UnitValues uv>
     bool addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu);
 
     /**
      * \brief Adds the unit to the simulator for player 2, only if it is a combat unit
      * \param fu The FAPUnit to add
      */
-    template<UnitValues uv, bool choke = false>
+    template<bool choke = false, UnitValues uv>
     bool addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu);
 
     /**
@@ -175,7 +175,7 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
-  template<UnitValues uv, bool choke>
+  template<bool choke, UnitValues uv>
   bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu) {
     if (isCombatUnit(fu.unit)) {
       static_assert(AssertValidUnit<uv>());
@@ -188,7 +188,7 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
-  template<UnitValues uv, bool choke>
+  template<bool choke, UnitValues uv>
   bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu) {
     if (isCombatUnit(fu.unit)) {
       static_assert(AssertValidUnit<uv>());
