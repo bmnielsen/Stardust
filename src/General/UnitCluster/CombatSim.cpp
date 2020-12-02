@@ -229,7 +229,7 @@ namespace
 
         for (int i = 0; i < 144; i++)
         {
-            sim.simulate<false, choke>(1);
+            sim.simulate<true, choke>(1);
 
             // If nothing has happened after simming for three seconds, break now
             if (i == 72)
