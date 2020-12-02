@@ -250,7 +250,7 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
             }
         }
 
-        auto pos = Boids::ComputePosition(myUnit.get(), {goalX, separationX}, {goalY, separationY}, 80, 0);
+        auto pos = Boids::ComputePosition(myUnit.get(), {goalX, separationX}, {goalY, separationY}, 80);
 
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(myUnit->id) << "Contain boids towards " << BWAPI::WalkPosition(targetPosition)

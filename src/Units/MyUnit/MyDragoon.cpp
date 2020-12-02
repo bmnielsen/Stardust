@@ -272,7 +272,7 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
         }
     }
 
-    auto pos = Boids::ComputePosition(this, {targetX, separationX}, {targetY, separationY}, 0, collisionWeight);
+    auto pos = Boids::ComputePosition(this, {targetX, separationX}, {targetY, separationY}, 0, 16, collisionWeight);
 
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(id) << "Kiting boids; target=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(targetX, targetY))

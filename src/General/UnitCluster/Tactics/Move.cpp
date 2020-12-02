@@ -137,7 +137,7 @@ void UnitCluster::move(BWAPI::Position targetPosition)
             Boids::AddSeparation(unit.get(), other, separationDetectionLimitFactor, separationWeight, separationX, separationY);
         }
 
-        auto pos = Boids::ComputePosition(unit.get(), {goalX, separationX, cohesionX}, {goalY, separationY, cohesionY}, 80, 0);
+        auto pos = Boids::ComputePosition(unit.get(), {goalX, separationX, cohesionX}, {goalY, separationY, cohesionY}, 80, 48);
 
         // Default to the goal node if the unit can't move in the direction it wants to
         if (pos == BWAPI::Positions::Invalid)

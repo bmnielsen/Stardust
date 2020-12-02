@@ -12,6 +12,7 @@ namespace
     BWAPI::Position WalkablePositionAlongVector(
             BWAPI::Position start,
             BWAPI::Position vector,
+            int minDist,
             BWAPI::Position defaultPosition = BWAPI::Positions::Invalid)
     {
         int extent = Geo::ApproximateDistance(0, vector.x, 0, vector.y);
@@ -24,7 +25,7 @@ namespace
                 return furthestWalkable;
             }
 
-            furthestWalkable = pos;
+            if (dist >= minDist) furthestWalkable = pos;
         }
 
         auto pos = start + vector;
@@ -91,7 +92,7 @@ namespace Boids
         separationY -= (int) ((double) (other->lastPosition.y - unit->lastPosition.y) * scalingFactor);
     }
 
-    BWAPI::Position ComputePosition(const UnitImpl *unit, std::vector<int> x, std::vector<int> y, int scale, int collisionWeight)
+    BWAPI::Position ComputePosition(const UnitImpl *unit, std::vector<int> x, std::vector<int> y, int scale, int minDist, int collisionWeight)
     {
         // Start by combining into a (possibly scaled) vector
         int totalX = 0;
@@ -155,7 +156,7 @@ namespace Boids
 
         // Get the furthest walkable position along the vector
         // This returns invalid if the unit cannot move in this direction
-        auto pos = WalkablePositionAlongVector(unit->lastPosition, vector);
+        auto pos = WalkablePositionAlongVector(unit->lastPosition, vector, minDist);
 
         // Consider collision if specified
         if (collisionWeight > 0)
@@ -185,7 +186,7 @@ namespace Boids
 
                 if (totalVector != BWAPI::Positions::Invalid)
                 {
-                    pos = WalkablePositionAlongVector(unit->lastPosition, totalVector, pos);
+                    pos = WalkablePositionAlongVector(unit->lastPosition, totalVector, minDist, pos);
                 }
             }
         }

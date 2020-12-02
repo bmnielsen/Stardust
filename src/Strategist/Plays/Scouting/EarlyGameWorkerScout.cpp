@@ -505,7 +505,7 @@ void EarlyGameWorkerScout::update()
         goalY = scaled.y;
     }
 
-    auto pos = Boids::ComputePosition(scout.get(), {goalX, threatX}, {goalY, threatY}, 64, 0);
+    auto pos = Boids::ComputePosition(scout.get(), {goalX, threatX}, {goalY, threatY}, 64);
 
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(scout->id) << "Scouting boids towards " << BWAPI::WalkPosition(targetPos)
