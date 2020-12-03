@@ -6,6 +6,7 @@
 #include "Map.h"
 #include "WorkerOrderTimer.h"
 #include "Geo.h"
+#include "Boids.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -451,7 +452,16 @@ namespace Workers
 
         for (auto &pair : workerJob)
         {
+            if (pair.second == Job::Reserved) continue;
+            
             auto &worker = pair.first;
+
+            if (Map::isInNoGoArea(worker->getTilePosition()))
+            {
+                worker->moveTo(Boids::AvoidNoGoArea(worker.get()));
+                continue;
+            }
+
             switch (pair.second)
             {
                 case Job::Minerals:

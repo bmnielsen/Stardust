@@ -36,8 +36,11 @@ namespace
 
         return furthestWalkable;
     }
+}
 
-    BWAPI::Position AvoidNoGoArea(const UnitImpl *unit, BWAPI::Position vector)
+namespace Boids
+{
+    BWAPI::Position AvoidNoGoArea(const UnitImpl *unit)
     {
         // If the unit itself is not currently in a no-go area, just stay put
         if (!Map::isInNoGoArea(unit->tilePositionX, unit->tilePositionY)) return unit->lastPosition;
@@ -66,16 +69,9 @@ namespace
             }
         }
 
-#if DRAW_BOIDS
-        CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, closestX, closestY, CherryVis::DrawColor::Purple);
-#endif
-
         return BWAPI::Position(closestX, closestY);
     }
-}
 
-namespace Boids
-{
     void AddSeparation(const UnitImpl *unit, const Unit &other, double detectionLimitFactor, double weight, int &separationX, int &separationY)
     {
         auto dist = unit->getDistance(other);
@@ -145,7 +141,13 @@ namespace Boids
         // If the desired target position is inside a no-go area, use special logic instead to avoid the no-go area
         if (Map::isInNoGoArea((unit->lastPosition.x + vector.x) >> 5, (unit->lastPosition.y + vector.y) >> 5))
         {
-            return AvoidNoGoArea(unit, vector);
+            auto pos = AvoidNoGoArea(unit);
+
+#if DRAW_BOIDS
+            CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Purple);
+#endif
+
+            return pos;
         }
 
         // If the vector is zero or invalid, the unit doesn't want to move, so return its current position
