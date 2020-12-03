@@ -4,6 +4,8 @@
 
 #include "DebugFlag_CombatSim.h"
 
+#include <iomanip>
+
 #if INSTRUMENTATION_ENABLED
 #define DEBUG_CLUSTER_MEMBERSHIP true // Also in UnitCluster.cpp
 #endif

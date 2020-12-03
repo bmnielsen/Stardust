@@ -218,7 +218,7 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
         // Exception for SCVs since they might be repairing something dangerous
         if (target->type != BWAPI::UnitTypes::Terran_SCV && targetRange <= (myRange - 64)) desiredDistance -= 32;
 
-#if DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_BOIDS
         CherryVis::log(id) << "Kiting: cdwn=" << cooldown << "; dist=" << predictedDistanceToTarget << "; range=" << myRange << "; des="
                            << desiredDistance;
 #endif
@@ -274,7 +274,7 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
 
     auto pos = Boids::ComputePosition(this, {targetX, separationX}, {targetY, separationY}, 0, 16, collisionWeight);
 
-#if DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_BOIDS
     CherryVis::log(id) << "Kiting boids; target=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(targetX, targetY))
                        << "; separation=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(separationX, separationY))
                        << "; target=" << BWAPI::WalkPosition(pos);

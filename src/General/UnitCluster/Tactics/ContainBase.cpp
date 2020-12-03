@@ -199,7 +199,7 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
                 nextNodeCenter = myUnit->lastPosition + Geo::ScaleVector(vector, 32);
                 secondNodeCenter = myUnit->lastPosition + Geo::ScaleVector(vector, 64);
 
-#if DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_BOIDS
                 CherryVis::log(myUnit->id) << "Contain (goal boid): No valid navigation path, moving relative to " << BWAPI::WalkPosition(waypoint)
                                            << " nextNode=" << BWAPI::WalkPosition(nextNodeCenter)
                                            << "; secondNode=" << BWAPI::WalkPosition(secondNodeCenter);
@@ -252,7 +252,7 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
 
         auto pos = Boids::ComputePosition(myUnit.get(), {goalX, separationX}, {goalY, separationY}, 80);
 
-#if DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_BOIDS
         CherryVis::log(myUnit->id) << "Contain boids towards " << BWAPI::WalkPosition(targetPosition)
                                    << "; cluster=" << BWAPI::WalkPosition(center)
                                    << ": goal=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX, goalY))

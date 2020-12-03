@@ -279,7 +279,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     bool attack = simResult.myPercentLost() <= 0.001 ||
                   simResult.percentGain() > -0.1;
 
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
     CherryVis::log() << BWAPI::WalkPosition(cluster.center)
                      << ": %l=" << simResult.myPercentLost()
                      << "; vg=" << simResult.valueGain()

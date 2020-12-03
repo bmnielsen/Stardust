@@ -54,7 +54,7 @@ namespace
 
         bool result = attack();
 
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
                          << std::setprecision(2) << "-" << aggression << "-" << distanceFactor
                          << ": %l=" << simResult.myPercentLost()

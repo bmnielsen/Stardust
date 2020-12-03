@@ -145,7 +145,7 @@ void UnitCluster::move(BWAPI::Position targetPosition)
             pos = BWAPI::Position((node->x << 5U) + 16, (node->y << 5U) + 16);
         }
 
-#if DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_BOIDS
         CherryVis::log(unit->id) << "Movement boids towards " << BWAPI::WalkPosition(targetPosition)
                                  << "; nodes=[" << BWAPI::WalkPosition((*grid)[unit->getTilePosition()].nextNode->center())
                                  << "," << BWAPI::WalkPosition((*grid)[unit->getTilePosition()].nextNode->nextNode->center())

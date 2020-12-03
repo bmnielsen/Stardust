@@ -51,7 +51,7 @@ namespace
                        (simResult.valueGain() > 0 && simResult.percentGain() > -0.05) ||
                        simResult.percentGain() > 0.2;
 
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
                          << ": %l=" << simResult.myPercentLost()
                          << "; vg=" << simResult.valueGain()
@@ -117,7 +117,7 @@ namespace
 
         bool contain = attack();
 
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
                          << std::setprecision(2) << "-" << distanceFactor
                          << ": %l=" << simResult.myPercentLost()

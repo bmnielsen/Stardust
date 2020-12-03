@@ -264,7 +264,7 @@ namespace
         int finalMine = score(attacking ? sim.getState().first : sim.getState().second);
         int finalEnemy = score(attacking ? sim.getState().second : sim.getState().first);
 
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
         std::ostringstream debug;
         debug << BWAPI::WalkPosition(cluster->center);
         if (!attacking && narrowChoke)

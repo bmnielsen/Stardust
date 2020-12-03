@@ -457,7 +457,7 @@ bool MyUnitImpl::unstickMoveUnit()
     // If we haven't moved for the past 48 frames, assume previous attempts to unstick the unit have failed and try to reset completely
     if (frameLastMoved < (BWAPI::Broodwar->getFrameCount() - 48))
     {
-#ifdef DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Unstick by sending stop command";
 #endif
         stop();
@@ -507,7 +507,7 @@ bool MyUnitImpl::unstickMoveUnit()
 
         if (best.isValid())
         {
-#ifdef DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_ORDERS
             CherryVis::log(id) << "Unstick by moving to neighbouring walkable tile";
 #endif
             move(best);
@@ -516,7 +516,7 @@ bool MyUnitImpl::unstickMoveUnit()
         }
     }
 
-#ifdef DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_ORDERS
     CherryVis::log(id) << "Unstick by resending previous move command";
 #endif
 
