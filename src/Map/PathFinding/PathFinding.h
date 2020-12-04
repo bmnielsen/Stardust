@@ -82,7 +82,8 @@ namespace PathFinding
             BWAPI::Position start,
             BWAPI::Position end,
             BWAPI::UnitType unitType,
-            PathFindingOptions options = PathFindingOptions::Default);
+            PathFindingOptions options = PathFindingOptions::Default,
+            int defaultIfInaccessible = 0);
 
     // Initializes the path finding search
     void initializeSearch();

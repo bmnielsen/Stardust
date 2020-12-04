@@ -23,6 +23,8 @@ namespace Workers
 
     std::vector<MyUnit> getBaseWorkers(Base *base);
 
+    int baseMineralWorkerCount(Base *base);
+
     void reserveBaseWorkers(std::vector<MyUnit> &workers, Base *base);
 
     void reserveWorker(const MyUnit &unit);

@@ -4,6 +4,39 @@
 
 namespace
 {
+    BWAPI::Unit getBlockingNeutral(BWAPI::TilePosition tile)
+    {
+        for (auto unit : BWAPI::Broodwar->getStaticNeutralUnits())
+        {
+            if (unit->getType().isMineralField())
+            {
+                if (Geo::Overlaps(tile - BWAPI::TilePosition(3, 3),
+                                  10,
+                                  9,
+                                  unit->getInitialTilePosition(),
+                                  2,
+                                  1))
+                {
+                    return unit;
+                }
+            }
+            else
+            {
+                if (Geo::Overlaps(tile,
+                                  4,
+                                  3,
+                                  unit->getInitialTilePosition(),
+                                  unit->getType().tileWidth(),
+                                  unit->getType().tileHeight()))
+                {
+                    return unit;
+                }
+            }
+        }
+
+        return nullptr;
+    }
+
     BWAPI::Unit findGeyser(BWAPI::TilePosition tile)
     {
         for (auto unit : BWAPI::Broodwar->getAllUnits())
@@ -33,6 +66,7 @@ Base::Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase)
         , blockedByEnemy(false)
         , requiresMineralWalkFromEnemyStartLocations(false)
         , workerDefenseRallyPatch(nullptr)
+        , blockingNeutral(getBlockingNeutral(_tile))
         , tile(_tile)
         , bwemBase(_bwemBase)
 {

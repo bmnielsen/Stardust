@@ -260,14 +260,18 @@ namespace PathFinding
         return nullptr;
     }
 
-    int ExpectedTravelTime(BWAPI::Position start, BWAPI::Position end, BWAPI::UnitType unitType, PathFindingOptions options)
+    int ExpectedTravelTime(BWAPI::Position start,
+                           BWAPI::Position end,
+                           BWAPI::UnitType unitType,
+                           PathFindingOptions options,
+                           int defaultIfInaccessible)
     {
         if (unitType.topSpeed() < 0.0001) return 0;
 
         int dist = unitType.isFlyer()
                    ? start.getApproxDistance(end)
                    : GetGroundDistance(start, end, unitType, options);
-        if (dist <= 0) return 0;
+        if (dist == -1) return defaultIfInaccessible;
         return (int) ((double) dist * 1.4 / unitType.topSpeed());
     }
 }

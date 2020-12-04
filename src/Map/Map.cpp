@@ -49,6 +49,7 @@ namespace Map
             Base *main;
             std::set<Base *> allOwned;
             std::vector<Base *> probableExpansions;
+            std::vector<Base *> islandExpansions;
 
             PlayerBases() : startingMain(nullptr), startingNatural(nullptr), main(nullptr) {}
         };
@@ -150,6 +151,7 @@ namespace Map
         void computeProbableExpansions(BWAPI::Player player, PlayerBases &playerBases)
         {
             playerBases.probableExpansions.clear();
+            playerBases.islandExpansions.clear();
 
             // If we don't yet know the location of this player's starting base, we can't guess where they will expand
             if (!playerBases.startingMain) return;
@@ -157,7 +159,7 @@ namespace Map
             auto myBases = getMyBases(player);
             auto enemyBases = getEnemyBases(player);
 
-            std::vector<std::pair<int, Base *>> scoredBases;
+            std::vector<std::tuple<int, Base *, bool>> scoredBases;
             for (auto base : bases)
             {
                 // Skip bases that are already taken
@@ -179,7 +181,8 @@ namespace Map
                 }
 
                 // Might be an island base
-                if (distanceFromUs == -1) continue;
+                bool island = (distanceFromUs == -1);
+                if (island) distanceFromUs = playerBases.startingMain->getPosition().getApproxDistance(base->getPosition());
 
                 // Want to be far from the enemy base.
                 int distanceFromEnemy = closestBaseDistance(base, enemyBases);
@@ -192,16 +195,16 @@ namespace Map
                 score += base->minerals() / 100;
                 score += base->gas() / 50;
 
-                scoredBases.emplace_back(std::make_pair(score, base));
+                scoredBases.emplace_back(std::make_tuple(score, base, island));
             }
 
             if (scoredBases.empty()) return;
 
             std::sort(scoredBases.begin(), scoredBases.end());
             std::reverse(scoredBases.begin(), scoredBases.end());
-            for (auto &pair : scoredBases)
+            for (auto &scoredBase : scoredBases)
             {
-                playerBases.probableExpansions.push_back(pair.second);
+                (std::get<2>(scoredBase) ? playerBases.islandExpansions : playerBases.probableExpansions).push_back(std::get<1>(scoredBase));
             }
         }
 
@@ -1309,6 +1312,11 @@ namespace Map
     std::vector<Base *> &getUntakenExpansions(BWAPI::Player player)
     {
         return playerToPlayerBases[player].probableExpansions;
+    }
+
+    std::vector<Base *> &getUntakenIslandExpansions(BWAPI::Player player)
+    {
+        return playerToPlayerBases[player].islandExpansions;
     }
 
     Base *getMyMain()

@@ -36,6 +36,8 @@ namespace Map
 
     std::vector<Base *> &getUntakenExpansions(BWAPI::Player player = BWAPI::Broodwar->self());
 
+    std::vector<Base *> &getUntakenIslandExpansions(BWAPI::Player player = BWAPI::Broodwar->self());
+
     Base *getMyMain();
 
     Base *getMyNatural();

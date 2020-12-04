@@ -648,7 +648,8 @@ void EarlyGameWorkerScout::updateTargetBase()
                     PathFinding::ExpectedTravelTime(scout->lastPosition,
                                                     base->getPosition(),
                                                     scout->type,
-                                                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                                                    PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                    -1);
             if (travelTime != -1 && travelTime < bestTravelTime)
             {
                 bestTravelTime = travelTime;

@@ -244,7 +244,7 @@ void MyUnitImpl::load(BWAPI::Unit cargo)
 #endif
 }
 
-void MyUnitImpl::unloadAll()
+void MyUnitImpl::unloadAll(BWAPI::Position pos)
 {
     if (issuedOrderThisFrame)
     {
@@ -252,9 +252,9 @@ void MyUnitImpl::unloadAll()
         return;
     }
 
-    issuedOrderThisFrame = bwapiUnit->unloadAll();
+    issuedOrderThisFrame = bwapiUnit->unloadAll(pos);
 
 #if DEBUG_UNIT_ORDERS
-    CherryVis::log(id) << "Order: Unload All";
+    CherryVis::log(id) << "Order: Unload All " << BWAPI::WalkPosition(pos);
 #endif
 }

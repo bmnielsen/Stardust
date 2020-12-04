@@ -7,6 +7,7 @@
 #include "Builder.h"
 
 #include "Plays/Macro/TakeExpansion.h"
+#include "Plays/Macro/TakeIslandExpansion.h"
 #include "Plays/MainArmy/AttackEnemyMain.h"
 
 void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays)
@@ -21,11 +22,35 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
 
     // Collect any existing TakeExpansion plays
     std::vector<std::shared_ptr<TakeExpansion>> takeExpansionPlays;
+    std::vector<std::shared_ptr<TakeIslandExpansion>> takeIslandExpansionPlays;
     for (auto &play : plays)
     {
         if (auto takeExpansionPlay = std::dynamic_pointer_cast<TakeExpansion>(play))
         {
-            takeExpansionPlays.push_back(takeExpansionPlay);
+            if (auto takeIslandExpansionPlay = std::dynamic_pointer_cast<TakeIslandExpansion>(play))
+            {
+                takeIslandExpansionPlays.push_back(takeIslandExpansionPlay);
+            }
+            else
+            {
+                takeExpansionPlays.push_back(takeExpansionPlay);
+            }
+        }
+    }
+
+    // Take a single nearby island expansion when we have two completed nexuses
+    if (takeIslandExpansionPlays.empty() && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
+    {
+        for (const auto &islandBase : Map::getUntakenIslandExpansions())
+        {
+            int dist = Map::getMyMain()->getPosition().getApproxDistance(islandBase->getPosition());
+            if (dist > 2500) continue;
+
+            auto play = std::make_shared<TakeIslandExpansion>(islandBase);
+            plays.emplace(plays.begin(), play);
+
+            Log::Get() << "Queued island expansion to " << play->depotPosition;
+            CherryVis::log() << "Added TakeIslandExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
         }
     }
 
@@ -127,7 +152,6 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     bool takeMineralOnly = shouldTakeMineralOnly();
 
     // Create a TakeExpansion play for the next expansion
-    // TODO: Take island expansions where appropriate
     for (const auto &expansion : Map::getUntakenExpansions())
     {
         if (!takeMineralOnly && expansion->gas() == 0) continue;

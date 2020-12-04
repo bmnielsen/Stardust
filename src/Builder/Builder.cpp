@@ -291,11 +291,13 @@ namespace Builder
             }
 
             // Add in the travel time to this next building
-            totalTravelTime +=
-                    PathFinding::ExpectedTravelTime(lastPosition,
-                                                    buildPosition,
-                                                    builderAndQueue.first->type,
-                                                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            int expectedTravelTime = PathFinding::ExpectedTravelTime(lastPosition,
+                                                                     buildPosition,
+                                                                     builderAndQueue.first->type,
+                                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                                     -1);
+            if (expectedTravelTime == -1) continue; // Builder might be on an island
+            totalTravelTime += expectedTravelTime;
 
             // Give a bonus to already-building workers, as we don't want to take a lot of workers off minerals
             if ((totalTravelTime / 2) < bestTravelTime)

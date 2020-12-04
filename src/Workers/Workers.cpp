@@ -159,7 +159,9 @@ namespace Workers
                 int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
                                                              base->getPosition(),
                                                              unit->type,
-                                                             PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                                                             PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                             -1);
+                if (frames == -1) continue;
 
                 if (!base->resourceDepot->completed)
                     frames = std::max(frames, base->resourceDepot->bwapiUnit->getRemainingBuildTime());
@@ -488,8 +490,12 @@ namespace Workers
                                 if (otherBase == base) continue;
                                 if (!otherBase->resourceDepot || !otherBase->resourceDepot->completed) continue;
 
-                                int time = PathFinding::ExpectedTravelTime(worker->lastPosition, otherBase->getPosition(), worker->type);
-                                if (time < closestTime)
+                                int time = PathFinding::ExpectedTravelTime(worker->lastPosition,
+                                                                           otherBase->getPosition(),
+                                                                           worker->type,
+                                                                           PathFinding::PathFindingOptions::Default,
+                                                                           -1);
+                                if (time != -1 && time < closestTime)
                                 {
                                     closestTime = time;
                                     closestBase = otherBase;
@@ -501,8 +507,10 @@ namespace Workers
                             {
                                 int baseToBaseTime = PathFinding::ExpectedTravelTime(base->getPosition(),
                                                                                      closestBase->getPosition(),
-                                                                                     BWAPI::UnitTypes::Protoss_Probe);
-                                if (closestTime + baseToBaseTime < base->resourceDepot->bwapiUnit->getRemainingBuildTime())
+                                                                                     BWAPI::UnitTypes::Protoss_Probe,
+                                                                                     PathFinding::PathFindingOptions::Default,
+                                                                                     -1);
+                                if (baseToBaseTime != -1 && closestTime + baseToBaseTime < base->resourceDepot->bwapiUnit->getRemainingBuildTime())
                                 {
                                     if (worker->getDistance(closestBase->resourceDepot) > 200)
                                     {
@@ -688,8 +696,9 @@ namespace Workers
                     PathFinding::ExpectedTravelTime(unit->lastPosition,
                                                     position,
                                                     unit->type,
-                                                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
-            if (travelTime < bestTime)
+                                                    PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                    -1);
+            if (travelTime != -1 && travelTime < bestTime)
             {
                 bestTime = travelTime;
                 bestWorker = unit;
@@ -707,6 +716,17 @@ namespace Workers
         for (auto &worker : baseWorkers[base])
         {
             result.push_back(worker);
+        }
+        return result;
+    }
+
+    int baseMineralWorkerCount(Base *base)
+    {
+        int result = 0;
+        for (auto &worker : baseWorkers[base])
+        {
+            auto it = workerJob.find(worker);
+            if (it != workerJob.end() && it->second == Job::Minerals) result++;
         }
         return result;
     }

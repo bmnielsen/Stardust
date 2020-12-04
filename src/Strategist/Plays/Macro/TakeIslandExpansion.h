@@ -21,4 +21,6 @@ public:
 
 private:
     MyUnit shuttle;
+    int workerTransferState; // 0 = picking up workers, 1 = unloading workers, 2 = done
+    std::vector<MyUnit> workerTransfer;
 };

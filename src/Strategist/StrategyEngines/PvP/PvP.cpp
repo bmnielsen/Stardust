@@ -920,8 +920,9 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
                                                      myPosition,
                                                      BWAPI::UnitTypes::Protoss_Dark_Templar,
-                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea);
-        if (frames < closestGatewayFrames)
+                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                     -1);
+        if (frames != -1 && frames < closestGatewayFrames)
         {
             closestGatewayFrames = frames;
         }

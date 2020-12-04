@@ -205,6 +205,9 @@ namespace Strategist
                             continue;
                         }
 
+                        // For now skip for units we don't yet support in main army plays
+                        if (reassignableUnit.unit->isFlying && !reassignableUnit.unit->type.isDetector()) continue;
+
                         unitToPlay[reassignableUnit.unit] = playReceivingUnassignedUnits;
                         playReceivingUnassignedUnits->addUnit(reassignableUnit.unit);
                         CherryVis::log(reassignableUnit.unit->id) << "Added to play: " << playReceivingUnassignedUnits->label;
@@ -447,9 +450,10 @@ namespace Strategist
         {
             auto removeUnit = [&](const MyUnit &unit)
             {
+                CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
+
                 (*it)->removeUnit(unit);
                 unitToPlay.erase(unit);
-                CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
             };
 
             // Update our unit map for units released from the play

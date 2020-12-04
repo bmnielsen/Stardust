@@ -60,7 +60,7 @@ public:
 
     void load(BWAPI::Unit cargo);
 
-    void unloadAll();
+    void unloadAll(BWAPI::Position pos);
 
 protected:
     bool issuedOrderThisFrame;
