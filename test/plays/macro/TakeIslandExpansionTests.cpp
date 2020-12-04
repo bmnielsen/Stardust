@@ -7,6 +7,21 @@
 #include "Map.h"
 #include "PathFinding.h"
 
+namespace
+{
+    class DoNothingStrategyEngine : public StrategyEngine
+    {
+        void initialize(std::vector<std::shared_ptr<Play>> &plays) override {}
+
+        void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override {}
+
+        void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
+                              std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                              std::vector<std::pair<int, int>> &mineralReservations) override
+        {}
+    };
+}
+
 TEST(TakeIslandExpansion, CanTakeIslandExpansion)
 {
     BWTest test;
@@ -15,8 +30,8 @@ TEST(TakeIslandExpansion, CanTakeIslandExpansion)
     {
         return new DoNothingModule();
     };
-    test.map = Maps::GetOne("Python");
-    test.randomSeed = 42;
+    test.map = Maps::GetOne("Andromeda");
+    test.randomSeed = 98086;
     test.frameLimit = 12000;
     test.expectWin = false;
 
@@ -24,15 +39,19 @@ TEST(TakeIslandExpansion, CanTakeIslandExpansion)
     {
         auto main = Map::getMyMain();
         Base *islandBase = nullptr;
+        int minDist = INT_MAX;
         for (auto base : Map::allBases())
         {
-            auto dist = PathFinding::GetGroundDistance(main->getPosition(), base->getPosition(), BWAPI::UnitTypes::Protoss_Probe);
-            if (dist == -1)
+            if (PathFinding::GetGroundDistance(main->getPosition(), base->getPosition(), BWAPI::UnitTypes::Protoss_Probe) != -1) continue;
+            int dist = main->getPosition().getApproxDistance(base->getPosition());
+            if (dist < minDist)
             {
                 islandBase = base;
-                break;
+                minDist = dist;
             }
         }
+
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<SaturateBases>());
