@@ -422,7 +422,7 @@ namespace FAP {
     int closestDistSquared;
     if (fu.target) {
       for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
-        if (enemyIt->id == fu.target) {
+        if (enemyIt->health > 0 && enemyIt->id == fu.target) {
           closestEnemy = enemyIt;
           closestDistSquared = distSquared(fu, *enemyIt);
           break;
@@ -438,7 +438,7 @@ namespace FAP {
     // Otherwise select the target
     if (closestEnemy == enemyUnits.end()) {
       for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
-        if (enemyIt->undetected) continue;
+        if (enemyIt->health < 1 || enemyIt->undetected) continue;
         if (enemyIt->flying) {
           if (fu.airDamage) {
             auto const d = distSquared<choke>(fu, *enemyIt);
