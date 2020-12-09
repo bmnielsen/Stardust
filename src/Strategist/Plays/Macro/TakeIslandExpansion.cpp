@@ -136,7 +136,7 @@ void TakeIslandExpansion::update()
                 }
 
                 // Then reserve the appropriate number of workers
-                int desiredWorkers = std::min(8UL, (workerTransfer.size() + Workers::baseMineralWorkerCount(bestBase)) / 2);
+                int desiredWorkers = std::min(8, (int)(workerTransfer.size() + Workers::baseMineralWorkerCount(bestBase)) / 2);
                 while (desiredWorkers > workerTransfer.size())
                 {
                     auto worker = Workers::getClosestReassignableWorker(shuttle->lastPosition, false);
