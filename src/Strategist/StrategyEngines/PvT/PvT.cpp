@@ -113,7 +113,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                            std::vector<std::pair<int, int>> &mineralReservations)
 {
     handleNaturalExpansion(plays, prioritizedProductionGoals);
-    handleDetection(prioritizedProductionGoals);
+    handleDetection(plays, prioritizedProductionGoals);
 
     // Temporary hack to set the number of gas workers needed until the producer can do it
     auto setGasGathering = [](bool gather)
@@ -300,9 +300,9 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // Produce unlimited carriers off of two stargates, at slightly higher priority than main army
             prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Carrier,
-                                                                       -1,
-                                                                       2);
+                                                                     BWAPI::UnitTypes::Protoss_Carrier,
+                                                                     -1,
+                                                                     2);
 
             midAndLateGameMainArmyProduction();
 
@@ -401,16 +401,18 @@ void PvT::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
     // TODO: Air upgrades
 }
 
-void PvT::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+void PvT::handleDetection(std::vector<std::shared_ptr<Play>> &plays, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
     // The main army play will reactively request mobile detection when it sees a cloaked enemy unit
     // The logic here is to look ahead to make sure we already have detection available when we need it
 
-    // Break out if we already have an observer
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) > 0 || Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observer) > 0)
-    {
-        return;
-    }
+    // Break out if we are already building an observer
+    if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observer) > 0) return;
+
+    // Break out if we already have an observer in the main army
+    // This means that all plays requiring an observer have one
+    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+    if (mainArmyPlay && mainArmyPlay->getSquad() && !mainArmyPlay->getSquad()->getDetectors().empty()) return;
 
     auto buildObserver = [&]()
     {
@@ -428,23 +430,27 @@ void PvT::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    // Never build obs on one base
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) < 2 &&
-        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) < 2 || BWAPI::Broodwar->getFrameCount() < 10000))
-    {
-        return;
-    }
+    // In all other cases, wait until we are on two bases
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) < 2) return;
 
-    // Build an observer if we have seen a spider mine
+    // Get obs immediately if we've seen a spider mine
     if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Vulture_Spider_Mine))
     {
         buildObserver();
         return;
     }
 
-    // Build an observer when we are on three bases
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 2 ||
-        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2 && BWAPI::Broodwar->getFrameCount() > 15000))
+    // Get obs earlier if we've seen a vulture or tank, indicating mech play and likely spider mines
+    if (BWAPI::Broodwar->getFrameCount() > 10000 && (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) ||
+                                                     Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) ||
+                                                     Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Vulture)))
+    {
+        buildObserver();
+        return;
+    }
+
+    // Otherwise start getting obs at frame 14000
+    if (BWAPI::Broodwar->getFrameCount() > 14000)
     {
         buildObserver();
         return;
