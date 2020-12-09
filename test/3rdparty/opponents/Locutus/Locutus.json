@@ -99,7 +99,6 @@
 				{ "Weight" : 25, "Strategy" : "13Nexus" },
 				{ "Weight" : 25, "Strategy" : "DTDrop" },
 				{ "Weight" : 25, "Strategy" : "Proxy9-9Gate" },
-				{ "Weight" : 25, "Strategy" : "ProxyDTRush" },
 				{ "Weight" : 25, "Strategy" : "CannonFirst4GateGoon" },
 				{ "Weight" : 25, "Strategy" : "ZealotDrop" },
 				{ "Weight" : 25, "Strategy" : "ForgeExpand" }
@@ -110,13 +109,19 @@
 				{ "Weight" : 25, "Strategy" : "4GateGoon" },
 				{ "Weight" : 25, "Strategy" : "ZealotDrop" },
 				{ "Weight" : 25, "Strategy" : "FakeDTRush" },
-				{ "Weight" : 25, "Strategy" : "Proxy4GateGoon" }
+				{ "Weight" : 25, "Strategy" : "2GateDTRush" },
+				{ "Weight" : 25, "Strategy" : "Proxy9-9Gate" },
+				{ "Weight" : 25, "Strategy" : "CannonFirst4GateGoon" },
+				{ "Weight" : 25, "Strategy" : "ForgeExpand" }
 			]},
-			
+
 		"PvZ" :
 			{ "Protoss" : [
 				{ "Weight" : 50, "Strategy" : "ForgeExpand5GateGoon" },
-				{ "Weight" : 25, "Strategy" : "CannonFirst4GateGoon" }
+				{ "Weight" : 25, "Strategy" : "ForgeExpandSpeedlots" },
+				{ "Weight" : 25, "Strategy" : "ForgeExpand4Gate2Archon" },
+				{ "Weight" : 25, "Strategy" : "CannonFirst4GateGoon" },
+				{ "Weight" : 25, "Strategy" : "Proxy9-9Gate" }
 			]},
 
 		"PvU" :
@@ -127,7 +132,7 @@
 				{ "Weight" : 50, "Strategy" : "ForgeExpand5GateGoon" },
 				{ "Weight" : 50, "Strategy" : "CannonFirst4GateGoon" }
 			]},
-			
+
 		"CounterStrategies" :
 		{
 			"--Counter Proxy" : { "Protoss" : [
@@ -147,6 +152,10 @@
 				{ "Weight" : 40, "Strategy" : "ForgeExpand" }
 			]},
 			"Counter Fast rush vP" : { "Protoss" : [
+				{ "Weight" : 20, "Strategy" : "9-9GateDefensive" },
+				{ "Weight" : 40, "Strategy" : "Turtle" },
+				{ "Weight" : 80, "Strategy" : "ForgeExpand" },
+				{ "Weight" : 80, "Strategy" : "CannonFirst4GateGoon" },
 				{ "Weight" : 80, "Strategy" : "ZealotDrop" }
 			]},
 			"Counter Fast rush vZ" : { "Protoss" : [
@@ -162,23 +171,25 @@
 				{ "Weight" : 60, "Strategy" : "4GateGoon" },
 				{ "Weight" : 40, "Strategy" : "ZealotDrop" },
 				{ "Weight" : 40, "Strategy" : "ForgeExpand" }
-			]},			
+			]},
 			"Counter Heavy rush vP" : { "Protoss" : [
 				{ "Weight" : 20, "Strategy" : "4GateGoon" },
-				{ "Weight" : 80, "Strategy" : "ZealotDrop" },
-				{ "Weight" : 80, "Strategy" : "Proxy4GateGoon" }
-			]},			
+				{ "Weight" : 40, "Strategy" : "Turtle" },
+				{ "Weight" : 80, "Strategy" : "ForgeExpand" },
+				{ "Weight" : 80, "Strategy" : "CannonFirst4GateGoon" },
+				{ "Weight" : 80, "Strategy" : "ZealotDrop" }
+			]},
 			"Counter Dark templar vP" : { "Protoss" : [
 				{ "Weight" : 50, "Strategy" : "4GateGoonWithObs" },
-				{ "Weight" : 50, "Strategy" : "ZealotDrop" },
-				{ "Weight" : 50, "Strategy" : "Proxy4GateGoon" }
-			]},			
+				{ "Weight" : 50, "Strategy" : "ForgeExpand" },
+				{ "Weight" : 50, "Strategy" : "ZealotDrop" }
+			]},
 			"Counter Wall-in vT" : { "Protoss" : [
 				{ "Weight" : 25, "Strategy" : "10-15GateGoon" },
 				{ "Weight" : 25, "Strategy" : "10Gate25NexusFE" },
 				{ "Weight" : 25, "Strategy" : "13Nexus" },
 				{ "Weight" : 25, "Strategy" : "DTDrop" }
-			]}			
+			]}
 		},
 
 		"MapSpecificStrategy" :
