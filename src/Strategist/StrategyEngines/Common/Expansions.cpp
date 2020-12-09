@@ -41,12 +41,21 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     // Take a single nearby island expansion when we have two completed nexuses
     if (takeIslandExpansionPlays.empty() && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
     {
-        for (const auto &islandBase : Map::getUntakenIslandExpansions())
+        Base *closestIslandBase = nullptr;
+        int closestIslandBaseDist = INT_MAX;
+        for (auto &islandBase : Map::getUntakenIslandExpansions())
         {
             int dist = Map::getMyMain()->getPosition().getApproxDistance(islandBase->getPosition());
-            if (dist > 2500) continue;
+            if (dist < closestIslandBaseDist)
+            {
+                closestIslandBase = islandBase;
+                closestIslandBaseDist = dist;
+            }
+        }
 
-            auto play = std::make_shared<TakeIslandExpansion>(islandBase);
+        if (closestIslandBase && (closestIslandBaseDist < 2500 || Units::countCompleted(BWAPI::UnitTypes::Protoss_Shuttle) > 0))
+        {
+            auto play = std::make_shared<TakeIslandExpansion>(closestIslandBase);
             plays.emplace(plays.begin(), play);
 
             Log::Get() << "Queued island expansion to " << play->depotPosition;
