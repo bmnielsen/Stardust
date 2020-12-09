@@ -139,7 +139,8 @@ namespace Boids
                       : BWAPI::Position(totalX, totalY);
 
         // If the desired target position is inside a no-go area, use special logic instead to avoid the no-go area
-        if (Map::isInNoGoArea((unit->lastPosition.x + vector.x) >> 5, (unit->lastPosition.y + vector.y) >> 5))
+        auto tile = BWAPI::TilePosition(unit->lastPosition + vector);
+        if (tile.isValid() && Map::isInNoGoArea(tile))
         {
             auto pos = AvoidNoGoArea(unit);
 
