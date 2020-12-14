@@ -8,6 +8,8 @@
 #include "PathFinding.h"
 #include "Geo.h"
 
+#include "NoGoAreas.h"
+
 namespace Map
 {
     namespace
@@ -31,9 +33,6 @@ namespace Map
         std::vector<bool> leafAreaTiles;
 
         std::vector<int> tileLastSeen;
-
-        std::vector<int> noGoAreaTiles;
-        bool noGoAreaTilesUpdated;
 
 #if CHERRYVIS_ENABLED
         std::vector<long> visibility;
@@ -526,24 +525,6 @@ namespace Map
 #endif
         }
 
-        // Writes the tile no go areas to CherryVis
-        void dumpNoGoAreaTiles()
-        {
-#if CHERRYVIS_ENABLED
-            // Dump to CherryVis
-            std::vector<long> noGoAreaTilesCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
-            {
-                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
-                {
-                    noGoAreaTilesCVis[x + y * BWAPI::Broodwar->mapWidth()] = noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()];
-                }
-            }
-
-            CherryVis::addHeatmap("NoGoAreas", noGoAreaTilesCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
-#endif
-        }
-
         void updateWalkabilityProximity(int tileX, int tileY)
         {
             auto tileValid = [](int x, int y)
@@ -1000,9 +981,9 @@ namespace Map
         leafAreaTiles.clear();
         tileLastSeen.clear();
         tileLastSeen.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-        noGoAreaTiles.clear();
-        noGoAreaTiles.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-        noGoAreaTilesUpdated = true; // So we get an initial null state
+
+        NoGoAreas::initialize();
+
 #if CHERRYVIS_ENABLED
         visibility.clear();
         power.clear();
@@ -1263,11 +1244,7 @@ namespace Map
             tileWalkabilityUpdated = false;
         }
 
-        if (noGoAreaTilesUpdated)
-        {
-            dumpNoGoAreaTiles();
-            noGoAreaTilesUpdated = false;
-        }
+        NoGoAreas::update();
 
         // Update the last seen frame for all visible tiles
         for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
@@ -1539,49 +1516,5 @@ namespace Map
     int lastSeen(int x, int y)
     {
         return tileLastSeen[x + y * BWAPI::Broodwar->mapWidth()];
-    }
-
-    void addNoGoArea(BWAPI::TilePosition topLeft, BWAPI::TilePosition size)
-    {
-        for (int x = topLeft.x; x < topLeft.x + size.x; x++)
-        {
-            if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
-
-            for (int y = topLeft.y; y < topLeft.y + size.y; y++)
-            {
-                if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
-
-                noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()]++;
-            }
-        }
-
-        noGoAreaTilesUpdated = true;
-    }
-
-    void removeNoGoArea(BWAPI::TilePosition topLeft, BWAPI::TilePosition size)
-    {
-        for (int x = topLeft.x; x < topLeft.x + size.x; x++)
-        {
-            if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
-
-            for (int y = topLeft.y; y < topLeft.y + size.y; y++)
-            {
-                if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
-
-                noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()]--;
-            }
-        }
-
-        noGoAreaTilesUpdated = true;
-    }
-
-    bool isInNoGoArea(BWAPI::TilePosition pos)
-    {
-        return noGoAreaTiles[pos.x + pos.y * BWAPI::Broodwar->mapWidth()] > 0;
-    }
-
-    bool isInNoGoArea(int x, int y)
-    {
-        return noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()] > 0;
     }
 }

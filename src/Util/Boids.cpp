@@ -2,6 +2,7 @@
 
 #include "Geo.h"
 #include "Map.h"
+#include "NoGoAreas.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DRAW_BOIDS false  // Draws lines for each boid
@@ -43,7 +44,7 @@ namespace Boids
     BWAPI::Position AvoidNoGoArea(const UnitImpl *unit)
     {
         // If the unit itself is not currently in a no-go area, just stay put
-        if (!Map::isInNoGoArea(unit->tilePositionX, unit->tilePositionY)) return unit->lastPosition;
+        if (!NoGoAreas::isNoGo(unit->tilePositionX, unit->tilePositionY)) return unit->lastPosition;
 
         // Find the closest tile that is walkable and not in a no-go area
         int closestDist = INT_MAX;
@@ -57,7 +58,7 @@ namespace Boids
             {
                 if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
                 if (!Map::isWalkable(x, y)) continue;
-                if (Map::isInNoGoArea(x, y)) continue;
+                if (NoGoAreas::isNoGo(x, y)) continue;
 
                 int dist = Geo::ApproximateDistance(unit->tilePositionX, x, unit->tilePositionY, y);
                 if (dist < closestDist)
@@ -140,7 +141,7 @@ namespace Boids
 
         // If the desired target position is inside a no-go area, use special logic instead to avoid the no-go area
         auto tile = BWAPI::TilePosition(unit->lastPosition + vector);
-        if (tile.isValid() && Map::isInNoGoArea(tile))
+        if (tile.isValid() && NoGoAreas::isNoGo(tile))
         {
             auto pos = AvoidNoGoArea(unit);
 

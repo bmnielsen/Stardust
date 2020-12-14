@@ -4,6 +4,7 @@
 #include "Units.h"
 #include "PathFinding.h"
 #include "Map.h"
+#include "NoGoAreas.h"
 #include "WorkerOrderTimer.h"
 #include "Geo.h"
 #include "Boids.h"
@@ -458,7 +459,7 @@ namespace Workers
             
             auto &worker = pair.first;
 
-            if (Map::isInNoGoArea(worker->getTilePosition()))
+            if (NoGoAreas::isNoGo(worker->getTilePosition()))
             {
                 worker->moveTo(Boids::AvoidNoGoArea(worker.get()));
                 continue;
