@@ -6,10 +6,10 @@
 class UpgradeStrategyEngine : public StrategyEngine
 {
 public:
-    BWAPI::UpgradeType upgrade;
+    UpgradeOrTechType upgradeOrTechType;
     int level;
 
-    UpgradeStrategyEngine(BWAPI::UpgradeType upgrade, int level = 1) : upgrade(upgrade), level(level) {}
+    UpgradeStrategyEngine(UpgradeOrTechType upgradeOrTechType, int level = 1) : upgradeOrTechType(upgradeOrTechType), level(level) {}
 
 protected:
     void initialize(std::vector<std::shared_ptr<Play>> &plays) override {}
@@ -20,9 +20,9 @@ protected:
                           std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                           std::vector<std::pair<int, int>> &mineralReservations) override
     {
-        if (BWAPI::Broodwar->self()->getUpgradeLevel(upgrade) >= level) return;
-        if (Units::isBeingUpgradedOrResearched(upgrade)) return;
+        if (upgradeOrTechType.currentLevel() > 0) return;
+        if (Units::isBeingUpgradedOrResearched(upgradeOrTechType)) return;
 
-        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(UpgradeProductionGoal(upgrade));
+        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(UpgradeProductionGoal(upgradeOrTechType));
     }
 };
