@@ -24,4 +24,6 @@ namespace NoGoAreas
 
     // Adds a circular no-go area from the given point with the given radius, that expires when the given bullet no longer exists
     void addCircle(BWAPI::Position origin, int radius, BWAPI::Bullet bullet);
+
+    void onBulletCreate(BWAPI::Bullet bullet);
 }

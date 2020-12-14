@@ -71,7 +71,7 @@ namespace
 
         if (positions.empty())
         {
-            for (int x = radius; x <= radius; x++)
+            for (int x = -radius; x <= radius; x++)
             {
                 for (int y = -radius; y <= radius; y++)
                 {
@@ -171,6 +171,13 @@ namespace NoGoAreas
         noGoAreasWithExpiration.emplace_back(std::make_pair(std::move(tiles), expireFrames));
     }
 
+    void addCircle(BWAPI::Position origin, int radius, BWAPI::Bullet bullet)
+    {
+        auto tiles = generateCircle(origin, radius);
+        add(tiles);
+        noGoAreasWithExpiration.emplace_back(std::make_pair(std::move(tiles), bullet));
+    }
+
     bool isNoGo(BWAPI::TilePosition pos)
     {
         return noGoAreaTiles[pos.x + pos.y * BWAPI::Broodwar->mapWidth()] > 0;
@@ -179,5 +186,14 @@ namespace NoGoAreas
     bool isNoGo(int x, int y)
     {
         return noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()] > 0;
+    }
+
+    void onBulletCreate(BWAPI::Bullet bullet)
+    {
+        if (bullet->getType() == BWAPI::BulletTypes::Psionic_Storm)
+        {
+            Log::Get() << "Detected storm @ " << BWAPI::WalkPosition(bullet->getPosition());
+            addCircle(bullet->getPosition(), 48 + 32, bullet);
+        }
     }
 }
