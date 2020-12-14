@@ -21,7 +21,7 @@ protected:
                           std::vector<std::pair<int, int>> &mineralReservations) override
     {
         if (BWAPI::Broodwar->self()->getUpgradeLevel(upgrade) >= level) return;
-        if (Units::isBeingUpgraded(upgrade)) return;
+        if (Units::isBeingUpgradedOrResearched(upgrade)) return;
 
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(UpgradeProductionGoal(upgrade));
     }
