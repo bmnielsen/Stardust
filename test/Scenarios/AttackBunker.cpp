@@ -1,9 +1,9 @@
 #include "BWTest.h"
 
 #include "DoNothingModule.h"
+#include "UpgradeStrategyEngine.h"
 #include "Strategist.h"
 #include "Map.h"
-#include "Units.h"
 #include "Plays/MainArmy/AttackEnemyMain.h"
 
 namespace
@@ -126,26 +126,6 @@ namespace
             }
         }
     };
-
-    class UpgradeGoonRangeStrategyEngine : public StrategyEngine
-    {
-        void initialize(std::vector<std::shared_ptr<Play>> &plays) override {}
-
-        void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override {}
-
-        void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
-                              std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                              std::vector<std::pair<int, int>> &mineralReservations) override
-        {
-            auto upgradeType = BWAPI::UpgradeTypes::Singularity_Charge;
-
-            if (BWAPI::Broodwar->self()->getUpgradeLevel(upgradeType) > 0) return;
-            if (Units::isBeingUpgraded(upgradeType)) return;
-
-            prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(UpgradeProductionGoal(upgradeType));
-        }
-    };
-
 }
 
 TEST(AttackBunker, FourGoons)
@@ -195,7 +175,7 @@ TEST(AttackBunker, FourGoons)
     {
         auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(116, 8)));
 
-        Strategist::setStrategyEngine(std::make_unique<UpgradeGoonRangeStrategyEngine>());
+        Strategist::setStrategyEngine(std::make_unique<UpgradeStrategyEngine>(BWAPI::UpgradeTypes::Singularity_Charge));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<AttackEnemyMain>(baseToAttack));
@@ -253,7 +233,7 @@ TEST(AttackBunker, FourGoons_RepairInFront)
     {
         auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(116, 8)));
 
-        Strategist::setStrategyEngine(std::make_unique<UpgradeGoonRangeStrategyEngine>());
+        Strategist::setStrategyEngine(std::make_unique<UpgradeStrategyEngine>(BWAPI::UpgradeTypes::Singularity_Charge));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<AttackEnemyMain>(baseToAttack));
@@ -319,7 +299,7 @@ TEST(AttackBunker, FourGoons_EnemyGetsRange)
     {
         auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(116, 8)));
 
-        Strategist::setStrategyEngine(std::make_unique<UpgradeGoonRangeStrategyEngine>());
+        Strategist::setStrategyEngine(std::make_unique<UpgradeStrategyEngine>(BWAPI::UpgradeTypes::Singularity_Charge));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<AttackEnemyMain>(baseToAttack));
@@ -381,7 +361,7 @@ TEST(AttackBunker, ManyGoonsNarrowSpace)
     {
         auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(116, 8)));
 
-        Strategist::setStrategyEngine(std::make_unique<UpgradeGoonRangeStrategyEngine>());
+        Strategist::setStrategyEngine(std::make_unique<UpgradeStrategyEngine>(BWAPI::UpgradeTypes::Singularity_Charge));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<AttackEnemyMain>(baseToAttack));
@@ -440,7 +420,7 @@ TEST(AttackBunker, FullGame)
 //    {
 //        auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(116, 8)));
 //
-//        Strategist::setStrategyEngine(std::make_unique<UpgradeGoonRangeStrategyEngine>());
+//        Strategist::setStrategyEngine(std::make_unique<UpgradeStrategyEngine>(BWAPI::UpgradeTypes::Singularity_Charge));
 //
 //        std::vector<std::shared_ptr<Play>> openingPlays;
 //        openingPlays.emplace_back(std::make_shared<AttackEnemyMain>(baseToAttack));

@@ -1,24 +1,10 @@
 #include "BWTest.h"
 #include "DoNothingModule.h"
+#include "DoNothingStrategyEngine.h"
 
 #include "Strategist.h"
 
 // Doesn't work, can't reproduce the exact circumstances that cause the unit to stick
-
-namespace
-{
-    class DoNothingStrategyEngine : public StrategyEngine
-    {
-        void initialize(std::vector<std::shared_ptr<Play>> &plays) override {}
-
-        void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override {}
-
-        void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
-                              std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                              std::vector<std::pair<int, int>> &mineralReservations) override
-        {}
-    };
-}
 
 TEST(StuckDarkTemplar, AttackAndMove)
 {

@@ -23,6 +23,10 @@ include_directories(SYSTEM
 
 set(STARDUST_TEST_INCLUDES
         ${PROJECT_SOURCE_DIR}
+        ${PROJECT_SOURCE_DIR}/Infrastructure
+        ${PROJECT_SOURCE_DIR}/Infrastructure/Modules
+        ${PROJECT_SOURCE_DIR}/Infrastructure/Plays
+        ${PROJECT_SOURCE_DIR}/Infrastructure/StrategyEngines
         )
 include_directories(${STARDUST_TEST_INCLUDES})
 
