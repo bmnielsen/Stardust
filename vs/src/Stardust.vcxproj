@@ -172,6 +172,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Util\Boids.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Util\Geo.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Util\UnitUtil.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Util\UpgradeOrTechType.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Workers\WorkerOrderTimer.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Workers\Workers.cpp" />
   </ItemGroup>

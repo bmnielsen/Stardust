@@ -199,6 +199,23 @@ bool MyUnitImpl::upgrade(BWAPI::UpgradeType type)
     return issuedOrderThisFrame;
 }
 
+bool MyUnitImpl::research(BWAPI::TechType type)
+{
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Research " << type;
+        return false;
+    }
+
+    issuedOrderThisFrame = bwapiUnit->research(type);
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Order: Research " << type;
+#endif
+
+    return issuedOrderThisFrame;
+}
+
 void MyUnitImpl::stop()
 {
     if (issuedOrderThisFrame)

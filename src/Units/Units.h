@@ -4,6 +4,7 @@
 
 #include "MyUnit.h"
 #include "Unit.h"
+#include "UpgradeOrTechType.h"
 
 namespace Units
 {
@@ -63,5 +64,5 @@ namespace Units
     bool hasEnemyBuilt(BWAPI::UnitType type);
 
     // TODO: This doesn't really fit here
-    bool isBeingUpgraded(BWAPI::UpgradeType type);
+    bool isBeingUpgradedOrResearched(UpgradeOrTechType type);
 }

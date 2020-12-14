@@ -54,6 +54,8 @@ public:
 
     bool upgrade(BWAPI::UpgradeType type);
 
+    bool research(BWAPI::TechType type);
+
     void stop();
 
     void cancelConstruction();

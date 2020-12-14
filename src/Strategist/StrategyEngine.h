@@ -33,12 +33,12 @@ protected:
                                    int &highPriorityCount);
 
     static void upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                               BWAPI::UpgradeType upgradeType,
+                               UpgradeOrTechType upgradeOrTechType,
                                BWAPI::UnitType unitType,
                                int unitCount);
 
     static void upgradeWhenUnitCreated(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                                       BWAPI::UpgradeType upgradeType,
+                                       UpgradeOrTechType upgradeOrTechType,
                                        BWAPI::UnitType unitType,
                                        bool requireCompletedUnit = false,
                                        bool requireProducer = false,
