@@ -5,6 +5,7 @@
 #include "Geo.h"
 #include "Boids.h"
 #include "Map.h"
+#include "NoGoAreas.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -130,6 +131,13 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
     // If we are not on cooldown, defer to normal unit attack unless we are ranging a bunker
     if (!rangingBunker && cooldown <= BWAPI::Broodwar->getRemainingLatencyFrames() + 2)
     {
+        // Special case, if we are in a no-go area, move out of it
+        if (NoGoAreas::isNoGo(tilePositionX, tilePositionY))
+        {
+            moveTo(Boids::AvoidNoGoArea(this));
+            return;
+        }
+
         MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
         return;
     }
