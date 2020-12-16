@@ -10,8 +10,10 @@ namespace
         BWAPI::Bullet bullet;
         Unit unit;
 
-        NoGoAreaExpiry(int frame) : frame(frame), bullet(nullptr), unit(nullptr) {}
+        NoGoAreaExpiry(int framesToExpiry) : frame(BWAPI::Broodwar->getFrameCount() + framesToExpiry), bullet(nullptr), unit(nullptr) {}
+
         NoGoAreaExpiry(BWAPI::Bullet bullet) : frame(-1), bullet(bullet), unit(nullptr) {}
+
         NoGoAreaExpiry(Unit unit) : frame(-1), bullet(nullptr), unit(unit) {}
 
         bool isExpired()
@@ -94,6 +96,43 @@ namespace
 
         return result;
     }
+
+    std::set<BWAPI::TilePosition> generateDirectedBox(BWAPI::Position origin, BWAPI::Position target, int width)
+    {
+        int length = origin.getApproxDistance(target);
+        auto scaledVector = Geo::ScaleVector(target - origin, 16);
+        auto scaledInverse = BWAPI::Position(scaledVector.y, scaledVector.x);
+
+        std::set<BWAPI::TilePosition> result;
+        auto insertIfValid = [&result](BWAPI::TilePosition tile)
+        {
+            if (tile.isValid()) result.insert(tile);
+        };
+
+        auto currentLengthwise = origin;
+        for (int i = 0; i <= length / 16; i++)
+        {
+            insertIfValid(BWAPI::TilePosition(currentLengthwise));
+
+            auto currentWidthwise = currentLengthwise;
+            for (int j = 0; j < width / 16; j++)
+            {
+                currentWidthwise += scaledInverse;
+                insertIfValid(BWAPI::TilePosition(currentWidthwise));
+            }
+
+            currentWidthwise = currentLengthwise;
+            for (int j = 0; j < width / 16; j++)
+            {
+                currentWidthwise -= scaledInverse;
+                insertIfValid(BWAPI::TilePosition(currentWidthwise));
+            }
+
+            currentLengthwise += scaledVector;
+        }
+
+        return result;
+    }
 }
 
 namespace NoGoAreas
@@ -110,7 +149,7 @@ namespace NoGoAreas
 
     void update()
     {
-        for (auto it = noGoAreasWithExpiration.begin(); it != noGoAreasWithExpiration.end(); )
+        for (auto it = noGoAreasWithExpiration.begin(); it != noGoAreasWithExpiration.end();)
         {
             if (it->second.isExpired())
             {
@@ -122,7 +161,10 @@ namespace NoGoAreas
                 it++;
             }
         }
+    }
 
+    void writeInstrumentation()
+    {
         if (noGoAreaTilesUpdated)
         {
             dumpNoGoAreaTiles();
@@ -178,6 +220,20 @@ namespace NoGoAreas
         noGoAreasWithExpiration.emplace_back(std::make_pair(std::move(tiles), bullet));
     }
 
+    void addDirectedBox(BWAPI::Position origin, BWAPI::Position target, int width, int expireFrames)
+    {
+        auto tiles = generateDirectedBox(origin, target, width);
+        add(tiles);
+        noGoAreasWithExpiration.emplace_back(std::make_pair(std::move(tiles), expireFrames));
+    }
+
+    void addDirectedBox(BWAPI::Position origin, BWAPI::Position target, int width, BWAPI::Bullet bullet)
+    {
+        auto tiles = generateDirectedBox(origin, target, width);
+        add(tiles);
+        noGoAreasWithExpiration.emplace_back(std::make_pair(std::move(tiles), bullet));
+    }
+
     bool isNoGo(BWAPI::TilePosition pos)
     {
         return noGoAreaTiles[pos.x + pos.y * BWAPI::Broodwar->mapWidth()] > 0;
@@ -192,8 +248,21 @@ namespace NoGoAreas
     {
         if (bullet->getType() == BWAPI::BulletTypes::Psionic_Storm)
         {
-            Log::Get() << "Detected storm @ " << BWAPI::WalkPosition(bullet->getPosition());
             addCircle(bullet->getPosition(), 48 + 32, bullet);
+        }
+
+        if (bullet->getType() == BWAPI::BulletTypes::Subterranean_Spines)
+        {
+            auto direction = Geo::ScaleVector(BWAPI::Position((int)bullet->getVelocityX(), (int)bullet->getVelocityY()), 192);
+            if (direction != BWAPI::Positions::Invalid)
+            {
+                addDirectedBox(bullet->getPosition(), bullet->getPosition() + direction, 50, bullet);
+            }
+        }
+
+        if (bullet->getType() == BWAPI::BulletTypes::EMP_Missile)
+        {
+            addCircle(bullet->getTargetPosition(), 60 + 32, bullet);
         }
     }
 }

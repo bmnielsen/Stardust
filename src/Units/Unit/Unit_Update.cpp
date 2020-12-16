@@ -5,6 +5,7 @@
 #include "Map.h"
 #include "General.h"
 #include "UnitUtil.h"
+#include "NoGoAreas.h"
 #include <iomanip>
 
 #if INSTRUMENTATION_ENABLED
@@ -220,6 +221,13 @@ void UnitImpl::update(BWAPI::Unit unit)
             health = std::max(0, health - upcomingDamage);
             if (health <= 0) CherryVis::log(id) << "DOOMED!";
         }
+    }
+
+    // Handle splash units
+    if (type == BWAPI::UnitTypes::Protoss_Scarab)
+    {
+        NoGoAreas::addCircle(unit->getPosition(), 64, 1);
+        NoGoAreas::addDirectedBox(unit->getPosition(), predictPosition(96), 64, 1);
     }
 }
 
