@@ -227,7 +227,11 @@ void UnitImpl::update(BWAPI::Unit unit)
     if (type == BWAPI::UnitTypes::Protoss_Scarab)
     {
         NoGoAreas::addCircle(unit->getPosition(), 64, 1);
-        NoGoAreas::addDirectedBox(unit->getPosition(), predictPosition(96), 64, 1);
+        auto vector = Geo::ScaleVector(predictPosition(20) - unit->getPosition(), 8 * 32);
+        if (vector != BWAPI::Positions::Invalid)
+        {
+            NoGoAreas::addDirectedBox(unit->getPosition(), unit->getPosition() + vector, 64, 1);
+        }
     }
 }
 
