@@ -3,6 +3,7 @@
 #include "Players.h"
 #include "Workers.h"
 #include "Map.h"
+#include "NoGoAreas.h"
 #include "BuildingPlacement.h"
 #include "MyDragoon.h"
 #include "MyWorker.h"
@@ -48,6 +49,7 @@ namespace Units
         {
             Map::onUnitCreated(unit);
             BuildingPlacement::onUnitCreate(unit);
+            NoGoAreas::onUnitCreate(unit);
 
             if (unit->player == BWAPI::Broodwar->self())
             {

@@ -161,6 +161,14 @@ namespace NoGoAreas
                 it++;
             }
         }
+
+        for (auto nukeDot : BWAPI::Broodwar->getNukeDots())
+        {
+            if (nukeDot.isValid())
+            {
+                addCircle(nukeDot, 256, 1);
+            }
+        }
     }
 
     void writeInstrumentation()
@@ -213,6 +221,13 @@ namespace NoGoAreas
         noGoAreasWithExpiration.emplace_back(std::make_pair(std::move(tiles), expireFrames));
     }
 
+    void addCircle(BWAPI::Position origin, int radius, Unit unit)
+    {
+        auto tiles = generateCircle(origin, radius);
+        add(tiles);
+        noGoAreasWithExpiration.emplace_back(std::make_pair(std::move(tiles), unit));
+    }
+
     void addCircle(BWAPI::Position origin, int radius, BWAPI::Bullet bullet)
     {
         auto tiles = generateCircle(origin, radius);
@@ -242,6 +257,14 @@ namespace NoGoAreas
     bool isNoGo(int x, int y)
     {
         return noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()] > 0;
+    }
+
+    void onUnitCreate(Unit unit)
+    {
+        if (unit->type == BWAPI::UnitTypes::Terran_Nuclear_Missile)
+        {
+            addCircle(unit->lastPosition, 256 + 32, unit);
+        }
     }
 
     void onBulletCreate(BWAPI::Bullet bullet)
