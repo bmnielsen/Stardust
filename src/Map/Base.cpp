@@ -1,6 +1,7 @@
 #include "Base.h"
 
 #include "Geo.h"
+#include "PathFinding.h"
 
 namespace
 {
@@ -65,6 +66,7 @@ Base::Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase)
         , lastScouted(-1)
         , blockedByEnemy(false)
         , requiresMineralWalkFromEnemyStartLocations(false)
+        , island(true)
         , workerDefenseRallyPatch(nullptr)
         , blockingNeutral(getBlockingNeutral(_tile))
         , tile(_tile)
@@ -77,6 +79,15 @@ Base::Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase)
     }
 
     analyzeMineralLine();
+
+    for (auto startLocationTile : BWAPI::Broodwar->getStartLocations())
+    {
+        if (PathFinding::GetGroundDistance(BWAPI::Position(tile), BWAPI::Position(startLocationTile), BWAPI::UnitTypes::Protoss_Probe) != -1)
+        {
+            island = false;
+            break;
+        }
+    }
 }
 
 std::vector<BWAPI::Unit> Base::mineralPatches() const

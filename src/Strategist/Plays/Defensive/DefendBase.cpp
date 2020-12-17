@@ -157,6 +157,9 @@ void DefendBase::update()
 
     workerDefenseSquad->execute(squad->enemyUnits, squad);
 
+    // Don't add ground units to defend an island base
+    if (base->island) return;
+
     // Otherwise reserve enough units to adequately defend the base
     int ourValue = 0;
     for (auto &unit : squad->getUnits())
@@ -319,6 +322,14 @@ int DefendBase::desiredCannons()
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Reaver) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observer);
+
+    // Handle island expansions now
+    if (base->island)
+    {
+        if (enemyAirUnits > 0) return 2;
+        if (enemyAirThreat || enemyDropThreat) return 1;
+        return 0;
+    }
 
     // Next, if the enemy is Zerg, guard against mutas we haven't scouted
     // TODO: Consider value of seen units to determine if the enemy could have gone for mutas

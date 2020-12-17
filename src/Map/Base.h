@@ -17,6 +17,7 @@ public:
     int lastScouted;                                    // When we have last seen this base
     bool blockedByEnemy;                                // Do we suspect this base to be blocked by a hidden enemy unit
     bool requiresMineralWalkFromEnemyStartLocations;    // Does this base require mineral walking for the enemy to reach it
+    bool island;                                        // Whether this base is ground-connected to any main base
     BWAPI::Position mineralLineCenter;                  // Approximate center of the mineral line
     BWAPI::Unit workerDefenseRallyPatch;                // Mineral patch where workers should rally when doing worker defense
     std::set<BWAPI::TilePosition> mineralLineTiles;     // All tiles considered to be part of the mineral line

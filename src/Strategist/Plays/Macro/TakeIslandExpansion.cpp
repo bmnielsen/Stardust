@@ -44,8 +44,9 @@ TakeIslandExpansion::TakeIslandExpansion(Base *base)
 
 void TakeIslandExpansion::update()
 {
-    // Clear units no longer needed by the play
-    if (shuttle && !shuttle->exists()) shuttle = nullptr;
+    auto nexus = Units::myBuildingAt(depotPosition);
+
+    // Clean up dead or unneeded workers
     if (builder && !builder->exists()) builder = nullptr;
     for (auto it = workerTransfer.begin(); it != workerTransfer.end(); )
     {
@@ -57,8 +58,20 @@ void TakeIslandExpansion::update()
         else
         {
             // The worker has been unloaded near the island base, so unreserve it
-            Workers::releaseWorker(worker);
+            if (worker->exists()) Workers::releaseWorker(worker);
             it = workerTransfer.erase(it);
+        }
+    }
+
+    // If the shuttle dies, we usually want to cancel the play
+    if (shuttle && !shuttle->exists())
+    {
+        shuttle = nullptr;
+
+        if (!nexus && (!builder || builder->getDistance(base->getPosition()) > 300))
+        {
+            status.complete = true;
+            return;
         }
     }
 
@@ -77,31 +90,64 @@ void TakeIslandExpansion::update()
         return;
     }
 
-    if (!shuttle)
+    if (!nexus)
     {
-        status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Shuttle, Map::getMyMain()->getPosition());
-        return;
-    }
+        if (!shuttle)
+        {
+            status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Shuttle, Map::getMyMain()->getPosition());
+            return;
+        }
 
-    if (!builder)
+        if (!builder)
+        {
+            builder = Workers::getClosestReassignableWorker(shuttle->lastPosition, false);
+            if (!builder) return;
+
+            Workers::reserveWorker(builder);
+            builder->moveTo(shuttle->lastPosition);
+            shuttle->load(builder->bwapiUnit);
+        }
+
+        if (builder->bwapiUnit->isLoaded())
+        {
+            unloadNear(shuttle, base->getPosition());
+            return;
+        }
+
+        // Jump out now if the shuttle hasn't loaded the builder yet
+        if (builder->getDistance(base->getPosition()) > 128) return;
+
+        // Ensure the builder clears a blocking neutral
+        if (base->blockingNeutral && base->blockingNeutral->exists())
+        {
+            if (base->blockingNeutral->getType().isMineralField())
+            {
+                // No need to do anything if the builder is gathering
+                if (builder->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Gather &&
+                    builder->bwapiUnit->getLastCommand().getTarget() == base->blockingNeutral)
+                    return;
+
+                builder->gather(base->blockingNeutral);
+            }
+            else
+            {
+                // No need to do anything if the builder is attacking
+                if (builder->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit &&
+                    builder->bwapiUnit->getLastCommand().getTarget() == base->blockingNeutral)
+                    return;
+
+                builder->attack(base->blockingNeutral);
+            }
+
+            return;
+        }
+
+        Builder::build(BWAPI::UnitTypes::Protoss_Nexus, depotPosition, builder);
+    }
+    else if (nexus->completed && !shuttle)
     {
-        builder = Workers::getClosestReassignableWorker(shuttle->lastPosition, false);
-        if (!builder) return;
-
-        Workers::reserveWorker(builder);
-        builder->moveTo(shuttle->lastPosition);
-        shuttle->load(builder->bwapiUnit);
+        status.complete = true;
     }
-
-    if (builder->bwapiUnit->isLoaded())
-    {
-        unloadNear(shuttle, base->getPosition());
-
-        return;
-    }
-
-    // Jump out now if the shuttle hasn't loaded the builder yet
-    if (builder->getDistance(base->getPosition()) > 128) return;
 
     // Have the shuttle transfer some probes from a nearby base
     if (shuttle)
@@ -129,7 +175,7 @@ void TakeIslandExpansion::update()
                 if (!bestBase) break;
 
                 // First ensure the shuttle has arrived at the base
-                if (shuttle->getDistance(bestBase->mineralLineCenter) > 320)
+                if (workerTransfer.empty() && shuttle->getDistance(bestBase->mineralLineCenter) > 320)
                 {
                     shuttle->moveTo(bestBase->mineralLineCenter);
                     break;
@@ -153,7 +199,13 @@ void TakeIslandExpansion::update()
                     if (!worker->bwapiUnit->isLoaded())
                     {
                         worker->moveTo(shuttle->lastPosition);
-                        if (allLoaded) shuttle->load(worker->bwapiUnit);
+
+                        // Load the first not-loaded worker
+                        if (allLoaded)
+                        {
+                            shuttle->load(worker->bwapiUnit);
+                        }
+
                         allLoaded = false;
                     }
                 }
@@ -192,41 +244,6 @@ void TakeIslandExpansion::update()
             default:
                 break;
         }
-    }
-
-    // Ensure the building clears a blocking neutral
-    if (base->blockingNeutral && base->blockingNeutral->exists())
-    {
-        if (base->blockingNeutral->getType().isMineralField())
-        {
-            // No need to do anything if the builder is gathering
-            if (builder->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Gather &&
-                builder->bwapiUnit->getLastCommand().getTarget() == base->blockingNeutral)
-                return;
-
-            builder->gather(base->blockingNeutral);
-        }
-        else
-        {
-            // No need to do anything if the builder is attacking
-            if (builder->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit &&
-                builder->bwapiUnit->getLastCommand().getTarget() == base->blockingNeutral)
-                return;
-
-            builder->attack(base->blockingNeutral);
-        }
-
-        return;
-    }
-
-    auto nexus = Units::myBuildingAt(depotPosition);
-    if (!nexus)
-    {
-        Builder::build(BWAPI::UnitTypes::Protoss_Nexus, depotPosition, builder);
-    }
-    else if (nexus->completed && !shuttle)
-    {
-        status.complete = true;
     }
 }
 

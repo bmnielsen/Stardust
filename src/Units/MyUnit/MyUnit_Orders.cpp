@@ -254,6 +254,14 @@ void MyUnitImpl::load(BWAPI::Unit cargo)
         return;
     }
 
+    // Don't re-issue the same command
+    BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
+    if (currentCommand.getType() == BWAPI::UnitCommandTypes::Load &&
+        currentCommand.getTarget() == cargo)
+    {
+        return;
+    }
+
     issuedOrderThisFrame = bwapiUnit->load(cargo);
 
 #if DEBUG_UNIT_ORDERS

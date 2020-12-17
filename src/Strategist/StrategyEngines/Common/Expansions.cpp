@@ -9,6 +9,7 @@
 #include "Plays/Macro/TakeExpansion.h"
 #include "Plays/Macro/TakeIslandExpansion.h"
 #include "Plays/MainArmy/AttackEnemyMain.h"
+#include "Plays/MainArmy/MopUp.h"
 
 void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays)
 {
@@ -38,7 +39,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         }
     }
 
-    // Take a single nearby island expansion when we have two completed nexuses
+    // Take a nearby island expansion when we have two completed nexuses
     if (takeIslandExpansionPlays.empty() && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
     {
         Base *closestIslandBase = nullptr;
@@ -80,7 +81,9 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
 
         // Only expand when our army is on the offensive
         auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-        if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return false;
+        if (!mainArmyPlay) return false;
+        if (typeid(*mainArmyPlay) == typeid(MopUp)) return true;
+        if (typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return false;
 
         // Sanity check that the play has a squad
         auto squad = mainArmyPlay->getSquad();
