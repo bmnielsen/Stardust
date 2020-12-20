@@ -93,7 +93,7 @@ namespace FAP {
     void updatePosition(FAPUnit<UnitExtension> &fu, int x, int y);
 
     bool didSomething = false;
-    static void dealDamage(FAPUnit<UnitExtension> &fu, int damage, BWAPI::DamageType damageType);
+    static void dealDamage(FAPUnit<UnitExtension> &fu, int damage, BWAPI::DamageType damageType, FAPUnit<UnitExtension> &attacker);
 
     template<bool choke = false>
     int distSquared(FAPUnit<UnitExtension> const &u1, const FAPUnit<UnitExtension> &u2);
@@ -242,8 +242,18 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
-  void FastAPproximation<UnitExtension>::dealDamage(FAPUnit<UnitExtension> &fu, int damage, BWAPI::DamageType const damageType) {
+  void FastAPproximation<UnitExtension>::dealDamage(FAPUnit<UnitExtension> &fu,
+                                                    int damage,
+                                                    BWAPI::DamageType const damageType,
+                                                    FAPUnit<UnitExtension> &attacker) {
     damage <<= 8;
+
+    if (!fu.flying && !attacker.flying &&
+        attacker.groundMinRange > 32 &&
+        fu.elevation != -1 && attacker.elevation != -1 && fu.elevation > attacker.elevation) {
+      damage >> 1;
+    }
+
     auto const remainingShields = fu.shields - damage + (fu.shieldArmor << 8);
     if (remainingShields > 0) {
       fu.shields = remainingShields;
@@ -571,24 +581,24 @@ namespace FAP {
 
     if (closestEnemy != enemyUnits.end() && isInRange(fu, *closestEnemy, (closestEnemy->flying ? 0 : fu.groundMinRange), (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange))) {
       if (closestEnemy->flying) {
-        dealDamage(*closestEnemy, fu.airDamage, fu.airDamageType);
+        dealDamage(*closestEnemy, fu.airDamage, fu.airDamageType, fu);
         fu.attackCooldownRemaining = fu.airCooldown;
       }
       else {
-        dealDamage(*closestEnemy, fu.groundDamage, fu.groundDamageType);
+        dealDamage(*closestEnemy, fu.groundDamage, fu.groundDamageType, fu);
 
         if constexpr (tankSplash) {
           if (fu.unitType == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) {
             auto dealSplashDamage = [&](auto &unit) {
               auto const effectiveDistToClosestEnemySquared = distSquared(*closestEnemy, unit) / 4; // shell hit point to unit edge
               if (effectiveDistToClosestEnemySquared <= TANK_SPLASH_INNER_RADIUS_SQAURED) { // inner
-                dealDamage(unit, fu.groundDamage, fu.groundDamageType);
+                dealDamage(unit, fu.groundDamage, fu.groundDamageType, fu);
               }
               else if (effectiveDistToClosestEnemySquared > TANK_SPLASH_INNER_RADIUS_SQAURED && effectiveDistToClosestEnemySquared <= TANK_SPLASH_MEDIAN_RADIUS_SQAURED) { // median
-                dealDamage(unit, fu.groundDamage / 2, fu.groundDamageType);
+                dealDamage(unit, fu.groundDamage >> 1, fu.groundDamageType, fu);
               }
               else if (effectiveDistToClosestEnemySquared > TANK_SPLASH_MEDIAN_RADIUS_SQAURED && effectiveDistToClosestEnemySquared <= TANK_SPLASH_OUTER_RADIUS_SQAURED) { // outer
-                dealDamage(unit, fu.groundDamage / 4, fu.groundDamageType);
+                dealDamage(unit, fu.groundDamage >> 2, fu.groundDamageType, fu);
               }
             };
             for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); enemyIt++) {
@@ -604,8 +614,7 @@ namespace FAP {
           }
         }
 
-        fu.attackCooldownRemaining =
-          fu.groundCooldown << static_cast<int>((fu.elevation != -1) & (closestEnemy->elevation != -1) & (closestEnemy->elevation > fu.elevation));
+        fu.attackCooldownRemaining = fu.groundCooldown;
       }
 
       didSomething = true;
@@ -705,9 +714,9 @@ namespace FAP {
 
     if (closestEnemy != enemyUnits.end() && closestDistSquared <= fu.speedSquared) {
       if (closestEnemy->flying)
-        dealDamage(*closestEnemy, fu.airDamage, fu.airDamageType);
+        dealDamage(*closestEnemy, fu.airDamage, fu.airDamageType, fu);
       else
-        dealDamage(*closestEnemy, fu.groundDamage, fu.groundDamageType);
+        dealDamage(*closestEnemy, fu.groundDamage, fu.groundDamageType, fu);
 
       didSomething = true;
       return true;
