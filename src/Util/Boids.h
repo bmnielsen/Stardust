@@ -10,5 +10,10 @@ namespace Boids
 
     void AddSeparation(const UnitImpl *unit, const Unit &other, double detectionLimitFactor, double weight, int &separationX, int &separationY);
 
-    BWAPI::Position ComputePosition(const UnitImpl *unit, std::vector<int> x, std::vector<int> y, int scale, int minDist = 16, int collisionWeight = 0);
+    BWAPI::Position ComputePosition(const UnitImpl *unit,
+                                    const std::vector<int> &x,
+                                    const std::vector<int> &y,
+                                    int scale,
+                                    int minDist = 16,
+                                    int collisionWeight = 0);
 }

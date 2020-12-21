@@ -89,8 +89,16 @@ namespace Boids
         separationY -= (int) ((double) (other->lastPosition.y - unit->lastPosition.y) * scalingFactor);
     }
 
-    BWAPI::Position ComputePosition(const UnitImpl *unit, std::vector<int> x, std::vector<int> y, int scale, int minDist, int collisionWeight)
+    BWAPI::Position ComputePosition(const UnitImpl *unit,
+                                    const std::vector<int> &x,
+                                    const std::vector<int> &y,
+                                    int scale,
+                                    int minDist,
+                                    int collisionWeight)
     {
+        // Increase the minimum distance so it is at least the size of the unit
+        minDist = std::max(minDist, std::max(unit->type.width(), unit->type.height()));
+
         // Start by combining into a (possibly scaled) vector
         int totalX = 0;
         for (const auto &xval : x)
