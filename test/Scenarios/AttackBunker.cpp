@@ -4,7 +4,7 @@
 #include "UpgradeStrategyEngine.h"
 #include "Strategist.h"
 #include "Map.h"
-#include "Plays/MainArmy/AttackEnemyMain.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
 
 namespace
 {
@@ -178,7 +178,7 @@ TEST(AttackBunker, FourGoons)
         Strategist::setStrategyEngine(std::make_unique<UpgradeStrategyEngine>(BWAPI::UpgradeTypes::Singularity_Charge));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackEnemyMain>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<AttackEnemyBase>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -236,7 +236,7 @@ TEST(AttackBunker, FourGoons_RepairInFront)
         Strategist::setStrategyEngine(std::make_unique<UpgradeStrategyEngine>(BWAPI::UpgradeTypes::Singularity_Charge));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackEnemyMain>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<AttackEnemyBase>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -302,7 +302,7 @@ TEST(AttackBunker, FourGoons_EnemyGetsRange)
         Strategist::setStrategyEngine(std::make_unique<UpgradeStrategyEngine>(BWAPI::UpgradeTypes::Singularity_Charge));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackEnemyMain>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<AttackEnemyBase>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -364,7 +364,7 @@ TEST(AttackBunker, ManyGoonsNarrowSpace)
         Strategist::setStrategyEngine(std::make_unique<UpgradeStrategyEngine>(BWAPI::UpgradeTypes::Singularity_Charge));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackEnemyMain>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<AttackEnemyBase>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -423,7 +423,7 @@ TEST(AttackBunker, FullGame)
 //        Strategist::setStrategyEngine(std::make_unique<UpgradeStrategyEngine>(BWAPI::UpgradeTypes::Singularity_Charge));
 //
 //        std::vector<std::shared_ptr<Play>> openingPlays;
-//        openingPlays.emplace_back(std::make_shared<AttackEnemyMain>(baseToAttack));
+//        openingPlays.emplace_back(std::make_shared<AttackEnemyBase>(baseToAttack));
 //        Strategist::setOpening(openingPlays);
 //    };
 

@@ -5,7 +5,7 @@
 #include "Strategist.h"
 #include "TestAttackBasePlay.h"
 #include "DoNothingStrategyEngine.h"
-#include "Plays/MainArmy/AttackEnemyMain.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
 
 TEST(AttackStaticDefense, ContainsWhileOutmatched)
 {
@@ -219,7 +219,7 @@ TEST(AttackStaticDefense, HandlesBlockedPath)
         Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<AttackEnemyMain>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<AttackEnemyBase>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
