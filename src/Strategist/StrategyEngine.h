@@ -73,4 +73,6 @@ protected:
     static void updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays);
 
     static void updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays, bool defendOurMain);
+
+    static void reserveMineralsForExpansion(std::vector<std::pair<int, int>> &mineralReservations);
 };

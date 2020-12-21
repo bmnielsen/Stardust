@@ -143,3 +143,18 @@ void StrategyEngine::scoutExpos(std::vector<std::shared_ptr<Play>> &plays, int s
 
     plays.emplace_back(std::make_shared<ScoutEnemyExpos>());
 }
+
+void StrategyEngine::reserveMineralsForExpansion(std::vector<std::pair<int, int>> &mineralReservations)
+{
+    // The idea here is to make sure we keep enough resources for an expansion if the total minerals left at our bases is low
+    int totalMinerals = 0;
+    for (const auto &base : Map::getMyBases())
+    {
+        totalMinerals += base->minerals();
+    }
+
+    if (totalMinerals < 800)
+    {
+        mineralReservations.emplace_back(std::make_pair(400, 0));
+    }
+}
