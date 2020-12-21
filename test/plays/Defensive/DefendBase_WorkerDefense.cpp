@@ -5,7 +5,7 @@
 #include "Units.h"
 #include "Map.h"
 #include "UnitUtil.h"
-#include "Plays/Defensive/DefendBase.h"
+#include "Plays/MainArmy/DefendMyMain.h"
 
 // Define a module that attacks the mineral line with zerglings
 namespace
@@ -96,7 +96,7 @@ TEST(DefendBase, WorkerDefenseZerglings)
     test.onStartMine = []()
     {
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<DefendBase>(Map::getMyMain()));
+        openingPlays.emplace_back(std::make_shared<DefendMyMain>());
         Strategist::setOpening(openingPlays);
     };
 
@@ -142,7 +142,7 @@ TEST(DefendBase, WorkerDefenseZealots)
     test.onStartMine = []()
     {
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<DefendBase>(Map::getMyMain()));
+        openingPlays.emplace_back(std::make_shared<DefendMyMain>());
         Strategist::setOpening(openingPlays);
     };
 
