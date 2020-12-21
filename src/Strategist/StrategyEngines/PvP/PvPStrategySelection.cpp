@@ -54,9 +54,6 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
     auto isDTExpandFeasible = [&]()
     {
-        // Disable since this has lost its surprise effect
-        return false;
-
         if (ourStrategy != OurStrategy::DTExpand && BWAPI::Broodwar->getFrameCount() > 9000) return false;
 
         // Make sure our main choke is easily defensible
