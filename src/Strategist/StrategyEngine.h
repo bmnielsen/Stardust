@@ -72,5 +72,5 @@ protected:
 
     static void updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays);
 
-    static void updateAttackExpansionPlays(std::vector<std::shared_ptr<Play>> &plays);
+    static void updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays, bool defendOurMain);
 };

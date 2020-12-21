@@ -1,5 +1,5 @@
 #include <utility>
-#include <Strategist/Plays/MainArmy/AttackEnemyMain.h>
+#include <Strategist/Plays/MainArmy/AttackEnemyBase.h>
 #include "Units.h"
 #include "PathFinding.h"
 #include "Opponent.h"
@@ -230,7 +230,7 @@ namespace Strategist
 
             // We consider the enemy to be contained if the following is true:
             // - The enemy has a known main base
-            // - Our main army play is AttackEnemyMain
+            // - Our main army play is AttackEnemyBase
             // - The vanguard cluster in that play is either attacking or containing the enemy main or natural
             // - We have no knowledge of enemy combat units outside the enemy main and natural
 
@@ -238,12 +238,12 @@ namespace Strategist
             auto enemyMain = Map::getEnemyMain();
             if (!enemyMain) return false;
 
-            // We only consider the enemy contained if our main army play is AttackEnemyMain
+            // We only consider the enemy contained if our main army play is AttackEnemyBase
             Play *attackMainPlay = nullptr;
             for (auto &spPlay : plays)
             {
                 Play *play = spPlay.get();
-                if (typeid(*play) == typeid(AttackEnemyMain))
+                if (typeid(*play) == typeid(AttackEnemyBase))
                 {
                     attackMainPlay = play;
                     break;

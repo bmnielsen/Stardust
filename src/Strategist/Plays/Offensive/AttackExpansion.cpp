@@ -8,9 +8,10 @@
 #include "PathFinding.h"
 #include "BuildingPlacement.h"
 
-AttackExpansion::AttackExpansion(Base *base)
+AttackExpansion::AttackExpansion(Base *base, int enemyDefenseValue)
         : Play((std::ostringstream() << "Attack expansion @ " << base->getTilePosition()).str())
         , base(base)
+        , enemyDefenseValue(enemyDefenseValue)
         , squad(std::make_shared<AttackBaseSquad>(base))
 {
     General::addSquad(squad);
@@ -18,6 +19,13 @@ AttackExpansion::AttackExpansion(Base *base)
 
 void AttackExpansion::update()
 {
+    // Complete the play when the base is no longer owned by the enemy
+    if (base->owner != BWAPI::Broodwar->enemy())
+    {
+        status.complete = true;
+        return;
+    }
+
     // Gather enemy threats at the base
     int enemyValue = 0;
     bool requireDragoons = false;
@@ -69,12 +77,13 @@ void AttackExpansion::update()
     }
 
     // Update detection - release observers when no longer needed, request observers when needed
+    bool needDetection = squad->needsDetection() || Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Vulture_Spider_Mine);
     auto &detectors = squad->getDetectors();
-    if (!squad->needsDetection() && !detectors.empty())
+    if (!needDetection && !detectors.empty())
     {
         status.removedUnits.insert(status.removedUnits.end(), detectors.begin(), detectors.end());
     }
-    else if (squad->needsDetection() && detectors.empty())
+    else if (needDetection && detectors.empty())
     {
         status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Observer, squad->getTargetPosition());
 

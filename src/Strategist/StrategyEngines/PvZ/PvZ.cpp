@@ -2,14 +2,13 @@
 
 #include "Units.h"
 #include "Map.h"
-#include "Builder.h"
 #include "Strategist.h"
 #include "Workers.h"
 #include "Players.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
-#include "Plays/MainArmy/AttackEnemyMain.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/MainArmy/MopUp.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
@@ -60,77 +59,70 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         ourStrategy = newStrategy;
     }
 
-    // Ensure we have the correct main army play
-    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-    if (mainArmyPlay)
+    bool defendOurMain;
+    if (hasEnemyStolenOurGas())
     {
-        if (hasEnemyStolenOurGas())
+        defendOurMain = true;
+    }
+    else
+    {
+        auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+        auto canTransitionToAttack = [&](int requiredUnitCount, bool requireDragoon)
         {
-            setMainPlay<DefendMyMain>(mainArmyPlay);
-        }
-        else
-        {
-            auto transitionToAttack = [&](int requiredUnitCount, bool requireDragoon)
-            {
-                auto vanguardCluster = mainArmyPlay->getSquad()->vanguardCluster();
-                if (!vanguardCluster || !vanguardCluster->vanguard) return;
+            if (!mainArmyPlay) return false;
 
-                bool hasDragoon = false;
-                int count = 0;
-                for (const auto &unit : vanguardCluster->units)
+            auto vanguardCluster = mainArmyPlay->getSquad()->vanguardCluster();
+            if (!vanguardCluster || !vanguardCluster->vanguard) return false;
+
+            bool hasDragoon = false;
+            int count = 0;
+            for (const auto &unit : vanguardCluster->units)
+            {
+                if (unit->getDistance(vanguardCluster->vanguard) < 200)
                 {
-                    if (unit->getDistance(vanguardCluster->vanguard) < 200)
-                    {
-                        if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon) hasDragoon = true;
-                        count++;
-                    }
+                    if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon) hasDragoon = true;
+                    count++;
+                }
+            }
+
+            return (count >= requiredUnitCount && (!requireDragoon || hasDragoon));
+        };
+
+        switch (ourStrategy)
+        {
+            case OurStrategy::EarlyGameDefense:
+            case OurStrategy::AntiAllIn:
+                defendOurMain = true;
+                break;
+            default:
+            {
+                if (!mainArmyPlay)
+                {
+                    defendOurMain = true;
+                    break;
                 }
 
-                if (count >= requiredUnitCount && (!requireDragoon || hasDragoon))
+                defendOurMain = false;
+
+                // Transition from defense when appropriate
+                if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
                 {
-                    auto enemyMain = Map::getEnemyMain();
-                    if (enemyMain)
+                    if (ourStrategy == OurStrategy::FastExpansion)
                     {
-                        setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
+                        defendOurMain = !canTransitionToAttack(3, false);
                     }
                     else
                     {
-                        setMainPlay<MopUp>(mainArmyPlay);
+                        defendOurMain = !canTransitionToAttack(4, true);
                     }
                 }
-            };
 
-            switch (ourStrategy)
-            {
-                case OurStrategy::EarlyGameDefense:
-                case OurStrategy::AntiAllIn:
-                    setMainPlay<DefendMyMain>(mainArmyPlay);
-                    break;
-                case OurStrategy::FastExpansion:
-                {
-                    // For fast expands go on the attack as soon as we have three units
-                    if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
-                    {
-                        transitionToAttack(3, false);
-                    }
-
-                    break;
-                }
-                case OurStrategy::Defensive:
-                case OurStrategy::Normal:
-                case OurStrategy::MidGame:
-                {
-                    // For normal strategies go on the attack when we have at least four units, one of which is a dragoon
-                    if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
-                    {
-                        transitionToAttack(4, true);
-                    }
-
-                    break;
-                }
+                break;
             }
         }
     }
+
+    updateAttackPlays(plays, defendOurMain);
 
     // Set the worker scout to monitor the enemy choke once the pool is finished
     if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted)
@@ -147,7 +139,6 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     updateDefendBasePlays(plays);
-    updateAttackExpansionPlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 10000);
 }
@@ -405,7 +396,7 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // that is close to the enemy base
 
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain))
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
             {
                 CherryVis::setBoardValue("natural", "no-attack-play");
                 break;

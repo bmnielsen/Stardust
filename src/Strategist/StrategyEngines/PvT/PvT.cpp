@@ -8,7 +8,7 @@
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
-#include "Plays/MainArmy/AttackEnemyMain.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/MainArmy/MopUp.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
@@ -59,51 +59,45 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         ourStrategy = newStrategy;
     }
 
-    // Ensure we have the correct main army play
-    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-    if (mainArmyPlay)
+    bool defendOurMain;
+    if (hasEnemyStolenOurGas())
     {
-        if (hasEnemyStolenOurGas())
+        defendOurMain = true;
+    }
+    else
+    {
+        switch (ourStrategy)
         {
-            setMainPlay<DefendMyMain>(mainArmyPlay);
-        }
-        else
-        {
-            switch (ourStrategy)
+            case OurStrategy::EarlyGameDefense:
+            case OurStrategy::AntiMarineRush:
+            case OurStrategy::Defensive:
+                defendOurMain = true;
+                break;
+            default:
             {
-                case OurStrategy::EarlyGameDefense:
-                case OurStrategy::AntiMarineRush:
-                case OurStrategy::Defensive:
-                    setMainPlay<DefendMyMain>(mainArmyPlay);
-                    break;
-                default:
+                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+                if (!mainArmyPlay)
                 {
-                    // Transition from a defend squad when the vanguard cluster has 2 units
-                    if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
-                    {
-                        auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                        if (vanguard && vanguard->units.size() >= 2)
-                        {
-                            auto enemyMain = Map::getEnemyMain();
-                            if (enemyMain)
-                            {
-                                setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
-                            }
-                            else
-                            {
-                                setMainPlay<MopUp>(mainArmyPlay);
-                            }
-                        }
-                    }
-
+                    defendOurMain = true;
                     break;
                 }
+
+                defendOurMain = false;
+
+                // Transition from a defend squad when the vanguard cluster has 2 units
+                if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                {
+                    auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
+                    defendOurMain = (!vanguard || vanguard->units.size() < 2);
+                }
+
+                break;
             }
         }
     }
 
+    updateAttackPlays(plays, defendOurMain);
     updateDefendBasePlays(plays);
-    updateAttackExpansionPlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 15000);
 }
@@ -364,7 +358,7 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         {
             // Expand as soon as our main army transitions to attack
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain))
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
             {
                 CherryVis::setBoardValue("natural", "no-attack-play");
                 break;

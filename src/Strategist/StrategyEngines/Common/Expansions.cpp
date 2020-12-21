@@ -8,7 +8,7 @@
 
 #include "Plays/Macro/TakeExpansion.h"
 #include "Plays/Macro/TakeIslandExpansion.h"
-#include "Plays/MainArmy/AttackEnemyMain.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/MainArmy/MopUp.h"
 
 void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays)
@@ -83,7 +83,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
         if (!mainArmyPlay) return false;
         if (typeid(*mainArmyPlay) == typeid(MopUp)) return true;
-        if (typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return false;
+        if (typeid(*mainArmyPlay) != typeid(AttackEnemyBase)) return false;
 
         // Sanity check that the play has a squad
         auto squad = mainArmyPlay->getSquad();

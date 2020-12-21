@@ -225,7 +225,7 @@ void DefendMyMain::disband(const std::function<void(const MyUnit &)> &removedUni
         movableUnitCallback(reservedGasStealAttacker);
     }
 
-    for (auto workerGasStealAttacker : reservedWorkerGasStealAttackers)
+    for (const auto &workerGasStealAttacker : reservedWorkerGasStealAttackers)
     {
         Workers::releaseWorker(workerGasStealAttacker);
     }

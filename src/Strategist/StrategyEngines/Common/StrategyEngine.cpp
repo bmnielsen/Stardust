@@ -1,5 +1,5 @@
 #include <Strategist/Plays/MainArmy/DefendMyMain.h>
-#include <Strategist/Plays/MainArmy/AttackEnemyMain.h>
+#include <Strategist/Plays/MainArmy/AttackEnemyBase.h>
 #include <Strategist/Plays/Defensive/DefendBase.h>
 #include <Strategist/Plays/Offensive/AttackExpansion.h>
 #include <Strategist/Plays/Scouting/ScoutEnemyExpos.h>
@@ -89,7 +89,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
             if (base == Map::getMyMain() || base == Map::getMyNatural())
             {
                 // Don't defend our main or natural with a DefendBase play if our main army is close to it
-                if (typeid(*mainArmyPlay) == typeid(AttackEnemyMain))
+                if (typeid(*mainArmyPlay) == typeid(AttackEnemyBase))
                 {
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                     if (vanguard && vanguard->vanguard)
@@ -133,71 +133,6 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
     {
         plays.emplace(plays.begin(), std::make_shared<DefendBase>(baseToDefend));
         CherryVis::log() << "Added defend base play for base @ " << BWAPI::WalkPosition(baseToDefend->getPosition());
-    }
-}
-
-void StrategyEngine::updateAttackExpansionPlays(std::vector<std::shared_ptr<Play>> &plays)
-{
-    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-
-    // First gather the list of bases we want to attack
-    std::set<Base *> basesToAttack;
-
-    // Don't attack any bases if our main army play is defending our main
-    if (mainArmyPlay && typeid(*mainArmyPlay) != typeid(DefendMyMain))
-    {
-        for (auto &base : Map::getEnemyBases())
-        {
-            // Main is attacked by our main army
-            if (base == Map::getEnemyMain()) continue;
-
-            // Natural is attacked along the way to the main unless it has already been destroyed
-            if (base == Map::getEnemyStartingNatural() && Map::getEnemyStartingMain()
-                && Map::getEnemyStartingMain()->owner == BWAPI::Broodwar->enemy())
-            {
-                continue;
-            }
-
-            // Bases without many resources left are not a priority
-            if (base->mineralPatchCount() < 3) continue;
-
-            basesToAttack.insert(base);
-        }
-    }
-
-    // Scan the plays and remove those that are no longer relevant
-    for (auto &play : plays)
-    {
-        auto attackExpansionPlay = std::dynamic_pointer_cast<AttackExpansion>(play);
-        if (!attackExpansionPlay) continue;
-
-        auto it = basesToAttack.find(attackExpansionPlay->base);
-
-        // If we no longer need to defend this base, remove the play
-        if (it == basesToAttack.end())
-        {
-            attackExpansionPlay->status.complete = true;
-            continue;
-        }
-
-        basesToAttack.erase(it);
-    }
-
-    // Add missing plays
-    for (auto &baseToAttack : basesToAttack)
-    {
-        // Insert them before the main army play
-        auto it = plays.begin();
-        for (; it != plays.end(); it++)
-        {
-            if (auto match = std::dynamic_pointer_cast<MainArmyPlay>(*it))
-            {
-                break;
-            }
-        }
-
-        plays.emplace(it, std::make_shared<AttackExpansion>(baseToAttack));
-        CherryVis::log() << "Added attack expansion play for base @ " << BWAPI::WalkPosition(baseToAttack->getPosition());
     }
 }
 
