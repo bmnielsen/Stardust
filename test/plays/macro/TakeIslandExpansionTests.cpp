@@ -110,7 +110,7 @@ TEST(TakeIslandExpansion, TakesSecondExpansion)
             }
             else
             {
-                unit->move(BWAPI::Position(BWAPI::TilePosition(79, 122)));
+                unit->move(BWAPI::Position(BWAPI::TilePosition(70, 122)));
             }
         }
     };
