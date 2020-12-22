@@ -368,6 +368,14 @@ namespace Strategist
             }
             CherryVis::setBoardListValue("prodgoal", values);
 
+            values.clear();
+            values.reserve(mineralReservations.size());
+            for (auto &mineralReservation : mineralReservations)
+            {
+                values.emplace_back((std::ostringstream() << mineralReservation.first << ":" << mineralReservation.second).str());
+            }
+            CherryVis::setBoardListValue("mineralreservations", values);
+
             if (engine)
             {
                 CherryVis::setBoardValue("strategy", engine->getOurStrategy());
