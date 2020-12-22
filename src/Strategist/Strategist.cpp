@@ -202,7 +202,7 @@ namespace Strategist
                         {
                             Log::Get() << "WARNING: Unit assigned to unknown play: " << *reassignableUnit.unit
                                        << " in " << reassignableUnit.currentPlay->label;
-                            continue;
+                            reassignableUnit.currentPlay = nullptr;
                         }
 
                         // For now skip for units we don't yet support in main army plays
