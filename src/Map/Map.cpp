@@ -164,7 +164,12 @@ namespace Map
                 // Skip bases that are already taken
                 // We consider any based owned by a different player than us to be taken
                 // We consider bases owned by us to be taken if the resource depot exists
-                if (base->owner && (player != BWAPI::Broodwar->self() || (base->resourceDepot && base->resourceDepot->exists()))) continue;
+                if (base->owner &&
+                    (base->owner != BWAPI::Broodwar->self() || player != BWAPI::Broodwar->self()
+                     || (base->resourceDepot && base->resourceDepot->exists())))
+                {
+                    continue;
+                }
 
                 // Want to be close to our own base
                 int distanceFromUs = closestBaseDistance(base, myBases);
@@ -326,9 +331,10 @@ namespace Map
         // - We infer unknown start positions if we see buildings nearby
         void inferBaseOwnershipFromUnitCreated(const Unit &unit)
         {
-            // Only consider non-neutral buildings
+            // Only consider non-neutral non-flying buildings
             if (unit->player == BWAPI::Broodwar->neutral()) return;
             if (!unit->type.isBuilding()) return;
+            if (unit->isFlying) return;
 
             // Only consider base ownership for self with depots
             if (unit->player == BWAPI::Broodwar->self() && !unit->type.isResourceDepot()) return;
