@@ -7,8 +7,9 @@ class AttackExpansion : public Play
 {
 public:
     Base *base;
+    int enemyDefenseValue;
 
-    explicit AttackExpansion(Base *base);
+    explicit AttackExpansion(Base *base, int enemyDefenseValue);
 
     std::shared_ptr<Squad> getSquad() override { return squad; }
 

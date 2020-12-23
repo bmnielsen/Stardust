@@ -2,8 +2,7 @@
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
-#include "Plays/MainArmy/AttackEnemyMain.h"
-#include "Plays/MainArmy/MopUp.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 
 #include "Map.h"
@@ -14,13 +13,6 @@
 namespace
 {
     std::map<BWAPI::UnitType, int> emptyUnitCountMap;
-
-    template<class T, class ...Args>
-    void setMainPlay(MainArmyPlay *current, Args &&...args)
-    {
-        if (typeid(*current) == typeid(T)) return;
-        current->status.transitionTo = std::make_shared<T>(std::forward<Args>(args)...);
-    }
 }
 
 void PlasmaStrategyEngine::initialize(std::vector<std::shared_ptr<Play>> &plays)
@@ -58,39 +50,14 @@ void PlasmaStrategyEngine::updatePlays(std::vector<std::shared_ptr<Play>> &plays
         }
     }
 
-    // Ensure we have the correct main army play
-    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-    if (mainArmyPlay)
-    {
-        if (hasEnemyStolenOurGas())
-        {
-            setMainPlay<DefendMyMain>(mainArmyPlay);
-        }
-        else
-        {
-            switch (enemyStrategy)
-            {
-                case EnemyStrategy::Unknown:
-                case EnemyStrategy::ProxyRush:
-                    setMainPlay<DefendMyMain>(mainArmyPlay);
-                    break;
-                case EnemyStrategy::Normal:
-                    auto enemyMain = Map::getEnemyMain();
-                    if (enemyMain)
-                    {
-                        setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
-                    }
-                    else
-                    {
-                        setMainPlay<MopUp>(mainArmyPlay);
-                    }
-                    break;
-            }
-        }
-    }
+    // Determine whether to defend our main
+    bool defendOurMain =
+            hasEnemyStolenOurGas() ||
+            enemyStrategy == EnemyStrategy::Unknown ||
+            enemyStrategy == EnemyStrategy::ProxyRush;
 
+    updateAttackPlays(plays, defendOurMain);
     updateDefendBasePlays(plays);
-    updateAttackExpansionPlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 15000);
 }
@@ -99,6 +66,7 @@ void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &
                                             std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                             std::vector<std::pair<int, int>> &mineralReservations)
 {
+    reserveMineralsForExpansion(mineralReservations);
     handleNaturalExpansion(plays, prioritizedProductionGoals);
 
     switch (enemyStrategy)
@@ -186,9 +154,9 @@ void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &
     upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
     // Cases where we want the upgrade as soon as we start building one of the units
-    upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
-    upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, true);
-    upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
 
     defaultGroundUpgrades(prioritizedProductionGoals);
 
@@ -214,7 +182,7 @@ void PlasmaStrategyEngine::handleNaturalExpansion(std::vector<std::shared_ptr<Pl
 
     // Expand as soon as our army is attacking
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-    if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) return;
+    if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase)) return;
 
     auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(natural->getTilePosition()),
                                                           BuildingPlacement::builderFrames(BuildingPlacement::Neighbourhood::MainBase,

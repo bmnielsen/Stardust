@@ -33,13 +33,14 @@ protected:
                                    int &highPriorityCount);
 
     static void upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                               BWAPI::UpgradeType upgradeType,
+                               UpgradeOrTechType upgradeOrTechType,
                                BWAPI::UnitType unitType,
                                int unitCount);
 
-    static void upgradeWhenUnitStarted(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                                       BWAPI::UpgradeType upgradeType,
+    static void upgradeWhenUnitCreated(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                       UpgradeOrTechType upgradeOrTechType,
                                        BWAPI::UnitType unitType,
+                                       bool requireCompletedUnit = false,
                                        bool requireProducer = false,
                                        int priority = PRIORITY_NORMAL);
 
@@ -71,5 +72,7 @@ protected:
 
     static void updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays);
 
-    static void updateAttackExpansionPlays(std::vector<std::shared_ptr<Play>> &plays);
+    static void updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays, bool defendOurMain);
+
+    static void reserveMineralsForExpansion(std::vector<std::pair<int, int>> &mineralReservations);
 };

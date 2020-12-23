@@ -43,6 +43,8 @@ namespace General
 
     AttackBaseSquad *getAttackBaseSquad(Base *targetBase)
     {
+        if (!targetBase) return nullptr;
+
         for (auto &squad : squads)
         {
             if (auto match = std::dynamic_pointer_cast<AttackBaseSquad>(squad))

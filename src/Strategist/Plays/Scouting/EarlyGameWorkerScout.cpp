@@ -7,6 +7,7 @@
 #include "UnitUtil.h"
 #include "Players.h"
 #include "Geo.h"
+#include "Boids.h"
 #include "Opponent.h"
 #include "Strategist.h"
 
@@ -504,30 +505,18 @@ void EarlyGameWorkerScout::update()
         goalY = scaled.y;
     }
 
-    // Put them all together and scale to two tiles
-    BWAPI::Position totalVector;
-    {
-        auto vector = BWAPI::Position(goalX + threatX, goalY + threatY);
-        totalVector = Geo::ScaleVector(vector, 64);
-    }
+    auto pos = Boids::ComputePosition(scout.get(), {goalX, threatX}, {goalY, threatY}, 64);
 
-    // Find a walkable position along the vector
-    int dist = Geo::ApproximateDistance(0, totalVector.x, 0, totalVector.y) - 16;
-    auto pos = scout->lastPosition + totalVector;
-    while (dist > 0 && (!pos.isValid() || !BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos))))
-    {
-        pos = scout->lastPosition + Geo::ScaleVector(totalVector, dist);
-        dist -= 16;
-    }
-    if (dist <= 0) pos = targetPos;
-
-#if DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_BOIDS
     CherryVis::log(scout->id) << "Scouting boids towards " << BWAPI::WalkPosition(targetPos)
                               << ": goal=" << BWAPI::WalkPosition(scout->lastPosition + BWAPI::Position(goalX, goalY))
                               << "; threat=" << BWAPI::WalkPosition(scout->lastPosition + BWAPI::Position(threatX, threatY))
-                              << "; total=" << BWAPI::WalkPosition(scout->lastPosition + totalVector)
+                              << "; total=" << BWAPI::WalkPosition(scout->lastPosition + BWAPI::Position(goalX + threatX, goalY + threatY))
                               << "; target=" << BWAPI::WalkPosition(pos);
 #endif
+
+    // Default to target pos if unit can't move in the desired direction
+    if (pos == BWAPI::Positions::Invalid) pos = targetPos;
 
     scout->moveTo(pos, true);
 }
@@ -659,7 +648,8 @@ void EarlyGameWorkerScout::updateTargetBase()
                     PathFinding::ExpectedTravelTime(scout->lastPosition,
                                                     base->getPosition(),
                                                     scout->type,
-                                                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                                                    PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                    -1);
             if (travelTime != -1 && travelTime < bestTravelTime)
             {
                 bestTravelTime = travelTime;

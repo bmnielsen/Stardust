@@ -36,6 +36,8 @@ namespace Map
 
     std::vector<Base *> &getUntakenExpansions(BWAPI::Player player = BWAPI::Broodwar->self());
 
+    std::vector<Base *> &getUntakenIslandExpansions(BWAPI::Player player = BWAPI::Broodwar->self());
+
     Base *getMyMain();
 
     Base *getMyNatural();
@@ -96,12 +98,4 @@ namespace Map
     int lastSeen(BWAPI::TilePosition tile);
 
     int lastSeen(int x, int y);
-
-    void addNoGoArea(BWAPI::TilePosition topLeft, BWAPI::TilePosition size);
-
-    void removeNoGoArea(BWAPI::TilePosition topLeft, BWAPI::TilePosition size);
-
-    bool isInNoGoArea(BWAPI::TilePosition pos);
-
-    bool isInNoGoArea(int x, int y);
 }

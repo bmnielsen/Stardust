@@ -32,6 +32,7 @@ UnitCluster::UnitCluster(const MyUnit &unit)
         , currentActivity(Activity::Moving)
         , currentSubActivity(SubActivity::None)
         , lastActivityChange(0)
+        , isVanguardCluster(false)
         , area(unit->type.width() * unit->type.height())
 {
     units.insert(unit);

@@ -60,7 +60,10 @@ void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
         {
             int frames = PathFinding::ExpectedTravelTime(base->getPosition(),
                                                          (*cluster.first.begin())->getPosition(),
-                                                         BWAPI::UnitTypes::Protoss_Probe);
+                                                         BWAPI::UnitTypes::Protoss_Probe,
+                                                         PathFinding::PathFindingOptions::Default,
+                                                         -1);
+            if (frames == -1) continue;
             if (frames < bestFrames)
             {
                 bestFrames = frames;

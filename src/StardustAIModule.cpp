@@ -2,6 +2,7 @@
 
 #include "Timer.h"
 #include "Map.h"
+#include "NoGoAreas.h"
 #include "PathFinding.h"
 #include "Producer.h"
 #include "Builder.h"
@@ -226,6 +227,8 @@ void StardustAIModule::onFrame()
     Timer::checkpoint("Units::issueOrders");
 
     // Instrumentation
+    NoGoAreas::writeInstrumentation();
+
 #if COLLISION_HEATMAP_FREQUENCY_ENEMY
     if (BWAPI::Broodwar->getFrameCount() % COLLISION_HEATMAP_FREQUENCY_ENEMY == 0)
     {

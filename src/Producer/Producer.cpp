@@ -35,14 +35,14 @@ namespace Producer
 
         const BuildingPlacement::BuildLocation InvalidBuildLocation(Block::Location(BWAPI::TilePositions::Invalid), 0, 0, 0);
 
-        using Type = std::variant<BWAPI::UnitType, BWAPI::UpgradeType>;
+        using Type = std::variant<BWAPI::UnitType, UpgradeOrTechType>;
 
         int buildTime(const Type &type)
         {
             if (auto unitType = std::get_if<BWAPI::UnitType>(&type))
                 return UnitUtil::BuildTime(*unitType);
-            if (auto upgradeType = std::get_if<BWAPI::UpgradeType>(&type))
-                return upgradeType->upgradeTime(BWAPI::Broodwar->self()->getUpgradeLevel(*upgradeType) + 1);
+            if (auto upgradeOrTechType = std::get_if<UpgradeOrTechType>(&type))
+                return upgradeOrTechType->upgradeOrResearchTime();
             return 0;
         }
 
@@ -247,6 +247,19 @@ namespace Producer
             if (!producer->bwapiUnit->isUpgrading()) return -1;
 
             return producer->bwapiUnit->getRemainingUpgradeTime();
+        }
+
+        int getRemainingResearchTime(const MyUnit &producer)
+        {
+            if (producer->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Research &&
+                (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+            {
+                return buildTime(producer->bwapiUnit->getLastCommand().getTechType());
+            }
+
+            if (!producer->bwapiUnit->isResearching()) return -1;
+
+            return producer->bwapiUnit->getRemainingResearchTime();
         }
 
         void updateResourceCollection(std::vector<int> &resource, int fromFrame, int workerChange, double baseRate)
@@ -559,13 +572,16 @@ namespace Producer
         int resolveDuplicates(ProductionItemSet &goalItems)
         {
             int maxFrame = 0;
-            std::set<Type> seen;
+            std::set<BWAPI::UnitType> seen;
             for (auto it = goalItems.begin(); it != goalItems.end();)
             {
                 auto &item = **it;
 
+                auto unitType = std::get_if<BWAPI::UnitType>(&item.type);
+                if (!unitType) continue;
+
                 // There's already an item of this type in this goal's queue
-                if (seen.find(item.type) != seen.end())
+                if (seen.find(*unitType) != seen.end())
                 {
                     it = goalItems.erase(it);
                     continue;
@@ -575,7 +591,8 @@ namespace Producer
                 bool handled = false;
                 for (auto &committedItem : committedItems)
                 {
-                    if (committedItem->type != item.type) continue;
+                    auto committedUnitType = std::get_if<BWAPI::UnitType>(&committedItem->type);
+                    if (!committedUnitType || *unitType != *committedUnitType) continue;
 
                     // We found a match
 
@@ -599,7 +616,7 @@ namespace Producer
                 if (!handled)
                 {
                     maxFrame = std::max(maxFrame, (*it)->completionFrame);
-                    seen.insert(item.type);
+                    seen.insert(*unitType);
                     it++;
                 }
             }
@@ -1534,13 +1551,13 @@ namespace Producer
 
             // For some logic we need to know which variant type we are producing, so reference them here
             auto unitType = std::get_if<BWAPI::UnitType>(&type);
-            auto upgradeType = std::get_if<BWAPI::UpgradeType>(&type);
+            auto upgradeOrTechType = std::get_if<UpgradeOrTechType>(&type);
 
             BWAPI::UnitType producerType;
             if (unitType)
                 producerType = unitType->whatBuilds().first;
-            else if (upgradeType)
-                producerType = upgradeType->whatUpgrades();
+            else if (upgradeOrTechType)
+                producerType = upgradeOrTechType->whatUpgradesOrResearches();
 
             ProductionItemSet prerequisiteItems;
 
@@ -1650,9 +1667,11 @@ namespace Producer
                 {
                     remainingTrainTime = getRemainingBuildTime(unit);
                 }
-                else if (upgradeType)
+                else if (upgradeOrTechType)
                 {
-                    remainingTrainTime = getRemainingUpgradeTime(unit);
+                    remainingTrainTime = upgradeOrTechType->isTechType()
+                            ? getRemainingResearchTime(unit)
+                            : getRemainingUpgradeTime(unit);
                 }
 
                 // If this producer is already created when handling a previous production goal, reference the existing object
@@ -1673,7 +1692,7 @@ namespace Producer
             if (producers.empty())
             {
                 if (unitType) Log::Get() << "WARNING: No producers for " << *unitType;
-                if (upgradeType) Log::Get() << "WARNING: No producers for " << *upgradeType;
+                if (upgradeOrTechType) Log::Get() << "WARNING: No producers for " << *upgradeOrTechType;
                 return;
             }
 
@@ -1919,15 +1938,25 @@ namespace Producer
             }
 
                 // Upgrades
-            else if (auto upgradeType = std::get_if<BWAPI::UpgradeType>(&item->type))
+            else if (auto upgradeOrTechType = std::get_if<UpgradeOrTechType>(&item->type))
             {
                 // Upgrade if start frame is now
                 if (item->producer && item->producer->existing && item->startFrame <= BWAPI::Broodwar->getRemainingLatencyFrames())
                 {
-                    if (item->producer->existing->upgrade(*upgradeType))
+                    if (upgradeOrTechType->isTechType())
                     {
-                        Log::Get() << "Started upgrade: " << *upgradeType
-                                   << " (" << (BWAPI::Broodwar->self()->getUpgradeLevel(*upgradeType) + 1) << ")";
+                        if (item->producer->existing->research(upgradeOrTechType->techType))
+                        {
+                            Log::Get() << "Started research: " << upgradeOrTechType->techType;
+                        }
+                    }
+                    else
+                    {
+                        if (item->producer->existing->upgrade(upgradeOrTechType->upgradeType))
+                        {
+                            Log::Get() << "Started upgrade: " << upgradeOrTechType->upgradeType
+                                       << " (" << (BWAPI::Broodwar->self()->getUpgradeLevel(upgradeOrTechType->upgradeType) + 1) << ")";
+                        }
                     }
                 }
             }

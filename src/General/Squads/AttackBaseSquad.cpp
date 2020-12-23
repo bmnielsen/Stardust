@@ -54,7 +54,7 @@ namespace
 
         bool result = attack();
 
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
                          << std::setprecision(2) << "-" << aggression << "-" << distanceFactor
                          << ": %l=" << simResult.myPercentLost()
@@ -68,12 +68,6 @@ namespace
 
     bool shouldStartAttack(UnitCluster &cluster, CombatSimResult &simResult)
     {
-        // Always attack if we are maxed
-        if (BWAPI::Broodwar->self()->supplyUsed() > 380)
-        {
-            return true;
-        }
-
         bool attack = shouldAttack(cluster, simResult);
         cluster.addSimResult(simResult, attack);
         return attack;
@@ -81,12 +75,6 @@ namespace
 
     bool shouldContinueAttack(UnitCluster &cluster, CombatSimResult &simResult)
     {
-        // Always continue if we are close to maxed
-        if (BWAPI::Broodwar->self()->supplyUsed() > 300)
-        {
-            return true;
-        }
-
         bool attack = shouldAttack(cluster, simResult, 1.2);
 
         cluster.addSimResult(simResult, attack);

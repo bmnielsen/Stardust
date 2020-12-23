@@ -35,6 +35,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
         // Transition immediately if we've discovered a different enemy strategy and have at least three completed dragoons
         if (newEnemyStrategy != ProtossStrategy::BlockScouting &&
+            newEnemyStrategy != ProtossStrategy::WorkerRush &&
             newEnemyStrategy != ProtossStrategy::ProxyRush &&
             newEnemyStrategy != ProtossStrategy::ZealotRush &&
             newEnemyStrategy != ProtossStrategy::ZealotAllIn &&
@@ -84,6 +85,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                 {
                     case ProtossStrategy::Unknown:
                         return strategy;
+                    case ProtossStrategy::WorkerRush:
                     case ProtossStrategy::ProxyRush:
                     case ProtossStrategy::ZealotRush:
                     case ProtossStrategy::ZealotAllIn:
@@ -151,7 +153,8 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
             }
             case PvP::OurStrategy::Defensive:
             {
-                if (newEnemyStrategy == ProtossStrategy::ProxyRush ||
+                if (newEnemyStrategy == ProtossStrategy::WorkerRush ||
+                    newEnemyStrategy == ProtossStrategy::ProxyRush ||
                     newEnemyStrategy == ProtossStrategy::ZealotRush ||
                     newEnemyStrategy == ProtossStrategy::ZealotAllIn)
                 {
@@ -187,7 +190,8 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
             }
             case PvP::OurStrategy::Normal:
             {
-                if ((newEnemyStrategy == ProtossStrategy::ProxyRush ||
+                if ((newEnemyStrategy == ProtossStrategy::WorkerRush ||
+                     newEnemyStrategy == ProtossStrategy::ProxyRush ||
                      newEnemyStrategy == ProtossStrategy::ZealotRush ||
                      newEnemyStrategy == ProtossStrategy::ZealotAllIn) &&
                     !canTransitionFromAntiZealotRush())

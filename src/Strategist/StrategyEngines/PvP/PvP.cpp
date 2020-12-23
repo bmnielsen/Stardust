@@ -9,8 +9,7 @@
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
-#include "Plays/MainArmy/AttackEnemyMain.h"
-#include "Plays/MainArmy/MopUp.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
 #include "Plays/Defensive/AntiCannonRush.h"
@@ -23,13 +22,6 @@
 namespace
 {
     std::map<BWAPI::UnitType, int> emptyUnitCountMap;
-
-    template<class T, class ...Args>
-    void setMainPlay(MainArmyPlay *current, Args &&...args)
-    {
-        if (typeid(*current) == typeid(T)) return;
-        current->status.transitionTo = std::make_shared<T>(std::forward<Args>(args)...);
-    }
 }
 
 void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays)
@@ -66,102 +58,93 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         ourStrategy = newStrategy;
     }
 
-    // Ensure we have the correct main army play
-    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-    if (mainArmyPlay)
+    bool defendOurMain;
+    if (hasEnemyStolenOurGas())
     {
-        if (hasEnemyStolenOurGas())
+        defendOurMain = true;
+    }
+    else
+    {
+        switch (ourStrategy)
         {
-            setMainPlay<DefendMyMain>(mainArmyPlay);
-        }
-        else
-        {
-            auto setAttackPlay = [&mainArmyPlay]()
+            case OurStrategy::EarlyGameDefense:
+            case OurStrategy::AntiZealotRush:
+            case OurStrategy::Defensive:
+                defendOurMain = true;
+                break;
+            case OurStrategy::DTExpand:
+                defendOurMain = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Dark_Templar) < 1);
+                break;
+            case OurStrategy::FastExpansion:
+            case OurStrategy::Normal:
+            case OurStrategy::MidGame:
             {
-                auto enemyMain = Map::getEnemyMain();
-                if (enemyMain)
+                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+                if (!mainArmyPlay)
                 {
-                    setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
-                }
-                else
-                {
-                    setMainPlay<MopUp>(mainArmyPlay);
-                }
-            };
-
-            switch (ourStrategy)
-            {
-                case OurStrategy::EarlyGameDefense:
-                case OurStrategy::AntiZealotRush:
-                case OurStrategy::Defensive:
-                    setMainPlay<DefendMyMain>(mainArmyPlay);
+                    defendOurMain = true;
                     break;
-                case OurStrategy::DTExpand:
-                    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Dark_Templar) < 1)
-                    {
-                        setMainPlay<DefendMyMain>(mainArmyPlay);
-                    }
-                    else
-                    {
-                        setAttackPlay();
-                    }
-                    break;
-                case OurStrategy::FastExpansion:
-                case OurStrategy::Normal:
-                case OurStrategy::MidGame:
+                }
+
+                // Always use a defend play if the squad has no units or we have no obs to counter DTs
+                auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
+                if (!vanguard
+                    || ((Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Dark_Templar) || enemyStrategy == ProtossStrategy::DarkTemplarRush)
+                        && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0))
                 {
-                    // Always use a defend play if the squad has no units or we have no obs to counter DTs
-                    auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                    if (!vanguard
-                        || ((Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Dark_Templar) || enemyStrategy == ProtossStrategy::DarkTemplarRush)
-                            && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0))
-                    {
-                        setMainPlay<DefendMyMain>(mainArmyPlay);
-                        break;
-                    }
+                    defendOurMain = true;
+                    break;
+                }
 
-                    // Transition from a defend squad when the vanguard cluster has 3 units and can do so
-                    if (typeid(*mainArmyPlay) == typeid(DefendMyMain) &&
-                        vanguard->units.size() >= 3 &&
-                        ((DefendMyMain *) mainArmyPlay)->canTransitionToAttack())
-                    {
-                        setAttackPlay();
-                    }
+                defendOurMain = false;
 
-                    // Transition to a defend squad if our attack squad has been pushed back into our main
-                    if (typeid(*mainArmyPlay) == typeid(AttackEnemyMain))
+                // Transition from a defend squad when the vanguard cluster has 3 units and can do so
+                if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                {
+                    defendOurMain = vanguard->units.size() < 3 ||
+                                    !((DefendMyMain *) mainArmyPlay)->canTransitionToAttack();
+                }
+
+                // Transition to a defend squad if our attack squad has been pushed back into our main
+                if (typeid(*mainArmyPlay) == typeid(AttackEnemyBase))
+                {
+                    if (vanguard->currentActivity == UnitCluster::Activity::Regrouping &&
+                        vanguard->currentSubActivity == UnitCluster::SubActivity::Flee)
                     {
-                        if (vanguard->currentActivity == UnitCluster::Activity::Regrouping &&
-                            vanguard->currentSubActivity == UnitCluster::SubActivity::Flee)
+                        auto inMain = [](BWAPI::Position pos)
                         {
-                            auto inMain = [](BWAPI::Position pos)
-                            {
-                                auto choke = Map::getMyMainChoke();
-                                if (choke && choke->center.getApproxDistance(pos) < 320) return true;
+                            auto choke = Map::getMyMainChoke();
+                            if (choke && choke->center.getApproxDistance(pos) < 320) return true;
 
-                                auto mainAreas = Map::getMyMainAreas();
-                                return mainAreas.find(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(pos))) != mainAreas.end();
-                            };
+                            auto mainAreas = Map::getMyMainAreas();
+                            return mainAreas.find(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(pos))) != mainAreas.end();
+                        };
 
-                            if (inMain(vanguard->center) || (vanguard->vanguard && inMain(vanguard->vanguard->lastPosition)))
-                            {
-                                setMainPlay<DefendMyMain>(mainArmyPlay);
-                            }
+                        if (inMain(vanguard->center) || (vanguard->vanguard && inMain(vanguard->vanguard->lastPosition)))
+                        {
+                            defendOurMain = true;
                         }
                     }
-
-                    break;
                 }
+
+                break;
             }
         }
     }
 
+    updateAttackPlays(plays, defendOurMain);
+
     // Ensure we have an anti cannon rush play if the enemy strategy warrants it
     if (BWAPI::Broodwar->getFrameCount() < 6000)
     {
+        // If we've detected a proxy, keep track of whether we have identified it as a zealot rush
+        // Once we've either seen the proxied gateway or a zealot, we assume the enemy isn't doing a "proxy" cannon rush
+        bool zealotProxy = enemyStrategy == ProtossStrategy::ProxyRush &&
+                           (Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Gateway) || Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Zealot));
+
         auto antiCannonRushPlay = getPlay<AntiCannonRush>(plays);
         if (enemyStrategy == ProtossStrategy::EarlyForge ||
-            enemyStrategy == ProtossStrategy::ProxyRush ||
+            (enemyStrategy == ProtossStrategy::ProxyRush && !zealotProxy) ||
             enemyStrategy == ProtossStrategy::BlockScouting ||
             (enemyStrategy == ProtossStrategy::Unknown && BWAPI::Broodwar->getFrameCount() > 2000))
         {
@@ -170,7 +153,8 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 plays.emplace(plays.begin(), std::make_shared<AntiCannonRush>());
             }
         }
-        else if (antiCannonRushPlay && enemyStrategy == ProtossStrategy::FastExpansion)
+        else if (antiCannonRushPlay && (
+                enemyStrategy == ProtossStrategy::FastExpansion || zealotProxy))
         {
             antiCannonRushPlay->status.complete = true;
         }
@@ -206,6 +190,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             switch (enemyStrategy)
             {
                 case ProtossStrategy::Unknown:
+                case ProtossStrategy::WorkerRush:
                 case ProtossStrategy::ProxyRush:
                 case ProtossStrategy::BlockScouting:
                 case ProtossStrategy::DragoonAllIn:
@@ -231,7 +216,6 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     updateDefendBasePlays(plays);
-    updateAttackExpansionPlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 15000);
 }
@@ -240,6 +224,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                            std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                            std::vector<std::pair<int, int>> &mineralReservations)
 {
+    reserveMineralsForExpansion(mineralReservations);
     handleNaturalExpansion(plays, prioritizedProductionGoals);
     handleDetection(prioritizedProductionGoals);
 
@@ -454,7 +439,11 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 {
     // Hop out if the natural has already been taken
     auto natural = Map::getMyNatural();
-    if (!natural || natural->ownedSince != -1) return;
+    if (!natural || natural->ownedSince != -1)
+    {
+        CherryVis::setBoardValue("natural", "complete");
+        return;
+    }
 
     // If we have a backdoor natural, expand if we are gas blocked
     // This generally happens when we are teching to DT or observers
@@ -464,6 +453,8 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             BWAPI::Broodwar->self()->gas() < 100 &&
             (BWAPI::Broodwar->self()->supplyTotal() - BWAPI::Broodwar->self()->supplyUsed()) >= 6)
         {
+            CherryVis::setBoardValue("natural", "take-backdoor");
+
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
@@ -475,9 +466,11 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::AntiZealotRush:
         case OurStrategy::Defensive:
             // Don't take our natural if the enemy could be rushing or doing an all-in
+            CherryVis::setBoardValue("natural", "wait-defensive");
             break;
 
         case OurStrategy::FastExpansion:
+            CherryVis::setBoardValue("natural", "take-fast-expo");
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
 
@@ -494,26 +487,44 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 enemyStrategy != ProtossStrategy::EarlyRobo &&
                 enemyStrategy != ProtossStrategy::Turtle)
             {
+                CherryVis::setBoardValue("natural", "too-early");
                 break;
             }
 
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) break;
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
+            {
+                CherryVis::setBoardValue("natural", "no-attack-play");
+                break;
+            }
 
             auto squad = mainArmyPlay->getSquad();
-            if (!squad || squad->getUnits().size() < 5) break;
+            if (!squad || squad->getUnits().size() < 5)
+            {
+                CherryVis::setBoardValue("natural", "attack-play-too-small");
+                break;
+            }
 
             int dist;
             auto vanguardCluster = squad->vanguardCluster(&dist);
-            if (!vanguardCluster) break;
+            if (!vanguardCluster)
+            {
+                CherryVis::setBoardValue("natural", "no-vanguard-cluster");
+                break;
+            }
 
             // Cluster should be at least 2/3 of the way to the target base
             int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
-            if (dist * 2 > distToMain) break;
+            if (dist * 2 > distToMain)
+            {
+                CherryVis::setBoardValue("natural", "vanguard-cluster-too-close");
+                break;
+            }
 
             // Always expand in this situation if we are gas blocked
             if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100)
             {
+                CherryVis::setBoardValue("natural", "take-gas-blocked");
                 takeNaturalExpansion(plays, prioritizedProductionGoals);
                 return;
             }
@@ -525,9 +536,11 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                     && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
             {
                 // We don't cancel a queued expansion in this case
+                CherryVis::setBoardValue("natural", "vanguard-cluster-not-attacking");
                 return;
             }
 
+            CherryVis::setBoardValue("natural", "take");
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
@@ -535,26 +548,45 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         {
             // Take our natural as soon as the army has moved beyond it
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) break;
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
+            {
+                CherryVis::setBoardValue("natural", "no-attack-play");
+                break;
+            }
 
             auto squad = mainArmyPlay->getSquad();
-            if (!squad) break;
+            if (!squad)
+            {
+                CherryVis::setBoardValue("natural", "no-attack-play-squad");
+                break;
+            }
 
             auto vanguardCluster = squad->vanguardCluster();
-            if (!vanguardCluster) break;
+            if (!vanguardCluster)
+            {
+                CherryVis::setBoardValue("natural", "no-vanguard-cluster");
+                break;
+            }
 
             // Ensure the cluster is at least 10 tiles further from the natural than it is from the main
             int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
             int distToNatural = PathFinding::GetGroundDistance(natural->getPosition(), vanguardCluster->center);
-            if (distToNatural < 500 || distToMain < (distToNatural + 500)) break;
+            if (distToNatural < 500 || distToMain < (distToNatural + 500))
+            {
+                CherryVis::setBoardValue("natural", "vanguard-too-close");
+                break;
+            }
 
             // Cluster should not be fleeing
             if (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
                 && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee)
             {
+                CherryVis::setBoardValue("natural", "vanguard-fleeing");
+
                 break;
             }
 
+            CherryVis::setBoardValue("natural", "take");
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
@@ -570,13 +602,13 @@ void PvP::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
     upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
     // Cases where we want the upgrade as soon as we start building one of the units
-    upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, true);
-    upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
 
     // Upgrade observer speed on two gas
     if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 2)
     {
-        upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
+        upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
     }
 
     defaultGroundUpgrades(prioritizedProductionGoals);
@@ -866,8 +898,9 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
                                                      myPosition,
                                                      BWAPI::UnitTypes::Protoss_Dark_Templar,
-                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea);
-        if (frames < closestGatewayFrames)
+                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                     -1);
+        if (frames != -1 && frames < closestGatewayFrames)
         {
             closestGatewayFrames = frames;
         }

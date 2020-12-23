@@ -1,9 +1,43 @@
 #include "Base.h"
 
 #include "Geo.h"
+#include "PathFinding.h"
 
 namespace
 {
+    BWAPI::Unit getBlockingNeutral(BWAPI::TilePosition tile)
+    {
+        for (auto unit : BWAPI::Broodwar->getStaticNeutralUnits())
+        {
+            if (unit->getType().isMineralField())
+            {
+                if (Geo::Overlaps(tile - BWAPI::TilePosition(3, 3),
+                                  10,
+                                  9,
+                                  unit->getInitialTilePosition(),
+                                  2,
+                                  1))
+                {
+                    return unit;
+                }
+            }
+            else
+            {
+                if (Geo::Overlaps(tile,
+                                  4,
+                                  3,
+                                  unit->getInitialTilePosition(),
+                                  unit->getType().tileWidth(),
+                                  unit->getType().tileHeight()))
+                {
+                    return unit;
+                }
+            }
+        }
+
+        return nullptr;
+    }
+
     BWAPI::Unit findGeyser(BWAPI::TilePosition tile)
     {
         for (auto unit : BWAPI::Broodwar->getAllUnits())
@@ -19,7 +53,7 @@ namespace
             if (unit->getTilePosition() == tile) return unit;
         }
 
-        Log::Get() << "WARNING: Unable to find geyser or refinery @ " << tile;
+//        Log::Get() << "WARNING: Unable to find geyser or refinery @ " << tile;
 
         return nullptr;
     }
@@ -32,7 +66,9 @@ Base::Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase)
         , lastScouted(-1)
         , blockedByEnemy(false)
         , requiresMineralWalkFromEnemyStartLocations(false)
+        , island(true)
         , workerDefenseRallyPatch(nullptr)
+        , blockingNeutral(getBlockingNeutral(_tile))
         , tile(_tile)
         , bwemBase(_bwemBase)
 {
@@ -43,6 +79,15 @@ Base::Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase)
     }
 
     analyzeMineralLine();
+
+    for (auto startLocationTile : BWAPI::Broodwar->getStartLocations())
+    {
+        if (PathFinding::GetGroundDistance(BWAPI::Position(tile), BWAPI::Position(startLocationTile), BWAPI::UnitTypes::Protoss_Probe) != -1)
+        {
+            island = false;
+            break;
+        }
+    }
 }
 
 std::vector<BWAPI::Unit> Base::mineralPatches() const
@@ -160,10 +205,10 @@ void Base::analyzeMineralLine()
     // Compute the tiles that are considered part of the mineral line
     // We do this by tracing lines from each mineral patch to the center of the resource depot and adding all surrounding tiles
     {
-        for (auto mineralPatch : mineralPatches())
+        auto handleTile = [&](BWAPI::TilePosition input)
         {
             std::vector<BWAPI::TilePosition> tilesBetween;
-            Geo::FindTilesBetween(BWAPI::TilePosition(mineralPatch->getPosition()), BWAPI::TilePosition(getPosition()), tilesBetween);
+            Geo::FindTilesBetween(input, BWAPI::TilePosition(getPosition()), tilesBetween);
             for (auto pos : tilesBetween)
             {
                 if (Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Nexus, getPosition(), BWAPI::Position(pos) + BWAPI::Position(16, 16))
@@ -182,9 +227,23 @@ void Base::analyzeMineralLine()
                     }
                 }
             }
+        };
+        for (auto mineralPatch : mineralPatches())
+        {
+            handleTile(mineralPatch->getInitialTilePosition());
+            handleTile(mineralPatch->getInitialTilePosition() + BWAPI::TilePosition(1, 0));
         }
-
-        // Assumption is we shouldn't add the tiles between the refinery and depot, but can be added here if necessary
+        for (auto geyserTile : geyserTiles)
+        {
+            handleTile(geyserTile);
+            handleTile(geyserTile + BWAPI::TilePosition(1, 0));
+            handleTile(geyserTile + BWAPI::TilePosition(2, 0));
+            handleTile(geyserTile + BWAPI::TilePosition(3, 0));
+            handleTile(geyserTile + BWAPI::TilePosition(0, 1));
+            handleTile(geyserTile + BWAPI::TilePosition(1, 1));
+            handleTile(geyserTile + BWAPI::TilePosition(2, 1));
+            handleTile(geyserTile + BWAPI::TilePosition(3, 1));
+        }
     }
 
     // Compute the best mineral patch to use for rallying workers during worker defense

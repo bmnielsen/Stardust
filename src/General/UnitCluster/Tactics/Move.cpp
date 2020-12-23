@@ -4,6 +4,7 @@
 #include "Map.h"
 #include "UnitUtil.h"
 #include "Geo.h"
+#include "Boids.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -18,7 +19,6 @@
  * Collisions with unwalkable terrain are handled by having the unit ignore the boids and move only using the
  * grid. These cases are hopefully lessened by the fact that our navigation grid favours paths away from
  * unwalkable tiles.
- * TODO: Add some kind of collision with terrain boid
  */
 
 namespace
@@ -28,7 +28,6 @@ namespace
     // TODO: These parameters need to be tuned
     const double goalWeight = 128.0;
     const double cohesionWeight = 64.0;
-    const int cohesionIgnoreDistance = 300;
     const double separationDetectionLimitFactor = 2.0;
     const double separationWeight = 96.0;
 }
@@ -38,34 +37,32 @@ void UnitCluster::move(BWAPI::Position targetPosition)
     // Hook to allow the map-specific override to perform the move
     if (Map::mapSpecificOverride()->clusterMove(*this, targetPosition)) return;
 
-    // If any units are either in a leaf area or a narrow choke, do not do flocking
-    // In these cases it is very likely for parts of the cluster to get stuck on buildings or terrain, which is not handled well
-    bool shouldFlock = true;
-    for (const auto &unit : units)
+    // Determine if the cluster should flock
+    // Criteria:
+    // - Must be the vanguard cluster
+    // - No units may be in a leaf area or narrow choke (as this makes it likely that they will get stuck on buildings or terrain)
+    bool shouldFlock = isVanguardCluster;
+    if (shouldFlock)
     {
-        auto pos = unit->getTilePosition();
-        if (Map::isInNarrowChoke(pos) || Map::isInLeafArea(pos))
+        for (const auto &unit : units)
         {
-            shouldFlock = false;
-            break;
+            auto pos = unit->getTilePosition();
+            if (Map::isInNarrowChoke(pos) || Map::isInLeafArea(pos))
+            {
+                shouldFlock = false;
+                break;
+            }
         }
     }
 
     // Initialize flocking
     NavigationGrid *grid = nullptr;
-    NavigationGrid::GridNode *centerNode = nullptr;
     double cohesionFactor;
     if (shouldFlock)
     {
         grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
         if (grid)
         {
-            centerNode = &(*grid)[BWAPI::TilePosition(center)];
-            while (centerNode && centerNode->cost == USHRT_MAX)
-            {
-                centerNode = centerNode->nextNode;
-            }
-
             // Scaling factor for cohesion boid is based on the size of the squad
             cohesionFactor = cohesionWeight / sqrt(area / pi);
         }
@@ -85,9 +82,9 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         if (grid)
         {
             auto &currentNode = (*grid)[unit->getTilePosition()];
-            if (currentNode.nextNode && currentNode.nextNode->nextNode && currentNode.nextNode->nextNode->nextNode)
+            if (currentNode.nextNode && currentNode.nextNode->nextNode)
             {
-                node = currentNode.nextNode->nextNode->nextNode;
+                node = currentNode.nextNode->nextNode;
             }
         }
 
@@ -120,28 +117,14 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         int cohesionX = 0;
         int cohesionY = 0;
 
-        // We ignore the cohesion boid if the center grid node is at a greatly lower cost, as this indicates a probable cliff
-        // between this unit and the rest of the cluster
-        if (!centerNode || (node->cost < cohesionIgnoreDistance) || (centerNode->cost > (node->cost - cohesionIgnoreDistance)))
+        // We ignore the cohesion boid if this unit is separated from the vanguard unit by a narrow choke
+        if (unit == vanguard || !PathFinding::SeparatingNarrowChoke(unit->lastPosition,
+                                                                    vanguard->lastPosition,
+                                                                    unit->type,
+                                                                    PathFinding::PathFindingOptions::UseNeighbouringBWEMArea))
         {
             cohesionX = (int) ((double) (center.x - unit->lastPosition.x) * cohesionFactor);
             cohesionY = (int) ((double) (center.y - unit->lastPosition.y) * cohesionFactor);
-
-            // For cases where we have no valid center node, check for unwalkable terrain directly
-            if (!centerNode)
-            {
-                std::vector<BWAPI::TilePosition> tiles;
-                Geo::FindTilesBetween(BWAPI::TilePosition(unit->lastPosition), BWAPI::TilePosition(center), tiles);
-                for (auto tile : tiles)
-                {
-                    if (!Map::isWalkable(tile))
-                    {
-                        cohesionX = 0;
-                        cohesionY = 0;
-                        break;
-                    }
-                }
-            }
         }
 
         // Separation
@@ -151,50 +134,27 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         {
             if (other == unit) continue;
 
-            auto dist = unit->getDistance(other);
-            double detectionLimit = std::max(unit->type.width(), other->type.width()) * separationDetectionLimitFactor;
-            if (dist >= (int) detectionLimit) continue;
-
-            // We are within the detection limit
-            // Push away with maximum force at 0 distance, no force at detection limit
-            double distFactor = 1.0 - (double) dist / detectionLimit;
-            int centerDist = Geo::ApproximateDistance(unit->lastPosition.x, other->lastPosition.x, unit->lastPosition.y, other->lastPosition.y);
-            double scalingFactor = distFactor * distFactor * separationWeight / centerDist;
-            separationX -= (int) ((double) (other->lastPosition.x - unit->lastPosition.x) * scalingFactor);
-            separationY -= (int) ((double) (other->lastPosition.y - unit->lastPosition.y) * scalingFactor);
+            Boids::AddSeparation(unit.get(), other, separationDetectionLimitFactor, separationWeight, separationX, separationY);
         }
 
-        // Put them all together to get the target direction
-        int totalX = goalX + cohesionX + separationX;
-        int totalY = goalY + cohesionY + separationY;
+        auto pos = Boids::ComputePosition(unit.get(), {goalX, separationX, cohesionX}, {goalY, separationY, cohesionY}, 80, 48);
 
-        // Cap it at 2 tiles away to edge of large unit
-        auto dist = Geo::ApproximateDistance(totalX, 0, totalY, 0);
-        if (dist > 80)
-        {
-            double scale = 80.0 / (double) dist;
-            totalX = (int) ((double) totalX * scale);
-            totalY = (int) ((double) totalY * scale);
-        }
-
-        auto pos = BWAPI::Position(unit->lastPosition.x + totalX, unit->lastPosition.y + totalY);
-
-        // If the target position is in unwalkable terrain, use the grid directly
-        if (!pos.isValid() || !Map::isWalkable(BWAPI::TilePosition(pos)))
+        // Default to the goal node if the unit can't move in the direction it wants to
+        if (pos == BWAPI::Positions::Invalid)
         {
             pos = BWAPI::Position((node->x << 5U) + 16, (node->y << 5U) + 16);
         }
 
-#if DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_BOIDS
         CherryVis::log(unit->id) << "Movement boids towards " << BWAPI::WalkPosition(targetPosition)
                                  << "; nodes=[" << BWAPI::WalkPosition((*grid)[unit->getTilePosition()].nextNode->center())
                                  << "," << BWAPI::WalkPosition((*grid)[unit->getTilePosition()].nextNode->nextNode->center())
-                                 << "," << BWAPI::WalkPosition((*grid)[unit->getTilePosition()].nextNode->nextNode->nextNode->center())
                                  << "]; cluster=" << BWAPI::WalkPosition(center)
                                  << ": goal=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(goalX, goalY))
                                  << "; cohesion=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(cohesionX, cohesionY))
                                  << "; separation=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(separationX, separationY))
-                                 << "; total=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(totalX, totalY))
+                                 << "; total=" << BWAPI::WalkPosition(
+                unit->lastPosition + BWAPI::Position(goalX + cohesionX + separationX, goalY + cohesionY + separationY))
                                  << "; target=" << BWAPI::WalkPosition(pos);
 #endif
 

@@ -2,6 +2,7 @@
 
 #include "Units.h"
 #include "Players.h"
+#include "NoGoAreas.h"
 
 namespace Bullets
 {
@@ -82,6 +83,7 @@ namespace Bullets
             if (frame == seenBulletFrames.end())
             {
                 Units::onBulletCreate(bullet);
+                NoGoAreas::onBulletCreate(bullet);
                 seenBulletFrames[bullet->getID()] = BWAPI::Broodwar->getFrameCount();
                 return;
             }

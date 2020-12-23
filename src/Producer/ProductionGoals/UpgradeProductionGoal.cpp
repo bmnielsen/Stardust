@@ -2,5 +2,7 @@
 
 BWAPI::UnitType UpgradeProductionGoal::prerequisiteForNextLevel() const
 {
-    return type.whatsRequired(BWAPI::Broodwar->self()->getUpgradeLevel(type) + 1);
+    if (type.isTechType()) return BWAPI::UnitTypes::None;
+
+    return type.upgradeType.whatsRequired(BWAPI::Broodwar->self()->getUpgradeLevel(type.upgradeType) + 1);
 }

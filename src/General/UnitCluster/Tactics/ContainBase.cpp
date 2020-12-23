@@ -4,6 +4,7 @@
 #include "Players.h"
 #include "Map.h"
 #include "Geo.h"
+#include "Boids.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -28,8 +29,12 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
     auto unitsAndTargets = selectTargets(enemyUnits, targetPosition, true);
 
     auto &grid = Players::grid(BWAPI::Broodwar->enemy());
-    auto navigationGrid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
+    auto navigationGrid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition), true);
 
+    // Do an initial scan to filter out not-ready units and gather their nearest threats
+    // The important thing to track is whether any of our units is in range of static defense
+    std::vector<std::tuple<MyUnit, Unit, Unit>> unitsAndTargetsAndThreats;
+    bool anyInRangeOfStaticDefense = false;
     for (const auto &unitAndTarget : unitsAndTargets)
     {
         auto &myUnit = unitAndTarget.first;
@@ -91,13 +96,24 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
             }
         }
 
-        // If this unit is not in range of static defense and is in range of its target, attack
-        if (unitAndTarget.second && !staticDefenseThreat && myUnit->isInOurWeaponRange(unitAndTarget.second))
+        unitsAndTargetsAndThreats.emplace_back(std::make_tuple(myUnit, unitAndTarget.second, threat));
+        anyInRangeOfStaticDefense = anyInRangeOfStaticDefense || staticDefenseThreat;
+    }
+
+    // Now perform micro on the filtered unit list
+    for (const auto &unitAndTargetAndThreat : unitsAndTargetsAndThreats)
+    {
+        auto &myUnit = std::get<0>(unitAndTargetAndThreat);
+        auto &target = std::get<1>(unitAndTargetAndThreat);
+        auto &threat = std::get<2>(unitAndTargetAndThreat);
+
+        // If no units are in range of static defense and this unit is in range of its target, attack
+        if (!anyInRangeOfStaticDefense && target && myUnit->isInOurWeaponRange(target))
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(myUnit->id) << "Contain: Attacking " << *unitAndTarget.second;
+            CherryVis::log(myUnit->id) << "Contain: Attacking " << *target;
 #endif
-            myUnit->attackUnit(unitAndTarget.second, unitsAndTargets, false);
+            myUnit->attackUnit(target, unitsAndTargets, false);
             continue;
         }
 
@@ -121,10 +137,11 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
         }
         else
         {
+            // Detect if we are inside a narrow choke that is threatened at one end but not the other
+            // In this case we would normally want to contain inside the choke, which is undesirable
             Choke *insideChoke = nullptr;
             if (Map::isInNarrowChoke(myUnit->getTilePosition()))
             {
-                // We don't want to contain inside a narrow choke, so if we are in one, we may want to move back
                 for (const auto &choke : Map::allChokes())
                 {
                     if (!choke->isNarrowChoke) continue;
@@ -182,7 +199,7 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
                 nextNodeCenter = myUnit->lastPosition + Geo::ScaleVector(vector, 32);
                 secondNodeCenter = myUnit->lastPosition + Geo::ScaleVector(vector, 64);
 
-#if DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_BOIDS
                 CherryVis::log(myUnit->id) << "Contain (goal boid): No valid navigation path, moving relative to " << BWAPI::WalkPosition(waypoint)
                                            << " nextNode=" << BWAPI::WalkPosition(nextNodeCenter)
                                            << "; secondNode=" << BWAPI::WalkPosition(secondNodeCenter);
@@ -224,43 +241,30 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
             {
                 if (otherUnitAndTarget.first == myUnit) continue;
 
-                auto other = otherUnitAndTarget.first;
-
-                auto dist = myUnit->getDistance(other);
-                double detectionLimit = std::max(myUnit->type.width(), other->type.width()) * separationDetectionLimitFactor;
-                if (dist >= (int) detectionLimit) continue;
-
-                // We are within the detection limit
-                // Push away with maximum force at 0 distance, no force at detection limit
-                double distFactor = 1.0 - (double) dist / detectionLimit;
-                auto vector = Geo::ScaleVector(myUnit->lastPosition - other->lastPosition,
-                                               (int) (distFactor * distFactor * separationWeight));
-                if (vector != BWAPI::Positions::Invalid)
-                {
-                    separationX += vector.x;
-                    separationY += vector.y;
-                }
+                Boids::AddSeparation(myUnit.get(),
+                                     otherUnitAndTarget.first,
+                                     separationDetectionLimitFactor,
+                                     separationWeight,
+                                     separationX,
+                                     separationY);
             }
         }
 
-        // Put them all together to get the target direction
-        int totalX = goalX + separationX;
-        int totalY = goalY + separationY;
-        auto total = Geo::ScaleVector(BWAPI::Position(totalX, totalY), 80);
-        auto pos = total == BWAPI::Positions::Invalid ? myUnit->lastPosition : (myUnit->lastPosition + total);
+        auto pos = Boids::ComputePosition(myUnit.get(), {goalX, separationX}, {goalY, separationY}, 80);
 
-#if DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_BOIDS
         CherryVis::log(myUnit->id) << "Contain boids towards " << BWAPI::WalkPosition(targetPosition)
                                    << "; cluster=" << BWAPI::WalkPosition(center)
                                    << ": goal=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX, goalY))
                                    << "; separation=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(separationX, separationY))
-                                   << "; total=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(totalX, totalY))
+                                   << "; total=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX+separationX, goalY+separationY))
                                    << "; target=" << BWAPI::WalkPosition(pos)
                                    << "; pullingBack=" << pullingBack;
 #endif
 
-        // If the position is invalid or unwalkable, either move towards the target or towards our main depending on whether we are pulling back
-        if (!pos.isValid() || !Map::isWalkable(BWAPI::TilePosition(pos)))
+        // If the unit can't move in the desired direction, either move towards the target or towards our main
+        // depending on whether we are pulling back
+        if (pos == BWAPI::Positions::Invalid)
         {
             myUnit->moveTo(pullingBack ? Map::getMyMain()->getPosition() : targetPosition);
         }

@@ -2,14 +2,13 @@
 
 #include "Units.h"
 #include "Map.h"
-#include "Builder.h"
 #include "UnitUtil.h"
 #include "Workers.h"
 #include "Players.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
-#include "Plays/MainArmy/AttackEnemyMain.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/MainArmy/MopUp.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
@@ -60,53 +59,45 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         ourStrategy = newStrategy;
     }
 
-    // Ensure we have the correct main army play
-    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-    if (mainArmyPlay)
+    bool defendOurMain;
+    if (hasEnemyStolenOurGas())
     {
-        if (hasEnemyStolenOurGas())
+        defendOurMain = true;
+    }
+    else
+    {
+        switch (ourStrategy)
         {
-            setMainPlay<DefendMyMain>(mainArmyPlay);
-        }
-        else
-        {
-            switch (ourStrategy)
+            case OurStrategy::EarlyGameDefense:
+            case OurStrategy::AntiMarineRush:
+            case OurStrategy::Defensive:
+                defendOurMain = true;
+                break;
+            default:
             {
-                case OurStrategy::EarlyGameDefense:
-                case OurStrategy::AntiMarineRush:
-                case OurStrategy::Defensive:
-                    setMainPlay<DefendMyMain>(mainArmyPlay);
-                    break;
-                case OurStrategy::FastExpansion:
-                case OurStrategy::Normal:
-                case OurStrategy::MidGame:
+                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+                if (!mainArmyPlay)
                 {
-                    // Transition from a defend squad when the vanguard cluster has 3 units
-                    if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
-                    {
-                        auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                        if (vanguard && vanguard->units.size() >= 3)
-                        {
-                            auto enemyMain = Map::getEnemyMain();
-                            if (enemyMain)
-                            {
-                                setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
-                            }
-                            else
-                            {
-                                setMainPlay<MopUp>(mainArmyPlay);
-                            }
-                        }
-                    }
-
+                    defendOurMain = true;
                     break;
                 }
+
+                defendOurMain = false;
+
+                // Transition from a defend squad when the vanguard cluster has 2 units
+                if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                {
+                    auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
+                    defendOurMain = (!vanguard || vanguard->units.size() < 2);
+                }
+
+                break;
             }
         }
     }
 
+    updateAttackPlays(plays, defendOurMain);
     updateDefendBasePlays(plays);
-    updateAttackExpansionPlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 15000);
 }
@@ -115,8 +106,28 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                            std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                            std::vector<std::pair<int, int>> &mineralReservations)
 {
+    reserveMineralsForExpansion(mineralReservations);
     handleNaturalExpansion(plays, prioritizedProductionGoals);
-    handleDetection(prioritizedProductionGoals);
+    handleDetection(plays, prioritizedProductionGoals);
+
+    // Temporary hack to set the number of gas workers needed until the producer can do it
+    auto setGasGathering = [](bool gather)
+    {
+        int current = Workers::desiredGasWorkers();
+        int delta;
+        if (gather)
+        {
+            delta = Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) * 3 - current;
+        }
+        else
+        {
+            delta = -std::min(current, Workers::availableMineralAssignments());
+        }
+        Workers::addDesiredGasWorkers(delta);
+    };
+
+    // Default to gather gas - we will only set to false later if we are being rushed
+    setGasGathering(true);
 
     // Main army production
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
@@ -132,6 +143,31 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     handleGasStealProduction(prioritizedProductionGoals, zealotCount);
 
+    auto midAndLateGameMainArmyProduction = [&]()
+    {
+        int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
+
+        // Counter tanks with speedlots once the enemy has at least four
+        int enemyTanks = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
+                         Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode);
+        if (enemyTanks > 3)
+        {
+            int desiredZealots = std::min(dragoonCount, enemyTanks * 2);
+            if (desiredZealots > zealotCount)
+            {
+                mainArmyProduction(prioritizedProductionGoals,
+                                   BWAPI::UnitTypes::Protoss_Zealot,
+                                   desiredZealots - zealotCount,
+                                   higherPriorityCount);
+            }
+
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 0);
+        }
+
+        mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
+        mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
+    };
+
     switch (ourStrategy)
     {
         case OurStrategy::EarlyGameDefense:
@@ -146,7 +182,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1,
                                                                        -1);
 
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
 
             break;
         }
@@ -154,7 +190,8 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // If we have no dragoons yet, get four zealots
             // Otherwise keep two zealots while pumping dragoons
-            int zealotsRequired = (dragoonCount == 0 ? 4 : 2) - zealotCount;
+            int desiredZealots = (dragoonCount == 0 ? 4 : 2) + std::max(0, (Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) - 6) / 3);
+            int zealotsRequired = desiredZealots - zealotCount;
 
             // Get two zealots at highest priority
             if (dragoonCount == 0 && zealotCount < 2)
@@ -172,6 +209,11 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
                                                                               zealotsRequired,
                                                                               -1);
+
+                if (zealotsRequired > 1 || BWAPI::Broodwar->self()->gas() >= 50)
+                {
+                    setGasGathering(false);
+                }
             }
 
             // If the dragoon transition is just beginning, only order one so we keep producing zealots
@@ -193,60 +235,82 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::FastExpansion:
         case OurStrategy::Defensive:
-        case OurStrategy::Normal:
+        case OurStrategy::NormalOpening:
         {
-            // If any zealots are in production, cancel them
+            // If any zealots are in production, and we don't have an emergency production goal, cancel them
             // This happens when the enemy strategy was misrecognized as a rush
             if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot) > 0)
             {
-                for (const auto &gateway : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Gateway))
+                bool hasEmergencyZealotProduction = false;
+                for (const auto &productionGoal : prioritizedProductionGoals[PRIORITY_EMERGENCY])
                 {
-                    if (gateway->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Cancel_Train) continue;
-                    if (gateway->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Cancel_Train_Slot) continue;
+                    if (auto unitProductionGoal = std::get_if<UnitProductionGoal>(&productionGoal))
+                    {
+                        if (unitProductionGoal->unitType() == BWAPI::UnitTypes::Protoss_Zealot)
+                        {
+                            hasEmergencyZealotProduction = true;
+                            break;
+                        }
+                    }
+                }
 
-                    auto trainingQueue = gateway->bwapiUnit->getTrainingQueue();
-                    if (trainingQueue.empty()) continue;
-                    if (*trainingQueue.begin() != BWAPI::UnitTypes::Protoss_Zealot) continue;
+                if (!hasEmergencyZealotProduction)
+                {
+                    for (const auto &gateway : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Gateway))
+                    {
+                        if (gateway->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Cancel_Train) continue;
+                        if (gateway->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Cancel_Train_Slot) continue;
 
-                    Log::Get() << "Cancelling zealot production from gateway @ " << gateway->getTilePosition();
-                    gateway->bwapiUnit->cancelTrain(0);
+                        auto trainingQueue = gateway->bwapiUnit->getTrainingQueue();
+                        if (trainingQueue.empty()) continue;
+                        if (*trainingQueue.begin() != BWAPI::UnitTypes::Protoss_Zealot) continue;
+
+                        Log::Get() << "Cancelling zealot production from gateway @ " << gateway->getTilePosition();
+                        gateway->bwapiUnit->cancelTrain(0);
+                    }
                 }
             }
-
-            // Default upgrades
-            handleUpgrades(prioritizedProductionGoals);
 
             // Try to keep at least two army units in production while taking our natural
             int higherPriorityCount = 2 - inProgressCount;
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
+
+            // Default upgrades
+            handleUpgrades(prioritizedProductionGoals);
 
             break;
         }
 
         case OurStrategy::MidGame:
         {
+            midAndLateGameMainArmyProduction();
+
             // Default upgrades
             handleUpgrades(prioritizedProductionGoals);
 
-            int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
+            break;
+        }
 
-            // Produce zealots if the enemy has a lot of tanks
-            int enemyTanks = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
-                             Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode);
-            if (enemyTanks > 4)
+        case OurStrategy::LateGameCarriers:
+        {
+            // Produce unlimited carriers off of two stargates, at slightly higher priority than main army
+            prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     BWAPI::UnitTypes::Protoss_Carrier,
+                                                                     -1,
+                                                                     2);
+
+            midAndLateGameMainArmyProduction();
+
+            // Besides default upgrades, upgrade air weapons immediately
+            int weaponLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Air_Weapons);
+            if (weaponLevel < 3)
             {
-                int desiredZealots = std::min(dragoonCount / 2, 5 + enemyTanks);
-                if (desiredZealots > zealotCount)
-                {
-                    mainArmyProduction(prioritizedProductionGoals,
-                                       BWAPI::UnitTypes::Protoss_Zealot,
-                                       desiredZealots - zealotCount,
-                                       higherPriorityCount);
-                }
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+                                                                         BWAPI::UpgradeTypes::Protoss_Air_Weapons,
+                                                                         weaponLevel + 1,
+                                                                         1);
             }
-
-            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
-            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
+            handleUpgrades(prioritizedProductionGoals);
 
             break;
         }
@@ -258,7 +322,11 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 {
     // Hop out if the natural has already been taken
     auto natural = Map::getMyNatural();
-    if (!natural || natural->ownedSince != -1) return;
+    if (!natural || natural->ownedSince != -1)
+    {
+        CherryVis::setBoardValue("natural", "complete");
+        return;
+    }
 
     // If we have a backdoor natural, expand when our second goon is being produced or we have lots of money
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
@@ -266,6 +334,8 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         if (BWAPI::Broodwar->self()->minerals() > 450 ||
             Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon) > 1)
         {
+            CherryVis::setBoardValue("natural", "take-backdoor");
+
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
@@ -277,42 +347,25 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::AntiMarineRush:
         case OurStrategy::Defensive:
             // Don't take our natural if the enemy could be rushing or doing an all-in
+            CherryVis::setBoardValue("natural", "wait-defensive");
             break;
 
         case OurStrategy::FastExpansion:
+            CherryVis::setBoardValue("natural", "take-fast-expo");
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
 
-        case OurStrategy::Normal:
-        case OurStrategy::MidGame:
+        default:
         {
-            // In this case we want to expand when we consider it safe to do so: we have an attacking or containing army
-            // that is close to the enemy base
-
+            // Expand as soon as our main army transitions to attack
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) break;
-
-            auto squad = mainArmyPlay->getSquad();
-            if (!squad || squad->getUnits().size() < 4) break;
-
-            int dist;
-            auto vanguardCluster = squad->vanguardCluster(&dist);
-            if (!vanguardCluster) break;
-
-            // Cluster should be at least 2/3 of the way to the target base
-            int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
-            if (dist * 2 > distToMain) break;
-
-            // Cluster should not be moving or fleeing
-            // In other words, we want the cluster to be in some kind of stable attack or contain state
-            if (vanguardCluster->currentActivity == UnitCluster::Activity::Moving
-                || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
-                    && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
             {
-                // We don't cancel a queued expansion in this case
-                return;
+                CherryVis::setBoardValue("natural", "no-attack-play");
+                break;
             }
 
+            CherryVis::setBoardValue("natural", "take");
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
@@ -323,43 +376,38 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 
 void PvT::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    // For PvT dragoon range is important to get early, so start it as soon as we have a finished core unless the enemy is rushing us
-    if (ourStrategy != OurStrategy::AntiMarineRush)
-    {
-        upgradeWhenUnitStarted(prioritizedProductionGoals,
-                               BWAPI::UpgradeTypes::Singularity_Charge,
-                               BWAPI::UnitTypes::Protoss_Cybernetics_Core,
-                               false,
-                               PRIORITY_MAINARMYBASEPRODUCTION);
-    }
-    else
-    {
-        upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
-    }
+    // For PvT dragoon range is important to get early, so get it first unless the enemy is rushing us
+    upgradeAtCount(
+            prioritizedProductionGoals,
+            BWAPI::UpgradeTypes::Singularity_Charge,
+            BWAPI::UnitTypes::Protoss_Dragoon,
+            ourStrategy == OurStrategy::AntiMarineRush ? 2 : 0);
 
     // Basic infantry skill upgrades are queued when we have enough of them and are still building them
     upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 6);
 
     // Cases where we want the upgrade as soon as we start building one of the units
-    upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
-    upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, true);
-    upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
 
     defaultGroundUpgrades(prioritizedProductionGoals);
 
     // TODO: Air upgrades
 }
 
-void PvT::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+void PvT::handleDetection(std::vector<std::shared_ptr<Play>> &plays, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
     // The main army play will reactively request mobile detection when it sees a cloaked enemy unit
     // The logic here is to look ahead to make sure we already have detection available when we need it
 
-    // Break out if we already have an observer
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) > 0 || Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observer) > 0)
-    {
-        return;
-    }
+    // Break out if we are already building an observer
+    if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observer) > 0) return;
+
+    // Break out if we already have an observer in the main army
+    // This means that all plays requiring an observer have one
+    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+    if (mainArmyPlay && mainArmyPlay->getSquad() && !mainArmyPlay->getSquad()->getDetectors().empty()) return;
 
     auto buildObserver = [&]()
     {
@@ -377,23 +425,27 @@ void PvT::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    // Never build obs on one base
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) < 2 &&
-        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) < 2 || BWAPI::Broodwar->getFrameCount() < 10000))
-    {
-        return;
-    }
+    // In all other cases, wait until we are on two bases
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) < 2) return;
 
-    // Build an observer if we have seen a spider mine
+    // Get obs immediately if we've seen a spider mine
     if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Vulture_Spider_Mine))
     {
         buildObserver();
         return;
     }
 
-    // Build an observer when we are on three bases
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 2 ||
-        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2 && BWAPI::Broodwar->getFrameCount() > 15000))
+    // Get obs earlier if we've seen a vulture or tank, indicating mech play and likely spider mines
+    if (BWAPI::Broodwar->getFrameCount() > 10000 && (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) ||
+                                                     Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) ||
+                                                     Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Vulture)))
+    {
+        buildObserver();
+        return;
+    }
+
+    // Otherwise start getting obs at frame 14000
+    if (BWAPI::Broodwar->getFrameCount() > 14000)
     {
         buildObserver();
         return;

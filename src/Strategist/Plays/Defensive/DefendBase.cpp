@@ -10,9 +10,11 @@
 #include "BuildingPlacement.h"
 #include "Builder.h"
 
-DefendBase::DefendBase(Base *base)
+DefendBase::DefendBase(Base *base, int enemyValue, std::set<Unit> enemyUnits)
         : Play((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
         , base(base)
+        , enemyValue(enemyValue)
+        , enemyUnits(std::move(enemyUnits))
         , squad(std::make_shared<DefendBaseSquad>(base))
         , workerDefenseSquad(std::make_shared<WorkerDefenseSquad>(base))
         , pylonLocation(BWAPI::TilePositions::Invalid)
@@ -47,7 +49,7 @@ DefendBase::DefendBase(Base *base)
 
 void DefendBase::update()
 {
-    squad->enemyUnits.clear();
+    squad->enemyUnits = std::move(enemyUnits);
 
     // Clear dead static defense buildings
     if (pylon && !pylon->exists()) pylon = nullptr;
@@ -84,58 +86,6 @@ void DefendBase::update()
         }
     }
 
-    // Gather enemy units threatening the base
-    int enemyValue = 0;
-    bool requireDragoons = false;
-    for (const auto &unit : Units::allEnemy())
-    {
-        if (!unit->lastPositionValid) continue;
-        if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
-        if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) continue;
-        if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 240)) continue;
-
-        int dist = unit->isFlying
-                   ? unit->lastPosition.getApproxDistance(base->getPosition())
-                   : PathFinding::GetGroundDistance(unit->lastPosition, base->getPosition(), unit->type);
-        if (dist == -1 || dist > 1000) continue;
-
-        // Skip this unit if it is closer to another one of our bases
-        bool closerToOtherBase = false;
-        for (auto &otherBase : Map::getMyBases())
-        {
-            if (otherBase == base) continue;
-            int otherBaseDist = unit->isFlying
-                                ? unit->lastPosition.getApproxDistance(otherBase->getPosition())
-                                : PathFinding::GetGroundDistance(unit->lastPosition, otherBase->getPosition(), unit->type);
-            if (otherBaseDist < dist)
-            {
-                closerToOtherBase = true;
-                break;
-            }
-        }
-        if (closerToOtherBase) continue;
-
-        if (dist > 500)
-        {
-            auto predictedPosition = unit->predictPosition(5);
-            if (!predictedPosition.isValid()) continue;
-
-            int predictedDist = unit->isFlying
-                                ? predictedPosition.getApproxDistance(base->getPosition())
-                                : PathFinding::GetGroundDistance(predictedPosition, base->getPosition(), unit->type);
-            if (predictedDist > dist) continue;
-        }
-
-        squad->enemyUnits.insert(unit);
-        enemyValue += CombatSim::unitValue(unit);
-
-        // Require dragoons against certain enemy types
-        requireDragoons = requireDragoons ||
-                          (unit->isFlying ||
-                           unit->type == BWAPI::UnitTypes::Protoss_Dragoon ||
-                           unit->type == BWAPI::UnitTypes::Terran_Vulture);
-    }
-
     // Update detection - release observers when no longer needed, request observers when needed
     auto &detectors = squad->getDetectors();
     if (!squad->needsDetection() && !detectors.empty())
@@ -156,6 +106,9 @@ void DefendBase::update()
     }
 
     workerDefenseSquad->execute(squad->enemyUnits, squad);
+
+    // Don't add ground units to defend an island base
+    if (base->island) return;
 
     // Otherwise reserve enough units to adequately defend the base
     int ourValue = 0;
@@ -319,6 +272,14 @@ int DefendBase::desiredCannons()
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Reaver) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory) ||
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observer);
+
+    // Handle island expansions now
+    if (base->island)
+    {
+        if (enemyAirUnits > 0) return 2;
+        if (enemyAirThreat || enemyDropThreat) return 1;
+        return 0;
+    }
 
     // Next, if the enemy is Zerg, guard against mutas we haven't scouted
     // TODO: Consider value of seen units to determine if the enemy could have gone for mutas

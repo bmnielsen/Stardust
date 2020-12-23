@@ -4,6 +4,10 @@
 
 #include <vector>
 
+#define TANK_SPLASH_INNER_RADIUS_SQAURED 100
+#define TANK_SPLASH_MEDIAN_RADIUS_SQAURED 625
+#define TANK_SPLASH_OUTER_RADIUS_SQAURED 1600
+
 namespace FAP {
   template<typename T = std::tuple<>>
   auto makeUnit() {
@@ -37,14 +41,14 @@ namespace FAP {
      * \brief Adds the unit to the simulator for player 1, only if it is a combat unit
      * \param fu The FAPUnit to add
      */
-    template<UnitValues uv, bool choke = false>
+    template<bool choke = false, UnitValues uv>
     bool addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu);
 
     /**
      * \brief Adds the unit to the simulator for player 2, only if it is a combat unit
      * \param fu The FAPUnit to add
      */
-    template<UnitValues uv, bool choke = false>
+    template<bool choke = false, UnitValues uv>
     bool addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu);
 
     /**
@@ -89,7 +93,7 @@ namespace FAP {
     void updatePosition(FAPUnit<UnitExtension> &fu, int x, int y);
 
     bool didSomething = false;
-    static void dealDamage(FAPUnit<UnitExtension> &fu, int damage, BWAPI::DamageType damageType);
+    static void dealDamage(FAPUnit<UnitExtension> &fu, int damage, BWAPI::DamageType damageType, FAPUnit<UnitExtension> &attacker);
 
     template<bool choke = false>
     int distSquared(FAPUnit<UnitExtension> const &u1, const FAPUnit<UnitExtension> &u2);
@@ -175,7 +179,7 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
-  template<UnitValues uv, bool choke>
+  template<bool choke, UnitValues uv>
   bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu) {
     if (isCombatUnit(fu.unit)) {
       static_assert(AssertValidUnit<uv>());
@@ -188,7 +192,7 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
-  template<UnitValues uv, bool choke>
+  template<bool choke, UnitValues uv>
   bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu) {
     if (isCombatUnit(fu.unit)) {
       static_assert(AssertValidUnit<uv>());
@@ -238,8 +242,18 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
-  void FastAPproximation<UnitExtension>::dealDamage(FAPUnit<UnitExtension> &fu, int damage, BWAPI::DamageType const damageType) {
+  void FastAPproximation<UnitExtension>::dealDamage(FAPUnit<UnitExtension> &fu,
+                                                    int damage,
+                                                    BWAPI::DamageType const damageType,
+                                                    FAPUnit<UnitExtension> &attacker) {
     damage <<= 8;
+
+    if (!fu.flying && !attacker.flying &&
+        attacker.groundMinRange > 32 &&
+        fu.elevation != -1 && attacker.elevation != -1 && fu.elevation > attacker.elevation) {
+      damage >> 1;
+    }
+
     auto const remainingShields = fu.shields - damage + (fu.shieldArmor << 8);
     if (remainingShields > 0) {
       fu.shields = remainingShields;
@@ -418,7 +432,7 @@ namespace FAP {
     int closestDistSquared;
     if (fu.target) {
       for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
-        if (enemyIt->id == fu.target) {
+        if (enemyIt->health > 0 && enemyIt->id == fu.target) {
           closestEnemy = enemyIt;
           closestDistSquared = distSquared(fu, *enemyIt);
           break;
@@ -434,7 +448,7 @@ namespace FAP {
     // Otherwise select the target
     if (closestEnemy == enemyUnits.end()) {
       for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
-        if (enemyIt->undetected) continue;
+        if (enemyIt->health < 1 || enemyIt->undetected) continue;
         if (enemyIt->flying) {
           if (fu.airDamage) {
             auto const d = distSquared<choke>(fu, *enemyIt);
@@ -567,64 +581,40 @@ namespace FAP {
 
     if (closestEnemy != enemyUnits.end() && isInRange(fu, *closestEnemy, (closestEnemy->flying ? 0 : fu.groundMinRange), (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange))) {
       if (closestEnemy->flying) {
-        dealDamage(*closestEnemy, fu.airDamage, fu.airDamageType);
+        dealDamage(*closestEnemy, fu.airDamage, fu.airDamageType, fu);
         fu.attackCooldownRemaining = fu.airCooldown;
       }
       else {
-        dealDamage(*closestEnemy, fu.groundDamage, fu.groundDamageType);
+        dealDamage(*closestEnemy, fu.groundDamage, fu.groundDamageType, fu);
 
         if constexpr (tankSplash) {
           if (fu.unitType == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) {
-            const int siegeTankBlastRadiusInner = fu.unitType.groundWeapon().innerSplashRadius();
-            const int siegeTankBlastRadiusMedian = fu.unitType.groundWeapon().medianSplashRadius();
-            const int siegeTankBlastRadiusOuter = fu.unitType.groundWeapon().outerSplashRadius();
-            const int siegeTankBlastRadiusInnerSquared = siegeTankBlastRadiusInner * siegeTankBlastRadiusInner;
-            const int siegeTankBlastRadiusMedianSquared = siegeTankBlastRadiusMedian * siegeTankBlastRadiusMedian;
-            const int siegeTankBlastRadiusOuterSquared = siegeTankBlastRadiusOuter * siegeTankBlastRadiusOuter;
-
-            for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end();) {
-              if (!enemyIt->flying && enemyIt != closestEnemy) {
-                bool killed = false;
-                auto const effectiveDistToClosestEnemySquared = distSquared(*closestEnemy, *enemyIt) / 4; // shell hit point to unit edge
-                auto underTaker = [&]() {
-                  if (enemyIt->health < 1) {
-                    killed = true;
-                    auto temp = *enemyIt;
-                    *enemyIt = enemyUnits.back();
-                    enemyUnits.pop_back();
-                    unitDeath(std::move(temp), enemyUnits, friendlyUnits);
-                  }
-                  return;
-                };
-
-                if (effectiveDistToClosestEnemySquared <= siegeTankBlastRadiusInnerSquared) { // inner
-                  dealDamage(*enemyIt, fu.groundDamage, fu.groundDamageType);
-                  underTaker();
-                }
-                else if (effectiveDistToClosestEnemySquared > siegeTankBlastRadiusInnerSquared && effectiveDistToClosestEnemySquared <= siegeTankBlastRadiusMedianSquared) { // median
-                  dealDamage(*enemyIt, fu.groundDamage / 2, fu.groundDamageType);
-                  underTaker();
-                }
-                else if (effectiveDistToClosestEnemySquared > siegeTankBlastRadiusMedianSquared && effectiveDistToClosestEnemySquared <= siegeTankBlastRadiusOuterSquared) { // outer
-                  dealDamage(*enemyIt, fu.groundDamage / 4, fu.groundDamageType);
-                  underTaker();
-                }
-                if (!killed) ++enemyIt;
+            auto dealSplashDamage = [&](auto &unit) {
+              auto const effectiveDistToClosestEnemySquared = distSquared(*closestEnemy, unit) / 4; // shell hit point to unit edge
+              if (effectiveDistToClosestEnemySquared <= TANK_SPLASH_INNER_RADIUS_SQAURED) { // inner
+                dealDamage(unit, fu.groundDamage, fu.groundDamageType, fu);
               }
-              else ++enemyIt;
+              else if (effectiveDistToClosestEnemySquared > TANK_SPLASH_INNER_RADIUS_SQAURED && effectiveDistToClosestEnemySquared <= TANK_SPLASH_MEDIAN_RADIUS_SQAURED) { // median
+                dealDamage(unit, fu.groundDamage >> 1, fu.groundDamageType, fu);
+              }
+              else if (effectiveDistToClosestEnemySquared > TANK_SPLASH_MEDIAN_RADIUS_SQAURED && effectiveDistToClosestEnemySquared <= TANK_SPLASH_OUTER_RADIUS_SQAURED) { // outer
+                dealDamage(unit, fu.groundDamage >> 2, fu.groundDamageType, fu);
+              }
+            };
+            for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); enemyIt++) {
+              if (!enemyIt->flying && enemyIt != closestEnemy) {
+                dealSplashDamage(*enemyIt);
+              }
+            }
+            for (auto friendlyIt = friendlyUnits.begin(); friendlyIt != friendlyUnits.end(); friendlyIt++) {
+              if (!friendlyIt->flying) {
+                dealSplashDamage(*friendlyIt);
+              }
             }
           }
         }
 
-        fu.attackCooldownRemaining =
-          fu.groundCooldown << static_cast<int>((fu.elevation != -1) & (closestEnemy->elevation != -1) & (closestEnemy->elevation > fu.elevation));
-      }
-
-      if (closestEnemy->health < 1) {
-        auto temp = *closestEnemy;
-        *closestEnemy = enemyUnits.back();
-        enemyUnits.pop_back();
-        unitDeath(std::move(temp), enemyUnits, friendlyUnits);
+        fu.attackCooldownRemaining = fu.groundCooldown;
       }
 
       didSomething = true;
@@ -724,16 +714,9 @@ namespace FAP {
 
     if (closestEnemy != enemyUnits.end() && closestDistSquared <= fu.speedSquared) {
       if (closestEnemy->flying)
-        dealDamage(*closestEnemy, fu.airDamage, fu.airDamageType);
+        dealDamage(*closestEnemy, fu.airDamage, fu.airDamageType, fu);
       else
-        dealDamage(*closestEnemy, fu.groundDamage, fu.groundDamageType);
-
-      if (closestEnemy->health < 1) {
-        auto temp = *closestEnemy;
-        *closestEnemy = enemyUnits.back();
-        enemyUnits.pop_back();
-        unitDeath(std::move(temp), enemyUnits, friendlyUnits);
-      }
+        dealDamage(*closestEnemy, fu.groundDamage, fu.groundDamageType, fu);
 
       didSomething = true;
       return true;
@@ -755,6 +738,10 @@ namespace FAP {
   template<bool tankSplash, bool choke>
   void FastAPproximation<UnitExtension>::isimulate() {
     const auto simUnit = [this](auto &unit, auto &friendly, auto &enemy) {
+      if (unit->health < 1) {
+        ++unit;
+        return;
+      }
       if (isSuicideUnit(unit->unitType)) {
         auto const unitDied = suicideSim(*unit, friendly, enemy);
         if (unitDied) {
@@ -781,7 +768,14 @@ namespace FAP {
       simUnit(fu, player2, player1);
     }
 
-    const auto updateUnit = [](FAPUnit<UnitExtension> &fu) {
+    const auto updateUnit = [](auto &it, auto &friendly, auto &killed) {
+      auto &fu = *it;
+      if (fu.health < 1) {
+        killed.push_back(fu);
+        it = friendly.erase(it);
+        return;
+      }
+
       if (fu.attackCooldownRemaining)
         --fu.attackCooldownRemaining;
       if (fu.didHealThisFrame)
@@ -809,13 +803,23 @@ namespace FAP {
         if (fu.health < fu.maxHealth)
           fu.health += 680;
       }
+
+      it++;
     };
 
-    for (auto &fu : player1)
-      updateUnit(fu);
+    auto updateUnits = [&](auto &friendly, auto &enemy) {
+      std::vector<FAPUnit<UnitExtension>> killed;
+      for (auto it = friendly.begin(); it != friendly.end();) {
+        updateUnit(it, friendly, killed);
+      }
+      for (auto &unit : killed) {
+        auto temp = unit;
+        unitDeath(std::move(temp), friendly, enemy);
+      }
+    };
 
-    for (auto &fu : player2)
-      updateUnit(fu);
+    updateUnits(player1, player2);
+    updateUnits(player2, player1);
   }
 
   template<typename UnitExtension>
@@ -849,7 +853,7 @@ namespace FAP {
       // @TODO: I guess I need to ask the bot here, I'll make some interface for that
       fu.armor = 0;
 
-      fu.health = fu.maxHealth = BWAPI::UnitTypes::Terran_Marine.maxHitPoints();
+      fu.health = fu.maxHealth = (BWAPI::UnitTypes::Terran_Marine.maxHitPoints() << 8);
 
       fu.groundCooldown *= 4;
       fu.airCooldown *= 4;

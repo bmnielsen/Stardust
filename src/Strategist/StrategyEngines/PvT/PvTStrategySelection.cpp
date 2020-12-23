@@ -9,8 +9,9 @@ std::map<PvT::OurStrategy, std::string> PvT::OurStrategyNames = {
         {OurStrategy::AntiMarineRush,   "AntiMarineRush"},
         {OurStrategy::FastExpansion,    "FastExpansion"},
         {OurStrategy::Defensive,        "Defensive"},
-        {OurStrategy::Normal,           "Normal"},
-        {OurStrategy::MidGame,          "MidGame"}
+        {OurStrategy::NormalOpening,    "Normal"},
+        {OurStrategy::MidGame,          "MidGame"},
+        {OurStrategy::LateGameCarriers, "LateGameCarriers"},
 };
 
 namespace
@@ -26,7 +27,8 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
     auto canTransitionFromAntiMarineRush = [&]()
     {
         // Transition immediately if we've discovered a different enemy strategy
-        if (newEnemyStrategy != TerranStrategy::ProxyRush &&
+        if (newEnemyStrategy != TerranStrategy::WorkerRush &&
+            newEnemyStrategy != TerranStrategy::ProxyRush &&
             newEnemyStrategy != TerranStrategy::MarineRush)
         {
             return true;
@@ -47,6 +49,22 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
         return unitCount >= 6;
     };
 
+    auto isCarrierSwitchFeasible = [&]()
+    {
+        return false;
+
+        // Only go carriers against a mech terran
+        if (newEnemyStrategy != TerranStrategy::MidGameMech) return false;
+
+        // Don't switch until we are on three bases
+        if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) < 3) return false;
+
+        // TODO: Don't switch if we expect an enemy push soon
+
+        // Consider a carrier switch feasible unless the enemy has anticipated it with a lot of wraiths or goliaths
+        return (Units::countEnemy(BWAPI::UnitTypes::Terran_Wraith) + Units::countEnemy(BWAPI::UnitTypes::Terran_Goliath)) < 5;
+    };
+
     auto strategy = ourStrategy;
     for (int i = 0; i < 10; i++)
     {
@@ -59,6 +77,7 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                 {
                     case TerranStrategy::Unknown:
                         return strategy;
+                    case TerranStrategy::WorkerRush:
                     case TerranStrategy::ProxyRush:
                     case TerranStrategy::MarineRush:
                         strategy = OurStrategy::AntiMarineRush;
@@ -70,10 +89,11 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                         strategy = OurStrategy::FastExpansion;
                         continue;
                     case TerranStrategy::WallIn:
-                    case TerranStrategy::Normal:
-                        strategy = OurStrategy::Normal;
+                    case TerranStrategy::NormalOpening:
+                        strategy = OurStrategy::NormalOpening;
                         continue;
-                    case TerranStrategy::MidGame:
+                    case TerranStrategy::MidGameMech:
+                    case TerranStrategy::MidGameBio:
                         strategy = OurStrategy::MidGame;
                         continue;
                 }
@@ -86,7 +106,7 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                 // Transition to normal when we consider it safe to do so
                 if (canTransitionFromAntiMarineRush())
                 {
-                    strategy = OurStrategy::Normal;
+                    strategy = OurStrategy::NormalOpening;
                     continue;
                 }
 
@@ -98,7 +118,7 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                 auto natural = Map::getMyNatural();
                 if (!natural || natural->ownedSince != -1)
                 {
-                    strategy = OurStrategy::Normal;
+                    strategy = OurStrategy::NormalOpening;
                     continue;
                 }
 
@@ -106,7 +126,8 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
             }
             case PvT::OurStrategy::Defensive:
             {
-                if (newEnemyStrategy == TerranStrategy::ProxyRush ||
+                if (newEnemyStrategy == TerranStrategy::WorkerRush ||
+                    newEnemyStrategy == TerranStrategy::ProxyRush ||
                     newEnemyStrategy == TerranStrategy::MarineRush)
                 {
                     strategy = OurStrategy::AntiMarineRush;
@@ -115,9 +136,10 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
 
                 // Transition to normal when we either detect another opening or when there are six units in the vanguard cluster
 
-                if (newEnemyStrategy == TerranStrategy::MidGame)
+                if (newEnemyStrategy == TerranStrategy::MidGameMech ||
+                    newEnemyStrategy == TerranStrategy::MidGameBio)
                 {
-                    strategy = OurStrategy::Normal;
+                    strategy = OurStrategy::NormalOpening;
                     continue;
                 }
 
@@ -127,15 +149,16 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                     if (vanguard && vanguard->units.size() >= 6)
                     {
-                        strategy = OurStrategy::Normal;
+                        strategy = OurStrategy::NormalOpening;
                         continue;
                     }
                 }
 
             }
-            case PvT::OurStrategy::Normal:
+            case PvT::OurStrategy::NormalOpening:
             {
-                if ((newEnemyStrategy == TerranStrategy::ProxyRush ||
+                if ((newEnemyStrategy == TerranStrategy::WorkerRush ||
+                     newEnemyStrategy == TerranStrategy::ProxyRush ||
                      newEnemyStrategy == TerranStrategy::MarineRush) &&
                     !canTransitionFromAntiMarineRush())
                 {
@@ -145,7 +168,9 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
 
                 // Transition to mid-game when the enemy has done so or we are on two bases
                 // TODO: This is very vaguely defined
-                if (newEnemyStrategy == TerranStrategy::MidGame || Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
+                if (newEnemyStrategy == TerranStrategy::MidGameMech ||
+                    newEnemyStrategy == TerranStrategy::MidGameBio ||
+                    Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
                 {
                     strategy = OurStrategy::MidGame;
                     continue;
@@ -154,6 +179,16 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                 break;
             }
             case PvT::OurStrategy::MidGame:
+            {
+                if (isCarrierSwitchFeasible())
+                {
+                    strategy = OurStrategy::LateGameCarriers;
+                    continue;
+                }
+                break;
+            }
+            case PvT::OurStrategy::LateGameCarriers:
+                // TODO: May want to give up on carriers in some situations in the future
                 break;
         }
 

@@ -5,6 +5,7 @@
 #include "Geo.h"
 #include "BuildingPlacement.h"
 #include "Map.h"
+#include "NoGoAreas.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -120,7 +121,7 @@ namespace Builder
                 releaseBuilder(building);
                 if (!building.unit)
                 {
-                    Map::removeNoGoArea((*it)->tile - BWAPI::TilePosition(1, 1), (*it)->type.tileSize() + BWAPI::TilePosition(2, 2));
+                    NoGoAreas::removeBox((*it)->tile - BWAPI::TilePosition(1, 1), (*it)->type.tileSize() + BWAPI::TilePosition(2, 2));
                 }
                 it = pendingBuildings.erase(it);
                 continue;
@@ -157,7 +158,7 @@ namespace Builder
 
                 // TODO: At some point we should restore the building placement, at least in some cases
                 releaseBuilder(building);
-                Map::removeNoGoArea((*it)->tile - BWAPI::TilePosition(1, 1), (*it)->type.tileSize() + BWAPI::TilePosition(2, 2));
+                NoGoAreas::removeBox((*it)->tile - BWAPI::TilePosition(1, 1), (*it)->type.tileSize() + BWAPI::TilePosition(2, 2));
                 it = pendingBuildings.erase(it);
                 continue;
             }
@@ -180,7 +181,7 @@ namespace Builder
 
                     pendingBuilding->constructionStarted(unit);
                     releaseBuilder(*pendingBuilding);
-                    Map::removeNoGoArea(pendingBuilding->tile - BWAPI::TilePosition(1, 1), pendingBuilding->type.tileSize() + BWAPI::TilePosition(2, 2));
+                    NoGoAreas::removeBox(pendingBuilding->tile - BWAPI::TilePosition(1, 1), pendingBuilding->type.tileSize() + BWAPI::TilePosition(2, 2));
                 }
             }
         }
@@ -234,7 +235,7 @@ namespace Builder
                      << "; builder queue length: " << builderQueues[builder].size();
 
         BuildingPlacement::onBuildingQueued(building.get());
-        Map::addNoGoArea(building->tile - BWAPI::TilePosition(1, 1), building->type.tileSize() + BWAPI::TilePosition(2, 2));
+        NoGoAreas::addBox(building->tile - BWAPI::TilePosition(1, 1), building->type.tileSize() + BWAPI::TilePosition(2, 2));
     }
 
     void cancel(BWAPI::TilePosition tile)
@@ -251,7 +252,7 @@ namespace Builder
             }
             else
             {
-                Map::removeNoGoArea((*it)->tile - BWAPI::TilePosition(1, 1), (*it)->type.tileSize() + BWAPI::TilePosition(2, 2));
+                NoGoAreas::removeBox((*it)->tile - BWAPI::TilePosition(1, 1), (*it)->type.tileSize() + BWAPI::TilePosition(2, 2));
             }
 
             BuildingPlacement::onBuildingCancelled(it->get());
@@ -291,11 +292,13 @@ namespace Builder
             }
 
             // Add in the travel time to this next building
-            totalTravelTime +=
-                    PathFinding::ExpectedTravelTime(lastPosition,
-                                                    buildPosition,
-                                                    builderAndQueue.first->type,
-                                                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            int expectedTravelTime = PathFinding::ExpectedTravelTime(lastPosition,
+                                                                     buildPosition,
+                                                                     builderAndQueue.first->type,
+                                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                                     -1);
+            if (expectedTravelTime == -1) continue; // Builder might be on an island
+            totalTravelTime += expectedTravelTime;
 
             // Give a bonus to already-building workers, as we don't want to take a lot of workers off minerals
             if ((totalTravelTime / 2) < bestTravelTime)

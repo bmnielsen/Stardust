@@ -4,17 +4,10 @@
 #include "Players.h"
 #include "Map.h"
 #include "Geo.h"
+#include "Boids.h"
 #include "UnitUtil.h"
 
 #include "DebugFlag_UnitOrders.h"
-
-/*
- * Holds a choke.
- *
- * Basic idea:
- * - Melee units hold the line at the choke end
- * - Ranged units keep in range of a point further inside the choke
- */
 
 namespace
 {
@@ -58,25 +51,46 @@ void UnitCluster::holdChoke(Choke *choke,
             break;
         }
 
-        // If the target is about to be in our weapon range, attack with ranged or all units
-        auto predictedTargetPos = unitAndTarget.second->predictPosition(BWAPI::Broodwar->getLatencyFrames());
-        if (!predictedTargetPos.isValid()) predictedTargetPos = unitAndTarget.second->lastPosition;
-        if (!myUnit->isInOurWeaponRange(target, predictedTargetPos)) continue;
+        // For ranged units, we attack when the unit is about to be in our weapon range
         if (UnitUtil::IsRangedUnit(myUnit->type))
         {
+            auto predictedTargetPos = unitAndTarget.second->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+            if (!predictedTargetPos.isValid()) predictedTargetPos = unitAndTarget.second->lastPosition;
+            if (!myUnit->isInOurWeaponRange(target, predictedTargetPos)) continue;
+
             rangedShouldAttack = true;
 
-            // If we don't outrange the target, attack with melee units as well
+            // We also attack with melee units if we don't outrange the target
             if (myUnit->isInEnemyWeaponRange(target, predictedTargetPos, 16))
             {
                 meleeShouldAttack = true;
                 break;
             }
+
+            continue;
         }
-        else
+
+        // For melee units vs. ranged units, attack if the target has us in range
+        if (UnitUtil::IsRangedUnit(target->type))
         {
-            meleeShouldAttack = true;
+            if (myUnit->isInEnemyWeaponRange(target, -16))
+            {
+                rangedShouldAttack = true;
+                meleeShouldAttack = true;
+                break;
+            }
+
+            continue;
+        }
+
+        // For melee units vs. melee units, attack if the target is about to be in range
+        {
+            auto predictedTargetPos = unitAndTarget.second->predictPosition(BWAPI::Broodwar->getLatencyFrames());
+            if (!predictedTargetPos.isValid()) predictedTargetPos = unitAndTarget.second->lastPosition;
+            if (!myUnit->isInOurWeaponRange(target, predictedTargetPos)) continue;
+
             rangedShouldAttack = true;
+            meleeShouldAttack = true;
             break;
         }
     }
@@ -98,7 +112,7 @@ void UnitCluster::holdChoke(Choke *choke,
         return UnitUtil::IsRangedUnit(myUnit->type) ? rangedShouldAttack : meleeShouldAttack;
     };
 
-    std::vector<std::tuple<MyUnit, BWAPI::Position, int, BWAPI::Position>> unitsAndMoveTargets;
+    std::vector<std::tuple<MyUnit, int, BWAPI::Position>> unitsAndMoveTargets;
     for (const auto &unitAndTarget : unitsAndTargets)
     {
         auto &myUnit = unitAndTarget.first;
@@ -148,25 +162,25 @@ void UnitCluster::holdChoke(Choke *choke,
 
         if (UnitUtil::IsRangedUnit(myUnit->type))
         {
-            int targetDist = myUnit->getDistance(defendEnd);
             int distToCenter = myUnit->getDistance(choke->center);
-            if (distToCenter < targetDist)
+            if (distToCenter < defendEndDist)
             {
                 // Unit is on wrong side of the defend end, closer to choke center
-                targetPos = defendEnd;
-                distDiff = targetDist;
+                // If the unit is far away, use the choke center as the reference point
+                targetPos = (defendEndDist > std::max(centerDist, 32) * 2) ? choke->center : defendEnd;
+                distDiff = defendEndDist;
             }
             else if (distToCenter < centerDist)
             {
                 // Unit is on wrong side of the defend end, closer to defend end
                 targetPos = choke->center;
-                distDiff = -targetDist - myUnit->groundRange();
+                distDiff = -defendEndDist - myUnit->groundRange();
             }
             else
             {
                 // Normal defend boid
                 targetPos = defendEnd;
-                distDiff = targetDist - myUnit->groundRange();
+                distDiff = defendEndDist - myUnit->groundRange();
             }
         }
         else
@@ -177,13 +191,13 @@ void UnitCluster::holdChoke(Choke *choke,
                 targetPos = defendEnd;
                 distDiff = defendEndDist;
             }
-            else if (unitAndTarget.second && myUnit->isInEnemyWeaponRange(unitAndTarget.second, 32))
+            else if (unitAndTarget.second && myUnit->isInEnemyWeaponRange(unitAndTarget.second, 48))
             {
                 // Unit is in its target's attack range
                 targetPos = unitAndTarget.second->lastPosition;
                 distDiff = myUnit->getDistance(unitAndTarget.second)
                            - unitAndTarget.second->groundRange()
-                           - 32;
+                           - 48;
             }
             else
             {
@@ -192,10 +206,7 @@ void UnitCluster::holdChoke(Choke *choke,
             }
         }
 
-        auto predictedPosition = myUnit->predictPosition(BWAPI::Broodwar->getLatencyFrames());
-        if (!predictedPosition.isValid()) predictedPosition = myUnit->lastPosition;
-
-        unitsAndMoveTargets.emplace_back(std::make_tuple(myUnit, predictedPosition, distDiff, targetPos));
+        unitsAndMoveTargets.emplace_back(std::make_tuple(myUnit, distDiff, targetPos));
     }
 
     // Now execute move orders
@@ -203,9 +214,8 @@ void UnitCluster::holdChoke(Choke *choke,
     for (auto &moveUnit : unitsAndMoveTargets)
     {
         auto &myUnit = std::get<0>(moveUnit);
-        auto predictedPosition = std::get<1>(moveUnit);
-        auto distDiff = std::get<2>(moveUnit);
-        auto targetPos = std::get<3>(moveUnit);
+        auto distDiff = std::get<1>(moveUnit);
+        auto targetPos = std::get<2>(moveUnit);
 
         // Move to maintain the contain
         int goalX = 0;
@@ -254,74 +264,25 @@ void UnitCluster::holdChoke(Choke *choke,
             if (myUnit == other) continue;
 
             // Don't move out of the way of units already at their desired position
-            auto otherDistDiff = std::abs(std::get<2>(otherMoveUnit));
+            auto otherDistDiff = std::abs(std::get<1>(otherMoveUnit));
             if (otherDistDiff < 5) continue;
 
-            auto otherPredictedPosition = std::get<1>(otherMoveUnit);
-            auto dist = Geo::EdgeToEdgeDistance(myUnit->type,
-                                                predictedPosition,
-                                                other->type,
-                                                otherPredictedPosition);
-            double detectionLimit = std::max(myUnit->type.width(), other->type.width()) * separationDetectionLimitFactor;
-            if (dist >= (int) detectionLimit) continue;
-
-            // We are within the detection limit
-            // Push away with maximum force at 0 distance, no force at detection limit
-            double distFactor = 1.0 - (double) dist / detectionLimit;
-            auto vector = Geo::ScaleVector(myUnit->lastPosition - other->lastPosition,
-                                           (int) (distFactor * distFactor * separationWeight));
-            if (vector != BWAPI::Positions::Invalid)
-            {
-                separationX += vector.x;
-                separationY += vector.y;
-            }
+            Boids::AddSeparation(myUnit.get(), other, separationDetectionLimitFactor, separationWeight, separationX, separationY);
         }
 
-        // Put them all together to get the target direction
-        int totalX = goalX + separationX;
-        int totalY = goalY + separationY;
+        auto pos = Boids::ComputePosition(myUnit.get(), {goalX, separationX}, {goalY, separationY}, 0);
 
-        // If the unit is in a no-go area, get out of it immediately
-        // TODO: This needs to be refactored to be usable from all tactics
-        if (Map::isInNoGoArea(myUnit->tilePositionX, myUnit->tilePositionY))
-        {
-            // Find the closest tile that is walkable and not in a no-go area
-            int closestDist = INT_MAX;
-            for (int x = myUnit->tilePositionX - 5; x < myUnit->tilePositionX + 5; x++)
-            {
-                if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
-
-                for (int y = myUnit->tilePositionY - 5; y < myUnit->tilePositionY + 5; y++)
-                {
-                    if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
-                    if (!Map::isWalkable(x, y)) continue;
-                    if (Map::isInNoGoArea(x, y)) continue;
-
-                    int dist = Geo::ApproximateDistance(myUnit->tilePositionX, x, myUnit->tilePositionY, y);
-                    if (dist < closestDist)
-                    {
-                        closestDist = dist;
-                        totalX = (x - myUnit->tilePositionX) * 32;
-                        totalY = (y - myUnit->tilePositionY) * 32;
-                    }
-                }
-            }
-        }
-
-        // Find a walkable position along the vector
-        auto totalVector = BWAPI::Position(totalX, totalY);
-        auto pos = Geo::WalkablePositionAlongVector(myUnit->lastPosition, totalVector);
-
-#if DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_BOIDS
         CherryVis::log(myUnit->id) << "HoldChoke boids towards " << BWAPI::WalkPosition(defendEnd)
                                    << "; distDiff=" << distDiff
                                    << ": goal=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX, goalY))
                                    << "; separation=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(separationX, separationY))
-                                   << "; total=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(totalX, totalY))
+                                   << "; total="
+                                   << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX + separationX, goalY + separationY))
                                    << "; target=" << BWAPI::WalkPosition(pos);
 #endif
 
-        if (pos.isValid() && BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos)))
+        if (pos != BWAPI::Positions::Invalid)
         {
             myUnit->moveTo(pos, true);
             continue;

@@ -2,6 +2,7 @@
 
 #include "Common.h"
 #include "NavigationGrid.h"
+#include "Choke.h"
 #include <bwem.h>
 
 namespace PathFinding
@@ -13,16 +14,16 @@ namespace PathFinding
     void initializeGrids();
 
     // Gets the navigation grid to a specific goal position
-    NavigationGrid *getNavigationGrid(BWAPI::TilePosition goal);
+    NavigationGrid *getNavigationGrid(BWAPI::TilePosition goal, bool ignoreEnemyBuildings = false);
 
     // An object that affects pathfinding (e.g. a building) has been added
-    void addBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile);
+    void addBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile, bool isEnemyBuilding = false);
 
     // Tiles that affect pathfinding (e.g. a mineral line) have been added
     void addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles);
 
     // An object that affects pathfinding (e.g. a building) has been removed
-    void removeBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile);
+    void removeBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile, bool isEnemyBuilding = false);
 
     // Tiles that affect pathfinding (e.g. a mineral line) have been removed
     void removeBlockingTiles(const std::set<BWAPI::TilePosition> &tiles);
@@ -65,6 +66,13 @@ namespace PathFinding
             PathFindingOptions options = PathFindingOptions::Default,
             int *pathLength = nullptr);
 
+    // Determines whether the ground path between two positions goes through a narrow choke.
+    Choke *SeparatingNarrowChoke(
+            BWAPI::Position start,
+            BWAPI::Position end,
+            BWAPI::UnitType unitType = BWAPI::UnitTypes::Protoss_Dragoon,
+            PathFindingOptions options = PathFindingOptions::Default);
+
     // Gets the expected time it will take the given unit type to move from the given start position
     // to the given end position.
     // If there is no valid path, the result is undefined.
@@ -74,7 +82,8 @@ namespace PathFinding
             BWAPI::Position start,
             BWAPI::Position end,
             BWAPI::UnitType unitType,
-            PathFindingOptions options = PathFindingOptions::Default);
+            PathFindingOptions options = PathFindingOptions::Default,
+            int defaultIfInaccessible = 0);
 
     // Initializes the path finding search
     void initializeSearch();

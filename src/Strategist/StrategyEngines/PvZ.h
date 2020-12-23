@@ -23,6 +23,7 @@ private:
     enum class ZergStrategy
     {
         Unknown,
+        WorkerRush,             // Detected by seeing more than two workers in our main without other combat units
         ZerglingRush,           // Detected by seeing early pool or early lings
         PoolBeforeHatchery,     // e.g. 9-pool or overpool
         HatcheryBeforePool,     // e.g. 10 or 12 hatch

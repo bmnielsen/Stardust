@@ -38,5 +38,47 @@ namespace Geo
 
     BWAPI::Position ScaleVector(BWAPI::Position vector, int length);
 
-    BWAPI::Position WalkablePositionAlongVector(BWAPI::Position start, BWAPI::Position vector);
+    class Spiral
+    {
+    public:
+        int x;
+        int y;
+
+        Spiral()
+                : x(0)
+                , y(0)
+                , iteration(1)
+                , direction(0) {}
+
+        void Next()
+        {
+            switch (direction)
+            {
+                case 0:
+                    ++x;
+                    if (x == iteration) ++direction;
+                    break;
+                case 1:
+                    ++y;
+                    if (y == iteration) ++direction;
+                    break;
+                case 2:
+                    --x;
+                    if (-x == iteration) ++direction;
+                    break;
+                case 3:
+                    --y;
+                    if (-y == iteration)
+                    {
+                        direction = 0;
+                        ++iteration;
+                    }
+                    break;
+            }
+        }
+
+    private:
+        unsigned int iteration;
+        unsigned int direction;
+    };
 }

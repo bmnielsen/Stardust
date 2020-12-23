@@ -32,6 +32,8 @@ public:
     std::deque<std::pair<CombatSimResult, bool>> recentSimResults;
     std::deque<std::pair<CombatSimResult, bool>> recentRegroupSimResults;
 
+    bool isVanguardCluster;
+
     explicit UnitCluster(const MyUnit &unit);
 
     virtual ~UnitCluster() = default;

@@ -1,12 +1,13 @@
 #include <Strategist/Plays/MainArmy/DefendMyMain.h>
-#include <Strategist/Plays/MainArmy/AttackEnemyMain.h>
+#include <Strategist/Plays/MainArmy/AttackEnemyBase.h>
 #include <Strategist/Plays/Defensive/DefendBase.h>
-#include <Strategist/Plays/Offensive/AttackExpansion.h>
 #include <Strategist/Plays/Scouting/ScoutEnemyExpos.h>
 #include "StrategyEngine.h"
 
 #include "Map.h"
 #include "Units.h"
+#include "UnitUtil.h"
+#include "General.h"
 
 bool StrategyEngine::hasEnemyStolenOurGas()
 {
@@ -32,9 +33,9 @@ void StrategyEngine::handleGasStealProduction(std::map<int, std::vector<Producti
 }
 
 void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                               BWAPI::UnitType unitType,
-                               int count,
-                               int &highPriorityCount)
+                                        BWAPI::UnitType unitType,
+                                        int count,
+                                        int &highPriorityCount)
 {
     if (count == -1)
     {
@@ -79,7 +80,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
 
     // First gather the list of bases we want to defend
-    std::set<Base *> basesToDefend;
+    std::map<Base *, std::pair<int, std::set<Unit>>> basesToDefend;
 
     // Don't defend any bases if our main army play is defending our main
     if (mainArmyPlay && typeid(*mainArmyPlay) != typeid(DefendMyMain))
@@ -89,7 +90,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
             if (base == Map::getMyMain() || base == Map::getMyNatural())
             {
                 // Don't defend our main or natural with a DefendBase play if our main army is close to it
-                if (typeid(*mainArmyPlay) == typeid(AttackEnemyMain))
+                if (typeid(*mainArmyPlay) == typeid(AttackEnemyBase))
                 {
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                     if (vanguard && vanguard->vanguard)
@@ -106,7 +107,59 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
                 continue;
             }
 
-            basesToDefend.insert(base);
+            // Gather the enemy units threatening the base
+            int enemyValue = 0;
+            std::set<Unit> enemyUnits;
+            for (const auto &unit : Units::allEnemy())
+            {
+                if (!unit->lastPositionValid) continue;
+                if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
+                if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) continue;
+                if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 240)) continue;
+
+                int dist = unit->isFlying
+                           ? unit->lastPosition.getApproxDistance(base->getPosition())
+                           : PathFinding::GetGroundDistance(unit->lastPosition, base->getPosition(), unit->type);
+                if (dist == -1 || dist > 1000) continue;
+
+                // Skip this unit if it is closer to another one of our bases
+                bool closerToOtherBase = false;
+                for (auto &otherBase : Map::getMyBases())
+                {
+                    if (otherBase == base) continue;
+                    int otherBaseDist = unit->isFlying
+                                        ? unit->lastPosition.getApproxDistance(otherBase->getPosition())
+                                        : PathFinding::GetGroundDistance(unit->lastPosition, otherBase->getPosition(), unit->type);
+                    if (otherBaseDist < dist)
+                    {
+                        closerToOtherBase = true;
+                        break;
+                    }
+                }
+                if (closerToOtherBase) continue;
+
+                if (dist > 500)
+                {
+                    auto predictedPosition = unit->predictPosition(5);
+                    if (!predictedPosition.isValid()) continue;
+
+                    int predictedDist = unit->isFlying
+                                        ? predictedPosition.getApproxDistance(base->getPosition())
+                                        : PathFinding::GetGroundDistance(predictedPosition, base->getPosition(), unit->type);
+                    if (predictedDist > dist) continue;
+                }
+
+                enemyUnits.insert(unit);
+                enemyValue += CombatSim::unitValue(unit);
+            }
+
+            // If too many enemies are threatening the base, don't bother trying to defend it
+            if (enemyValue > 5 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
+            {
+                continue;
+            }
+
+            basesToDefend[base] = std::make_pair(enemyValue, std::move(enemyUnits));
         }
     }
 
@@ -125,79 +178,20 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
             continue;
         }
 
+        defendBasePlay->enemyValue = it->second.first;
+        defendBasePlay->enemyUnits = std::move(it->second.second);
+
         basesToDefend.erase(it);
     }
 
     // Add missing plays
     for (auto &baseToDefend : basesToDefend)
     {
-        plays.emplace(plays.begin(), std::make_shared<DefendBase>(baseToDefend));
-        CherryVis::log() << "Added defend base play for base @ " << BWAPI::WalkPosition(baseToDefend->getPosition());
-    }
-}
-
-void StrategyEngine::updateAttackExpansionPlays(std::vector<std::shared_ptr<Play>> &plays)
-{
-    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-
-    // First gather the list of bases we want to attack
-    std::set<Base *> basesToAttack;
-
-    // Don't attack any bases if our main army play is defending our main
-    if (mainArmyPlay && typeid(*mainArmyPlay) != typeid(DefendMyMain))
-    {
-        for (auto &base : Map::getEnemyBases())
-        {
-            // Main is attacked by our main army
-            if (base == Map::getEnemyMain()) continue;
-
-            // Natural is attacked along the way to the main unless it has already been destroyed
-            if (base == Map::getEnemyStartingNatural() && Map::getEnemyStartingMain()
-                && Map::getEnemyStartingMain()->owner == BWAPI::Broodwar->enemy())
-            {
-                continue;
-            }
-
-            // Bases without many resources left are not a priority
-            if (base->mineralPatchCount() < 3) continue;
-
-            basesToAttack.insert(base);
-        }
-    }
-
-    // Scan the plays and remove those that are no longer relevant
-    for (auto &play : plays)
-    {
-        auto attackExpansionPlay = std::dynamic_pointer_cast<AttackExpansion>(play);
-        if (!attackExpansionPlay) continue;
-
-        auto it = basesToAttack.find(attackExpansionPlay->base);
-
-        // If we no longer need to defend this base, remove the play
-        if (it == basesToAttack.end())
-        {
-            attackExpansionPlay->status.complete = true;
-            continue;
-        }
-
-        basesToAttack.erase(it);
-    }
-
-    // Add missing plays
-    for (auto &baseToAttack : basesToAttack)
-    {
-        // Insert them before the main army play
-        auto it = plays.begin();
-        for (; it != plays.end(); it++)
-        {
-            if (auto match = std::dynamic_pointer_cast<MainArmyPlay>(*it))
-            {
-                break;
-            }
-        }
-
-        plays.emplace(it, std::make_shared<AttackExpansion>(baseToAttack));
-        CherryVis::log() << "Added attack expansion play for base @ " << BWAPI::WalkPosition(baseToAttack->getPosition());
+        plays.emplace(plays.begin(), std::make_shared<DefendBase>(
+                baseToDefend.first,
+                baseToDefend.second.first,
+                std::move(baseToDefend.second.second)));
+        CherryVis::log() << "Added defend base play for base @ " << BWAPI::WalkPosition(baseToDefend.first->getPosition());
     }
 }
 
@@ -207,4 +201,19 @@ void StrategyEngine::scoutExpos(std::vector<std::shared_ptr<Play>> &plays, int s
     if (getPlay<ScoutEnemyExpos>(plays) != nullptr) return;
 
     plays.emplace_back(std::make_shared<ScoutEnemyExpos>());
+}
+
+void StrategyEngine::reserveMineralsForExpansion(std::vector<std::pair<int, int>> &mineralReservations)
+{
+    // The idea here is to make sure we keep enough resources for an expansion if the total minerals left at our bases is low
+    int totalMinerals = 0;
+    for (const auto &base : Map::getMyBases())
+    {
+        totalMinerals += base->minerals();
+    }
+
+    if (totalMinerals < 800)
+    {
+        mineralReservations.emplace_back(std::make_pair(400, 0));
+    }
 }

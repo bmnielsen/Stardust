@@ -2,6 +2,7 @@
 
 #include "Map.h"
 #include "Plays/MainArmy/DefendMyMain.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Units.h"
 
 std::map<PvZ::OurStrategy, std::string> PvZ::OurStrategyNames = {
@@ -37,7 +38,9 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                         completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
 
         // Transition when we have 15 units, or 10 if the enemy strategy is no longer recognized as an all-in
-        return unitCount >= 15 || (unitCount >= 10 && enemyStrategyStableFor > 480 && newEnemyStrategy != ZergStrategy::ZerglingRush
+        return unitCount >= 15 || (unitCount >= 10 && enemyStrategyStableFor > 480
+                                   && newEnemyStrategy != ZergStrategy::WorkerRush
+                                   && newEnemyStrategy != ZergStrategy::ZerglingRush
                                    && newEnemyStrategy != ZergStrategy::ZerglingAllIn);
     };
 
@@ -53,6 +56,7 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                 {
                     case ZergStrategy::Unknown:
                         return strategy;
+                    case ZergStrategy::WorkerRush:
                     case ZergStrategy::ZerglingRush:
                     case ZergStrategy::ZerglingAllIn:
                     {
@@ -109,7 +113,9 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
             }
             case PvZ::OurStrategy::Defensive:
             {
-                if (newEnemyStrategy == ZergStrategy::ZerglingRush || newEnemyStrategy == ZergStrategy::ZerglingAllIn)
+                if (newEnemyStrategy == ZergStrategy::WorkerRush ||
+                    newEnemyStrategy == ZergStrategy::ZerglingRush ||
+                    newEnemyStrategy == ZergStrategy::ZerglingAllIn)
                 {
                     strategy = OurStrategy::AntiAllIn;
                     continue;
@@ -124,7 +130,7 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                 }
 
                 auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-                if (mainArmyPlay && typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                if (mainArmyPlay && typeid(*mainArmyPlay) == typeid(AttackEnemyBase))
                 {
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                     if (vanguard && vanguard->units.size() >= 6)
@@ -137,7 +143,9 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
             }
             case PvZ::OurStrategy::Normal:
             {
-                if ((newEnemyStrategy == ZergStrategy::ZerglingRush || newEnemyStrategy == ZergStrategy::ZerglingAllIn) &&
+                if ((newEnemyStrategy == ZergStrategy::WorkerRush ||
+                     newEnemyStrategy == ZergStrategy::ZerglingRush ||
+                     newEnemyStrategy == ZergStrategy::ZerglingAllIn) &&
                     !canTransitionFromAntiAllIn())
                 {
                     strategy = OurStrategy::AntiAllIn;

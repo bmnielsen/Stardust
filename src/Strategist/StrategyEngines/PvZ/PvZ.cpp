@@ -2,14 +2,13 @@
 
 #include "Units.h"
 #include "Map.h"
-#include "Builder.h"
 #include "Strategist.h"
 #include "Workers.h"
 #include "Players.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
-#include "Plays/MainArmy/AttackEnemyMain.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/MainArmy/MopUp.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
@@ -60,77 +59,70 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         ourStrategy = newStrategy;
     }
 
-    // Ensure we have the correct main army play
-    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-    if (mainArmyPlay)
+    bool defendOurMain;
+    if (hasEnemyStolenOurGas())
     {
-        if (hasEnemyStolenOurGas())
+        defendOurMain = true;
+    }
+    else
+    {
+        auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+        auto canTransitionToAttack = [&](int requiredUnitCount, bool requireDragoon)
         {
-            setMainPlay<DefendMyMain>(mainArmyPlay);
-        }
-        else
-        {
-            auto transitionToAttack = [&](int requiredUnitCount, bool requireDragoon)
-            {
-                auto vanguardCluster = mainArmyPlay->getSquad()->vanguardCluster();
-                if (!vanguardCluster || !vanguardCluster->vanguard) return;
+            if (!mainArmyPlay) return false;
 
-                bool hasDragoon = false;
-                int count = 0;
-                for (const auto &unit : vanguardCluster->units)
+            auto vanguardCluster = mainArmyPlay->getSquad()->vanguardCluster();
+            if (!vanguardCluster || !vanguardCluster->vanguard) return false;
+
+            bool hasDragoon = false;
+            int count = 0;
+            for (const auto &unit : vanguardCluster->units)
+            {
+                if (unit->getDistance(vanguardCluster->vanguard) < 200)
                 {
-                    if (unit->getDistance(vanguardCluster->vanguard) < 200)
-                    {
-                        if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon) hasDragoon = true;
-                        count++;
-                    }
+                    if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon) hasDragoon = true;
+                    count++;
+                }
+            }
+
+            return (count >= requiredUnitCount && (!requireDragoon || hasDragoon));
+        };
+
+        switch (ourStrategy)
+        {
+            case OurStrategy::EarlyGameDefense:
+            case OurStrategy::AntiAllIn:
+                defendOurMain = true;
+                break;
+            default:
+            {
+                if (!mainArmyPlay)
+                {
+                    defendOurMain = true;
+                    break;
                 }
 
-                if (count >= requiredUnitCount && (!requireDragoon || hasDragoon))
+                defendOurMain = false;
+
+                // Transition from defense when appropriate
+                if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
                 {
-                    auto enemyMain = Map::getEnemyMain();
-                    if (enemyMain)
+                    if (ourStrategy == OurStrategy::FastExpansion)
                     {
-                        setMainPlay<AttackEnemyMain>(mainArmyPlay, Map::getEnemyMain());
+                        defendOurMain = !canTransitionToAttack(3, false);
                     }
                     else
                     {
-                        setMainPlay<MopUp>(mainArmyPlay);
+                        defendOurMain = !canTransitionToAttack(4, true);
                     }
                 }
-            };
 
-            switch (ourStrategy)
-            {
-                case OurStrategy::EarlyGameDefense:
-                case OurStrategy::AntiAllIn:
-                    setMainPlay<DefendMyMain>(mainArmyPlay);
-                    break;
-                case OurStrategy::FastExpansion:
-                {
-                    // For fast expands go on the attack as soon as we have three units
-                    if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
-                    {
-                        transitionToAttack(3, false);
-                    }
-
-                    break;
-                }
-                case OurStrategy::Defensive:
-                case OurStrategy::Normal:
-                case OurStrategy::MidGame:
-                {
-                    // For normal strategies go on the attack when we have at least four units, one of which is a dragoon
-                    if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
-                    {
-                        transitionToAttack(4, true);
-                    }
-
-                    break;
-                }
+                break;
             }
         }
     }
+
+    updateAttackPlays(plays, defendOurMain);
 
     // Set the worker scout to monitor the enemy choke once the pool is finished
     if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted)
@@ -147,7 +139,6 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     updateDefendBasePlays(plays);
-    updateAttackExpansionPlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 10000);
 }
@@ -156,6 +147,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                            std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                            std::vector<std::pair<int, int>> &mineralReservations)
 {
+    reserveMineralsForExpansion(mineralReservations);
     handleNaturalExpansion(plays, prioritizedProductionGoals);
     handleDetection(prioritizedProductionGoals);
 
@@ -365,7 +357,11 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 {
     // Hop out if the natural has already been taken
     auto natural = Map::getMyNatural();
-    if (!natural || natural->ownedSince != -1) return;
+    if (!natural || natural->ownedSince != -1)
+    {
+        CherryVis::setBoardValue("natural", "complete");
+        return;
+    }
 
     // If we have a backdoor natural, expand when our third goon is being produced or we have lots of money
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
@@ -373,6 +369,8 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         if (BWAPI::Broodwar->self()->minerals() > 450 ||
             Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon) > 2)
         {
+            CherryVis::setBoardValue("natural", "take-backdoor");
+
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
@@ -384,9 +382,11 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::AntiAllIn:
         case OurStrategy::Defensive:
             // Don't take our natural if the enemy could be rushing or doing an all-in
+            CherryVis::setBoardValue("natural", "wait-defensive");
             break;
 
         case OurStrategy::FastExpansion:
+            CherryVis::setBoardValue("natural", "take-fast-expo");
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
 
@@ -397,18 +397,34 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // that is close to the enemy base
 
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyMain)) break;
+            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
+            {
+                CherryVis::setBoardValue("natural", "no-attack-play");
+                break;
+            }
 
             auto squad = mainArmyPlay->getSquad();
-            if (!squad || squad->getUnits().size() < 5) break;
+            if (!squad || squad->getUnits().size() < 5)
+            {
+                CherryVis::setBoardValue("natural", "attack-play-too-small");
+                break;
+            }
 
             int dist;
             auto vanguardCluster = squad->vanguardCluster(&dist);
-            if (!vanguardCluster) break;
+            if (!vanguardCluster)
+            {
+                CherryVis::setBoardValue("natural", "no-vanguard-cluster");
+                break;
+            }
 
             // Cluster should be at least 2/3 of the way to the target base
             int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
-            if (dist * 2 > distToMain) break;
+            if (dist * 2 > distToMain)
+            {
+                CherryVis::setBoardValue("natural", "vanguard-cluster-too-close");
+                break;
+            }
 
             // Cluster should not be moving or fleeing
             // In other words, we want the cluster to be in some kind of stable attack or contain state
@@ -417,9 +433,11 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                     && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
             {
                 // We don't cancel a queued expansion in this case
+                CherryVis::setBoardValue("natural", "vanguard-cluster-not-attacking");
                 return;
             }
 
+            CherryVis::setBoardValue("natural", "take");
             takeNaturalExpansion(plays, prioritizedProductionGoals);
             return;
         }
@@ -435,9 +453,9 @@ void PvZ::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
     upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
     // Cases where we want the upgrade as soon as we start building one of the units
-    upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
-    upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, true);
-    upgradeWhenUnitStarted(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
 
     defaultGroundUpgrades(prioritizedProductionGoals);
 

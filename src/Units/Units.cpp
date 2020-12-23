@@ -3,6 +3,7 @@
 #include "Players.h"
 #include "Workers.h"
 #include "Map.h"
+#include "NoGoAreas.h"
 #include "BuildingPlacement.h"
 #include "MyDragoon.h"
 #include "MyWorker.h"
@@ -42,11 +43,13 @@ namespace Units
         std::map<BWAPI::UnitType, std::vector<std::pair<int, int>>> enemyUnitTimings;
 
         std::set<BWAPI::UpgradeType> upgradesInProgress;
+        std::set<BWAPI::TechType> researchInProgress;
 
         void unitCreated(const Unit &unit)
         {
             Map::onUnitCreated(unit);
             BuildingPlacement::onUnitCreate(unit);
+            NoGoAreas::onUnitCreate(unit);
 
             if (unit->player == BWAPI::Broodwar->self())
             {
@@ -284,6 +287,7 @@ namespace Units
         enemyUnitsByType.clear();
         enemyUnitTimings.clear();
         upgradesInProgress.clear();
+        researchInProgress.clear();
 
         // Add a placeholder for the enemy depot to the timings
         if (Opponent::isUnknownRace())
@@ -303,6 +307,7 @@ namespace Units
     void update()
     {
         upgradesInProgress.clear();
+        researchInProgress.clear();
 
         // Update our units
         // We always have vision of our own units, so we don't have to handle units in fog
@@ -357,6 +362,10 @@ namespace Units
             if (bwapiUnit->isUpgrading())
             {
                 upgradesInProgress.insert(bwapiUnit->getUpgrade());
+            }
+            else if (bwapiUnit->isResearching())
+            {
+                researchInProgress.insert(bwapiUnit->getTech());
             }
         }
 
@@ -899,8 +908,13 @@ namespace Units
         return it != enemyUnitTimings.end() && !it->second.empty();
     }
 
-    bool isBeingUpgraded(BWAPI::UpgradeType type)
+    bool isBeingUpgradedOrResearched(UpgradeOrTechType type)
     {
-        return upgradesInProgress.find(type) != upgradesInProgress.end();
+        if (type.isTechType())
+        {
+            return researchInProgress.find(type.techType) != researchInProgress.end();
+        }
+
+        return upgradesInProgress.find(type.upgradeType) != upgradesInProgress.end();
     }
 }

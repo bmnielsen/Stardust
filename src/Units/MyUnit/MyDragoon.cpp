@@ -3,7 +3,9 @@
 #include "UnitUtil.h"
 #include "Units.h"
 #include "Geo.h"
+#include "Boids.h"
 #include "Map.h"
+#include "NoGoAreas.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -129,6 +131,13 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
     // If we are not on cooldown, defer to normal unit attack unless we are ranging a bunker
     if (!rangingBunker && cooldown <= BWAPI::Broodwar->getRemainingLatencyFrames() + 2)
     {
+        // Special case, if we are in a no-go area, move out of it
+        if (NoGoAreas::isNoGo(tilePositionX, tilePositionY))
+        {
+            moveTo(Boids::AvoidNoGoArea(this));
+            return;
+        }
+
         MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
         return;
     }
@@ -217,7 +226,7 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
         // Exception for SCVs since they might be repairing something dangerous
         if (target->type != BWAPI::UnitTypes::Terran_SCV && targetRange <= (myRange - 64)) desiredDistance -= 32;
 
-#if DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_BOIDS
         CherryVis::log(id) << "Kiting: cdwn=" << cooldown << "; dist=" << predictedDistanceToTarget << "; range=" << myRange << "; des="
                            << desiredDistance;
 #endif
@@ -253,11 +262,6 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
             if (other.first->id == id) continue;
             if (!other.second) continue;
 
-            // Check if the other unit is within our detection limit
-            auto dist = getDistance(other.first);
-            double detectionLimit = std::max(type.width(), other.first->type.width()) * separationDetectionLimitFactor;
-            if (dist >= (int) detectionLimit) continue;
-
             // If we are ranging a bunker and are currently in range, skip separation except from units that are caught too close to the bunker
             if (rangingBunker && currentDistanceToTarget <= myRange)
             {
@@ -272,48 +276,25 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
                 continue;
             }
 
-            // Push away with maximum force at 0 distance, no force at detection limit
-            double distFactor = 1.0 - (double) dist / detectionLimit;
-            int centerDist = Geo::ApproximateDistance(lastPosition.x, other.first->lastPosition.x, lastPosition.y, other.first->lastPosition.y);
-            double scalingFactor = distFactor * distFactor * separationWeight / centerDist;
-            separationX -= (int) ((double) (other.first->lastPosition.x - lastPosition.x) * scalingFactor);
-            separationY -= (int) ((double) (other.first->lastPosition.y - lastPosition.y) * scalingFactor);
+            Boids::AddSeparation(this, other.first, separationDetectionLimitFactor, separationWeight, separationX, separationY);
         }
     }
 
-    // Combine to the total so far
-    int totalX = targetX + separationX;
-    int totalY = targetY + separationY;
-    auto pos = Geo::WalkablePositionAlongVector(lastPosition, BWAPI::Position(totalX, totalY));
+    auto pos = Boids::ComputePosition(this, {targetX, separationX}, {targetY, separationY}, 0, 16, collisionWeight);
 
-    // If the position is walkable, handle collision
-    int collisionX = 0;
-    int collisionY = 0;
-    if (pos.isValid())
-    {
-        auto collisionVector = Map::collisionVector(pos.x >> 5, pos.y >> 5);
-        if (collisionVector.x != 0 || collisionVector.y != 0)
-        {
-            collisionX = collisionVector.x * collisionWeight;
-            collisionY = collisionVector.y * collisionWeight;
-            pos = Geo::WalkablePositionAlongVector(lastPosition,
-                                                   Geo::ScaleVector(BWAPI::Position(totalX + collisionX, totalY + collisionY), 64));
-        }
-    }
-
-#if DEBUG_UNIT_ORDERS
+#if DEBUG_UNIT_BOIDS
     CherryVis::log(id) << "Kiting boids; target=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(targetX, targetY))
                        << "; separation=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(separationX, separationY))
-                       << "; collision=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(collisionX, collisionY))
                        << "; target=" << BWAPI::WalkPosition(pos);
 #endif
 
-    if (pos.isValid())
+    // If the unit can't move in the desired direction, attack the target instead
+    if (pos == BWAPI::Positions::Invalid)
     {
-        moveTo(pos, true);
+        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
     }
     else
     {
-        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
+        moveTo(pos, true);
     }
 }

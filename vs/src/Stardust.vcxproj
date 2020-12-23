@@ -117,6 +117,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Alchemist.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Fortress.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Plasma.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\NoGoAreas.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\NavigationGrid.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding_BWEM.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding_Grids.cpp" />
@@ -135,7 +136,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\SaturateBases.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\TakeExpansion.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\TakeIslandExpansion.cpp" />
-    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\AttackEnemyMain.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\AttackEnemyBase.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\DefendMyMain.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\MainArmyPlay.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\MopUp.cpp" />
@@ -145,6 +146,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\ScoutEnemyExpos.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\DarkTemplarHarass.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Strategist.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\AttackPlays.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\Expansions.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\StrategyEngine.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\Upgrades.cpp" />
@@ -168,8 +170,10 @@
     <ClCompile Include="$(SolutionDir)\..\src\Units\Unit\Unit_Info.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\Unit\Unit_Update.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\Units.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Util\Boids.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Util\Geo.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Util\UnitUtil.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Util\UpgradeOrTechType.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Workers\WorkerOrderTimer.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Workers\Workers.cpp" />
   </ItemGroup>

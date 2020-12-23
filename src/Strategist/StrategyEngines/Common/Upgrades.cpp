@@ -3,13 +3,13 @@
 #include "Units.h"
 
 void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                                    BWAPI::UpgradeType upgradeType,
+                                    UpgradeOrTechType upgradeOrTechType,
                                     BWAPI::UnitType unitType,
                                     int unitCount)
 {
     // First bail out if the upgrade is already done or queued
-    if (BWAPI::Broodwar->self()->getUpgradeLevel(upgradeType) > 0) return;
-    if (Units::isBeingUpgraded(upgradeType)) return;
+    if (upgradeOrTechType.currentLevel() > 0) return;
+    if (Units::isBeingUpgradedOrResearched(upgradeOrTechType)) return;
 
     // Now loop through all of the prioritized production goals, keeping track of how many of the desired unit we have
     int units = Units::countCompleted(unitType) + Units::countIncomplete(unitType);
@@ -19,7 +19,7 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
         {
             // Bail out if this upgrade is already queued
             auto upgradeProductionGoal = std::get_if<UpgradeProductionGoal>(&*it);
-            if (upgradeProductionGoal && upgradeProductionGoal->upgradeType() == upgradeType) return;
+            if (upgradeProductionGoal && upgradeProductionGoal->upgradeType() == upgradeOrTechType) return;
 
             auto unitProductionGoal = std::get_if<UnitProductionGoal>(&*it);
             if (!unitProductionGoal) continue;
@@ -37,7 +37,7 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
             // If we already have enough units, insert the upgrade now
             if (units >= unitCount)
             {
-                priorityAndProductionGoals.second.emplace(it, UpgradeProductionGoal(upgradeType));
+                priorityAndProductionGoals.second.emplace(it, UpgradeProductionGoal(upgradeOrTechType));
                 return;
             }
 
@@ -45,7 +45,7 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
             if (unitProductionGoal->countToProduce() == -1)
             {
                 // Insert the upgrade here
-                it = priorityAndProductionGoals.second.emplace(it, UpgradeProductionGoal(upgradeType));
+                it = priorityAndProductionGoals.second.emplace(it, UpgradeProductionGoal(upgradeOrTechType));
 
                 // Insert remaining units beforehand
                 if (units < unitCount)
@@ -82,7 +82,7 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
                 }
 
                 // Add the upgrade
-                it = priorityAndProductionGoals.second.emplace(it, UpgradeProductionGoal(upgradeType));
+                it = priorityAndProductionGoals.second.emplace(it, UpgradeProductionGoal(upgradeOrTechType));
 
                 // Add the count before the upgrade
                 priorityAndProductionGoals.second.emplace(it,
@@ -101,28 +101,29 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
     }
 }
 
-void StrategyEngine::upgradeWhenUnitStarted(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                                            BWAPI::UpgradeType upgradeType,
+void StrategyEngine::upgradeWhenUnitCreated(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                            UpgradeOrTechType upgradeOrTechType,
                                             BWAPI::UnitType unitType,
+                                            bool requireCompletedUnit,
                                             bool requireProducer,
                                             int priority)
 {
     // First bail out if the upgrade is already done or queued
-    if (BWAPI::Broodwar->self()->getUpgradeLevel(upgradeType) > 0) return;
-    if (Units::isBeingUpgraded(upgradeType)) return;
+    if (upgradeOrTechType.currentLevel() > 0) return;
+    if (Units::isBeingUpgradedOrResearched(upgradeOrTechType)) return;
 
     // Now check if we have at least one of the unit
-    if (Units::countIncomplete(unitType) == 0 && Units::countCompleted(unitType) == 0) return;
+    if (Units::countCompleted(unitType) == 0 && (requireCompletedUnit || Units::countIncomplete(unitType) == 0)) return;
 
     // Now check if we have the required producer, if specified
     if (requireProducer &&
-        Units::countIncomplete(upgradeType.whatUpgrades()) == 0 &&
-        Units::countCompleted(upgradeType.whatUpgrades()) == 0)
+        Units::countIncomplete(upgradeOrTechType.whatUpgradesOrResearches()) == 0 &&
+        Units::countCompleted(upgradeOrTechType.whatUpgradesOrResearches()) == 0)
     {
         return;
     }
 
-    prioritizedProductionGoals[priority].emplace_back(UpgradeProductionGoal(upgradeType));
+    prioritizedProductionGoals[priority].emplace_back(UpgradeProductionGoal(upgradeOrTechType));
 }
 
 void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
@@ -130,12 +131,18 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
     // Start when we have completed our second nexus
     if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
     {
-        // Upgrade past 1 and on two forges when we have completed our third nexus
+        int weaponLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons);
+        int armorLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Armor);
+
+        // Upgrade past 1 and potentially on two forges when we have completed our third nexus
         int maxLevel, forgeCount;
         if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 3)
         {
             maxLevel = 3;
-            forgeCount = 2;
+            if (armorLevel >= 1 || Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Armor))
+            {
+                forgeCount = 2;
+            }
         }
         else
         {
@@ -143,19 +150,16 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
             forgeCount = 1;
         }
 
-        int weaponLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons);
-        int armorLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Armor);
-
         // Weapons -> 1, Armor -> 1, Weapons -> 3, Armor -> 3
         if ((weaponLevel == 0 || armorLevel >= 1) && weaponLevel < maxLevel &&
-            !Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
+            !Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
         {
             prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
                                                                      BWAPI::UpgradeTypes::Protoss_Ground_Weapons,
                                                                      weaponLevel + 1,
                                                                      forgeCount);
         }
-        if (!Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Armor) && armorLevel < maxLevel)
+        if (!Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Armor) && armorLevel < maxLevel)
         {
             prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
                                                                      BWAPI::UpgradeTypes::Protoss_Ground_Armor,
@@ -163,7 +167,7 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
                                                                      forgeCount);
         }
         if (weaponLevel > 0 && armorLevel == 0 && weaponLevel < maxLevel &&
-            !Units::isBeingUpgraded(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
+            !Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
         {
             prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
                                                                      BWAPI::UpgradeTypes::Protoss_Ground_Weapons,
@@ -173,8 +177,8 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
 
         // Upgrade shields when we are maxed
         if (BWAPI::Broodwar->self()->supplyUsed() > 300 &&
-            BWAPI::Broodwar->self()->minerals() > 1000 &&
-            BWAPI::Broodwar->self()->gas() > 600)
+            BWAPI::Broodwar->self()->minerals() > 1500 &&
+            BWAPI::Broodwar->self()->gas() > 1000)
         {
             if (weaponLevel < 3 && armorLevel < 3) forgeCount = 3;
             prioritizedProductionGoals[PRIORITY_NORMAL]

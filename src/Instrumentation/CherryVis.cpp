@@ -1,10 +1,12 @@
 #include "CherryVis.h"
 
 #if CHERRYVIS_ENABLED
+
 #include <nlohmann/json.hpp>
 #include <utility>
 #include <zstdstream/zstdstream.hpp>
 #include <filesystem>
+
 #endif
 
 namespace CherryVis
@@ -82,6 +84,9 @@ namespace CherryVis
         std::unordered_map<std::string, std::string> boardKeyToLastValue;
         std::unordered_map<std::string, size_t> boardListToLastCount;
 
+        nlohmann::json drawCommands = nlohmann::json::object();
+        nlohmann::json frameDrawCommands = nlohmann::json::object();
+
         std::unordered_map<std::string, std::vector<nlohmann::json>> frameToUnitsFirstSeen;
         std::unordered_map<std::string, std::unordered_map<std::string, nlohmann::json>> unitIdToFrameToUnitUpdate;
 
@@ -157,6 +162,8 @@ namespace CherryVis
         frameHasBoardUpdates = false;
         boardKeyToLastValue.clear();
         boardListToLastCount.clear();
+        drawCommands = nlohmann::json::object();
+        frameDrawCommands = nlohmann::json::array();
         frameToUnitsFirstSeen.clear();
         unitIdToFrameToUnitUpdate.clear();
         logEntries.clear();
@@ -271,6 +278,39 @@ namespace CherryVis
 #endif
     }
 
+    void drawLine(int x1, int y1, int x2, int y2, DrawColor color)
+    {
+#if CHERRYVIS_ENABLED
+        frameDrawCommands.push_back({
+                                            {"code", 20},
+                                            {"args", nlohmann::json::array({x1, y1, x2, y2, (int)color})},
+                                            {"str", "."}
+                                    });
+#endif
+    }
+
+    void drawCircle(int x, int y, int radius, DrawColor color)
+    {
+#if CHERRYVIS_ENABLED
+        frameDrawCommands.push_back({
+                                            {"code", 23},
+                                            {"args", nlohmann::json::array({x, y, radius, (int)color})},
+                                            {"str", "."}
+                                    });
+#endif
+    }
+
+    void drawText(int x, int y, const std::string &text)
+    {
+#if CHERRYVIS_ENABLED
+        frameDrawCommands.push_back({
+                                            {"code", 25},
+                                            {"args", nlohmann::json::array({x, y})},
+                                            {"str", text}
+                                    });
+#endif
+    }
+
     void frameEnd(int frame)
     {
 #if CHERRYVIS_ENABLED
@@ -280,6 +320,9 @@ namespace CherryVis
             frameBoardUpdates = nlohmann::json::object();
             frameHasBoardUpdates = false;
         }
+
+        drawCommands[std::to_string(frame)] = std::move(frameDrawCommands);
+        frameDrawCommands = nlohmann::json::array();
 
         if (!frameLogMessages.empty())
         {
@@ -341,6 +384,7 @@ namespace CherryVis
         nlohmann::json trace = {
                 {"types_names",      buildTypesToName},
                 {"board_updates",    boardUpdates},
+                {"draw_commands",    drawCommands},
                 {"units_first_seen", frameToUnitsFirstSeen},
                 {"units_updates",    unitIdToFrameToUnitUpdate},
                 {"logs",             logEntries},

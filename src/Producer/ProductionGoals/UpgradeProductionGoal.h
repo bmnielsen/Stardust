@@ -1,17 +1,18 @@
 #pragma once
 
 #include "Common.h"
+#include "UpgradeOrTechType.h"
 
 class UpgradeProductionGoal
 {
 public:
-    explicit UpgradeProductionGoal(BWAPI::UpgradeType type, int level = 1, int producerLimit = 1)
+    explicit UpgradeProductionGoal(UpgradeOrTechType type, int level = 1, int producerLimit = 1)
             : type(type)
             , level(level)
             , producerLimit(producerLimit) {}
 
     // The upgrade type
-    [[nodiscard]] BWAPI::UpgradeType upgradeType() const { return type; }
+    [[nodiscard]] UpgradeOrTechType upgradeType() const { return type; }
 
     // Prerequisite for the next upgrade level
     [[nodiscard]] BWAPI::UnitType prerequisiteForNextLevel() const;
@@ -27,7 +28,7 @@ public:
     }
 
 private:
-    BWAPI::UpgradeType type;
+    UpgradeOrTechType type;
     int level;
     int producerLimit;
 };

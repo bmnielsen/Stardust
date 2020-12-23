@@ -54,13 +54,15 @@ public:
 
     bool upgrade(BWAPI::UpgradeType type);
 
+    bool research(BWAPI::TechType type);
+
     void stop();
 
     void cancelConstruction();
 
     void load(BWAPI::Unit cargo);
 
-    void unloadAll();
+    void unloadAll(BWAPI::Position pos);
 
 protected:
     bool issuedOrderThisFrame;

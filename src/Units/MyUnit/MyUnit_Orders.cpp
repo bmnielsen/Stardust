@@ -199,6 +199,23 @@ bool MyUnitImpl::upgrade(BWAPI::UpgradeType type)
     return issuedOrderThisFrame;
 }
 
+bool MyUnitImpl::research(BWAPI::TechType type)
+{
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Research " << type;
+        return false;
+    }
+
+    issuedOrderThisFrame = bwapiUnit->research(type);
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Order: Research " << type;
+#endif
+
+    return issuedOrderThisFrame;
+}
+
 void MyUnitImpl::stop()
 {
     if (issuedOrderThisFrame)
@@ -237,6 +254,14 @@ void MyUnitImpl::load(BWAPI::Unit cargo)
         return;
     }
 
+    // Don't re-issue the same command
+    BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
+    if (currentCommand.getType() == BWAPI::UnitCommandTypes::Load &&
+        currentCommand.getTarget() == cargo)
+    {
+        return;
+    }
+
     issuedOrderThisFrame = bwapiUnit->load(cargo);
 
 #if DEBUG_UNIT_ORDERS
@@ -244,7 +269,7 @@ void MyUnitImpl::load(BWAPI::Unit cargo)
 #endif
 }
 
-void MyUnitImpl::unloadAll()
+void MyUnitImpl::unloadAll(BWAPI::Position pos)
 {
     if (issuedOrderThisFrame)
     {
@@ -252,9 +277,9 @@ void MyUnitImpl::unloadAll()
         return;
     }
 
-    issuedOrderThisFrame = bwapiUnit->unloadAll();
+    issuedOrderThisFrame = bwapiUnit->unloadAll(pos);
 
 #if DEBUG_UNIT_ORDERS
-    CherryVis::log(id) << "Order: Unload All";
+    CherryVis::log(id) << "Order: Unload All " << BWAPI::WalkPosition(pos);
 #endif
 }

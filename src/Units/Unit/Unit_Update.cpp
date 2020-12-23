@@ -5,6 +5,7 @@
 #include "Map.h"
 #include "General.h"
 #include "UnitUtil.h"
+#include "NoGoAreas.h"
 #include <iomanip>
 
 #if INSTRUMENTATION_ENABLED
@@ -219,6 +220,17 @@ void UnitImpl::update(BWAPI::Unit unit)
         {
             health = std::max(0, health - upcomingDamage);
             if (health <= 0) CherryVis::log(id) << "DOOMED!";
+        }
+    }
+
+    // Handle splash units
+    if (type == BWAPI::UnitTypes::Protoss_Scarab)
+    {
+        NoGoAreas::addCircle(unit->getPosition(), 64, 1);
+        auto vector = Geo::ScaleVector(predictPosition(20) - unit->getPosition(), 8 * 32);
+        if (vector != BWAPI::Positions::Invalid)
+        {
+            NoGoAreas::addDirectedBox(unit->getPosition(), unit->getPosition() + vector, 64, 1);
         }
     }
 }
@@ -641,7 +653,6 @@ void UnitImpl::updatePredictedPosition()
 
         // For the initial frame the predicted position is the last position
         predictedPosition = lastPosition;
-
 
         return;
     }

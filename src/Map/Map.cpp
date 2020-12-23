@@ -8,6 +8,8 @@
 #include "PathFinding.h"
 #include "Geo.h"
 
+#include "NoGoAreas.h"
+
 namespace Map
 {
     namespace
@@ -32,9 +34,6 @@ namespace Map
 
         std::vector<int> tileLastSeen;
 
-        std::vector<int> noGoAreaTiles;
-        bool noGoAreaTilesUpdated;
-
 #if CHERRYVIS_ENABLED
         std::vector<long> visibility;
         std::vector<long> power;
@@ -49,6 +48,7 @@ namespace Map
             Base *main;
             std::set<Base *> allOwned;
             std::vector<Base *> probableExpansions;
+            std::vector<Base *> islandExpansions;
 
             PlayerBases() : startingMain(nullptr), startingNatural(nullptr), main(nullptr) {}
         };
@@ -150,6 +150,7 @@ namespace Map
         void computeProbableExpansions(BWAPI::Player player, PlayerBases &playerBases)
         {
             playerBases.probableExpansions.clear();
+            playerBases.islandExpansions.clear();
 
             // If we don't yet know the location of this player's starting base, we can't guess where they will expand
             if (!playerBases.startingMain) return;
@@ -157,13 +158,18 @@ namespace Map
             auto myBases = getMyBases(player);
             auto enemyBases = getEnemyBases(player);
 
-            std::vector<std::pair<int, Base *>> scoredBases;
+            std::vector<std::tuple<int, Base *, bool>> scoredBases;
             for (auto base : bases)
             {
                 // Skip bases that are already taken
                 // We consider any based owned by a different player than us to be taken
                 // We consider bases owned by us to be taken if the resource depot exists
-                if (base->owner && (player != BWAPI::Broodwar->self() || (base->resourceDepot && base->resourceDepot->exists()))) continue;
+                if (base->owner &&
+                    (base->owner != BWAPI::Broodwar->self() || player != BWAPI::Broodwar->self()
+                     || (base->resourceDepot && base->resourceDepot->exists())))
+                {
+                    continue;
+                }
 
                 // Want to be close to our own base
                 int distanceFromUs = closestBaseDistance(base, myBases);
@@ -179,7 +185,8 @@ namespace Map
                 }
 
                 // Might be an island base
-                if (distanceFromUs == -1) continue;
+                bool island = (distanceFromUs == -1);
+                if (island) distanceFromUs = playerBases.startingMain->getPosition().getApproxDistance(base->getPosition());
 
                 // Want to be far from the enemy base.
                 int distanceFromEnemy = closestBaseDistance(base, enemyBases);
@@ -189,20 +196,19 @@ namespace Map
                 int score = (distanceFromEnemy * 3) / 2 - distanceFromUs;
 
                 // Increase score based on available resources
-                // TODO: Find a solution for mineral-only bases
                 score += base->minerals() / 100;
                 score += base->gas() / 50;
 
-                scoredBases.emplace_back(std::make_pair(score, base));
+                scoredBases.emplace_back(std::make_tuple(score, base, island));
             }
 
             if (scoredBases.empty()) return;
 
             std::sort(scoredBases.begin(), scoredBases.end());
             std::reverse(scoredBases.begin(), scoredBases.end());
-            for (auto &pair : scoredBases)
+            for (auto &scoredBase : scoredBases)
             {
-                playerBases.probableExpansions.push_back(pair.second);
+                (std::get<2>(scoredBase) ? playerBases.islandExpansions : playerBases.probableExpansions).push_back(std::get<1>(scoredBase));
             }
         }
 
@@ -325,9 +331,10 @@ namespace Map
         // - We infer unknown start positions if we see buildings nearby
         void inferBaseOwnershipFromUnitCreated(const Unit &unit)
         {
-            // Only consider non-neutral buildings
+            // Only consider non-neutral non-flying buildings
             if (unit->player == BWAPI::Broodwar->neutral()) return;
             if (!unit->type.isBuilding()) return;
+            if (unit->isFlying) return;
 
             // Only consider base ownership for self with depots
             if (unit->player == BWAPI::Broodwar->self() && !unit->type.isResourceDepot()) return;
@@ -521,24 +528,6 @@ namespace Map
             }
 
             CherryVis::addHeatmap("TileCollisionVectorY", tileCollisionVectorYCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
-#endif
-        }
-
-        // Writes the tile no go areas to CherryVis
-        void dumpNoGoAreaTiles()
-        {
-#if CHERRYVIS_ENABLED
-            // Dump to CherryVis
-            std::vector<long> noGoAreaTilesCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
-            {
-                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
-                {
-                    noGoAreaTilesCVis[x + y * BWAPI::Broodwar->mapWidth()] = noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()];
-                }
-            }
-
-            CherryVis::addHeatmap("NoGoAreas", noGoAreaTilesCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 #endif
         }
 
@@ -803,7 +792,9 @@ namespace Map
         void computeLeafAreaTiles()
         {
             // Gather all "leaf" areas, which we define as areas that are only connected by narrow chokes
+            // We also always add our starting main areas as leaf areas
             std::set<const BWEM::Area *> leafAreas;
+            leafAreas.insert(myStartingMainAreas.begin(), myStartingMainAreas.end());
             for (const auto &area : BWEM::Map::Instance().Areas())
             {
                 for (const auto &bwemChoke : area.ChokePoints())
@@ -996,9 +987,9 @@ namespace Map
         leafAreaTiles.clear();
         tileLastSeen.clear();
         tileLastSeen.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-        noGoAreaTiles.clear();
-        noGoAreaTiles.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-        noGoAreaTilesUpdated = true; // So we get an initial null state
+
+        NoGoAreas::initialize();
+
 #if CHERRYVIS_ENABLED
         visibility.clear();
         power.clear();
@@ -1259,11 +1250,7 @@ namespace Map
             tileWalkabilityUpdated = false;
         }
 
-        if (noGoAreaTilesUpdated)
-        {
-            dumpNoGoAreaTiles();
-            noGoAreaTilesUpdated = false;
-        }
+        NoGoAreas::update();
 
         // Update the last seen frame for all visible tiles
         for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
@@ -1308,6 +1295,11 @@ namespace Map
     std::vector<Base *> &getUntakenExpansions(BWAPI::Player player)
     {
         return playerToPlayerBases[player].probableExpansions;
+    }
+
+    std::vector<Base *> &getUntakenIslandExpansions(BWAPI::Player player)
+    {
+        return playerToPlayerBases[player].islandExpansions;
     }
 
     Base *getMyMain()
@@ -1530,49 +1522,5 @@ namespace Map
     int lastSeen(int x, int y)
     {
         return tileLastSeen[x + y * BWAPI::Broodwar->mapWidth()];
-    }
-
-    void addNoGoArea(BWAPI::TilePosition topLeft, BWAPI::TilePosition size)
-    {
-        for (int x = topLeft.x; x < topLeft.x + size.x; x++)
-        {
-            if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
-
-            for (int y = topLeft.y; y < topLeft.y + size.y; y++)
-            {
-                if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
-
-                noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()]++;
-            }
-        }
-
-        noGoAreaTilesUpdated = true;
-    }
-
-    void removeNoGoArea(BWAPI::TilePosition topLeft, BWAPI::TilePosition size)
-    {
-        for (int x = topLeft.x; x < topLeft.x + size.x; x++)
-        {
-            if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
-
-            for (int y = topLeft.y; y < topLeft.y + size.y; y++)
-            {
-                if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
-
-                noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()]--;
-            }
-        }
-
-        noGoAreaTilesUpdated = true;
-    }
-
-    bool isInNoGoArea(BWAPI::TilePosition pos)
-    {
-        return noGoAreaTiles[pos.x + pos.y * BWAPI::Broodwar->mapWidth()] > 0;
-    }
-
-    bool isInNoGoArea(int x, int y)
-    {
-        return noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()] > 0;
     }
 }

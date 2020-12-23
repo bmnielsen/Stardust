@@ -1,5 +1,5 @@
 #include <utility>
-#include <Strategist/Plays/MainArmy/AttackEnemyMain.h>
+#include <Strategist/Plays/MainArmy/AttackEnemyBase.h>
 #include "Units.h"
 #include "PathFinding.h"
 #include "Opponent.h"
@@ -202,8 +202,11 @@ namespace Strategist
                         {
                             Log::Get() << "WARNING: Unit assigned to unknown play: " << *reassignableUnit.unit
                                        << " in " << reassignableUnit.currentPlay->label;
-                            continue;
+                            reassignableUnit.currentPlay = nullptr;
                         }
+
+                        // For now skip for units we don't yet support in main army plays
+                        if (reassignableUnit.unit->isFlying && !reassignableUnit.unit->type.isDetector()) continue;
 
                         unitToPlay[reassignableUnit.unit] = playReceivingUnassignedUnits;
                         playReceivingUnassignedUnits->addUnit(reassignableUnit.unit);
@@ -227,7 +230,7 @@ namespace Strategist
 
             // We consider the enemy to be contained if the following is true:
             // - The enemy has a known main base
-            // - Our main army play is AttackEnemyMain
+            // - Our main army play is AttackEnemyBase
             // - The vanguard cluster in that play is either attacking or containing the enemy main or natural
             // - We have no knowledge of enemy combat units outside the enemy main and natural
 
@@ -235,12 +238,12 @@ namespace Strategist
             auto enemyMain = Map::getEnemyMain();
             if (!enemyMain) return false;
 
-            // We only consider the enemy contained if our main army play is AttackEnemyMain
+            // We only consider the enemy contained if our main army play is AttackEnemyBase
             Play *attackMainPlay = nullptr;
             for (auto &spPlay : plays)
             {
                 Play *play = spPlay.get();
-                if (typeid(*play) == typeid(AttackEnemyMain))
+                if (typeid(*play) == typeid(AttackEnemyBase))
                 {
                     attackMainPlay = play;
                     break;
@@ -365,6 +368,14 @@ namespace Strategist
             }
             CherryVis::setBoardListValue("prodgoal", values);
 
+            values.clear();
+            values.reserve(mineralReservations.size());
+            for (auto &mineralReservation : mineralReservations)
+            {
+                values.emplace_back((std::ostringstream() << mineralReservation.first << ":" << mineralReservation.second).str());
+            }
+            CherryVis::setBoardListValue("mineralreservations", values);
+
             if (engine)
             {
                 CherryVis::setBoardValue("strategy", engine->getOurStrategy());
@@ -447,9 +458,10 @@ namespace Strategist
         {
             auto removeUnit = [&](const MyUnit &unit)
             {
+                CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
+
                 (*it)->removeUnit(unit);
                 unitToPlay.erase(unit);
-                CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
             };
 
             // Update our unit map for units released from the play
