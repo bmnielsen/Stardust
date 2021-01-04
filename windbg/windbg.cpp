@@ -16,7 +16,7 @@ namespace
 
 int main()
 {
-    loadModule("C:\\Dev\\BW\\Stardust-dev\\out\\src\\RelWithDebInfo\\Stardust.dll");
+    loadModule("C:\\Dev\\BW\\Stardust-dev-tournament\\out\\src\\RelWithDebInfo\\Stardust.dll");
 
     while (true)
     {
