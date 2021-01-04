@@ -491,8 +491,8 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 break;
             }
 
-            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
+            auto mainArmyPlay = getPlay<AttackEnemyBase>(plays);
+            if (!mainArmyPlay)
             {
                 CherryVis::setBoardValue("natural", "no-attack-play");
                 break;
@@ -513,9 +513,9 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 break;
             }
 
-            // Cluster should be at least 2/3 of the way to the target base
-            int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
-            if (dist * 2 > distToMain)
+            // Cluster should be past our own natural
+            int naturalDist = PathFinding::GetGroundDistance(natural->getPosition(), mainArmyPlay->base->getPosition());
+            if (naturalDist != -1 && dist > (naturalDist - 320))
             {
                 CherryVis::setBoardValue("natural", "vanguard-cluster-too-close");
                 break;

@@ -358,8 +358,8 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         default:
         {
             // Expand as soon as our main army transitions to attack
-            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
+            auto mainArmyPlay = getPlay<AttackEnemyBase>(plays);
+            if (!mainArmyPlay)
             {
                 CherryVis::setBoardValue("natural", "no-attack-play");
                 break;

@@ -39,46 +39,9 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         }
     }
 
-    // Take a nearby island expansion when we have two completed nexuses
-    if (takeIslandExpansionPlays.empty() && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
+    // Determines if we consider it safe to expand to an island
+    auto safeToIslandExpand = [&]()
     {
-        Base *closestIslandBase = nullptr;
-        int closestIslandBaseDist = INT_MAX;
-        for (auto &islandBase : Map::getUntakenIslandExpansions())
-        {
-            int dist = Map::getMyMain()->getPosition().getApproxDistance(islandBase->getPosition());
-            if (dist < closestIslandBaseDist)
-            {
-                closestIslandBase = islandBase;
-                closestIslandBaseDist = dist;
-            }
-        }
-
-        if (closestIslandBase && (closestIslandBaseDist < 2500 || Units::countCompleted(BWAPI::UnitTypes::Protoss_Shuttle) > 0))
-        {
-            auto play = std::make_shared<TakeIslandExpansion>(closestIslandBase);
-            plays.emplace(plays.begin(), play);
-
-            Log::Get() << "Queued island expansion to " << play->depotPosition;
-            CherryVis::log() << "Added TakeIslandExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
-        }
-    }
-
-    // Determine whether we want to expand now
-    auto wantToExpand = [&]()
-    {
-        // Expand if we have no bases with more than 3 available mineral assignments
-        // If the enemy is contained, set the threshold to 6 instead
-        // Adjust by the number of pending expansions to avoid instability when a build worker is reserved for the expansion
-        int availableMineralAssignmentsThreshold = (Strategist::isEnemyContained() ? 6 : 3) + takeExpansionPlays.size();
-        for (auto base : Map::getMyBases())
-        {
-            if (Workers::availableMineralAssignments(base) > availableMineralAssignmentsThreshold)
-            {
-                return false;
-            }
-        }
-
         // Only expand when our army is on the offensive
         auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
         if (!mainArmyPlay) return false;
@@ -89,19 +52,78 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         auto squad = mainArmyPlay->getSquad();
         if (!squad) return false;
 
-        // Get the vanguard cluster with its distance to the target base
-        int dist;
-        auto vanguardCluster = squad->vanguardCluster(&dist);
+        // Ensure the vanguard cluster is at least 20 tiles away from our natural
+        auto vanguardCluster = squad->vanguardCluster();
+        if (!vanguardCluster) return false;
+
+        auto natural = Map::getMyNatural();
+        if (natural && vanguardCluster->vanguard)
+        {
+            int naturalDist = PathFinding::GetGroundDistance(natural->getPosition(), vanguardCluster->vanguard->lastPosition);
+            if (naturalDist != -1 && naturalDist < 640)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    // Check if we want to cancel an active TakeIslandExpansionPlay
+    if (!takeIslandExpansionPlays.empty())
+    {
+        if (!safeToIslandExpand())
+        {
+            for (auto &takeIslandExpansionPlay : takeIslandExpansionPlays)
+            {
+                if (takeIslandExpansionPlay->cancellable())
+                {
+                    takeIslandExpansionPlay->status.complete = true;
+
+                    Log::Get() << "Cancelled island expansion to " << takeIslandExpansionPlay->depotPosition;
+                }
+            }
+        }
+
+        return;
+    }
+
+    // Determine whether we want to expand now
+    bool wantToExpand = true;
+    {
+        // Expand if we have no bases with more than 3 available mineral assignments
+        // If the enemy is contained, set the threshold to 6 instead
+        // Adjust by the number of pending expansions to avoid instability when a build worker is reserved for the expansion
+        int availableMineralAssignmentsThreshold = (Strategist::isEnemyContained() ? 6 : 3) + takeExpansionPlays.size();
+        for (auto base : Map::getMyBases())
+        {
+            if (Workers::availableMineralAssignments(base) > availableMineralAssignmentsThreshold)
+            {
+                wantToExpand = false;
+                break;
+            }
+        }
+    }
+
+    // Determines if we consider it safe to expand to a normal expansion
+    auto safeToExpand = [&]()
+    {
+        // Only expand when our army is on the offensive
+        auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+        if (!mainArmyPlay) return false;
+        if (typeid(*mainArmyPlay) == typeid(MopUp)) return true;
+        if (typeid(*mainArmyPlay) != typeid(AttackEnemyBase)) return false;
+
+        // Sanity check that the play has a squad
+        auto squad = mainArmyPlay->getSquad();
+        if (!squad) return false;
+
+        // Get the vanguard cluster
+        auto vanguardCluster = squad->vanguardCluster();
         if (!vanguardCluster) return false;
 
         // Don't expand if the cluster has fewer than five units
         if (vanguardCluster->units.size() < 5) return false;
-
-        // Don't expand if the cluster's vanguard is closer to our own main
-        int distToMain = PathFinding::GetGroundDistance(
-                Map::getMyMain()->getPosition(),
-                vanguardCluster->vanguard ? vanguardCluster->vanguard->lastPosition : vanguardCluster->center);
-        if (dist > distToMain) return false;
 
         // Expand if we are gas blocked - we have the resources for the nexus anyway
         if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100) return true;
@@ -118,24 +140,53 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         return true;
     };
 
-    // If we don't want to expand, cancel any TakeExpansion plays that haven't started the nexus
-    if (!wantToExpand())
+    // Check if we want to cancel an active TakeExpansionPlay
+    if (!takeExpansionPlays.empty())
     {
-        for (auto &takeExpansionPlay : takeExpansionPlays)
+        if (!wantToExpand || !safeToExpand())
         {
-            if (!takeExpansionPlay->constructionStarted())
+            for (auto &takeExpansionPlay : takeExpansionPlays)
             {
-                takeExpansionPlay->status.complete = true;
+                if (!takeExpansionPlay->constructionStarted())
+                {
+                    takeExpansionPlay->status.complete = true;
 
-                Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition;
+                    Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition;
+                }
             }
         }
 
         return;
     }
 
-    // We currently only take one expansion at a time
-    if (!takeExpansionPlays.empty()) return;
+    // Take an island expansion when we are on two bases, want to expand and it is safe to do so
+    if (wantToExpand && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
+    {
+        Base *closestIslandBase = nullptr;
+        int closestIslandBaseDist = INT_MAX;
+        for (auto &islandBase : Map::getUntakenIslandExpansions())
+        {
+            int dist = Map::getMyMain()->getPosition().getApproxDistance(islandBase->getPosition());
+            if (dist < closestIslandBaseDist)
+            {
+                closestIslandBase = islandBase;
+                closestIslandBaseDist = dist;
+            }
+        }
+
+        if (closestIslandBase && closestIslandBaseDist < 2500 && safeToIslandExpand())
+        {
+            auto play = std::make_shared<TakeIslandExpansion>(closestIslandBase);
+            plays.emplace(plays.begin(), play);
+
+            Log::Get() << "Queued island expansion to " << play->depotPosition;
+            CherryVis::log() << "Added TakeIslandExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
+            return;
+        }
+    }
+
+    // Break out if we don't want to expand to a normal base
+    if (!wantToExpand || !safeToExpand()) return;
 
     // Determine if we want to consider a mineral-only base
     auto shouldTakeMineralOnly = []()

@@ -144,9 +144,18 @@ void TakeIslandExpansion::update()
 
         Builder::build(BWAPI::UnitTypes::Protoss_Nexus, depotPosition, builder);
     }
-    else if (nexus->completed && !shuttle)
+    else
     {
-        status.complete = true;
+        if (builder)
+        {
+            Workers::releaseWorker(builder);
+            builder = nullptr;
+        }
+
+        if (nexus->completed && !shuttle)
+        {
+            status.complete = true;
+        }
     }
 
     // Have the shuttle transfer some probes from a nearby base
@@ -161,6 +170,8 @@ void TakeIslandExpansion::update()
                 int bestScore = INT_MAX;
                 for (auto &b : Map::getMyBases())
                 {
+                    if (b->island) continue;
+
                     int availableWorkers = Workers::baseMineralWorkerCount(b);
                     if (availableWorkers < 8) continue;
 
@@ -179,6 +190,19 @@ void TakeIslandExpansion::update()
                 {
                     shuttle->moveTo(bestBase->mineralLineCenter);
                     break;
+                }
+
+                // Now wait until the nexus is sufficiently complete
+                // We try to approximately handle transit time + 300 frames to load & unload the workers
+                if (!nexus) break;
+                if (!nexus->completed && workerTransfer.empty())
+                {
+                    int frames = 600 +
+                            PathFinding::ExpectedTravelTime(base->getPosition(), bestBase->getPosition(), BWAPI::UnitTypes::Protoss_Shuttle);
+                    if (nexus->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount() > frames)
+                    {
+                        break;
+                    }
                 }
 
                 // Then reserve the appropriate number of workers
@@ -250,8 +274,6 @@ void TakeIslandExpansion::update()
 void TakeIslandExpansion::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
                                   const std::function<void(const MyUnit &)> &movableUnitCallback)
 {
-    Builder::cancel(depotPosition);
-
     // TODO: Avoid stranding the worker on the island
 
     if (builder) Workers::releaseWorker(builder);
@@ -278,4 +300,11 @@ void TakeIslandExpansion::addUnit(const MyUnit &unit)
 void TakeIslandExpansion::removeUnit(const MyUnit &unit)
 {
     if (shuttle == unit) shuttle = nullptr;
+}
+
+bool TakeIslandExpansion::cancellable()
+{
+    if (!shuttle) return true;
+    if (builder) return false;
+    return workerTransfer.empty();
 }
