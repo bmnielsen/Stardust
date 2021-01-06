@@ -167,8 +167,8 @@ bool TakeExpansion::constructionStarted() const
     return Units::myBuildingAt(depotPosition) != nullptr;
 }
 
-void TakeExpansion::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                            const std::function<void(const MyUnit &)> &movableUnitCallback)
+void TakeExpansion::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                            const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     Builder::cancel(depotPosition);
 

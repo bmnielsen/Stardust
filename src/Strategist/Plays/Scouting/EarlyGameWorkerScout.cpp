@@ -521,8 +521,8 @@ void EarlyGameWorkerScout::update()
     scout->moveTo(pos, true);
 }
 
-void EarlyGameWorkerScout::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                                   const std::function<void(const MyUnit &)> &movableUnitCallback)
+void EarlyGameWorkerScout::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                                   const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     if (scout && scout->exists())
     {

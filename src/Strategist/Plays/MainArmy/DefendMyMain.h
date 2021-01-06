@@ -19,8 +19,8 @@ public:
 
     void removeUnit(const MyUnit &unit) override;
 
-    void disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
-                 const std::function<void(const MyUnit&)> &movableUnitCallback) override;
+    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                 const std::function<void(const MyUnit)> &movableUnitCallback) override;
 
     [[nodiscard]] bool canTransitionToAttack() const;
 

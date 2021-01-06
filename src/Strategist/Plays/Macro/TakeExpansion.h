@@ -14,8 +14,8 @@ public:
 
     [[nodiscard]] bool constructionStarted() const;
 
-    void disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
-                 const std::function<void(const MyUnit&)> &movableUnitCallback) override;
+    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                 const std::function<void(const MyUnit)> &movableUnitCallback) override;
 
     BWAPI::TilePosition depotPosition;
 

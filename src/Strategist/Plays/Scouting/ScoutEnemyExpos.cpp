@@ -192,8 +192,8 @@ void ScoutEnemyExpos::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
     }
 }
 
-void ScoutEnemyExpos::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                              const std::function<void(const MyUnit &)> &movableUnitCallback)
+void ScoutEnemyExpos::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                              const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     if (scout)
     {

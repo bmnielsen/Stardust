@@ -202,7 +202,7 @@ namespace Strategist
                         {
                             Log::Get() << "WARNING: Unit assigned to unknown play: " << *reassignableUnit.unit
                                        << " in " << reassignableUnit.currentPlay->label;
-                            reassignableUnit.currentPlay = nullptr;
+                            unitToPlay.erase(reassignableUnit.unit);
                         }
 
                         // For now skip for units we don't yet support in main army plays
@@ -407,7 +407,7 @@ namespace Strategist
         if (Opponent::hasRaceJustBeenDetermined())
         {
             // We first need to clear all of our existing plays, as the new strategy engine will add its own
-            auto removeUnit = [&](const MyUnit &unit)
+            auto removeUnit = [&](const MyUnit unit)
             {
                 unitToPlay.erase(unit);
             };
@@ -456,7 +456,7 @@ namespace Strategist
         // Process the changes signalled by the PlayStatus objects
         for (auto it = plays.begin(); it != plays.end();)
         {
-            auto removeUnit = [&](const MyUnit &unit)
+            auto removeUnit = [&](const MyUnit unit)
             {
                 CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
 
@@ -474,7 +474,7 @@ namespace Strategist
             // This replaces the current play with a new one, moving all units
             if ((*it)->status.transitionTo != nullptr)
             {
-                auto moveUnit = [&](const MyUnit &unit)
+                auto moveUnit = [&](const MyUnit unit)
                 {
                     unitToPlay[unit] = (*it)->status.transitionTo;
                     (*it)->status.transitionTo->addUnit(unit);

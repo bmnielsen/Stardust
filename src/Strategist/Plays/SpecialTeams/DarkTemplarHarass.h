@@ -9,8 +9,8 @@ public:
 
     void update() override;
 
-    void disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
-                 const std::function<void(const MyUnit&)> &movableUnitCallback) override
+    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                 const std::function<void(const MyUnit)> &movableUnitCallback) override
     {
         for (const auto &unit : units)
         {

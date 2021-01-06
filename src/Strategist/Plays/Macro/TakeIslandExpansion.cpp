@@ -271,8 +271,8 @@ void TakeIslandExpansion::update()
     }
 }
 
-void TakeIslandExpansion::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                                  const std::function<void(const MyUnit &)> &movableUnitCallback)
+void TakeIslandExpansion::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                                  const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     // TODO: Avoid stranding the worker on the island
 

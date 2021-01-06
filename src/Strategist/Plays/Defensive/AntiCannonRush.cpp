@@ -272,8 +272,8 @@ void AntiCannonRush::addPrioritizedProductionGoals(std::map<int, std::vector<Pro
     }
 }
 
-void AntiCannonRush::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                             const std::function<void(const MyUnit &)> &movableUnitCallback)
+void AntiCannonRush::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                             const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     if (scout && scout->exists())
     {

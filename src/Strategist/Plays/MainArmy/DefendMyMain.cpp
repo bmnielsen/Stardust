@@ -212,8 +212,8 @@ void DefendMyMain::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
     }
 }
 
-void DefendMyMain::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                           const std::function<void(const MyUnit &)> &movableUnitCallback)
+void DefendMyMain::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                           const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     Play::disband(removedUnitCallback, movableUnitCallback);
 
