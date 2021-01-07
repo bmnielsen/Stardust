@@ -10,6 +10,8 @@
 class MapSpecificOverride
 {
 public:
+    virtual ~MapSpecificOverride() {}
+
     virtual bool hasMineralWalking() { return false; }
 
     virtual bool hasAttackClearableChokes() { return false; }

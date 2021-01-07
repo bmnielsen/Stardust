@@ -970,10 +970,20 @@ namespace Map
 
     void initialize()
     {
-        _mapSpecificOverride = nullptr;
-        bases.clear();
+        if (_mapSpecificOverride)
+        {
+            delete _mapSpecificOverride;
+            _mapSpecificOverride = nullptr;
+        }
+        for (auto it = bases.begin(); it != bases.end(); it = bases.erase(it))
+        {
+            delete *it;
+        }
         startingLocationBases.clear();
-        chokes.clear();
+        for (auto it = chokes.begin(); it != chokes.end(); it = chokes.erase(it))
+        {
+            delete it->second;
+        }
         _minChokeWidth = 0;
         myStartingMainAreas.clear();
         tileWalkability.clear();
