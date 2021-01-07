@@ -136,7 +136,7 @@ void DefendMyMain::update()
         // Release the worker gas steal attackers when they are no longer needed
         if (!reservedWorkerGasStealAttackers.empty())
         {
-            for (const auto& workerGasStealAttacker : reservedWorkerGasStealAttackers)
+            for (const auto &workerGasStealAttacker : reservedWorkerGasStealAttackers)
             {
                 Workers::releaseWorker(workerGasStealAttacker);
             }
@@ -163,20 +163,7 @@ void DefendMyMain::update()
     // TODO: Should clear emergency when our squad is defending the choke
     if (lastRegroupFrame > 0 && lastRegroupFrame > (BWAPI::Broodwar->getFrameCount() - REGROUP_EMERGENCY_TIMEOUT))
     {
-        auto desiredEmergencyProduction = BWAPI::UnitTypes::Protoss_Zealot;
-
-        // Produce dragoons instead under the following circumstances:
-        // - The enemy has units that can only be effectively countered with dragoons
-        // - The enemy is not zerg and we already have the prerequisites needed for dragoons
-        if (requireDragoons || (
-                BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Zerg &&
-                Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0 &&
-                BWAPI::Broodwar->self()->gas() >= 50
-        ))
-        {
-            desiredEmergencyProduction = BWAPI::UnitTypes::Protoss_Dragoon;
-        }
-
+        auto desiredEmergencyProduction = requireDragoons ? BWAPI::UnitTypes::Protoss_Dragoon : BWAPI::UnitTypes::Protoss_Zealot;
         if (emergencyProduction != desiredEmergencyProduction)
         {
             emergencyProduction = desiredEmergencyProduction;
@@ -197,6 +184,22 @@ void DefendMyMain::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
     // If we have an emergency production type, produce an infinite number of them off two gateways
     if (emergencyProduction != BWAPI::UnitTypes::None)
     {
+        // If the emergency production is for zealots, produce dragoons if we have excess gas
+        // We don't do this in PvT as marines can't be kited by non-upgraded dragoons
+        if (emergencyProduction == BWAPI::UnitTypes::Protoss_Zealot &&
+            BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran &&
+            Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0)
+        {
+            int gasAvailability = BWAPI::Broodwar->self()->gas() / 50;
+            if (gasAvailability > 0)
+            {
+                prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                            BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                            gasAvailability,
+                                                                            2);
+            }
+        }
+
         prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>, emergencyProduction, -1, 2);
         return;
     }

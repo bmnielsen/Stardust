@@ -3,13 +3,11 @@
 #include "Units.h"
 #include "Map.h"
 #include "UnitUtil.h"
-#include "Workers.h"
 #include "Players.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
-#include "Plays/MainArmy/MopUp.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
 
@@ -110,25 +108,6 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     handleNaturalExpansion(plays, prioritizedProductionGoals);
     handleDetection(plays, prioritizedProductionGoals);
 
-    // Temporary hack to set the number of gas workers needed until the producer can do it
-    auto setGasGathering = [](bool gather)
-    {
-        int current = Workers::desiredGasWorkers();
-        int delta;
-        if (gather)
-        {
-            delta = Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) * 3 - current;
-        }
-        else
-        {
-            delta = -std::min(current, Workers::availableMineralAssignments());
-        }
-        Workers::addDesiredGasWorkers(delta);
-    };
-
-    // Default to gather gas - we will only set to false later if we are being rushed
-    setGasGathering(true);
-
     // Main army production
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
@@ -172,63 +151,19 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     {
         case OurStrategy::EarlyGameDefense:
         {
-            // Start with dragoons
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       -1,
-                                                                       -1);
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Zealot,
-                                                                       -1,
-                                                                       -1);
-
+            oneGateCoreOpening(prioritizedProductionGoals, dragoonCount, zealotCount, 1);
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
 
             break;
         }
         case OurStrategy::AntiMarineRush:
         {
-            // If we have no dragoons yet, get four zealots
+            // If we haven't reached a "critical mass" of dragoons yet, get at least four zealots
             // Otherwise keep two zealots while pumping dragoons
-            int desiredZealots = (dragoonCount == 0 ? 4 : 2) + std::max(0, (Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) - 6) / 3);
+            int desiredZealots = (dragoonCount < 3 ? 4 : 2) + std::max(0, (Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) - 6) / 3);
             int zealotsRequired = desiredZealots - zealotCount;
 
-            // Get two zealots at highest priority
-            if (dragoonCount == 0 && zealotCount < 2)
-            {
-                prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                            BWAPI::UnitTypes::Protoss_Zealot,
-                                                                            2 - zealotCount,
-                                                                            2);
-                zealotsRequired -= 2 - zealotCount;
-            }
-
-            if (zealotsRequired > 0)
-            {
-                prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                              BWAPI::UnitTypes::Protoss_Zealot,
-                                                                              zealotsRequired,
-                                                                              -1);
-
-                if (zealotsRequired > 1 || BWAPI::Broodwar->self()->gas() >= 50)
-                {
-                    setGasGathering(false);
-                }
-            }
-
-            // If the dragoon transition is just beginning, only order one so we keep producing zealots
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       dragoonCount == 0 ? 1 : -1,
-                                                                       -1);
-
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Zealot,
-                                                                       -1,
-                                                                       -1);
-
-            // Upgrade goon range at 2 dragoons
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+            handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired);
 
             break;
         }

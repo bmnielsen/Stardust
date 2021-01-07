@@ -7,8 +7,6 @@
 class DefendMyMain : public MainArmyPlay
 {
 public:
-    BWAPI::UnitType emergencyProduction;
-
     explicit DefendMyMain();
 
     std::shared_ptr<Squad> getSquad() override { return squad; }
@@ -25,6 +23,7 @@ public:
     [[nodiscard]] bool canTransitionToAttack() const;
 
 private:
+    BWAPI::UnitType emergencyProduction;
     std::shared_ptr<EarlyGameDefendMainBaseSquad> squad;
     std::shared_ptr<WorkerDefenseSquad> workerDefenseSquad;
     int lastRegroupFrame;

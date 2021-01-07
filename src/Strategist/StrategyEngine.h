@@ -27,6 +27,16 @@ protected:
     static void handleGasStealProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                          int &zealotCount);
 
+    static void handleAntiRushProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                         int dragoonCount,
+                                         int zealotCount,
+                                         int zealotsRequired);
+
+    static void oneGateCoreOpening(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                   int dragoonCount,
+                                   int zealotCount,
+                                   int desiredZealots);
+
     static void mainArmyProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                    BWAPI::UnitType unitType,
                                    int count,

@@ -24,6 +24,8 @@ namespace
     {
         if (!unit->getType().isBuilding() || unit->isCompleted()) return -1;
 
+        if (unit->getPlayer() == BWAPI::Broodwar->self()) return unit->getRemainingBuildTime();
+
         int remainingHitPoints = unit->getType().maxHitPoints() - unit->getHitPoints();
         double hitPointsPerFrame = (unit->getType().maxHitPoints() * 0.9) / unit->getType().buildTime();
         return BWAPI::Broodwar->getFrameCount() + (int) (remainingHitPoints / hitPointsPerFrame);

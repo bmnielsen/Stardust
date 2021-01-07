@@ -1828,10 +1828,32 @@ namespace Producer
         write(committedItems, (std::ostringstream() << "producergoal" << count).str());
 #endif
 
+        // While running through the goals, keep track of whether we need to collect gas
+        // At some point this should be integrated into the actual producer logic so it can be adjusted dynamically
+        // For now, we collect gas if the first unlimited production goal requires it or if we need gas for an earlier goal
+        bool hasSeenUnlimited = false;
+        int availableGas = BWAPI::Broodwar->self()->gas();
         for (auto goal : Strategist::currentProductionGoals())
         {
             if (auto unitProductionGoal = std::get_if<UnitProductionGoal>(&goal))
             {
+                if (!hasSeenUnlimited)
+                {
+                    if (unitProductionGoal->countToProduce() == -1)
+                    {
+                        if (unitProductionGoal->unitType().gasPrice() > 0)
+                        {
+                            availableGas = -1;
+                        }
+
+                        hasSeenUnlimited = true;
+                    }
+                    else
+                    {
+                        availableGas -= unitProductionGoal->countToProduce() * unitProductionGoal->unitType().gasPrice();
+                    }
+                }
+
                 handleGoal(unitProductionGoal->unitType(),
                            unitProductionGoal->getLocation(),
                            unitProductionGoal->countToProduce(),
@@ -1841,6 +1863,11 @@ namespace Producer
             }
             else if (auto upgradeProductionGoal = std::get_if<UpgradeProductionGoal>(&goal))
             {
+                if (!hasSeenUnlimited)
+                {
+                    availableGas -= upgradeProductionGoal->upgradeType().gasPrice();
+                }
+
                 handleGoal(upgradeProductionGoal->upgradeType(),
                            std::monostate(),
                            1,
@@ -1857,6 +1884,16 @@ namespace Producer
             count++;
             write(committedItems, (std::ostringstream() << "producergoal" << count).str());
 #endif
+        }
+
+        // Set gas collection appropriately
+        if (availableGas < 0)
+        {
+            Workers::setDesiredGasWorkerDelta(Workers::reassignableMineralWorkers());
+        }
+        else
+        {
+            Workers::setDesiredGasWorkerDelta(-Workers::reassignableGasWorkers());
         }
 
         pullRefineries();
@@ -1913,12 +1950,6 @@ namespace Producer
                     if (builder && arrivalFrame >= item->startFrame)
                     {
                         Builder::build(*unitType, item->buildLocation.location.tile, builder, BWAPI::Broodwar->getFrameCount() + item->startFrame);
-
-                        // TODO: This needs to be handled better
-                        if (*unitType == BWAPI::Broodwar->self()->getRace().getRefinery())
-                        {
-                            Workers::addDesiredGasWorkers(3);
-                        }
                     }
                 }
 
