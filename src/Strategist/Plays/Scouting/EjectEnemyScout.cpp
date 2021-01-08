@@ -35,6 +35,7 @@ void EjectEnemyScout::update()
     {
         for (auto &unit : Units::allEnemy())
         {
+            if (!unit->exists()) continue;
             if (!(unit->type.isWorker() || unit->type == BWAPI::UnitTypes::Zerg_Overlord)) continue;
             if (inMainArea(unit))
             {

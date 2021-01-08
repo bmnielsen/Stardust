@@ -235,7 +235,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
     targets.reserve(targetUnits.size());
     for (const auto &targetUnit : targetUnits)
     {
-        targets.emplace_back(targetUnit, vanguard);
+        if (targetUnit->exists()) targets.emplace_back(targetUnit, vanguard);
     }
 
 #if DEBUG_TARGETING
