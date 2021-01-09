@@ -26,22 +26,23 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
 
     auto canTransitionFromAntiAllIn = [&]()
     {
-        // Require Dragoon Range
-        // TODO: This is probably much too conservative
-        if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0) return false;
-
         // Count total combat units
         auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
         auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
         auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
         int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
                         completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+        
+        int requiredUnits = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0) ? 20 : 15;
+        if (enemyStrategyStableFor > 480
+            && newEnemyStrategy != ZergStrategy::WorkerRush
+            && newEnemyStrategy != ZergStrategy::ZerglingRush
+            && newEnemyStrategy != ZergStrategy::ZerglingAllIn)
+        {
+            requiredUnits -= 5;
+        }
 
-        // Transition when we have 15 units, or 10 if the enemy strategy is no longer recognized as an all-in
-        return unitCount >= 15 || (unitCount >= 10 && enemyStrategyStableFor > 480
-                                   && newEnemyStrategy != ZergStrategy::WorkerRush
-                                   && newEnemyStrategy != ZergStrategy::ZerglingRush
-                                   && newEnemyStrategy != ZergStrategy::ZerglingAllIn);
+        return unitCount >= requiredUnits;
     };
 
     auto strategy = ourStrategy;
