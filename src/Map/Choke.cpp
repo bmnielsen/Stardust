@@ -194,6 +194,20 @@ Choke::Choke(const BWEM::ChokePoint *_choke)
             computeScoutBlockingPositions(center, BWAPI::UnitTypes::Protoss_Zealot, zealotBlockScoutPositions);
         }
     }
+
+    // If the center is not walkable, find the nearest position that is
+    auto wpCenter = BWAPI::WalkPosition(center);
+    if (!BWAPI::Broodwar->isWalkable(wpCenter))
+    {
+        auto spiral = Geo::Spiral();
+        while (wpCenter.isValid() && !BWAPI::Broodwar->isWalkable(wpCenter))
+        {
+            spiral.Next();
+            wpCenter = BWAPI::WalkPosition(center) + BWAPI::WalkPosition(spiral.x, spiral.y);
+        }
+
+        center = BWAPI::Position(wpCenter) + BWAPI::Position(2, 2);
+    }
 }
 
 void Choke::setAsMainChoke()
