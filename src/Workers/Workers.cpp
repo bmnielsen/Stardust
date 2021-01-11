@@ -763,6 +763,8 @@ namespace Workers
     {
         if (!unit || !unit->exists() || !unit->type.isWorker() || !unit->completed) return;
 
+        if (workerJob[unit] == Job::Reserved) return;
+
         workerJob[unit] = Job::Reserved;
         removeFromResource(unit, workerMineralPatch, mineralPatchWorkers);
         removeFromResource(unit, workerRefinery, refineryWorkers);
