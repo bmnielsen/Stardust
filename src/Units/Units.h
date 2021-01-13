@@ -5,6 +5,7 @@
 #include "MyUnit.h"
 #include "Unit.h"
 #include "UpgradeOrTechType.h"
+#include "Base.h"
 
 namespace Units
 {
@@ -24,15 +25,15 @@ namespace Units
 
     MyUnit myBuildingAt(BWAPI::TilePosition tile);
 
-    std::set<MyUnit> &allMine();
+    std::unordered_set<MyUnit> &allMine();
 
-    std::set<MyUnit> &allMineCompletedOfType(BWAPI::UnitType type);
+    std::unordered_set<MyUnit> &allMineCompletedOfType(BWAPI::UnitType type);
 
-    std::set<MyUnit> &allMineIncompleteOfType(BWAPI::UnitType type);
+    std::unordered_set<MyUnit> &allMineIncompleteOfType(BWAPI::UnitType type);
 
-    std::set<Unit> &allEnemy();
+    std::unordered_set<Unit> &allEnemy();
 
-    std::set<Unit> &allEnemyOfType(BWAPI::UnitType type);
+    std::unordered_set<Unit> &allEnemyOfType(BWAPI::UnitType type);
 
     void mine(std::set<MyUnit> &units,
               const std::function<bool(const MyUnit &)> &predicate = nullptr);
@@ -48,6 +49,8 @@ namespace Units
     void enemyInArea(std::set<Unit> &units,
                      const BWEM::Area *area,
                      const std::function<bool(const Unit &)> &predicate = nullptr);
+
+    std::unordered_set<Unit> &enemyAtBase(Base *base);
 
     int countAll(BWAPI::UnitType type);
 

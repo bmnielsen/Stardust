@@ -78,7 +78,7 @@ namespace
     }
 
     Unit getTarget(const MyUnit &myUnit,
-                   const std::set<Unit> &enemyUnits,
+                   const std::unordered_set<Unit> &enemyUnits,
                    bool allowRetreating = true,
                    int distThreshold = INT_MAX,
                    const std::function<bool(const Unit &)> &predicate = nullptr)
