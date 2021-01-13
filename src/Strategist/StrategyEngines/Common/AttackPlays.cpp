@@ -77,17 +77,8 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
 
         // Gather enemy threats at the base
         int enemyValue = 0;
-        for (const auto &unit : Units::allEnemy())
+        for (const auto &unit : Units::enemyAtBase(base))
         {
-            if (!unit->lastPositionValid) continue;
-            if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
-            if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) continue;
-
-            int dist = unit->isFlying
-                       ? unit->lastPosition.getApproxDistance(base->getPosition())
-                       : PathFinding::GetGroundDistance(unit->lastPosition, base->getPosition(), unit->type);
-            if (dist == -1 || dist > 500) continue;
-
             enemyValue += CombatSim::unitValue(unit);
         }
 

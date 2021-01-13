@@ -9,9 +9,8 @@ class DefendBase : public Play
 public:
     Base *base;
     int enemyValue;
-    std::set<Unit> enemyUnits;
 
-    explicit DefendBase(Base *base, int enemyValue, std::set<Unit> enemyUnits);
+    explicit DefendBase(Base *base, int enemyValue);
 
     std::shared_ptr<Squad> getSquad() override { return squad; }
 

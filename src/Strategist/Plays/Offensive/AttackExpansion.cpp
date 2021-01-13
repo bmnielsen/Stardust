@@ -29,44 +29,8 @@ void AttackExpansion::update()
     // Gather enemy threats at the base
     int enemyValue = 0;
     bool requireDragoons = false;
-    for (const auto &unit : Units::allEnemy())
+    for (const auto &unit : Units::enemyAtBase(base))
     {
-        if (!unit->lastPositionValid) continue;
-        if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
-        if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) continue;
-
-        int dist = unit->isFlying
-                   ? unit->lastPosition.getApproxDistance(base->getPosition())
-                   : PathFinding::GetGroundDistance(unit->lastPosition, base->getPosition(), unit->type);
-        if (dist == -1 || dist > 1000) continue;
-
-        // Skip this unit if it is closer to another one of the opponent's bases
-        bool closerToOtherBase = false;
-        for (auto &otherBase : Map::getEnemyBases())
-        {
-            if (otherBase == base) continue;
-            int otherBaseDist = unit->isFlying
-                                ? unit->lastPosition.getApproxDistance(otherBase->getPosition())
-                                : PathFinding::GetGroundDistance(unit->lastPosition, otherBase->getPosition(), unit->type);
-            if (otherBaseDist < dist)
-            {
-                closerToOtherBase = true;
-                break;
-            }
-        }
-        if (closerToOtherBase) continue;
-
-        if (dist > 500)
-        {
-            auto predictedPosition = unit->predictPosition(5);
-            if (!predictedPosition.isValid()) continue;
-
-            int predictedDist = unit->isFlying
-                                ? predictedPosition.getApproxDistance(base->getPosition())
-                                : PathFinding::GetGroundDistance(predictedPosition, base->getPosition(), unit->type);
-            if (predictedDist > dist) continue;
-        }
-
         enemyValue += CombatSim::unitValue(unit);
 
         // Require dragoons against certain enemy types

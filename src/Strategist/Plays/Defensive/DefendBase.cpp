@@ -10,11 +10,10 @@
 #include "BuildingPlacement.h"
 #include "Builder.h"
 
-DefendBase::DefendBase(Base *base, int enemyValue, std::set<Unit> enemyUnits)
+DefendBase::DefendBase(Base *base, int enemyValue)
         : Play((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
         , base(base)
         , enemyValue(enemyValue)
-        , enemyUnits(std::move(enemyUnits))
         , squad(std::make_shared<DefendBaseSquad>(base))
         , workerDefenseSquad(std::make_shared<WorkerDefenseSquad>(base))
         , pylonLocation(BWAPI::TilePositions::Invalid)
@@ -49,7 +48,8 @@ DefendBase::DefendBase(Base *base, int enemyValue, std::set<Unit> enemyUnits)
 
 void DefendBase::update()
 {
-    squad->enemyUnits = std::move(enemyUnits);
+    squad->enemyUnits.clear();
+    squad->enemyUnits.insert(Units::enemyAtBase(base).begin(), Units::enemyAtBase(base).end());
 
     // Clear dead static defense buildings
     if (pylon && !pylon->exists()) pylon = nullptr;

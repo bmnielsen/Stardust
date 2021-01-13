@@ -184,7 +184,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
 
     // First gather the list of bases we want to defend
-    std::map<Base *, std::pair<int, std::set<Unit>>> basesToDefend;
+    std::unordered_map<Base *, int> basesToDefend;
 
     // Don't defend any bases if our main army play is defending our main
     if (mainArmyPlay && typeid(*mainArmyPlay) != typeid(DefendMyMain))
@@ -213,47 +213,8 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
 
             // Gather the enemy units threatening the base
             int enemyValue = 0;
-            std::set<Unit> enemyUnits;
-            for (const auto &unit : Units::allEnemy())
+            for (const auto &unit : Units::enemyAtBase(base))
             {
-                if (!unit->lastPositionValid) continue;
-                if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
-                if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) continue;
-                if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 240)) continue;
-
-                int dist = unit->isFlying
-                           ? unit->lastPosition.getApproxDistance(base->getPosition())
-                           : PathFinding::GetGroundDistance(unit->lastPosition, base->getPosition(), unit->type);
-                if (dist == -1 || dist > 1000) continue;
-
-                // Skip this unit if it is closer to another one of our bases
-                bool closerToOtherBase = false;
-                for (auto &otherBase : Map::getMyBases())
-                {
-                    if (otherBase == base) continue;
-                    int otherBaseDist = unit->isFlying
-                                        ? unit->lastPosition.getApproxDistance(otherBase->getPosition())
-                                        : PathFinding::GetGroundDistance(unit->lastPosition, otherBase->getPosition(), unit->type);
-                    if (otherBaseDist < dist)
-                    {
-                        closerToOtherBase = true;
-                        break;
-                    }
-                }
-                if (closerToOtherBase) continue;
-
-                if (dist > 500)
-                {
-                    auto predictedPosition = unit->predictPosition(5);
-                    if (!predictedPosition.isValid()) continue;
-
-                    int predictedDist = unit->isFlying
-                                        ? predictedPosition.getApproxDistance(base->getPosition())
-                                        : PathFinding::GetGroundDistance(predictedPosition, base->getPosition(), unit->type);
-                    if (predictedDist > dist) continue;
-                }
-
-                enemyUnits.insert(unit);
                 enemyValue += CombatSim::unitValue(unit);
             }
 
@@ -263,7 +224,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
                 continue;
             }
 
-            basesToDefend[base] = std::make_pair(enemyValue, std::move(enemyUnits));
+            basesToDefend[base] = enemyValue;
         }
     }
 
@@ -282,8 +243,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
             continue;
         }
 
-        defendBasePlay->enemyValue = it->second.first;
-        defendBasePlay->enemyUnits = std::move(it->second.second);
+        defendBasePlay->enemyValue = it->second;
 
         basesToDefend.erase(it);
     }
@@ -293,8 +253,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
     {
         plays.emplace(plays.begin(), std::make_shared<DefendBase>(
                 baseToDefend.first,
-                baseToDefend.second.first,
-                std::move(baseToDefend.second.second)));
+                baseToDefend.second));
         CherryVis::log() << "Added defend base play for base @ " << BWAPI::WalkPosition(baseToDefend.first->getPosition());
     }
 }

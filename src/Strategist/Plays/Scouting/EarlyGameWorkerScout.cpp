@@ -366,11 +366,8 @@ void EarlyGameWorkerScout::update()
     int threatY = 0;
     bool hasThreat = false;
     bool hasRangedThreat = false;
-    for (auto &unit : Units::allEnemy())
+    for (auto &unit : Units::enemyAtBase(targetBase))
     {
-        if (!unit->lastPositionValid) continue;
-        if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
-        if (!UnitUtil::CanAttackGround(unit->type)) continue;
         if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
 
         int detectionLimit = std::max(128, unit->groundRange() + 64);
