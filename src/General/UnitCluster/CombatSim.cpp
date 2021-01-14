@@ -151,7 +151,7 @@ namespace
         bool haveMobileDetection = false;
         for (const auto &detector : detectors)
         {
-            if (cluster->vanguard && cluster->vanguard->getDistance(detector) < 640)
+            if (cluster->vanguard && cluster->vanguard->getDistance(detector) < 480)
             {
                 haveMobileDetection = true;
                 break;
