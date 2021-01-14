@@ -74,6 +74,16 @@ bool UnitImpl::isTransport() const
            (type == BWAPI::UnitTypes::Zerg_Overlord && Players::upgradeLevel(player, BWAPI::UpgradeTypes::Ventral_Sacs) > 0);
 }
 
+bool UnitImpl::needsDetection() const
+{
+    if (type == BWAPI::UnitTypes::Zerg_Lurker || type == BWAPI::UnitTypes::Zerg_Lurker_Egg) return true;
+    if (type.hasPermanentCloak()) return true;
+    if (type.isCloakable() && Players::hasResearched(player, type.cloakingTech())) return true;
+    if (type.isBurrowable() && Players::hasResearched(player, BWAPI::TechTypes::Burrowing)) return true;
+
+    return false;
+}
+
 int UnitImpl::groundRange() const
 {
     auto weaponUnitType = type;

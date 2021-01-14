@@ -20,17 +20,6 @@ namespace
 
     // Units are removed from a cluster if they are further than this distance from the cluster center, adjusted for cluster size
     const int REMOVE_THRESHOLD = 640;
-
-    // Determines whether we need detection to effectively fight the given unit.
-    bool unitNeedsDetection(const Unit &unit)
-    {
-        if (unit->type == BWAPI::UnitTypes::Zerg_Lurker || unit->type == BWAPI::UnitTypes::Zerg_Lurker_Egg) return true;
-        if (unit->type.hasPermanentCloak()) return true;
-        if (unit->type.isCloakable() && Players::hasResearched(unit->player, unit->type.cloakingTech())) return true;
-        if (unit->type.isBurrowable() && Players::hasResearched(unit->player, BWAPI::TechTypes::Burrowing)) return true;
-
-        return false;
-    }
 }
 
 void Squad::addUnit(const MyUnit &unit)
@@ -362,7 +351,7 @@ void Squad::updateDetectionNeeds(std::set<Unit> &enemyUnits)
     {
         if (!unit->canAttackAir() && !unit->canAttackGround()) continue;
 
-        if (unitNeedsDetection(unit))
+        if (unit->needsDetection())
         {
             enemiesNeedingDetection.insert(unit);
         }

@@ -125,6 +125,8 @@ public:
 
     [[nodiscard]] bool isTransport() const;
 
+    [[nodiscard]] bool needsDetection() const;
+
     [[nodiscard]] int groundRange() const;
 
     [[nodiscard]] int airRange() const;
