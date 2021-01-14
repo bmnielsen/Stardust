@@ -2,11 +2,9 @@
 
 #include "General.h"
 #include "Players.h"
-#include "Map.h"
 #include "Units.h"
 #include "UnitUtil.h"
 #include "PathFinding.h"
-#include "BuildingPlacement.h"
 
 AttackExpansion::AttackExpansion(Base *base, int enemyDefenseValue)
         : Play((std::ostringstream() << "Attack expansion @ " << base->getTilePosition()).str())

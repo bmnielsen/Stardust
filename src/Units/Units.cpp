@@ -294,18 +294,26 @@ namespace Units
                 }
             }
 
-            auto getBase = [](const Unit &unit) -> Base*
+            auto getBase = [](const Unit &unit) -> Base *
             {
-                // We only consider combat units with a valid position
-                // TODO: Should we also consider units blocking expansion locations?
                 if (!unit->lastPositionValid) return nullptr;
-                if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) return nullptr;
-                if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) return nullptr;
+
+                auto combatUnit =
+                        (UnitUtil::IsCombatUnit(unit->type) || unit->lastSeenAttacking >= (BWAPI::Broodwar->getFrameCount() - 120))
+                        && (unit->isTransport() || UnitUtil::CanAttackGround(unit->type));
 
                 Base *closest = nullptr;
                 int closestDist = 1000;
                 for (auto &base : Map::allBases())
                 {
+                    // Only consider combat units and units that block untaken bases
+                    if (!combatUnit &&
+                        (base->owner != nullptr ||
+                         !Geo::Overlaps(base->getTilePosition(), 4, 3, unit->getTilePosition(), 2, 2)))
+                    {
+                        continue;
+                    }
+
                     // For our bases, ignore units we haven't seen for a while
                     if (base->owner == BWAPI::Broodwar->self() &&
                         !unit->type.isBuilding() &&
@@ -319,9 +327,11 @@ namespace Units
                                : PathFinding::GetGroundDistance(unit->lastPosition, base->getPosition(), unit->type);
                     if (dist == -1 || dist > closestDist) continue;
 
-                    // If the distance is above 500, ignore this unit if it is moving away from the base
+                    // If the distance is above 500, ignore this unit if the base is unowned or it is moving away from the base
                     if (dist > 500)
                     {
+                        if (!base->owner) continue;
+
                         auto predictedPosition = unit->predictPosition(5);
                         if (predictedPosition.isValid())
                         {

@@ -1670,8 +1670,8 @@ namespace Producer
                 else if (upgradeOrTechType)
                 {
                     remainingTrainTime = upgradeOrTechType->isTechType()
-                            ? getRemainingResearchTime(unit)
-                            : getRemainingUpgradeTime(unit);
+                                         ? getRemainingResearchTime(unit)
+                                         : getRemainingUpgradeTime(unit);
                 }
 
                 // If this producer is already created when handling a previous production goal, reference the existing object
@@ -1837,21 +1837,22 @@ namespace Producer
         {
             if (auto unitProductionGoal = std::get_if<UnitProductionGoal>(&goal))
             {
-                if (!hasSeenUnlimited)
+                if (!hasSeenUnlimited &&
+                    unitProductionGoal->countToProduce() == -1)
                 {
-                    if (unitProductionGoal->countToProduce() == -1)
+                    if (unitProductionGoal->unitType().gasPrice() > 0)
                     {
-                        if (unitProductionGoal->unitType().gasPrice() > 0)
-                        {
-                            availableGas = -1;
-                        }
-
-                        hasSeenUnlimited = true;
+                        availableGas = -1;
                     }
                     else
                     {
-                        availableGas -= unitProductionGoal->countToProduce() * unitProductionGoal->unitType().gasPrice();
+                        for (const auto &item : committedItems)
+                        {
+                            availableGas -= item->gasPrice();
+                        }
                     }
+
+                    hasSeenUnlimited = true;
                 }
 
                 handleGoal(unitProductionGoal->unitType(),
@@ -1863,11 +1864,6 @@ namespace Producer
             }
             else if (auto upgradeProductionGoal = std::get_if<UpgradeProductionGoal>(&goal))
             {
-                if (!hasSeenUnlimited)
-                {
-                    availableGas -= upgradeProductionGoal->upgradeType().gasPrice();
-                }
-
                 handleGoal(upgradeProductionGoal->upgradeType(),
                            std::monostate(),
                            1,
@@ -1884,6 +1880,14 @@ namespace Producer
             count++;
             write(committedItems, (std::ostringstream() << "producergoal" << count).str());
 #endif
+        }
+
+        if (!hasSeenUnlimited)
+        {
+            for (const auto &item : committedItems)
+            {
+                availableGas -= item->gasPrice();
+            }
         }
 
         // Set gas collection appropriately

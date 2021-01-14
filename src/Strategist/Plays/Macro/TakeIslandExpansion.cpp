@@ -38,7 +38,7 @@ namespace
 }
 
 TakeIslandExpansion::TakeIslandExpansion(Base *base)
-        : TakeExpansion(base)
+        : TakeExpansion(base, 0)
         , shuttle(nullptr)
         , workerTransferState(0) {}
 

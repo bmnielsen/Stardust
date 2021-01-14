@@ -5,6 +5,8 @@
 #include "Workers.h"
 #include "Strategist.h"
 #include "Builder.h"
+#include "General.h"
+#include "UnitUtil.h"
 
 #include "Plays/Macro/TakeExpansion.h"
 #include "Plays/Macro/TakeIslandExpansion.h"
@@ -140,14 +142,30 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         return true;
     };
 
+    auto enemyCombatValueAtBase = [](Base *base)
+    {
+        int result = 0;
+        for (const auto &unit : Units::enemyAtBase(base))
+        {
+            if (unit->isTransport() || UnitUtil::CanAttackGround(unit->type))
+            {
+                result += CombatSim::unitValue(unit);
+            }
+        }
+
+        return result;
+    };
+
     // Check if we want to cancel an active TakeExpansionPlay
     if (!takeExpansionPlays.empty())
     {
-        if (!wantToExpand || !safeToExpand())
+        auto safe = safeToExpand();
+        for (auto &takeExpansionPlay : takeExpansionPlays)
         {
-            for (auto &takeExpansionPlay : takeExpansionPlays)
+            if (!takeExpansionPlay->constructionStarted())
             {
-                if (!takeExpansionPlay->constructionStarted())
+                if (!wantToExpand || !safe ||
+                    takeExpansionPlay->enemyValue > 4 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
                 {
                     takeExpansionPlay->status.complete = true;
 
@@ -229,7 +247,13 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
             }
         }
 
-        auto play = std::make_shared<TakeExpansion>(expansion);
+        auto enemyValue = enemyCombatValueAtBase(expansion);
+        if (enemyValue > 4 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
+        {
+            continue;
+        }
+
+        auto play = std::make_shared<TakeExpansion>(expansion, enemyValue);
         plays.emplace(plays.begin(), play);
 
         Log::Get() << "Queued expansion to " << play->depotPosition;
@@ -263,7 +287,7 @@ void StrategyEngine::takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &pl
             Log::Get() << "Added TakeExpansion play for natural to handle blocking enemy unit";
             CherryVis::log() << "Added TakeExpansion play for natural to handle blocking enemy unit";
 
-            plays.emplace(plays.begin(), std::make_shared<TakeExpansion>(natural));
+            plays.emplace(plays.begin(), std::make_shared<TakeExpansion>(natural, 0));
         }
 
         return;
@@ -282,11 +306,11 @@ void StrategyEngine::takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &pl
 }
 
 void StrategyEngine::cancelNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
-                                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+                                            std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
     auto natural = Map::getMyNatural();
 
-    for (auto it = plays.begin(); it != plays.end(); )
+    for (auto it = plays.begin(); it != plays.end();)
     {
         if (auto takeExpansionPlay = std::dynamic_pointer_cast<TakeExpansion>(*it))
         {

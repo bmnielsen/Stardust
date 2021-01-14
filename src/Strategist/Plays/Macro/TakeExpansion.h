@@ -1,16 +1,22 @@
 #pragma once
 
 #include "Play.h"
+#include "Squads/AttackBaseSquad.h"
 
 // Takes the next expansion.
 class TakeExpansion : public Play
 {
 public:
-    explicit TakeExpansion(Base *base);
+    Base *base;
+    int enemyValue;
+
+    TakeExpansion(Base *base, int enemyValue);
 
     void update() override;
 
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
+
+    std::shared_ptr<Squad> getSquad() override { return squad; }
 
     [[nodiscard]] bool constructionStarted() const;
 
@@ -20,8 +26,8 @@ public:
     BWAPI::TilePosition depotPosition;
 
 protected:
-    Base *base;
     MyUnit builder;
     BWAPI::UnitType requiredBlockClearBuilding;
     BWAPI::TilePosition requiredBlockClearBuildingTile;
+    std::shared_ptr<AttackBaseSquad> squad;
 };
