@@ -40,6 +40,9 @@ public:
     bool expectWin = true;
     bool writeReplay = true;
 
+    bool host = false;
+    bool connect = false;
+
     char *sharedMemory = nullptr;
 
     std::string replayName;

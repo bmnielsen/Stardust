@@ -185,6 +185,14 @@ BWAPI::Position UnitTypeAndPosition::getCenterPosition()
 
 void BWTest::run()
 {
+    // If in connect mode, just run the game directly
+    // In this mode, both players are running in their own process
+    if (host || connect)
+    {
+        runGame(false);
+        return;
+    }
+
     // Ensure a map is selected
     if (!map)
     {
@@ -291,7 +299,7 @@ void BWTest::runGame(bool opponent)
                                  }
                                  else
                                  {
-                                     h->switchToPlayer(h->getPlayer(opponent ? 1 : 0));
+                                     h->switchToPlayer(h->getPlayer((opponent || connect) ? 1 : 0));
                                  }
 
                                  int playerCount = 0;
