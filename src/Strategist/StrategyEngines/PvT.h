@@ -25,6 +25,7 @@ private:
         ProxyRush,          // Detected by seeing fewer buildings than expected in main
         MarineRush,         // Detected by seeing early gates or early zealots
         WallIn,             // Detected by scout blocked by buildings
+        BlockScouting,      // The enemy has blocked our scout from getting into their main, suspect shenanigans
         FastExpansion,      // Natural expansion taken early
         TwoFactory,         // The enemy has built two factories early
         NormalOpening,      // Normal opening

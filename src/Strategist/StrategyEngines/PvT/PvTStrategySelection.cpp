@@ -80,6 +80,7 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                     case TerranStrategy::WorkerRush:
                     case TerranStrategy::ProxyRush:
                     case TerranStrategy::MarineRush:
+                    case TerranStrategy::BlockScouting:
                         strategy = OurStrategy::AntiMarineRush;
                         continue;
                     case TerranStrategy::TwoFactory:
