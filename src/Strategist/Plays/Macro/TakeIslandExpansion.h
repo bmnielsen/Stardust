@@ -19,7 +19,7 @@ public:
 
     void removeUnit(const MyUnit &unit) override;
 
-    bool cancellable();
+    bool cancellable() override;
 
 private:
     MyUnit shuttle;

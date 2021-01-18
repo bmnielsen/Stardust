@@ -18,10 +18,10 @@ public:
 
     std::shared_ptr<Squad> getSquad() override { return squad; }
 
-    [[nodiscard]] bool constructionStarted() const;
-
     void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
                  const std::function<void(const MyUnit)> &movableUnitCallback) override;
+
+    virtual bool cancellable();
 
     BWAPI::TilePosition depotPosition;
 

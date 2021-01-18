@@ -283,15 +283,23 @@ void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
     }
 }
 
-bool TakeExpansion::constructionStarted() const
-{
-    return Units::myBuildingAt(depotPosition) != nullptr;
-}
-
 void TakeExpansion::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
                             const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     Builder::cancel(depotPosition);
 
     if (builder) Workers::releaseWorker(builder);
+}
+
+bool TakeExpansion::cancellable()
+{
+    // Don't allow to be cancelled if the builder is very close to the base
+    // This prevents instability in wanting to take the expansion after the probe has already been sent most of the way
+    if (builder)
+    {
+        int dist = PathFinding::GetGroundDistance(builder->lastPosition, base->getPosition(), builder->type);
+        if (dist != -1 && dist < 500) return false;
+    }
+
+    return Units::myBuildingAt(depotPosition) == nullptr;
 }

@@ -162,7 +162,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         auto safe = safeToExpand();
         for (auto &takeExpansionPlay : takeExpansionPlays)
         {
-            if (!takeExpansionPlay->constructionStarted())
+            if (takeExpansionPlay->cancellable())
             {
                 if (!wantToExpand || !safe ||
                     takeExpansionPlay->enemyValue > 4 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
