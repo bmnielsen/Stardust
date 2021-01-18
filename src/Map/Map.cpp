@@ -754,6 +754,9 @@ namespace Map
             // Add static neutrals
             for (auto neutral : BWAPI::Broodwar->getStaticNeutralUnits())
             {
+                if (neutral->getType().isCritter()) continue;
+                if (neutral->isFlying()) continue;
+
                 updateTileWalkability(neutral->getInitialTilePosition(), neutral->getType().tileSize(), false);
             }
 
@@ -1126,7 +1129,7 @@ namespace Map
         // Units that affect tile walkability
         // Skip on frame 0, since we handle static neutrals and our base explicitly
         // Skip refineries, since creation of a refinery does not affect tile walkability (there was already a geyser)
-        if (BWAPI::Broodwar->getFrameCount() > 0 && unit->type.isBuilding() && !unit->type.isRefinery())
+        if (BWAPI::Broodwar->getFrameCount() > 0 && unit->type.isBuilding() && !unit->isFlying && !unit->type.isRefinery())
         {
             if (updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), false))
             {
@@ -1159,7 +1162,7 @@ namespace Map
 
         // Units that affect tile walkability
         // Skip refineries, since destruction of a refinery does not affect tile walkability (there will still be a geyser)
-        if (unit->type.isBuilding() && !unit->type.isRefinery())
+        if (unit->type.isBuilding() && !unit->isFlying && !unit->type.isRefinery())
         {
             if (updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), true))
             {
@@ -1178,7 +1181,7 @@ namespace Map
 
         // Units that affect tile walkability
         if (unit->getType().isMineralField() ||
-            (unit->getType().isBuilding() && !unit->getType().isRefinery()) ||
+            (unit->getType().isBuilding() && !unit->isFlying() && !unit->getType().isRefinery()) ||
             (unit->getType() == BWAPI::UnitTypes::Zerg_Egg && unit->getPlayer() == BWAPI::Broodwar->neutral()))
         {
             if (updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), true))
