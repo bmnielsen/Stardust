@@ -1329,6 +1329,10 @@ namespace Producer
                         int itemDelta = supplyProvider->completionFrame + pylonDelta - item.startFrame;
                         item.startFrame += itemDelta;
                         item.completionFrame += itemDelta;
+
+                        // Break out if the start frame goes outside the window
+                        if (item.startFrame >= PREDICT_FRAMES) return false;
+
                         shiftAll(prerequisiteItems, prerequisiteItems.begin(), itemDelta);
                     }
 
@@ -1459,6 +1463,9 @@ namespace Producer
             {
                 return false;
             }
+
+            // Guard against endless loops if there's a logic bug in one of the shift methods
+            if (item->startFrame >= PREDICT_FRAMES) return false;
 
             if (!commit) return true;
 
