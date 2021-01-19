@@ -253,15 +253,29 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::Normal:
         {
-            // Build at least three zealots then transition into dragoons
+            // Build at least three zealots before transitioning into dragoons
+            // TODO: When we have better scouting, be a bit more aggressive
             int unitCount = zealotCount + dragoonCount;
+            int requiredZealots = 0;
             if (unitCount < 3)
+            {
+                requiredZealots = 3 - unitCount;
+            }
+
+            // Mix in zealots against sunkens
+            if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Sunken_Colony) > 2)
+            {
+                requiredZealots = std::max(requiredZealots, dragoonCount - zealotCount);
+            }
+
+            if (requiredZealots > 0)
             {
                 prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
-                                                                              3 - unitCount,
+                                                                              requiredZealots,
                                                                               2);
             }
+
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
@@ -286,6 +300,12 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 6)
             {
                 requiredZealots = std::min(10, Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 2) - zealotCount;
+            }
+
+            // Keep zealots in the mix in the later game
+            if (dragoonCount > 12)
+            {
+                requiredZealots = std::max(requiredZealots, ((dragoonCount - 12) / 2) - zealotCount);
             }
 
             if (requiredZealots > 0)
@@ -400,7 +420,7 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 void PvZ::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
     // Basic infantry skill upgrades are queued when we have enough of them and are still building them
-    upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 6);
+    upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 4);
     upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
     // Cases where we want the upgrade as soon as we start building one of the units
