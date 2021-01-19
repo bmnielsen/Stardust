@@ -29,7 +29,8 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
         // Transition immediately if we've discovered a different enemy strategy
         if (newEnemyStrategy != TerranStrategy::WorkerRush &&
             newEnemyStrategy != TerranStrategy::ProxyRush &&
-            newEnemyStrategy != TerranStrategy::MarineRush)
+            newEnemyStrategy != TerranStrategy::MarineRush &&
+            newEnemyStrategy != TerranStrategy::BlockScouting)
         {
             return true;
         }
@@ -129,7 +130,8 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
             {
                 if (newEnemyStrategy == TerranStrategy::WorkerRush ||
                     newEnemyStrategy == TerranStrategy::ProxyRush ||
-                    newEnemyStrategy == TerranStrategy::MarineRush)
+                    newEnemyStrategy == TerranStrategy::MarineRush ||
+                    newEnemyStrategy == TerranStrategy::BlockScouting)
                 {
                     strategy = OurStrategy::AntiMarineRush;
                     continue;
@@ -160,7 +162,8 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
             {
                 if ((newEnemyStrategy == TerranStrategy::WorkerRush ||
                      newEnemyStrategy == TerranStrategy::ProxyRush ||
-                     newEnemyStrategy == TerranStrategy::MarineRush) &&
+                     newEnemyStrategy == TerranStrategy::MarineRush ||
+                     newEnemyStrategy == TerranStrategy::BlockScouting) &&
                     !canTransitionFromAntiMarineRush())
                 {
                     strategy = OurStrategy::AntiMarineRush;
