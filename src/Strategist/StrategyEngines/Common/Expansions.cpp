@@ -310,21 +310,14 @@ void StrategyEngine::cancelNaturalExpansion(std::vector<std::shared_ptr<Play>> &
 {
     auto natural = Map::getMyNatural();
 
-    for (auto it = plays.begin(); it != plays.end();)
+    // If we are taking the natural with a TakeExpansion play, don't cancel it
+    // TODO: Refactor how plays are cancelled so we can actually do this safely
+    for (const auto &play : plays)
     {
-        if (auto takeExpansionPlay = std::dynamic_pointer_cast<TakeExpansion>(*it))
+        if (auto takeExpansionPlay = std::dynamic_pointer_cast<TakeExpansion>(play))
         {
-            if (takeExpansionPlay->depotPosition == natural->getTilePosition())
-            {
-                Log::Get() << "Cancelled TakeExpansion play for natural";
-                CherryVis::log() << "Cancelled TakeExpansion play for natural";
-
-                it = plays.erase(it);
-                continue;
-            }
+            if (takeExpansionPlay->depotPosition == natural->getTilePosition()) return;
         }
-
-        it++;
     }
 
     Builder::cancel(natural->getTilePosition());

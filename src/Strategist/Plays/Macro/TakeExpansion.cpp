@@ -121,7 +121,7 @@ void TakeExpansion::update()
         }
 
         // Ensure we have at least two units
-        requestedUnits = std::max(requestedUnits, 2 - (int)squad->getUnits().size());
+        requestedUnits = std::max(requestedUnits, 2 - (int) squad->getUnits().size());
 
         // TODO: Request zealot or dragoon when we have that capability
         if (requestedUnits > 0)
@@ -181,7 +181,7 @@ void TakeExpansion::update()
         // Attack the blocker if we have it and the worker doesn't have anything else to do
         if (blocker)
         {
-            if (!Builder::hasPendingBuilding(builder))
+            if (!Builder::hasPendingBuilding(builder) && !blocker->undetected)
             {
                 std::vector<std::pair<MyUnit, Unit>> dummyUnitsAndTargets;
                 builder->attackUnit(blocker, dummyUnitsAndTargets);
@@ -236,7 +236,7 @@ void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
         }
 
         if (!Units::myBuildingAt(*baseStaticDefenseLocations.second.begin()) &&
-        !Builder::pendingHere(*baseStaticDefenseLocations.second.begin()))
+            !Builder::pendingHere(*baseStaticDefenseLocations.second.begin()))
         {
             // Check the status of the pylon
             int framesToPylon = 0;
@@ -288,7 +288,7 @@ void TakeExpansion::disband(const std::function<void(const MyUnit)> &removedUnit
 {
     Builder::cancel(depotPosition);
 
-    if (builder) Workers::releaseWorker(builder);
+    if (builder && !Builder::hasPendingBuilding(builder)) Workers::releaseWorker(builder);
 }
 
 bool TakeExpansion::cancellable()
