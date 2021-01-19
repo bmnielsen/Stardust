@@ -43,15 +43,24 @@ namespace
     class ZerglingHarassModule : public DoNothingModule
     {
         BWAPI::Unit builder = nullptr;
+        bool attack;
+        BWAPI::Position burrowLocation = BWAPI::Positions::Invalid;
 
     public:
 
+        explicit ZerglingHarassModule(bool attack = true) : attack(attack) {}
+
         void onFrame() override
         {
-            if (BWAPI::Broodwar->getFrameCount() < 10) return;
-
-            if (BWAPI::Broodwar->getFrameCount() == 10)
+            if (!builder)
             {
+                int workerCount = 0;
+                for (auto unit : BWAPI::Broodwar->self()->getUnits())
+                {
+                    if (unit->getType().isWorker()) workerCount++;
+                }
+                if (workerCount < 5) return;
+
                 for (auto unit : BWAPI::Broodwar->self()->getUnits())
                 {
                     if (unit->getType().isWorker())
@@ -116,7 +125,8 @@ namespace
             {
                 if (zergling->getType() != BWAPI::UnitTypes::Zerg_Zergling) continue;
 
-                auto burrowPosition = BWAPI::Position(BWAPI::TilePosition(117, 103));
+                if (!burrowLocation.isValid()) burrowLocation = zergling->getPosition();
+
                 BWAPI::Unit cannon = nullptr;
                 BWAPI::Unit worker = nullptr;
 
@@ -129,7 +139,7 @@ namespace
                 // If there is a cannon and worker: attack the worker
                 // If there is a cannon: attack it
                 // Otherwise: burrow
-                if (cannon && worker)
+                if (attack && cannon && worker)
                 {
                     if (zergling->isBurrowed())
                     {
@@ -141,7 +151,7 @@ namespace
                         zergling->attack(worker);
                     }
                 }
-                else if (cannon)
+                else if (attack && cannon)
                 {
                     if (zergling->isBurrowed())
                     {
@@ -155,7 +165,7 @@ namespace
                 }
                 else
                 {
-                    int dist = zergling->getDistance(burrowPosition);
+                    int dist = zergling->getDistance(burrowLocation);
                     if (dist > 8)
                     {
                         if (zergling->isBurrowed())
@@ -164,7 +174,7 @@ namespace
                         }
                         else
                         {
-                            zergling->move(burrowPosition);
+                            zergling->move(burrowLocation);
                         }
                     }
                     else if (!zergling->isBurrowed())
@@ -284,6 +294,44 @@ TEST(TakeExpansion, TakesLurkerExpansion)
         auto base = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 103)));
         EXPECT_EQ(base->owner, BWAPI::Broodwar->self());
         EXPECT_FALSE(base->resourceDepot == nullptr);
+    };
+
+    test.run();
+}
+
+TEST(TakeExpansion, TakesBlockedNatural)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        return new ZerglingHarassModule(false);
+    };
+    test.map = Maps::GetOne("Andromeda");
+    test.randomSeed = 98086;
+    test.frameLimit = 8000;
+    test.expectWin = false;
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Drone, BWAPI::TilePosition(121, 117)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Drone, BWAPI::TilePosition(121, 118)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Drone, BWAPI::TilePosition(121, 119)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Drone, BWAPI::TilePosition(121, 120)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Zergling, BWAPI::TilePosition(105, 22)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Hatchery, BWAPI::TilePosition(9, 90), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Overlord, BWAPI::TilePosition(13, 90)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(13, 90)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(13, 92)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(13, 94)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(11, 95)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(15, 90)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(15, 92)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(17, 92)),
+        };
+
+    test.onStartMine = []()
+    {
+        Map::setEnemyStartingMain(Map::baseNear(BWAPI::Position(BWAPI::TilePosition(7, 118))));
     };
 
     test.run();
