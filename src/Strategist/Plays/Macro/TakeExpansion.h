@@ -27,7 +27,6 @@ public:
 
 protected:
     MyUnit builder;
-    BWAPI::UnitType requiredBlockClearBuilding;
-    BWAPI::TilePosition requiredBlockClearBuildingTile;
+    bool buildCannon;
     std::shared_ptr<AttackBaseSquad> squad;
 };

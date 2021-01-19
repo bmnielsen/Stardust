@@ -348,4 +348,12 @@ namespace Builder
 
         return nullptr;
     }
+
+    bool hasPendingBuilding(MyUnit builder)
+    {
+        auto it = builderQueues.find(builder);
+        if (it == builderQueues.end()) return false;
+
+        return !it->second.empty();
+    }
 }

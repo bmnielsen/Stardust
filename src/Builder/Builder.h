@@ -26,4 +26,6 @@ namespace Builder
     bool isPendingHere(BWAPI::TilePosition tile);
 
     Building *pendingHere(BWAPI::TilePosition tile);
+
+    bool hasPendingBuilding(MyUnit builder);
 }

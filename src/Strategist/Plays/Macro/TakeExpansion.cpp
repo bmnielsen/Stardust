@@ -14,8 +14,7 @@ TakeExpansion::TakeExpansion(Base *base, int enemyValue)
         , enemyValue(enemyValue)
         , depotPosition(base->getTilePosition())
         , builder(nullptr)
-        , requiredBlockClearBuilding(BWAPI::UnitTypes::None)
-        , requiredBlockClearBuildingTile(BWAPI::TilePositions::Invalid) {}
+        , buildCannon(false) {}
 
 void TakeExpansion::update()
 {
@@ -50,7 +49,7 @@ void TakeExpansion::update()
     bool needDetection = false;
     for (auto &unit : Units::enemyAtBase(base))
     {
-        if (unit->isTransport() || UnitUtil::CanAttackGround(unit->type))
+        if ((unit->isTransport() || UnitUtil::CanAttackGround(unit->type)) && (!unit->burrowed || unit->type == BWAPI::UnitTypes::Zerg_Lurker))
         {
             enemyValue += CombatSim::unitValue(unit);
             needDetection = needDetection || unit->needsDetection();
@@ -171,61 +170,26 @@ void TakeExpansion::update()
     }
 
     // If the enemy base is blocked by a hidden enemy unit, build a cannon to clear it
-    requiredBlockClearBuilding = BWAPI::UnitTypes::None;
-    requiredBlockClearBuildingTile = BWAPI::TilePositions::Invalid;
+    buildCannon = false;
     if (base->blockedByEnemy)
     {
-        auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-        if (baseStaticDefenseLocations.first == BWAPI::TilePositions::Invalid ||
-            baseStaticDefenseLocations.second.empty())
-        {
-            status.complete = true;
-            return;
-        }
+        buildCannon = true;
 
         // Ensure the builder stays reserved between buildings
         Workers::reserveWorker(builder);
 
-        // First build the pylon
-        auto pylon = Units::myBuildingAt(baseStaticDefenseLocations.first);
-        if (!pylon)
-        {
-            if (!Builder::pendingHere(baseStaticDefenseLocations.first))
-            {
-                requiredBlockClearBuilding = BWAPI::UnitTypes::Protoss_Pylon;
-                requiredBlockClearBuildingTile = baseStaticDefenseLocations.first;
-            }
-
-            return;
-        }
-
-        // Next build the cannon
-        if (pylon->completed)
-        {
-            auto cannon = Units::myBuildingAt(*baseStaticDefenseLocations.second.begin());
-            if (!cannon)
-            {
-                if (!Builder::pendingHere(*baseStaticDefenseLocations.second.begin()))
-                {
-                    requiredBlockClearBuilding = BWAPI::UnitTypes::Protoss_Photon_Cannon;
-                    requiredBlockClearBuildingTile = *baseStaticDefenseLocations.second.begin();
-                }
-
-                return;
-            }
-        }
-
-        // Falling through to here means the builder doesn't have any work to do
-
-        // If we found the blocking unit, attack it
+        // Attack the blocker if we have it and the worker doesn't have anything else to do
         if (blocker)
         {
-            std::vector<std::pair<MyUnit, Unit>> dummyUnitsAndTargets;
-            builder->attackUnit(blocker, dummyUnitsAndTargets);
+            if (!Builder::hasPendingBuilding(builder))
+            {
+                std::vector<std::pair<MyUnit, Unit>> dummyUnitsAndTargets;
+                builder->attackUnit(blocker, dummyUnitsAndTargets);
+            }
+
             return;
         }
 
-        // We didn't find the blocking unit
         // If we have detection on all of the depot's tiles, clear the base being blocked by enemy
         auto detectionGrid = Players::grid(BWAPI::Broodwar->self());
         bool allDetected = true;
@@ -260,14 +224,50 @@ void TakeExpansion::update()
 
 void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    // Build any buildings needed to clear a blocking unit
-    if (requiredBlockClearBuilding != BWAPI::UnitTypes::None)
+    if (buildCannon)
     {
-        auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(requiredBlockClearBuildingTile), 0, 0, 0);
-        prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                   requiredBlockClearBuilding,
-                                                                   buildLocation,
-                                                                   builder);
+        // Cancel the play if we don't have a cannon location
+        auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
+        if (baseStaticDefenseLocations.first == BWAPI::TilePositions::Invalid ||
+            baseStaticDefenseLocations.second.empty())
+        {
+            status.complete = true;
+            return;
+        }
+
+        if (!Units::myBuildingAt(*baseStaticDefenseLocations.second.begin()) &&
+        !Builder::pendingHere(*baseStaticDefenseLocations.second.begin()))
+        {
+            // Check the status of the pylon
+            int framesToPylon = 0;
+            auto pylonUnit = Units::myBuildingAt(baseStaticDefenseLocations.first);
+            if (pylonUnit)
+            {
+                framesToPylon = pylonUnit->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount();
+            }
+            else
+            {
+                auto pylonBuilding = Builder::pendingHere(baseStaticDefenseLocations.first);
+                if (pylonBuilding)
+                {
+                    framesToPylon = pylonBuilding->expectedFramesUntilCompletion();
+                }
+                else
+                {
+                    auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(baseStaticDefenseLocations.first), 0, 0, 0);
+                    prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                             BWAPI::UnitTypes::Protoss_Pylon,
+                                                                             buildLocation,
+                                                                             builder);
+                }
+            }
+
+            auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(*baseStaticDefenseLocations.second.begin()), 0, framesToPylon, 0);
+            prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                                                     buildLocation,
+                                                                     builder);
+        }
     }
 
     // Build an observer if we need one
