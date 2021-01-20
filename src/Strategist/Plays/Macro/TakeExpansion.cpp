@@ -49,6 +49,7 @@ void TakeExpansion::update()
     bool needDetection = false;
     for (auto &unit : Units::enemyAtBase(base))
     {
+        // Count enemies that can currently attack
         if ((unit->isTransport() || UnitUtil::CanAttackGround(unit->type)) && (!unit->burrowed || unit->type == BWAPI::UnitTypes::Zerg_Lurker))
         {
             enemyValue += CombatSim::unitValue(unit);
@@ -151,7 +152,7 @@ void TakeExpansion::update()
     }
 
     // If there is a burrowed Zerg unit, also get an attack squad but allow the builder to continue its work
-    if (base->blockedByEnemy && BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
+    if (!blocker && base->blockedByEnemy && BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
     {
         // Assume it is a zergling
         enemyValue = CombatSim::unitValue(BWAPI::UnitTypes::Zerg_Zergling);
@@ -171,7 +172,7 @@ void TakeExpansion::update()
 
     // If the enemy base is blocked by a hidden enemy unit, build a cannon to clear it
     buildCannon = false;
-    if (base->blockedByEnemy)
+    if (blocker || base->blockedByEnemy)
     {
         buildCannon = true;
 
@@ -212,8 +213,11 @@ void TakeExpansion::update()
             return;
         }
 
-        Log::Get() << "Base @ " << base->getTilePosition() << " is no longer blocked by an enemy unit";
-        base->blockedByEnemy = false;
+        if (base->blockedByEnemy)
+        {
+            Log::Get() << "Base @ " << base->getTilePosition() << " is no longer blocked by an enemy unit";
+            base->blockedByEnemy = false;
+        }
     }
 
     if (!Builder::isPendingHere(depotPosition))
@@ -289,6 +293,8 @@ void TakeExpansion::disband(const std::function<void(const MyUnit)> &removedUnit
     Builder::cancel(depotPosition);
 
     if (builder && !Builder::hasPendingBuilding(builder)) Workers::releaseWorker(builder);
+
+    Play::disband(removedUnitCallback, movableUnitCallback);
 }
 
 bool TakeExpansion::cancellable()
