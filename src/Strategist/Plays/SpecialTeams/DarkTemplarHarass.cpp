@@ -31,6 +31,8 @@ namespace
         std::vector<std::pair<Base *, bool>> harassableBases;
         for (auto base : Map::getEnemyBases())
         {
+            if (base->island) continue;
+
             bool hasCannon = false;
             for (const auto &cannon : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon))
             {

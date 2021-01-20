@@ -4,6 +4,7 @@
 #include <Strategist/Plays/MainArmy/AttackEnemyBase.h>
 #include <Strategist/Plays/MainArmy/MopUp.h>
 #include <Strategist/Plays/Offensive/AttackExpansion.h>
+#include <Strategist/Plays/Offensive/AttackIslandExpansion.h>
 #include <Strategist/Plays/Scouting/ScoutEnemyExpos.h>
 
 #include "Map.h"
@@ -40,23 +41,14 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
         return;
     }
 
-    // If the enemy has no bases, set the main army to mop up
-    // Any existing attack expansion plays will complete themselves
-    auto enemyBases = Map::getEnemyBases();
-    if (enemyBases.empty())
-    {
-        setMainPlay<MopUp>(mainArmyPlay);
-        return;
-    }
-
     // Get the current main army target base
-    // We allow ourselves to pick a different target when the vanguard cluster is regrouping
+    // We allow ourselves to pick a different target when the vanguard cluster is not attacking
     Base *mainArmyTarget = nullptr;
     auto attackEnemyBasePlay = dynamic_cast<AttackEnemyBase *>(mainArmyPlay);
     if (attackEnemyBasePlay && attackEnemyBasePlay->base->owner == BWAPI::Broodwar->enemy())
     {
         auto vanguard = attackEnemyBasePlay->getSquad()->vanguardCluster();
-        if (vanguard && vanguard->currentActivity != UnitCluster::Activity::Regrouping)
+        if (vanguard && vanguard->currentActivity == UnitCluster::Activity::Attacking)
         {
             mainArmyTarget = attackEnemyBasePlay->base;
         }
@@ -64,16 +56,24 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
 
     // Now analyze all of the enemy bases to determine how we want to attack them
     // Main army target is either a fortified expansion, the enemy natural, or the enemy main
-    int highestEnemyValue = 0;
-    Base *highestEnemyValueBase = nullptr;
+    int lowestEnemyValue = INT_MAX;
+    Base *lowestEnemyValueBase = nullptr;
     std::map<Base *, int> attackableExpansionsToEnemyUnitValue;
-    for (auto &base : enemyBases)
+    std::set<Base *> islandExpansions;
+    for (auto &base : Map::getEnemyBases())
     {
         // Main and natural are default targets for our main army, so don't need to be analyzed
         if (base == Map::getEnemyMain() || base == Map::getEnemyStartingNatural()) continue;
 
         // Skip if the main army is already attacking this base
         if (base == mainArmyTarget) continue;
+
+        // Handle islands separately
+        if (base->island)
+        {
+            islandExpansions.insert(base);
+            continue;
+        }
 
         // Gather enemy threats at the base
         int enemyValue = 0;
@@ -90,15 +90,15 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
         }
 
         // Target the main army at this base if it does not already have a locked target and this base is most defended
-        if (enemyValue > highestEnemyValue)
+        if (enemyValue < lowestEnemyValue)
         {
-            highestEnemyValue = enemyValue;
-            highestEnemyValueBase = base;
+            lowestEnemyValue = enemyValue;
+            lowestEnemyValueBase = base;
         }
     }
 
     // Choose the target for the main army
-    if (!mainArmyTarget) mainArmyTarget = highestEnemyValueBase;
+    if (!mainArmyTarget) mainArmyTarget = lowestEnemyValueBase;
     if (!mainArmyTarget)
     {
         mainArmyTarget = Map::getEnemyStartingNatural() && Map::getEnemyStartingNatural()->owner == BWAPI::Broodwar->enemy()
@@ -129,6 +129,13 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
     // Remove AttackExpansion plays that are no longer needed
     for (auto &play : plays)
     {
+        auto attackIslandExpansionPlay = std::dynamic_pointer_cast<AttackIslandExpansion>(play);
+        if (attackIslandExpansionPlay)
+        {
+            islandExpansions.erase(attackIslandExpansionPlay->base);
+            continue;
+        }
+
         auto attackExpansionPlay = std::dynamic_pointer_cast<AttackExpansion>(play);
         if (!attackExpansionPlay) continue;
 
@@ -146,22 +153,30 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Add missing plays
-    for (auto &attackableExpansionAndEnemyUnitValue : attackableExpansionsToEnemyUnitValue)
+    auto beforeMainArmyIt = [&plays]()
     {
-        // Insert them before the main army play
         auto it = plays.begin();
         for (; it != plays.end(); it++)
         {
-            if (auto match = std::dynamic_pointer_cast<MainArmyPlay>(*it))
+            if (std::dynamic_pointer_cast<MainArmyPlay>(*it) != nullptr)
             {
                 break;
             }
         }
-
-        plays.emplace(it, std::make_shared<AttackExpansion>(
+        return it;
+    };
+    for (auto &attackableExpansionAndEnemyUnitValue : attackableExpansionsToEnemyUnitValue)
+    {
+        plays.emplace(beforeMainArmyIt(), std::make_shared<AttackExpansion>(
                 attackableExpansionAndEnemyUnitValue.first,
                 attackableExpansionAndEnemyUnitValue.second));
         CherryVis::log() << "Added attack expansion play for base @ "
                          << BWAPI::WalkPosition(attackableExpansionAndEnemyUnitValue.first->getPosition());
+    }
+    for (auto &islandExpansion : islandExpansions)
+    {
+        plays.emplace(beforeMainArmyIt(), std::make_shared<AttackIslandExpansion>(islandExpansion));
+        CherryVis::log() << "Added attack island expansion play for base @ "
+                         << BWAPI::WalkPosition(islandExpansion->getPosition());
     }
 }

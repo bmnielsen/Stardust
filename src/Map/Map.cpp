@@ -244,6 +244,8 @@ namespace Map
                     int oldestBase = INT_MAX;
                     for (auto &other : playerBases.allOwned)
                     {
+                        if (other->island) continue;
+
                         if (other->ownedSince < oldestBase)
                         {
                             oldestBase = other->ownedSince;
@@ -299,7 +301,7 @@ namespace Map
                 }
 
                 // If this player had a starting main, but doesn't currently have a main, set this base as the main
-                if (ownerBases.startingMain && !ownerBases.main)
+                if (ownerBases.startingMain && !ownerBases.main && !base->island)
                 {
                     ownerBases.main = base;
                 }
