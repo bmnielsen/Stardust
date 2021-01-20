@@ -602,3 +602,43 @@ TEST(Steamhammer, RunOneRandom)
     };
     test.run();
 }
+
+TEST(Steamhammer, RunOneWithIslandExpo)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.map = Maps::GetOne("Andromeda");
+    test.frameLimit = 20000;
+    test.opponentModule = []()
+    {
+        return new UAlbertaBot::UAlbertaBotModule();
+    };
+    test.removeStatic = {
+            BWAPI::TilePosition(63, 116) // Blocking neutral at bottom island expo
+    };
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Overlord, BWAPI::TilePosition(62, 119)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Hatchery, BWAPI::TilePosition(62, 119))
+    };
+    test.onStartOpponent = [&test]()
+    {
+        std::cout << "Steamhammer strategy: " << Config::Strategy::StrategyName << std::endl;
+        if (test.sharedMemory)
+        {
+            strncpy(test.sharedMemory, Config::Strategy::StrategyName.c_str(), std::min(255UL, Config::Strategy::StrategyName.size()));
+        }
+    };
+    test.onEndMine = [&test](bool won)
+    {
+        std::ostringstream replayName;
+        replayName << "Steamhammer_" << test.map->shortname();
+        if (!won)
+        {
+            replayName << "_LOSS";
+        }
+        if (test.sharedMemory) replayName << "_" << test.sharedMemory;
+        replayName << "_" << test.randomSeed;
+        test.replayName = replayName.str();
+    };
+    test.run();
+}

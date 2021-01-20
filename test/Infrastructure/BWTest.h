@@ -65,6 +65,8 @@ public:
     std::vector<UnitTypeAndPosition> myInitialUnits;
     std::vector<UnitTypeAndPosition> opponentInitialUnits;
 
+    std::vector<BWAPI::TilePosition> removeStatic;
+
     void run();
 
 private:

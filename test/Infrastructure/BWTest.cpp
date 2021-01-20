@@ -365,6 +365,26 @@ void BWTest::runGame(bool opponent)
     }
     h->update();
 
+    if (!opponent && !removeStatic.empty())
+    {
+        for (auto &tile : removeStatic)
+        {
+            for (auto &unit : h->getStaticNeutralUnits())
+            {
+                if (unit->getInitialTilePosition() == tile)
+                {
+                    h->removeUnit(unit);
+                }
+            }
+        }
+
+        for (int f = 0; f < 4; f++)
+        {
+            gameOwner.getGame().nextFrame();
+            h->update();
+        }
+    }
+
     for (int frame = 0; frame <= initialUnitFrames; frame++)
     {
         if (frame > 0) h->update();
