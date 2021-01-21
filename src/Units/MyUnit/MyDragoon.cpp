@@ -134,6 +134,9 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
         // Special case, if we are in a no-go area, move out of it
         if (NoGoAreas::isNoGo(tilePositionX, tilePositionY))
         {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(id) << "Attack: Moving to avoid no-go area";
+#endif
             moveTo(Boids::AvoidNoGoArea(this));
             return;
         }
@@ -291,10 +294,16 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
     // If the unit can't move in the desired direction, attack the target instead
     if (pos == BWAPI::Positions::Invalid)
     {
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(id) << "Attack boid invalid; attacking";
+#endif
         MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
     }
     else
     {
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(id) << "Attack boids: Moving to " << BWAPI::WalkPosition(pos);
+#endif
         moveTo(pos, true);
     }
 }

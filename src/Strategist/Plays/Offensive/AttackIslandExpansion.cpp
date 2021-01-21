@@ -2,6 +2,7 @@
 
 #include "General.h"
 #include "Units.h"
+#include "Map.h"
 
 AttackIslandExpansion::AttackIslandExpansion(Base *base)
         : Play((std::ostringstream() << "Attack island expansion @ " << base->getTilePosition()).str())
@@ -35,6 +36,9 @@ void AttackIslandExpansion::update()
         status.removedUnits = squad->getUnits();
         return;
     }
+
+    // Take all carriers
+    status.unitRequirements.emplace_back(10, BWAPI::UnitTypes::Protoss_Carrier, Map::getMyMain()->getPosition());
 }
 
 void AttackIslandExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)

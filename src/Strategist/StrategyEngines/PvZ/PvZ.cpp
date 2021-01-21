@@ -149,6 +149,8 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     handleNaturalExpansion(plays, prioritizedProductionGoals);
     handleDetection(prioritizedProductionGoals);
 
+    if (handleIslandExpansionProduction(plays, prioritizedProductionGoals)) return;
+
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
     auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;

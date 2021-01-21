@@ -464,6 +464,9 @@ namespace Workers
 
             if (NoGoAreas::isNoGo(worker->getTilePosition()))
             {
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(worker->id) << "Moving to avoid no-go area";
+#endif
                 worker->moveTo(Boids::AvoidNoGoArea(worker.get()));
                 continue;
             }

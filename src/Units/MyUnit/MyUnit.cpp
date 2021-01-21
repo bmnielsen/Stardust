@@ -102,6 +102,9 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
     int dist = getDistance(target);
     if (dist > 320 || !target->bwapiUnit->isVisible())
     {
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(id) << "Attack: Moving to target @ " << BWAPI::WalkPosition(target->lastPosition);
+#endif
         moveTo(target->lastPosition);
         return;
     }
@@ -145,6 +148,10 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
     auto interceptPosition = intercept(target);
     if (!interceptPosition.isValid()) interceptPosition = target->predictPosition(5);
     if (!interceptPosition.isValid()) interceptPosition = target->lastPosition;
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Attack: Moving to intercept @ " << BWAPI::WalkPosition(interceptPosition);
+#endif
     moveTo(interceptPosition);
 }
 

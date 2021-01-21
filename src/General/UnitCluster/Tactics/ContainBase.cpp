@@ -260,6 +260,16 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
                                    << "; total=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX+separationX, goalY+separationY))
                                    << "; target=" << BWAPI::WalkPosition(pos)
                                    << "; pullingBack=" << pullingBack;
+#elif DEBUG_UNIT_ORDERS
+        if (pos == BWAPI::Positions::Invalid)
+        {
+            CherryVis::log(myUnit->id) << "Contain boids: Invalid; moving to "
+                                       << BWAPI::WalkPosition(pullingBack ? Map::getMyMain()->getPosition() : targetPosition);
+        }
+        else
+        {
+            CherryVis::log(myUnit->id) << "Contain boids: Moving to " << BWAPI::WalkPosition(targetPosition);
+        }
 #endif
 
         // If the unit can't move in the desired direction, either move towards the target or towards our main

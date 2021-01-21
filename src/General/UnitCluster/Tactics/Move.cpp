@@ -166,6 +166,8 @@ void UnitCluster::move(BWAPI::Position targetPosition)
                                  << "; total=" << BWAPI::WalkPosition(
                 unit->lastPosition + BWAPI::Position(goalX + cohesionX + separationX, goalY + cohesionY + separationY))
                                  << "; target=" << BWAPI::WalkPosition(pos);
+#elif DEBUG_UNIT_ORDERS
+        CherryVis::log(unit->id) << "Move boids: Moving to " << BWAPI::WalkPosition(targetPosition);
 #endif
 
         unit->moveTo(pos, true);

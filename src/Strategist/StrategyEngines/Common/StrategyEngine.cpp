@@ -1,5 +1,7 @@
 #include <Strategist/Plays/MainArmy/DefendMyMain.h>
 #include <Strategist/Plays/MainArmy/AttackEnemyBase.h>
+#include <Strategist/Plays/MainArmy/MopUp.h>
+#include <Strategist/Plays/Macro/CullArmy.h>
 #include <Strategist/Plays/Defensive/DefendBase.h>
 #include <Strategist/Plays/Scouting/ScoutEnemyExpos.h>
 #include "StrategyEngine.h"
@@ -83,10 +85,90 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
     }
 }
 
+bool StrategyEngine::handleIslandExpansionProduction(std::vector<std::shared_ptr<Play>> &plays,
+                                                     std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+{
+    auto setCulling = [&plays](int requiredSupply)
+    {
+#if CHERRYVIS_ENABLED
+        CherryVis::setBoardValue("cull", (std::ostringstream() << std::max(0, requiredSupply)).str());
+#endif
+
+        // If we already have a cull army play, update the required supply
+        // If it goes zero or negative, the play will complete itself
+        auto cullArmy = getPlay<CullArmy>(plays);
+        if (cullArmy)
+        {
+            cullArmy->supplyNeeded = requiredSupply;
+            return;
+        }
+
+        // Nothing to do if we don't need supply
+        if (requiredSupply <= 0) return;
+
+        // Create the play
+        plays.emplace(plays.begin(), std::make_shared<CullArmy>(requiredSupply));
+    };
+
+    // Only relevant when the main army is in mop-up mode
+    auto mopUp = getPlay<MopUp>(plays);
+    if (!mopUp)
+    {
+        setCulling(0);
+        return false;
+    }
+
+    // Only relevant when the enemy has at least one island base
+    bool enemyHasIslandBase = false;
+    for (const auto &base : Map::getEnemyBases())
+    {
+        if (base->island)
+        {
+            enemyHasIslandBase = true;
+            break;
+        }
+    }
+    if (!enemyHasIslandBase)
+    {
+        setCulling(0);
+        return false;
+    }
+
+    // Produce up to 10 carriers with relevant upgrades
+    int requiredCarriers = 10 - Units::countAll(BWAPI::UnitTypes::Protoss_Carrier);
+    int weaponLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Air_Weapons);
+    if (weaponLevel < 3)
+    {
+        prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+                                                                                 BWAPI::UpgradeTypes::Protoss_Air_Weapons,
+                                                                                 weaponLevel + 1,
+                                                                                 1);
+    }
+    if (requiredCarriers > 0)
+    {
+        prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                 BWAPI::UnitTypes::Protoss_Carrier,
+                                                                                 requiredCarriers,
+                                                                                 4);
+        upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, 0);
+
+        // Cull our main army if we need the supply
+        setCulling(
+                requiredCarriers * BWAPI::UnitTypes::Protoss_Carrier.supplyRequired() - // Supply needed by the carriers
+                (400 - BWAPI::Broodwar->self()->supplyUsed())); // Supply room
+    }
+    else
+    {
+        setCulling(0);
+    }
+
+    return true;
+}
+
 void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                               int dragoonCount,
-                               int zealotCount,
-                               int desiredZealots)
+                                        int dragoonCount,
+                                        int zealotCount,
+                                        int desiredZealots)
 {
     // If our core is done or we want no zealots just return dragoons
     if (desiredZealots == 0 || Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0)

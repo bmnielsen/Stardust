@@ -26,7 +26,7 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
 
             // If we are producing an unlimited number of a different unit type first, or at emergency priority, bail out
             if (unitProductionGoal->countToProduce() == -1 &&
-                (unitProductionGoal->unitType() != unitType || priorityAndProductionGoals.first != PRIORITY_MAINARMY))
+                (unitProductionGoal->unitType() != unitType || priorityAndProductionGoals.first < PRIORITY_MAINARMYBASEPRODUCTION))
             {
                 return;
             }

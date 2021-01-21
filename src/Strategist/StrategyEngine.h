@@ -32,6 +32,9 @@ protected:
                                          int zealotCount,
                                          int zealotsRequired);
 
+    static bool handleIslandExpansionProduction(std::vector<std::shared_ptr<Play>> &plays,
+                                                std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+
     static void oneGateCoreOpening(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                    int dragoonCount,
                                    int zealotCount,
