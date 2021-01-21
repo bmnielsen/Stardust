@@ -5,7 +5,7 @@
 #include "Map.h"
 
 #if INSTRUMENTATION_ENABLED
-#define DEBUG_SQUAD_TARGET true
+#define DEBUG_SQUAD_TARGET false
 #endif
 
 MopUpSquad::MopUpSquad() : Squad("Mop Up")
@@ -56,9 +56,9 @@ void MopUpSquad::execute(UnitCluster &cluster)
         if (!enemyUnit->lastPositionValid || !enemyUnit->lastPosition.isValid()) continue;
 
         int dist = enemyUnit->isFlying
-                   ? enemyUnit->lastPosition.getApproxDistance(cluster.center)
-                   : PathFinding::GetGroundDistance(cluster.center, enemyUnit->lastPosition);
-        if (dist < closestDist)
+                   ? enemyUnit->lastPosition.getApproxDistance(cluster.vanguard->lastPosition)
+                   : PathFinding::GetGroundDistance(cluster.vanguard->lastPosition, enemyUnit->lastPosition);
+        if (dist != -1 && dist < closestDist)
         {
             closestDist = dist;
             closestPosition = enemyUnit->lastPosition;
