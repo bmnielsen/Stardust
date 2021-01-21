@@ -298,6 +298,11 @@ namespace CombatSim
                 score += 4 * UnitUtil::MineralCost(BWAPI::UnitTypes::Terran_Marine);
             }
 
+            if (type == BWAPI::UnitTypes::Protoss_Carrier)
+            {
+                score += 8 * UnitUtil::MineralCost(BWAPI::UnitTypes::Protoss_Interceptor);
+            }
+
             baseScore[type] = score >> 2U;
             scaledScore[type] = score - baseScore[type];
         }

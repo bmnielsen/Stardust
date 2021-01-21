@@ -88,6 +88,8 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool bu
 {
     auto weaponUnitType = type;
     if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+    if (type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
+    if (type == BWAPI::UnitTypes::Protoss_Reaver) weaponUnitType = BWAPI::UnitTypes::Protoss_Scarab;
 
     if (weaponUnitType.groundWeapon() != BWAPI::WeaponTypes::None &&
         ((burrowed && type == BWAPI::UnitTypes::Zerg_Lurker) || (!burrowed && type != BWAPI::UnitTypes::Zerg_Lurker)))
@@ -176,6 +178,8 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
 
     auto weaponUnitType = type;
     if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+    if (type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
+    if (type == BWAPI::UnitTypes::Protoss_Reaver) weaponUnitType = BWAPI::UnitTypes::Protoss_Scarab;
 
     if (weaponUnitType.groundWeapon() != BWAPI::WeaponTypes::None &&
         ((burrowed && type == BWAPI::UnitTypes::Zerg_Lurker) || (!burrowed && type != BWAPI::UnitTypes::Zerg_Lurker)))
@@ -272,6 +276,7 @@ void Grid::unitWeaponDamageUpgraded(BWAPI::UnitType type, BWAPI::Position positi
 void Grid::unitWeaponRangeUpgraded(BWAPI::UnitType type, BWAPI::Position position, BWAPI::WeaponType weapon, int formerRange, int newRange)
 {
     // We don't need to worry about minimum range here, since tanks do not have range upgrades
+    // Also don't need to worry about carriers and reavers
 
     if (weapon.targetsGround())
     {

@@ -326,15 +326,19 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
                 break;
             }
 
-            int distTarget = PathFinding::GetGroundDistance(
-                    unitAndTarget.first->lastPosition,
-                    unitAndTarget.second->lastPosition,
-                    unitAndTarget.first->type,
-                    PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
-            int distVanguardCluster = PathFinding::GetGroundDistance(unitAndTarget.first->lastPosition,
-                                                                     currentVanguardCluster->vanguard->lastPosition,
-                                                                     unitAndTarget.first->type,
-                                                                     PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+            int distTarget = unitAndTarget.first->isFlying
+                             ? unitAndTarget.first->getDistance(unitAndTarget.second->lastPosition)
+                             : PathFinding::GetGroundDistance(
+                            unitAndTarget.first->lastPosition,
+                            unitAndTarget.second->lastPosition,
+                            unitAndTarget.first->type,
+                            PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+            int distVanguardCluster = unitAndTarget.first->isFlying
+                                      ? unitAndTarget.first->getDistance(currentVanguardCluster->vanguard->lastPosition)
+                                      : PathFinding::GetGroundDistance(unitAndTarget.first->lastPosition,
+                                                                       currentVanguardCluster->vanguard->lastPosition,
+                                                                       unitAndTarget.first->type,
+                                                                       PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
             linkUp = (distTarget == -1 || distVanguardCluster == -1 || distVanguardCluster < distTarget);
 
             break;

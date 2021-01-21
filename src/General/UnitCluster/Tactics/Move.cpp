@@ -76,6 +76,16 @@ void UnitCluster::move(BWAPI::Position targetPosition)
         // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
         if (!unit->isReady()) continue;
 
+        // Flying units just move for now
+        if (unit->isFlying)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(unit->id) << "Move to target: Moving to " << BWAPI::WalkPosition(targetPosition);
+#endif
+            unit->moveTo(targetPosition);
+            continue;
+        }
+
         // Get the grid node to move towards
         // We attempt to move towards the third node ahead of us
         NavigationGrid::GridNode *node = nullptr;

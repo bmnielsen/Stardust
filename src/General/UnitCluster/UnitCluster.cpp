@@ -100,9 +100,13 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     int sumX = 0;
     int sumY = 0;
     auto mainPosition = Map::getMyMain()->getPosition();
-    vanguard = nullptr;
-    vanguardDistToMain = -1;
-    vanguardDistToTarget = INT_MAX;
+
+    MyUnit groundVanguard = nullptr;
+    MyUnit flyingVanguard = nullptr;
+    int groundDistToMain = -1;
+    int groundDistToTarget = INT_MAX;
+    int flyingDistToMain = -1;
+    int flyingDistToTarget = -1;
     for (auto unitIt = units.begin(); unitIt != units.end();)
     {
         auto unit = *unitIt;
@@ -117,28 +121,58 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
         sumX += unit->lastPosition.x;
         sumY += unit->lastPosition.y;
 
+        if (unit->isFlying)
+        {
+            int dist = unit->getDistance(targetPosition);
+            if (dist >= flyingDistToTarget)
+            {
+                unitIt++;
+                continue;
+            }
+
+            flyingVanguard = unit;
+            flyingDistToTarget = dist;
+            flyingDistToMain = unit->getDistance(mainPosition);
+
+            unitIt++;
+            continue;
+        }
+
         int dist = PathFinding::GetGroundDistance(targetPosition, unit->lastPosition, unit->type);
-        if (dist > vanguardDistToTarget)
+        if (dist > groundDistToTarget)
         {
             unitIt++;
             continue;
         }
 
         int mainDist = PathFinding::GetGroundDistance(mainPosition, unit->lastPosition, unit->type);
-        if (dist != -1 || (mainDist != -1 && vanguardDistToTarget == INT_MAX && mainDist > vanguardDistToMain))
+        if (dist != -1 || (mainDist != -1 && groundDistToTarget == INT_MAX && mainDist > groundDistToMain))
         {
-            vanguard = unit;
+            groundVanguard = unit;
             if (dist != -1)
             {
-                vanguardDistToTarget = dist;
+                groundDistToTarget = dist;
             }
             if (mainDist != -1)
             {
-                vanguardDistToMain = mainDist;
+                groundDistToMain = mainDist;
             }
         }
 
         unitIt++;
+    }
+
+    if (groundVanguard)
+    {
+        vanguard = groundVanguard;
+        vanguardDistToMain = groundDistToMain;
+        vanguardDistToTarget = groundDistToTarget;
+    }
+    else
+    {
+        vanguard = flyingVanguard;
+        vanguardDistToMain = flyingDistToMain;
+        vanguardDistToTarget = flyingDistToTarget;
     }
 
     if (units.empty()) return;

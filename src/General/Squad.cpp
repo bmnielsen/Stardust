@@ -43,7 +43,7 @@ bool Squad::canAddUnitToCluster(const MyUnit &unit, const std::shared_ptr<UnitCl
 
 bool Squad::shouldCombineClusters(const std::shared_ptr<UnitCluster> &first, const std::shared_ptr<UnitCluster> &second) const
 {
-    return PathFinding::GetGroundDistance(first->center, second->center, BWAPI::UnitTypes::Protoss_Dragoon) <=
+    return first->center.getApproxDistance(second->center) <=
            (COMBINE_THRESHOLD + (first->units.size() + second->units.size()) * 32);
 }
 

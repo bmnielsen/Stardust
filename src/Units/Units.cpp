@@ -5,6 +5,7 @@
 #include "Map.h"
 #include "NoGoAreas.h"
 #include "BuildingPlacement.h"
+#include "MyCarrier.h"
 #include "MyDragoon.h"
 #include "MyWorker.h"
 #include "UnitUtil.h"
@@ -16,6 +17,7 @@
 #define DEBUG_ZEALOT_STATUS false
 #define DEBUG_DRAGOON_STATUS false
 #define DEBUG_DT_STATUS false
+#define DEBUG_CARRIER_STATUS false
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS false
 #define DEBUG_PRODUCINGBUILDING_STATUS false
@@ -414,10 +416,18 @@ namespace Units
         upgradesInProgress.clear();
         researchInProgress.clear();
 
+        auto ignoreUnit = [](BWAPI::Unit bwapiUnit)
+        {
+            return bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Interceptor ||
+                   bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Scarab;
+        };
+
         // Update our units
         // We always have vision of our own units, so we don't have to handle units in fog
         for (auto bwapiUnit : BWAPI::Broodwar->self()->getUnits())
         {
+            if (ignoreUnit(bwapiUnit)) continue;
+
             // If we just mind controlled an enemy unit, consider the enemy unit destroyed
             auto enemyIt = unitIdToEnemyUnit.find(bwapiUnit->getID());
             if (enemyIt != unitIdToEnemyUnit.end())
@@ -438,6 +448,11 @@ namespace Units
                 else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Dragoon)
                 {
                     unit = std::make_shared<MyDragoon>(bwapiUnit);
+                    unit->created();
+                }
+                else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Carrier)
+                {
+                    unit = std::make_shared<MyCarrier>(bwapiUnit);
                     unit->created();
                 }
                 else
@@ -477,6 +492,7 @@ namespace Units
         // Update visible enemy units
         for (auto bwapiUnit : BWAPI::Broodwar->enemy()->getUnits())
         {
+            if (ignoreUnit(bwapiUnit)) continue;
             if (!bwapiUnit->isVisible()) continue;
 
 #if DEBUG_ENEMY_STATUS
@@ -691,6 +707,9 @@ namespace Units
 #endif
 #if DEBUG_SHUTTLE_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Shuttle;
+#endif
+#if DEBUG_CARRIER_STATUS
+            output = output || unit->type == BWAPI::UnitTypes::Protoss_Carrier;
 #endif
 #if DEBUG_OBSERVER_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Observer;
