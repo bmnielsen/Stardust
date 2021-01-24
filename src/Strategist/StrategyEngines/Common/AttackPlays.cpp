@@ -42,13 +42,19 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Get the current main army target base
-    // We allow ourselves to pick a different target when the vanguard cluster is not attacking
+    // To avoid indecision, we only allow the army to switch target bases in the following situations:
+    // - it is attacking an expansion and has been on the attack in the past five seconds
+    // - it is attacking the enemy main or natural and is still on the attack
     Base *mainArmyTarget = nullptr;
     auto attackEnemyBasePlay = dynamic_cast<AttackEnemyBase *>(mainArmyPlay);
     if (attackEnemyBasePlay && attackEnemyBasePlay->base->owner == BWAPI::Broodwar->enemy())
     {
+        bool isMainOrNatural = attackEnemyBasePlay->base == Map::getEnemyStartingMain() ||
+                               attackEnemyBasePlay->base == Map::getEnemyStartingNatural();
+
         auto vanguard = attackEnemyBasePlay->getSquad()->vanguardCluster();
-        if (vanguard && vanguard->currentActivity == UnitCluster::Activity::Attacking)
+        if (vanguard && (vanguard->currentActivity != UnitCluster::Activity::Regrouping
+                         || (!isMainOrNatural && vanguard->lastActivityChange > (BWAPI::Broodwar->getFrameCount() - 120))))
         {
             mainArmyTarget = attackEnemyBasePlay->base;
         }
