@@ -337,12 +337,20 @@ std::shared_ptr<UnitCluster> Squad::vanguardCluster(int *distToTargetPosition) c
     return currentVanguardCluster;
 }
 
-bool Squad::isInVanguardCluster(MyUnit &unit) const
+bool Squad::canReassignFromVanguardCluster(MyUnit &unit) const
 {
+    // Allow if the unit isn't in the vanguard cluster
     auto clusterIt = unitToCluster.find(unit);
-    if (clusterIt == unitToCluster.end()) return false;
+    if (clusterIt == unitToCluster.end()) return true;
+    if (clusterIt->second != currentVanguardCluster) return true;
 
-    return clusterIt->second == currentVanguardCluster;
+    // Allow if the vanguard cluster has lots of units
+    if (currentVanguardCluster->units.size() > 20) return true;
+
+    // Allow if the vanguard cluster is not attacking or fleeing
+    return currentVanguardCluster->currentActivity != UnitCluster::Activity::Attacking &&
+           (currentVanguardCluster->currentActivity != UnitCluster::Activity::Regrouping ||
+            currentVanguardCluster->currentSubActivity != UnitCluster::SubActivity::Flee);
 }
 
 void Squad::updateDetectionNeeds(std::set<Unit> &enemyUnits)

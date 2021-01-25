@@ -31,7 +31,7 @@ public:
 
     [[nodiscard]] std::shared_ptr<UnitCluster> vanguardCluster(int *distToTargetPosition = nullptr) const;
 
-    [[nodiscard]] bool isInVanguardCluster(MyUnit &unit) const;
+    [[nodiscard]] bool canReassignFromVanguardCluster(MyUnit &unit) const;
 
     explicit Squad(std::string label)
             : label(std::move(label))

@@ -74,13 +74,7 @@ void AttackExpansion::update()
     // TODO: Request zealot or dragoon when we have that capability
     if (requestedUnits > 0)
     {
-        // Only reserve units that have a safe path to the base
-        auto gridNodePredicate = [](const NavigationGrid::GridNode &gridNode)
-        {
-            return gridNode.cost < 300 || Players::grid(BWAPI::Broodwar->enemy()).groundThreat(gridNode.center()) == 0;
-        };
-
-        status.unitRequirements.emplace_back(requestedUnits, BWAPI::UnitTypes::Protoss_Dragoon, base->getPosition(), gridNodePredicate, false);
+        status.unitRequirements.emplace_back(requestedUnits, BWAPI::UnitTypes::Protoss_Dragoon, base->getPosition(), nullptr, false);
     }
 }
 

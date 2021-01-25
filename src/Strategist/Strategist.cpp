@@ -151,7 +151,7 @@ namespace Strategist
                          it != reassignableUnits.end() && unitRequirement.count > 0;)
                     {
                         if (!unitRequirement.allowFromVanguardCluster && it->currentPlay && it->currentPlay->getSquad()
-                            && it->currentPlay->getSquad()->isInVanguardCluster(it->unit))
+                            && !it->currentPlay->getSquad()->canReassignFromVanguardCluster(it->unit))
                         {
                             it++;
                             continue;
