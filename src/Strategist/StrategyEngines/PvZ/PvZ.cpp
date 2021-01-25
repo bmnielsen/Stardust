@@ -264,12 +264,6 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 requiredZealots = 3 - unitCount;
             }
 
-            // Mix in zealots against sunkens
-            if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Sunken_Colony) > 2)
-            {
-                requiredZealots = std::max(requiredZealots, dragoonCount - zealotCount);
-            }
-
             if (requiredZealots > 0)
             {
                 prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
