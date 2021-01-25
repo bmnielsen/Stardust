@@ -248,7 +248,8 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1,
                                                                        -1);
 
-            handleUpgrades(prioritizedProductionGoals);
+            // Only upgrade goon range
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
             break;
         }
@@ -416,7 +417,7 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 void PvZ::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
     // Basic infantry skill upgrades are queued when we have enough of them and are still building them
-    upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 4);
+    upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 5);
     upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
     // Cases where we want the upgrade as soon as we start building one of the units
