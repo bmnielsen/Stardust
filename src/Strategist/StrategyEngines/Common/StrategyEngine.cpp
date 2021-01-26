@@ -58,6 +58,11 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
                 Builder::cancel(core->tile);
             }
         }
+
+        cancelTrainingUnits(prioritizedProductionGoals,
+                            BWAPI::UnitTypes::Protoss_Dragoon,
+                            2 - (dragoonCount + zealotCount),
+                            BWAPI::UnitTypes::Protoss_Zealot.buildTime());
     }
     else if (zealotsRequired > 0)
     {
@@ -65,6 +70,11 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
                                                                       BWAPI::UnitTypes::Protoss_Zealot,
                                                                       zealotsRequired > 1 ? -1 : 1,
                                                                       -1);
+
+        cancelTrainingUnits(prioritizedProductionGoals,
+                            BWAPI::UnitTypes::Protoss_Dragoon,
+                            zealotsRequired,
+                            BWAPI::UnitTypes::Protoss_Zealot.buildTime());
     }
 
     // If the dragoon transition is just beginning, only order one so we keep producing zealots
@@ -163,6 +173,72 @@ bool StrategyEngine::handleIslandExpansionProduction(std::vector<std::shared_ptr
     }
 
     return true;
+}
+
+void StrategyEngine::cancelTrainingUnits(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                         BWAPI::UnitType type,
+                                         int requiredCapacity,
+                                         int remainingTrainingTimeThreshold)
+{
+    if (requiredCapacity < 1) return;
+
+    // Abort if there is emergency production of the unit
+    for (const auto &productionGoal : prioritizedProductionGoals[PRIORITY_EMERGENCY])
+    {
+        if (auto unitProductionGoal = std::get_if<UnitProductionGoal>(&productionGoal))
+        {
+            if (unitProductionGoal->unitType() == type) return;
+        }
+    }
+
+    // Do an initial scan to find our current available production capacity and which producers can cancel a unit
+    std::vector<std::pair<MyUnit, int>> cancellableProducers;
+    for (const auto &producer : Units::allMineCompletedOfType(type.whatBuilds().first))
+    {
+        // Check if the producer is available
+        // To avoid instability from latcom, we assume it is available if we have just ordered it to do something
+        if (!producer->bwapiUnit->isTraining() ||
+            (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+        {
+            requiredCapacity--;
+            continue;
+        }
+
+        // We also consider the producer available if it will be free within the next two seconds, but still fall through to
+        // register it as a cancellable producer to handle the case where we want to cancel everything
+        if (producer->bwapiUnit->getRemainingTrainTime() < 48)
+        {
+            requiredCapacity--;
+        }
+
+        auto trainingQueue = producer->bwapiUnit->getTrainingQueue();
+        if (trainingQueue.empty()) continue;
+        if (*trainingQueue.begin() != type) continue;
+        if (producer->bwapiUnit->getRemainingTrainTime() < remainingTrainingTimeThreshold) continue;
+        cancellableProducers.emplace_back(std::make_pair(producer, producer->bwapiUnit->getRemainingTrainTime()));
+    }
+    for (const auto &producer : Units::allMineIncompleteOfType(type.whatBuilds().first))
+    {
+        if ((producer->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount()) < 60) requiredCapacity--;
+    }
+
+    if (requiredCapacity < 1) return;
+
+    // Cancel the producers longest from being done first
+    std::sort(cancellableProducers.begin(), cancellableProducers.end(), [](const auto &a, const auto &b)
+              {
+                  return a.second > b.second;
+              }
+    );
+
+    for (const auto &producer : cancellableProducers)
+    {
+        Log::Get() << "Cancelling production of " << type << " from " << producer.first->type << " @ " << producer.first->getTilePosition();
+        producer.first->bwapiUnit->cancelTrain(0);
+
+        requiredCapacity--;
+        if (requiredCapacity < 1) return;
+    }
 }
 
 void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,

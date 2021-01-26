@@ -240,6 +240,11 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
                                                                               desiredZealots - zealotCount,
                                                                               2);
+
+                cancelTrainingUnits(prioritizedProductionGoals,
+                                    BWAPI::UnitTypes::Protoss_Dragoon,
+                                    desiredZealots - zealotCount,
+                                    BWAPI::UnitTypes::Protoss_Zealot.buildTime());
             }
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,

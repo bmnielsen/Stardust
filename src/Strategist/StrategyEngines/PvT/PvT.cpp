@@ -174,37 +174,9 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::NormalOpening:
         {
             // If any zealots are in production, and we don't have an emergency production goal, cancel them
-            // This happens when the enemy strategy was misrecognized as a rush
             if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot) > 0)
             {
-                bool hasEmergencyZealotProduction = false;
-                for (const auto &productionGoal : prioritizedProductionGoals[PRIORITY_EMERGENCY])
-                {
-                    if (auto unitProductionGoal = std::get_if<UnitProductionGoal>(&productionGoal))
-                    {
-                        if (unitProductionGoal->unitType() == BWAPI::UnitTypes::Protoss_Zealot)
-                        {
-                            hasEmergencyZealotProduction = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!hasEmergencyZealotProduction)
-                {
-                    for (const auto &gateway : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Gateway))
-                    {
-                        if (gateway->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Cancel_Train) continue;
-                        if (gateway->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Cancel_Train_Slot) continue;
-
-                        auto trainingQueue = gateway->bwapiUnit->getTrainingQueue();
-                        if (trainingQueue.empty()) continue;
-                        if (*trainingQueue.begin() != BWAPI::UnitTypes::Protoss_Zealot) continue;
-
-                        Log::Get() << "Cancelling zealot production from gateway @ " << gateway->getTilePosition();
-                        gateway->bwapiUnit->cancelTrain(0);
-                    }
-                }
+                cancelTrainingUnits(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot);
             }
 
             // Try to keep at least two army units in production while taking our natural

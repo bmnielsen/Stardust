@@ -35,6 +35,11 @@ protected:
     static bool handleIslandExpansionProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                 std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
+    static void cancelTrainingUnits(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                    BWAPI::UnitType type,
+                                    int requiredCapacity = INT_MAX,
+                                    int remainingTrainingTimeThreshold = 0);
+
     static void oneGateCoreOpening(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                    int dragoonCount,
                                    int zealotCount,
