@@ -366,8 +366,11 @@ void EarlyGameWorkerScout::update()
     int threatY = 0;
     bool hasThreat = false;
     bool hasRangedThreat = false;
-    for (auto &unit : Units::enemyAtBase(targetBase))
+    for (auto &unit : Units::allEnemy())
     {
+        if (!unit->lastPositionValid) continue;
+        if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
+        if (!UnitUtil::CanAttackGround(unit->type)) continue;
         if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
 
         int detectionLimit = std::max(128, unit->groundRange() + 64);
@@ -492,17 +495,19 @@ void EarlyGameWorkerScout::update()
     }
 
     // Compute goal boid
-    int goalX;
-    int goalY;
+    int goalX = 0;
+    int goalY = 0;
     {
         auto vector = BWAPI::Position(targetPos.x - scout->lastPosition.x, targetPos.y - scout->lastPosition.y);
         auto scaled = Geo::ScaleVector(vector, goalWeight);
-
-        goalX = scaled.x;
-        goalY = scaled.y;
+        if (scaled != BWAPI::Positions::Invalid)
+        {
+            goalX = scaled.x;
+            goalY = scaled.y;
+        }
     }
 
-    auto pos = Boids::ComputePosition(scout.get(), {goalX, threatX}, {goalY, threatY}, 64);
+    auto pos = Boids::ComputePosition(scout.get(), {goalX, threatX}, {goalY, threatY}, 64, 16, 3);
 
 #if DEBUG_UNIT_BOIDS
     CherryVis::log(scout->id) << "Scouting boids towards " << BWAPI::WalkPosition(targetPos)
