@@ -228,15 +228,17 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
 
         case OurStrategy::Defensive:
+        case OurStrategy::Normal:
         {
-            // Scale our desired zealots based on enemy ling count, with a minimum of 3
-            int desiredZealots = std::max(3, 1 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) + 2) / 3);
+            // Scale our desired zealots based on enemy ling count
+            // Start with three before goons
             int unitCount = zealotCount + dragoonCount;
-            if (unitCount < desiredZealots)
+            int desiredZealots = std::max(3 - unitCount, 1 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) + 2) / 3);
+            if (zealotCount < desiredZealots)
             {
                 prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
-                                                                              desiredZealots - unitCount,
+                                                                              desiredZealots - zealotCount,
                                                                               2);
             }
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -250,39 +252,6 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             // Only upgrade goon range
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
-
-            break;
-        }
-
-        case OurStrategy::Normal:
-        {
-            // Build at least three zealots before transitioning into dragoons
-            // TODO: When we have better scouting, be a bit more aggressive
-            int unitCount = zealotCount + dragoonCount;
-            int requiredZealots = 0;
-            if (unitCount < 3)
-            {
-                requiredZealots = 3 - unitCount;
-            }
-
-            if (requiredZealots > 0)
-            {
-                prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                              BWAPI::UnitTypes::Protoss_Zealot,
-                                                                              requiredZealots,
-                                                                              2);
-            }
-
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       -1,
-                                                                       -1);
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Zealot,
-                                                                       -1,
-                                                                       -1);
-
-            handleUpgrades(prioritizedProductionGoals);
 
             break;
         }
