@@ -8,9 +8,13 @@
 class TestMainArmyAttackBasePlay : public MainArmyPlay
 {
 public:
-    explicit TestMainArmyAttackBasePlay(Base *base)
+    explicit TestMainArmyAttackBasePlay(Base *base, bool ignoreCombatSim = false)
             : MainArmyPlay((std::ostringstream() << "Test main army attack base @ " << base->getTilePosition()).str())
-            , squad(std::make_shared<AttackBaseSquad>(base)) { General::addSquad(squad); };
+            , squad(std::make_shared<AttackBaseSquad>(base))
+    {
+        squad->ignoreCombatSim = ignoreCombatSim;
+        General::addSquad(squad);
+    };
 
     std::shared_ptr<Squad> getSquad() override { return squad; }
 

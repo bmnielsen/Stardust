@@ -6,6 +6,7 @@
 #include "DoNothingModule.h"
 #include "TestAttackBasePlay.h"
 #include "UpgradeStrategyEngine.h"
+#include "DoNothingStrategyEngine.h"
 
 TEST(AoEAvoidance, Storm)
 {
@@ -141,6 +142,8 @@ TEST(AoEAvoidance, Scarabs)
     test.onStartMine = [&baseToAttack]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(7, 116)));
+
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack, true));
