@@ -52,15 +52,18 @@ namespace
                 distanceFactor *= 0.8;
             }
 
+            double percentGainCutoff = 0.2 / (aggression * distanceFactor);
+
             // Attack if we expect to end the fight with a sufficiently larger army and aren't losing an unacceptable percentage of it
-            if (simResult.myPercentageOfTotal() > (1.0 - 0.45 * distanceFactor) && simResult.percentGain() > -0.05 * distanceFactor)
+            if (simResult.myPercentageOfTotal() > (1.0 - 0.3 * (distanceFactor - 0.2) * aggression)
+                && simResult.percentGain() > (percentGainCutoff - 0.15))
             {
                 return true;
             }
 
             // Attack if the percentage gain, adjusted for aggression and distance factor, is acceptable
             // A percentage gain here means the enemy loses a larger percentage of their army than we do
-            if (simResult.percentGain() > (0.2 / (aggression * distanceFactor))) return true;
+            if (simResult.percentGain() > percentGainCutoff) return true;
 
             return false;
         };
@@ -73,6 +76,7 @@ namespace
                          << ": %l=" << simResult.myPercentLost()
                          << "; vg=" << simResult.valueGain()
                          << "; %g=" << simResult.percentGain()
+                         << "; %t=" << simResult.myPercentageOfTotal()
                          << (result ? "; ATTACK" : "; RETREAT");
 #endif
 
