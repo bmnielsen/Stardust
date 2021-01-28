@@ -1,5 +1,6 @@
 #include "BWTest.h"
 #include "DoNothingModule.h"
+#include "UAlbertaBotModule.h"
 
 #include "Map.h"
 #include "Strategist.h"
@@ -224,6 +225,38 @@ TEST(AttackStaticDefense, HandlesBlockedPath)
     };
 
     // TODO: Assert something
+
+    test.run();
+}
+
+TEST(AttackStaticDefense, HeavilyFortifiedNatural)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        return new UAlbertaBot::UAlbertaBotModule();
+    };
+    test.map = Maps::GetOne("Spirit");
+    test.randomSeed = 50302;
+    test.frameLimit = 15000;
+    test.expectWin = false;
+
+    // Enemy has a bunch of cannons
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Drone, BWAPI::TilePosition(14, 37)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Hatchery, BWAPI::TilePosition(14, 38), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(18, 40)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(18, 38)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(18, 36)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(18, 34)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(16, 36)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(16, 34)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(20, 34)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(20, 36)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(20, 38)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(20, 40)),
+    };
 
     test.run();
 }
