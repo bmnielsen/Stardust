@@ -303,6 +303,16 @@ namespace CombatSim
                 score += 8 * UnitUtil::MineralCost(BWAPI::UnitTypes::Protoss_Interceptor);
             }
 
+            // Give static defense a boost
+            if (type == BWAPI::UnitTypes::Zerg_Sunken_Colony)
+            {
+                score += 100;
+            }
+            if (type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+            {
+                score += 50;
+            }
+
             baseScore[type] = score >> 2U;
             scaledScore[type] = score - baseScore[type];
         }
