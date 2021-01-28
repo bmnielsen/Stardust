@@ -264,17 +264,26 @@ void Squad::execute()
         dbg << "\n" << cluster->getCurrentActivity();
         if (cluster->currentSubActivity != UnitCluster::SubActivity::None) dbg << "-" << cluster->getCurrentSubActivity();
 
-        auto addSimResult = [&dbg](const std::pair<CombatSimResult, bool> &simResult)
+        auto addSimResult = [&dbg, &cluster](const std::pair<CombatSimResult, bool> &simResult)
         {
             if (simResult.first.frame != BWAPI::Broodwar->getFrameCount()) return;
-            
+
+            // See AttackBaseSquad
+            double distanceFactor = 1.2 - 0.4 * cluster->percentageToEnemyMain;
+            if (simResult.first.narrowChoke && cluster->percentageToEnemyMain > 0.7)
+            {
+                distanceFactor *= 0.8;
+            }
+
             dbg << "\n"
                 << simResult.first.initialMine << "," << simResult.first.initialEnemy
                 << "-" << simResult.first.finalMine << "," << simResult.first.finalEnemy
                 << std::setprecision(2)
-                << ": %l=" << simResult.first.myPercentLost()
+                << ": d=" << distanceFactor
+                << "; %l=" << simResult.first.myPercentLost()
                 << "; vg=" << simResult.first.valueGain()
                 << "; %g=" << simResult.first.percentGain()
+                << "; %t=" << simResult.first.myPercentageOfTotal()
                 << (simResult.second ? "; ATTACK" : "; RETREAT");
         };
 
