@@ -159,9 +159,11 @@ void DefendMyMain::update()
         lastRegroupFrame = BWAPI::Broodwar->getFrameCount();
     }
 
-    // If the squad has been regrouping recently, consider this an emergency
-    // TODO: Should clear emergency when our squad is defending the choke
-    if (lastRegroupFrame > 0 && lastRegroupFrame > (BWAPI::Broodwar->getFrameCount() - REGROUP_EMERGENCY_TIMEOUT))
+    // Queue emergency production if:
+    // - The squad has been regrouping recently
+    // - The enemy has us outnumbered by more than one combat unit
+    if (lastRegroupFrame > 0 && lastRegroupFrame > (BWAPI::Broodwar->getFrameCount() - REGROUP_EMERGENCY_TIMEOUT) &&
+        (squad->combatUnitCount() == 0 || (enemyCombatUnits.size() + std::max(0, (int) enemyWorkers.size() - 1)) > (squad->combatUnitCount() + 1)))
     {
         auto desiredEmergencyProduction = requireDragoons ? BWAPI::UnitTypes::Protoss_Dragoon : BWAPI::UnitTypes::Protoss_Zealot;
         if (emergencyProduction != desiredEmergencyProduction)

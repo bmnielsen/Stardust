@@ -309,6 +309,11 @@ std::vector<MyUnit> Squad::getUnits() const
     return result;
 }
 
+int Squad::combatUnitCount() const
+{
+    return unitToCluster.size();
+}
+
 std::map<BWAPI::UnitType, int> Squad::getUnitCountByType() const
 {
     std::map<BWAPI::UnitType, int> result;

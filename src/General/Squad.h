@@ -25,6 +25,8 @@ public:
 
     [[nodiscard]] std::vector<MyUnit> getUnits() const;
 
+    [[nodiscard]] int combatUnitCount() const;
+
     [[nodiscard]] std::map<BWAPI::UnitType, int> getUnitCountByType() const;
 
     [[nodiscard]] bool hasClusterWithActivity(UnitCluster::Activity activity) const;
