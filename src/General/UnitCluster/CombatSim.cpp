@@ -288,29 +288,65 @@ namespace CombatSim
 {
     void initialize()
     {
-        // TODO: This only considers economic value, should we consider effectiveness as well?
         for (auto type : BWAPI::UnitTypes::allUnitTypes())
         {
+            // Base the score on the cost
             int score = UnitUtil::MineralCost(type) + UnitUtil::GasCost(type) * 2;
 
+            // Add cost of built / loaded units
             if (type == BWAPI::UnitTypes::Terran_Bunker)
             {
                 score += 4 * UnitUtil::MineralCost(BWAPI::UnitTypes::Terran_Marine);
             }
-
-            if (type == BWAPI::UnitTypes::Protoss_Carrier)
+            else if (type == BWAPI::UnitTypes::Protoss_Carrier)
             {
                 score += 8 * UnitUtil::MineralCost(BWAPI::UnitTypes::Protoss_Interceptor);
             }
 
-            // Give static defense a boost
+            // Adjust units whose combat value differs from their cost
             if (type == BWAPI::UnitTypes::Zerg_Sunken_Colony)
+            {
+                score += 125;
+            }
+            else if (type == BWAPI::UnitTypes::Zerg_Spore_Colony)
             {
                 score += 100;
             }
-            if (type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+            else if (type == BWAPI::UnitTypes::Zerg_Creep_Colony)
             {
                 score += 50;
+            }
+            else if (type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+            {
+                score += 100;
+            }
+            else if (type == BWAPI::UnitTypes::Terran_Missile_Turret)
+            {
+                score += 150;
+            }
+            else if (type == BWAPI::UnitTypes::Protoss_Shuttle)
+            {
+                score += 200;
+            }
+            else if (type == BWAPI::UnitTypes::Terran_Dropship)
+            {
+                score += 200;
+            }
+            else if (type == BWAPI::UnitTypes::Zerg_Zergling)
+            {
+                score += 15;
+            }
+            else if (type == BWAPI::UnitTypes::Terran_Vulture)
+            {
+                score += 50;
+            }
+            else if (type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode)
+            {
+                score += 100;
+            }
+            else if (type == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine)
+            {
+                score += 100;
             }
 
             baseScore[type] = score >> 2U;
