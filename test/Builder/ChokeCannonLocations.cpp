@@ -28,3 +28,17 @@ TEST(GetChokeCannonLocations, AllSSCAIT)
         test.run();
     });
 }
+
+TEST(GetChokeCannonLocations, Medusa3Oclock)
+{
+    BWTest test;
+    test.randomSeed = 26633;
+    test.map = Maps::GetOne("Medusa");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.run();
+}
