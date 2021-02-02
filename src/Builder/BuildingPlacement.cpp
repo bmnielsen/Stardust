@@ -434,7 +434,7 @@ namespace BuildingPlacement
                         int dist = Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Photon_Cannon,
                                                             BWAPI::Position(location.tile) + BWAPI::Position(32, 32),
                                                             mainChoke->center);
-                        if (dist < 3 * 32 || dist > 7 * 32) continue;
+                        if (dist < 3 * 32 || dist > 8 * 32) continue;
 
                         if (dist < closestDist)
                         {
@@ -568,6 +568,10 @@ namespace BuildingPlacement
                 closestBlockLocationBlock->tilesReserved(closestBlockLocation, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize(), true);
                 chokeCannonPlacement = closestBlockLocation;
                 chokeCannonBlock = closestBlockLocationBlock;
+                if (closestDist > 7 * 32)
+                {
+                    Log::Get() << "WARNING: Best choke cannon placement is a bit too far away";
+                }
             }
             else
             {
