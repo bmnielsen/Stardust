@@ -204,9 +204,40 @@ TEST(ChokeAnalysis, AnalyzeAll_BlueStorm)
     test.run();
 }
 
-TEST(ChokeAnalysis, AnalyzeAllCOG)
+TEST(ChokeAnalysis, MatchPoint)
 {
-    Maps::RunOnEach(Maps::Get("cog"), [&](BWTest test)
+    run("Match", BWAPI::TilePosition(2, 91), [](const BWEM::ChokePoint *bwemChoke)
+    {
+        auto choke = new Choke(bwemChoke);
+        choke->setAsMainChoke();
+
+        std::cout << "Choke found" << std::endl;
+    });
+}
+
+TEST(ChokeAnalysis, AnalyzeAll_MatchPoint)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Match");
+    test.frameLimit = 10;
+    test.randomSeed = 6903;
+    test.expectWin = false;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+
+    test.onEndMine = [](bool win)
+    {
+        EXPECT_FALSE(Map::isInNarrowChoke(BWAPI::TilePosition(80, 55)));
+    };
+
+    test.run();
+}
+
+TEST(ChokeAnalysis, AnalyzeAll)
+{
+    Maps::RunOnEachStartLocation(Maps::Get("aists4"), [&](BWTest test)
     {
         test.frameLimit = 10;
         test.expectWin = false;
