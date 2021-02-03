@@ -254,3 +254,13 @@ TEST(ChokeAnalysis, AnalyzeAll)
         test.run();
     });
 }
+
+TEST(ChokeAnalysis, Medusa)
+{
+    run("Medusa", BWAPI::TilePosition(BWAPI::WalkPosition(202,162)), [](const BWEM::ChokePoint *bwemChoke)
+    {
+        new Choke(bwemChoke);
+
+        std::cout << "Choke found" << std::endl;
+    });
+}
