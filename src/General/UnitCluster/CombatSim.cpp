@@ -75,7 +75,9 @@ namespace
                 .setAirDamage(airDamage)
                 .setAirMaxRange(unit->airRange())
 
-                .setElevation(BWAPI::Broodwar->getGroundHeight(unit->simPosition.x << 3, unit->simPosition.y << 3))
+                        // Uses lastPosition since we don't know if simPosition is walkable
+                .setElevation(BWAPI::Broodwar->getGroundHeight(unit->lastPosition.x >> 5, unit->lastPosition.y >> 5))
+
                 .setAttackerCount(unit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
                 .setAttackCooldownRemaining(std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount()))
 
@@ -108,11 +110,11 @@ namespace
     template<bool choke>
     CombatSimResult execute(
             UnitCluster *cluster,
-                  std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
-                  std::set<Unit> &targets,
-                  std::set<MyUnit> &detectors,
-                  bool attacking,
-                  Choke *narrowChoke = nullptr)
+            std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+            std::set<Unit> &targets,
+            std::set<MyUnit> &detectors,
+            bool attacking,
+            Choke *narrowChoke = nullptr)
     {
 #if DEBUG_COMBATSIM_CSV
         int minUnitId = INT_MAX;
@@ -182,46 +184,46 @@ namespace
         }
 
 #if DEBUG_COMBATSIM_CSV
-    std::string simCsvLabel = (std::ostringstream() << "clustersim-" << minUnitId).str();
-    std::string actualCsvLabel = (std::ostringstream() << "clustersimactuals-" << minUnitId).str();
-    auto writeSimCsvLine = [&simCsvLabel](const auto &unit, int simFrame)
-    {
-        auto csv = Log::Csv(simCsvLabel);
-        csv << BWAPI::Broodwar->getFrameCount();
-        csv << simFrame;
-        csv << BWAPI::Broodwar->getFrameCount() + simFrame;
-        csv << unit.unitType;
-        csv << unit.id;
-        csv << unit.x;
-        csv << unit.y;
-        csv << unit.health;
-        csv << unit.shields;
-        csv << unit.attackCooldownRemaining;
-    };
+        std::string simCsvLabel = (std::ostringstream() << "clustersim-" << minUnitId).str();
+        std::string actualCsvLabel = (std::ostringstream() << "clustersimactuals-" << minUnitId).str();
+        auto writeSimCsvLine = [&simCsvLabel](const auto &unit, int simFrame)
+        {
+            auto csv = Log::Csv(simCsvLabel);
+            csv << BWAPI::Broodwar->getFrameCount();
+            csv << simFrame;
+            csv << BWAPI::Broodwar->getFrameCount() + simFrame;
+            csv << unit.unitType;
+            csv << unit.id;
+            csv << unit.x;
+            csv << unit.y;
+            csv << unit.health;
+            csv << unit.shields;
+            csv << unit.attackCooldownRemaining;
+        };
 
-    auto writeActualCsvLine = [&actualCsvLabel](const Unit &unit)
-    {
-        auto csv = Log::Csv(actualCsvLabel);
-        csv << BWAPI::Broodwar->getFrameCount();
-        csv << "-";
-        csv << BWAPI::Broodwar->getFrameCount();
-        csv << unit->type;
-        csv << unit->id;
-        csv << unit->lastPosition.x;
-        csv << unit->lastPosition.y;
-        csv << unit->lastHealth;
-        csv << unit->lastShields;
-        csv << std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
-    };
+        auto writeActualCsvLine = [&actualCsvLabel](const Unit &unit)
+        {
+            auto csv = Log::Csv(actualCsvLabel);
+            csv << BWAPI::Broodwar->getFrameCount();
+            csv << "-";
+            csv << BWAPI::Broodwar->getFrameCount();
+            csv << unit->type;
+            csv << unit->id;
+            csv << unit->lastPosition.x;
+            csv << unit->lastPosition.y;
+            csv << unit->lastHealth;
+            csv << unit->lastShields;
+            csv << std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
+        };
 
-    for (auto &unitAndTarget : unitsAndTargets)
-    {
-        writeActualCsvLine(unitAndTarget.first);
-    }
-    for (auto &target : targets)
-    {
-        writeActualCsvLine(target);
-    }
+        for (auto &unitAndTarget : unitsAndTargets)
+        {
+            writeActualCsvLine(unitAndTarget.first);
+        }
+        for (auto &target : targets)
+        {
+            writeActualCsvLine(target);
+        }
 #endif
 
         int initialMine = score(attacking ? sim.getState().first : sim.getState().second);
