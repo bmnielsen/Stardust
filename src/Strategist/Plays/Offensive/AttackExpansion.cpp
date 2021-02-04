@@ -69,7 +69,7 @@ void AttackExpansion::update()
     }
 
     // Ensure we have at least three units whenever we attack a base
-    requestedUnits = std::max(requestedUnits, 3 - (int)squad->getUnits().size());
+    requestedUnits = std::max(requestedUnits, 3 - (int) squad->getUnits().size());
 
     // TODO: Request zealot or dragoon when we have that capability
     if (requestedUnits > 0)

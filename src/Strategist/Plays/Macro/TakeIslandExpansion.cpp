@@ -48,7 +48,7 @@ void TakeIslandExpansion::update()
 
     // Clean up dead or unneeded workers
     if (builder && !builder->exists()) builder = nullptr;
-    for (auto it = workerTransfer.begin(); it != workerTransfer.end(); )
+    for (auto it = workerTransfer.begin(); it != workerTransfer.end();)
     {
         auto &worker = *it;
         if (worker->exists() && (worker->bwapiUnit->isLoaded() || worker->getDistance(base->getPosition()) > 300))
@@ -198,7 +198,7 @@ void TakeIslandExpansion::update()
                 if (!nexus->completed && workerTransfer.empty())
                 {
                     int frames = 600 +
-                            PathFinding::ExpectedTravelTime(base->getPosition(), bestBase->getPosition(), BWAPI::UnitTypes::Protoss_Shuttle);
+                                 PathFinding::ExpectedTravelTime(base->getPosition(), bestBase->getPosition(), BWAPI::UnitTypes::Protoss_Shuttle);
                     if (nexus->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount() > frames)
                     {
                         break;
@@ -206,7 +206,7 @@ void TakeIslandExpansion::update()
                 }
 
                 // Then reserve the appropriate number of workers
-                int desiredWorkers = std::min(8, (int)(workerTransfer.size() + Workers::baseMineralWorkerCount(bestBase)) / 2);
+                int desiredWorkers = std::min(8, (int) (workerTransfer.size() + Workers::baseMineralWorkerCount(bestBase)) / 2);
                 while (desiredWorkers > workerTransfer.size())
                 {
                     auto worker = Workers::getClosestReassignableWorker(shuttle->lastPosition, false);

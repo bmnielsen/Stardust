@@ -186,7 +186,7 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
 
     if (vanguardDistToTarget > 0 || vanguardDistToMain > 0)
     {
-        percentageToEnemyMain = (double)vanguardDistToMain / (double)(vanguardDistToMain + vanguardDistToTarget);
+        percentageToEnemyMain = (double) vanguardDistToMain / (double) (vanguardDistToMain + vanguardDistToTarget);
     }
     else
     {

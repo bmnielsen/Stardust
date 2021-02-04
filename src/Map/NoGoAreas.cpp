@@ -276,7 +276,7 @@ namespace NoGoAreas
 
         if (bullet->getType() == BWAPI::BulletTypes::Subterranean_Spines)
         {
-            auto direction = Geo::ScaleVector(BWAPI::Position((int)bullet->getVelocityX(), (int)bullet->getVelocityY()), 192);
+            auto direction = Geo::ScaleVector(BWAPI::Position((int) bullet->getVelocityX(), (int) bullet->getVelocityY()), 192);
             if (direction != BWAPI::Positions::Invalid)
             {
                 addDirectedBox(bullet->getPosition(), bullet->getPosition() + direction, 50, bullet);

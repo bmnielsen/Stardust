@@ -181,7 +181,8 @@ namespace Builder
 
                     pendingBuilding->constructionStarted(unit);
                     releaseBuilder(*pendingBuilding);
-                    NoGoAreas::removeBox(pendingBuilding->tile - BWAPI::TilePosition(1, 1), pendingBuilding->type.tileSize() + BWAPI::TilePosition(2, 2));
+                    NoGoAreas::removeBox(pendingBuilding->tile - BWAPI::TilePosition(1, 1),
+                                         pendingBuilding->type.tileSize() + BWAPI::TilePosition(2, 2));
                 }
             }
         }

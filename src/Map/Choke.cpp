@@ -17,8 +17,16 @@ namespace
 
     double normalizeAngle(double angle)
     {
-        while (angle < 0) angle += pi;
-        while (angle > pi) angle -= pi;
+        while (angle < 0)
+        {
+            angle += pi;
+        }
+        
+        while (angle > pi)
+        {
+            angle -= pi;
+        }
+
         return angle;
     }
 
@@ -430,7 +438,7 @@ void Choke::analyzeNarrowChoke()
         return;
     }
 
-    angle = normalizeAngle(atan2(angleX / (double)angleCount, angleY / (double)angleCount));
+    angle = normalizeAngle(atan2(angleX / (double) angleCount, angleY / (double) angleCount));
 
     // Trim positions where the angle is much different than the minimum width angle
     auto trimCrookedPositions = [&angle](std::map<BWAPI::WalkPosition, std::pair<int, BWAPI::WalkPosition>> &widths,
@@ -542,7 +550,7 @@ void Choke::analyzeNarrowChoke()
     width = minWidth - 8;
 
     // Compute the length
-    length = (int)end1Center.getDistance(end2Center);
+    length = (int) end1Center.getDistance(end2Center);
 
     // Initialize the center as the centroid of the corners, then pull it to the center of the choke at that location
     center = (side1Ends[0] + side1Ends[1] + side2Ends[0] + side2Ends[1]) / 4;

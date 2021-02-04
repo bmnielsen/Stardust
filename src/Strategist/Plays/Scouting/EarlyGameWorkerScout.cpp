@@ -419,7 +419,8 @@ void EarlyGameWorkerScout::update()
         if (!node)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(scout->id) << "Scout: out of scout areas and no valid navigation grid node, move directly to scout tile " << BWAPI::WalkPosition(tile);
+            CherryVis::log(scout->id) << "Scout: out of scout areas and no valid navigation grid node, move directly to scout tile "
+                                      << BWAPI::WalkPosition(tile);
 #endif
             scout->moveTo(BWAPI::Position(tile) + BWAPI::Position(16, 16));
             return;
@@ -695,8 +696,8 @@ bool EarlyGameWorkerScout::isScoutBlocked()
 
     // Decreasing distance is fine
     // Increasing distance is fine if it jumps quite a bit - this generally means we've scouted a building that changes the path
-    if (node.cost < closestDistanceToTargetBase ||
-        node.cost > (lastDistanceToTargetBase + 50))
+    if (node.cost<closestDistanceToTargetBase ||
+                  node.cost>(lastDistanceToTargetBase + 50))
     {
         closestDistanceToTargetBase = node.cost;
         lastDistanceToTargetBase = node.cost;

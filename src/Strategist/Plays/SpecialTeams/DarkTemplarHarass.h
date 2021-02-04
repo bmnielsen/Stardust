@@ -5,7 +5,7 @@
 class DarkTemplarHarass : public Play
 {
 public:
-    DarkTemplarHarass(): Play("DarkTemplarHarass") {}
+    DarkTemplarHarass() : Play("DarkTemplarHarass") {}
 
     void update() override;
 
