@@ -93,7 +93,7 @@ namespace Map
 
     bool isWalkable(int x, int y);
 
-    int unwalkableProximity(int x, int y);
+    unsigned short unwalkableProximity(int x, int y);
 
     BWAPI::Position collisionVector(int x, int y);
 

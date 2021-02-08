@@ -34,20 +34,6 @@ namespace
 
         return node;
     }
-
-    bool isNextToUnwalkableTerrain(BWAPI::TilePosition pos)
-    {
-        for (int y = -1; y <= 1; y++)
-        {
-            for (int x = -1; x <= 1; x++)
-            {
-                auto here = pos + BWAPI::TilePosition(x, y);
-                if (here.isValid() && !Map::isWalkable(here)) return true;
-            }
-        }
-
-        return false;
-    }
 }
 
 void MyUnitImpl::moveTo(BWAPI::Position position, bool direct)
@@ -466,7 +452,7 @@ bool MyUnitImpl::unstickMoveUnit()
     }
 
     // We are stuck. If we are close to unwalkable terrain, move along it to get us moving again.
-    if (isNextToUnwalkableTerrain(getTilePosition()))
+    if (Map::unwalkableProximity(tilePositionX, tilePositionY) < 2)
     {
         // Scores the distance from a neighbouring tile to the target position
         // Prefers tiles that are farther away from unwalkable terrain
@@ -479,7 +465,7 @@ bool MyUnitImpl::unstickMoveUnit()
 
             auto position = BWAPI::Position(tile) + BWAPI::Position(16, 16);
             int dist = currentCommand.getTargetPosition().getApproxDistance(position);
-            if (Map::unwalkableProximity(tile.x, tile.y) > 0) dist /= 2;
+            if (Map::unwalkableProximity(tile.x, tile.y) > 1) dist /= 2;
             if (dist < bestDist)
             {
                 bestDist = dist;

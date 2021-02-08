@@ -8,6 +8,9 @@
 #define OUTPUT_GRID_TIMING false
 #endif
 
+#define COST_STRAIGHT 30
+#define COST_DIAGONAL 42
+
 namespace
 {
     bool walkableAndNotMineralLine(int x, int y)
@@ -39,8 +42,8 @@ NavigationGrid::NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goa
 
         auto &node = (*this)[tile];
         node.cost = 0;
-        nodeQueue.push(std::make_tuple(10, &node, false));
-        nodeQueue.push(std::make_tuple(14, &node, true));
+        nodeQueue.push(std::make_tuple(COST_STRAIGHT, &node, false));
+        nodeQueue.push(std::make_tuple(COST_DIAGONAL, &node, true));
     };
 
     if (goalSize.isValid())
@@ -114,8 +117,8 @@ void NavigationGrid::update()
         auto &node = grid[x + y * BWAPI::Broodwar->mapWidth()];
 
         // Compute the cost of this node
-        auto cost = current->cost + (direction % 2 == 1 ? 14 : 10);
-        cost += 3 - Map::unwalkableProximity(x, y);
+        auto cost = current->cost + (direction % 2 == 1 ? COST_DIAGONAL : COST_STRAIGHT);
+        cost -= Map::unwalkableProximity(x, y);
 
         // If the node already has a lower cost, we don't need to consider it
         if (node.cost <= cost) return;
@@ -181,8 +184,8 @@ void NavigationGrid::update()
         // Queue the node if it is walkable
         if (walkableAndNotMineralLine(x, y))
         {
-            nodeQueue.push(std::make_tuple(node.cost + 10, &node, false));
-            nodeQueue.push(std::make_tuple(node.cost + 14, &node, true));
+            nodeQueue.push(std::make_tuple(node.cost + COST_STRAIGHT, &node, false));
+            nodeQueue.push(std::make_tuple(node.cost + COST_DIAGONAL, &node, true));
         }
     };
 
@@ -318,8 +321,8 @@ void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles
     {
         if (borderingNode->nextNode)
         {
-            nodeQueue.push(std::make_tuple(borderingNode->cost + 10, borderingNode, false));
-            nodeQueue.push(std::make_tuple(borderingNode->cost + 14, borderingNode, true));
+            nodeQueue.push(std::make_tuple(borderingNode->cost + COST_STRAIGHT, borderingNode, false));
+            nodeQueue.push(std::make_tuple(borderingNode->cost + COST_DIAGONAL, borderingNode, true));
         }
     }
 }
@@ -380,8 +383,8 @@ void NavigationGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &ti
     {
         if (node->nextNode)
         {
-            nodeQueue.push(std::make_tuple(node->cost + 10, node, false));
-            nodeQueue.push(std::make_tuple(node->cost + 14, node, true));
+            nodeQueue.push(std::make_tuple(node->cost + COST_STRAIGHT, node, false));
+            nodeQueue.push(std::make_tuple(node->cost + COST_DIAGONAL, node, true));
         }
     }
 }

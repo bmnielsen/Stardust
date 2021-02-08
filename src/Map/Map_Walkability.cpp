@@ -16,56 +16,36 @@ namespace Map
     namespace
     {
         std::vector<bool> tileWalkability;
-        std::vector<unsigned char> tileUnwalkableProximity;
-        std::vector<short> tileDistanceToUnwalkableDirections;
-        std::vector<short> tileDistanceToUnwalkable;
+        std::vector<unsigned short> tileDistanceToUnwalkableDirections;
+        std::vector<unsigned short> tileDistanceToUnwalkable;
+        std::vector<unsigned short> tileWalkableWidth;
         std::vector<BWAPI::Position> tileCollisionVector;
         bool tileWalkabilityUpdated;
-
-        void updateWalkabilityProximity(int tileX, int tileY)
-        {
-            auto tileValid = [](int x, int y)
-            {
-                return x >= 0 && y >= 0 && x < BWAPI::Broodwar->mapWidth() && y < BWAPI::Broodwar->mapHeight();
-            };
-
-            if (!tileValid(tileX, tileY)) return;
-
-            auto visit = [&tileValid](int x, int y, int val, int *result)
-            {
-                if (!tileValid(x, y)) return false;
-
-                if (!tileWalkability[x + y * BWAPI::Broodwar->mapWidth()])
-                {
-                    *result = val;
-                    return true;
-                }
-
-                return false;
-            };
-
-            int result = 3;
-            visit(tileX - 1, tileY, 0, &result) ||
-            visit(tileX + 1, tileY, 0, &result) ||
-            visit(tileX, tileY - 1, 0, &result) ||
-            visit(tileX, tileY + 1, 0, &result) ||
-            visit(tileX - 1, tileY - 1, 1, &result) ||
-            visit(tileX + 1, tileY - 1, 1, &result) ||
-            visit(tileX - 1, tileY + 1, 1, &result) ||
-            visit(tileX + 1, tileY + 1, 1, &result) ||
-            visit(tileX - 2, tileY, 2, &result) ||
-            visit(tileX + 2, tileY, 2, &result) ||
-            visit(tileX, tileY - 2, 2, &result) ||
-            visit(tileX, tileY + 2, 2, &result);
-
-            tileUnwalkableProximity[tileX + tileY * BWAPI::Broodwar->mapWidth()] = result;
-        }
 
         void updateTileDistanceToUnwalkable(int x, int y)
         {
             auto index = (x + y * BWAPI::Broodwar->mapWidth());
             auto dirIndex = index << 3U;
             tileDistanceToUnwalkable[index] = std::min(
+                    {
+                            (unsigned short) 20, // Cap it at 20, we treat anything more than this as open terrain
+                            tileDistanceToUnwalkableDirections[dirIndex + DIR_N],
+                            tileDistanceToUnwalkableDirections[dirIndex + DIR_S],
+                            tileDistanceToUnwalkableDirections[dirIndex + DIR_E],
+                            tileDistanceToUnwalkableDirections[dirIndex + DIR_W],
+                            tileDistanceToUnwalkableDirections[dirIndex + DIR_NE],
+                            tileDistanceToUnwalkableDirections[dirIndex + DIR_SW],
+                            tileDistanceToUnwalkableDirections[dirIndex + DIR_NW],
+                            tileDistanceToUnwalkableDirections[dirIndex + DIR_SE],
+                    }
+            );
+        }
+
+        void updateTileWalkableWidth(int x, int y)
+        {
+            auto index = (x + y * BWAPI::Broodwar->mapWidth());
+            auto dirIndex = index << 3U;
+            tileWalkableWidth[index] = std::min(
                     {
                             tileDistanceToUnwalkableDirections[dirIndex + DIR_N] + tileDistanceToUnwalkableDirections[dirIndex + DIR_S],
                             tileDistanceToUnwalkableDirections[dirIndex + DIR_E] + tileDistanceToUnwalkableDirections[dirIndex + DIR_W],
@@ -78,6 +58,7 @@ namespace Map
         {
             tileDistanceToUnwalkableDirections.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 8);
             tileDistanceToUnwalkable.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            tileWalkableWidth.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
 
             auto line = [](int x, int deltaX, int y, int deltaY, int dir)
             {
@@ -133,6 +114,7 @@ namespace Map
             {
                 for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
                 {
+                    updateTileWalkableWidth(x, y);
                     updateTileDistanceToUnwalkable(x, y);
                 }
             }
@@ -282,6 +264,10 @@ namespace Map
                               tileDistanceToUnwalkable.begin() + firstIndex + size.x,
                               0);
 
+                    std::fill(tileWalkableWidth.begin() + firstIndex,
+                              tileWalkableWidth.begin() + firstIndex + size.x,
+                              0);
+
                     auto firstDirIndex = firstIndex << 3U;
                     std::fill(tileDistanceToUnwalkableDirections.begin() + firstDirIndex,
                               tileDistanceToUnwalkableDirections.begin() + firstDirIndex + size.x * 8,
@@ -350,71 +336,7 @@ namespace Map
             for (const auto &xy : changed)
             {
                 updateTileDistanceToUnwalkable(xy.first, xy.second);
-            }
-
-            // Update walkability proximity for unwalkable
-            if (!walkable)
-            {
-                auto tileValid = [](int x, int y)
-                {
-                    return x >= 0 && y >= 0 && x < BWAPI::Broodwar->mapWidth() && y < BWAPI::Broodwar->mapHeight();
-                };
-
-                // Zero the tiles in and directly touching
-                for (int x = -1; x <= size.x; x++)
-                {
-                    for (int y = (x == -1 || x == size.x ? 0 : -1); y < (x == -1 || x == size.x ? size.y : (size.y + 1)); y++)
-                    {
-                        if (tileValid(tile.x + x, tile.y + y))
-                        {
-                            tileUnwalkableProximity[(tile.x + x) + (tile.y + y) * BWAPI::Broodwar->mapWidth()] = 0;
-                        }
-                    }
-                }
-
-                auto visit = [&tileValid](int x, int y, unsigned char val)
-                {
-                    if (!tileValid(x, y)) return;
-
-                    tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()] =
-                            std::min(tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()], val);
-                };
-
-                // Corners
-                visit(tile.x - 1, tile.y - 1, 1);
-                visit(tile.x - 1, tile.y + size.y, 1);
-                visit(tile.x + size.x, tile.y - 1, 1);
-                visit(tile.x + size.x, tile.y + size.y, 1);
-
-                // Left and right sides two tiles away
-                for (int x = -2; x < size.x + 2; x++)
-                {
-                    for (int y = 0; y < size.y; y++)
-                    {
-                        visit(tile.x + x, tile.y + y, 2);
-                    }
-                }
-
-                // Top and bottom sides two tiles away
-                for (int y = -2; y < size.y + 2; y++)
-                {
-                    for (int x = 0; x < size.x; x++)
-                    {
-                        visit(tile.x + x, tile.y + y, 2);
-                    }
-                }
-            }
-
-            // Walkable is more difficult, so reprocess each tile individually
-            if (walkable)
-            {
-                for (int x = -2; x < size.x + 2; x++)
-                {
-                    for (int y = -2; y < size.y + 2; y++)
-                    {
-                        updateWalkabilityProximity(tile.x + x, tile.y + y);
-                    }
-                }
+                updateTileWalkableWidth(xy.first, xy.second);
             }
 
             return updated;
@@ -424,7 +346,6 @@ namespace Map
     void initializeWalkability()
     {
         tileWalkability.clear();
-        tileUnwalkableProximity.clear();
         tileDistanceToUnwalkableDirections.clear();
         tileCollisionVector.clear();
         tileCollisionVector.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), BWAPI::Position(0, 0));
@@ -467,19 +388,6 @@ namespace Map
             updateCollisionVectors(BWAPI::Broodwar->mapWidth(), tileY, false);
         }
 
-        // TODO: Consider map-specific overrides for maps with very narrow ramps, like Plasma
-
-        // Compute proximity to unwalkable tiles
-        // We use this to prioritize pathing
-        tileUnwalkableProximity.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-        for (int tileX = 0; tileX < BWAPI::Broodwar->mapWidth(); tileX++)
-        {
-            for (int tileY = 0; tileY < BWAPI::Broodwar->mapHeight(); tileY++)
-            {
-                updateWalkabilityProximity(tileX, tileY);
-            }
-        }
-
         // Initialize distances to unwalkable tiles
         initializeDistanceToUnwalkable();
 
@@ -517,17 +425,6 @@ namespace Map
         }
 
         CherryVis::addHeatmap("TileWalkable", tileWalkabilityCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
-
-        std::vector<long> tileUnwalkableProximityCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
-        {
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
-            {
-                tileUnwalkableProximityCVis[x + y * BWAPI::Broodwar->mapWidth()] = tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()];
-            }
-        }
-
-        CherryVis::addHeatmap("TileUnwalkableProximity", tileUnwalkableProximityCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 
         for (int dir = 0; dir < 8; dir++)
         {
@@ -588,6 +485,18 @@ namespace Map
         }
 
         CherryVis::addHeatmap("TileDistToUnwalkable", tileDistanceToUnwalkableCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+
+        std::vector<long> tileWalkableWidthCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+        {
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            {
+                tileWalkableWidthCVis[x + y * BWAPI::Broodwar->mapWidth()] =
+                        tileWalkableWidth[x + y * BWAPI::Broodwar->mapWidth()];
+            }
+        }
+
+        CherryVis::addHeatmap("TileWalkableWidth", tileWalkableWidthCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 
         std::vector<long> tileCollisionVectorXCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
         for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
@@ -701,9 +610,9 @@ namespace Map
         return tileWalkability[x + y * BWAPI::Broodwar->mapWidth()];
     }
 
-    int unwalkableProximity(int x, int y)
+    unsigned short unwalkableProximity(int x, int y)
     {
-        return tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()];
+        return tileDistanceToUnwalkable[x + y * BWAPI::Broodwar->mapWidth()];
     }
 
     BWAPI::Position collisionVector(int x, int y)
