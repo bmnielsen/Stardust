@@ -214,9 +214,9 @@ namespace BuildingPlacement
                 std::set<BWAPI::TilePosition> positions;
                 auto addPositionIfValid = [&positions](BWAPI::TilePosition topLeft)
                 {
-                    for (int x = topLeft.x; x < topLeft.x + 2; x++)
+                    for (int y = topLeft.y; y < topLeft.y + 2; y++)
                     {
-                        for (int y = topLeft.y; y < topLeft.y + 2; y++)
+                        for (int x = topLeft.x; x < topLeft.x + 2; x++)
                         {
                             if (!BWAPI::TilePosition(x, y).isValid()) return;
                             if ((tileAvailability[x + y * BWAPI::Broodwar->mapWidth()] & 1U) == 1) return;
@@ -824,17 +824,19 @@ namespace BuildingPlacement
 
             auto addLocation = [&blocksHeatmap](BWAPI::TilePosition tile, int width, int height, int value)
             {
-                for (int x = tile.x; x < tile.x + width; x++)
+                auto bottomRight = tile + BWAPI::TilePosition(width, height);
+
+                for (int y = tile.y; y < bottomRight.y; y++)
                 {
-                    if (x > BWAPI::Broodwar->mapWidth() - 1)
+                    if (y > BWAPI::Broodwar->mapHeight() - 1)
                     {
                         Log::Get() << "ERROR: BUILD LOCATION OUT OF BOUNDS @ " << tile;
                         continue;
                     }
 
-                    for (int y = tile.y; y < tile.y + height; y++)
+                    for (int x = tile.x; x < bottomRight.x; x++)
                     {
-                        if (y > BWAPI::Broodwar->mapHeight() - 1)
+                        if (x > BWAPI::Broodwar->mapWidth() - 1)
                         {
                             Log::Get() << "ERROR: BUILD LOCATION OUT OF BOUNDS @ " << tile;
                             continue;

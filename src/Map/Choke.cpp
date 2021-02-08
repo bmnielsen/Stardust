@@ -21,7 +21,7 @@ namespace
         {
             angle += pi;
         }
-        
+
         while (angle > pi)
         {
             angle -= pi;
@@ -717,9 +717,9 @@ void Choke::analyzeNarrowChoke()
                           BWAPI::Broodwar->mapHeight() * 4);
 
     std::vector<long> chokeSideData(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4);
-    for (int x = 0; x < BWAPI::Broodwar->mapWidth() * 2; x++)
+    for (int y = 0; y < BWAPI::Broodwar->mapHeight() * 2; y++)
     {
-        for (int y = 0; y < BWAPI::Broodwar->mapHeight() * 2; y++)
+        for (int x = 0; x < BWAPI::Broodwar->mapWidth() * 2; x++)
         {
             chokeSideData[x + y * (BWAPI::Broodwar->mapWidth() * 2)] = tileSide[x + y * (BWAPI::Broodwar->mapWidth() * 2)];
         }

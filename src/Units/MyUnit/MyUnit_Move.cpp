@@ -37,9 +37,9 @@ namespace
 
     bool isNextToUnwalkableTerrain(BWAPI::TilePosition pos)
     {
-        for (int x = -1; x <= 1; x++)
+        for (int y = -1; y <= 1; y++)
         {
-            for (int y = -1; y <= 1; y++)
+            for (int x = -1; x <= 1; x++)
             {
                 auto here = pos + BWAPI::TilePosition(x, y);
                 if (here.isValid() && !Map::isWalkable(here)) return true;

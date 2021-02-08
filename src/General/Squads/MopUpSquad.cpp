@@ -115,9 +115,9 @@ void MopUpSquad::execute(UnitCluster &cluster)
         BWAPI::TilePosition bestTile = BWAPI::TilePositions::Invalid;
         int bestFrame = INT_MAX;
         int bestDist = INT_MAX;
-        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
         {
-            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
             {
                 // Consider frame seen in "buckets" of 1000
                 int frame = Map::lastSeen(x, y) / 1000;

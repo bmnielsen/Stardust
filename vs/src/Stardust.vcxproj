@@ -114,6 +114,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Map\Base.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\Choke.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\Map.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\Map_Walkability.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Alchemist.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Fortress.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Plasma.cpp" />

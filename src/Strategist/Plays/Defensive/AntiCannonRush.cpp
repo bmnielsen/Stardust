@@ -60,9 +60,9 @@ AntiCannonRush::AntiCannonRush() : Play("AntiCannonRush"), scout(nullptr), built
     // Compute the scout tiles
     auto areas = Map::getMyMainAreas();
     auto referenceHeight = BWAPI::Broodwar->getGroundHeight(Map::getMyMain()->getTilePosition());
-    for (int x = 0; x < BWAPI::Broodwar->mapWidth() - 1; x++)
+    for (int y = 0; y < BWAPI::Broodwar->mapHeight() - 1; y++)
     {
-        for (int y = 0; y < BWAPI::Broodwar->mapHeight() - 1; y++)
+        for (int x = 0; x < BWAPI::Broodwar->mapWidth() - 1; x++)
         {
             if (!Map::isWalkable(x, y) ||
                 !Map::isWalkable(x + 1, y) ||

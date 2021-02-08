@@ -171,9 +171,9 @@ namespace
         int baseElevation = BWAPI::Broodwar->getGroundHeight(enemyMain->getTilePosition());
         int bestDist = 0;
         BWAPI::TilePosition bestTile = BWAPI::TilePositions::Invalid;
-        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
         {
-            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
             {
                 BWAPI::TilePosition here(x, y);
                 if (!here.isValid()) continue;
@@ -238,9 +238,9 @@ namespace
         auto tileSightRange = BWAPI::UnitTypes::Protoss_Probe.sightRange() / 32;
         int bestDist = INT_MAX;
         BWAPI::TilePosition bestTile = BWAPI::TilePositions::Invalid;
-        for (int x = -tileSightRange + 1; x < tileSightRange; x++)
+        for (int y = -tileSightRange + 1; y < tileSightRange; y++)
         {
-            for (int y = -tileSightRange + 1; y < tileSightRange; y++)
+            for (int x = -tileSightRange + 1; x < tileSightRange; x++)
             {
                 auto here = BWAPI::TilePosition(enemyMainChoke->center) + BWAPI::TilePosition(x, y);
                 if (!here.isValid()) continue;
@@ -443,9 +443,9 @@ void EarlyGameWorkerScout::update()
             if (targetBase->isInMineralLine(tile)) return false;
 
             auto walk = BWAPI::WalkPosition(tile);
-            for (int x = 0; x < 4; x++)
+            for (int y = 0; y < 4; y++)
             {
-                for (int y = 0; y < 4; y++)
+                for (int x = 0; x < 4; x++)
                 {
                     if (grid.staticGroundThreat(walk + BWAPI::WalkPosition(x, y)) > 0) return false;
                 }

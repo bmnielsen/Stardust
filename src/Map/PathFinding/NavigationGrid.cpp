@@ -391,9 +391,9 @@ void NavigationGrid::dumpHeatmap()
 #if CHERRYVIS_ENABLED
     // Dump to CherryVis
     std::vector<long> costs(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-    for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+    for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
     {
-        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
         {
             auto cost = grid[x + y * BWAPI::Broodwar->mapWidth()].cost;
             costs[x + y * BWAPI::Broodwar->mapWidth()] = cost == USHRT_MAX ? 0 : cost;

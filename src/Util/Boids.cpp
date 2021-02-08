@@ -50,13 +50,14 @@ namespace Boids
         int closestDist = INT_MAX;
         int closestX = unit->lastPosition.x;
         int closestY = unit->lastPosition.y;
-        for (int x = unit->tilePositionX - 5; x < unit->tilePositionX + 5; x++)
+        for (int y = unit->tilePositionY - 5; y < unit->tilePositionY + 5; y++)
         {
-            if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
+            if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
 
-            for (int y = unit->tilePositionY - 5; y < unit->tilePositionY + 5; y++)
+            for (int x = unit->tilePositionX - 5; x < unit->tilePositionX + 5; x++)
             {
-                if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
+                if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
+
                 if (!Map::isWalkable(x, y)) continue;
                 if (NoGoAreas::isNoGo(x, y)) continue;
 
