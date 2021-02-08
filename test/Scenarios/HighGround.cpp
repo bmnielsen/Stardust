@@ -1,6 +1,7 @@
 #include "BWTest.h"
 #include "DoNothingModule.h"
 #include "DoNothingStrategyEngine.h"
+#include "StardustAIModule.h"
 
 #include "Map.h"
 #include "Strategist.h"
@@ -54,7 +55,8 @@ TEST(HighGround, DragoonsVsDragoons)
     BWTest test;
     test.opponentModule = []()
     {
-        return new AttackNearestUnitModule();
+        CherryVis::disable();
+        return new StardustAIModule();
     };
     test.map = Maps::GetOne("Eddy");
     test.randomSeed = 2396;
@@ -77,16 +79,44 @@ TEST(HighGround, DragoonsVsDragoons)
     };
 
     Base *baseToAttack = nullptr;
+    std::shared_ptr<TestAttackBasePlay> attackPlay = nullptr;
 
-    test.onStartMine = [&baseToAttack]()
+    test.onStartMine = [&baseToAttack, &attackPlay]()
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(7, 14)));
 
         Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        attackPlay = std::make_shared<TestAttackBasePlay>(baseToAttack);
+        openingPlays.emplace_back(attackPlay);
         Strategist::setOpening(openingPlays);
+    };
+
+    test.onStartOpponent = []()
+    {
+        auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 111)));
+
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack, true));
+        Strategist::setOpening(openingPlays);
+    };
+
+    test.onFrameMine = [&attackPlay]()
+    {
+        bool allOnHighGround = true;
+        for (auto goon : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Dragoon))
+        {
+            if (BWAPI::Broodwar->getGroundHeight(goon->getTilePosition()) < 2)
+            {
+                allOnHighGround = false;
+                break;
+            }
+        }
+
+        attackPlay->squad->ignoreCombatSim = allOnHighGround;
     };
 
     test.onEndMine = [](bool won)

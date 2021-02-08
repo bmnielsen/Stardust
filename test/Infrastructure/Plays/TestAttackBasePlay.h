@@ -19,6 +19,5 @@ public:
 
     std::shared_ptr<Squad> getSquad() override { return squad; }
 
-private:
     std::shared_ptr<AttackBaseSquad> squad;
 };
