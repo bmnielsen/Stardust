@@ -120,6 +120,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Plasma.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\NoGoAreas.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\NavigationGrid.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding_BWEM.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding_Grids.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding_Search.cpp" />

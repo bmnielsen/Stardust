@@ -5,7 +5,6 @@
 #include "Map.h"
 #include "General.h"
 #include "UnitUtil.h"
-#include "NoGoAreas.h"
 #include <iomanip>
 
 #if INSTRUMENTATION_ENABLED
@@ -579,31 +578,10 @@ void UnitImpl::updatePredictedPosition()
         vanguard = vanguardCluster->vanguard;
         if (!vanguard) return false;
 
-        auto waypoint = BWAPI::Positions::Invalid;
-        auto grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(squad->getTargetPosition()));
-        if (grid)
-        {
-            auto &node = (*grid)[vanguard->getTilePosition()];
-            if (node.nextNode && node.nextNode->nextNode && node.nextNode->nextNode->nextNode)
-            {
-                waypoint = node.nextNode->nextNode->nextNode->center();
-            }
-        }
-
-        if (waypoint == BWAPI::Positions::Invalid)
-        {
-            auto path = PathFinding::GetChokePointPath(vanguard->lastPosition, squad->getTargetPosition(), vanguard->type);
-            for (const auto &bwemChoke : path)
-            {
-                auto chokeCenter = Map::choke(bwemChoke)->center;
-                if (vanguard->getDistance(chokeCenter) > 128)
-                {
-                    waypoint = chokeCenter;
-                    break;
-                }
-            }
-        }
-
+        auto waypoint = PathFinding::NextGridOrChokeWaypoint(vanguard->lastPosition,
+                                                             squad->getTargetPosition(),
+                                                             PathFinding::getNavigationGrid(BWAPI::TilePosition(squad->getTargetPosition())),
+                                                             3);
         if (waypoint == BWAPI::Positions::Invalid) waypoint = squad->getTargetPosition();
 
         vanguardDirection = atan2(vanguard->lastPosition.y - waypoint.y, vanguard->lastPosition.x - waypoint.x);

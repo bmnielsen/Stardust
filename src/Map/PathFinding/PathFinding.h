@@ -95,4 +95,14 @@ namespace PathFinding
                                             BWAPI::TilePosition end,
                                             const std::function<bool(const BWAPI::TilePosition &)> &tileValidator = nullptr,
                                             const std::function<bool(const BWAPI::TilePosition &)> &closeEnoughToEnd = nullptr);
+
+    // Gets a "waypoint" a specified number of nodes ahead in a navigation grid.
+    // If the grid is not available, falls back to a chokepoint-based approach.
+    // If a suitable position cannot be found, either because the target is not accessible or the walkability validation fails,
+    // returns BWAPI::Positions::Invalid.
+    BWAPI::Position NextGridOrChokeWaypoint(BWAPI::Position start,
+                                            BWAPI::Position end,
+                                            NavigationGrid *grid,
+                                            int nodesAhead,
+                                            bool verifyWalkability = false);
 }
