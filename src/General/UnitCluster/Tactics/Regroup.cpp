@@ -341,7 +341,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::ContainStaticDefense:
         {
-            containBase(enemyUnits, targetPosition);
+            containStatic(enemyUnits, targetPosition);
 
             break;
         }
@@ -362,22 +362,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::StandGround:
         {
-            // If the center of the cluster is walkable, move towards it
-            // Otherwise move towards the vanguard with the assumption that the center will become walkable soon
-            // (otherwise this results in forward motion as units move ahead and become the new vanguard)
-            if (Map::isWalkable(BWAPI::TilePosition(center)))
-            {
-                move(center);
-            }
-            else if (vanguard)
-            {
-                move(vanguard->lastPosition);
-            }
-            else
-            {
-                // Flee if we for some reason don't have a vanguard unit
-                move(Map::getMyMain()->getPosition());
-            }
+            standGround(enemyUnits, targetPosition);
 
             break;
         }

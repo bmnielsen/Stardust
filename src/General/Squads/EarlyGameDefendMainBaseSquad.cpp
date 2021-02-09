@@ -343,7 +343,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         // Choose the type of micro depending on whether the enemy has static defense, we are holding a narrow choke, or neither
         if (hasStaticDefense)
         {
-            cluster.containBase(enemyUnits, targetPosition);
+            cluster.containStatic(enemyUnits, targetPosition);
         }
         else if (enemiesNeedingDetection.empty() && !enemyInOurBase && choke && choke->isNarrowChoke)
         {

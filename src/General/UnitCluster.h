@@ -68,11 +68,13 @@ public:
 
     virtual void attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition);
 
-    void containBase(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
+    void containStatic(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
 
     void holdChoke(Choke *choke,
                    BWAPI::Position defendEnd,
                    std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets);
+
+    void standGround(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
 
     CombatSimResult runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                                  std::set<Unit> &targets,

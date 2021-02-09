@@ -102,10 +102,11 @@
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\CombatSim.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Detectors.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Attack.cpp" />
-    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\ContainBase.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\ContainStatic.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\HoldChoke.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Move.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Regroup.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\StandGround.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Targeting.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\UnitCluster.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Instrumentation\CherryVis.cpp" />

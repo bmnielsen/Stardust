@@ -615,6 +615,11 @@ namespace Map
         return tileDistanceToUnwalkable[x + y * BWAPI::Broodwar->mapWidth()];
     }
 
+    unsigned short walkableWidth(int x, int y)
+    {
+        return tileWalkableWidth[x + y * BWAPI::Broodwar->mapWidth()];
+    }
+
     BWAPI::Position collisionVector(int x, int y)
     {
         return tileCollisionVector[x + y * BWAPI::Broodwar->mapWidth()];

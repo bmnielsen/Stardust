@@ -95,6 +95,8 @@ namespace Map
 
     unsigned short unwalkableProximity(int x, int y);
 
+    unsigned short walkableWidth(int x, int y);
+
     BWAPI::Position collisionVector(int x, int y);
 
     bool isInOwnMineralLine(BWAPI::TilePosition tile);
