@@ -19,7 +19,7 @@ namespace PathFinding
 
             if (node)
             {
-                return start + BWAPI::Position(node->x << 5, node->y << 5);
+                return start + BWAPI::Position((node->x - (start.x >> 5)) << 5, (node->y - (start.y >> 5)) << 5);
             }
         }
 

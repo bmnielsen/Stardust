@@ -76,6 +76,10 @@ public:
 
     void standGround(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
 
+    bool moveAsBall(BWAPI::Position targetPosition);
+
+    bool formArc(BWAPI::Position pivot, int desiredDistance);
+
     CombatSimResult runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                                  std::set<Unit> &targets,
                                  std::set<MyUnit> &detectors,
