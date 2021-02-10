@@ -254,7 +254,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::AntiZealotRush:
         {
             // We get at least four zealots, but ensure we match enemy zealot production to avoid getting overrun
-            int desiredZealots = 4 + (Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) * 3) / 4;
+            int desiredZealots = std::max(4, Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot));
             int zealotsRequired = desiredZealots - zealotCount;
 
             handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired);
