@@ -173,6 +173,12 @@ namespace CherryVis
         heatmapNameToHeatmapFile.clear();
 
         std::filesystem::create_directories("bwapi-data/write/cvis");
+
+        // Mark all static neutrals as seen
+        for (auto unit : BWAPI::Broodwar->getStaticNeutralUnits())
+        {
+            unitFirstSeen(unit);
+        }
 #endif
     }
 
