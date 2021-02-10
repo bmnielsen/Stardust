@@ -25,6 +25,8 @@ bool UnitCluster::formArc(BWAPI::Position pivot, int desiredDistance)
         return false;
     }
 
+    int vanguardDistToPivot = vanguard->lastPosition.getApproxDistance(pivot);
+
     // Now micro the units
     for (auto &myUnit : units)
     {
@@ -36,6 +38,14 @@ bool UnitCluster::formArc(BWAPI::Position pivot, int desiredDistance)
 
         // Flying units go to the vanguard
         if (myUnit->isFlying)
+        {
+            myUnit->moveTo(vanguard->lastPosition);
+            continue;
+        }
+
+        // Units that are too far away move towards the vanguard
+        int distToPivot = myUnit->lastPosition.getApproxDistance(pivot);
+        if (distToPivot - vanguardDistToPivot > 128)
         {
             myUnit->moveTo(vanguard->lastPosition);
             continue;

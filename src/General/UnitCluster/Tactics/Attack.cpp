@@ -46,7 +46,7 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
 
         if (unitAndTarget.first == vanguard) vanguardTarget = unitAndTarget.second;
     }
-    if (canFormArc && vanguardTarget)
+    if (canFormArc && vanguardTarget && vanguardTarget->canAttack(vanguard))
     {
         auto pivot = vanguard->lastPosition + Geo::ScaleVector(vanguardTarget->lastPosition - vanguard->lastPosition,
                                                                vanguard->lastPosition.getApproxDistance(vanguardTarget->lastPosition) + 64);
@@ -60,19 +60,23 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
             return unit->lastPosition.getApproxDistance(pivot) + (UnitUtil::IsRangedUnit(unit->type) ? 0 : 32);
         };
 
+        int desiredDistance = effectiveDist(vanguard);
+
         int accumulator = 0;
         int count = 0;
+        int countWithinLimit = 0;
         for (auto &unitAndTarget : unitsAndTargets)
         {
             if (unitAndTarget.first->isFlying) continue;
 
-            accumulator += effectiveDist(unitAndTarget.first);
+            int dist = effectiveDist(unitAndTarget.first);
+            if (dist <= (desiredDistance + 24)) countWithinLimit++;
+            if (countWithinLimit >= 8) break;
+            accumulator += dist;
             count++;
         }
 
-        int desiredDistance = effectiveDist(vanguard);
-
-        if ((accumulator / count) <= (desiredDistance + 24)) desiredDistance -= 32;
+        if (countWithinLimit >= 8 || (accumulator / count) <= (desiredDistance + 24)) desiredDistance -= 32;
 
         if (formArc(pivot, desiredDistance)) return;
     }
