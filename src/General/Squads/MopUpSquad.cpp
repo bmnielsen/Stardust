@@ -18,12 +18,12 @@ void MopUpSquad::execute(UnitCluster &cluster)
     // If there are enemy units near the cluster, attack them
     // TODO: Refactor so we can use the same code as in AttackBaseSquad (combat sim, etc.)
     std::set<Unit> enemyUnits;
-    Units::enemyInRadius(enemyUnits, cluster.center, 480);
+    Units::enemyInRadius(enemyUnits, cluster.vanguard->lastPosition, 750);
     if (!enemyUnits.empty())
     {
         updateDetectionNeeds(enemyUnits);
 
-        auto unitsAndTargets = cluster.selectTargets(enemyUnits, cluster.center);
+        auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
 
         // If any of our units has a target, attack
         bool hasTarget = false;
@@ -42,7 +42,8 @@ void MopUpSquad::execute(UnitCluster &cluster)
             CherryVis::log() << "First unit: " << **enemyUnits.begin();
 #endif
 
-            cluster.attack(unitsAndTargets, cluster.center);
+            cluster.setActivity(UnitCluster::Activity::Attacking);
+            cluster.attack(unitsAndTargets, targetPosition);
             return;
         }
     }
@@ -73,10 +74,12 @@ void MopUpSquad::execute(UnitCluster &cluster)
                          << ": attacking known building @ " << BWAPI::WalkPosition(closestPosition);
 #endif
 
+        // Move to the target, will switch to attack when the vanguard is close enough
         cluster.setActivity(UnitCluster::Activity::Moving);
 
         auto base = Map::baseNear(closestPosition);
-        cluster.move(base ? base->getPosition() : closestPosition);
+        targetPosition = base ? base->getPosition() : closestPosition;
+        cluster.move(targetPosition);
         return;
     }
 
@@ -104,7 +107,8 @@ void MopUpSquad::execute(UnitCluster &cluster)
 #endif
 
         cluster.setActivity(UnitCluster::Activity::Moving);
-        cluster.move(bestBase->getPosition());
+        targetPosition = bestBase->getPosition();
+        cluster.move(targetPosition);
         return;
     }
 
@@ -146,7 +150,8 @@ void MopUpSquad::execute(UnitCluster &cluster)
 #endif
 
             cluster.setActivity(UnitCluster::Activity::Moving);
-            cluster.move(BWAPI::Position(bestTile) + BWAPI::Position(16, 16));
+            targetPosition = BWAPI::Position(bestTile) + BWAPI::Position(16, 16);
+            cluster.move(targetPosition);
             return;
         }
     }
@@ -154,4 +159,5 @@ void MopUpSquad::execute(UnitCluster &cluster)
 #if DEBUG_SQUAD_TARGET
     CherryVis::log() << "MopUp cluster " << BWAPI::WalkPosition(cluster.center) << ": Nothing to do!";
 #endif
+    targetPosition = Map::getMyMain()->getPosition();
 }
