@@ -1,4 +1,5 @@
 #include "BWTest.h"
+#include "DoNothingModule.h"
 
 #include "StardustAIModule.h"
 #include "Strategist.h"
@@ -57,6 +58,63 @@ TEST(MopUp, FindsHiddenPylon)
     test.onStartOpponent = []()
     {
         Strategist::setStrategyEngine(std::make_unique<HidePylonStrategyEngine>());
+    };
+
+    test.run();
+}
+
+TEST(MopUp, AttacksFloatingBuilding)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Icarus");
+    test.randomSeed = 42;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.expectWin = true;
+    test.frameLimit = 12000;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+
+    test.myInitialUnits =
+    {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(43,14))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(44,14))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(45,14))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(46,14))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(47,14))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(48,14))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(43,15))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(44,15))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(45,15))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(46,15))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(43,16))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(44,16))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(45,16))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(46,16))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Observer, BWAPI::Position(BWAPI::TilePosition(41,96))),
+    };
+
+    test.opponentInitialUnits =
+    {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(BWAPI::TilePosition(41,95))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Barracks, BWAPI::Position(BWAPI::TilePosition(41,96))),
+    };
+
+    test.onFrameOpponent = []()
+    {
+        for (auto unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (unit->getType() == BWAPI::UnitTypes::Terran_Barracks && !unit->isLifted())
+            {
+                unit->lift();
+            }
+
+            if (unit->getType().isWorker())
+            {
+                unit->move(BWAPI::Position(BWAPI::TilePosition(46,15)));
+            }
+        }
     };
 
     test.run();
