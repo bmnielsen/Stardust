@@ -5,6 +5,7 @@
 #include "Units.h"
 #include "Geo.h"
 #include "Map.h"
+#include "Players.h"
 
 namespace
 {
@@ -307,4 +308,23 @@ bool TakeIslandExpansion::cancellable()
     if (!shuttle) return true;
     if (builder) return false;
     return workerTransfer.empty();
+}
+
+int TakeIslandExpansion::framesToClearBlocker()
+{
+    if (!base->blockingNeutral || !base->blockingNeutral->exists()) return 0;
+
+    if (base->blockingNeutral->getType().isMineralField()) return 0;
+
+    int hp = base->blockingNeutral->getInitialHitPoints();
+    if (base->blockingNeutral->isVisible())
+    {
+        hp = base->blockingNeutral->getHitPoints();
+    }
+
+    return (hp * BWAPI::UnitTypes::Protoss_Probe.groundWeapon().damageCooldown())
+           / Players::attackDamage(BWAPI::Broodwar->self(),
+                                   BWAPI::UnitTypes::Protoss_Probe,
+                                   base->blockingNeutral->getPlayer(),
+                                   base->blockingNeutral->getType());
 }

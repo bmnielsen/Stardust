@@ -87,7 +87,13 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
             }
         }
 
-        return;
+        // For most island expansions, we would return here and leave just the island expo play enabled
+        // But if we are taking an island expansion with a blocking neutral that takes a while to clear, drop through
+        // and allow normal expansions
+        if ((*takeIslandExpansionPlays.begin())->framesToClearBlocker() < 750)
+        {
+            return;
+        }
     }
 
     // Determine whether we want to expand now
@@ -178,7 +184,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Take an island expansion when we are on two bases, want to expand and it is safe to do so
-    if (wantToExpand && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
+    if (takeIslandExpansionPlays.empty() && wantToExpand && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
     {
         Base *closestIslandBase = nullptr;
         int closestIslandBaseDist = INT_MAX;

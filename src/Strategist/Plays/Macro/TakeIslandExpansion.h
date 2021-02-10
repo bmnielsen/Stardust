@@ -21,6 +21,8 @@ public:
 
     bool cancellable() override;
 
+    int framesToClearBlocker();
+
 private:
     MyUnit shuttle;
     int workerTransferState; // 0 = picking up workers, 1 = unloading workers, 2 = done
