@@ -60,7 +60,7 @@ void EjectEnemyScout::update()
     // If there is a scout, make sure we get a dragoon
     if (scout && !dragoon)
     {
-        status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Dragoon, Map::getMyMain()->getPosition());
+        status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Dragoon, Map::getMyMain()->getPosition(), 1000);
     }
 
     // If we have a dragoon and a scout, attack!

@@ -147,38 +147,45 @@ namespace Strategist
 
                     // Pick the unit(s) with the lowest distance
                     std::sort(reassignableUnits.begin(), reassignableUnits.end(), ReassignableUnit::cmp);
-                    for (auto it = reassignableUnits.begin();
-                         it != reassignableUnits.end() && unitRequirement.count > 0;)
+                    auto reassign = [&](bool checkGridNode)
                     {
-                        if (!unitRequirement.allowFromVanguardCluster && it->currentPlay && it->currentPlay->getSquad()
-                            && !it->currentPlay->getSquad()->canReassignFromVanguardCluster(it->unit))
+                        for (auto it = reassignableUnits.begin();
+                             it != reassignableUnits.end() && unitRequirement.count > 0;)
                         {
-                            it++;
-                            continue;
+                            if (it->distance > unitRequirement.distanceLimit) break;
+
+                            if (!unitRequirement.allowFromVanguardCluster && it->currentPlay && it->currentPlay->getSquad()
+                                && !it->currentPlay->getSquad()->canReassignFromVanguardCluster(it->unit))
+                            {
+                                it++;
+                                continue;
+                            }
+                            if (checkGridNode && unitRequirement.gridNodePredicate &&
+                                !PathFinding::checkGridPath(it->unit->getTilePosition(),
+                                                            BWAPI::TilePosition(unitRequirement.position),
+                                                            unitRequirement.gridNodePredicate))
+                            {
+                                it++;
+                                continue;
+                            }
+
+                            if (it->currentPlay != nullptr)
+                            {
+                                it->currentPlay->removeUnit(it->unit);
+                                CherryVis::log(it->unit->id) << "Removed from play: " << it->currentPlay->label;
+                            }
+
+                            unitToPlay[it->unit] = play;
+                            play->addUnit(it->unit);
+                            CherryVis::log(it->unit->id) << "Added to play: " << play->label;
+
+                            unitRequirement.count--;
+
+                            it = reassignableUnits.erase(it);
                         }
-                        if (unitRequirement.gridNodePredicate &&
-                            !PathFinding::checkGridPath(it->unit->getTilePosition(),
-                                                        BWAPI::TilePosition(unitRequirement.position),
-                                                        unitRequirement.gridNodePredicate))
-                        {
-                            it++;
-                            continue;
-                        }
-
-                        if (it->currentPlay != nullptr)
-                        {
-                            it->currentPlay->removeUnit(it->unit);
-                            CherryVis::log(it->unit->id) << "Removed from play: " << it->currentPlay->label;
-                        }
-
-                        unitToPlay[it->unit] = play;
-                        play->addUnit(it->unit);
-                        CherryVis::log(it->unit->id) << "Added to play: " << play->label;
-
-                        unitRequirement.count--;
-
-                        it = reassignableUnits.erase(it);
-                    }
+                    };
+                    reassign(true);
+                    if (unitRequirement.allowFailingGridNodePredicate) reassign(false);
 
                     // "Reserve" incomplete units if possible
                     auto incompleteUnits = typeToIncompleteUnits.find(unitRequirement.type);

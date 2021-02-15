@@ -133,7 +133,11 @@ void DefendBase::update()
             return gridNode.cost < 1200 || Players::grid(BWAPI::Broodwar->enemy()).groundThreat(gridNode.center()) == 0;
         };
 
-        status.unitRequirements.emplace_back(requestedUnits, BWAPI::UnitTypes::Protoss_Dragoon, base->getPosition(), gridNodePredicate);
+        status.unitRequirements.emplace_back(requestedUnits,
+                                             BWAPI::UnitTypes::Protoss_Dragoon,
+                                             base->getPosition(),
+                                             true,
+                                             gridNodePredicate);
     }
 }
 

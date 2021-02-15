@@ -127,7 +127,7 @@ void TakeExpansion::update()
         // TODO: Request zealot or dragoon when we have that capability
         if (requestedUnits > 0)
         {
-            status.unitRequirements.emplace_back(requestedUnits, BWAPI::UnitTypes::Protoss_Dragoon, base->getPosition(), nullptr, false);
+            status.unitRequirements.emplace_back(requestedUnits, BWAPI::UnitTypes::Protoss_Dragoon, base->getPosition(), false);
         }
     };
 

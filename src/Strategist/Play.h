@@ -20,19 +20,36 @@ struct PlayUnitRequirement
     int count;
     BWAPI::UnitType type;
     BWAPI::Position position;
+    int distanceLimit;
     bool allowFromVanguardCluster;
+    bool allowFailingGridNodePredicate;
     const std::function<bool(const NavigationGrid::GridNode &gridNode)> gridNodePredicate;
 
     PlayUnitRequirement(int count,
                         BWAPI::UnitType type,
                         BWAPI::Position position,
-                        const std::function<bool(const NavigationGrid::GridNode &gridNode)> gridNodePredicate = nullptr,
-                        bool allowFromVanguardCluster = true)
+                        int distanceLimit = INT_MAX)
             : count(count)
             , type(type)
             , position(position)
+            , distanceLimit(distanceLimit)
+            , allowFromVanguardCluster(true)
+            , allowFailingGridNodePredicate(false)
+            , gridNodePredicate(nullptr) {}
+
+    PlayUnitRequirement(int count,
+                        BWAPI::UnitType type,
+                        BWAPI::Position position,
+                        bool allowFromVanguardCluster,
+                        const std::function<bool(const NavigationGrid::GridNode &gridNode)> gridNodePredicate = nullptr,
+                        bool allowFailingGridNodePredicate = false)
+            : count(count)
+            , type(type)
+            , position(position)
+            , distanceLimit(INT_MAX)
             , allowFromVanguardCluster(allowFromVanguardCluster)
-            , gridNodePredicate(std::move(gridNodePredicate)) {}
+            , allowFailingGridNodePredicate(false)
+            , gridNodePredicate(nullptr) {}
 };
 
 struct PlayStatus
