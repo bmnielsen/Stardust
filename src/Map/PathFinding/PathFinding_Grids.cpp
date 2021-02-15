@@ -100,7 +100,7 @@ namespace PathFinding
         auto node = &(*grid)[start];
         for (int i = 0; i < 1000; i++)
         {
-            if (node->cost < 30) return true;
+            if (node->cost < 90) return true;
             if (!node->nextNode) return false;
             if (!predicate(*node)) return false;
             node = node->nextNode;

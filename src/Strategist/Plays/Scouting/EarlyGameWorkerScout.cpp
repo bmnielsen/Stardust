@@ -697,7 +697,7 @@ bool EarlyGameWorkerScout::isScoutBlocked()
     // Decreasing distance is fine
     // Increasing distance is fine if it jumps quite a bit - this generally means we've scouted a building that changes the path
     if (node.cost<closestDistanceToTargetBase ||
-                  node.cost>(lastDistanceToTargetBase + 50))
+                  node.cost>(lastDistanceToTargetBase + 100))
     {
         closestDistanceToTargetBase = node.cost;
         lastDistanceToTargetBase = node.cost;
@@ -708,7 +708,7 @@ bool EarlyGameWorkerScout::isScoutBlocked()
     lastDistanceToTargetBase = node.cost;
 
     // Non-decreasing distance is fine if we are still far away from the enemy base
-    if (node.cost > 1500) return false;
+    if (node.cost > 3000) return false;
 
     // Consider us to be blocked if we haven't made forward progress in five seconds
     if ((BWAPI::Broodwar->getFrameCount() - lastForewardMotionFrame) > 120) return true;

@@ -127,7 +127,7 @@ void MyUnitImpl::resetMoveData()
 void MyUnitImpl::moveToNextWaypoint()
 {
     // Current grid node is close to the target
-    if (gridNode && gridNode->cost <= 30)
+    if (gridNode && gridNode->cost <= 90)
     {
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Order: Reached end of grid " << grid->goal;
@@ -356,7 +356,7 @@ void MyUnitImpl::resetGrid()
                 if (grid)
                 {
                     auto &node = (*grid)[getTilePosition()];
-                    if (!node.nextNode || node.cost < 30)
+                    if (!node.nextNode || node.cost < 90)
                     {
                         grid = nullptr;
                     }
