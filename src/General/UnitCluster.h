@@ -25,6 +25,9 @@ public:
     int vanguardDistToMain;
     double percentageToEnemyMain;
 
+    int ballRadius;
+    int lineRadius;
+
     Activity currentActivity;
     SubActivity currentSubActivity;
     int lastActivityChange;

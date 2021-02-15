@@ -1,5 +1,4 @@
 #include "Squad.h"
-#include "PathFinding.h"
 #include "Players.h"
 
 #include "DebugFlag_CombatSim.h"
@@ -12,14 +11,14 @@
 
 namespace
 {
-    // Units are added to a cluster if they are within this distance of the cluster center
+    // Units are added to a cluster if they are within this distance of the cluster vanguard
     const int ADD_THRESHOLD = 480;
 
     // Clusters are combined if their centers are within this distance of each other, adjusted for cluster size
     const int COMBINE_THRESHOLD = 480;
 
-    // Units are removed from a cluster if they are further than this distance from the cluster center, adjusted for cluster size
-    const int REMOVE_THRESHOLD = 640;
+    // Units are removed from a cluster if they are further than this distance from the cluster vanguard, adjusted for cluster size
+    const int REMOVE_THRESHOLD = 480;
 }
 
 void Squad::addUnit(const MyUnit &unit)
@@ -38,18 +37,28 @@ void Squad::addUnit(const MyUnit &unit)
 
 bool Squad::canAddUnitToCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster, int dist) const
 {
-    return dist <= ADD_THRESHOLD;
+    return dist - cluster->ballRadius <= ADD_THRESHOLD;
 }
 
 bool Squad::shouldCombineClusters(const std::shared_ptr<UnitCluster> &first, const std::shared_ptr<UnitCluster> &second) const
 {
-    return first->center.getApproxDistance(second->center) <=
-           (COMBINE_THRESHOLD + (first->units.size() + second->units.size()) * 32);
+    int dist = first->center.getApproxDistance(second->center);
+
+    // Combine if the clusters are close enough together, adjusting for their "ball radius"
+    if (dist - first->ballRadius - second->ballRadius <= COMBINE_THRESHOLD) return true;
+
+    // Also combine if the clusters are further apart but fit together in an arc formation
+    return dist - first->lineRadius - second->lineRadius <= COMBINE_THRESHOLD &&
+           abs(first->percentageToEnemyMain - second->percentageToEnemyMain) < 0.05;
 }
 
 bool Squad::shouldRemoveFromCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster) const
 {
-    return unit->getDistance(cluster->center) > (REMOVE_THRESHOLD + cluster->units.size() * 32);
+    int dist = unit->lastPosition.getApproxDistance(cluster->center);
+    return dist - cluster->ballRadius > REMOVE_THRESHOLD &&
+           (unit->distToTargetPosition == -1 || cluster->vanguard->distToTargetPosition == -1 ||
+            dist - cluster->lineRadius > REMOVE_THRESHOLD ||
+            abs(unit->distToTargetPosition - cluster->vanguard->distToTargetPosition) > 480);
 }
 
 void Squad::addUnitToBestCluster(const MyUnit &unit)
@@ -59,7 +68,7 @@ void Squad::addUnitToBestCluster(const MyUnit &unit)
     int bestDist = INT_MAX;
     for (const auto &cluster : clusters)
     {
-        int dist = unit->getDistance(cluster->center);
+        int dist = unit->lastPosition.getApproxDistance(cluster->vanguard->lastPosition);
         if (dist < bestDist && canAddUnitToCluster(unit, cluster, dist))
         {
             bestDist = dist;
@@ -149,6 +158,8 @@ void Squad::updateClusters()
         }
         else
         {
+            CherryVis::drawCircle((*clusterIt)->center.x, (*clusterIt)->center.y, (*clusterIt)->ballRadius, CherryVis::DrawColor::Teal);
+            CherryVis::drawCircle((*clusterIt)->center.x, (*clusterIt)->center.y, (*clusterIt)->lineRadius, CherryVis::DrawColor::Blue);
             clusterIt++;
         }
     }

@@ -14,6 +14,8 @@ typedef std::shared_ptr<MyUnitImpl> MyUnit;
 class MyUnitImpl : public UnitImpl
 {
 public:
+    int distToTargetPosition;
+
     explicit MyUnitImpl(BWAPI::Unit unit);
 
     ~MyUnitImpl() override = default;
