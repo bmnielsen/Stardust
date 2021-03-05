@@ -275,7 +275,12 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::Defensive:
         case OurStrategy::Normal:
         {
-            oneGateCoreOpening(prioritizedProductionGoals, dragoonCount, zealotCount, 1);
+            int desiredZealots = 1;
+            if (enemyStrategy == ProtossStrategy::BlockScouting)
+            {
+                desiredZealots = 3;
+            }
+            oneGateCoreOpening(prioritizedProductionGoals, dragoonCount, zealotCount, desiredZealots);
 
             // Default upgrades
             handleUpgrades(prioritizedProductionGoals);
