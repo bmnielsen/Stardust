@@ -15,7 +15,9 @@ public:
 
     void updateClusters();
 
-    void execute();
+    virtual void execute();
+
+    virtual void disband() {}
 
     [[nodiscard]] BWAPI::Position getTargetPosition() const { return targetPosition; }
 

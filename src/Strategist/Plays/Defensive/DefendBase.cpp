@@ -15,7 +15,6 @@ DefendBase::DefendBase(Base *base, int enemyValue)
         , base(base)
         , enemyValue(enemyValue)
         , squad(std::make_shared<DefendBaseSquad>(base))
-        , workerDefenseSquad(std::make_shared<WorkerDefenseSquad>(base))
         , pylonLocation(BWAPI::TilePositions::Invalid)
         , pylon(nullptr)
 {
@@ -101,11 +100,8 @@ void DefendBase::update()
     if (enemyValue == 0 || (squad->needsDetection() && detectors.empty()))
     {
         status.removedUnits = squad->getUnits();
-        workerDefenseSquad->disband();
         return;
     }
-
-    workerDefenseSquad->execute(squad->enemyUnits, squad);
 
     // Don't add ground units to defend an island base
     if (base->island) return;
@@ -207,13 +203,6 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
                                                                  unitRequirement.count,
                                                                  1);
     }
-}
-
-void DefendBase::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                         const std::function<void(const MyUnit)> &movableUnitCallback)
-{
-    Play::disband(removedUnitCallback, movableUnitCallback);
-    workerDefenseSquad->disband();
 }
 
 int DefendBase::desiredCannons()

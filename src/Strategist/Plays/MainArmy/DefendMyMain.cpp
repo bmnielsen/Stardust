@@ -16,7 +16,6 @@ DefendMyMain::DefendMyMain()
         : MainArmyPlay("DefendMyMain")
         , emergencyProduction(BWAPI::UnitTypes::None)
         , squad(std::make_shared<EarlyGameDefendMainBaseSquad>())
-        , workerDefenseSquad(std::make_shared<WorkerDefenseSquad>(Map::getMyMain()))
         , lastRegroupFrame(0)
         , reservedGasStealAttacker(nullptr)
 {
@@ -151,8 +150,6 @@ void DefendMyMain::update()
         enemyCombatUnits.insert(enemyWorkers.begin(), enemyWorkers.end());
     }
 
-    workerDefenseSquad->execute(enemyCombatUnits, squad);
-
     // Keep track of when the squad was last regrouping, considering an empty squad to be regrouping
     if (!enemyCombatUnits.empty() && !scoutHarass && (squad->getUnits().empty() || squad->hasClusterWithActivity(UnitCluster::Activity::Regrouping)))
     {
@@ -205,8 +202,6 @@ void DefendMyMain::disband(const std::function<void(const MyUnit)> &removedUnitC
                            const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     Play::disband(removedUnitCallback, movableUnitCallback);
-
-    workerDefenseSquad->disband();
 
     // Also move the reserved gas steal attacker if we have one
     if (reservedGasStealAttacker)

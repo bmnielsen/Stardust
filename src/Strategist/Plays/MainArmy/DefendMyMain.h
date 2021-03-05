@@ -2,7 +2,6 @@
 
 #include "MainArmyPlay.h"
 #include "Squads/EarlyGameDefendMainBaseSquad.h"
-#include "Squads/WorkerDefenseSquad.h"
 
 class DefendMyMain : public MainArmyPlay
 {
@@ -25,7 +24,6 @@ public:
 private:
     BWAPI::UnitType emergencyProduction;
     std::shared_ptr<EarlyGameDefendMainBaseSquad> squad;
-    std::shared_ptr<WorkerDefenseSquad> workerDefenseSquad;
     int lastRegroupFrame;
     MyUnit reservedGasStealAttacker;
     std::vector<MyUnit> reservedWorkerGasStealAttackers;
