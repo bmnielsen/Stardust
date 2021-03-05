@@ -1,8 +1,12 @@
 #include "BWTest.h"
 #include "UAlbertaBotModule.h"
+#include "StardustAIModule.h"
 
-#include "UnitUtil.h"
+#include "DoNothingStrategyEngine.h"
+#include "TestMainArmyAttackBasePlay.h"
 
+#include "Map.h"
+#include "Strategist.h"
 
 TEST(RushDefense, Steamhammer9PoolSpeed)
 {
@@ -156,6 +160,52 @@ TEST(RushDefense, SteamhammerBBS)
 //        // Quit if we have no probes left
 //        if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) == 0) BWAPI::Broodwar->leaveGame();
 //    };
+
+    test.run();
+}
+
+TEST(RushDefense, Zealots)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Roadrunner");
+    test.randomSeed = 51163;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        CherryVis::disable();
+        return new StardustAIModule();
+    };
+    test.frameLimit = 5000;
+    test.expectWin = false;
+
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(103, 118))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(103, 119))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(103, 120))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(103, 121))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(103, 122))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(103, 123))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(BWAPI::TilePosition(103, 124))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(BWAPI::TilePosition(89, 116))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(BWAPI::TilePosition(90, 117))),
+    };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(BWAPI::TilePosition(85, 114))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(BWAPI::TilePosition(86, 115))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(BWAPI::TilePosition(87, 115))),
+    };
+
+    test.onStartOpponent = []()
+    {
+        auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(98, 119)));
+
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack, true));
+        Strategist::setOpening(openingPlays);
+    };
 
     test.run();
 }
