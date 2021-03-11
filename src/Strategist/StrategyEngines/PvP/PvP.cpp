@@ -174,18 +174,13 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     // Set the worker scout mode
+    // This is just completing the play when we don't expect the scout to be able to gather any additional useful information
     if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
         Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::MonitoringEnemyChoke)
     {
         auto play = getPlay<EarlyGameWorkerScout>(plays);
         if (play)
         {
-            auto setScoutHiding = [&play](int hideUntil)
-            {
-                if (BWAPI::Broodwar->getFrameCount() > hideUntil) return;
-                play->hideUntil(hideUntil);
-            };
-
             switch (enemyStrategy)
             {
                 case ProtossStrategy::Unknown:
@@ -194,13 +189,9 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 case ProtossStrategy::BlockScouting:
                 case ProtossStrategy::DragoonAllIn:
                 case ProtossStrategy::DarkTemplarRush:
-                    setScoutHiding(0);
-                    break;
                 case ProtossStrategy::ZealotRush:
                 case ProtossStrategy::TwoGate:
                 case ProtossStrategy::ZealotAllIn:
-                    setScoutHiding(0);
-                    play->monitorEnemyChoke();
                     break;
                 case ProtossStrategy::EarlyForge:
                 case ProtossStrategy::OneGateCore:
@@ -208,7 +199,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 case ProtossStrategy::EarlyRobo:
                 case ProtossStrategy::Turtle:
                 case ProtossStrategy::MidGame:
-                    setScoutHiding(6000);
+                    play->status.complete = true;
                     break;
             }
         }

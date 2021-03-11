@@ -531,6 +531,12 @@ void EarlyGameWorkerScout::disband(const std::function<void(const MyUnit)> &remo
     {
         CherryVis::log(scout->id) << "Releasing from non-mining duties (scout disband)";
         Workers::releaseWorker(scout);
+
+        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
+            Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::MonitoringEnemyChoke)
+        {
+            Strategist::setWorkerScoutStatus(Strategist::WorkerScoutStatus::ScoutingCompleted);
+        }
     }
 }
 
