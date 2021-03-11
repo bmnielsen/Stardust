@@ -30,23 +30,28 @@ void EjectEnemyScout::update()
         scout = nullptr;
     }
 
-    // Next try to find an enemy scout
-    if (!scout)
+    // Next scan to get an enemy scout or combat unit
+    bool enemyCombatUnitInBase = false;
+    Unit newScout = nullptr;
+    for (auto &unit : Units::allEnemy())
     {
-        for (auto &unit : Units::allEnemy())
+        if (!unit->exists()) continue;
+
+        if (unit->type.isWorker() || unit->type == BWAPI::UnitTypes::Zerg_Overlord)
         {
-            if (!unit->exists()) continue;
-            if (!(unit->type.isWorker() || unit->type == BWAPI::UnitTypes::Zerg_Overlord)) continue;
-            if (inMainArea(unit))
-            {
-                scout = unit;
-                break;
-            }
+            if (inMainArea(unit)) newScout = unit;
+        }
+        else if (unit->canAttackGround() && inMainArea(unit))
+        {
+            enemyCombatUnitInBase = true;
+            break;
         }
     }
 
-    // If there is no enemy scout, make sure we release our dragoon
-    if (dragoon && !scout)
+    if (!scout) scout = newScout;
+
+    // Release the dragoon if there is no scout or an enemey combat unit in the base
+    if (dragoon && (enemyCombatUnitInBase || !scout))
     {
         status.removedUnits.push_back(dragoon);
     }
