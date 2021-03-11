@@ -13,8 +13,9 @@
  * Orders a cluster to regroup.
  *
  * There are several regrouping strategies that can be chosen based on the situation:
- * - Contain base: The enemy is considered to be mainly static, so retreat to a safe distance and attack anything that comes into range.
- * - Hold choke: We can stay at our choke and hold off the enemy.
+ * - Contain static: The enemy is considered to be mainly static, so retreat to a safe distance and attack anything that comes into range.
+ * - Hold choke: We can stay at a choke and hold off the enemy.
+ * - Stand ground: We can stop a safe distance from the enemy until we are reinforced.
  * - Flee: Move back towards our main base until we are reinforced.
  */
 
@@ -368,8 +369,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::Flee:
         {
-            // TODO: Support fleeing elsewhere
-            move(Map::getMyMain()->getPosition());
+            flee(enemyUnits);
 
             break;
         }

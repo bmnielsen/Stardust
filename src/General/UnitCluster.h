@@ -79,6 +79,8 @@ public:
 
     void standGround(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
 
+    void flee(std::set<Unit> &enemyUnits);
+
     bool moveAsBall(BWAPI::Position targetPosition);
 
     bool formArc(BWAPI::Position pivot, int desiredDistance);
