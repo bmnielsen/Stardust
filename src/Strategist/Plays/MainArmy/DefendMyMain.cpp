@@ -158,9 +158,9 @@ void DefendMyMain::update()
 
     // Queue emergency production if:
     // - The squad has been regrouping recently
-    // - The enemy has us outnumbered by more than one combat unit
+    // - The enemy has us outnumbered by more than two combat units
     if (lastRegroupFrame > 0 && lastRegroupFrame > (BWAPI::Broodwar->getFrameCount() - REGROUP_EMERGENCY_TIMEOUT) &&
-        (squad->combatUnitCount() == 0 || (enemyCombatUnits.size() + std::max(0, (int) enemyWorkers.size() - 1)) > (squad->combatUnitCount() + 1)))
+        (squad->combatUnitCount() == 0 || (enemyCombatUnits.size() + std::max(0, (int) enemyWorkers.size() - 1)) > (squad->combatUnitCount() + 2)))
     {
         auto desiredEmergencyProduction = requireDragoons ? BWAPI::UnitTypes::Protoss_Dragoon : BWAPI::UnitTypes::Protoss_Zealot;
         if (emergencyProduction != desiredEmergencyProduction)
