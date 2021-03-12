@@ -66,25 +66,32 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
     }
     else if (zealotsRequired > 0)
     {
+        // If we need to start producing our first dragoons soon, queue one
+        double percentZealotsRequired = (double)zealotsRequired / (double)(zealotCount + zealotsRequired);
+        if (percentZealotsRequired < 0.2 && dragoonCount == 0)
+        {
+            prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                          BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                          1,
+                                                                          1);
+        }
+        else if (percentZealotsRequired > 0.4)
+        {
+            cancelTrainingUnits(prioritizedProductionGoals,
+                                BWAPI::UnitTypes::Protoss_Dragoon,
+                                zealotsRequired,
+                                BWAPI::UnitTypes::Protoss_Zealot.buildTime());
+        }
+
         prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                       BWAPI::UnitTypes::Protoss_Zealot,
                                                                       zealotsRequired > 1 ? -1 : 1,
                                                                       -1);
-
-        cancelTrainingUnits(prioritizedProductionGoals,
-                            BWAPI::UnitTypes::Protoss_Dragoon,
-                            zealotsRequired,
-                            BWAPI::UnitTypes::Protoss_Zealot.buildTime());
     }
 
-    // If the dragoon transition is just beginning, only order one so we keep producing zealots
+    // End with dragoons
     prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                BWAPI::UnitTypes::Protoss_Dragoon,
-                                                               dragoonCount == 0 ? 1 : -1,
-                                                               -1);
-
-    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                               BWAPI::UnitTypes::Protoss_Zealot,
                                                                -1,
                                                                -1);
 
