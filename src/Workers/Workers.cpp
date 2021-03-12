@@ -794,6 +794,19 @@ namespace Workers
         return count;
     }
 
+    int availableGasAssignments(Base *base)
+    {
+        if (base) return availableGasAssignmentsAtBase(base);
+
+        int count = 0;
+        for (auto &myBase : Map::getMyBases())
+        {
+            count += availableGasAssignmentsAtBase(myBase);
+        }
+
+        return count;
+    }
+
     void setDesiredGasWorkerDelta(int gasWorkerDelta)
     {
         _desiredGasWorkerDelta = gasWorkerDelta;
