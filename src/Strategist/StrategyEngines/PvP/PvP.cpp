@@ -187,15 +187,17 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 case ProtossStrategy::WorkerRush:
                 case ProtossStrategy::ProxyRush:
                 case ProtossStrategy::BlockScouting:
-                case ProtossStrategy::DragoonAllIn:
-                case ProtossStrategy::DarkTemplarRush:
+                    break;
                 case ProtossStrategy::ZealotRush:
                 case ProtossStrategy::TwoGate:
                 case ProtossStrategy::ZealotAllIn:
+                    play->monitorEnemyChoke();
                     break;
                 case ProtossStrategy::EarlyForge:
                 case ProtossStrategy::OneGateCore:
                 case ProtossStrategy::FastExpansion:
+                case ProtossStrategy::DragoonAllIn:
+                case ProtossStrategy::DarkTemplarRush:
                 case ProtossStrategy::EarlyRobo:
                 case ProtossStrategy::Turtle:
                 case ProtossStrategy::MidGame:
