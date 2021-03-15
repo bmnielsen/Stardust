@@ -18,10 +18,23 @@ namespace
             // Always attack if we don't lose anything
             if (simResult.myPercentLost() <= 0.001) return true;
 
-            // Attack if the enemy has undetected units that do not damage us much
-            // This handles cases where e.g. our army is being attacked by a single cloaked wraith -
-            // we want to ignore it
-            if (simResult.enemyHasUndetectedUnits && simResult.myPercentLost() <= 0.15) return true;
+            // Special cases when the enemy has undetected units
+            if (simResult.enemyHasUndetectedUnits)
+            {
+                // Always retreat if we are close to the target and can't hurt anything
+                // This usually means there are no detected units we can attack
+                if (cluster.vanguardDistToTarget < 500 && simResult.valueGain() <= 0)
+                {
+                    return false;
+                }
+
+                // Always attack if we are further from the target and aren't losing a large percentage of our army
+                // This handles cases where our army would otherwise get pinned in its main by e.g. a single cloaked wraith
+                if (cluster.vanguardDistToTarget >= 500 && simResult.myPercentLost() <= 0.15)
+                {
+                    return true;
+                }
+            }
 
             // Attack in cases where we think we will kill 50% more value than we lose
             if (aggression > 0.99 && simResult.valueGain() > (simResult.initialMine - simResult.finalMine) / 2 &&
@@ -60,6 +73,7 @@ namespace
                          << ": %l=" << simResult.myPercentLost()
                          << "; vg=" << simResult.valueGain()
                          << "; %g=" << simResult.percentGain()
+                         << "; %t=" << simResult.myPercentageOfTotal()
                          << (result ? "; ATTACK" : "; RETREAT");
 #endif
 
@@ -313,15 +327,19 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
                 break;
             }
 
-            int distTarget = PathFinding::GetGroundDistance(
-                    unitAndTarget.first->lastPosition,
-                    unitAndTarget.second->lastPosition,
-                    unitAndTarget.first->type,
-                    PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
-            int distVanguardCluster = PathFinding::GetGroundDistance(unitAndTarget.first->lastPosition,
-                                                                     currentVanguardCluster->vanguard->lastPosition,
-                                                                     unitAndTarget.first->type,
-                                                                     PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+            int distTarget = unitAndTarget.first->isFlying
+                             ? unitAndTarget.first->getDistance(unitAndTarget.second->lastPosition)
+                             : PathFinding::GetGroundDistance(
+                            unitAndTarget.first->lastPosition,
+                            unitAndTarget.second->lastPosition,
+                            unitAndTarget.first->type,
+                            PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+            int distVanguardCluster = unitAndTarget.first->isFlying
+                                      ? unitAndTarget.first->getDistance(currentVanguardCluster->vanguard->lastPosition)
+                                      : PathFinding::GetGroundDistance(unitAndTarget.first->lastPosition,
+                                                                       currentVanguardCluster->vanguard->lastPosition,
+                                                                       unitAndTarget.first->type,
+                                                                       PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
             linkUp = (distTarget == -1 || distVanguardCluster == -1 || distVanguardCluster < distTarget);
 
             break;

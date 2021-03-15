@@ -33,7 +33,7 @@ void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
     std::vector<std::pair<std::vector<Base *>, int>> baseClusters;
     for (auto &base : Map::getMyBases(BWAPI::Broodwar->self()))
     {
-        int desiredWorkers = Workers::availableMineralAssignments(base);
+        int desiredWorkers = Workers::availableMineralAssignments(base) + Workers::availableGasAssignments(base);
 
         // Reduce by one if this base is already building a worker
         // It's OK if this base goes to a negative number of workers

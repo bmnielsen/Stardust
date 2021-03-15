@@ -15,9 +15,9 @@ namespace
         BWAPI::Position bestPos = BWAPI::Positions::Invalid;
         int bestDist = INT_MAX;
         int radius = BWAPI::UnitTypes::Protoss_Probe.sightRange() / 32;
-        for (int x = -radius; x <= radius; x++)
+        for (int y = -radius; y <= radius; y++)
         {
-            for (int y = -radius; y <= radius; y++)
+            for (int x = -radius; x <= radius; x++)
             {
                 BWAPI::TilePosition tile = patch->getInitialTilePosition() + BWAPI::TilePosition(x, y);
                 if (!tile.isValid()) continue;

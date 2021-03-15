@@ -1,6 +1,5 @@
 #include "UnitCluster.h"
 #include "PathFinding.h"
-#include "Units.h"
 #include "UnitUtil.h"
 #include "Map.h"
 
@@ -12,6 +11,8 @@
 
 namespace
 {
+    const double pi = 3.14159265358979323846;
+
     std::map<UnitCluster::Activity, std::string> ActivityNames = {
             {UnitCluster::Activity::Moving,     "Moving"},
             {UnitCluster::Activity::Attacking,  "Attacking"},
@@ -29,6 +30,11 @@ namespace
 UnitCluster::UnitCluster(const MyUnit &unit)
         : center(unit->lastPosition)
         , vanguard(unit)
+        , vanguardDistToTarget(0)
+        , vanguardDistToMain(0)
+        , percentageToEnemyMain(0.0)
+        , ballRadius(16)
+        , lineRadius(16)
         , currentActivity(Activity::Moving)
         , currentSubActivity(SubActivity::None)
         , lastActivityChange(0)
@@ -46,6 +52,8 @@ void UnitCluster::absorbCluster(const std::shared_ptr<UnitCluster> &other, BWAPI
 {
     units.insert(other->units.begin(), other->units.end());
     area += other->area;
+    ballRadius = (int)sqrt((double)area / pi);
+    lineRadius = 16 * units.size();
     updatePositions(targetPosition);
 }
 
@@ -100,9 +108,13 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     int sumX = 0;
     int sumY = 0;
     auto mainPosition = Map::getMyMain()->getPosition();
-    vanguard = nullptr;
-    vanguardDistToMain = -1;
-    vanguardDistToTarget = INT_MAX;
+
+    MyUnit groundVanguard = nullptr;
+    MyUnit flyingVanguard = nullptr;
+    int groundDistToMain = -1;
+    int groundDistToTarget = INT_MAX;
+    int flyingDistToMain = -1;
+    int flyingDistToTarget = -1;
     for (auto unitIt = units.begin(); unitIt != units.end();)
     {
         auto unit = *unitIt;
@@ -117,28 +129,61 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
         sumX += unit->lastPosition.x;
         sumY += unit->lastPosition.y;
 
-        int dist = PathFinding::GetGroundDistance(targetPosition, unit->lastPosition, unit->type);
-        if (dist > vanguardDistToTarget)
+        if (unit->isFlying)
+        {
+            unit->distToTargetPosition = unit->getDistance(targetPosition);
+            if (unit->distToTargetPosition >= flyingDistToTarget)
+            {
+                unitIt++;
+                continue;
+            }
+
+            flyingVanguard = unit;
+            flyingDistToTarget = unit->distToTargetPosition;
+            flyingDistToMain = unit->getDistance(mainPosition);
+
+            unitIt++;
+            continue;
+        }
+
+        unit->distToTargetPosition = PathFinding::GetGroundDistance(targetPosition, unit->lastPosition, unit->type);
+        if (unit->distToTargetPosition > groundDistToTarget || (unit->distToTargetPosition == -1 && groundDistToTarget != INT_MAX))
         {
             unitIt++;
             continue;
         }
 
         int mainDist = PathFinding::GetGroundDistance(mainPosition, unit->lastPosition, unit->type);
-        if (dist != -1 || (mainDist != -1 && vanguardDistToTarget == INT_MAX && mainDist > vanguardDistToMain))
+        if (unit->distToTargetPosition != -1 || (mainDist != -1 && mainDist > groundDistToMain))
         {
-            vanguard = unit;
-            if (dist != -1)
+            groundVanguard = unit;
+            if (unit->distToTargetPosition != -1)
             {
-                vanguardDistToTarget = dist;
+                groundDistToTarget = unit->distToTargetPosition;
             }
             if (mainDist != -1)
             {
-                vanguardDistToMain = mainDist;
+                groundDistToMain = mainDist;
             }
         }
 
         unitIt++;
+    }
+
+    ballRadius = (int)sqrt((double)area / pi);
+    lineRadius = 16 * units.size();
+
+    if (groundVanguard)
+    {
+        vanguard = groundVanguard;
+        vanguardDistToMain = groundDistToMain;
+        vanguardDistToTarget = groundDistToTarget;
+    }
+    else
+    {
+        vanguard = flyingVanguard;
+        vanguardDistToMain = flyingDistToMain;
+        vanguardDistToTarget = flyingDistToTarget;
     }
 
     if (units.empty()) return;
@@ -152,7 +197,7 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
 
     if (vanguardDistToTarget > 0 || vanguardDistToMain > 0)
     {
-        percentageToEnemyMain = (double)vanguardDistToMain / (double)(vanguardDistToMain + vanguardDistToTarget);
+        percentageToEnemyMain = (double) vanguardDistToMain / (double) (vanguardDistToMain + vanguardDistToTarget);
     }
     else
     {

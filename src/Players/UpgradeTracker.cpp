@@ -15,6 +15,7 @@ void UpgradeTracker::update(Grid &grid)
             {
                 auto weaponUnitType = unit->type;
                 if (unit->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+                if (unit->type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
 
                 if (unit->lastPositionValid && !unit->beingManufacturedOrCarried &&
                     (weaponUnitType.groundWeapon() == weaponAndDamage.first ||
@@ -175,6 +176,9 @@ int UpgradeTracker::weaponDamage(BWAPI::WeaponType wpn)
 
 int UpgradeTracker::weaponRange(BWAPI::WeaponType wpn)
 {
+    // For interceptors and scarabs, return the range of the carrier and reaver
+    if (wpn == BWAPI::WeaponTypes::Pulse_Cannon || wpn == BWAPI::WeaponTypes::Scarab) return 256;
+
     auto weaponRangeIt = _weaponRange.find(wpn);
     if (weaponRangeIt != _weaponRange.end())
     {

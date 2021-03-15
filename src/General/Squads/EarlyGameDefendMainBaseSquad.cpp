@@ -18,6 +18,64 @@ namespace
         return mainAreas.find(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(pos))) != mainAreas.end();
     }
 
+    bool addEnemyUnits(std::set<Unit> &enemyUnits, Choke *choke)
+    {
+        // Get enemy combat units in our base
+        auto combatUnitSeenRecentlyPredicate = [](const Unit &unit)
+        {
+            if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 48)) return false;
+            if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) return false;
+            if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) return false;
+
+            return true;
+        };
+        for (const auto &area : Map::getMyMainAreas())
+        {
+            Units::enemyInArea(enemyUnits, area, combatUnitSeenRecentlyPredicate);
+        }
+
+        // Determine if there is an enemy in our base, i.e. has passed the choke
+        bool enemyInOurBase;
+        if (choke && choke->isNarrowChoke)
+        {
+            enemyInOurBase = false;
+            for (const auto &unit : enemyUnits)
+            {
+                if (!Map::isInNarrowChoke(unit->getTilePosition()))
+                {
+                    enemyInOurBase = true;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            enemyInOurBase = !enemyUnits.empty();
+        }
+
+        // If there is a choke, get enemy combat units close to it
+        if (choke)
+        {
+            Units::enemyInRadius(enemyUnits, choke->center, 192, combatUnitSeenRecentlyPredicate);
+        }
+
+        // If there are no enemy combat units, include enemy buildings to defend against gas steals or other cheese
+        if (enemyUnits.empty())
+        {
+            for (const auto &area : Map::getMyMainAreas())
+            {
+                Units::enemyInArea(enemyUnits, area, [](const Unit &unit)
+                {
+                    return unit->type.isBuilding() && !unit->isFlying;
+                });
+            }
+
+            enemyInOurBase = !enemyUnits.empty();
+        }
+
+        return enemyInOurBase;
+    }
+
     bool shouldStartAttack(UnitCluster &cluster, const CombatSimResult &simResult)
     {
         // Don't start an attack until we have 24 frames of recommending attack with the same number of friendly units
@@ -145,6 +203,7 @@ namespace
 EarlyGameDefendMainBaseSquad::EarlyGameDefendMainBaseSquad()
         : Squad("Defend main base")
         , choke(nullptr)
+        , workerDefenseSquad(std::make_unique<WorkerDefenseSquad>(Map::getMyMain()))
 {
     initializeChoke();
 }
@@ -201,66 +260,33 @@ void EarlyGameDefendMainBaseSquad::initializeChoke()
     }
 }
 
+void EarlyGameDefendMainBaseSquad::execute()
+{
+    Squad::execute();
+
+    if (clusters.empty())
+    {
+        std::set<Unit> enemyUnits;
+        addEnemyUnits(enemyUnits, choke);
+
+        auto workersAndTargets = workerDefenseSquad->selectTargets(enemyUnits);
+        std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
+        workerDefenseSquad->execute(workersAndTargets, emptyUnitsAndTargets);
+    }
+}
+
 void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
 {
     if (Map::getMyMainChoke() != choke) initializeChoke();
 
     std::set<Unit> enemyUnits;
-
-    // Get enemy combat units in our base
-    auto combatUnitSeenRecentlyPredicate = [](const Unit &unit)
-    {
-        if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 48)) return false;
-        if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) return false;
-        if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) return false;
-
-        return true;
-    };
-    for (const auto &area : Map::getMyMainAreas())
-    {
-        Units::enemyInArea(enemyUnits, area, combatUnitSeenRecentlyPredicate);
-    }
-
-    // Determine if there is an enemy in our base, i.e. has passed the choke
-    bool enemyInOurBase;
-    if (choke && choke->isNarrowChoke)
-    {
-        enemyInOurBase = false;
-        for (const auto &unit : enemyUnits)
-        {
-            if (!Map::isInNarrowChoke(unit->getTilePosition()))
-            {
-                enemyInOurBase = true;
-                break;
-            }
-        }
-    }
-    else
-    {
-        enemyInOurBase = !enemyUnits.empty();
-    }
-
-    // If there is a choke, get enemy combat units close to it
-    if (choke)
-    {
-        Units::enemyInRadius(enemyUnits, choke->center, 192, combatUnitSeenRecentlyPredicate);
-    }
-
-    // If there are no enemy combat units, include enemy buildings to defend against gas steals or other cheese
-    if (enemyUnits.empty())
-    {
-        for (const auto &area : Map::getMyMainAreas())
-        {
-            Units::enemyInArea(enemyUnits, area, [](const Unit &unit)
-            {
-                return unit->type.isBuilding() && !unit->isFlying;
-            });
-        }
-
-        enemyInOurBase = !enemyUnits.empty();
-    }
+    bool enemyInOurBase = addEnemyUnits(enemyUnits, choke);
 
     updateDetectionNeeds(enemyUnits);
+
+    // Get worker targets
+    // The returned list includes any worker that is being threatened by an enemy unit
+    auto workersAndTargets = workerDefenseSquad->selectTargets(enemyUnits);
 
     // Select targets
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
@@ -268,7 +294,14 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     // Consider enemy units in a bit larger radius to the choke for the combat sim
     if (choke)
     {
-        Units::enemyInRadius(enemyUnits, choke->center, 256, combatUnitSeenRecentlyPredicate);
+        Units::enemyInRadius(enemyUnits, choke->center, 256, [](const Unit &unit)
+        {
+            if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 48)) return false;
+            if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) return false;
+            if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) return false;
+
+            return true;
+        });
     }
 
     // Run combat sim
@@ -307,13 +340,14 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     // Rationale: we want to plug the choke to keep the cloked units from getting in until we get detection
     if (!enemiesNeedingDetection.empty() && choke) attack = true;
 
-    // Hold the choke if we have enough zealots to block it
-    if (!attack && !enemyInOurBase && choke && choke->isNarrowChoke)
+    // Hold the choke against Zerg if we have enough zealots to block it
+    if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg && !attack && !enemyInOurBase && choke && choke->isNarrowChoke)
     {
         int zealotCount = 0;
         for (const auto &unitAndTarget : unitsAndTargets)
         {
-            if (unitAndTarget.first->type == BWAPI::UnitTypes::Protoss_Zealot)
+            if (unitAndTarget.first->type == BWAPI::UnitTypes::Protoss_Zealot &&
+                unitAndTarget.first->getDistance(choke->center) < 250)
             {
                 zealotCount++;
             }
@@ -343,7 +377,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         // Choose the type of micro depending on whether the enemy has static defense, we are holding a narrow choke, or neither
         if (hasStaticDefense)
         {
-            cluster.containBase(enemyUnits, targetPosition);
+            cluster.containStatic(enemyUnits, targetPosition);
         }
         else if (enemiesNeedingDetection.empty() && !enemyInOurBase && choke && choke->isNarrowChoke)
         {
@@ -361,6 +395,8 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
             cluster.attack(unitsAndTargets, targetPosition);
         }
 
+        workerDefenseSquad->execute(workersAndTargets, unitsAndTargets);
+
         return;
     }
 
@@ -370,20 +406,14 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     // This allows our workers to help with the defense
     targetPosition = Map::getMyMain()->mineralLineCenter;
 
-    // Move our units in the following way:
-    // - If the unit is in the mineral line and close to its target, attack it
-    // - If the unit's target is far out of its attack range, move towards it
-    //   Rationale: we want to encourage our enemies to get distracted and chase us
-    // - Otherwise move towards the mineral line center
-    // TODO: Do something else against ranged units
+    // Micro our units according to the following flowchart:
+    // - If there is a threatened worker, attack the unit threatening it.
+    // - If we are at the mineral line center, attack it.
+    // - Move to the mineral line center.
 
-    // First scan to see if any unit is attacking, since if any single unit attacks, all units should attack
-    bool anyAttacking = false;
-    std::vector<std::pair<MyUnit, Unit>> filteredUnitsAndTargets;
     for (auto &unitAndTarget : unitsAndTargets)
     {
         auto &unit = unitAndTarget.first;
-        auto &target = unitAndTarget.second;
 
         // If the unit is stuck, unstick it
         if (unit->unstick()) continue;
@@ -391,57 +421,37 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
         if (!unit->isReady()) continue;
 
-        filteredUnitsAndTargets.push_back(unitAndTarget);
-
-        if (!target) continue;
-
-        // Attack if we are in the mineral line and in range of the enemy (or the enemy is in range of us)
-        auto enemyPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames());
-        if (!enemyPosition.isValid()) enemyPosition = target->lastPosition;
-        if (Map::isInOwnMineralLine(unit->tilePositionX, unit->tilePositionY) &&
-            (unit->isInOurWeaponRange(target, enemyPosition) || unit->isInEnemyWeaponRange(target, enemyPosition)))
+        // Set our target to the enemy attacking the closest threatened worker
+        int closestThreatenedWorkerDist = INT_MAX;
+        for (const auto &workerAndTarget : workersAndTargets)
         {
-            anyAttacking = true;
+            int dist = unit->getDistance(workerAndTarget.first);
+            if (dist < closestThreatenedWorkerDist)
+            {
+                unitAndTarget.second = workerAndTarget.second;
+                closestThreatenedWorkerDist = dist;
+            }
         }
-    }
-
-    // Now execute the orders
-    for (auto &unitAndTarget : filteredUnitsAndTargets)
-    {
-        auto &unit = unitAndTarget.first;
-        auto &target = unitAndTarget.second;
-
-        // If the unit has no target, just move to the target position
-        if (!target)
+        if (closestThreatenedWorkerDist < INT_MAX)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first->id) << "No target: move to " << BWAPI::WalkPosition(targetPosition);
+            CherryVis::log(unitAndTarget.first->id) << "Targeting worker threat: " << unitAndTarget.second->type << " @ "
+                                                    << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
 #endif
-            unit->moveTo(targetPosition);
+            unit->attackUnit(unitAndTarget.second, unitsAndTargets, false);
             continue;
         }
 
-        // Attack if the squad is attacking
-        if (target && anyAttacking)
+        // Attack the target if we are at the mineral line center and in the enemy's attack range
+        if (unitAndTarget.second &&
+            unit->getDistance(targetPosition) < 32 &&
+            unit->isInEnemyWeaponRange(unitAndTarget.second, 32))
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
                                                     << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
 #endif
-            unit->attackUnit(target, unitsAndTargets, false);
-            continue;
-        }
-
-        auto enemyPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames());
-        if (!enemyPosition.isValid()) enemyPosition = target->lastPosition;
-
-        // Move towards the enemy if we are well out of their attack range
-        if (unit->getDistance(target, enemyPosition) > (target->range(unit) + 64))
-        {
-#if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first->id) << "Retreating: stay close to enemy @ " << BWAPI::WalkPosition(enemyPosition);
-#endif
-            unit->moveTo(enemyPosition);
+            unit->attackUnit(unitAndTarget.second, unitsAndTargets, false);
             continue;
         }
 
@@ -449,6 +459,11 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         CherryVis::log(unitAndTarget.first->id) << "Retreating: move to " << BWAPI::WalkPosition(targetPosition);
 #endif
         unit->moveTo(targetPosition);
+    }
+
+    if (cluster.isVanguardCluster)
+    {
+        workerDefenseSquad->execute(workersAndTargets, unitsAndTargets);
     }
 }
 

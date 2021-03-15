@@ -17,8 +17,8 @@ public:
 
     void update() override;
 
-    void disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                 const std::function<void(const MyUnit &)> &movableUnitCallback) override;
+    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                 const std::function<void(const MyUnit)> &movableUnitCallback) override;
 
     // Instructs the scout to hide in a corner of the enemy main until the given frame.
     void hideUntil(int frame);

@@ -5,7 +5,6 @@
 #include "Map.h"
 #include "General.h"
 #include "UnitUtil.h"
-#include "NoGoAreas.h"
 #include <iomanip>
 
 #if INSTRUMENTATION_ENABLED
@@ -23,6 +22,8 @@ namespace
     int estimateCompletionFrame(BWAPI::Unit unit)
     {
         if (!unit->getType().isBuilding() || unit->isCompleted()) return -1;
+
+        if (unit->getPlayer() == BWAPI::Broodwar->self()) return unit->getRemainingBuildTime();
 
         int remainingHitPoints = unit->getType().maxHitPoints() - unit->getHitPoints();
         double hitPointsPerFrame = (unit->getType().maxHitPoints() * 0.9) / unit->getType().buildTime();
@@ -220,17 +221,6 @@ void UnitImpl::update(BWAPI::Unit unit)
         {
             health = std::max(0, health - upcomingDamage);
             if (health <= 0) CherryVis::log(id) << "DOOMED!";
-        }
-    }
-
-    // Handle splash units
-    if (type == BWAPI::UnitTypes::Protoss_Scarab)
-    {
-        NoGoAreas::addCircle(unit->getPosition(), 64, 1);
-        auto vector = Geo::ScaleVector(predictPosition(20) - unit->getPosition(), 8 * 32);
-        if (vector != BWAPI::Positions::Invalid)
-        {
-            NoGoAreas::addDirectedBox(unit->getPosition(), unit->getPosition() + vector, 64, 1);
         }
     }
 }
@@ -588,31 +578,10 @@ void UnitImpl::updatePredictedPosition()
         vanguard = vanguardCluster->vanguard;
         if (!vanguard) return false;
 
-        auto waypoint = BWAPI::Positions::Invalid;
-        auto grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(squad->getTargetPosition()));
-        if (grid)
-        {
-            auto &node = (*grid)[vanguard->getTilePosition()];
-            if (node.nextNode && node.nextNode->nextNode && node.nextNode->nextNode->nextNode)
-            {
-                waypoint = node.nextNode->nextNode->nextNode->center();
-            }
-        }
-
-        if (waypoint == BWAPI::Positions::Invalid)
-        {
-            auto path = PathFinding::GetChokePointPath(vanguard->lastPosition, squad->getTargetPosition(), vanguard->type);
-            for (const auto &bwemChoke : path)
-            {
-                auto chokeCenter = Map::choke(bwemChoke)->center;
-                if (vanguard->getDistance(chokeCenter) > 128)
-                {
-                    waypoint = chokeCenter;
-                    break;
-                }
-            }
-        }
-
+        auto waypoint = PathFinding::NextGridOrChokeWaypoint(vanguard->lastPosition,
+                                                             squad->getTargetPosition(),
+                                                             PathFinding::getNavigationGrid(BWAPI::TilePosition(squad->getTargetPosition())),
+                                                             3);
         if (waypoint == BWAPI::Positions::Invalid) waypoint = squad->getTargetPosition();
 
         vanguardDirection = atan2(vanguard->lastPosition.y - waypoint.y, vanguard->lastPosition.x - waypoint.x);

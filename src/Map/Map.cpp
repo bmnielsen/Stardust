@@ -22,11 +22,6 @@ namespace Map
 
         std::set<const BWEM::Area *> myStartingMainAreas;
 
-        std::vector<bool> tileWalkability;
-        std::vector<int> tileUnwalkableProximity;
-        std::vector<BWAPI::Position> tileCollisionVector;
-        bool tileWalkabilityUpdated;
-
         std::vector<bool> inOwnMineralLine;
 
         std::vector<bool> narrowChokeTiles;
@@ -244,6 +239,8 @@ namespace Map
                     int oldestBase = INT_MAX;
                     for (auto &other : playerBases.allOwned)
                     {
+                        if (other->island) continue;
+
                         if (other->ownedSince < oldestBase)
                         {
                             oldestBase = other->ownedSince;
@@ -299,7 +296,7 @@ namespace Map
                 }
 
                 // If this player had a starting main, but doesn't currently have a main, set this base as the main
-                if (ownerBases.startingMain && !ownerBases.main)
+                if (ownerBases.startingMain && !ownerBases.main && !base->island)
                 {
                     ownerBases.main = base;
                 }
@@ -480,286 +477,6 @@ namespace Map
             validateBaseOwnership(nearbyBase, unit);
         }
 
-        // Writes the tile walkability grid to CherryVis
-        void dumpTileWalkability()
-        {
-#if CHERRYVIS_ENABLED
-            // Dump to CherryVis
-            std::vector<long> tileWalkabilityCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
-            {
-                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
-                {
-                    tileWalkabilityCVis[x + y * BWAPI::Broodwar->mapWidth()] = tileWalkability[x + y * BWAPI::Broodwar->mapWidth()];
-                }
-            }
-
-            CherryVis::addHeatmap("TileWalkable", tileWalkabilityCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
-
-            std::vector<long> tileUnwalkableProximityCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
-            {
-                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
-                {
-                    tileUnwalkableProximityCVis[x + y * BWAPI::Broodwar->mapWidth()] = tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()];
-                }
-            }
-
-            CherryVis::addHeatmap("TileUnwalkableProximity", tileUnwalkableProximityCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
-
-            std::vector<long> tileCollisionVectorXCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
-            {
-                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
-                {
-                    tileCollisionVectorXCVis[x + y * BWAPI::Broodwar->mapWidth()] = tileCollisionVector[x + y * BWAPI::Broodwar->mapWidth()].x;
-                }
-            }
-
-            CherryVis::addHeatmap("TileCollisionVectorX", tileCollisionVectorXCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
-
-            std::vector<long> tileCollisionVectorYCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
-            {
-                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
-                {
-                    tileCollisionVectorYCVis[x + y * BWAPI::Broodwar->mapWidth()] = tileCollisionVector[x + y * BWAPI::Broodwar->mapWidth()].y;
-                }
-            }
-
-            CherryVis::addHeatmap("TileCollisionVectorY", tileCollisionVectorYCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
-#endif
-        }
-
-        void updateWalkabilityProximity(int tileX, int tileY)
-        {
-            auto tileValid = [](int x, int y)
-            {
-                return x >= 0 && y >= 0 && x < BWAPI::Broodwar->mapWidth() && y < BWAPI::Broodwar->mapHeight();
-            };
-
-            if (!tileValid(tileX, tileY)) return;
-
-            auto visit = [&tileValid](int x, int y, int val, int *result)
-            {
-                if (!tileValid(x, y)) return false;
-
-                if (!tileWalkability[x + y * BWAPI::Broodwar->mapWidth()])
-                {
-                    *result = val;
-                    return true;
-                }
-
-                return false;
-            };
-
-            int result = 3;
-            visit(tileX - 1, tileY, 0, &result) ||
-            visit(tileX + 1, tileY, 0, &result) ||
-            visit(tileX, tileY - 1, 0, &result) ||
-            visit(tileX, tileY + 1, 0, &result) ||
-            visit(tileX - 1, tileY - 1, 1, &result) ||
-            visit(tileX + 1, tileY - 1, 1, &result) ||
-            visit(tileX - 1, tileY + 1, 1, &result) ||
-            visit(tileX + 1, tileY + 1, 1, &result) ||
-            visit(tileX - 2, tileY, 2, &result) ||
-            visit(tileX + 2, tileY, 2, &result) ||
-            visit(tileX, tileY - 2, 2, &result) ||
-            visit(tileX, tileY + 2, 2, &result);
-
-            tileUnwalkableProximity[tileX + tileY * BWAPI::Broodwar->mapWidth()] = result;
-        }
-
-        void updateCollisionVectors(int tileX, int tileY, bool walkable)
-        {
-            auto updateTile = [&tileX, &tileY](int offsetX, int offsetY, int deltaX, int deltaY)
-            {
-                int x = tileX + offsetX;
-                if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) return;
-
-                int y = tileY + offsetY;
-                if (y < 0 || y >= BWAPI::Broodwar->mapHeight()) return;
-
-                auto &pos = tileCollisionVector[x + y * BWAPI::Broodwar->mapWidth()];
-                pos.x += deltaX;
-                pos.y += deltaY;
-            };
-
-            if (walkable)
-            {
-                updateTile(-1, -1, 10, 10);
-                updateTile(-1, 0, 14, 0);
-                updateTile(-1, 1, 10, -10);
-                updateTile(0, 1, 0, -14);
-                updateTile(1, 1, -10, -10);
-                updateTile(1, 0, -14, 0);
-                updateTile(1, -1, -10, 10);
-                updateTile(0, -1, 0, 14);
-            }
-            else
-            {
-                updateTile(-1, -1, -10, -10);
-                updateTile(-1, 0, -14, 0);
-                updateTile(-1, 1, -10, 10);
-                updateTile(0, 1, 0, 14);
-                updateTile(1, 1, 10, 10);
-                updateTile(1, 0, 14, 0);
-                updateTile(1, -1, 10, -10);
-                updateTile(0, -1, 0, -14);
-            }
-        }
-
-        // Updates the tile walkability grid based on appearance or disappearance of a building, mineral field, etc.
-        bool updateTileWalkability(BWAPI::TilePosition tile, BWAPI::TilePosition size, bool walkable)
-        {
-            bool updated = false;
-
-            for (int x = 0; x < size.x; x++)
-            {
-                for (int y = 0; y < size.y; y++)
-                {
-                    if (tileWalkability[(tile.x + x) + (tile.y + y) * BWAPI::Broodwar->mapWidth()] != walkable)
-                    {
-                        tileWalkability[(tile.x + x) + (tile.y + y) * BWAPI::Broodwar->mapWidth()] = walkable;
-                        updateCollisionVectors(tile.x + x, tile.y + y, walkable);
-                        updated = true;
-                    }
-                }
-            }
-
-            // Update walkability proximity for unwalkable
-            if (updated && !walkable)
-            {
-                auto tileValid = [](int x, int y)
-                {
-                    return x >= 0 && y >= 0 && x < BWAPI::Broodwar->mapWidth() && y < BWAPI::Broodwar->mapHeight();
-                };
-
-                // Zero the tiles in and directly touching
-                for (int x = -1; x <= size.x; x++)
-                {
-                    for (int y = (x == -1 || x == size.x ? 0 : -1); y < (x == -1 || x == size.x ? size.y : (size.y + 1)); y++)
-                    {
-                        if (tileValid(tile.x + x, tile.y + y))
-                        {
-                            tileUnwalkableProximity[(tile.x + x) + (tile.y + y) * BWAPI::Broodwar->mapWidth()] = 0;
-                        }
-                    }
-                }
-
-                auto visit = [&tileValid](int x, int y, int val)
-                {
-                    if (!tileValid(x, y)) return;
-
-                    tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()] =
-                            std::min(tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()], val);
-                };
-
-                // Corners
-                visit(tile.x - 1, tile.y - 1, 1);
-                visit(tile.x - 1, tile.y + size.y, 1);
-                visit(tile.x + size.x, tile.y - 1, 1);
-                visit(tile.x + size.x, tile.y + size.y, 1);
-
-                // Left and right sides two tiles away
-                for (int x = -2; x < size.x + 2; x++)
-                {
-                    for (int y = 0; y < size.y; y++)
-                    {
-                        visit(tile.x + x, tile.y + y, 2);
-                    }
-                }
-
-                // Top and bottom sides two tiles away
-                for (int y = -2; y < size.y + 2; y++)
-                {
-                    for (int x = 0; x < size.x; x++)
-                    {
-                        visit(tile.x + x, tile.y + y, 2);
-                    }
-                }
-            }
-
-            // Walkable is more difficult, so reprocess each tile individually
-            if (updated && walkable)
-            {
-                for (int x = -2; x < size.x + 2; x++)
-                {
-                    for (int y = -2; y < size.y + 2; y++)
-                    {
-                        updateWalkabilityProximity(tile.x + x, tile.y + y);
-                    }
-                }
-            }
-
-            return updated;
-        }
-
-        // Computes walkability at a tile level
-        void computeTileWalkability()
-        {
-            tileWalkability.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-
-            // Start by checking the normal BWAPI walkability
-            for (int tileX = 0; tileX < BWAPI::Broodwar->mapWidth(); tileX++)
-            {
-                for (int tileY = 0; tileY < BWAPI::Broodwar->mapHeight(); tileY++)
-                {
-                    bool walkable = true;
-                    for (int walkX = 0; walkX < 4; walkX++)
-                    {
-                        for (int walkY = 0; walkY < 4; walkY++)
-                        {
-                            if (!BWAPI::Broodwar->isWalkable((tileX << 2U) + walkX, (tileY << 2U) + walkY))
-                            {
-                                walkable = false;
-                                updateCollisionVectors(tileX, tileY, false);
-                                goto breakInnerLoop;
-                            }
-                        }
-                    }
-                    breakInnerLoop:
-                    tileWalkability[tileX + tileY * BWAPI::Broodwar->mapWidth()] = walkable;
-                }
-            }
-
-            // For collision vectors, mark the edges of the map as unwalkable
-            for (int tileX = -1; tileX <= BWAPI::Broodwar->mapWidth(); tileX++)
-            {
-                updateCollisionVectors(tileX, -1, false);
-                updateCollisionVectors(tileX, BWAPI::Broodwar->mapHeight(), false);
-            }
-            for (int tileY = 0; tileY <= BWAPI::Broodwar->mapHeight(); tileY++)
-            {
-                updateCollisionVectors(-1, tileY, false);
-                updateCollisionVectors(BWAPI::Broodwar->mapWidth(), tileY, false);
-            }
-
-            // TODO: Consider map-specific overrides for maps with very narrow ramps, like Plasma
-
-            // Compute proximity to unwalkable tiles
-            // We use this to prioritize pathing
-            tileUnwalkableProximity.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int tileX = 0; tileX < BWAPI::Broodwar->mapWidth(); tileX++)
-            {
-                for (int tileY = 0; tileY < BWAPI::Broodwar->mapHeight(); tileY++)
-                {
-                    updateWalkabilityProximity(tileX, tileY);
-                }
-            }
-
-            // Add our start position
-            updateTileWalkability(BWAPI::Broodwar->self()->getStartLocation(), BWAPI::UnitTypes::Protoss_Nexus.tileSize(), false);
-
-            // Add static neutrals
-            for (auto neutral : BWAPI::Broodwar->getStaticNeutralUnits())
-            {
-                updateTileWalkability(neutral->getInitialTilePosition(), neutral->getType().tileSize(), false);
-            }
-
-            dumpTileWalkability();
-        }
-
         void computeNarrowChokeTiles()
         {
             narrowChokeTiles.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
@@ -777,9 +494,9 @@ namespace Map
 #if CHERRYVIS_ENABLED
             // Dump to CherryVis
             std::vector<long> narrowChokeTilesCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
             {
-                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
                 {
                     narrowChokeTilesCVis[x + y * BWAPI::Broodwar->mapWidth()] = narrowChokeTiles[x + y * BWAPI::Broodwar->mapWidth()];
                 }
@@ -811,9 +528,9 @@ namespace Map
 
             leafAreaTiles.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
 
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
             {
-                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
                 {
                     BWAPI::TilePosition here(x, y);
                     auto area = BWEM::Map::Instance().GetArea(here);
@@ -827,9 +544,9 @@ namespace Map
 #if CHERRYVIS_ENABLED
             // Dump to CherryVis
             std::vector<long> leafAreaTilesCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
             {
-                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
                 {
                     leafAreaTilesCVis[x + y * BWAPI::Broodwar->mapWidth()] = leafAreaTiles[x + y * BWAPI::Broodwar->mapWidth()];
                 }
@@ -845,9 +562,9 @@ namespace Map
 #if CHERRYVIS_ENABLED
             // Ground height is at tile resolution
             std::vector<long> groundHeight(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
             {
-                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
                 {
                     groundHeight[x + y * BWAPI::Broodwar->mapWidth()] = BWAPI::Broodwar->getGroundHeight(x, y);
                 }
@@ -857,9 +574,9 @@ namespace Map
 
             // Buildability is at tile resolution
             std::vector<long> buildability(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
             {
-                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
                 {
                     buildability[x + y * BWAPI::Broodwar->mapWidth()] = BWAPI::Broodwar->isBuildable(x, y);
                 }
@@ -869,9 +586,9 @@ namespace Map
 
             // Walkability is at walk tile resolution
             std::vector<long> walkability(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 16);
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth() * 4; x++)
+            for (int y = 0; y < BWAPI::Broodwar->mapHeight() * 4; y++)
             {
-                for (int y = 0; y < BWAPI::Broodwar->mapHeight() * 4; y++)
+                for (int x = 0; x < BWAPI::Broodwar->mapWidth() * 4; x++)
                 {
                     walkability[x + y * BWAPI::Broodwar->mapWidth() * 4] = BWAPI::Broodwar->isWalkable(x, y);
                 }
@@ -883,9 +600,9 @@ namespace Map
             std::vector<long> mineralLineCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
             for (auto &base : bases)
             {
-                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
                 {
-                    for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                    for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
                     {
                         BWAPI::TilePosition here(x, y);
 
@@ -911,11 +628,13 @@ namespace Map
             std::vector<long> basesCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
             auto setBaseTiles = [&basesCvis](BWAPI::TilePosition tile, BWAPI::TilePosition size, long value)
             {
-                for (int x = 0; x < size.x; x++)
+                auto bottomRight = tile + size;
+
+                for (int y = tile.y; y < bottomRight.y; y++)
                 {
-                    for (int y = 0; y < size.y; y++)
+                    for (int x = tile.x; x < bottomRight.x; x++)
                     {
-                        basesCvis[tile.x + x + (tile.y + y) * BWAPI::Broodwar->mapWidth()] = value;
+                        basesCvis[x + y * BWAPI::Broodwar->mapWidth()] = value;
                     }
                 }
             };
@@ -970,17 +689,22 @@ namespace Map
 
     void initialize()
     {
-        _mapSpecificOverride = nullptr;
-        bases.clear();
+        if (_mapSpecificOverride)
+        {
+            delete _mapSpecificOverride;
+            _mapSpecificOverride = nullptr;
+        }
+        for (auto it = bases.begin(); it != bases.end(); it = bases.erase(it))
+        {
+            delete *it;
+        }
         startingLocationBases.clear();
-        chokes.clear();
+        for (auto it = chokes.begin(); it != chokes.end(); it = chokes.erase(it))
+        {
+            delete it->second;
+        }
         _minChokeWidth = 0;
         myStartingMainAreas.clear();
-        tileWalkability.clear();
-        tileUnwalkableProximity.clear();
-        tileCollisionVector.clear();
-        tileCollisionVector.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), BWAPI::Position(0, 0));
-        tileWalkabilityUpdated = false;
         inOwnMineralLine.clear();
         inOwnMineralLine.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
         narrowChokeTiles.clear();
@@ -1027,7 +751,7 @@ namespace Map
             _mapSpecificOverride = new MapSpecificOverride();
         }
 
-        computeTileWalkability();
+        initializeWalkability();
 
         // Analyze chokepoints
         for (const auto &area : BWEM::Map::Instance().Areas())
@@ -1113,33 +837,7 @@ namespace Map
         // Whenever we see a new building, determine if it infers a change in base ownership
         inferBaseOwnershipFromUnitCreated(unit);
 
-        // Units that affect tile walkability
-        // Skip on frame 0, since we handle static neutrals and our base explicitly
-        // Skip refineries, since creation of a refinery does not affect tile walkability (there was already a geyser)
-        if (BWAPI::Broodwar->getFrameCount() > 0 && unit->type.isBuilding() && !unit->type.isRefinery())
-        {
-            if (updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), false))
-            {
-                PathFinding::addBlockingObject(unit->type, unit->getTilePosition());
-                tileWalkabilityUpdated = true;
-            }
-        }
-
-        // FIXME: Check tile walkability for mineral fields
-    }
-
-    void onUnitDiscover(BWAPI::Unit unit)
-    {
-        // Update tile walkability for discovered mineral fields
-        // TODO: Is this even needed?
-        if (BWAPI::Broodwar->getFrameCount() > 0 && unit->getType().isMineralField())
-        {
-            if (updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), false))
-            {
-                PathFinding::addBlockingObject(unit->getType(), unit->getTilePosition());
-                tileWalkabilityUpdated = true;
-            }
-        }
+        onUnitCreated_Walkability(unit);
     }
 
     void onUnitDestroy(const Unit &unit)
@@ -1147,16 +845,7 @@ namespace Map
         // Whenever a building is lost, determine if it infers a change in base ownership
         inferBaseOwnershipFromUnitDestroyed(unit);
 
-        // Units that affect tile walkability
-        // Skip refineries, since destruction of a refinery does not affect tile walkability (there will still be a geyser)
-        if (unit->type.isBuilding() && !unit->type.isRefinery())
-        {
-            if (updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), true))
-            {
-                PathFinding::removeBlockingObject(unit->type, unit->getTilePosition());
-                tileWalkabilityUpdated = true;
-            }
-        }
+        onUnitDestroy_Walkability(unit);
     }
 
     void onUnitDestroy(BWAPI::Unit unit)
@@ -1166,37 +855,9 @@ namespace Map
         else if (unit->getType().isSpecialBuilding())
             BWEM::Map::Instance().OnStaticBuildingDestroyed(unit);
 
-        // Units that affect tile walkability
-        if (unit->getType().isMineralField() ||
-            (unit->getType().isBuilding() && !unit->getType().isRefinery()) ||
-            (unit->getType() == BWAPI::UnitTypes::Zerg_Egg && unit->getPlayer() == BWAPI::Broodwar->neutral()))
-        {
-            if (updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), true))
-            {
-                PathFinding::removeBlockingObject(unit->getType(), unit->getTilePosition());
-                tileWalkabilityUpdated = true;
-            }
-        }
+        onUnitDestroy_Walkability(unit);
 
         _mapSpecificOverride->onUnitDestroy(unit);
-    }
-
-    void onBuildingLifted(BWAPI::UnitType type, BWAPI::TilePosition tile)
-    {
-        if (updateTileWalkability(tile, type.tileSize(), true))
-        {
-            PathFinding::removeBlockingObject(type, tile);
-            tileWalkabilityUpdated = true;
-        }
-    }
-
-    void onBuildingLanded(BWAPI::UnitType type, BWAPI::TilePosition tile)
-    {
-        if (updateTileWalkability(tile, type.tileSize(), false))
-        {
-            PathFinding::addBlockingObject(type, tile);
-            tileWalkabilityUpdated = true;
-        }
     }
 
     void update()
@@ -1244,18 +905,14 @@ namespace Map
             }
         }
 
-        if (tileWalkabilityUpdated)
-        {
-            dumpTileWalkability();
-            tileWalkabilityUpdated = false;
-        }
+        dumpWalkability();
 
         NoGoAreas::update();
 
         // Update the last seen frame for all visible tiles
-        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
         {
-            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
             {
                 if (BWAPI::Broodwar->isVisible(x, y))
                 {
@@ -1441,9 +1098,9 @@ namespace Map
     {
 #if CHERRYVIS_ENABLED
         std::vector<long> newVisibility(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
-        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
         {
-            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
             {
                 if (BWAPI::Broodwar->isVisible(x, y))
                     newVisibility[x + y * BWAPI::Broodwar->mapWidth()] = 1;
@@ -1457,9 +1114,9 @@ namespace Map
         }
 
         std::vector<long> newPower(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
-        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
         {
-            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
             {
                 if (BWAPI::Broodwar->hasPower(x, y, BWAPI::UnitTypes::Protoss_Photon_Cannon))
                     newPower[x + y * BWAPI::Broodwar->mapWidth()] = 1;
@@ -1472,26 +1129,6 @@ namespace Map
             power = newPower;
         }
 #endif
-    }
-
-    bool isWalkable(BWAPI::TilePosition pos)
-    {
-        return isWalkable(pos.x, pos.y);
-    }
-
-    bool isWalkable(int x, int y)
-    {
-        return tileWalkability[x + y * BWAPI::Broodwar->mapWidth()];
-    }
-
-    int unwalkableProximity(int x, int y)
-    {
-        return tileUnwalkableProximity[x + y * BWAPI::Broodwar->mapWidth()];
-    }
-
-    BWAPI::Position collisionVector(int x, int y)
-    {
-        return tileCollisionVector[x + y * BWAPI::Broodwar->mapWidth()];
     }
 
     bool isInOwnMineralLine(BWAPI::TilePosition tile)

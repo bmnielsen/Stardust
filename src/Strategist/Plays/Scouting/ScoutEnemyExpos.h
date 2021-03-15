@@ -15,8 +15,8 @@ public:
 
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 
-    void disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                 const std::function<void(const MyUnit &)> &movableUnitCallback) override;
+    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                 const std::function<void(const MyUnit)> &movableUnitCallback) override;
 
     void addUnit(const MyUnit &unit) override;
 

@@ -147,38 +147,45 @@ namespace Strategist
 
                     // Pick the unit(s) with the lowest distance
                     std::sort(reassignableUnits.begin(), reassignableUnits.end(), ReassignableUnit::cmp);
-                    for (auto it = reassignableUnits.begin();
-                         it != reassignableUnits.end() && unitRequirement.count > 0;)
+                    auto reassign = [&](bool checkGridNode)
                     {
-                        if (!unitRequirement.allowFromVanguardCluster && it->currentPlay && it->currentPlay->getSquad()
-                            && it->currentPlay->getSquad()->isInVanguardCluster(it->unit))
+                        for (auto it = reassignableUnits.begin();
+                             it != reassignableUnits.end() && unitRequirement.count > 0;)
                         {
-                            it++;
-                            continue;
+                            if (it->distance > unitRequirement.distanceLimit) break;
+
+                            if (!unitRequirement.allowFromVanguardCluster && it->currentPlay && it->currentPlay->getSquad()
+                                && !it->currentPlay->getSquad()->canReassignFromVanguardCluster(it->unit))
+                            {
+                                it++;
+                                continue;
+                            }
+                            if (checkGridNode && unitRequirement.gridNodePredicate &&
+                                !PathFinding::checkGridPath(it->unit->getTilePosition(),
+                                                            BWAPI::TilePosition(unitRequirement.position),
+                                                            unitRequirement.gridNodePredicate))
+                            {
+                                it++;
+                                continue;
+                            }
+
+                            if (it->currentPlay != nullptr)
+                            {
+                                it->currentPlay->removeUnit(it->unit);
+                                CherryVis::log(it->unit->id) << "Removed from play: " << it->currentPlay->label;
+                            }
+
+                            unitToPlay[it->unit] = play;
+                            play->addUnit(it->unit);
+                            CherryVis::log(it->unit->id) << "Added to play: " << play->label;
+
+                            unitRequirement.count--;
+
+                            it = reassignableUnits.erase(it);
                         }
-                        if (unitRequirement.gridNodePredicate &&
-                            !PathFinding::checkGridPath(it->unit->getTilePosition(),
-                                                        BWAPI::TilePosition(unitRequirement.position),
-                                                        unitRequirement.gridNodePredicate))
-                        {
-                            it++;
-                            continue;
-                        }
-
-                        if (it->currentPlay != nullptr)
-                        {
-                            it->currentPlay->removeUnit(it->unit);
-                            CherryVis::log(it->unit->id) << "Removed from play: " << it->currentPlay->label;
-                        }
-
-                        unitToPlay[it->unit] = play;
-                        play->addUnit(it->unit);
-                        CherryVis::log(it->unit->id) << "Added to play: " << play->label;
-
-                        unitRequirement.count--;
-
-                        it = reassignableUnits.erase(it);
-                    }
+                    };
+                    reassign(true);
+                    if (unitRequirement.allowFailingGridNodePredicate) reassign(false);
 
                     // "Reserve" incomplete units if possible
                     auto incompleteUnits = typeToIncompleteUnits.find(unitRequirement.type);
@@ -202,7 +209,7 @@ namespace Strategist
                         {
                             Log::Get() << "WARNING: Unit assigned to unknown play: " << *reassignableUnit.unit
                                        << " in " << reassignableUnit.currentPlay->label;
-                            reassignableUnit.currentPlay = nullptr;
+                            unitToPlay.erase(reassignableUnit.unit);
                         }
 
                         // For now skip for units we don't yet support in main army plays
@@ -407,7 +414,7 @@ namespace Strategist
         if (Opponent::hasRaceJustBeenDetermined())
         {
             // We first need to clear all of our existing plays, as the new strategy engine will add its own
-            auto removeUnit = [&](const MyUnit &unit)
+            auto removeUnit = [&](const MyUnit unit)
             {
                 unitToPlay.erase(unit);
             };
@@ -456,7 +463,7 @@ namespace Strategist
         // Process the changes signalled by the PlayStatus objects
         for (auto it = plays.begin(); it != plays.end();)
         {
-            auto removeUnit = [&](const MyUnit &unit)
+            auto removeUnit = [&](const MyUnit unit)
             {
                 CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
 
@@ -474,7 +481,7 @@ namespace Strategist
             // This replaces the current play with a new one, moving all units
             if ((*it)->status.transitionTo != nullptr)
             {
-                auto moveUnit = [&](const MyUnit &unit)
+                auto moveUnit = [&](const MyUnit unit)
                 {
                     unitToPlay[unit] = (*it)->status.transitionTo;
                     (*it)->status.transitionTo->addUnit(unit);

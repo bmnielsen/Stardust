@@ -1,8 +1,6 @@
 #include "UnitCluster.h"
 
-#include "Units.h"
 #include "Players.h"
-#include "Map.h"
 #include "Geo.h"
 #include "Boids.h"
 #include "UnitUtil.h"
@@ -134,6 +132,9 @@ void UnitCluster::holdChoke(Choke *choke,
             // If the target is not in our weapon range, use move logic instead if we are a long way from the choke
             if (distToChokeCenter > 300 && !myUnit->isInOurWeaponRange(unitAndTarget.second))
             {
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(myUnit->id) << "HoldChoke: Moving to " << choke->center;
+#endif
                 myUnit->moveTo(choke->center);
                 continue;
             }
@@ -148,6 +149,9 @@ void UnitCluster::holdChoke(Choke *choke,
         // If the unit is a long way away from the choke, move towards it instead so our pathing kicks in
         if (distToChokeCenter > 300)
         {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(myUnit->id) << "HoldChoke: Moving to " << choke->center;
+#endif
             myUnit->moveTo(choke->center);
             continue;
         }
@@ -284,6 +288,9 @@ void UnitCluster::holdChoke(Choke *choke,
 
         if (pos != BWAPI::Positions::Invalid)
         {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(myUnit->id) << "HoldChoke boids: Moving to " << pos;
+#endif
             myUnit->moveTo(pos, true);
             continue;
         }

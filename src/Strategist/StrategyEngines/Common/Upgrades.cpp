@@ -26,7 +26,7 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
 
             // If we are producing an unlimited number of a different unit type first, or at emergency priority, bail out
             if (unitProductionGoal->countToProduce() == -1 &&
-                (unitProductionGoal->unitType() != unitType || priorityAndProductionGoals.first != PRIORITY_MAINARMY))
+                (unitProductionGoal->unitType() != unitType || priorityAndProductionGoals.first < PRIORITY_MAINARMYBASEPRODUCTION))
             {
                 return;
             }
@@ -44,6 +44,9 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
             // If producing an unlimited number, split and insert here
             if (unitProductionGoal->countToProduce() == -1)
             {
+                auto producerLimit = unitProductionGoal->getProducerLimit();
+                auto location = unitProductionGoal->getLocation();
+
                 // Insert the upgrade here
                 it = priorityAndProductionGoals.second.emplace(it, UpgradeProductionGoal(upgradeOrTechType));
 
@@ -54,8 +57,8 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
                                                               std::in_place_type<UnitProductionGoal>,
                                                               unitType,
                                                               unitCount - units,
-                                                              unitProductionGoal->getProducerLimit(),
-                                                              unitProductionGoal->getLocation());
+                                                              producerLimit,
+                                                              location);
                 }
 
                 return;

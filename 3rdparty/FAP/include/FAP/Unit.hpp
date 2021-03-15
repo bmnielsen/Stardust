@@ -408,21 +408,14 @@ namespace FAP {
       unit.numAttackers = numAttackers;
       if (numAttackers) {
         if (unit.unitType == BWAPI::UnitTypes::Protoss_Carrier) {
-          unit.groundDamage = unit.airDamage = BWAPI::UnitTypes::Protoss_Interceptor.groundWeapon().damageAmount();
           unit.airCooldown = unit.groundCooldown = static_cast<int>(round(37.4f / numAttackers));
         }
-
         if (unit.unitType == BWAPI::UnitTypes::Terran_Bunker) {
-          unit.groundDamage = unit.airDamage = BWAPI::UnitTypes::Terran_Marine.groundWeapon().damageAmount();
           unit.groundCooldown = unit.airCooldown = BWAPI::UnitTypes::Terran_Marine.groundWeapon().damageCooldown() / numAttackers;
         }
       }
       else if((unit.unitType == BWAPI::UnitTypes::Protoss_Carrier) | (unit.unitType == BWAPI::UnitTypes::Terran_Bunker)) {
         unit.groundDamage = unit.airDamage = 0;
-      }
-
-      if(unit.unitType == BWAPI::UnitTypes::Protoss_Reaver) {
-        unit.groundDamage = BWAPI::UnitTypes::Protoss_Scarab.groundWeapon().damageAmount();
       }
       return std::move(*this).template addFlag<UnitValues::attackerCount>();
     }

@@ -5,7 +5,6 @@
 #include "Builder.h"
 #include "UnitUtil.h"
 #include "Strategist.h"
-#include "Workers.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -89,7 +88,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 // Always use a defend play if the squad has no units or we have no obs to counter DTs
                 auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                 if (!vanguard
-                    || ((Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Dark_Templar) || enemyStrategy == ProtossStrategy::DarkTemplarRush)
+                    || (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0
                         && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0))
                 {
                     defendOurMain = true;
@@ -175,41 +174,34 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     // Set the worker scout mode
+    // This is just completing the play when we don't expect the scout to be able to gather any additional useful information
     if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
         Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::MonitoringEnemyChoke)
     {
         auto play = getPlay<EarlyGameWorkerScout>(plays);
         if (play)
         {
-            auto setScoutHiding = [&play](int hideUntil)
-            {
-                if (BWAPI::Broodwar->getFrameCount() > hideUntil) return;
-                play->hideUntil(hideUntil);
-            };
-
             switch (enemyStrategy)
             {
                 case ProtossStrategy::Unknown:
                 case ProtossStrategy::WorkerRush:
                 case ProtossStrategy::ProxyRush:
                 case ProtossStrategy::BlockScouting:
-                case ProtossStrategy::DragoonAllIn:
-                case ProtossStrategy::DarkTemplarRush:
-                    setScoutHiding(0);
                     break;
                 case ProtossStrategy::ZealotRush:
                 case ProtossStrategy::TwoGate:
                 case ProtossStrategy::ZealotAllIn:
-                    setScoutHiding(0);
                     play->monitorEnemyChoke();
                     break;
                 case ProtossStrategy::EarlyForge:
                 case ProtossStrategy::OneGateCore:
                 case ProtossStrategy::FastExpansion:
+                case ProtossStrategy::DragoonAllIn:
+                case ProtossStrategy::DarkTemplarRush:
                 case ProtossStrategy::EarlyRobo:
                 case ProtossStrategy::Turtle:
                 case ProtossStrategy::MidGame:
-                    setScoutHiding(6000);
+                    play->status.complete = true;
                     break;
             }
         }
@@ -228,24 +220,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     handleNaturalExpansion(plays, prioritizedProductionGoals);
     handleDetection(prioritizedProductionGoals);
 
-    // Temporary hack to set the number of gas workers needed until the producer can do it
-    auto setGasGathering = [](bool gather)
-    {
-        int current = Workers::desiredGasWorkers();
-        int delta;
-        if (gather)
-        {
-            delta = Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) * 3 - current;
-        }
-        else
-        {
-            delta = -std::min(current, Workers::availableMineralAssignments());
-        }
-        Workers::addDesiredGasWorkers(delta);
-    };
-
-    // Default to gather gas - we will only set to false later if we are being rushed
-    setGasGathering(true);
+    if (handleIslandExpansionProduction(plays, prioritizedProductionGoals)) return;
 
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
@@ -260,116 +235,29 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     handleGasStealProduction(prioritizedProductionGoals, zealotCount);
 
-    auto oneGateCoreOpening = [&](int numZealots)
-    {
-        // If our core is done or we want no zealots just return dragoons
-        if (numZealots == 0 || Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0)
-        {
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       -1,
-                                                                       -1);
-            return;
-        }
-
-        // Ensure gas before zealot
-        if (Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0)
-        {
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       1,
-                                                                       -1);
-            return;
-        }
-
-        if (zealotCount == 0)
-        {
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Zealot,
-                                                                       1,
-                                                                       1);
-        }
-        if (dragoonCount == 0)
-        {
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       1,
-                                                                       1);
-        }
-        if (zealotCount < numZealots)
-        {
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Zealot,
-                                                                       numZealots - zealotCount,
-                                                                       1);
-        }
-
-        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                   BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                   -1,
-                                                                   -1);
-    };
-
     // Main army production
     switch (ourStrategy)
     {
         case OurStrategy::EarlyGameDefense:
         {
             // Start with one-gate core with two zealots until we have more scouting information
-            oneGateCoreOpening(2);
+            oneGateCoreOpening(prioritizedProductionGoals, dragoonCount, zealotCount, 2);
             break;
         }
         case OurStrategy::AntiZealotRush:
         {
             // We get at least four zealots, but ensure we match enemy zealot production to avoid getting overrun
-            int desiredZealots = 4 + (Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) * 3) / 4;
+            int desiredZealots = std::max(4, Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot));
             int zealotsRequired = desiredZealots - zealotCount;
 
-            // Get two zealots at highest priority
-            if (zealotCount < 2)
-            {
-                prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                            BWAPI::UnitTypes::Protoss_Zealot,
-                                                                            2 - zealotCount,
-                                                                            2);
-                zealotsRequired -= 2 - zealotCount;
-            }
-
-            if (zealotsRequired > 0)
-            {
-                prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                              BWAPI::UnitTypes::Protoss_Zealot,
-                                                                              zealotsRequired,
-                                                                              -1);
-                if (zealotsRequired > 1 || BWAPI::Broodwar->self()->gas() >= 50)
-                {
-                    setGasGathering(false);
-                }
-            }
-
-            // If the dragoon transition is just beginning, only order one so we keep producing zealots
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       dragoonCount == 0 ? 1 : -1,
-                                                                       -1);
-
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Zealot,
-                                                                       -1,
-                                                                       -1);
-
-            // Upgrade goon range at 2 dragoons unless we are still behind in zealots
-            if (zealotsRequired == 0)
-            {
-                upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
-            }
+            handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired);
 
             break;
         }
 
         case OurStrategy::FastExpansion:
         {
-            oneGateCoreOpening(0);
+            oneGateCoreOpening(prioritizedProductionGoals, dragoonCount, zealotCount, 0);
 
             // Default upgrades
             handleUpgrades(prioritizedProductionGoals);
@@ -380,7 +268,12 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::Defensive:
         case OurStrategy::Normal:
         {
-            oneGateCoreOpening(1);
+            int desiredZealots = 1;
+            if (enemyStrategy == ProtossStrategy::BlockScouting)
+            {
+                desiredZealots = 3;
+            }
+            oneGateCoreOpening(prioritizedProductionGoals, dragoonCount, zealotCount, desiredZealots);
 
             // Default upgrades
             handleUpgrades(prioritizedProductionGoals);
@@ -491,8 +384,8 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 break;
             }
 
-            auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-            if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
+            auto mainArmyPlay = getPlay<AttackEnemyBase>(plays);
+            if (!mainArmyPlay)
             {
                 CherryVis::setBoardValue("natural", "no-attack-play");
                 break;
@@ -513,9 +406,9 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 break;
             }
 
-            // Cluster should be at least 2/3 of the way to the target base
-            int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
-            if (dist * 2 > distToMain)
+            // Cluster should be past our own natural
+            int naturalDist = PathFinding::GetGroundDistance(natural->getPosition(), mainArmyPlay->base->getPosition());
+            if (naturalDist != -1 && dist > (naturalDist - 320))
             {
                 CherryVis::setBoardValue("natural", "vanguard-cluster-too-close");
                 break;
@@ -831,10 +724,13 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     }
 
     // Break out if we have detected a strategy that precludes a dark templar rush now
+    bool zealotStrategy = enemyStrategy == ProtossStrategy::ProxyRush ||
+                          enemyStrategy == ProtossStrategy::ZealotRush ||
+                          enemyStrategy == ProtossStrategy::ZealotAllIn
+                          || (enemyStrategy == ProtossStrategy::TwoGate && Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) > 5);
     if ((enemyStrategy == ProtossStrategy::EarlyForge && BWAPI::Broodwar->getFrameCount() < 6000)
-        || (enemyStrategy == ProtossStrategy::ProxyRush && BWAPI::Broodwar->getFrameCount() < 6000)
-        || (enemyStrategy == ProtossStrategy::ZealotRush && BWAPI::Broodwar->getFrameCount() < 6000)
-        || (enemyStrategy == ProtossStrategy::ZealotAllIn && BWAPI::Broodwar->getFrameCount() < 6000)
+        || (zealotStrategy && BWAPI::Broodwar->getFrameCount() < 6500)
+        || (zealotStrategy && Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) > 1 && BWAPI::Broodwar->getFrameCount() < 9000)
         || (enemyStrategy == ProtossStrategy::DragoonAllIn && BWAPI::Broodwar->getFrameCount() < 8000)
         || (enemyStrategy == ProtossStrategy::EarlyRobo && BWAPI::Broodwar->getFrameCount() < 8000)
         || (enemyStrategy == ProtossStrategy::FastExpansion && BWAPI::Broodwar->getFrameCount() < 7000)

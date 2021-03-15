@@ -131,8 +131,7 @@ namespace Geo
             for (int y = start.y - searchRadius; y <= start.y + searchRadius; y++)
             {
                 BWAPI::Position current(x, y);
-                if (!current.isValid()) continue;
-                if (BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(current))) continue;
+                if (current.isValid() && BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(current))) continue;
 
                 int dist = current.getApproxDistance(closeTo);
 

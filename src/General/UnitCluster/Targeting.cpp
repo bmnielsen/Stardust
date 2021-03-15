@@ -235,13 +235,28 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
     targets.reserve(targetUnits.size());
     for (const auto &targetUnit : targetUnits)
     {
-        targets.emplace_back(targetUnit, vanguard);
+        if (targetUnit->exists()) targets.emplace_back(targetUnit, vanguard);
     }
 
 #if DEBUG_TARGETING
     std::ostringstream dbg;
     dbg << "Targeting for cluster " << BWAPI::TilePosition(center) << " - targetIsReachableEnemyBase=" << targetIsReachableEnemyBase;
 #endif
+
+    auto getCurrentTarget = [&targets](const MyUnit &unit) -> Target *
+    {
+        if (unit->bwapiUnit->getLastCommand().type != BWAPI::UnitCommandTypes::Attack_Unit) return nullptr;
+
+        auto targetUnit = Units::get(unit->bwapiUnit->getLastCommand().getTarget());
+        if (!targetUnit) return nullptr;
+
+        for (auto &target : targets)
+        {
+            if (target.unit == targetUnit) return &target;
+        }
+
+        return nullptr;
+    };
 
     // Perform a pre-scan to get valid targets and the frame at which we can attack them for each unit
     std::vector<Attacker> attackers;
@@ -255,45 +270,33 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         // If the unit isn't ready, lock it to its current target and skip targeting completely
         if (!unit->isReady())
         {
-            Unit targetUnit = nullptr;
+            auto target = getCurrentTarget(unit);
 
-            if (unit->bwapiUnit->getLastCommand().type == BWAPI::UnitCommandTypes::Attack_Unit)
+            // If the unit isn't on its cooldown yet, simulate the attack on the target for use in later targeting
+            // If the unit is on its cooldown, there will be an upcomingAttack already registered on the target
+            // This ensures consistency between our targeting and combat sim (avoiding double-counting of damage)
+            if (target && (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount()) <= (BWAPI::Broodwar->getLatencyFrames() + 2))
             {
-                targetUnit = Units::get(unit->bwapiUnit->getLastCommand().getTarget());
-
-                // If the unit isn't on its cooldown yet, simulate the attack on the target for use in later targeting
-                // If the unit is on its cooldown, there will be an upcomingAttack already registered on the target
-                // This ensures consistency between our targeting and combat sim (avoiding double-counting of damage)
-                if (targetUnit && (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount()) <= (BWAPI::Broodwar->getLatencyFrames() + 2))
-                {
-                    for (auto &target : targets)
-                    {
-                        if (target.unit == targetUnit)
-                        {
-                            target.dealDamage(unit);
-                            break;
-                        }
-                    }
-                }
+                target->dealDamage(unit);
             }
 
 #if DEBUG_TARGETING
             dbg << "\n Not ready, locking to current target";
-            if (targetUnit) dbg << " " << *targetUnit;
+            if (target) dbg << " " << target->unit;
 #endif
 
 #if DRAW_TARGETING
-            if (targetUnit)
+            if (target)
             {
                 CherryVis::drawLine(unit->lastPosition.x,
                                     unit->lastPosition.y,
-                                    targetUnit->lastPosition.x,
-                                    targetUnit->lastPosition.y,
+                                    target->unit->lastPosition.x,
+                                    target->unit->lastPosition.y,
                                     CherryVis::DrawColor::White);
             }
 #endif
 
-            result.emplace_back(std::make_pair(unit, targetUnit));
+            result.emplace_back(std::make_pair(unit, target ? target->unit : nullptr));
             continue;
         }
 
@@ -482,7 +485,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
             // Penalize ranged units fighting uphill
             if (isRanged && BWAPI::Broodwar->getGroundHeight(unit->tilePositionX, unit->tilePositionY) <
-                    BWAPI::Broodwar->getGroundHeight(potentialTarget->unit->tilePositionX, potentialTarget->unit->tilePositionY))
+                            BWAPI::Broodwar->getGroundHeight(potentialTarget->unit->tilePositionX, potentialTarget->unit->tilePositionY))
             {
                 score -= 2 * 32;
             }
@@ -602,6 +605,21 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
 #if DEBUG_TARGETING
                 dbg << " (best)";
+#endif
+            }
+        }
+
+        // For carriers, avoid frequently switching targets
+        if (unit->type == BWAPI::UnitTypes::Protoss_Carrier)
+        {
+            auto currentTarget = getCurrentTarget(unit);
+            if (currentTarget && unit->getDistance(currentTarget->unit) < 11 * 32 &&
+                unit->bwapiUnit->getLastCommandFrame() > (BWAPI::Broodwar->getFrameCount() - 96))
+            {
+                bestTarget = currentTarget;
+
+#if DEBUG_TARGETING
+                dbg << "\n Locking carrier to current target as it is still in range";
 #endif
             }
         }

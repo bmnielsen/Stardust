@@ -5,6 +5,7 @@
 #include "Units.h"
 #include "Geo.h"
 #include "Map.h"
+#include "Players.h"
 
 namespace
 {
@@ -38,7 +39,7 @@ namespace
 }
 
 TakeIslandExpansion::TakeIslandExpansion(Base *base)
-        : TakeExpansion(base)
+        : TakeExpansion(base, 0)
         , shuttle(nullptr)
         , workerTransferState(0) {}
 
@@ -48,7 +49,7 @@ void TakeIslandExpansion::update()
 
     // Clean up dead or unneeded workers
     if (builder && !builder->exists()) builder = nullptr;
-    for (auto it = workerTransfer.begin(); it != workerTransfer.end(); )
+    for (auto it = workerTransfer.begin(); it != workerTransfer.end();)
     {
         auto &worker = *it;
         if (worker->exists() && (worker->bwapiUnit->isLoaded() || worker->getDistance(base->getPosition()) > 300))
@@ -144,9 +145,18 @@ void TakeIslandExpansion::update()
 
         Builder::build(BWAPI::UnitTypes::Protoss_Nexus, depotPosition, builder);
     }
-    else if (nexus->completed && !shuttle)
+    else
     {
-        status.complete = true;
+        if (builder)
+        {
+            Workers::releaseWorker(builder);
+            builder = nullptr;
+        }
+
+        if (nexus->completed && !shuttle)
+        {
+            status.complete = true;
+        }
     }
 
     // Have the shuttle transfer some probes from a nearby base
@@ -161,6 +171,8 @@ void TakeIslandExpansion::update()
                 int bestScore = INT_MAX;
                 for (auto &b : Map::getMyBases())
                 {
+                    if (b->island) continue;
+
                     int availableWorkers = Workers::baseMineralWorkerCount(b);
                     if (availableWorkers < 8) continue;
 
@@ -181,8 +193,21 @@ void TakeIslandExpansion::update()
                     break;
                 }
 
+                // Now wait until the nexus is sufficiently complete
+                // We try to approximately handle transit time + 300 frames to load & unload the workers
+                if (!nexus) break;
+                if (!nexus->completed && workerTransfer.empty())
+                {
+                    int frames = 600 +
+                                 PathFinding::ExpectedTravelTime(base->getPosition(), bestBase->getPosition(), BWAPI::UnitTypes::Protoss_Shuttle);
+                    if (nexus->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount() > frames)
+                    {
+                        break;
+                    }
+                }
+
                 // Then reserve the appropriate number of workers
-                int desiredWorkers = std::min(8, (int)(workerTransfer.size() + Workers::baseMineralWorkerCount(bestBase)) / 2);
+                int desiredWorkers = std::min(8, (int) (workerTransfer.size() + Workers::baseMineralWorkerCount(bestBase)) / 2);
                 while (desiredWorkers > workerTransfer.size())
                 {
                     auto worker = Workers::getClosestReassignableWorker(shuttle->lastPosition, false);
@@ -247,11 +272,9 @@ void TakeIslandExpansion::update()
     }
 }
 
-void TakeIslandExpansion::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                                  const std::function<void(const MyUnit &)> &movableUnitCallback)
+void TakeIslandExpansion::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                                  const std::function<void(const MyUnit)> &movableUnitCallback)
 {
-    Builder::cancel(depotPosition);
-
     // TODO: Avoid stranding the worker on the island
 
     if (builder) Workers::releaseWorker(builder);
@@ -278,4 +301,30 @@ void TakeIslandExpansion::addUnit(const MyUnit &unit)
 void TakeIslandExpansion::removeUnit(const MyUnit &unit)
 {
     if (shuttle == unit) shuttle = nullptr;
+}
+
+bool TakeIslandExpansion::cancellable()
+{
+    if (!shuttle) return true;
+    if (builder) return false;
+    return workerTransfer.empty();
+}
+
+int TakeIslandExpansion::framesToClearBlocker()
+{
+    if (!base->blockingNeutral || !base->blockingNeutral->exists()) return 0;
+
+    if (base->blockingNeutral->getType().isMineralField()) return 0;
+
+    int hp = base->blockingNeutral->getInitialHitPoints();
+    if (base->blockingNeutral->isVisible())
+    {
+        hp = base->blockingNeutral->getHitPoints();
+    }
+
+    return (hp * BWAPI::UnitTypes::Protoss_Probe.groundWeapon().damageCooldown())
+           / Players::attackDamage(BWAPI::Broodwar->self(),
+                                   BWAPI::UnitTypes::Protoss_Probe,
+                                   base->blockingNeutral->getPlayer(),
+                                   base->blockingNeutral->getType());
 }

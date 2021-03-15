@@ -15,7 +15,9 @@ public:
 
     void updateClusters();
 
-    void execute();
+    virtual void execute();
+
+    virtual void disband() {}
 
     [[nodiscard]] BWAPI::Position getTargetPosition() const { return targetPosition; }
 
@@ -25,13 +27,15 @@ public:
 
     [[nodiscard]] std::vector<MyUnit> getUnits() const;
 
+    [[nodiscard]] int combatUnitCount() const;
+
     [[nodiscard]] std::map<BWAPI::UnitType, int> getUnitCountByType() const;
 
     [[nodiscard]] bool hasClusterWithActivity(UnitCluster::Activity activity) const;
 
     [[nodiscard]] std::shared_ptr<UnitCluster> vanguardCluster(int *distToTargetPosition = nullptr) const;
 
-    [[nodiscard]] bool isInVanguardCluster(MyUnit &unit) const;
+    [[nodiscard]] bool canReassignFromVanguardCluster(MyUnit &unit) const;
 
     explicit Squad(std::string label)
             : label(std::move(label))

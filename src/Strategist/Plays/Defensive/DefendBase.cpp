@@ -10,13 +10,11 @@
 #include "BuildingPlacement.h"
 #include "Builder.h"
 
-DefendBase::DefendBase(Base *base, int enemyValue, std::set<Unit> enemyUnits)
+DefendBase::DefendBase(Base *base, int enemyValue)
         : Play((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
         , base(base)
         , enemyValue(enemyValue)
-        , enemyUnits(std::move(enemyUnits))
         , squad(std::make_shared<DefendBaseSquad>(base))
-        , workerDefenseSquad(std::make_shared<WorkerDefenseSquad>(base))
         , pylonLocation(BWAPI::TilePositions::Invalid)
         , pylon(nullptr)
 {
@@ -49,7 +47,8 @@ DefendBase::DefendBase(Base *base, int enemyValue, std::set<Unit> enemyUnits)
 
 void DefendBase::update()
 {
-    squad->enemyUnits = std::move(enemyUnits);
+    squad->enemyUnits.clear();
+    squad->enemyUnits.insert(Units::enemyAtBase(base).begin(), Units::enemyAtBase(base).end());
 
     // Clear dead static defense buildings
     if (pylon && !pylon->exists()) pylon = nullptr;
@@ -101,11 +100,8 @@ void DefendBase::update()
     if (enemyValue == 0 || (squad->needsDetection() && detectors.empty()))
     {
         status.removedUnits = squad->getUnits();
-        workerDefenseSquad->disband();
         return;
     }
-
-    workerDefenseSquad->execute(squad->enemyUnits, squad);
 
     // Don't add ground units to defend an island base
     if (base->island) return;
@@ -130,10 +126,14 @@ void DefendBase::update()
         // Only reserve units that have a safe path to the base
         auto gridNodePredicate = [](const NavigationGrid::GridNode &gridNode)
         {
-            return gridNode.cost < 300 || Players::grid(BWAPI::Broodwar->enemy()).groundThreat(gridNode.center()) == 0;
+            return gridNode.cost < 1200 || Players::grid(BWAPI::Broodwar->enemy()).groundThreat(gridNode.center()) == 0;
         };
 
-        status.unitRequirements.emplace_back(requestedUnits, BWAPI::UnitTypes::Protoss_Dragoon, base->getPosition(), gridNodePredicate);
+        status.unitRequirements.emplace_back(requestedUnits,
+                                             BWAPI::UnitTypes::Protoss_Dragoon,
+                                             base->getPosition(),
+                                             true,
+                                             gridNodePredicate);
     }
 }
 
@@ -203,13 +203,6 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
                                                                  unitRequirement.count,
                                                                  1);
     }
-}
-
-void DefendBase::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                         const std::function<void(const MyUnit &)> &movableUnitCallback)
-{
-    Play::disband(removedUnitCallback, movableUnitCallback);
-    workerDefenseSquad->disband();
 }
 
 int DefendBase::desiredCannons()

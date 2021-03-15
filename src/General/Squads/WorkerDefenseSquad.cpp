@@ -1,201 +1,195 @@
 #include "WorkerDefenseSquad.h"
 
 #include "UnitUtil.h"
-#include "Map.h"
 #include "Workers.h"
-#include "Units.h"
+#include "Geo.h"
 
-namespace
+#include "DebugFlag_UnitOrders.h"
+
+std::vector<std::pair<MyUnit, Unit>> WorkerDefenseSquad::selectTargets(std::set<Unit> &enemyUnits)
 {
-    Unit getTarget(const MyUnit &myUnit, const std::set<Unit> &enemyUnits, bool allowRetreating = true, int distThreshold = INT_MAX)
+    std::vector<std::pair<MyUnit, Unit>> result;
+
+    auto selectTarget = [&enemyUnits](MyUnit &worker)
     {
-        Unit bestTarget = nullptr;
-        int bestTargetDist = INT_MAX;
-        int bestTargetHealth = INT_MAX;
+        Unit closestEnemy = nullptr;
+        int closestEnemyDist = INT_MAX;
         for (auto &enemy : enemyUnits)
         {
-            int dist = myUnit->getDistance(enemy);
-            if (dist < bestTargetDist || (dist == bestTargetDist && (enemy->lastHealth + enemy->lastShields) < bestTargetHealth))
-            {
-                if (!allowRetreating)
-                {
-                    auto predictedEnemyPosition = enemy->predictPosition(1);
-                    if (predictedEnemyPosition.isValid() && myUnit->getDistance(enemy, predictedEnemyPosition) > dist)
-                    {
-                        continue;
-                    }
-                }
+            if (!worker->isInEnemyWeaponRange(enemy, 48)) continue;
 
-                bestTarget = enemy;
-                bestTargetDist = dist;
-                bestTargetHealth = enemy->lastHealth + enemy->lastShields;
+            int dist = worker->getDistance(enemy);
+            if (dist < closestEnemyDist)
+            {
+                closestEnemy = enemy;
+                closestEnemyDist = dist;
             }
         }
 
-        if (bestTargetDist > distThreshold) return nullptr;
-        return bestTarget;
-    }
-}
+        return closestEnemy;
+    };
 
-void WorkerDefenseSquad::execute(std::set<Unit> &enemiesInBase, const std::shared_ptr<Squad> &defendBaseSquad)
-{
-    // Prune dead workers from the list
+    // For the list of units we've already reserved, remove the dead ones and release units that no longer have a target
     for (auto it = units.begin(); it != units.end();)
     {
-        if ((*it)->exists())
-        {
-            it++;
-        }
-        else
+        auto &worker = *it;
+
+        // Dead units
+        if (!worker->exists())
         {
             it = units.erase(it);
-        }
-    }
-
-    // Filter the units to get a set of units it makes sense to do worker defense against
-    // The input set is already filtered to only contain units we consider to be threats to the base
-    std::set<Unit> enemyUnits;
-    int workerCount = 0;
-    int combatUnitCount = 0;
-    for (const auto &unit : enemiesInBase)
-    {
-        // First sort out units we can't fight against
-        if (unit->isFlying) continue;
-        if (UnitUtil::IsRangedUnit(unit->type)) continue;
-        if (unit->undetected) continue;
-
-        // Make sure the unit is close to our base center
-        if (unit->getDistance(base->getPosition()) > 400) continue;
-
-        // Now determine if the unit is worth attacking
-        // This is the case if:
-        // - It is in or soon will be in our mineral line
-        // - It is attacking one of our workers
-
-        auto addUnit = [&]()
-        {
-            enemyUnits.insert(unit);
-            if (unit->type.isWorker())
-            {
-                workerCount++;
-            }
-            else
-            {
-                combatUnitCount++;
-            }
-        };
-
-        if (Map::isInOwnMineralLine(unit->getTilePosition()))
-        {
-            addUnit();
             continue;
         }
 
-        auto comingPosition = unit->predictPosition(24);
-        if (!comingPosition.isValid()) comingPosition = unit->lastPosition;
-        if (Map::isInOwnMineralLine(BWAPI::TilePosition(comingPosition)))
+        auto target = selectTarget(worker);
+
+        // Units not being threatened
+        if (!target)
         {
-            addUnit();
+            CherryVis::log(worker->id) << "Releasing from non-mining duties (not threatened)";
+            Workers::releaseWorker(worker);
+            it = units.erase(it);
             continue;
         }
 
-        if (unit->lastSeenAttacking < BWAPI::Broodwar->getFrameCount() - 48) continue;
-
-        bool attackingAWorker = false;
-        for (const auto &myUnit : units)
-        {
-            if (myUnit->getDistance(unit) < 32)
-            {
-                attackingAWorker = true;
-                break;
-            }
-        }
-        if (!attackingAWorker) continue;
-        addUnit();
+        result.emplace_back(std::make_pair(worker, target));
+        it++;
     }
 
-    if (enemyUnits.empty())
-    {
-        // Release all of the squad's units
-        if (!units.empty())
-        {
-            for (const auto &unit : units)
-            {
-                CherryVis::log(unit->id) << "Releasing from non-mining duties (no enemies for worker defense)";
-                Workers::releaseWorker(unit);
-            }
-
-            units.clear();
-        }
-
-        return;
-    }
-
-    // Count how many cannons we have defending the mineral line
-    int cannons = 0;
-    {
-        auto baseDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-        if (baseDefenseLocations.first != BWAPI::TilePositions::Invalid)
-        {
-            for (auto cannonLocation : baseDefenseLocations.second)
-            {
-                auto cannon = Units::myBuildingAt(cannonLocation);
-                if (cannon && cannon->completed && cannon->bwapiUnit->isPowered())
-                {
-                    cannons++;
-                }
-            }
-        }
-    }
-
-    // If the enemy has us outnumbered by more than one unit, rally all of our workers
-    auto squadUnits = defendBaseSquad->getUnits();
-    if (combatUnitCount - (squadUnits.size() + cannons * 2) > 1)
-    {
-        executeFullWorkerDefense(enemyUnits, squadUnits);
-        return;
-    }
-
-    // There is no serious threat, so just attack with workers that are not actively mining and are close to their potential targets
+    // For units not yet reserved, reserve those that are being threatened
     auto baseWorkers = Workers::getBaseWorkers(base);
-
-    // Start by handling the units already reserved: release them if they don't have a valid target, attack if they do
-    for (auto it = units.begin(); it != units.end();)
-    {
-        auto target = getTarget(*it, enemyUnits, false, 48);
-        if (target)
-        {
-            (*it)->attack(target->bwapiUnit);
-            it++;
-        }
-        else
-        {
-            CherryVis::log((*it)->id) << "Releasing from non-mining duties (no longer needed for worker defense)";
-            Workers::releaseWorker(*it);
-            it = units.erase(it);
-        }
-    }
-
-    // Now check if it makes sense to grab any of the other workers
     for (auto &worker : baseWorkers)
     {
-        // Never grab a worker that is actively mining unless it is dying
-        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::HarvestGas ||
-            ((worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals
-              || worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnMinerals
-              || worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnGas)
-             && worker->bwapiUnit->getShields() > 5))
-        {
-            continue;
-        }
-
-        auto target = getTarget(worker, enemyUnits, false, 128);
+        auto target = selectTarget(worker);
         if (target)
         {
             Workers::reserveWorker(worker);
             units.push_back(worker);
-            worker->attack(target->bwapiUnit);
+            result.emplace_back(std::make_pair(worker, target));
         }
+    }
+
+    return result;
+}
+
+void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAndTargets,
+                                 std::vector<std::pair<MyUnit, Unit>> &combatUnitsAndTargets)
+{
+    auto healthLimit = 10;
+    if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran)
+    {
+        healthLimit = 12;
+    }
+    else if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss)
+    {
+        healthLimit = 16;
+    }
+
+    // Execute the micro for each worker with a target
+    // Rules are:
+    // - Get a mineral patch we can use for fleeing or kiting
+    // - If there is no suitable patch, attack
+    // - If we are on cooldown, mine from the patch (currently disabled)
+    // - If we are low on health, mine from the patch
+    // - If a friendly combat unit is moving to attack the target but is not yet in position, mine from the patch
+    // - Otherwise attack
+    for (auto &workerAndTarget : workersAndTargets)
+    {
+        auto &worker = workerAndTarget.first;
+        auto &target = workerAndTarget.second;
+
+        // Select a mineral patch to use
+        // We pick the patch that is furthest away, but closer to us than the enemy
+        BWAPI::Unit furthestPatch = nullptr;
+        int furthestPatchDist = 0;
+        for (auto patch : base->mineralPatches())
+        {
+            if (!patch->exists()) continue;
+            if (!patch->isVisible()) continue;
+
+            int dist = Geo::EdgeToEdgeDistance(worker->type, worker->lastPosition, patch->getType(), patch->getPosition());
+            if (dist < furthestPatchDist) continue;
+
+            int targetDistToPatch = Geo::EdgeToEdgeDistance(target->type, target->lastPosition, patch->getType(), patch->getPosition());
+            if (targetDistToPatch < dist) continue;
+
+            furthestPatch = patch;
+            furthestPatchDist = dist;
+        }
+        if (!furthestPatch)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(worker->id) << "No flee patch; attacking: " << target->type << " @ "
+                                       << BWAPI::WalkPosition(target->lastPosition);
+#endif
+            worker->attackUnit(target, workersAndTargets, false);
+            continue;
+        }
+
+        // Attack if we are so close to the patch that we can't flee
+        if (furthestPatchDist < 10)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(worker->id) << "Close to patch; attacking: " << target->type << " @ "
+                                       << BWAPI::WalkPosition(target->lastPosition);
+#endif
+            worker->attackUnit(target, workersAndTargets, false);
+            continue;
+        }
+
+        // Flee if we are low on health
+        if ((worker->health + worker->shields) <= healthLimit)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(worker->id) << "Low on health, moving to patch: " << BWAPI::WalkPosition(furthestPatch->getPosition());
+#endif
+            worker->gather(furthestPatch);
+            continue;
+        }
+
+        // When on cooldown, kite if we are too close to our target
+        if ((worker->cooldownUntil - BWAPI::Broodwar->getFrameCount()) > (BWAPI::Broodwar->getRemainingLatencyFrames() + 3) &&
+            worker->getDistance(target) < (worker->groundRange() - 2))
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(worker->id) << "Kiting from target @ " << BWAPI::WalkPosition(target->lastPosition)
+                                       << "; d=" << worker->getDistance(target)
+                                       << "; moving to patch: " << BWAPI::WalkPosition(furthestPatch->getPosition());
+#endif
+            worker->gather(furthestPatch);
+            continue;
+        }
+
+        // Check if there is a combat unit attacking our target
+        // If there is, and it isn't close to being in range yet, flee to give it time to get here
+        bool combatUnitApproaching = false;
+        for (auto &combatUnitAndTarget : combatUnitsAndTargets)
+        {
+            if (combatUnitAndTarget.second != target) continue;
+
+            if (combatUnitAndTarget.first->isInOurWeaponRange(combatUnitAndTarget.second, 16))
+            {
+                // There is a unit in range, so clear and break
+                combatUnitApproaching = false;
+                break;
+            }
+
+            combatUnitApproaching = true;
+        }
+        if (combatUnitApproaching)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(worker->id) << "Wait for combat unit, moving to patch: " << BWAPI::WalkPosition(furthestPatch->getPosition());
+#endif
+            worker->gather(furthestPatch);
+            continue;
+        }
+
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(worker->id) << "Attacking: " << target->type << " @ "
+                                   << BWAPI::WalkPosition(target->lastPosition);
+#endif
+        worker->attackUnit(target, workersAndTargets, false);
     }
 }
 
@@ -208,66 +202,4 @@ void WorkerDefenseSquad::disband()
     }
 
     units.clear();
-}
-
-void WorkerDefenseSquad::executeFullWorkerDefense(std::set<Unit> &enemyUnits, const std::vector<MyUnit> &defendBaseUnits)
-{
-    // Grab all of the base's workers
-    Workers::reserveBaseWorkers(units, base);
-
-    // Choose a target for each of our workers
-    // Each attacks the closest enemy unit with the least health
-    bool isEnemyInRange = false;
-    std::vector<std::pair<MyUnit, Unit>> workersAndTargets;
-    for (const auto &worker : units)
-    {
-        Unit bestTarget = getTarget(worker, enemyUnits);
-        workersAndTargets.emplace_back(std::make_pair(worker, bestTarget));
-
-        auto predictedPosition = bestTarget->predictPosition(BWAPI::Broodwar->getLatencyFrames());
-        if (!predictedPosition.isValid()) predictedPosition = bestTarget->lastPosition;
-        if (worker->isInOurWeaponRange(bestTarget, predictedPosition) ||
-            worker->isInEnemyWeaponRange(bestTarget, predictedPosition))
-        {
-            isEnemyInRange = true;
-        }
-    }
-
-    // Consider if any combat units are in range of an enemy
-    if (!isEnemyInRange)
-    {
-        for (const auto &unit : defendBaseUnits)
-        {
-            for (auto &enemy : enemyUnits)
-            {
-                if (unit->isInOurWeaponRange(enemy) || unit->isInEnemyWeaponRange(enemy))
-                {
-                    isEnemyInRange = true;
-                    goto breakOuterLoop;
-                }
-            }
-        }
-        breakOuterLoop:;
-    }
-
-    // If any of our units are in range of an enemy, we attack
-    if (isEnemyInRange)
-    {
-        for (auto &workerAndTarget : workersAndTargets)
-        {
-            workerAndTarget.first->attack(workerAndTarget.second->bwapiUnit);
-        }
-
-        return;
-    }
-
-    // Otherwise we rally our workers on the mineral patch
-    auto rallyPatch = base->workerDefenseRallyPatch;
-    if (rallyPatch)
-    {
-        for (const auto &worker : units)
-        {
-            worker->gather(rallyPatch);
-        }
-    }
 }

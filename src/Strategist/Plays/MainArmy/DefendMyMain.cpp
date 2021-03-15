@@ -16,7 +16,6 @@ DefendMyMain::DefendMyMain()
         : MainArmyPlay("DefendMyMain")
         , emergencyProduction(BWAPI::UnitTypes::None)
         , squad(std::make_shared<EarlyGameDefendMainBaseSquad>())
-        , workerDefenseSquad(std::make_shared<WorkerDefenseSquad>(Map::getMyMain()))
         , lastRegroupFrame(0)
         , reservedGasStealAttacker(nullptr)
 {
@@ -136,7 +135,7 @@ void DefendMyMain::update()
         // Release the worker gas steal attackers when they are no longer needed
         if (!reservedWorkerGasStealAttackers.empty())
         {
-            for (const auto& workerGasStealAttacker : reservedWorkerGasStealAttackers)
+            for (const auto &workerGasStealAttacker : reservedWorkerGasStealAttackers)
             {
                 Workers::releaseWorker(workerGasStealAttacker);
             }
@@ -151,32 +150,19 @@ void DefendMyMain::update()
         enemyCombatUnits.insert(enemyWorkers.begin(), enemyWorkers.end());
     }
 
-    workerDefenseSquad->execute(enemyCombatUnits, squad);
-
     // Keep track of when the squad was last regrouping, considering an empty squad to be regrouping
     if (!enemyCombatUnits.empty() && !scoutHarass && (squad->getUnits().empty() || squad->hasClusterWithActivity(UnitCluster::Activity::Regrouping)))
     {
         lastRegroupFrame = BWAPI::Broodwar->getFrameCount();
     }
 
-    // If the squad has been regrouping recently, consider this an emergency
-    // TODO: Should clear emergency when our squad is defending the choke
-    if (lastRegroupFrame > 0 && lastRegroupFrame > (BWAPI::Broodwar->getFrameCount() - REGROUP_EMERGENCY_TIMEOUT))
+    // Queue emergency production if:
+    // - The squad has been regrouping recently
+    // - The enemy has us outnumbered by more than two combat units
+    if (lastRegroupFrame > 0 && lastRegroupFrame > (BWAPI::Broodwar->getFrameCount() - REGROUP_EMERGENCY_TIMEOUT) &&
+        (squad->combatUnitCount() == 0 || (enemyCombatUnits.size() + std::max(0, (int) enemyWorkers.size() - 1)) > (squad->combatUnitCount() + 2)))
     {
-        auto desiredEmergencyProduction = BWAPI::UnitTypes::Protoss_Zealot;
-
-        // Produce dragoons instead under the following circumstances:
-        // - The enemy has units that can only be effectively countered with dragoons
-        // - The enemy is not zerg and we already have the prerequisites needed for dragoons
-        if (requireDragoons || (
-                BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Zerg &&
-                Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0 &&
-                BWAPI::Broodwar->self()->gas() >= 50
-        ))
-        {
-            desiredEmergencyProduction = BWAPI::UnitTypes::Protoss_Dragoon;
-        }
-
+        auto desiredEmergencyProduction = requireDragoons ? BWAPI::UnitTypes::Protoss_Dragoon : BWAPI::UnitTypes::Protoss_Zealot;
         if (emergencyProduction != desiredEmergencyProduction)
         {
             emergencyProduction = desiredEmergencyProduction;
@@ -212,12 +198,10 @@ void DefendMyMain::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
     }
 }
 
-void DefendMyMain::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                           const std::function<void(const MyUnit &)> &movableUnitCallback)
+void DefendMyMain::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                           const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     Play::disband(removedUnitCallback, movableUnitCallback);
-
-    workerDefenseSquad->disband();
 
     // Also move the reserved gas steal attacker if we have one
     if (reservedGasStealAttacker)

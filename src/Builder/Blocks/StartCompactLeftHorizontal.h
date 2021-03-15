@@ -3,7 +3,8 @@
 class StartCompactLeftHorizontal : public Block
 {
 public:
-    explicit StartCompactLeftHorizontal(BWAPI::TilePosition topLeft, BWAPI::TilePosition powerPylon) : Block(topLeft, powerPylon) { placeLocations(); }
+    explicit StartCompactLeftHorizontal(BWAPI::TilePosition topLeft, BWAPI::TilePosition powerPylon) : Block(topLeft,
+                                                                                                             powerPylon) { placeLocations(); }
 
     [[nodiscard]] int width() const override { return 8; }
 

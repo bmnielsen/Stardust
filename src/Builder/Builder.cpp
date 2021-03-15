@@ -181,7 +181,8 @@ namespace Builder
 
                     pendingBuilding->constructionStarted(unit);
                     releaseBuilder(*pendingBuilding);
-                    NoGoAreas::removeBox(pendingBuilding->tile - BWAPI::TilePosition(1, 1), pendingBuilding->type.tileSize() + BWAPI::TilePosition(2, 2));
+                    NoGoAreas::removeBox(pendingBuilding->tile - BWAPI::TilePosition(1, 1),
+                                         pendingBuilding->type.tileSize() + BWAPI::TilePosition(2, 2));
                 }
             }
         }
@@ -347,5 +348,13 @@ namespace Builder
         }
 
         return nullptr;
+    }
+
+    bool hasPendingBuilding(MyUnit builder)
+    {
+        auto it = builderQueues.find(builder);
+        if (it == builderQueues.end()) return false;
+
+        return !it->second.empty();
     }
 }

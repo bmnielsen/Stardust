@@ -1,6 +1,5 @@
 #include "UnitCluster.h"
 
-#include "Units.h"
 #include "Players.h"
 #include "Map.h"
 #include "Geo.h"
@@ -22,8 +21,8 @@ namespace
     const double separationWeight = 96.0;
 }
 
-void UnitCluster::containBase(std::set<Unit> &enemyUnits,
-                              BWAPI::Position targetPosition)
+void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
+                                BWAPI::Position targetPosition)
 {
     // Perform target selection again to get targets we can attack safely
     auto unitsAndTargets = selectTargets(enemyUnits, targetPosition, true);
@@ -179,29 +178,22 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
             }
             else
             {
-                // We hit this if we have no valid path to the base we are attacking, which might happen if the enemy walls it off
-                // So we use a vector towards the next choke instead
-                // If the next choke is very close, use the one after that instead
-                auto path = PathFinding::GetChokePointPath(myUnit->lastPosition, targetPosition, myUnit->type);
-                BWAPI::Position waypoint = BWAPI::Positions::Invalid;
-                for (const auto &bwemChoke : path)
+                secondNodeCenter = PathFinding::NextGridOrChokeWaypoint(myUnit->lastPosition, targetPosition, nullptr, 2);
+                if (secondNodeCenter == BWAPI::Positions::Invalid)
                 {
-                    auto chokeCenter = Map::choke(bwemChoke)->center;
-                    if (myUnit->getDistance(chokeCenter) > 128)
+                    secondNodeCenter = myUnit->lastPosition + Geo::ScaleVector(targetPosition - myUnit->lastPosition, 64);
+                    if (secondNodeCenter == BWAPI::Positions::Invalid)
                     {
-                        waypoint = chokeCenter;
-                        break;
+                        secondNodeCenter = targetPosition;
                     }
                 }
-                if (!waypoint.isValid()) waypoint = targetPosition;
 
-                auto vector = waypoint - myUnit->lastPosition;
-                nextNodeCenter = myUnit->lastPosition + Geo::ScaleVector(vector, 32);
-                secondNodeCenter = myUnit->lastPosition + Geo::ScaleVector(vector, 64);
+                nextNodeCenter = BWAPI::Position((myUnit->lastPosition.x + secondNodeCenter.x) >> 1,
+                                                 (myUnit->lastPosition.y + secondNodeCenter.y) >> 1);
 
 #if DEBUG_UNIT_BOIDS
-                CherryVis::log(myUnit->id) << "Contain (goal boid): No valid navigation path, moving relative to " << BWAPI::WalkPosition(waypoint)
-                                           << " nextNode=" << BWAPI::WalkPosition(nextNodeCenter)
+                CherryVis::log(myUnit->id) << "Contain (goal boid): No valid navigation path, moving relative to choke"
+                                           << ": nextNode=" << BWAPI::WalkPosition(nextNodeCenter)
                                            << "; secondNode=" << BWAPI::WalkPosition(secondNodeCenter);
 #endif
             }
@@ -257,9 +249,20 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
                                    << "; cluster=" << BWAPI::WalkPosition(center)
                                    << ": goal=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX, goalY))
                                    << "; separation=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(separationX, separationY))
-                                   << "; total=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX+separationX, goalY+separationY))
+                                   << "; total="
+                                   << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX + separationX, goalY + separationY))
                                    << "; target=" << BWAPI::WalkPosition(pos)
                                    << "; pullingBack=" << pullingBack;
+#elif DEBUG_UNIT_ORDERS
+        if (pos == BWAPI::Positions::Invalid)
+        {
+            CherryVis::log(myUnit->id) << "Contain boids: Invalid; moving to "
+                                       << BWAPI::WalkPosition(pullingBack ? Map::getMyMain()->getPosition() : targetPosition);
+        }
+        else
+        {
+            CherryVis::log(myUnit->id) << "Contain boids: Moving to " << BWAPI::WalkPosition(pos);
+        }
 #endif
 
         // If the unit can't move in the desired direction, either move towards the target or towards our main
@@ -273,5 +276,4 @@ void UnitCluster::containBase(std::set<Unit> &enemyUnits,
             myUnit->moveTo(pos, true);
         }
     }
-
 }

@@ -8,7 +8,8 @@
 
 namespace CherryVis
 {
-    enum class DrawColor {
+    enum class DrawColor
+    {
         Black = 0,
         Brown = 19,
         Grey = 74,

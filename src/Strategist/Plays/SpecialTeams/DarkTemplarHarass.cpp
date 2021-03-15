@@ -31,6 +31,8 @@ namespace
         std::vector<std::pair<Base *, bool>> harassableBases;
         for (auto base : Map::getEnemyBases())
         {
+            if (base->island) continue;
+
             bool hasCannon = false;
             for (const auto &cannon : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon))
             {
@@ -78,7 +80,7 @@ namespace
     }
 
     Unit getTarget(const MyUnit &myUnit,
-                   const std::set<Unit> &enemyUnits,
+                   const std::unordered_set<Unit> &enemyUnits,
                    bool allowRetreating = true,
                    int distThreshold = INT_MAX,
                    const std::function<bool(const Unit &)> &predicate = nullptr)

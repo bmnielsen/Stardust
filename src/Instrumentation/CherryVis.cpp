@@ -173,6 +173,12 @@ namespace CherryVis
         heatmapNameToHeatmapFile.clear();
 
         std::filesystem::create_directories("bwapi-data/write/cvis");
+
+        // Mark all static neutrals as seen
+        for (auto unit : BWAPI::Broodwar->getStaticNeutralUnits())
+        {
+            unitFirstSeen(unit);
+        }
 #endif
     }
 
@@ -283,8 +289,8 @@ namespace CherryVis
 #if CHERRYVIS_ENABLED
         frameDrawCommands.push_back({
                                             {"code", 20},
-                                            {"args", nlohmann::json::array({x1, y1, x2, y2, (int)color})},
-                                            {"str", "."}
+                                            {"args", nlohmann::json::array({x1, y1, x2, y2, (int) color})},
+                                            {"str",  "."}
                                     });
 #endif
     }
@@ -294,8 +300,8 @@ namespace CherryVis
 #if CHERRYVIS_ENABLED
         frameDrawCommands.push_back({
                                             {"code", 23},
-                                            {"args", nlohmann::json::array({x, y, radius, (int)color})},
-                                            {"str", "."}
+                                            {"args", nlohmann::json::array({x, y, radius, (int) color})},
+                                            {"str",  "."}
                                     });
 #endif
     }
@@ -306,7 +312,7 @@ namespace CherryVis
         frameDrawCommands.push_back({
                                             {"code", 25},
                                             {"args", nlohmann::json::array({x, y})},
-                                            {"str", text}
+                                            {"str",  text}
                                     });
 #endif
     }

@@ -249,9 +249,9 @@ namespace FAP {
     damage <<= 8;
 
     if (!fu.flying && !attacker.flying &&
-        attacker.groundMinRange > 32 &&
+        attacker.groundMaxRange > 32 &&
         fu.elevation != -1 && attacker.elevation != -1 && fu.elevation > attacker.elevation) {
-      damage >> 1;
+      damage >>= 1;
     }
 
     auto const remainingShields = fu.shields - damage + (fu.shieldArmor << 8);

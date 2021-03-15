@@ -4,6 +4,7 @@
 #include <Strategist/Plays/MainArmy/AttackEnemyBase.h>
 #include <Strategist/Plays/MainArmy/MopUp.h>
 #include <Strategist/Plays/Offensive/AttackExpansion.h>
+#include <Strategist/Plays/Offensive/AttackIslandExpansion.h>
 #include <Strategist/Plays/Scouting/ScoutEnemyExpos.h>
 
 #include "Map.h"
@@ -40,23 +41,20 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
         return;
     }
 
-    // If the enemy has no bases, set the main army to mop up
-    // Any existing attack expansion plays will complete themselves
-    auto enemyBases = Map::getEnemyBases();
-    if (enemyBases.empty())
-    {
-        setMainPlay<MopUp>(mainArmyPlay);
-        return;
-    }
-
     // Get the current main army target base
-    // We allow ourselves to pick a different target when the vanguard cluster is regrouping
+    // To avoid indecision, we only allow the army to switch target bases in the following situations:
+    // - it is attacking an expansion and has been on the attack in the past five seconds
+    // - it is attacking the enemy main or natural and is still on the attack
     Base *mainArmyTarget = nullptr;
     auto attackEnemyBasePlay = dynamic_cast<AttackEnemyBase *>(mainArmyPlay);
     if (attackEnemyBasePlay && attackEnemyBasePlay->base->owner == BWAPI::Broodwar->enemy())
     {
+        bool isMainOrNatural = attackEnemyBasePlay->base == Map::getEnemyStartingMain() ||
+                               attackEnemyBasePlay->base == Map::getEnemyStartingNatural();
+
         auto vanguard = attackEnemyBasePlay->getSquad()->vanguardCluster();
-        if (vanguard && vanguard->currentActivity != UnitCluster::Activity::Regrouping)
+        if (vanguard && (vanguard->currentActivity != UnitCluster::Activity::Regrouping
+                         || (!isMainOrNatural && vanguard->lastActivityChange > (BWAPI::Broodwar->getFrameCount() - 120))))
         {
             mainArmyTarget = attackEnemyBasePlay->base;
         }
@@ -64,10 +62,11 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
 
     // Now analyze all of the enemy bases to determine how we want to attack them
     // Main army target is either a fortified expansion, the enemy natural, or the enemy main
-    int highestEnemyValue = 0;
-    Base *highestEnemyValueBase = nullptr;
+    int lowestEnemyValue = INT_MAX;
+    Base *lowestEnemyValueBase = nullptr;
     std::map<Base *, int> attackableExpansionsToEnemyUnitValue;
-    for (auto &base : enemyBases)
+    std::set<Base *> islandExpansions;
+    for (auto &base : Map::getEnemyBases())
     {
         // Main and natural are default targets for our main army, so don't need to be analyzed
         if (base == Map::getEnemyMain() || base == Map::getEnemyStartingNatural()) continue;
@@ -75,39 +74,39 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
         // Skip if the main army is already attacking this base
         if (base == mainArmyTarget) continue;
 
+        // Handle islands separately
+        if (base->island)
+        {
+            islandExpansions.insert(base);
+            continue;
+        }
+
         // Gather enemy threats at the base
         int enemyValue = 0;
-        for (const auto &unit : Units::allEnemy())
+        for (const auto &unit : Units::enemyAtBase(base))
         {
-            if (!unit->lastPositionValid) continue;
-            if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
-            if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) continue;
-
-            int dist = unit->isFlying
-                       ? unit->lastPosition.getApproxDistance(base->getPosition())
-                       : PathFinding::GetGroundDistance(unit->lastPosition, base->getPosition(), unit->type);
-            if (dist == -1 || dist > 500) continue;
-
             enemyValue += CombatSim::unitValue(unit);
         }
 
         // Attack with a separate play if the unit value corresponds to three dragoons or less
-        if (enemyValue <= 3 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
+        // Give up attacking an expansion in this way if it hasn't succeeded in 3000 frames (a bit over 2 minutes)
+        if (enemyValue <= 3 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon) &&
+            base->ownedSince > (BWAPI::Broodwar->getFrameCount() - 3000))
         {
             attackableExpansionsToEnemyUnitValue[base] = enemyValue;
             continue;
         }
 
         // Target the main army at this base if it does not already have a locked target and this base is most defended
-        if (enemyValue > highestEnemyValue)
+        if (enemyValue < lowestEnemyValue)
         {
-            highestEnemyValue = enemyValue;
-            highestEnemyValueBase = base;
+            lowestEnemyValue = enemyValue;
+            lowestEnemyValueBase = base;
         }
     }
 
     // Choose the target for the main army
-    if (!mainArmyTarget) mainArmyTarget = highestEnemyValueBase;
+    if (!mainArmyTarget) mainArmyTarget = lowestEnemyValueBase;
     if (!mainArmyTarget)
     {
         mainArmyTarget = Map::getEnemyStartingNatural() && Map::getEnemyStartingNatural()->owner == BWAPI::Broodwar->enemy()
@@ -138,6 +137,13 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
     // Remove AttackExpansion plays that are no longer needed
     for (auto &play : plays)
     {
+        auto attackIslandExpansionPlay = std::dynamic_pointer_cast<AttackIslandExpansion>(play);
+        if (attackIslandExpansionPlay)
+        {
+            islandExpansions.erase(attackIslandExpansionPlay->base);
+            continue;
+        }
+
         auto attackExpansionPlay = std::dynamic_pointer_cast<AttackExpansion>(play);
         if (!attackExpansionPlay) continue;
 
@@ -155,22 +161,30 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Add missing plays
-    for (auto &attackableExpansionAndEnemyUnitValue : attackableExpansionsToEnemyUnitValue)
+    auto beforeMainArmyIt = [&plays]()
     {
-        // Insert them before the main army play
         auto it = plays.begin();
         for (; it != plays.end(); it++)
         {
-            if (auto match = std::dynamic_pointer_cast<MainArmyPlay>(*it))
+            if (std::dynamic_pointer_cast<MainArmyPlay>(*it) != nullptr)
             {
                 break;
             }
         }
-
-        plays.emplace(it, std::make_shared<AttackExpansion>(
+        return it;
+    };
+    for (auto &attackableExpansionAndEnemyUnitValue : attackableExpansionsToEnemyUnitValue)
+    {
+        plays.emplace(beforeMainArmyIt(), std::make_shared<AttackExpansion>(
                 attackableExpansionAndEnemyUnitValue.first,
                 attackableExpansionAndEnemyUnitValue.second));
         CherryVis::log() << "Added attack expansion play for base @ "
                          << BWAPI::WalkPosition(attackableExpansionAndEnemyUnitValue.first->getPosition());
+    }
+    for (auto &islandExpansion : islandExpansions)
+    {
+        plays.emplace(beforeMainArmyIt(), std::make_shared<AttackIslandExpansion>(islandExpansion));
+        CherryVis::log() << "Added attack island expansion play for base @ "
+                         << BWAPI::WalkPosition(islandExpansion->getPosition());
     }
 }

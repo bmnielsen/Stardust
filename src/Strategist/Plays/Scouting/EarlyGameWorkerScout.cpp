@@ -171,9 +171,9 @@ namespace
         int baseElevation = BWAPI::Broodwar->getGroundHeight(enemyMain->getTilePosition());
         int bestDist = 0;
         BWAPI::TilePosition bestTile = BWAPI::TilePositions::Invalid;
-        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
         {
-            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
             {
                 BWAPI::TilePosition here(x, y);
                 if (!here.isValid()) continue;
@@ -238,9 +238,9 @@ namespace
         auto tileSightRange = BWAPI::UnitTypes::Protoss_Probe.sightRange() / 32;
         int bestDist = INT_MAX;
         BWAPI::TilePosition bestTile = BWAPI::TilePositions::Invalid;
-        for (int x = -tileSightRange + 1; x < tileSightRange; x++)
+        for (int y = -tileSightRange + 1; y < tileSightRange; y++)
         {
-            for (int y = -tileSightRange + 1; y < tileSightRange; y++)
+            for (int x = -tileSightRange + 1; x < tileSightRange; x++)
             {
                 auto here = BWAPI::TilePosition(enemyMainChoke->center) + BWAPI::TilePosition(x, y);
                 if (!here.isValid()) continue;
@@ -419,7 +419,8 @@ void EarlyGameWorkerScout::update()
         if (!node)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(scout->id) << "Scout: out of scout areas and no valid navigation grid node, move directly to scout tile " << BWAPI::WalkPosition(tile);
+            CherryVis::log(scout->id) << "Scout: out of scout areas and no valid navigation grid node, move directly to scout tile "
+                                      << BWAPI::WalkPosition(tile);
 #endif
             scout->moveTo(BWAPI::Position(tile) + BWAPI::Position(16, 16));
             return;
@@ -442,9 +443,9 @@ void EarlyGameWorkerScout::update()
             if (targetBase->isInMineralLine(tile)) return false;
 
             auto walk = BWAPI::WalkPosition(tile);
-            for (int x = 0; x < 4; x++)
+            for (int y = 0; y < 4; y++)
             {
-                for (int y = 0; y < 4; y++)
+                for (int x = 0; x < 4; x++)
                 {
                     if (grid.staticGroundThreat(walk + BWAPI::WalkPosition(x, y)) > 0) return false;
                 }
@@ -495,17 +496,19 @@ void EarlyGameWorkerScout::update()
     }
 
     // Compute goal boid
-    int goalX;
-    int goalY;
+    int goalX = 0;
+    int goalY = 0;
     {
         auto vector = BWAPI::Position(targetPos.x - scout->lastPosition.x, targetPos.y - scout->lastPosition.y);
         auto scaled = Geo::ScaleVector(vector, goalWeight);
-
-        goalX = scaled.x;
-        goalY = scaled.y;
+        if (scaled != BWAPI::Positions::Invalid)
+        {
+            goalX = scaled.x;
+            goalY = scaled.y;
+        }
     }
 
-    auto pos = Boids::ComputePosition(scout.get(), {goalX, threatX}, {goalY, threatY}, 64);
+    auto pos = Boids::ComputePosition(scout.get(), {goalX, threatX}, {goalY, threatY}, 64, 16, 3);
 
 #if DEBUG_UNIT_BOIDS
     CherryVis::log(scout->id) << "Scouting boids towards " << BWAPI::WalkPosition(targetPos)
@@ -521,13 +524,19 @@ void EarlyGameWorkerScout::update()
     scout->moveTo(pos, true);
 }
 
-void EarlyGameWorkerScout::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                                   const std::function<void(const MyUnit &)> &movableUnitCallback)
+void EarlyGameWorkerScout::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                                   const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     if (scout && scout->exists())
     {
         CherryVis::log(scout->id) << "Releasing from non-mining duties (scout disband)";
         Workers::releaseWorker(scout);
+
+        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
+            Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::MonitoringEnemyChoke)
+        {
+            Strategist::setWorkerScoutStatus(Strategist::WorkerScoutStatus::ScoutingCompleted);
+        }
     }
 }
 
@@ -693,8 +702,8 @@ bool EarlyGameWorkerScout::isScoutBlocked()
 
     // Decreasing distance is fine
     // Increasing distance is fine if it jumps quite a bit - this generally means we've scouted a building that changes the path
-    if (node.cost < closestDistanceToTargetBase ||
-        node.cost > (lastDistanceToTargetBase + 50))
+    if (node.cost<closestDistanceToTargetBase ||
+                  node.cost>(lastDistanceToTargetBase + 100))
     {
         closestDistanceToTargetBase = node.cost;
         lastDistanceToTargetBase = node.cost;
@@ -705,7 +714,7 @@ bool EarlyGameWorkerScout::isScoutBlocked()
     lastDistanceToTargetBase = node.cost;
 
     // Non-decreasing distance is fine if we are still far away from the enemy base
-    if (node.cost > 1500) return false;
+    if (node.cost > 3000) return false;
 
     // Consider us to be blocked if we haven't made forward progress in five seconds
     if ((BWAPI::Broodwar->getFrameCount() - lastForewardMotionFrame) > 120) return true;

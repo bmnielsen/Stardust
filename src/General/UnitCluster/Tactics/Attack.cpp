@@ -1,7 +1,9 @@
 #include "UnitCluster.h"
 
-#include "Units.h"
 #include "Map.h"
+#include "Players.h"
+#include "Geo.h"
+#include "UnitUtil.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -25,6 +27,58 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
         {
             return;
         }
+    }
+
+    // Form an arc if none of our units are in danger or in range yet
+    auto grid = Players::grid(BWAPI::Broodwar->enemy());
+    Unit vanguardTarget = nullptr;
+    bool canFormArc = true;
+    for (auto &unitAndTarget : unitsAndTargets)
+    {
+        if ((unitAndTarget.first->isFlying
+             ? grid.airThreat(unitAndTarget.first->lastPosition)
+             : grid.groundThreat(unitAndTarget.first->lastPosition)) > 0 ||
+            (unitAndTarget.second && unitAndTarget.first->isInOurWeaponRange(unitAndTarget.second)))
+        {
+            canFormArc = false;
+            break;
+        }
+
+        if (unitAndTarget.first == vanguard) vanguardTarget = unitAndTarget.second;
+    }
+    if (canFormArc && vanguardTarget && vanguardTarget->canAttack(vanguard))
+    {
+        auto pivot = vanguard->lastPosition + Geo::ScaleVector(vanguardTarget->lastPosition - vanguard->lastPosition,
+                                                               vanguard->lastPosition.getApproxDistance(vanguardTarget->lastPosition) + 64);
+
+        // Determine the desired distance to the pivot
+        // If our units are on average within one tile of where we want them, shorten the distance by one tile
+        // Otherwise wait until they have formed up around the vanguard
+
+        auto effectiveDist = [&pivot](const MyUnit &unit)
+        {
+            return unit->lastPosition.getApproxDistance(pivot) + (UnitUtil::IsRangedUnit(unit->type) ? 0 : 32);
+        };
+
+        int desiredDistance = effectiveDist(vanguard);
+
+        int accumulator = 0;
+        int count = 0;
+        int countWithinLimit = 0;
+        for (auto &unitAndTarget : unitsAndTargets)
+        {
+            if (unitAndTarget.first->isFlying) continue;
+
+            int dist = effectiveDist(unitAndTarget.first);
+            if (dist <= (desiredDistance + 24)) countWithinLimit++;
+            if (countWithinLimit >= 8) break;
+            accumulator += dist;
+            count++;
+        }
+
+        if (countWithinLimit >= 8 || (accumulator / count) <= (desiredDistance + 24)) desiredDistance -= 32;
+
+        if (formArc(pivot, desiredDistance)) return;
     }
 
     // Micro each unit

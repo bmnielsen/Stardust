@@ -5,6 +5,7 @@
 #include "Map.h"
 #include "NoGoAreas.h"
 #include "BuildingPlacement.h"
+#include "MyCarrier.h"
 #include "MyDragoon.h"
 #include "MyWorker.h"
 #include "UnitUtil.h"
@@ -16,6 +17,7 @@
 #define DEBUG_ZEALOT_STATUS false
 #define DEBUG_DRAGOON_STATUS false
 #define DEBUG_DT_STATUS false
+#define DEBUG_CARRIER_STATUS false
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS false
 #define DEBUG_PRODUCINGBUILDING_STATUS false
@@ -30,17 +32,20 @@ namespace Units
 {
     namespace
     {
-        std::set<MyUnit> myUnits;
-        std::set<Unit> enemyUnits;
+        std::unordered_set<MyUnit> myUnits;
+        std::unordered_set<Unit> enemyUnits;
 
-        std::map<int, MyUnit> unitIdToMyUnit;
-        std::map<int, Unit> unitIdToEnemyUnit;
+        std::unordered_map<int, MyUnit> unitIdToMyUnit;
+        std::unordered_map<int, Unit> unitIdToEnemyUnit;
 
-        std::map<BWAPI::UnitType, std::set<MyUnit>> myCompletedUnitsByType;
-        std::map<BWAPI::UnitType, std::set<MyUnit>> myIncompleteUnitsByType;
+        std::map<BWAPI::UnitType, std::unordered_set<MyUnit>> myCompletedUnitsByType;
+        std::map<BWAPI::UnitType, std::unordered_set<MyUnit>> myIncompleteUnitsByType;
 
-        std::map<BWAPI::UnitType, std::set<Unit>> enemyUnitsByType;
+        std::map<BWAPI::UnitType, std::unordered_set<Unit>> enemyUnitsByType;
         std::map<BWAPI::UnitType, std::vector<std::pair<int, int>>> enemyUnitTimings;
+
+        std::unordered_map<Unit, Base *> enemyUnitsToBase;
+        std::unordered_map<Base *, std::unordered_set<Unit>> basesToEnemyUnits;
 
         std::set<BWAPI::UpgradeType> upgradesInProgress;
         std::set<BWAPI::TechType> researchInProgress;
@@ -274,6 +279,106 @@ namespace Units
                 }
             }
         }
+
+        void assignEnemyUnitsToBases()
+        {
+            // First clear dead units
+            for (auto it = enemyUnitsToBase.begin(); it != enemyUnitsToBase.end();)
+            {
+                if (!it->first->exists())
+                {
+                    basesToEnemyUnits[it->second].erase(it->first);
+                    it = enemyUnitsToBase.erase(it);
+                }
+                else
+                {
+                    it++;
+                }
+            }
+
+            auto getBase = [](const Unit &unit) -> Base *
+            {
+                if (!unit->lastPositionValid) return nullptr;
+
+                auto combatUnit =
+                        (UnitUtil::IsCombatUnit(unit->type) || unit->lastSeenAttacking >= (BWAPI::Broodwar->getFrameCount() - 120))
+                        && (unit->isTransport() || UnitUtil::CanAttackGround(unit->type));
+
+                Base *closest = nullptr;
+                int closestDist = 1000;
+                for (auto &base : Map::allBases())
+                {
+                    // Only consider combat units and units that block untaken bases
+                    if (!combatUnit &&
+                        (base->owner != nullptr ||
+                         !Geo::Overlaps(base->getTilePosition(), 4, 3, unit->getTilePosition(), 2, 2)))
+                    {
+                        continue;
+                    }
+
+                    // For our bases, ignore units we haven't seen for a while
+                    if (base->owner == BWAPI::Broodwar->self() &&
+                        !unit->type.isBuilding() &&
+                        unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 240))
+                    {
+                        continue;
+                    }
+
+                    int dist = unit->isFlying
+                               ? unit->lastPosition.getApproxDistance(base->getPosition())
+                               : PathFinding::GetGroundDistance(unit->lastPosition, base->getPosition(), unit->type);
+                    if (dist == -1 || dist > closestDist) continue;
+
+                    // If the distance is above 500, ignore this unit if the base is unowned or it is moving away from the base
+                    if (dist > 500)
+                    {
+                        if (!base->owner) continue;
+
+                        auto predictedPosition = unit->predictPosition(5);
+                        if (predictedPosition.isValid())
+                        {
+                            if (predictedPosition.getApproxDistance(base->getPosition()) >
+                                unit->lastPosition.getApproxDistance(base->getPosition()))
+                            {
+                                continue;
+                            }
+                        }
+                    }
+
+                    closest = base;
+                    closestDist = dist;
+                }
+
+                return closest;
+            };
+
+            // Now update each enemy unit
+            for (auto &unit : enemyUnits)
+            {
+                auto base = getBase(unit);
+
+                // Remove from current base if it is different from the new one
+                auto current = enemyUnitsToBase.find(unit);
+                if (current != enemyUnitsToBase.end())
+                {
+                    if (current->second == base) continue;
+
+                    CherryVis::log(unit->id) << "Removed from base @ " << BWAPI::WalkPosition(current->second->getPosition());
+
+                    basesToEnemyUnits[current->second].erase(unit);
+                    enemyUnitsToBase.erase(current);
+                }
+
+                // Add to the new base if required
+                if (base)
+                {
+                    CherryVis::log(unit->id) << "Added to base @ " << BWAPI::WalkPosition(base->getPosition());
+
+                    basesToEnemyUnits[base].emplace(unit);
+                    enemyUnitsToBase[unit] = base;
+                }
+            }
+        }
     }
 
     void initialize()
@@ -286,6 +391,8 @@ namespace Units
         myIncompleteUnitsByType.clear();
         enemyUnitsByType.clear();
         enemyUnitTimings.clear();
+        enemyUnitsToBase.clear();
+        basesToEnemyUnits.clear();
         upgradesInProgress.clear();
         researchInProgress.clear();
 
@@ -309,10 +416,18 @@ namespace Units
         upgradesInProgress.clear();
         researchInProgress.clear();
 
+        auto ignoreUnit = [](BWAPI::Unit bwapiUnit)
+        {
+            return bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Interceptor ||
+                   bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Scarab;
+        };
+
         // Update our units
         // We always have vision of our own units, so we don't have to handle units in fog
         for (auto bwapiUnit : BWAPI::Broodwar->self()->getUnits())
         {
+            if (ignoreUnit(bwapiUnit)) continue;
+
             // If we just mind controlled an enemy unit, consider the enemy unit destroyed
             auto enemyIt = unitIdToEnemyUnit.find(bwapiUnit->getID());
             if (enemyIt != unitIdToEnemyUnit.end())
@@ -333,6 +448,11 @@ namespace Units
                 else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Dragoon)
                 {
                     unit = std::make_shared<MyDragoon>(bwapiUnit);
+                    unit->created();
+                }
+                else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Carrier)
+                {
+                    unit = std::make_shared<MyCarrier>(bwapiUnit);
                     unit->created();
                 }
                 else
@@ -372,6 +492,7 @@ namespace Units
         // Update visible enemy units
         for (auto bwapiUnit : BWAPI::Broodwar->enemy()->getUnits())
         {
+            if (ignoreUnit(bwapiUnit)) continue;
             if (!bwapiUnit->isVisible()) continue;
 
 #if DEBUG_ENEMY_STATUS
@@ -485,6 +606,8 @@ namespace Units
             enemyUnitDestroyed(unit);
         }
 
+        assignEnemyUnitsToBases();
+
         // Occasionally check for any inconsistencies in the enemy unit collections
         if (BWAPI::Broodwar->getFrameCount() % 48 == 0)
         {
@@ -584,6 +707,9 @@ namespace Units
 #endif
 #if DEBUG_SHUTTLE_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Shuttle;
+#endif
+#if DEBUG_CARRIER_STATUS
+            output = output || unit->type == BWAPI::UnitTypes::Protoss_Carrier;
 #endif
 #if DEBUG_OBSERVER_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Observer;
@@ -797,27 +923,27 @@ namespace Units
         return nullptr;
     }
 
-    std::set<MyUnit> &allMine()
+    std::unordered_set<MyUnit> &allMine()
     {
         return myUnits;
     }
 
-    std::set<MyUnit> &allMineCompletedOfType(BWAPI::UnitType type)
+    std::unordered_set<MyUnit> &allMineCompletedOfType(BWAPI::UnitType type)
     {
         return myCompletedUnitsByType[type];
     }
 
-    std::set<MyUnit> &allMineIncompleteOfType(BWAPI::UnitType type)
+    std::unordered_set<MyUnit> &allMineIncompleteOfType(BWAPI::UnitType type)
     {
         return myIncompleteUnitsByType[type];
     }
 
-    std::set<Unit> &allEnemy()
+    std::unordered_set<Unit> &allEnemy()
     {
         return enemyUnits;
     }
 
-    std::set<Unit> &allEnemyOfType(BWAPI::UnitType type)
+    std::unordered_set<Unit> &allEnemyOfType(BWAPI::UnitType type)
     {
         return enemyUnitsByType[type];
     }
@@ -865,6 +991,11 @@ namespace Units
             if (unit->lastPositionValid && BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)
                 units.insert(unit);
         }
+    }
+
+    std::unordered_set<Unit> &enemyAtBase(Base *base)
+    {
+        return basesToEnemyUnits[base];
     }
 
     int countAll(BWAPI::UnitType type)

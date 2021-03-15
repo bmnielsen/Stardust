@@ -74,24 +74,36 @@ bool UnitImpl::isTransport() const
            (type == BWAPI::UnitTypes::Zerg_Overlord && Players::upgradeLevel(player, BWAPI::UpgradeTypes::Ventral_Sacs) > 0);
 }
 
+bool UnitImpl::needsDetection() const
+{
+    if (type == BWAPI::UnitTypes::Zerg_Lurker || type == BWAPI::UnitTypes::Zerg_Lurker_Egg) return true;
+    if (type.hasPermanentCloak()) return true;
+    if (type.isCloakable() && Players::hasResearched(player, type.cloakingTech())) return true;
+    if (type.isBurrowable() && Players::hasResearched(player, BWAPI::TechTypes::Burrowing)) return true;
+
+    return false;
+}
+
 int UnitImpl::groundRange() const
 {
-    auto weaponUnitType = type;
-    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+    if (type == BWAPI::UnitTypes::Protoss_Carrier || type == BWAPI::UnitTypes::Protoss_Reaver) return 256;
+    if (type == BWAPI::UnitTypes::Terran_Bunker)
+    {
+        return Players::weaponRange(player, BWAPI::UnitTypes::Terran_Marine.groundWeapon()) + 48;
+    }
 
-    int range = Players::weaponRange(player, weaponUnitType.groundWeapon());
-    if (type == BWAPI::UnitTypes::Terran_Bunker) range += 48;
-    return range;
+    return Players::weaponRange(player, type.groundWeapon());
 }
 
 int UnitImpl::airRange() const
 {
-    auto weaponUnitType = type;
-    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+    if (type == BWAPI::UnitTypes::Protoss_Carrier) return 256;
+    if (type == BWAPI::UnitTypes::Terran_Bunker)
+    {
+        return Players::weaponRange(player, BWAPI::UnitTypes::Terran_Marine.airWeapon()) + 48;
+    }
 
-    int range = Players::weaponRange(player, weaponUnitType.airWeapon());
-    if (type == BWAPI::UnitTypes::Terran_Bunker) range += 48;
-    return range;
+    return Players::weaponRange(player, type.airWeapon());
 }
 
 int UnitImpl::range(const Unit &target) const
@@ -103,6 +115,8 @@ BWAPI::WeaponType UnitImpl::getWeapon(const Unit &target) const
 {
     auto weaponUnitType = type;
     if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+    if (type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
+    if (type == BWAPI::UnitTypes::Protoss_Reaver) weaponUnitType = BWAPI::UnitTypes::Protoss_Scarab;
 
     return target->isFlying ? UnitUtil::GetAirWeapon(weaponUnitType) : UnitUtil::GetGroundWeapon(weaponUnitType);
 }

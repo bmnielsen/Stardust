@@ -1,10 +1,13 @@
 #include <Strategist/Plays/MainArmy/DefendMyMain.h>
 #include <Strategist/Plays/MainArmy/AttackEnemyBase.h>
+#include <Strategist/Plays/MainArmy/MopUp.h>
+#include <Strategist/Plays/Macro/CullArmy.h>
 #include <Strategist/Plays/Defensive/DefendBase.h>
 #include <Strategist/Plays/Scouting/ScoutEnemyExpos.h>
 #include "StrategyEngine.h"
 
 #include "Map.h"
+#include "Builder.h"
 #include "Units.h"
 #include "UnitUtil.h"
 #include "General.h"
@@ -30,6 +33,272 @@ void StrategyEngine::handleGasStealProduction(std::map<int, std::vector<Producti
                                                                 1,
                                                                 1);
     zealotCount = 1;
+}
+
+void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                              int dragoonCount,
+                                              int zealotCount,
+                                              int zealotsRequired)
+{
+    // Get two zealots at highest priority
+    if ((dragoonCount + zealotCount) < 2)
+    {
+        prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                    BWAPI::UnitTypes::Protoss_Zealot,
+                                                                    -1,
+                                                                    2);
+
+        // Cancel a building cybernetics core unless it is close to being finished or we don't need the minerals
+        // This handles cases where we queue the core shortly before scouting the rush
+        for (const auto &core : Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
+        {
+            if (!core->isConstructionStarted() || (BWAPI::Broodwar->self()->minerals() < 150 && core->expectedFramesUntilCompletion() > 1000))
+            {
+                Log::Get() << "Cancelling " << core->type << "@" << core->tile << " because of recognized rush";
+                Builder::cancel(core->tile);
+            }
+        }
+
+        cancelTrainingUnits(prioritizedProductionGoals,
+                            BWAPI::UnitTypes::Protoss_Dragoon,
+                            2 - (dragoonCount + zealotCount),
+                            BWAPI::UnitTypes::Protoss_Zealot.buildTime());
+    }
+    else if (zealotsRequired > 0)
+    {
+        // If we need to start producing our first dragoons soon, queue one
+        double percentZealotsRequired = (double)zealotsRequired / (double)(zealotCount + zealotsRequired);
+        if (percentZealotsRequired < 0.2 && dragoonCount == 0)
+        {
+            prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                          BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                          1,
+                                                                          1);
+        }
+        else if (percentZealotsRequired > 0.4)
+        {
+            cancelTrainingUnits(prioritizedProductionGoals,
+                                BWAPI::UnitTypes::Protoss_Dragoon,
+                                zealotsRequired,
+                                BWAPI::UnitTypes::Protoss_Zealot.buildTime());
+        }
+
+        prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                      BWAPI::UnitTypes::Protoss_Zealot,
+                                                                      zealotsRequired > 1 ? -1 : 1,
+                                                                      -1);
+    }
+
+    // End with dragoons
+    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                               BWAPI::UnitTypes::Protoss_Dragoon,
+                                                               -1,
+                                                               -1);
+
+    // Upgrade goon range at 2 dragoons unless we are still behind in zealots
+    if (zealotsRequired == 0 || zealotCount > 4)
+    {
+        upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+    }
+}
+
+bool StrategyEngine::handleIslandExpansionProduction(std::vector<std::shared_ptr<Play>> &plays,
+                                                     std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+{
+    auto setCulling = [&plays](int requiredSupply)
+    {
+#if CHERRYVIS_ENABLED
+        CherryVis::setBoardValue("cull", (std::ostringstream() << std::max(0, requiredSupply)).str());
+#endif
+
+        // If we already have a cull army play, update the required supply
+        // If it goes zero or negative, the play will complete itself
+        auto cullArmy = getPlay<CullArmy>(plays);
+        if (cullArmy)
+        {
+            cullArmy->supplyNeeded = requiredSupply;
+            return;
+        }
+
+        // Nothing to do if we don't need supply
+        if (requiredSupply <= 0) return;
+
+        // Create the play
+        plays.emplace(plays.begin(), std::make_shared<CullArmy>(requiredSupply));
+    };
+
+    // Only relevant when the main army is in mop-up mode
+    auto mopUp = getPlay<MopUp>(plays);
+    if (!mopUp)
+    {
+        setCulling(0);
+        return false;
+    }
+
+    // Only relevant when the enemy has at least one island base
+    bool enemyHasIslandBase = false;
+    for (const auto &base : Map::getEnemyBases())
+    {
+        if (base->island)
+        {
+            enemyHasIslandBase = true;
+            break;
+        }
+    }
+    if (!enemyHasIslandBase)
+    {
+        setCulling(0);
+        return false;
+    }
+
+    // Produce up to 10 carriers with relevant upgrades
+    int requiredCarriers = 10 - Units::countAll(BWAPI::UnitTypes::Protoss_Carrier);
+    int weaponLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Air_Weapons);
+    if (weaponLevel < 3)
+    {
+        prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+                                                                                 BWAPI::UpgradeTypes::Protoss_Air_Weapons,
+                                                                                 weaponLevel + 1,
+                                                                                 1);
+    }
+    if (requiredCarriers > 0)
+    {
+        prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                 BWAPI::UnitTypes::Protoss_Carrier,
+                                                                                 requiredCarriers,
+                                                                                 4);
+        upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, 0);
+
+        // Cull our main army if we need the supply
+        setCulling(
+                requiredCarriers * BWAPI::UnitTypes::Protoss_Carrier.supplyRequired() - // Supply needed by the carriers
+                (400 - BWAPI::Broodwar->self()->supplyUsed())); // Supply room
+    }
+    else
+    {
+        setCulling(0);
+    }
+
+    return true;
+}
+
+void StrategyEngine::cancelTrainingUnits(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                         BWAPI::UnitType type,
+                                         int requiredCapacity,
+                                         int remainingTrainingTimeThreshold)
+{
+    if (requiredCapacity < 1) return;
+
+    // Abort if there is emergency production of the unit
+    for (const auto &productionGoal : prioritizedProductionGoals[PRIORITY_EMERGENCY])
+    {
+        if (auto unitProductionGoal = std::get_if<UnitProductionGoal>(&productionGoal))
+        {
+            if (unitProductionGoal->unitType() == type) return;
+        }
+    }
+
+    // Do an initial scan to find our current available production capacity and which producers can cancel a unit
+    std::vector<std::pair<MyUnit, int>> cancellableProducers;
+    for (const auto &producer : Units::allMineCompletedOfType(type.whatBuilds().first))
+    {
+        // Check if the producer is available
+        // To avoid instability from latcom, we assume it is available if we have just ordered it to do something
+        if (!producer->bwapiUnit->isTraining() ||
+            (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+        {
+            requiredCapacity--;
+            continue;
+        }
+
+        // We also consider the producer available if it will be free within the next two seconds, but still fall through to
+        // register it as a cancellable producer to handle the case where we want to cancel everything
+        if (producer->bwapiUnit->getRemainingTrainTime() < 48)
+        {
+            requiredCapacity--;
+        }
+
+        auto trainingQueue = producer->bwapiUnit->getTrainingQueue();
+        if (trainingQueue.empty()) continue;
+        if (*trainingQueue.begin() != type) continue;
+        if (producer->bwapiUnit->getRemainingTrainTime() < remainingTrainingTimeThreshold) continue;
+        cancellableProducers.emplace_back(std::make_pair(producer, producer->bwapiUnit->getRemainingTrainTime()));
+    }
+    for (const auto &producer : Units::allMineIncompleteOfType(type.whatBuilds().first))
+    {
+        if ((producer->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount()) < 60) requiredCapacity--;
+    }
+
+    if (requiredCapacity < 1) return;
+
+    // Cancel the producers longest from being done first
+    std::sort(cancellableProducers.begin(), cancellableProducers.end(), [](const auto &a, const auto &b)
+              {
+                  return a.second > b.second;
+              }
+    );
+
+    for (const auto &producer : cancellableProducers)
+    {
+        Log::Get() << "Cancelling production of " << type << " from " << producer.first->type << " @ " << producer.first->getTilePosition();
+        producer.first->bwapiUnit->cancelTrain(0);
+
+        requiredCapacity--;
+        if (requiredCapacity < 1) return;
+    }
+}
+
+void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                        int dragoonCount,
+                                        int zealotCount,
+                                        int desiredZealots)
+{
+    // If our core is done or we want no zealots just return dragoons
+    if (desiredZealots == 0 || Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0)
+    {
+        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                   -1,
+                                                                   -1);
+        return;
+    }
+
+    // Ensure gas before zealot
+    if (Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0)
+    {
+        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                   1,
+                                                                   -1);
+        return;
+    }
+
+    if (zealotCount == 0)
+    {
+        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   BWAPI::UnitTypes::Protoss_Zealot,
+                                                                   1,
+                                                                   1);
+    }
+    if (dragoonCount == 0)
+    {
+        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                   1,
+                                                                   1);
+    }
+    if (zealotCount < desiredZealots)
+    {
+        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   BWAPI::UnitTypes::Protoss_Zealot,
+                                                                   desiredZealots - zealotCount,
+                                                                   1);
+    }
+
+    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                               BWAPI::UnitTypes::Protoss_Dragoon,
+                                                               -1,
+                                                               -1);
 }
 
 void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
@@ -80,7 +349,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
 
     // First gather the list of bases we want to defend
-    std::map<Base *, std::pair<int, std::set<Unit>>> basesToDefend;
+    std::unordered_map<Base *, int> basesToDefend;
 
     // Don't defend any bases if our main army play is defending our main
     if (mainArmyPlay && typeid(*mainArmyPlay) != typeid(DefendMyMain))
@@ -109,47 +378,8 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
 
             // Gather the enemy units threatening the base
             int enemyValue = 0;
-            std::set<Unit> enemyUnits;
-            for (const auto &unit : Units::allEnemy())
+            for (const auto &unit : Units::enemyAtBase(base))
             {
-                if (!unit->lastPositionValid) continue;
-                if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
-                if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) continue;
-                if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 240)) continue;
-
-                int dist = unit->isFlying
-                           ? unit->lastPosition.getApproxDistance(base->getPosition())
-                           : PathFinding::GetGroundDistance(unit->lastPosition, base->getPosition(), unit->type);
-                if (dist == -1 || dist > 1000) continue;
-
-                // Skip this unit if it is closer to another one of our bases
-                bool closerToOtherBase = false;
-                for (auto &otherBase : Map::getMyBases())
-                {
-                    if (otherBase == base) continue;
-                    int otherBaseDist = unit->isFlying
-                                        ? unit->lastPosition.getApproxDistance(otherBase->getPosition())
-                                        : PathFinding::GetGroundDistance(unit->lastPosition, otherBase->getPosition(), unit->type);
-                    if (otherBaseDist < dist)
-                    {
-                        closerToOtherBase = true;
-                        break;
-                    }
-                }
-                if (closerToOtherBase) continue;
-
-                if (dist > 500)
-                {
-                    auto predictedPosition = unit->predictPosition(5);
-                    if (!predictedPosition.isValid()) continue;
-
-                    int predictedDist = unit->isFlying
-                                        ? predictedPosition.getApproxDistance(base->getPosition())
-                                        : PathFinding::GetGroundDistance(predictedPosition, base->getPosition(), unit->type);
-                    if (predictedDist > dist) continue;
-                }
-
-                enemyUnits.insert(unit);
                 enemyValue += CombatSim::unitValue(unit);
             }
 
@@ -159,7 +389,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
                 continue;
             }
 
-            basesToDefend[base] = std::make_pair(enemyValue, std::move(enemyUnits));
+            basesToDefend[base] = enemyValue;
         }
     }
 
@@ -178,8 +408,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
             continue;
         }
 
-        defendBasePlay->enemyValue = it->second.first;
-        defendBasePlay->enemyUnits = std::move(it->second.second);
+        defendBasePlay->enemyValue = it->second;
 
         basesToDefend.erase(it);
     }
@@ -189,8 +418,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
     {
         plays.emplace(plays.begin(), std::make_shared<DefendBase>(
                 baseToDefend.first,
-                baseToDefend.second.first,
-                std::move(baseToDefend.second.second)));
+                baseToDefend.second));
         CherryVis::log() << "Added defend base play for base @ " << BWAPI::WalkPosition(baseToDefend.first->getPosition());
     }
 }

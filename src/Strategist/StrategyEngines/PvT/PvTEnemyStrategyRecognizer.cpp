@@ -11,6 +11,7 @@ std::map<PvT::TerranStrategy, std::string> PvT::TerranStrategyNames = {
         {TerranStrategy::ProxyRush,     "ProxyRush"},
         {TerranStrategy::MarineRush,    "MarineRush"},
         {TerranStrategy::WallIn,        "WallIn"},
+        {TerranStrategy::BlockScouting, "BlockScouting"},
         {TerranStrategy::FastExpansion, "FastExpansion"},
         {TerranStrategy::TwoFactory,    "TwoFactory"},
         {TerranStrategy::NormalOpening, "Normal"},
@@ -205,8 +206,8 @@ namespace
                    Units::countEnemy(BWAPI::UnitTypes::Terran_Vulture) +
                    Units::countEnemy(BWAPI::UnitTypes::Terran_Goliath);
         int bio = (Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) +
-                  Units::countEnemy(BWAPI::UnitTypes::Terran_Medic) +
-                  Units::countEnemy(BWAPI::UnitTypes::Terran_Firebat)) / 2;
+                   Units::countEnemy(BWAPI::UnitTypes::Terran_Medic) +
+                   Units::countEnemy(BWAPI::UnitTypes::Terran_Firebat)) / 2;
 
         return mech >= bio;
     }
@@ -225,6 +226,13 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 if (isProxy()) return TerranStrategy::ProxyRush;
                 if (isWallIn()) return TerranStrategy::WallIn;
                 if (isFastExpansion()) return TerranStrategy::FastExpansion;
+
+                // If the enemy blocks our scouting, set their strategy accordingly
+                if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingBlocked)
+                {
+                    strategy = TerranStrategy::BlockScouting;
+                    continue;
+                }
 
                 // Two factory
                 if (countAtLeast(BWAPI::UnitTypes::Terran_Factory, 2))
@@ -286,6 +294,26 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;
                 if (isMarineRush()) return TerranStrategy::MarineRush;
                 if (isFastExpansion()) return TerranStrategy::FastExpansion;
+
+                if (isMidGame())
+                {
+                    strategy = TerranStrategy::MidGameMech;
+                    continue;
+                }
+
+                break;
+            case TerranStrategy::BlockScouting:
+                if (isWorkerRush()) return TerranStrategy::WorkerRush;
+                if (isProxy()) return TerranStrategy::ProxyRush;
+                if (isMarineRush()) return TerranStrategy::MarineRush;
+                if (isFastExpansion()) return TerranStrategy::FastExpansion;
+
+                // If we haven't had any evidence of a rush for about 3 1/2 minutes, assume the enemy is opening normally
+                if (BWAPI::Broodwar->getFrameCount() > 5000)
+                {
+                    strategy = TerranStrategy::NormalOpening;
+                    continue;
+                }
 
                 if (isMidGame())
                 {

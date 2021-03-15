@@ -38,6 +38,7 @@ namespace General
 
     void removeSquad(const std::shared_ptr<Squad> &squad)
     {
+        squad->disband();
         squads.erase(squad);
     }
 

@@ -15,14 +15,24 @@ namespace
     const double chokeSideAngleThreshold = pi / 4.0; // 45 degrees
     const double chokeCrossAngleThreshold = pi / 12.0; // 15 degrees
 
+    double normalizeAngle(double angle)
+    {
+        while (angle < 0)
+        {
+            angle += pi;
+        }
+
+        while (angle > pi)
+        {
+            angle -= pi;
+        }
+
+        return angle;
+    }
+
     double angleDiff(double first, double second)
     {
         double diff = std::abs(first - second);
-        while (diff > pi)
-        {
-            diff -= pi;
-        }
-
         return std::min(diff, pi - diff);
     }
 
@@ -49,10 +59,10 @@ namespace
     bool blocksChoke(BWAPI::Position pos, BWAPI::UnitType type)
     {
         BWAPI::Position end1 = Geo::FindClosestUnwalkablePosition(pos, pos, 64);
-        if (!end1.isValid()) return false;
+        if (end1 == BWAPI::Positions::Invalid) return false;
 
         BWAPI::Position end2 = Geo::FindClosestUnwalkablePosition(BWAPI::Position(pos.x + pos.x - end1.x, pos.y + pos.y - end1.y), pos, 32);
-        if (!end2.isValid()) return false;
+        if (end2 == BWAPI::Positions::Invalid) return false;
 
         if (end1.getDistance(end2) < (end1.getDistance(pos) * 1.2)) return false;
 
@@ -194,6 +204,20 @@ Choke::Choke(const BWEM::ChokePoint *_choke)
             computeScoutBlockingPositions(center, BWAPI::UnitTypes::Protoss_Zealot, zealotBlockScoutPositions);
         }
     }
+
+    // If the center is not walkable, find the nearest position that is
+    auto wpCenter = BWAPI::WalkPosition(center);
+    if (!BWAPI::Broodwar->isWalkable(wpCenter))
+    {
+        auto spiral = Geo::Spiral();
+        while (wpCenter.isValid() && !BWAPI::Broodwar->isWalkable(wpCenter))
+        {
+            spiral.Next();
+            wpCenter = BWAPI::WalkPosition(center) + BWAPI::WalkPosition(spiral.x, spiral.y);
+        }
+
+        center = BWAPI::Position(wpCenter) + BWAPI::Position(2, 2);
+    }
 }
 
 void Choke::setAsMainChoke()
@@ -216,21 +240,17 @@ void Choke::analyzeNarrowChoke()
 
     // Start by getting the sides closest to BWEM's center
     BWAPI::Position side1 = Geo::FindClosestUnwalkablePosition(center, center, 64 + width / 2);
-    if (!side1.isValid()) return;
+    if (side1 == BWAPI::Positions::Invalid) return;
 
     BWAPI::Position side2 = Geo::FindClosestUnwalkablePosition(center, center, 64 + width / 2, side1);
-    if (!side2.isValid()) return;
+    if (side2 == BWAPI::Positions::Invalid) return;
 
 #if DEBUG_NARROW_CHOKE_ANALYSIS
-    Log::Debug() << "Analyzing choke with initial center @ " << BWAPI::WalkPosition(center);
+    Log::Get() << "Analyzing choke with initial center @ " << BWAPI::WalkPosition(center);
 #endif
 
     // Compute the approximate angle of the choke
-    double angle = atan2(side1.y - side2.y, side1.x - side2.x) + (pi / 2.0);
-    while (angle < 0)
-    {
-        angle += pi;
-    }
+    double angle = normalizeAngle(atan2(side1.y - side2.y, side1.x - side2.x) + (pi / 2.0));
 
     // Now find the walls of the choke by tracing along each side, collecting walk positions that follow the approximate choke angle
     auto traceChokeSide = [&angle](std::set<BWAPI::WalkPosition> &positions, BWAPI::WalkPosition initialPosition)
@@ -268,7 +288,7 @@ void Choke::analyzeNarrowChoke()
             // Compare the angle of this position to the closest existing position to the expected angle of the choke
             if (closest != BWAPI::WalkPositions::Invalid)
             {
-                double angleHere = atan2(pos.y - closest.y, pos.x - closest.x);
+                double angleHere = normalizeAngle(atan2(pos.y - closest.y, pos.x - closest.x));
                 double diff = angleDiff(angleHere, angle);
                 if (diff < chokeSideAngleThreshold)
                 {
@@ -290,11 +310,7 @@ void Choke::analyzeNarrowChoke()
             auto createNeighbour = [&pos](int x, int y)
             {
                 BWAPI::WalkPosition here(pos.x + x, pos.y + y);
-                if (!here.isValid())
-                {
-                    return std::make_pair(BWAPI::WalkPositions::Invalid, false);
-                }
-                return std::make_pair(here, BWAPI::Broodwar->isWalkable(here));
+                return std::make_pair(here, here.isValid() && BWAPI::Broodwar->isWalkable(here));
             };
 
             std::pair<BWAPI::WalkPosition, bool> neighbours[] = {
@@ -312,7 +328,6 @@ void Choke::analyzeNarrowChoke()
 
             for (int i = 1; i < 9; i++)
             {
-                if (neighbours[i].first == BWAPI::WalkPositions::Invalid) continue;
                 if (neighbours[i].second) continue;
                 if (!neighbours[i - 1].second && !neighbours[i + 1].second) continue;
                 queue.push_back(neighbours[i].first);
@@ -345,8 +360,8 @@ void Choke::analyzeNarrowChoke()
         }
     };
     std::set<BWAPI::WalkPosition> side1Positions, side2Positions;
-    traceChokeSide(side1Positions, BWAPI::WalkPosition(side1));
-    traceChokeSide(side2Positions, BWAPI::WalkPosition(side2));
+    traceChokeSide(side1Positions, BWAPI::WalkPosition(side1.x >> 3, side1.y >> 3));
+    traceChokeSide(side2Positions, BWAPI::WalkPosition(side2.x >> 3, side2.y >> 3));
 
     // Get the choke width at each point on each side
     auto addWidthIfSmaller = [](std::map<BWAPI::WalkPosition, std::pair<int, BWAPI::WalkPosition>> &widths,
@@ -395,27 +410,35 @@ void Choke::analyzeNarrowChoke()
     trimWidePositions(side2Width, side2Positions);
 
     // Find the angle at the minimum width
-    double angleAccumulator = 0.0;
+    double angleX = 0.0;
+    double angleY = 0.0;
     int angleCount = 0;
     int widthCutoff = (int) ((double) minWidth * 1.05);
     for (auto posAndWidthAndOther : side1Width)
     {
         if (posAndWidthAndOther.second.first <= widthCutoff)
         {
-#if DEBUG_NARROW_CHOKE_ANALYSIS
-            Log::Debug() << "Min width angle taken from " << posAndWidthAndOther.first << " to " << posAndWidthAndOther.second.second;
-#endif
 
-            angleAccumulator += atan2(posAndWidthAndOther.first.y - posAndWidthAndOther.second.second.y,
-                                      posAndWidthAndOther.first.x - posAndWidthAndOther.second.second.x);
+            auto thisAngle = atan2(posAndWidthAndOther.first.y - posAndWidthAndOther.second.second.y,
+                                   posAndWidthAndOther.first.x - posAndWidthAndOther.second.second.x);
+            angleX += sin(thisAngle);
+            angleY += cos(thisAngle);
             angleCount++;
+
+#if DEBUG_NARROW_CHOKE_ANALYSIS
+            Log::Debug() << "Min width angle from " << posAndWidthAndOther.first << " to " << posAndWidthAndOther.second.second
+                       << "; angle: " << (thisAngle * 180.0 / pi);
+#endif
         }
     }
-    angle = angleAccumulator / (double) angleCount;
-    while (angle < 0)
+
+    if (angleCount == 0)
     {
-        angle += pi;
+        Log::Get() << "ERROR: Could not compute angle of choke @ " << BWAPI::WalkPosition(center);
+        return;
     }
+
+    angle = normalizeAngle(atan2(angleX / (double) angleCount, angleY / (double) angleCount));
 
     // Trim positions where the angle is much different than the minimum width angle
     auto trimCrookedPositions = [&angle](std::map<BWAPI::WalkPosition, std::pair<int, BWAPI::WalkPosition>> &widths,
@@ -424,7 +447,7 @@ void Choke::analyzeNarrowChoke()
         for (auto it = positions.begin(); it != positions.end();)
         {
             auto other = widths[*it].second;
-            double angleHere = atan2(it->y - other.y, it->x - other.x);
+            double angleHere = normalizeAngle(atan2(it->y - other.y, it->x - other.x));
             if (angleDiff(angle, angleHere) > chokeCrossAngleThreshold)
             {
 #if DEBUG_NARROW_CHOKE_ANALYSIS
@@ -450,9 +473,6 @@ void Choke::analyzeNarrowChoke()
         return;
     }
 
-    // At this point we know we have sufficient data to call this a narrow choke
-    isNarrowChoke = true;
-
     // Now find the corners by getting the pairs of positions on each side that are furthest from each other
     auto findFurthestPositions = [](std::set<BWAPI::WalkPosition> &positions, BWAPI::WalkPosition (&corners)[2])
     {
@@ -476,8 +496,8 @@ void Choke::analyzeNarrowChoke()
     findFurthestPositions(side2Positions, wpSide2Ends);
 
     // Align the ends
-    double end1Angle = atan2(wpSide1Ends[0].y - wpSide2Ends[0].y, wpSide1Ends[0].x - wpSide2Ends[0].x);
-    double end2Angle = atan2(wpSide1Ends[0].y - wpSide2Ends[1].y, wpSide1Ends[0].x - wpSide2Ends[1].x);
+    double end1Angle = normalizeAngle(atan2(wpSide1Ends[0].y - wpSide2Ends[0].y, wpSide1Ends[0].x - wpSide2Ends[0].x));
+    double end2Angle = normalizeAngle(atan2(wpSide1Ends[0].y - wpSide2Ends[1].y, wpSide1Ends[0].x - wpSide2Ends[1].x));
     if (angleDiff(angle, end1Angle) > angleDiff(angle, end2Angle))
     {
         BWAPI::WalkPosition tmp = wpSide2Ends[0];
@@ -515,23 +535,34 @@ void Choke::analyzeNarrowChoke()
     end1Exit = end1Center + Geo::ScaleVector(end1Center - end2Center, 32);
     end2Exit = end2Center + Geo::ScaleVector(end2Center - end1Center, 32);
 
+    // In order to allow analysis of chokes along the map edges, we allow the sides and corners to be off the map
+    // If any of the computed results are invalid though, we bail out now
+    if (!end1Center.isValid() || !end2Center.isValid() || !end1Exit.isValid() || !end2Exit.isValid())
+    {
+        Log::Get() << "WARNING: Choke positions out of bounds for choke @ " << BWAPI::WalkPosition(center);
+        return;
+    }
+
+    // We can now officially mark this as an analyzed narrow choke
+    isNarrowChoke = true;
+
     // The minimum width computed earlier is done with walk tiles, so adjust it a bit to approximate the actual width
     width = minWidth - 8;
 
     // Compute the length
-    length = (int)end1Center.getDistance(end2Center);
+    length = (int) end1Center.getDistance(end2Center);
 
     // Initialize the center as the centroid of the corners, then pull it to the center of the choke at that location
     center = (side1Ends[0] + side1Ends[1] + side2Ends[0] + side2Ends[1]) / 4;
     BWAPI::Position centerSide1 = Geo::FindClosestUnwalkablePosition(center, center, 64);
-    if (centerSide1.isValid())
+    if (centerSide1 != BWAPI::Positions::Invalid)
     {
         BWAPI::Position centerSide2 = Geo::FindClosestUnwalkablePosition(BWAPI::Position(center.x + center.x - centerSide1.x,
                                                                                          center.y + center.y - centerSide1.y),
                                                                          center,
                                                                          64,
                                                                          centerSide1);
-        if (centerSide2.isValid()) center = (centerSide1 + centerSide2) / 2;
+        if (centerSide2 != BWAPI::Positions::Invalid) center = (centerSide1 + centerSide2) / 2;
     }
 
     // Now calculate the choke tiles
@@ -579,6 +610,8 @@ void Choke::analyzeNarrowChoke()
     {
         auto addPosition = [&](BWAPI::Position pos)
         {
+            if (!pos.isValid()) return;
+
             auto tile = HalfTile(pos.x >> 4U, pos.y >> 4U);
             tileSide[tile.index()] = side;
 
@@ -684,9 +717,9 @@ void Choke::analyzeNarrowChoke()
                           BWAPI::Broodwar->mapHeight() * 4);
 
     std::vector<long> chokeSideData(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4);
-    for (int x = 0; x < BWAPI::Broodwar->mapWidth() * 2; x++)
+    for (int y = 0; y < BWAPI::Broodwar->mapHeight() * 2; y++)
     {
-        for (int y = 0; y < BWAPI::Broodwar->mapHeight() * 2; y++)
+        for (int x = 0; x < BWAPI::Broodwar->mapWidth() * 2; x++)
         {
             chokeSideData[x + y * (BWAPI::Broodwar->mapWidth() * 2)] = tileSide[x + y * (BWAPI::Broodwar->mapWidth() * 2)];
         }
@@ -740,10 +773,10 @@ void Choke::computeNarrowRampHighGroundPosition()
     const auto inChokeCenter = [](BWAPI::Position pos)
     {
         BWAPI::Position end1 = Geo::FindClosestUnwalkablePosition(pos, pos, 64);
-        if (!end1.isValid()) return false;
+        if (end1 == BWAPI::Positions::Invalid) return false;
 
         BWAPI::Position end2 = Geo::FindClosestUnwalkablePosition(BWAPI::Position(pos.x + pos.x - end1.x, pos.y + pos.y - end1.y), pos, 32);
-        if (!end2.isValid()) return false;
+        if (end2 == BWAPI::Positions::Invalid) return false;
 
         if (end1.getDistance(end2) < end1.getDistance(pos)) return false;
 
@@ -834,12 +867,12 @@ void Choke::computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitTyp
 
     // First grab the ends of the choke at the given center point
     BWAPI::Position end1 = Geo::FindClosestUnwalkablePosition(center, center, 64);
-    if (!end1.isValid()) return;
+    if (end1 == BWAPI::Positions::Invalid) return;
 
     BWAPI::Position end2 = Geo::FindClosestUnwalkablePosition(BWAPI::Position(center.x + center.x - end1.x, center.y + center.y - end1.y),
                                                               center,
                                                               32);
-    if (!end2.isValid()) return;
+    if (end2 == BWAPI::Positions::Invalid) return;
 
     if (end1.getDistance(end2) < (end1.getDistance(center) * 1.2)) return;
 

@@ -81,6 +81,16 @@ namespace
 
     bool isZerglingAllIn()
     {
+        // Expect a ling all-in if the enemy builds two in-base hatches on a low worker count
+        if (BWAPI::Broodwar->getFrameCount() < 5000 &&
+            Units::countEnemy(BWAPI::UnitTypes::Zerg_Spawning_Pool) > 0 &&
+            Units::countEnemy(BWAPI::UnitTypes::Zerg_Hatchery) > 2 &&
+            Units::countEnemy(BWAPI::UnitTypes::Zerg_Drone) < 15 &&
+            !Map::getEnemyStartingNatural()->owner)
+        {
+            return true;
+        }
+
         if (BWAPI::Broodwar->getFrameCount() < 6000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 4000, 8) ||

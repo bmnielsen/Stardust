@@ -35,9 +35,9 @@ namespace
 #if CHERRYVIS_ENABLED
         // Dump to CherryVis
         std::vector<long> noGoAreaTilesCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
         {
-            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
             {
                 noGoAreaTilesCVis[x + y * BWAPI::Broodwar->mapWidth()] = noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()];
             }
@@ -182,13 +182,15 @@ namespace NoGoAreas
 
     void addBox(BWAPI::TilePosition topLeft, BWAPI::TilePosition size)
     {
-        for (int x = topLeft.x; x < topLeft.x + size.x; x++)
-        {
-            if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
+        auto bottomRight = topLeft + size;
 
-            for (int y = topLeft.y; y < topLeft.y + size.y; y++)
+        for (int y = topLeft.y; y < bottomRight.y; y++)
+        {
+            if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
+
+            for (int x = topLeft.x; x < bottomRight.x; x++)
             {
-                if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
+                if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
 
                 noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()]++;
             }
@@ -199,13 +201,15 @@ namespace NoGoAreas
 
     void removeBox(BWAPI::TilePosition topLeft, BWAPI::TilePosition size)
     {
-        for (int x = topLeft.x; x < topLeft.x + size.x; x++)
-        {
-            if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
+        auto bottomRight = topLeft + size;
 
-            for (int y = topLeft.y; y < topLeft.y + size.y; y++)
+        for (int y = topLeft.y; y < bottomRight.y; y++)
+        {
+            if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
+
+            for (int x = topLeft.x; x < bottomRight.x; x++)
             {
-                if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
+                if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
 
                 noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()]--;
             }
@@ -276,7 +280,7 @@ namespace NoGoAreas
 
         if (bullet->getType() == BWAPI::BulletTypes::Subterranean_Spines)
         {
-            auto direction = Geo::ScaleVector(BWAPI::Position((int)bullet->getVelocityX(), (int)bullet->getVelocityY()), 192);
+            auto direction = Geo::ScaleVector(BWAPI::Position((int) bullet->getVelocityX(), (int) bullet->getVelocityY()), 192);
             if (direction != BWAPI::Positions::Invalid)
             {
                 addDirectedBox(bullet->getPosition(), bullet->getPosition() + direction, 50, bullet);

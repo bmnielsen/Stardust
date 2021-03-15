@@ -34,20 +34,6 @@ namespace
 
         return node;
     }
-
-    bool isNextToUnwalkableTerrain(BWAPI::TilePosition pos)
-    {
-        for (int x = -1; x <= 1; x++)
-        {
-            for (int y = -1; y <= 1; y++)
-            {
-                auto here = pos + BWAPI::TilePosition(x, y);
-                if (here.isValid() && !Map::isWalkable(here)) return true;
-            }
-        }
-
-        return false;
-    }
 }
 
 void MyUnitImpl::moveTo(BWAPI::Position position, bool direct)
@@ -141,7 +127,7 @@ void MyUnitImpl::resetMoveData()
 void MyUnitImpl::moveToNextWaypoint()
 {
     // Current grid node is close to the target
-    if (gridNode && gridNode->cost <= 30)
+    if (gridNode && gridNode->cost <= 90)
     {
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Order: Reached end of grid " << grid->goal;
@@ -370,7 +356,7 @@ void MyUnitImpl::resetGrid()
                 if (grid)
                 {
                     auto &node = (*grid)[getTilePosition()];
-                    if (!node.nextNode || node.cost < 30)
+                    if (!node.nextNode || node.cost < 90)
                     {
                         grid = nullptr;
                     }
@@ -466,7 +452,7 @@ bool MyUnitImpl::unstickMoveUnit()
     }
 
     // We are stuck. If we are close to unwalkable terrain, move along it to get us moving again.
-    if (isNextToUnwalkableTerrain(getTilePosition()))
+    if (Map::unwalkableProximity(tilePositionX, tilePositionY) < 2)
     {
         // Scores the distance from a neighbouring tile to the target position
         // Prefers tiles that are farther away from unwalkable terrain
@@ -479,7 +465,7 @@ bool MyUnitImpl::unstickMoveUnit()
 
             auto position = BWAPI::Position(tile) + BWAPI::Position(16, 16);
             int dist = currentCommand.getTargetPosition().getApproxDistance(position);
-            if (Map::unwalkableProximity(tile.x, tile.y) > 0) dist /= 2;
+            if (Map::unwalkableProximity(tile.x, tile.y) > 1) dist /= 2;
             if (dist < bestDist)
             {
                 bestDist = dist;

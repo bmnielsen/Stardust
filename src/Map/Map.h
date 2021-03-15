@@ -12,13 +12,21 @@ namespace Map
 {
     void initialize();
 
+    void initializeWalkability();
+
     void onUnitCreated(const Unit &unit);
+
+    void onUnitCreated_Walkability(const Unit &unit);
 
     void onUnitDiscover(BWAPI::Unit unit);
 
     void onUnitDestroy(const Unit &unit);
 
     void onUnitDestroy(BWAPI::Unit unit);
+
+    void onUnitDestroy_Walkability(const Unit &unit);
+
+    void onUnitDestroy_Walkability(BWAPI::Unit unit);
 
     void onBuildingLifted(BWAPI::UnitType type, BWAPI::TilePosition tile);
 
@@ -76,6 +84,8 @@ namespace Map
 
     void dumpVisibilityHeatmap();
 
+    void dumpWalkability();
+
     // Walkable tiles are defined here as:
     // - All of its contained walk positions are walkable according to BWAPI
     // - It is not occupied by a building
@@ -83,7 +93,9 @@ namespace Map
 
     bool isWalkable(int x, int y);
 
-    int unwalkableProximity(int x, int y);
+    unsigned short unwalkableProximity(int x, int y);
+
+    unsigned short walkableWidth(int x, int y);
 
     BWAPI::Position collisionVector(int x, int y);
 

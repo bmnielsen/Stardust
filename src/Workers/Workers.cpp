@@ -20,7 +20,7 @@ namespace Workers
             None, Minerals, Gas, Reserved
         };
 
-        int _desiredGasWorkers;
+        int _desiredGasWorkerDelta;
         std::map<MyUnit, Job> workerJob;
         std::map<MyUnit, Base *> workerBase;
         std::map<Base *, std::set<MyUnit>> baseWorkers;
@@ -74,7 +74,7 @@ namespace Workers
 
         int availableGasAssignmentsAtBase(Base *base)
         {
-            if (base->owner != BWAPI::Broodwar->self()) return 0;
+            if (!base || base->owner != BWAPI::Broodwar->self()) return 0;
             if (!base->resourceDepot || !base->resourceDepot->exists()) return 0;
 
             int count = 0;
@@ -145,17 +145,33 @@ namespace Workers
         }
 
         // Assign a worker to the closest base with either free mineral or gas assignments depending on job
-        Base *assignBase(const MyUnit &unit, Job job)
+        Base *assignBaseAndJob(const MyUnit &unit, Job preferredJob)
         {
             // TODO: Prioritize empty bases over nearly-full bases
             // TODO: Consider whether or not there is a safe path to the base
 
             int bestFrames = INT_MAX;
             Base *bestBase = nullptr;
+            bool bestHasPreferredJob = false;
             for (auto &base : Map::allBases())
             {
-                if (job == Job::Minerals && availableMineralAssignmentsAtBase(base) <= 0) continue;
-                if (job == Job::Gas && availableGasAssignmentsAtBase(base) <= 0) continue;
+                bool hasPreferred, hasNonPreferred;
+                if (preferredJob == Job::Minerals)
+                {
+                    hasPreferred = availableMineralAssignmentsAtBase(base) > 0;
+                    if (bestHasPreferredJob && !hasPreferred) continue;
+
+                    hasNonPreferred = availableGasAssignmentsAtBase(base) > 0;
+                }
+                else
+                {
+                    hasPreferred = availableGasAssignmentsAtBase(base) > 0;
+                    if (bestHasPreferredJob && !hasPreferred) continue;
+
+                    hasNonPreferred = availableMineralAssignmentsAtBase(base) > 0;
+                }
+
+                if (!hasPreferred && !hasNonPreferred) continue;
 
                 int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
                                                              base->getPosition(),
@@ -167,10 +183,11 @@ namespace Workers
                 if (!base->resourceDepot->completed)
                     frames = std::max(frames, base->resourceDepot->bwapiUnit->getRemainingBuildTime());
 
-                if (frames < bestFrames)
+                if (frames < bestFrames || (hasPreferred && !bestHasPreferredJob))
                 {
                     bestFrames = frames;
                     bestBase = base;
+                    bestHasPreferredJob = hasPreferred;
                 }
             }
 
@@ -178,6 +195,24 @@ namespace Workers
             {
                 workerBase[unit] = bestBase;
                 baseWorkers[bestBase].insert(unit);
+
+                auto job = bestHasPreferredJob ? preferredJob : (preferredJob == Job::Minerals ? Job::Gas : Job::Minerals);
+
+#if CHERRYVIS_ENABLED
+                if (workerJob[unit] != job)
+                {
+                    if (job == Job::Minerals)
+                    {
+                        CherryVis::log(unit->id) << "Assigned to Minerals";
+                    }
+                    else
+                    {
+                        CherryVis::log(unit->id) << "Assigned to Gas";
+                    }
+                }
+#endif
+
+                workerJob[unit] = job;
             }
 
             return bestBase;
@@ -285,12 +320,9 @@ namespace Workers
 
             if (bestWorker)
             {
-                workerJob[bestWorker] = Job::Gas;
                 removeFromResource(bestWorker, workerMineralPatch, mineralPatchWorkers);
-                assignBase(bestWorker, Job::Gas);
+                assignBaseAndJob(bestWorker, Job::Gas);
                 assignRefinery(bestWorker);
-
-                CherryVis::log(bestWorker->id) << "Assigned to Gas";
             }
         }
 
@@ -311,7 +343,7 @@ namespace Workers
 
     void initialize()
     {
-        _desiredGasWorkers = 0;
+        _desiredGasWorkerDelta = 0;
         workerJob.clear();
         workerBase.clear();
         baseWorkers.clear();
@@ -359,82 +391,54 @@ namespace Workers
         {
             if (!worker->type.isWorker()) continue;
             if (!worker->completed) continue;
+            if (workerJob[worker] == Job::Reserved) continue;
 
-            switch (workerJob[worker])
+            if (workerJob[worker] == Job::Minerals)
             {
-                case Job::None:
-                    workerJob[worker] = Job::Minerals;
-                    CherryVis::log(worker->id) << "Assigned to Minerals";
-                    // Fall-through
+                // If the worker is already assigned to a mineral patch, we don't need to do any more
+                auto mineralPatch = workerMineralPatch[worker];
+                if (mineralPatch) continue;
 
-                case Job::Minerals:
+                // Release from assigned base if it is mined out
+                auto base = workerBase[worker];
+                if (base && availableMineralAssignmentsAtBase(base) <= 0)
                 {
-                    // If the worker is already assigned to a mineral patch, we don't need to do any more
-                    auto mineralPatch = workerMineralPatch[worker];
-                    if (mineralPatch) continue;
-
-                    // Release from assigned base if it is mined out
-                    auto base = workerBase[worker];
-                    if (base && availableMineralAssignmentsAtBase(base) <= 0)
-                    {
-                        baseWorkers[base].erase(worker);
-                        workerBase[worker] = nullptr;
-                        base = nullptr;
-                    }
-
-                    // If the worker doesn't have an assigned base, assign it one
-                    if (!base || !base->resourceDepot || !base->resourceDepot->exists())
-                    {
-                        base = assignBase(worker, Job::Minerals);
-
-                        // Maybe we have no more with available patches
-                        if (!base)
-                        {
-                            workerJob[worker] = Job::None;
-                            continue;
-                        }
-                    }
-
-                    // Assign a mineral patch if it is close to its assigned base
-                    if (worker->getDistance(base->getPosition()) <= 300)
-                    {
-                        assignMineralPatch(worker);
-                    }
-
-                    break;
+                    baseWorkers[base].erase(worker);
+                    workerBase[worker] = nullptr;
+                    base = nullptr;
                 }
-                case Job::Gas:
+            }
+            else if (workerJob[worker] == Job::Gas)
+            {
+                // If the worker is already assigned to a refinery, we don't need to do any more
+                auto refinery = workerRefinery[worker];
+                if (refinery && refinery->exists()) continue;
+            }
+
+            // If the worker doesn't have an assigned base, assign it one
+            auto base = workerBase[worker];
+            if (!base || !base->resourceDepot || !base->resourceDepot->exists())
+            {
+                base = assignBaseAndJob(worker, (workerJob[worker] == Job::Gas) ? Job::Gas : Job::Minerals);
+
+                // Maybe we have none
+                if (!base)
                 {
-                    // If the worker is already assigned to a refinery, we don't need to do any more
-                    auto refinery = workerRefinery[worker];
-                    if (refinery && refinery->exists()) continue;
-
-                    // If the worker doesn't have an assigned base, assign it one
-                    auto base = workerBase[worker];
-                    if (!base || !base->resourceDepot || !base->resourceDepot->exists())
-                    {
-                        base = assignBase(worker, Job::Gas);
-
-                        // Maybe we have no more with available gas
-                        if (!base)
-                        {
-                            workerJob[worker] = Job::None;
-                            continue;
-                        }
-                    }
-
-                    // Assign a refinery if it is close to its assigned base
-                    if (worker->getDistance(base->getPosition()) <= 300)
-                    {
-                        assignRefinery(worker);
-                    }
-
-                    break;
+                    workerJob[worker] = Job::None;
+                    continue;
                 }
-                default:
+            }
+
+            // Assign a resource when the worker is close enough to the base
+            if (worker->getDistance(base->getPosition()) <= 300)
+            {
+                if (workerJob[worker] == Job::Minerals)
                 {
-                    // Nothing needed for other cases
-                    break;
+                    assignMineralPatch(worker);
+                }
+                else
+                {
+                    assignRefinery(worker);
                 }
             }
         }
@@ -443,12 +447,11 @@ namespace Workers
     void issueOrders()
     {
         // Adjust number of gas workers to desired count
-        auto workers = gasWorkers();
-        for (int i = workers.first + workers.second; i < _desiredGasWorkers; i++)
+        for (int i = 0; i < _desiredGasWorkerDelta; i++)
         {
             assignGasWorker();
         }
-        for (int i = workers.first + workers.second; i > _desiredGasWorkers; i--)
+        for (int i = 0; i > _desiredGasWorkerDelta; i--)
         {
             removeGasWorker();
         }
@@ -456,11 +459,14 @@ namespace Workers
         for (auto &pair : workerJob)
         {
             if (pair.second == Job::Reserved) continue;
-            
+
             auto &worker = pair.first;
 
             if (NoGoAreas::isNoGo(worker->getTilePosition()))
             {
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(worker->id) << "Moving to avoid no-go area";
+#endif
                 worker->moveTo(Boids::AvoidNoGoArea(worker.get()));
                 continue;
             }
@@ -713,8 +719,12 @@ namespace Workers
     std::vector<MyUnit> getBaseWorkers(Base *base)
     {
         std::vector<MyUnit> result;
-        result.reserve(baseWorkers[base].size());
-        for (auto &worker : baseWorkers[base])
+
+        auto baseAndWorkersIt = baseWorkers.find(base);
+        if (baseAndWorkersIt == baseWorkers.end()) return result;
+
+        result.reserve(baseAndWorkersIt->second.size());
+        for (auto &worker : baseAndWorkersIt->second)
         {
             result.push_back(worker);
         }
@@ -724,7 +734,11 @@ namespace Workers
     int baseMineralWorkerCount(Base *base)
     {
         int result = 0;
-        for (auto &worker : baseWorkers[base])
+
+        auto baseAndWorkersIt = baseWorkers.find(base);
+        if (baseAndWorkersIt == baseWorkers.end()) return result;
+
+        for (auto &worker : baseAndWorkersIt->second)
         {
             auto it = workerJob.find(worker);
             if (it != workerJob.end() && it->second == Job::Minerals) result++;
@@ -734,7 +748,10 @@ namespace Workers
 
     void reserveBaseWorkers(std::vector<MyUnit> &workers, Base *base)
     {
-        for (auto &worker : baseWorkers[base])
+        auto baseAndWorkersIt = baseWorkers.find(base);
+        if (baseAndWorkersIt == baseWorkers.end()) return;
+
+        for (auto &worker : baseAndWorkersIt->second)
         {
             workers.push_back(worker);
         }
@@ -748,6 +765,8 @@ namespace Workers
     void reserveWorker(const MyUnit &unit)
     {
         if (!unit || !unit->exists() || !unit->type.isWorker() || !unit->completed) return;
+
+        if (workerJob[unit] == Job::Reserved) return;
 
         workerJob[unit] = Job::Reserved;
         removeFromResource(unit, workerMineralPatch, mineralPatchWorkers);
@@ -775,14 +794,22 @@ namespace Workers
         return count;
     }
 
-    void addDesiredGasWorkers(int gasWorkers)
+    int availableGasAssignments(Base *base)
     {
-        _desiredGasWorkers += gasWorkers;
+        if (base) return availableGasAssignmentsAtBase(base);
+
+        int count = 0;
+        for (auto &myBase : Map::getMyBases())
+        {
+            count += availableGasAssignmentsAtBase(myBase);
+        }
+
+        return count;
     }
 
-    int desiredGasWorkers()
+    void setDesiredGasWorkerDelta(int gasWorkerDelta)
     {
-        return _desiredGasWorkers;
+        _desiredGasWorkerDelta = gasWorkerDelta;
     }
 
     int mineralWorkers()
@@ -822,6 +849,57 @@ namespace Workers
         }
 
         CherryVis::setBoardValue("gasWorkers", (std::ostringstream() << result.first << ":" << result.second).str());
+        return result;
+    }
+
+    int reassignableMineralWorkers()
+    {
+        auto result = 0;
+        for (auto &baseAndWorkers : baseWorkers)
+        {
+            if (!baseAndWorkers.first || baseAndWorkers.first->owner != BWAPI::Broodwar->self()) continue;
+            if (!baseAndWorkers.first->resourceDepot || !baseAndWorkers.first->resourceDepot->exists()) return 0;
+
+            int gasAvailable = 0;
+            for (const auto &refinery : baseAndWorkers.first->refineries())
+            {
+                if (refinery->isCompleted()) gasAvailable += 3;
+            }
+            if (gasAvailable == 0) continue;
+
+            int mineralWorkersAvailable = 0;
+            for (const auto &worker : baseAndWorkers.second)
+            {
+                if (workerJob[worker] == Job::Minerals) mineralWorkersAvailable++;
+                if (workerJob[worker] == Job::Gas) gasAvailable--;
+            }
+
+            result += std::min(gasAvailable, mineralWorkersAvailable);
+        }
+
+        return result;
+    }
+
+    int reassignableGasWorkers()
+    {
+        auto result = 0;
+        for (auto &baseAndWorkers : baseWorkers)
+        {
+            if (!baseAndWorkers.first || baseAndWorkers.first->owner != BWAPI::Broodwar->self()) continue;
+            if (!baseAndWorkers.first->resourceDepot || !baseAndWorkers.first->resourceDepot->exists()) return 0;
+
+            int mineralsAvailable = baseAndWorkers.first->mineralPatchCount() * 2;
+            if (mineralsAvailable == 0) continue;
+
+            int gasWorkersAvailable = 0;
+            for (const auto &worker : baseAndWorkers.second)
+            {
+                if (workerJob[worker] == Job::Gas) gasWorkersAvailable++;
+                if (workerJob[worker] == Job::Minerals) mineralsAvailable--;
+            }
+
+            result += std::min(mineralsAvailable, gasWorkersAvailable);
+        }
 
         return result;
     }

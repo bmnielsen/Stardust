@@ -25,6 +25,9 @@ public:
     int vanguardDistToMain;
     double percentageToEnemyMain;
 
+    int ballRadius;
+    int lineRadius;
+
     Activity currentActivity;
     SubActivity currentSubActivity;
     int lastActivityChange;
@@ -61,18 +64,26 @@ public:
                          std::set<MyUnit> &detectors,
                          const CombatSimResult &simResult,
                          BWAPI::Position targetPosition,
-                         bool hasValidTarget = true);
+                         bool hasValidTarget);
 
     std::vector<std::pair<MyUnit, Unit>>
     selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPosition, bool staticPosition = false);
 
     virtual void attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition);
 
-    void containBase(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
+    void containStatic(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
 
     void holdChoke(Choke *choke,
                    BWAPI::Position defendEnd,
                    std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets);
+
+    void standGround(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
+
+    void flee(std::set<Unit> &enemyUnits);
+
+    bool moveAsBall(BWAPI::Position targetPosition);
+
+    bool formArc(BWAPI::Position pivot, int desiredDistance);
 
     CombatSimResult runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                                  std::set<Unit> &targets,

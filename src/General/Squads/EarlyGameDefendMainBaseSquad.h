@@ -2,6 +2,7 @@
 
 #include "Squad.h"
 #include "Choke.h"
+#include "WorkerDefenseSquad.h"
 
 class EarlyGameDefendMainBaseSquad : public Squad
 {
@@ -12,9 +13,14 @@ public:
 
     [[nodiscard]] bool canTransitionToAttack() const;
 
+    void execute() override;
+
+    void disband() override { workerDefenseSquad->disband(); }
+
 private:
     Choke *choke;
     BWAPI::Position chokeDefendEnd;
+    std::unique_ptr<WorkerDefenseSquad> workerDefenseSquad;
 
     void initializeChoke();
 

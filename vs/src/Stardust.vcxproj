@@ -101,11 +101,15 @@
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\WorkerDefenseSquad.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\CombatSim.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Detectors.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Formations\Arc.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Formations\Ball.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Attack.cpp" />
-    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\ContainBase.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\ContainStatic.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Flee.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\HoldChoke.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Move.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Regroup.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\StandGround.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Targeting.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\UnitCluster.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Instrumentation\CherryVis.cpp" />
@@ -114,11 +118,13 @@
     <ClCompile Include="$(SolutionDir)\..\src\Map\Base.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\Choke.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\Map.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\Map_Walkability.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Alchemist.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Fortress.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Plasma.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\NoGoAreas.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\NavigationGrid.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding_BWEM.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding_Grids.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding_Search.cpp" />
@@ -133,6 +139,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Play.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Defensive\AntiCannonRush.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Defensive\DefendBase.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\CullArmy.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\SaturateBases.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\TakeExpansion.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\TakeIslandExpansion.cpp" />
@@ -141,6 +148,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\MainArmyPlay.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\MopUp.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Offensive\AttackExpansion.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Offensive\AttackIslandExpansion.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\EarlyGameWorkerScout.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\EjectEnemyScout.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\ScoutEnemyExpos.cpp" />
@@ -162,6 +170,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvZ\PvZ.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvZ\PvZEnemyStrategyRecognizer.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvZ\PvZStrategySelection.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyCarrier.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyDragoon.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyUnit.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyUnit_Move.cpp" />

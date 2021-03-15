@@ -19,8 +19,8 @@ void Play::removeUnit(const MyUnit &unit)
     }
 }
 
-void Play::disband(const std::function<void(const MyUnit&)> &removedUnitCallback,
-                   const std::function<void(const MyUnit&)> &movableUnitCallback)
+void Play::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                   const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     // By default. all units in the squad are considered movable
     if (getSquad() != nullptr)

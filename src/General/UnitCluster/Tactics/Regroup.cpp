@@ -13,8 +13,9 @@
  * Orders a cluster to regroup.
  *
  * There are several regrouping strategies that can be chosen based on the situation:
- * - Contain base: The enemy is considered to be mainly static, so retreat to a safe distance and attack anything that comes into range.
- * - Hold choke: We can stay at our choke and hold off the enemy.
+ * - Contain static: The enemy is considered to be mainly static, so retreat to a safe distance and attack anything that comes into range.
+ * - Hold choke: We can stay at a choke and hold off the enemy.
+ * - Stand ground: We can stop a safe distance from the enemy until we are reinforced.
  * - Flee: Move back towards our main base until we are reinforced.
  */
 
@@ -341,7 +342,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::ContainStaticDefense:
         {
-            containBase(enemyUnits, targetPosition);
+            containStatic(enemyUnits, targetPosition);
 
             break;
         }
@@ -362,29 +363,13 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::StandGround:
         {
-            // If the center of the cluster is walkable, move towards it
-            // Otherwise move towards the vanguard with the assumption that the center will become walkable soon
-            // (otherwise this results in forward motion as units move ahead and become the new vanguard)
-            if (Map::isWalkable(BWAPI::TilePosition(center)))
-            {
-                move(center);
-            }
-            else if (vanguard)
-            {
-                move(vanguard->lastPosition);
-            }
-            else
-            {
-                // Flee if we for some reason don't have a vanguard unit
-                move(Map::getMyMain()->getPosition());
-            }
+            standGround(enemyUnits, targetPosition);
 
             break;
         }
         case SubActivity::Flee:
         {
-            // TODO: Support fleeing elsewhere
-            move(Map::getMyMain()->getPosition());
+            flee(enemyUnits);
 
             break;
         }

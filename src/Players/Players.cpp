@@ -57,6 +57,16 @@ namespace Players
 
     int unitCooldown(BWAPI::Player player, BWAPI::UnitType type)
     {
+        // Handle weird units that don't have proper cooldowns
+        if (type == BWAPI::UnitTypes::Protoss_Scarab || type == BWAPI::UnitTypes::Protoss_Reaver)
+        {
+            return 60;
+        }
+        if (type == BWAPI::UnitTypes::Protoss_Interceptor || type == BWAPI::UnitTypes::Protoss_Carrier)
+        {
+            return 38;
+        }
+
         return getUpgradeTracker(player)->unitCooldown(type);
     }
 

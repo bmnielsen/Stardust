@@ -22,13 +22,14 @@ void ScoutEnemyExpos::update()
     // - How soon we expect the enemy to expand to the base (i.e. order of base in vector)
     // - How long it has been since we scouted the base
     // - How close our scout is to the base
+    // Islands are considered in the same way, but sorted after other bases in priority
     if (!targetBase)
     {
         usingSearchPath = true;
 
         double bestScore = 0.0;
         int scoreFactor = 0;
-        for (auto base : Map::getUntakenExpansions(BWAPI::Broodwar->enemy()))
+        auto handleBase = [&](Base *base)
         {
             int framesSinceScouted = BWAPI::Broodwar->getFrameCount() - base->lastScouted;
             scoreFactor++;
@@ -38,7 +39,7 @@ void ScoutEnemyExpos::update()
             if (scout)
             {
                 int dist = scout->getDistance(base->getPosition());
-                if (dist == -1) continue;
+                if (dist == -1) return;
                 score /= ((double) dist / 2000.0);
             }
 
@@ -47,6 +48,14 @@ void ScoutEnemyExpos::update()
                 bestScore = score;
                 targetBase = base;
             }
+        };
+        for (auto base : Map::getUntakenExpansions(BWAPI::Broodwar->enemy()))
+        {
+            handleBase(base);
+        }
+        for (auto base : Map::getUntakenIslandExpansions(BWAPI::Broodwar->enemy()))
+        {
+            handleBase(base);
         }
     }
 
@@ -192,8 +201,8 @@ void ScoutEnemyExpos::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
     }
 }
 
-void ScoutEnemyExpos::disband(const std::function<void(const MyUnit &)> &removedUnitCallback,
-                              const std::function<void(const MyUnit &)> &movableUnitCallback)
+void ScoutEnemyExpos::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                              const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     if (scout)
     {
