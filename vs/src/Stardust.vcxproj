@@ -105,6 +105,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Formations\Ball.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Attack.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\ContainStatic.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Flee.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\HoldChoke.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Move.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Tactics\Regroup.cpp" />
