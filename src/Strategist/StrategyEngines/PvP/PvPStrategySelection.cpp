@@ -21,9 +21,6 @@ namespace
 
 PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, std::vector<std::shared_ptr<Play>> &plays)
 {
-    int enemyStrategyStableFor = 0;
-    if (newEnemyStrategy == enemyStrategy) enemyStrategyStableFor = BWAPI::Broodwar->getFrameCount() - enemyStrategyChanged;
-
     auto canTransitionFromAntiZealotRush = [&]()
     {
         // Count total combat units
