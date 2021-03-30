@@ -5,6 +5,7 @@
 #include "Strategist.h"
 #include "Units.h"
 #include "TestAttackBasePlay.h"
+#include "TestMainArmyAttackBasePlay.h"
 
 namespace
 {
@@ -81,7 +82,7 @@ TEST(Targeting, DragoonsVsDragoons)
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack, true));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack, true));
         Strategist::setOpening(openingPlays);
     };
 
