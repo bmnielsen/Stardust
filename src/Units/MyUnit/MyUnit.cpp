@@ -10,6 +10,7 @@
 MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         : UnitImpl(unit)
         , distToTargetPosition(0)
+        , producer(nullptr)
         , issuedOrderThisFrame(false)
         , moveCommand(nullptr)
         , targetPosition(BWAPI::Positions::Invalid)
@@ -30,6 +31,8 @@ std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit)
 void MyUnitImpl::update(BWAPI::Unit unit)
 {
     if (!unit || !unit->exists()) return;
+
+    if (bwapiUnit->isCompleted()) producer = nullptr;
 
     // If this unit has just gone on cooldown, add an upcoming attack on its target
     if (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit ||

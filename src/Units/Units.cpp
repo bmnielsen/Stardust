@@ -487,6 +487,15 @@ namespace Units
             {
                 researchInProgress.insert(bwapiUnit->getTech());
             }
+
+            if (bwapiUnit->getBuildUnit())
+            {
+                auto producing = unitIdToMyUnit.find(bwapiUnit->getBuildUnit()->getID());
+                if (producing != unitIdToMyUnit.end())
+                {
+                    producing->second->producer = bwapiUnit;
+                }
+            }
         }
 
         // Update visible enemy units
@@ -936,6 +945,11 @@ namespace Units
     std::unordered_set<MyUnit> &allMineIncompleteOfType(BWAPI::UnitType type)
     {
         return myIncompleteUnitsByType[type];
+    }
+
+    std::map<BWAPI::UnitType, std::unordered_set<MyUnit>> &allMineIncompleteByType()
+    {
+        return myIncompleteUnitsByType;
     }
 
     std::unordered_set<Unit> &allEnemy()

@@ -15,6 +15,7 @@ class MyUnitImpl : public UnitImpl
 {
 public:
     int distToTargetPosition;
+    BWAPI::Unit producer;
 
     explicit MyUnitImpl(BWAPI::Unit unit);
 

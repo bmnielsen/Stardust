@@ -31,6 +31,8 @@ namespace Units
 
     std::unordered_set<MyUnit> &allMineIncompleteOfType(BWAPI::UnitType type);
 
+    std::map<BWAPI::UnitType, std::unordered_set<MyUnit>> &allMineIncompleteByType();
+
     std::unordered_set<Unit> &allEnemy();
 
     std::unordered_set<Unit> &allEnemyOfType(BWAPI::UnitType type);

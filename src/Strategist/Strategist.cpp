@@ -97,8 +97,8 @@ namespace Strategist
                 }
             }
 
-            // Grab a count of incomplete units
-            auto typeToIncompleteUnits = Units::countIncompleteByType();
+            // Grab a copy of our incomplete units
+            auto typeToIncompleteUnits = Units::allMineIncompleteByType();
 
             // Process each play
             // They greedily take the reassignable units closest to where they want them
@@ -189,10 +189,15 @@ namespace Strategist
 
                     // "Reserve" incomplete units if possible
                     auto incompleteUnits = typeToIncompleteUnits.find(unitRequirement.type);
-                    while (incompleteUnits != typeToIncompleteUnits.end() && incompleteUnits->second > 0 && unitRequirement.count > 0)
+                    while (incompleteUnits != typeToIncompleteUnits.end() && !incompleteUnits->second.empty() && unitRequirement.count > 0)
                     {
+                        if ((*incompleteUnits->second.begin())->producer)
+                        {
+                            (*incompleteUnits->second.begin())->producer->setRallyPoint(unitRequirement.position);
+                        }
+
                         unitRequirement.count--;
-                        incompleteUnits->second--;
+                        incompleteUnits->second.erase(incompleteUnits->second.begin());
                         play->assignedIncompleteUnits[unitRequirement.type]++;
                     }
                 }
@@ -220,11 +225,23 @@ namespace Strategist
                         CherryVis::log(reassignableUnit.unit->id) << "Added to play: " << playReceivingUnassignedUnits->label;
                     }
                 }
+
+                auto playPosition = playReceivingUnassignedUnits->getSquad()
+                                    ? playReceivingUnassignedUnits->getSquad()->getTargetPosition()
+                                    : Map::getMyMain()->getPosition();
                 for (const auto &typeAndIncompleteUnits : typeToIncompleteUnits)
                 {
-                    if (typeAndIncompleteUnits.second > 0)
+                    if (typeAndIncompleteUnits.first.isBuilding()) continue;
+                    if (typeAndIncompleteUnits.first.isWorker()) continue;
+
+                    for (const auto &incompleteUnit : typeAndIncompleteUnits.second)
                     {
-                        playReceivingUnassignedUnits->assignedIncompleteUnits[typeAndIncompleteUnits.first] += typeAndIncompleteUnits.second;
+                        if (incompleteUnit->producer)
+                        {
+                            incompleteUnit->producer->setRallyPoint(playPosition);
+                        }
+                        
+                        playReceivingUnassignedUnits->assignedIncompleteUnits[typeAndIncompleteUnits.first]++;
                     }
                 }
             }
