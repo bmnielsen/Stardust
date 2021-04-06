@@ -67,3 +67,30 @@ TEST(SAIDA, RunOne)
     };
     test.run();
 }
+
+TEST(SAIDA, FightingSpirit)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.map = Maps::GetOne("Fighting");
+    test.opponentModule = []()
+    {
+        return new MyBot::MyBotModule();
+    };
+    test.onStartOpponent = []()
+    {
+        std::cout.setstate(std::ios_base::failbit);
+    };
+    test.onEndMine = [&test](bool won)
+    {
+        std::ostringstream replayName;
+        replayName << "SAIDA_" << test.map->shortname();
+        if (!won)
+        {
+            replayName << "_LOSS";
+        }
+        replayName << "_" << test.randomSeed;
+        test.replayName = replayName.str();
+    };
+    test.run();
+}
