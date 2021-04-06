@@ -1003,6 +1003,10 @@ namespace BuildingPlacement
             if (chokeCannonBlock->powerPylon == b.location.tile) return false;
         }
 
+        // Prioritize main geyser first
+        if (Map::getMyMain()->hasGeyserAt(a.location.tile)) return true;
+        if (Map::getMyMain()->hasGeyserAt(b.location.tile)) return false;
+
         // Prioritize locations that will be powered first
         if (a.framesUntilPowered < b.framesUntilPowered) return true;
         if (a.framesUntilPowered > b.framesUntilPowered) return false;

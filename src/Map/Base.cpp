@@ -182,6 +182,15 @@ bool Base::isInMineralLine(BWAPI::TilePosition pos) const
     return mineralLineTiles.find(pos) != mineralLineTiles.end();
 }
 
+bool Base::hasGeyserAt(BWAPI::TilePosition pos) const
+{
+    for (const auto &geyserTile : geyserTiles)
+    {
+        if (pos == geyserTile) return true;
+    }
+    return false;
+}
+
 void Base::analyzeMineralLine()
 {
     // Compute the approximate center of the mineral line

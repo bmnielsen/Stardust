@@ -270,7 +270,7 @@ namespace Builder
 
         // First get the closest worker currently available for reassignment
         int bestTravelTime = INT_MAX;
-        MyUnit bestWorker = Workers::getClosestReassignableWorker(buildPosition, true, &bestTravelTime);
+        MyUnit bestWorker = Workers::getClosestReassignableWorker(buildPosition, !type.isResourceDepot(), &bestTravelTime);
 
         // Next see if any existing builder will be finished in time to reach the desired position faster
         for (auto &builderAndQueue : builderQueues)

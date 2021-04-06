@@ -37,4 +37,6 @@ namespace Strategist
     void setOpening(std::vector<std::shared_ptr<Play>> openingPlays);
 
     void setStrategyEngine(std::unique_ptr<StrategyEngine> strategyEngine);
+
+    StrategyEngine *getStrategyEngine();
 }

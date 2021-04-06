@@ -599,4 +599,9 @@ namespace Strategist
     {
         engine = std::move(strategyEngine);
     }
+
+    StrategyEngine *getStrategyEngine()
+    {
+        return engine.get();
+    }
 }

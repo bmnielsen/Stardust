@@ -21,6 +21,8 @@ public:
 
     virtual std::string getOurStrategy() { return "Unknown"; }
 
+    virtual bool isFastExpanding() { return false; }
+
 protected:
     static bool hasEnemyStolenOurGas();
 

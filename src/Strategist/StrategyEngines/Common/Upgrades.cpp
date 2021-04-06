@@ -131,8 +131,9 @@ void StrategyEngine::upgradeWhenUnitCreated(std::map<int, std::vector<Production
 
 void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    // Start when we have completed our second nexus
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
+    // Start when we have completed our second nexus and have an army
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2 &&
+        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) + Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon)) > 10)
     {
         int weaponLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons);
         int armorLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Armor);

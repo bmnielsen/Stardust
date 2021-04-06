@@ -17,6 +17,8 @@ public:
 
     std::string getOurStrategy() override { return OurStrategyNames[ourStrategy]; }
 
+    bool isFastExpanding() override { return ourStrategy == OurStrategy::FastExpansion; }
+
 private:
     enum class TerranStrategy
     {

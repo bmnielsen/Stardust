@@ -48,6 +48,13 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
                                                                     -1,
                                                                     2);
 
+        // Cancel a building nexus (we don't want to fast expand)
+        for (const auto &nexus : Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Nexus))
+        {
+            Log::Get() << "Cancelling " << nexus->type << "@" << nexus->tile << " because of recognized rush";
+            Builder::cancel(nexus->tile);
+        }
+
         // Cancel a building cybernetics core unless it is close to being finished or we don't need the minerals
         // This handles cases where we queue the core shortly before scouting the rush
         for (const auto &core : Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
