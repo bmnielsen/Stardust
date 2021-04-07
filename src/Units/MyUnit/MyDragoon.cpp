@@ -86,6 +86,8 @@ bool MyDragoon::unstick()
 
 bool MyDragoon::isReady() const
 {
+    if (!MyUnitImpl::isReady()) return false;
+
     // If the last attack has just started, give the dragoon some frames to complete it
     if (BWAPI::Broodwar->getFrameCount() - lastAttackStartedAt + BWAPI::Broodwar->getRemainingLatencyFrames() <= DRAGOON_ATTACK_FRAMES)
     {
