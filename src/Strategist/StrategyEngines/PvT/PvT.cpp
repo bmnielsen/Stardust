@@ -4,6 +4,7 @@
 #include "Map.h"
 #include "UnitUtil.h"
 #include "Players.h"
+#include "Workers.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -136,7 +137,13 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     auto midAndLateGameMainArmyProduction = [&]()
     {
-        int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
+        // Keep a baseline production until we have a large army
+        int higherPriorityCount = 0;
+        if ((zealotCount + dragoonCount) < 25)
+        {
+            // Roughly two units per mining base
+            higherPriorityCount = (Workers::mineralWorkers() / 8) - inProgressCount;
+        }
 
         // Counter tanks with speedlots once the enemy has at least four
         int enemyTanks = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +

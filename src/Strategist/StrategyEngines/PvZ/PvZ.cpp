@@ -4,6 +4,7 @@
 #include "Map.h"
 #include "Strategist.h"
 #include "Players.h"
+#include "Workers.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -264,7 +265,13 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // TODO: Higher-tech units
 
-            int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
+            // Keep a baseline production until we have a large army
+            int higherPriorityCount = 0;
+            if ((zealotCount + dragoonCount) < 25)
+            {
+                // Roughly two units per mining base
+                higherPriorityCount = (Workers::mineralWorkers() / 8) - inProgressCount;
+            }
 
             // Keep some zealots in the mix if the opponent has a lot of lings
             int requiredZealots = 0;

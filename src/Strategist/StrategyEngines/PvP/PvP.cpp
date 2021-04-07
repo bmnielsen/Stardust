@@ -5,6 +5,7 @@
 #include "Builder.h"
 #include "UnitUtil.h"
 #include "Strategist.h"
+#include "Workers.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -294,7 +295,14 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                          2);
             }
 
-            int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
+            // Keep a baseline production until we have a large army
+            int higherPriorityCount = 0;
+            if ((zealotCount + dragoonCount) < 25)
+            {
+                // Roughly two units per mining base
+                higherPriorityCount = (Workers::mineralWorkers() / 8) - inProgressCount;
+            }
+
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
 
