@@ -11,6 +11,10 @@
 #define DIR_SW 6
 #define DIR_SE 7
 
+#if INSTRUMENTATION_ENABLED
+#define UNWALKABLE_DIRECTION_HEATMAP_ENABLED false
+#endif
+
 namespace Map
 {
     namespace
@@ -426,6 +430,7 @@ namespace Map
 
         CherryVis::addHeatmap("TileWalkable", tileWalkabilityCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 
+#if UNWALKABLE_DIRECTION_HEATMAP_ENABLED
         for (int dir = 0; dir < 8; dir++)
         {
             std::vector<long> tileDistanceToUnwalkableDirectionsCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
@@ -473,6 +478,7 @@ namespace Map
 
             CherryVis::addHeatmap(key.str(), tileDistanceToUnwalkableDirectionsCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
         }
+#endif
 
         std::vector<long> tileDistanceToUnwalkableCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
         for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
