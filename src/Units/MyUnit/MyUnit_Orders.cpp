@@ -66,6 +66,29 @@ void MyUnitImpl::attack(BWAPI::Unit target, bool force)
 #endif
 }
 
+void MyUnitImpl::attackMove(BWAPI::Position position)
+{
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Attack move to " << BWAPI::WalkPosition(position);
+        return;
+    }
+
+    BWAPI::UnitCommand currentCommand(bwapiUnit->getLastCommand());
+    if (!bwapiUnit->isStuck() &&
+        currentCommand.getType() == BWAPI::UnitCommandTypes::Attack_Move &&
+        currentCommand.getTargetPosition() == position)
+    {
+        return;
+    }
+
+    issuedOrderThisFrame = bwapiUnit->attack(position);
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Order: Attack move to " << BWAPI::WalkPosition(position);
+#endif
+}
+
 void MyUnitImpl::rightClick(BWAPI::Unit target)
 {
     if (!target || !target->exists())

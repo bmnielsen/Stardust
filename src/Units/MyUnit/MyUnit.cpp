@@ -159,6 +159,18 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
     moveTo(interceptPosition);
 }
 
+bool MyUnitImpl::isReady() const
+{
+    // When we have a large army, only micro units every other frame to avoid having commands dropped
+    if (BWAPI::Broodwar->self()->supplyUsed() > 250 &&
+        (BWAPI::Broodwar->getFrameCount() % 2) != (id % 2))
+    {
+        return false;
+    }
+
+    return !immobile;
+}
+
 bool MyUnitImpl::unstick()
 {
     // If we recently sent a command meant to unstick the unit, give it a bit of time to kick in

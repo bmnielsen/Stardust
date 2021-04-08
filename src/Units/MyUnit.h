@@ -33,16 +33,7 @@ public:
 
     virtual void attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking = true);
 
-    [[nodiscard]] virtual bool isReady() const
-    {
-        if (BWAPI::Broodwar->self()->supplyUsed() > 250 &&
-            (BWAPI::Broodwar->getFrameCount() % 2) != (id % 2))
-        {
-            return false;
-        }
-
-        return true;
-    };
+    [[nodiscard]] virtual bool isReady() const;
 
     virtual bool unstick();
 
@@ -53,6 +44,8 @@ public:
     void move(BWAPI::Position position, bool force = false);
 
     void attack(BWAPI::Unit target, bool force = false);
+
+    void attackMove(BWAPI::Position position);
 
     void rightClick(BWAPI::Unit target);
 

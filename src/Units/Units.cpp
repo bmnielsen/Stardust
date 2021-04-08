@@ -20,6 +20,7 @@
 #define DEBUG_CARRIER_STATUS false
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS false
+#define DEBUG_ARBITER_STATUS true
 #define DEBUG_PRODUCINGBUILDING_STATUS false
 #define DEBUG_ENEMY_STATUS false
 #endif
@@ -723,6 +724,9 @@ namespace Units
 #if DEBUG_OBSERVER_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Observer;
 #endif
+#if DEBUG_ARBITER_STATUS
+            output = output || unit->type == BWAPI::UnitTypes::Protoss_Arbiter;
+#endif
 #if DEBUG_PRODUCINGBUILDING_STATUS
             output = output || (unit->type.isBuilding() && unit->type.canProduce());
 #endif
@@ -770,6 +774,11 @@ namespace Units
                       << ";mvng=" << unit->bwapiUnit->isMoving() << ";rdy=" << unit->isReady()
                       << ";stk=" << unit->bwapiUnit->isStuck()
                       << ";lstmv=" << (unit->getLastMoveFrame() - BWAPI::Broodwar->getFrameCount());
+            }
+
+            if (unit->bwapiUnit->getEnergy() > 0)
+            {
+                debug << ";nrg=" << unit->bwapiUnit->getEnergy();
             }
 
             debug << ";cdn=" << (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());

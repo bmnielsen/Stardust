@@ -25,6 +25,8 @@ public:
 
     std::set<MyUnit> &getDetectors() { return detectors; }
 
+    std::set<MyUnit> &getArbiters() { return arbiters; }
+
     [[nodiscard]] std::vector<MyUnit> getUnits() const;
 
     [[nodiscard]] int combatUnitCount() const;
@@ -53,6 +55,7 @@ protected:
 
     std::set<Unit> enemiesNeedingDetection;
     std::set<MyUnit> detectors;
+    std::set<MyUnit> arbiters;
 
     [[nodiscard]] virtual bool canAddUnitToCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster, int dist) const;
 
@@ -70,4 +73,5 @@ protected:
 
 private:
     void executeDetectors();
+    void executeArbiters();
 };

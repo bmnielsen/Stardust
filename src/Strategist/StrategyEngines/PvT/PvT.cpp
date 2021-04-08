@@ -209,6 +209,31 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::MidGame:
         {
+            // Have some DTs harrassing until the enemy has vessels
+            // TODO: Implement DT tactics and re-enable
+            /*
+            int dtCount = Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar);
+            if (dtCount < 4 &&
+                !Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Science_Vessel) &&
+                !Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Science_Facility))
+            {
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         BWAPI::UnitTypes::Protoss_Dark_Templar,
+                                                                         1,
+                                                                         1);
+            }
+             */
+
+            // Build arbiters on three completed nexuses
+            int arbiterCount = Units::countAll(BWAPI::UnitTypes::Protoss_Arbiter);
+            if (arbiterCount < 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2)
+            {
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         BWAPI::UnitTypes::Protoss_Arbiter,
+                                                                         1,
+                                                                         1);
+            }
+
             midAndLateGameMainArmyProduction();
 
             // Default upgrades
@@ -316,6 +341,7 @@ void PvT::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::TechTypes::Stasis_Field, BWAPI::UnitTypes::Protoss_Arbiter, false);
 
     defaultGroundUpgrades(prioritizedProductionGoals);
 

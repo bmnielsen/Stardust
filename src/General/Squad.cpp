@@ -29,6 +29,10 @@ void Squad::addUnit(const MyUnit &unit)
     {
         detectors.insert(unit);
     }
+    else if (unit->type == BWAPI::UnitTypes::Protoss_Arbiter)
+    {
+        arbiters.insert(unit);
+    }
     else
     {
         addUnitToBestCluster(unit);
@@ -101,6 +105,17 @@ void Squad::removeUnit(const MyUnit &unit)
         return;
     }
 
+    if (unit->type == BWAPI::UnitTypes::Protoss_Arbiter)
+    {
+        auto arbiterIt = arbiters.find(unit);
+        if (arbiterIt == arbiters.end()) return;
+
+        CherryVis::log(unit->id) << "Removed from squad: " << label;
+
+        arbiters.erase(arbiterIt);
+        return;
+    }
+
     auto clusterIt = unitToCluster.find(unit);
     if (clusterIt == unitToCluster.end()) return;
 
@@ -144,6 +159,19 @@ void Squad::updateClusters()
         else
         {
             detectorIt++;
+        }
+    }
+
+    // Remove dead arbiters
+    for (auto arbiterIt = arbiters.begin(); arbiterIt != arbiters.end();)
+    {
+        if (!(*arbiterIt)->exists())
+        {
+            arbiterIt = arbiters.erase(arbiterIt);
+        }
+        else
+        {
+            arbiterIt++;
         }
     }
 
@@ -306,11 +334,13 @@ void Squad::execute()
     }
 
     executeDetectors();
+    executeArbiters();
 }
 
 std::vector<MyUnit> Squad::getUnits() const
 {
     std::vector<MyUnit> result(detectors.begin(), detectors.end());
+    result.insert(result.end(), arbiters.begin(), arbiters.end());
 
     for (auto &unitAndCluster : unitToCluster)
     {
@@ -336,6 +366,10 @@ std::map<BWAPI::UnitType, int> Squad::getUnitCountByType() const
     for (const auto &detector : detectors)
     {
         result[detector->type]++;
+    }
+    for (const auto &arbiter : arbiters)
+    {
+        result[arbiter->type]++;
     }
 
     return result;

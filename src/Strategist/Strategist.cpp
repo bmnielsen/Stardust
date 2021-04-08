@@ -217,8 +217,13 @@ namespace Strategist
                             unitToPlay.erase(reassignableUnit.unit);
                         }
 
-                        // For now skip for units we don't yet support in main army plays
-                        if (reassignableUnit.unit->isFlying && !reassignableUnit.unit->type.isDetector()) continue;
+                        // Skip units our main army plays don't know how to use
+                        if (reassignableUnit.unit->isFlying &&
+                            !reassignableUnit.unit->type.isDetector() &&
+                            reassignableUnit.unit->type != BWAPI::UnitTypes::Protoss_Arbiter)
+                        {
+                            continue;
+                        }
 
                         unitToPlay[reassignableUnit.unit] = playReceivingUnassignedUnits;
                         playReceivingUnassignedUnits->addUnit(reassignableUnit.unit);
