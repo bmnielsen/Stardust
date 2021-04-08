@@ -79,6 +79,7 @@ public:
     int stimmedUntil;                   // If stimmed, when the stim will wear off
 
     bool undetected;                    // Whether the unit is currently cloaked and undetected
+    bool immobile;                      // Whether the unit is currently immobilized by stasis or lockdown
     bool burrowed;                      // Whether the unit is currently burrowed
     int lastBurrowing;                  // Frame we last observed the unit burrowing
 

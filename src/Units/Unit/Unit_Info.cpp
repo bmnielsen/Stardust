@@ -50,12 +50,12 @@ bool UnitImpl::canBeAttackedBy(const Unit &attacker) const
 
 bool UnitImpl::canAttackGround() const
 {
-    return UnitUtil::CanAttackGround(type);
+    return !immobile && UnitUtil::CanAttackGround(type);
 }
 
 bool UnitImpl::canAttackAir() const
 {
-    return UnitUtil::CanAttackAir(type);
+    return !immobile && UnitUtil::CanAttackAir(type);
 }
 
 bool UnitImpl::isStaticGroundDefense() const

@@ -3,8 +3,6 @@
 #include <fap.h>
 #include "Players.h"
 #include "PathFinding.h"
-#include "Units.h"
-#include "Map.h"
 #include "UnitUtil.h"
 #include "General.h"
 
@@ -134,6 +132,8 @@ namespace
         int myCount = 0;
         for (auto &unitAndTarget : unitsAndTargets)
         {
+            if (unitAndTarget.first->immobile) continue;
+
             auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
             bool added = attacking
                          ? sim.addIfCombatUnitPlayer1<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, target))
@@ -166,6 +166,7 @@ namespace
         for (auto &unit : targets)
         {
             if (!unit->completed) continue;
+            if (unit->immobile) continue;
             if (unit->undetected && !haveMobileDetection) enemyHasUndetectedUnits = true;
 
             // Only include workers if they have been seen attacking recently
