@@ -216,7 +216,7 @@ Choke::Choke(const BWEM::ChokePoint *_choke)
             wpCenter = BWAPI::WalkPosition(center) + BWAPI::WalkPosition(spiral.x, spiral.y);
         }
 
-        center = BWAPI::Position(wpCenter) + BWAPI::Position(2, 2);
+        center = BWAPI::Position(wpCenter) + BWAPI::Position(4, 4);
     }
 }
 
