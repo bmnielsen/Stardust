@@ -94,3 +94,32 @@ TEST(SAIDA, FightingSpirit)
     };
     test.run();
 }
+
+TEST(SAIDA, Destination)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.map = Maps::GetOne("Destination");
+    test.frameLimit = 25000;
+    test.randomSeed = 3891;
+    test.opponentModule = []()
+    {
+        return new MyBot::MyBotModule();
+    };
+    test.onStartOpponent = []()
+    {
+        std::cout.setstate(std::ios_base::failbit);
+    };
+    test.onEndMine = [&test](bool won)
+    {
+        std::ostringstream replayName;
+        replayName << "SAIDA_" << test.map->shortname();
+        if (!won)
+        {
+            replayName << "_LOSS";
+        }
+        replayName << "_" << test.randomSeed;
+        test.replayName = replayName.str();
+    };
+    test.run();
+}
