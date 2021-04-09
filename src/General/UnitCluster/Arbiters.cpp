@@ -56,9 +56,12 @@ namespace
         int bestEnergy = 99; // Require enough for a stasis
         for (auto &arbiter : arbiters)
         {
-            if (arbiter->bwapiUnit->getEnergy() > bestEnergy)
+            // Cast at most one stasis per two seconds
+            if ((BWAPI::Broodwar->getFrameCount() - arbiter->lastCastFrame) < 48) return nullptr;
+
+            if (arbiter->energy > bestEnergy)
             {
-                bestEnergy = arbiter->bwapiUnit->getEnergy();
+                bestEnergy = arbiter->energy;
                 best = arbiter;
             }
         }
@@ -66,9 +69,11 @@ namespace
         return best;
     }
 
-    BWAPI::Position getStasisPosition(MyUnit &arbiter)
+    BWAPI::Position getStasisPosition(MyUnit &arbiter, BWAPI::Position centerPosition)
     {
         if (!arbiter) return BWAPI::Positions::Invalid;
+
+        auto centerTile = BWAPI::TilePosition(centerPosition);
 
         auto grid = Players::grid(BWAPI::Broodwar->enemy());
 
@@ -85,6 +90,9 @@ namespace
 
                 // We only stasis open locations to avoid blocking our own units
                 if (Map::unwalkableProximity(tileX, tileY) < 4) continue;
+
+                // We only stasis when the vanguard cluster center is reasonably close to the target
+                if (Geo::ApproximateDistance(tileX, centerTile.x, tileY, centerTile.y) > 20) continue;
 
                 // This tile is OK, check if any of its walk positions have a good tile
                 for (int walkY = tileY << 2; walkY < (tileY + 1) << 2; walkY++)
@@ -118,7 +126,7 @@ void Squad::executeArbiters()
 
     // Determine if one of our arbiters should cast stasis
     MyUnit stasisArbiter = getStasisArbiter(arbiters);
-    auto stasisPosition = getStasisPosition(stasisArbiter);
+    auto stasisPosition = getStasisPosition(stasisArbiter, desiredPos);
 
     // Boids:
     // - Goal (move towards desired position)
@@ -139,8 +147,6 @@ void Squad::executeArbiters()
 
         if (arbiter == stasisArbiter && stasisPosition != BWAPI::Positions::Invalid)
         {
-            Log::Get() << "Stasis!";
-
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(arbiter->id) << "Order: Stasis at " << BWAPI::WalkPosition(stasisPosition);
 #endif
@@ -189,10 +195,16 @@ void Squad::executeArbiters()
                          Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Missile_Turret.airWeapon()));
         addThreatForType(BWAPI::UnitTypes::Terran_Marine,
                          Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Marine.airWeapon()));
+        addThreatForType(BWAPI::UnitTypes::Terran_Ghost,
+                         Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Ghost.airWeapon()));
         addThreatForType(BWAPI::UnitTypes::Terran_Bunker,
                          Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Marine.airWeapon()) + 32);
         addThreatForType(BWAPI::UnitTypes::Terran_Wraith,
                          Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Wraith.airWeapon()));
+        addThreatForType(BWAPI::UnitTypes::Terran_Valkyrie,
+                         Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Valkyrie.airWeapon()));
+        addThreatForType(BWAPI::UnitTypes::Terran_Battlecruiser,
+                         Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Battlecruiser.airWeapon()));
 
         // Separation
         int separationX = 0;
@@ -230,6 +242,12 @@ void Squad::executeArbiters()
         else
         {
             arbiter->moveTo(pos, true);
+        }
+
+        // When we have multiple arbiters, the others stay with the cluster vanguard
+        if (currentVanguardCluster && currentVanguardCluster->vanguard)
+        {
+            desiredPos = currentVanguardCluster->vanguard->lastPosition;
         }
     }
 }

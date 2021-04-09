@@ -776,9 +776,9 @@ namespace Units
                       << ";lstmv=" << (unit->getLastMoveFrame() - BWAPI::Broodwar->getFrameCount());
             }
 
-            if (unit->bwapiUnit->getEnergy() > 0)
+            if (unit->energy > 0)
             {
-                debug << ";nrg=" << unit->bwapiUnit->getEnergy();
+                debug << ";nrg=" << unit->energy;
             }
 
             debug << ";cdn=" << (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());

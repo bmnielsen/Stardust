@@ -11,6 +11,8 @@ MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         : UnitImpl(unit)
         , distToTargetPosition(0)
         , producer(nullptr)
+        , energy(unit->getEnergy())
+        , lastCastFrame(-1)
         , issuedOrderThisFrame(false)
         , moveCommand(nullptr)
         , targetPosition(BWAPI::Positions::Invalid)
@@ -33,6 +35,13 @@ void MyUnitImpl::update(BWAPI::Unit unit)
     if (!unit || !unit->exists()) return;
 
     if (bwapiUnit->isCompleted()) producer = nullptr;
+
+    if (energy - unit->getEnergy() > 45)
+    {
+        lastCastFrame = BWAPI::Broodwar->getFrameCount();
+        Log::Get() << "Unit cast spell: " << *this;
+    }
+    energy = unit->getEnergy();
 
     // If this unit has just gone on cooldown, add an upcoming attack on its target
     if (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit ||

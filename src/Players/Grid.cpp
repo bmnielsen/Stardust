@@ -13,7 +13,7 @@ namespace
     // Generally this is more useful as it forces our units to keep their distance
     const int RANGE_BUFFER = 48;
 
-    const int STASIS_RANGE = 70;
+    const int STASIS_RANGE = 44;
 
     std::map<std::pair<BWAPI::UnitType, int>, std::set<BWAPI::WalkPosition>> positionsInRangeCache;
 

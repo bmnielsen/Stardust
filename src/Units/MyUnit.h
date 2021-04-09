@@ -17,6 +17,9 @@ public:
     int distToTargetPosition;
     BWAPI::Unit producer;
 
+    int energy;                         // Estimated energy of the unit
+    int lastCastFrame;                  // Last frame the unit cast some kind of energy-using spell
+
     explicit MyUnitImpl(BWAPI::Unit unit);
 
     ~MyUnitImpl() override = default;
