@@ -79,6 +79,7 @@ std::set<MyUnit>::iterator UnitCluster::removeUnit(std::set<MyUnit>::iterator un
     auto unit = *unitIt;
 
     auto newUnitIt = units.erase(unitIt);
+    area -= unit->type.width() * unit->type.height();
 
     // Guard against divide-by-zero, but this shouldn't happen as we don't remove the last unit from a cluster in this way
     if (units.empty()) return newUnitIt;
@@ -92,12 +93,6 @@ std::set<MyUnit>::iterator UnitCluster::removeUnit(std::set<MyUnit>::iterator un
         center = BWAPI::Position(
                 ((center.x * (units.size() + 1)) - unit->lastPosition.x) / units.size(),
                 ((center.y * (units.size() + 1)) - unit->lastPosition.y) / units.size());
-
-        area -= unit->type.width() * unit->type.height();
-        if (area < 0)
-        {
-            Log::Get() << "ERROR: Cluster area negative after removing " << *unit;
-        }
     }
 
     return newUnitIt;
@@ -203,6 +198,8 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     {
         percentageToEnemyMain = 0.5;
     }
+
+    CherryVis::log() << "Cluster dimensions @ " << BWAPI::WalkPosition(center) << ": units=" << units.size() << "; area=" << area << "; ballRadius=" << ballRadius << "; lineRadius=" << lineRadius;
 }
 
 void UnitCluster::setActivity(UnitCluster::Activity newActivity, SubActivity newSubActivity)

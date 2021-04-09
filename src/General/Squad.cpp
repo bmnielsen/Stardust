@@ -18,7 +18,7 @@ namespace
     const int COMBINE_THRESHOLD = 480;
 
     // Units are removed from a cluster if they are further than this distance from the cluster vanguard, adjusted for cluster size
-    const int REMOVE_THRESHOLD = 480;
+    const int REMOVE_THRESHOLD = 600;
 }
 
 void Squad::addUnit(const MyUnit &unit)
