@@ -48,7 +48,7 @@ namespace
         return centerUnit->lastPosition;
     }
 
-    MyUnit getStasisArbiter(std::set<MyUnit> &arbiters)
+    MyUnit getStasisArbiter(std::set<MyUnit> &arbiters, int &totalEnergy)
     {
         if (!Players::hasResearched(BWAPI::Broodwar->self(), BWAPI::TechTypes::Stasis_Field)) return nullptr;
 
@@ -56,6 +56,8 @@ namespace
         int bestEnergy = 99; // Require enough for a stasis
         for (auto &arbiter : arbiters)
         {
+            totalEnergy += arbiter->energy;
+
             // Cast at most one stasis per two seconds
             if ((BWAPI::Broodwar->getFrameCount() - arbiter->lastCastFrame) < 48) return nullptr;
 
@@ -69,7 +71,7 @@ namespace
         return best;
     }
 
-    BWAPI::Position getStasisPosition(MyUnit &arbiter, BWAPI::Position centerPosition)
+    BWAPI::Position getStasisPosition(MyUnit &arbiter, BWAPI::Position centerPosition, int totalEnergy)
     {
         if (!arbiter) return BWAPI::Positions::Invalid;
 
@@ -77,8 +79,20 @@ namespace
 
         auto grid = Players::grid(BWAPI::Broodwar->enemy());
 
+        // Determine how many tanks we want to hit, based on the total energy of our arbiters
+        // The more energy we have, the more tanks we want to hit with one cast
+        int minimumTargets = 4;
+        if (totalEnergy > 200)
+        {
+            minimumTargets = 3;
+        }
+        else if (totalEnergy > 300)
+        {
+            minimumTargets = 2;
+        }
+
         BWAPI::Position best = BWAPI::Positions::Invalid;
-        int bestValue = 3; // Require four
+        int bestValue = minimumTargets - 1;
         int bestDist = INT_MAX;
         for (int tileY = arbiter->tilePositionY - stasisRange; tileY <= arbiter->tilePositionY + stasisRange; tileY++)
         {
@@ -125,8 +139,9 @@ void Squad::executeArbiters()
     auto desiredPos = desiredPosition(currentVanguardCluster);
 
     // Determine if one of our arbiters should cast stasis
-    MyUnit stasisArbiter = getStasisArbiter(arbiters);
-    auto stasisPosition = getStasisPosition(stasisArbiter, desiredPos);
+    int totalEnergy = 0;
+    MyUnit stasisArbiter = getStasisArbiter(arbiters, totalEnergy);
+    auto stasisPosition = getStasisPosition(stasisArbiter, desiredPos, totalEnergy);
 
     // Boids:
     // - Goal (move towards desired position)
