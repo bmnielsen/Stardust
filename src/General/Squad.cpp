@@ -350,6 +350,11 @@ std::vector<MyUnit> Squad::getUnits() const
     return result;
 }
 
+bool Squad::empty() const
+{
+    return detectors.empty() && arbiters.empty() && unitToCluster.empty();
+}
+
 int Squad::combatUnitCount() const
 {
     return unitToCluster.size();

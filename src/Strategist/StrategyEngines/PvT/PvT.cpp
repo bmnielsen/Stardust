@@ -11,6 +11,7 @@
 #include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
+#include "Plays/SpecialTeams/ElevatorRush.h"
 
 namespace
 {
@@ -65,6 +66,18 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 #if CHERRYVIS_ENABLED
         CherryVis::log() << "Our strategy changed from " << OurStrategyNames[ourStrategy] << " to " << OurStrategyNames[newStrategy];
 #endif
+
+        // When we transition from early-game defense to normal on specific maps, do an elevator rush
+        if (ourStrategy == OurStrategy::EarlyGameDefense && newStrategy == OurStrategy::NormalOpening &&
+            (BWAPI::Broodwar->mapHash() == "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b" ||
+             BWAPI::Broodwar->mapHash() == "e39c1c81740a97a733d227e238bd11df734eaf96" ||
+             BWAPI::Broodwar->mapHash() == "6f8da3c3cc8d08d9cf882700efa049280aedca8c" ||
+             BWAPI::Broodwar->mapHash() == "fe25d8b79495870ac1981c2dfee9368f543321e3" ||
+             BWAPI::Broodwar->mapHash() == "d9757c0adcfd61386dff8fe3e493e9e8ef9b45e3" ||
+             BWAPI::Broodwar->mapHash() == "ecb9c70c5594a5c6882baaf4857a61824fba0cfa"))
+        {
+            plays.insert(plays.begin(), std::make_shared<ElevatorRush>());
+        }
 
         ourStrategy = newStrategy;
     }
@@ -276,6 +289,14 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     if (!natural || natural->ownedSince != -1)
     {
         CherryVis::setBoardValue("natural", "complete");
+        return;
+    }
+
+    // Don't expand while we are setting up an elevator rush
+    auto elevatorRush = getPlay<ElevatorRush>(plays);
+    if (elevatorRush && elevatorRush->getSquad()->empty())
+    {
+        CherryVis::setBoardValue("natural", "wait-elevator");
         return;
     }
 

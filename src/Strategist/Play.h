@@ -8,10 +8,11 @@
 #define PRIORITY_WORKERS 2
 #define PRIORITY_DEPOTS 3
 #define PRIORITY_BASEDEFENSE 4              // Generally early-game defenders
-#define PRIORITY_MAINARMYBASEPRODUCTION 5   // What we consider to be the minimum allowable production for our main army
-#define PRIORITY_NORMAL 6
-#define PRIORITY_MAINARMY 7
-#define PRIORITY_LOWEST 8
+#define PRIORITY_SPECIALTEAMS 5
+#define PRIORITY_MAINARMYBASEPRODUCTION 6   // What we consider to be the minimum allowable production for our main army
+#define PRIORITY_NORMAL 7
+#define PRIORITY_MAINARMY 8
+#define PRIORITY_LOWEST 9
 
 class Play;
 
