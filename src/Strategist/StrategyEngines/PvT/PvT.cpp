@@ -11,6 +11,7 @@
 #include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
+#include "Plays/SpecialTeams/CarrierHarass.h"
 #include "Plays/SpecialTeams/ElevatorRush.h"
 
 namespace
@@ -123,6 +124,28 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     updateDefendBasePlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 15000);
+
+    // Harass enemy bases with carriers after we have our first two arbiters out
+    if (!defendOurMain && Units::countAll(BWAPI::UnitTypes::Protoss_Arbiter) > 1)
+    {
+        auto carrierHarass = getPlay<CarrierHarass>(plays);
+        if (!carrierHarass)
+        {
+            auto beforeMainArmyIt = [&plays]()
+            {
+                auto it = plays.begin();
+                for (; it != plays.end(); it++)
+                {
+                    if (std::dynamic_pointer_cast<MainArmyPlay>(*it) != nullptr)
+                    {
+                        break;
+                    }
+                }
+                return it;
+            };
+            plays.emplace(beforeMainArmyIt(), std::make_shared<CarrierHarass>());
+        }
+    }
 }
 
 void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
