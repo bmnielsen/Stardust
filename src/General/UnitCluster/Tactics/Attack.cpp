@@ -76,7 +76,7 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
             count++;
         }
 
-        if (countWithinLimit >= 8 || (accumulator / count) <= (desiredDistance + 24)) desiredDistance -= 32;
+        if (countWithinLimit >= 8 || (count > 0 && (accumulator / count) <= (desiredDistance + 24))) desiredDistance -= 32;
 
         if (formArc(pivot, desiredDistance)) return;
     }
