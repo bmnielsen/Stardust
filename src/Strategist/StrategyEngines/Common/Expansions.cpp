@@ -97,7 +97,9 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Determine whether we want to expand now
+    bool gasStarved = BWAPI::Broodwar->self()->minerals() > 1500 && BWAPI::Broodwar->self()->gas() < 500;
     bool wantToExpand = true;
+    if (!gasStarved)
     {
         // Expand if we have no bases with more than 3 available mineral assignments
         // If the enemy is contained, set the threshold to 6 instead
@@ -213,8 +215,10 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     if (!wantToExpand || !safeToExpand()) return;
 
     // Determine if we want to consider a mineral-only base
-    auto shouldTakeMineralOnly = []()
+    auto shouldTakeMineralOnly = [&gasStarved]()
     {
+        if (gasStarved) return false;
+
         // Take a mineral-only if we have an excess of gas
         if (BWAPI::Broodwar->self()->gas() > 1500) return true;
 
