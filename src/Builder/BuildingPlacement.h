@@ -56,7 +56,8 @@ namespace BuildingPlacement
 
     enum class Neighbourhood
     {
-        MainBase
+        MainBase,
+        AllMyBases
     }; // TODO: Add proxy, etc.
 
     void initialize();
@@ -77,7 +78,7 @@ namespace BuildingPlacement
 
     BuildLocationSet &availableGeysers();
 
-    int builderFrames(Neighbourhood location, BWAPI::TilePosition tile, BWAPI::UnitType type);
+    int builderFrames(BWAPI::Position origin, BWAPI::TilePosition tile, BWAPI::UnitType type);
 
     std::pair<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>> &baseStaticDefenseLocations(Base *base);
 

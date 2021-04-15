@@ -45,7 +45,7 @@ namespace BuildingPlacement
 {
     namespace
     {
-        std::vector<Neighbourhood> ALL_NEIGHBOURHOODS = {Neighbourhood::MainBase};
+        std::vector<Neighbourhood> ALL_NEIGHBOURHOODS = {Neighbourhood::MainBase, Neighbourhood::AllMyBases};
 
         // Stores a bitmask for each tile
         // 1: not buildable
@@ -64,8 +64,8 @@ namespace BuildingPlacement
 
         bool updateRequired;
         std::map<Neighbourhood, std::set<const BWEM::Area *>> neighbourhoodAreas;
-        std::map<Neighbourhood, BWAPI::Position> neighbourhoodOrigins;
-        std::map<Neighbourhood, BWAPI::Position> neighbourhoodExits;
+        std::map<const BWEM::Area *, BWAPI::Position> areaOrigins;
+        std::map<const BWEM::Area *, BWAPI::Position> areaExits;
         std::map<Neighbourhood, std::map<int, BuildLocationSet>> availableBuildLocations;
 
         BuildLocationSet _availableGeysers;
@@ -119,6 +119,40 @@ namespace BuildingPlacement
                         }
                     }
                 }
+            }
+        }
+
+        void updateNeighbourhoods()
+        {
+            neighbourhoodAreas.clear();
+            areaOrigins.clear();
+            areaExits.clear();
+
+            // Main base
+            neighbourhoodAreas[Neighbourhood::MainBase] = Map::getMyMainAreas();
+            Map::mapSpecificOverride()->addMainBaseBuildingPlacementAreas(neighbourhoodAreas[Neighbourhood::MainBase]);
+
+            auto mainChoke = Map::getMyMainChoke();
+            auto mainExit = mainChoke ? mainChoke->center : Map::getMyMain()->getPosition();
+            auto origin = Map::getMyMain()->mineralLineCenter;
+            for (const auto &area : neighbourhoodAreas[Neighbourhood::MainBase])
+            {
+                areaOrigins[area] = origin;
+                areaExits[area] = mainExit;
+            }
+
+            // All other owned bases
+            // We use the main choke exit as the exit to promote building closer to our main
+            neighbourhoodAreas[Neighbourhood::AllMyBases] = neighbourhoodAreas[Neighbourhood::MainBase];
+            for (const auto &base : Map::getMyBases())
+            {
+                if (base == Map::getMyMain()) continue;
+
+                if (!base->resourceDepot || !base->resourceDepot->exists()) continue;
+
+                neighbourhoodAreas[Neighbourhood::AllMyBases].insert(base->getArea());
+                areaOrigins[base->getArea()] = base->mineralLineCenter;
+                areaExits[base->getArea()] = mainExit;
             }
         }
 
@@ -579,13 +613,11 @@ namespace BuildingPlacement
             }
         }
 
-        int distanceToExit(Neighbourhood location, BWAPI::TilePosition tile, BWAPI::UnitType type)
+        int distanceToExit(Neighbourhood location, BWAPI::Position exit, BWAPI::TilePosition tile, BWAPI::UnitType type)
         {
-            if (neighbourhoodExits.find(location) == neighbourhoodExits.end()) return 0;
-
             auto dist = PathFinding::GetGroundDistance(
                     BWAPI::Position(tile) + (BWAPI::Position(type.tileSize()) / 2),
-                    neighbourhoodExits[location],
+                    exit,
                     BWAPI::UnitTypes::Protoss_Dragoon,
                     PathFinding::PathFindingOptions::UseNearestBWEMArea);
 
@@ -677,37 +709,59 @@ namespace BuildingPlacement
                 {
                     // Make sure we don't die if we for some reason have an unconfigured neighbourhood
                     if (neighbourhoodAreas.find(neighbourhood) == neighbourhoodAreas.end()) continue;
-                    if (neighbourhoodOrigins.find(neighbourhood) == neighbourhoodOrigins.end()) continue;
-                    if (neighbourhoodExits.find(neighbourhood) == neighbourhoodExits.end()) continue;
 
-                    auto it = neighbourhoodAreas[neighbourhood].find(
-                            BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center())));
-                    if (it == neighbourhoodAreas[neighbourhood].end()) continue;
+                    auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center()));
+
+                    // Check if this block fits in this neighbourhood
+                    {
+                        auto it = neighbourhoodAreas[neighbourhood].find(
+                                BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center())));
+                        if (it == neighbourhoodAreas[neighbourhood].end()) continue;
+                    }
+
+                    // Get the origin and exit
+                    BWAPI::Position origin, exit;
+                    {
+                        auto it = areaOrigins.find(area);
+                        if (it == areaOrigins.end()) continue;
+                        origin = it->second;
+                    }
+                    {
+                        auto it = areaExits.find(area);
+                        if (it == areaExits.end())
+                        {
+                            exit = origin;
+                        }
+                        else
+                        {
+                            exit = it->second;
+                        }
+                    }
 
                     // Add pylons
                     for (auto pylonLocation : block->small)
                     {
                         BuildLocation pylon(pylonLocation,
-                                            builderFrames(neighbourhood, block->small.begin()->tile, BWAPI::UnitTypes::Protoss_Pylon),
+                                            builderFrames(origin, block->small.begin()->tile, BWAPI::UnitTypes::Protoss_Pylon),
                                             0,
-                                            distanceToExit(neighbourhood, block->small.begin()->tile, BWAPI::UnitTypes::Protoss_Pylon));
+                                            distanceToExit(neighbourhood, exit, block->small.begin()->tile, BWAPI::UnitTypes::Protoss_Pylon));
 
                         if (pylonLocation.tile == block->powerPylon)
                         {
                             for (auto &location : unpoweredMedium)
                             {
                                 pylon.powersMedium.emplace(location,
-                                                           builderFrames(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Forge),
+                                                           builderFrames(origin, location.tile, BWAPI::UnitTypes::Protoss_Forge),
                                                            0,
-                                                           distanceToExit(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Forge),
+                                                           distanceToExit(neighbourhood, exit, location.tile, BWAPI::UnitTypes::Protoss_Forge),
                                                            true);
                             }
                             for (auto &location : unpoweredLarge)
                             {
                                 pylon.powersLarge.emplace(location,
-                                                          builderFrames(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Gateway),
+                                                          builderFrames(origin, location.tile, BWAPI::UnitTypes::Protoss_Gateway),
                                                           0,
-                                                          distanceToExit(neighbourhood, location.tile, BWAPI::UnitTypes::Protoss_Gateway));
+                                                          distanceToExit(neighbourhood, exit, location.tile, BWAPI::UnitTypes::Protoss_Gateway));
                             }
                         }
 
@@ -718,9 +772,9 @@ namespace BuildingPlacement
                     {
                         result[neighbourhood][3].emplace(
                                 std::get<0>(tileAndPoweredAt),
-                                builderFrames(neighbourhood, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Forge),
+                                builderFrames(origin, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Forge),
                                 std::get<1>(tileAndPoweredAt),
-                                distanceToExit(neighbourhood, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Forge),
+                                distanceToExit(neighbourhood, exit, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Forge),
                                 true);
                     }
 
@@ -728,9 +782,9 @@ namespace BuildingPlacement
                     {
                         result[neighbourhood][4].emplace(
                                 std::get<0>(tileAndPoweredAt),
-                                builderFrames(neighbourhood, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Gateway),
+                                builderFrames(origin, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Gateway),
                                 std::get<1>(tileAndPoweredAt),
-                                distanceToExit(neighbourhood, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Gateway));
+                                distanceToExit(neighbourhood, exit, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Gateway));
                     }
                 }
             }
@@ -885,8 +939,8 @@ namespace BuildingPlacement
     void initialize()
     {
         neighbourhoodAreas.clear();
-        neighbourhoodOrigins.clear();
-        neighbourhoodExits.clear();
+        areaOrigins.clear();
+        areaExits.clear();
         tileAvailability.clear();
         startBlock = nullptr;
         blocks.clear();
@@ -897,21 +951,8 @@ namespace BuildingPlacement
         availableBuildLocations.clear();
         _availableGeysers.clear();
 
-        neighbourhoodAreas[Neighbourhood::MainBase] = Map::getMyMainAreas();
-        Map::mapSpecificOverride()->addMainBaseBuildingPlacementAreas(neighbourhoodAreas[Neighbourhood::MainBase]);
-        neighbourhoodOrigins[Neighbourhood::MainBase] = Map::getMyMain()->mineralLineCenter;
-
-        auto mainChoke = Map::getMyMainChoke();
-        if (mainChoke)
-        {
-            neighbourhoodExits[Neighbourhood::MainBase] = mainChoke->center;
-        }
-        else
-        {
-            neighbourhoodExits[Neighbourhood::MainBase] = Map::getMyMain()->getPosition();
-        }
-
         initializeTileAvailability();
+        updateNeighbourhoods();
         findStartBlock();
         findBaseStaticDefenses();
         findBlocks();
@@ -944,6 +985,9 @@ namespace BuildingPlacement
         {
             updateRequired = block->tilesUsed(unit->getTilePosition(), unit->type.tileSize()) || updateRequired;
         }
+
+        // Creation of depots indicates we've taken a new base
+        updateRequired = (unit->player == BWAPI::Broodwar->self() && unit->type.isResourceDepot()) || updateRequired;
     }
 
     void onUnitDestroy(const Unit &unit)
@@ -954,12 +998,14 @@ namespace BuildingPlacement
         {
             updateRequired = block->tilesFreed(unit->getTilePosition(), unit->type.tileSize()) || updateRequired;
         }
+
+        // Destruction of depots indicates we've lost a base
+        updateRequired = (unit->player == BWAPI::Broodwar->self() && unit->type.isResourceDepot()) || updateRequired;
     }
 
     void onMainChokeChanged()
     {
         findMainChokeCannonPlacement();
-        neighbourhoodExits[Neighbourhood::MainBase] = Map::getMyMainChoke()->center;
         updateRequired = true;
     }
 
@@ -967,6 +1013,7 @@ namespace BuildingPlacement
     {
         if (updateRequired)
         {
+            updateNeighbourhoods();
             updateAvailableBuildLocations();
             updateRequired = false;
         }
@@ -1034,12 +1081,10 @@ namespace BuildingPlacement
 
     // Approximately how many frames it will take a builder to reach the given build position
     // TODO: Update location origins depending on whether there are workers at a base
-    int builderFrames(Neighbourhood location, BWAPI::TilePosition tile, BWAPI::UnitType type)
+    int builderFrames(BWAPI::Position origin, BWAPI::TilePosition tile, BWAPI::UnitType type)
     {
-        if (neighbourhoodOrigins.find(location) == neighbourhoodOrigins.end()) return 0;
-
         return PathFinding::ExpectedTravelTime(
-                neighbourhoodOrigins[location],
+                origin,
                 BWAPI::Position(tile) + (BWAPI::Position(type.tileSize()) / 2),
                 BWAPI::Broodwar->self()->getRace().getWorker(),
                 PathFinding::PathFindingOptions::UseNearestBWEMArea);

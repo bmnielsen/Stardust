@@ -306,7 +306,7 @@ void StrategyEngine::takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &pl
     // Otherwise just queue the natural nexus as any normal macro item
 
     auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(natural->getTilePosition()),
-                                                          BuildingPlacement::builderFrames(BuildingPlacement::Neighbourhood::MainBase,
+                                                          BuildingPlacement::builderFrames(Map::getMyMain()->mineralLineCenter,
                                                                                            natural->getTilePosition(),
                                                                                            BWAPI::UnitTypes::Protoss_Nexus),
                                                           0, 0);

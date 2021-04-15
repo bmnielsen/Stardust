@@ -629,7 +629,7 @@ namespace Producer
             if (pylon.buildLocation.location.tile.isValid()) return;
 
             auto fixedNeighbourhood = std::get_if<BuildingPlacement::Neighbourhood>(&pylon.location);
-            auto neighbourhood = fixedNeighbourhood ? *fixedNeighbourhood : BuildingPlacement::Neighbourhood::MainBase;
+            auto neighbourhood = fixedNeighbourhood ? *fixedNeighbourhood : BuildingPlacement::Neighbourhood::AllMyBases;
 
             auto &pylonLocations = buildLocations[neighbourhood][2];
             if (pylonLocations.empty()) return;
@@ -707,7 +707,7 @@ namespace Producer
                 if (!unitType->requiresPsi()) continue;
 
                 auto locationNeighbourhood = std::get_if<BuildingPlacement::Neighbourhood>(&item.location);
-                auto neighbourhood = locationNeighbourhood ? *locationNeighbourhood : BuildingPlacement::Neighbourhood::MainBase;
+                auto neighbourhood = locationNeighbourhood ? *locationNeighbourhood : BuildingPlacement::Neighbourhood::AllMyBases;
                 auto &locations = buildLocations[neighbourhood][unitType->tileWidth()];
 
                 // Get the frame when the next available build location will be powered
@@ -1942,7 +1942,11 @@ namespace Producer
                     (item->startFrame - item->buildLocation.builderFrames) <= BWAPI::Broodwar->getRemainingLatencyFrames())
                 {
                     // TODO: Should be resolved earlier
-                    if (!item->buildLocation.location.tile.isValid()) continue;
+                    if (!item->buildLocation.location.tile.isValid())
+                    {
+                        Log::Get() << "ERROR: No build location for " << *unitType;
+                        continue;
+                    }
 
                     // Special case: never try to build a prerequisite cybernetics core before the assimilator has been queued
                     // This may happen because a worker needs to travel further to the core build location
