@@ -198,8 +198,6 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     {
         percentageToEnemyMain = 0.5;
     }
-
-    CherryVis::log() << "Cluster dimensions @ " << BWAPI::WalkPosition(center) << ": units=" << units.size() << "; area=" << area << "; ballRadius=" << ballRadius << "; lineRadius=" << lineRadius;
 }
 
 void UnitCluster::setActivity(UnitCluster::Activity newActivity, SubActivity newSubActivity)

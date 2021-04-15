@@ -172,9 +172,11 @@ void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
             {
                 nextNodeCenter = nextNode->center();
                 secondNodeCenter = secondNode->center();
+#if DEBUG_UNIT_BOIDS
                 CherryVis::log(myUnit->id) << "Contain (goal boid):"
                                            << " nextNode=" << BWAPI::WalkPosition(nextNodeCenter) << " (" << nextNode->cost << ")"
                                            << "; secondNode=" << BWAPI::WalkPosition(secondNodeCenter) << " (" << secondNode->cost << ")";
+#endif
             }
             else
             {

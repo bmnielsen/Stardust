@@ -277,7 +277,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     }
 
     // Run combat sim
-    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors);
+    auto simResult = cluster.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors);
 
     // TODO: If our units can't do any damage (e.g. ground-only vs. air, melee vs. kiting ranged units), do something else
 

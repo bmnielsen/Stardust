@@ -18,7 +18,11 @@ namespace
     int baseScore[BWAPI::UnitTypes::Enum::MAX];
     int scaledScore[BWAPI::UnitTypes::Enum::MAX];
 
-    auto inline makeUnit(const Unit &unit, const Unit &vanguard, bool mobileDetection, int target = 0)
+    auto inline makeUnit(const Unit &unit,
+                         const Unit &vanguard,
+                         bool mobileDetection,
+                         BWAPI::Position targetPosition = BWAPI::Positions::Invalid,
+                         int target = 0)
     {
         BWAPI::UnitType weaponType;
         switch (unit->type)
@@ -57,6 +61,7 @@ namespace
         return FAP::makeUnit<>()
                 .setUnitType(unit->type)
                 .setPosition(unit->simPosition)
+                .setTargetPosition(targetPosition == BWAPI::Positions::Invalid ? unit->simPosition : targetPosition)
                 .setHealth(unit->lastHealth)
                 .setShields(unit->lastShields)
                 .setFlying(unit->isFlying)
@@ -107,6 +112,7 @@ namespace
 
     template<bool choke>
     CombatSimResult execute(
+            BWAPI::Position targetPosition,
             UnitCluster *cluster,
             std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             std::set<Unit> &targets,
@@ -136,8 +142,8 @@ namespace
 
             auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
             bool added = attacking
-                         ? sim.addIfCombatUnitPlayer1<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, target))
-                         : sim.addIfCombatUnitPlayer2<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, target));
+                         ? sim.addIfCombatUnitPlayer1<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, targetPosition, target))
+                         : sim.addIfCombatUnitPlayer2<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, targetPosition, target));
 
             if (added)
             {
@@ -233,24 +239,6 @@ namespace
         for (int i = 0; i < 144; i++)
         {
             sim.simulate<true, choke>(1);
-
-            // If nothing has happened after simming for three seconds, break now
-            if (i == 72)
-            {
-                int halfwayMine = score(attacking ? sim.getState().first : sim.getState().second);
-                int halfwayEnemy = score(attacking ? sim.getState().second : sim.getState().first);
-                if (halfwayMine >= initialMine && halfwayEnemy >= initialEnemy)
-                {
-                    return CombatSimResult(myCount,
-                                           enemyCount,
-                                           initialMine,
-                                           initialEnemy,
-                                           halfwayMine,
-                                           halfwayEnemy,
-                                           enemyHasUndetectedUnits,
-                                           narrowChoke);
-                }
-            }
 
 #if DEBUG_COMBATSIM_CSV
             for (auto unit : *sim.getState().first)
@@ -374,7 +362,8 @@ namespace CombatSim
     }
 }
 
-CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+CombatSimResult UnitCluster::runCombatSim(BWAPI::Position targetPosition,
+                                          std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                                           std::set<Unit> &targets,
                                           std::set<MyUnit> &detectors,
                                           bool attacking,
@@ -416,10 +405,10 @@ CombatSimResult UnitCluster::runCombatSim(std::vector<std::pair<MyUnit, Unit>> &
 
     if (narrowChoke)
     {
-        return execute<true>(this, unitsAndTargets, targets, detectors, attacking, narrowChoke);
+        return execute<true>(targetPosition, this, unitsAndTargets, targets, detectors, attacking, narrowChoke);
     }
 
-    return execute<false>(this, unitsAndTargets, targets, detectors, attacking);
+    return execute<false>(targetPosition, this, unitsAndTargets, targets, detectors, attacking);
 }
 
 void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)

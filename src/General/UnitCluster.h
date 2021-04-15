@@ -85,7 +85,8 @@ public:
 
     bool formArc(BWAPI::Position pivot, int desiredDistance);
 
-    CombatSimResult runCombatSim(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+    CombatSimResult runCombatSim(BWAPI::Position targetPosition,
+                                 std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                                  std::set<Unit> &targets,
                                  std::set<MyUnit> &detectors,
                                  bool attacking = true,

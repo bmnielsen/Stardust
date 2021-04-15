@@ -25,7 +25,8 @@ namespace
                                     std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                                     std::set<Unit> &enemyUnits,
                                     std::set<MyUnit> &detectors,
-                                    const CombatSimResult &initialSimResult)
+                                    const CombatSimResult &initialSimResult,
+                                    BWAPI::Position targetPosition)
     {
         // Run a combat sim excluding enemy static defense
         std::vector<std::pair<MyUnit, Unit>> filteredUnitsAndTargets;
@@ -46,7 +47,7 @@ namespace
             if (!unit->isStaticGroundDefense()) filteredEnemyUnits.insert(unit);
         }
 
-        auto simResult = cluster.runCombatSim(filteredUnitsAndTargets, filteredEnemyUnits, detectors, false, initialSimResult.narrowChoke);
+        auto simResult = cluster.runCombatSim(targetPosition, filteredUnitsAndTargets, filteredEnemyUnits, detectors, false, initialSimResult.narrowChoke);
 
         bool contain = simResult.myPercentLost() <= 0.001 ||
                        (simResult.valueGain() > 0 && simResult.percentGain() > -0.05) ||
@@ -67,7 +68,8 @@ namespace
                             std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                             std::set<Unit> &enemyUnits,
                             std::set<MyUnit> &detectors,
-                            const CombatSimResult &initialSimResult)
+                            const CombatSimResult &initialSimResult,
+                            BWAPI::Position targetPosition)
     {
         if (!initialSimResult.narrowChoke) return false;
 
@@ -79,7 +81,7 @@ namespace
             return false;
         }
 
-        auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors, false, initialSimResult.narrowChoke);
+        auto simResult = cluster.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors, false, initialSimResult.narrowChoke);
 
         double distanceFactor = 1.0;
         auto attack = [&]()
@@ -264,11 +266,11 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                 }
             }
 
-            if (staticDefense && shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            if (staticDefense && shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::ContainStaticDefense);
             }
-            else if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            else if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::ContainChoke);
             }
@@ -285,7 +287,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::ContainStaticDefense:
         {
-            if (!shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            if (!shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::Flee);
             }
@@ -293,7 +295,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::ContainChoke:
         {
-            if (!shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            if (!shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::Flee);
             }
@@ -302,7 +304,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         case SubActivity::StandGround:
         {
             // We might be standing ground near a choke that we are now able to contain
-            if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::ContainChoke);
             }
@@ -317,7 +319,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         case SubActivity::Flee:
         {
             // We might flee through a choke that we can contain from the other side
-            if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::ContainChoke);
             }
