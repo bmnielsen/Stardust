@@ -45,6 +45,8 @@ namespace FAP {
     id                      = 1ull << 34,
     target                  = 1ull << 35,
     collision               = 1ull << 36,
+    targetX                 = 1ull << 37,
+    targetY                 = 1ull << 38,
   };
 
   template<typename UnitExtension = std::tuple<>>
@@ -54,6 +56,9 @@ namespace FAP {
     int collisionValue;
     int collisionValueChoke;
     int player = 0;
+
+    int targetX, targetY;
+    int targetCell = 0; // cell in collision grid of target
 
     int health;
     int maxHealth;
@@ -115,6 +120,20 @@ namespace FAP {
     auto constexpr setY(int y) && {
       unit.y = y;
       return std::move(*this).template addFlag<UnitValues::y>();
+    }
+
+    auto constexpr setTargetPosition(BWAPI::Position pos) && {
+      return std::move(*this).setTargetX(pos.x).setTargetY(pos.y);
+    }
+
+    auto constexpr setTargetX(int x) && {
+      unit.targetX = x;
+      return std::move(*this).template addFlag<UnitValues::targetX>();
+    }
+
+    auto constexpr setTargetY(int y) && {
+      unit.targetY = y;
+      return std::move(*this).template addFlag<UnitValues::targetY>();
     }
 
     auto constexpr setHealth(int health) && {

@@ -140,6 +140,8 @@ namespace FAP {
   constexpr bool AssertValidUnit() {
     static_assert(Unit<uv>::hasFlag(UnitValues::x));
     static_assert(Unit<uv>::hasFlag(UnitValues::y));
+    static_assert(Unit<uv>::hasFlag(UnitValues::targetX));
+    static_assert(Unit<uv>::hasFlag(UnitValues::targetY));
     static_assert(Unit<uv>::hasFlag(UnitValues::health));
     static_assert(Unit<uv>::hasFlag(UnitValues::maxHealth));
     static_assert(Unit<uv>::hasFlag(UnitValues::armor));
@@ -359,6 +361,7 @@ namespace FAP {
     } else {
       collision[fu.cell] += fu.collisionValue;
     }
+    fu.targetCell = (fu.targetX >> 4) + ((fu.targetY >> 4) * BWAPI::Broodwar->mapWidth() * 2);
   }
 
   template<typename UnitExtension>
@@ -503,32 +506,48 @@ namespace FAP {
                      fu.y + static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
     };
 
-    auto moveTowards = [this](FAPUnit<UnitExtension> &fu, FAPUnit<UnitExtension> &other) {
+    auto moveTowards = [this](FAPUnit<UnitExtension> &fu, int x, int y, int cell) {
       int dx, dy;
 
       // Movement in chokes is handled differently, as we force the units to path through the choke ends
       if constexpr (choke) {
         if (fu.flying) {
-          dx = other.x - fu.x;
-          dy = other.y - fu.y;
+          dx = x - fu.x;
+          dy = y - fu.y;
         } else {
-          auto sideDiff = chokeGeometry->tileSide[fu.cell] - chokeGeometry->tileSide[other.cell];
+          auto sideDiff = chokeGeometry->tileSide[fu.cell] - chokeGeometry->tileSide[cell];
           if (sideDiff == 0) {
-            dx = other.x - fu.x;
-            dy = other.y - fu.y;
+            dx = x - fu.x;
+            dy = y - fu.y;
           } else {
             dx = chokeGeometry->forward[3 + sideDiff].x - fu.x;
             dy = chokeGeometry->forward[3 + sideDiff].y - fu.y;
           }
         }
       } else {
-        dx = other.x - fu.x;
-        dy = other.y - fu.y;
+        dx = x - fu.x;
+        dy = y - fu.y;
       }
       updatePosition(fu,
                      fu.x + static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
                      fu.y + static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
     };
+
+    // Move towards target position if there is no target
+    if (closestEnemy == enemyUnits.end()) {
+      if constexpr (choke) {
+        // Attacking units always moves forward; defending units stay put
+        // TODO: Defending units should really get into defend position, but this isn't a state we expect to see often
+        if (fu.player == 1) {
+          didSomething = true;
+          moveTowards(fu, fu.targetX, fu.targetY, fu.targetCell);
+        }
+      } else {
+        didSomething = true;
+        moveTowards(fu, fu.targetX, fu.targetY, fu.targetCell);
+      }
+      return;
+    }
 
     // Kite is true for dragoons and vultures that are on their attack cooldown.
     // - If the unit is in a narrow choke, possibly do some special handling depending on where the unit and its target are.
@@ -548,7 +567,7 @@ namespace FAP {
 
           // Attacking unit moves forward if it is in the choke
           if (fu.player == 1 && chokeGeometry->tileSide[fu.cell] == 0) {
-            moveTowards(fu, *closestEnemy);
+            moveTowards(fu, closestEnemy->x, closestEnemy->y, closestEnemy->cell);
             return;
           }
 
@@ -558,7 +577,7 @@ namespace FAP {
         // Move towards the enemy if it is out of range or is a sieged tank
         if (!isInRange(fu, *closestEnemy, (closestEnemy->flying ? 0 : fu.groundMinRange), (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange)) ||
           closestEnemy->unitType == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) {
-          moveTowards(fu, *closestEnemy);
+          moveTowards(fu, closestEnemy->x, closestEnemy->y, closestEnemy->cell);
         } else if (fu.attackCooldownRemaining > 1) {
           auto const dx = closestEnemy->x - fu.x;
           auto const dy = closestEnemy->y - fu.y;
@@ -625,7 +644,7 @@ namespace FAP {
       if constexpr (choke) {
         // Attacking units always moves forward
         if (fu.player == 1) {
-          moveTowards(fu, *closestEnemy);
+          moveTowards(fu, closestEnemy->x, closestEnemy->y, closestEnemy->cell);
         } else {
           // Defending units move to attack when ready to "spring the trap"
           // Criteria for this is one of the following:
@@ -642,13 +661,13 @@ namespace FAP {
           }
 
           if (attack) {
-            moveTowards(fu, *closestEnemy);
+            moveTowards(fu, closestEnemy->x, closestEnemy->y, closestEnemy->cell);
           } else {
             defendChoke(fu, *closestEnemy);
           }
         }
       } else {
-        moveTowards(fu, *closestEnemy);
+        moveTowards(fu, closestEnemy->x, closestEnemy->y, closestEnemy->cell);
       }
     }
   }
