@@ -41,6 +41,7 @@ namespace
         return FAP::makeUnit<>()
                 .setUnitType(type)
                 .setPosition(pos)
+                .setTargetPosition(pos)
                 .setHealth(type.maxHitPoints())
                 .setShields(type.maxShields())
                 .setFlying(type.isFlyer())
