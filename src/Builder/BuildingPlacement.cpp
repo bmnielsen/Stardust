@@ -147,6 +147,7 @@ namespace BuildingPlacement
             for (const auto &base : Map::getMyBases())
             {
                 if (base == Map::getMyMain()) continue;
+                if (base->island) continue;
 
                 if (!base->resourceDepot || !base->resourceDepot->exists()) continue;
 
