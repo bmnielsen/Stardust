@@ -273,6 +273,11 @@ void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
         {
             myUnit->moveTo(pullingBack ? Map::getMyMain()->getPosition() : targetPosition);
         }
+        else if (pullingBack && grid.staticGroundThreat(pos) > 0)
+        {
+            // This handles the case where the unit wants to pull back, but the position is threatened
+            myUnit->moveTo(Map::getMyMain()->getPosition());
+        }
         else
         {
             myUnit->moveTo(pos, true);
