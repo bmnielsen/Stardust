@@ -34,6 +34,7 @@ void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<DefendMyMain>());
 
     // AIST S4 vs. Human match - do a fast expansion on Fighting Spirit and Circuit Breaker
+    /*
     if (BWAPI::Broodwar->mapHash() == "d2f5633cc4bb0fca13cd1250729d5530c82c7451" ||
         BWAPI::Broodwar->mapHash() == "dcabb11c83e68f47c5c5bdbea0204167a00e336f" ||
         BWAPI::Broodwar->mapHash() == "5731c103687826de48ba3cc7d6e37e2537b0e902" ||
@@ -43,6 +44,7 @@ void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays)
     {
         ourStrategy = OurStrategy::FastExpansion;
     }
+    */
 }
 
 void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
@@ -68,7 +70,8 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         CherryVis::log() << "Our strategy changed from " << OurStrategyNames[ourStrategy] << " to " << OurStrategyNames[newStrategy];
 #endif
 
-        // When we transition from early-game defense to normal on specific maps, do an elevator rush
+        // AIST S4 vs. Human match - When we transition from early-game defense to normal on specific maps, do an elevator rush
+        /*
         if (ourStrategy == OurStrategy::EarlyGameDefense && newStrategy == OurStrategy::NormalOpening &&
             (BWAPI::Broodwar->mapHash() == "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b" ||
              BWAPI::Broodwar->mapHash() == "e39c1c81740a97a733d227e238bd11df734eaf96" ||
@@ -77,8 +80,9 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
              BWAPI::Broodwar->mapHash() == "d9757c0adcfd61386dff8fe3e493e9e8ef9b45e3" ||
              BWAPI::Broodwar->mapHash() == "ecb9c70c5594a5c6882baaf4857a61824fba0cfa"))
         {
-            plays.insert(plays.begin(), std::make_shared<ElevatorRush>());
+            //plays.insert(plays.begin(), std::make_shared<ElevatorRush>());
         }
+        */
 
         ourStrategy = newStrategy;
     }
@@ -125,7 +129,8 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     defaultExpansions(plays);
     scoutExpos(plays, 15000);
 
-    // Harass enemy bases with carriers after we have our first two arbiters out
+    // AIST S4 vs. Human match - Harass enemy bases with carriers after we have our first two arbiters out
+    /*
     if (!defendOurMain && Units::countAll(BWAPI::UnitTypes::Protoss_Arbiter) > 1)
     {
         auto carrierHarass = getPlay<CarrierHarass>(plays);
@@ -146,6 +151,7 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             plays.emplace(beforeMainArmyIt(), std::make_shared<CarrierHarass>());
         }
     }
+    */
 }
 
 void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
