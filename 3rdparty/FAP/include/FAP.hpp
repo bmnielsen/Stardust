@@ -477,7 +477,17 @@ namespace FAP {
       if (closestEnemy != enemyUnits.end()) fu.target = closestEnemy->id;
     }
 
-    auto defendChoke = [this](FAPUnit<UnitExtension> &fu, FAPUnit<UnitExtension> &target) {
+    auto updatePositionTowards = [this](FAPUnit<UnitExtension> &fu, int dx, int dy) {
+      auto ds = dx * dx + dy * dy;
+      if (ds > 0) {
+        auto r = fu.speed / sqrt(ds);
+        updatePosition(fu,
+                       fu.x + static_cast<int>(dx * r),
+                       fu.y + static_cast<int>(dy * r));
+      }
+    };
+
+    auto defendChoke = [this, &updatePositionTowards](FAPUnit<UnitExtension> &fu, FAPUnit<UnitExtension> &target) {
       auto sideDiff = chokeGeometry->tileSide[fu.cell] - chokeGeometry->tileSide[target.cell];
 
       int dx, dy;
@@ -501,12 +511,10 @@ namespace FAP {
           dy = chokeGeometry->forward[3 + sideDiff].y - fu.y;
         }
       }
-      updatePosition(fu,
-                     fu.x + static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
-                     fu.y + static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
+      updatePositionTowards(fu, dx, dy);
     };
 
-    auto moveTowards = [this](FAPUnit<UnitExtension> &fu, int x, int y, int cell) {
+    auto moveTowards = [this, &updatePositionTowards](FAPUnit<UnitExtension> &fu, int x, int y, int cell) {
       int dx, dy;
 
       // Movement in chokes is handled differently, as we force the units to path through the choke ends
@@ -528,9 +536,7 @@ namespace FAP {
         dx = x - fu.x;
         dy = y - fu.y;
       }
-      updatePosition(fu,
-                     fu.x + static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
-                     fu.y + static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
+      updatePositionTowards(fu, dx, dy);
     };
 
     // Move towards target position if there is no target
@@ -581,10 +587,7 @@ namespace FAP {
         } else if (fu.attackCooldownRemaining > 1) {
           auto const dx = closestEnemy->x - fu.x;
           auto const dy = closestEnemy->y - fu.y;
-          updatePosition(
-            fu,
-            fu.x - static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
-            fu.y - static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
+          updatePositionTowards(fu, dx, dy);
         }
       }
       return;
