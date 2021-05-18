@@ -670,7 +670,11 @@ namespace Map
                 {
                     BWAPI::WalkPosition end1Center(bwemChokeAndChoke.second->end1Center);
                     BWAPI::WalkPosition end2Center(bwemChokeAndChoke.second->end2Center);
+                    BWAPI::WalkPosition end1Exit(bwemChokeAndChoke.second->end1Exit);
+                    BWAPI::WalkPosition end2Exit(bwemChokeAndChoke.second->end2Exit);
 
+                    chokesCvis[end1Exit.x + end1Exit.y * BWAPI::Broodwar->mapWidth() * 4] = 15;
+                    chokesCvis[end2Exit.x + end2Exit.y * BWAPI::Broodwar->mapWidth() * 4] = 15;
                     chokesCvis[end1Center.x + end1Center.y * BWAPI::Broodwar->mapWidth() * 4] = 20;
                     chokesCvis[end2Center.x + end2Center.y * BWAPI::Broodwar->mapWidth() * 4] = 20;
                 }
@@ -683,6 +687,28 @@ namespace Map
             }
 
             CherryVis::addHeatmap("Chokes", chokesCvis, BWAPI::Broodwar->mapWidth() * 4, BWAPI::Broodwar->mapHeight() * 4);
+
+            // Narrow Chokes
+            std::vector<long> narrowChokesCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 16);
+            for (auto &bwemChokeAndChoke : chokes)
+            {
+                auto &choke = bwemChokeAndChoke.second;
+                if (!choke->isNarrowChoke) continue;
+
+                BWAPI::WalkPosition center(choke->center);
+                narrowChokesCvis[center.x + center.y * BWAPI::Broodwar->mapWidth() * 4] = 30;
+
+                BWAPI::WalkPosition end1Center(bwemChokeAndChoke.second->end1Center);
+                BWAPI::WalkPosition end2Center(bwemChokeAndChoke.second->end2Center);
+                BWAPI::WalkPosition end1Exit(bwemChokeAndChoke.second->end1Exit);
+                BWAPI::WalkPosition end2Exit(bwemChokeAndChoke.second->end2Exit);
+                narrowChokesCvis[end1Exit.x + end1Exit.y * BWAPI::Broodwar->mapWidth() * 4] = 15;
+                narrowChokesCvis[end2Exit.x + end2Exit.y * BWAPI::Broodwar->mapWidth() * 4] = 15;
+                narrowChokesCvis[end1Center.x + end1Center.y * BWAPI::Broodwar->mapWidth() * 4] = 20;
+                narrowChokesCvis[end2Center.x + end2Center.y * BWAPI::Broodwar->mapWidth() * 4] = 20;
+            }
+
+            CherryVis::addHeatmap("NarrowChokes", narrowChokesCvis, BWAPI::Broodwar->mapWidth() * 4, BWAPI::Broodwar->mapHeight() * 4);
 #endif
         }
     }

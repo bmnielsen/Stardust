@@ -15,6 +15,7 @@
 #include "WorkerOrderTimer.h"
 #include "Bullets.h"
 #include "Players.h"
+#include "Geo.h"
 
 // While instrumenting we have a lower global frame limit to ensure we get data if the game locks up
 #if INSTRUMENTATION_ENABLED_VERBOSE
@@ -71,6 +72,7 @@ void StardustAIModule::onStart()
     Workers::initialize();
     Bullets::initialize();
     Players::initialize();
+    Geo::initialize();
     PathFinding::clearGrids();
     PathFinding::initializeSearch();
 
