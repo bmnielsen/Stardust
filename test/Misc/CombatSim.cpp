@@ -425,3 +425,56 @@ TEST(CombatSim, TankMinRange)
     test.run();
 }
 
+TEST(CombatSim, TankBug)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.myModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.map = Maps::GetOne("Glaive");
+    test.randomSeed = 40072;
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.writeReplay = false;
+
+    test.onStartMine = []()
+    {
+        Log::initialize();
+        CherryVis::initialize();
+        Map::initialize();
+        CombatSim::initialize();
+        Log::SetDebug(true);
+
+        {
+            FAP::FastAPproximation sim;
+
+            sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(917,3355)));
+            sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(892,3338)));
+            sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(869,3315)));
+            sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(828,3268)));
+            sim.addIfCombatUnitPlayer2(makeUnit(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode, BWAPI::Position(977,3377)));
+
+            int initialMine = score(sim.getState().first);
+            int initialEnemy = score(sim.getState().second);
+
+            sim.simulate(144);
+
+            int finalMine = score(sim.getState().first);
+            int finalEnemy = score(sim.getState().second);
+
+            int diff = (initialEnemy - finalEnemy) - (initialMine - finalMine);
+
+            std::cout << "Scores for scenario: " << diff << " ("
+                      << initialMine << "-" << initialEnemy << " : "
+                      << finalMine << "-" << finalEnemy << ")" << std::endl;
+        }
+    };
+
+    test.run();
+}
+

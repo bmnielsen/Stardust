@@ -5,6 +5,7 @@
 #include "Map.h"
 #include "Strategist.h"
 #include "TestAttackBasePlay.h"
+#include "TestMainArmyAttackBasePlay.h"
 #include "DoNothingStrategyEngine.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
 
@@ -256,6 +257,48 @@ TEST(AttackStaticDefense, HeavilyFortifiedNatural)
             UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(20, 36)),
             UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(20, 38)),
             UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(20, 40)),
+    };
+
+    test.run();
+}
+
+TEST(AttackStaticDefense, TankThroughChoke)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.map = Maps::GetOne("Glaive");
+    test.randomSeed = 40072;
+    test.frameLimit = 500;
+    test.expectWin = false;
+
+    // We have some zealots
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(31, 108)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(18, 96)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(19, 96)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(18, 97)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(19, 97)),
+    };
+
+    // Enemy has a tank
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode, BWAPI::TilePosition(30, 105)),
+    };
+
+    // Order the dragoon to attack the bottom base
+    test.onStartMine = []()
+    {
+        auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(67, 6)));
+
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack, true));
+        Strategist::setOpening(openingPlays);
     };
 
     test.run();
