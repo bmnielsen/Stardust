@@ -391,6 +391,7 @@ void PvT::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Khaydarin_Core, BWAPI::UnitTypes::Protoss_Arbiter, false);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::TechTypes::Stasis_Field, BWAPI::UnitTypes::Protoss_Arbiter, false);
 
     defaultGroundUpgrades(prioritizedProductionGoals);
