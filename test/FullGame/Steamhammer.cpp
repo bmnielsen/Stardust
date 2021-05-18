@@ -9,7 +9,7 @@ TEST(Steamhammer, RunThirty)
     {
         BWTest test;
         test.opponentRace = BWAPI::Races::Zerg;
-        test.maps = Maps::Get("sscait");
+        test.maps = Maps::Get("cog");
         test.opponentModule = []()
         {
             auto module = new UAlbertaBot::UAlbertaBotModule();

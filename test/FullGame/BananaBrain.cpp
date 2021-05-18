@@ -56,7 +56,7 @@ TEST(BananaBrain, RunThirty)
     {
         BWTest test;
         BananaBrain* bbModule;
-        test.maps = Maps::Get("sscait");
+        test.maps = Maps::Get("cog");
         test.opponentRace = BWAPI::Races::Protoss;
         test.opponentModule = [&]()
         {

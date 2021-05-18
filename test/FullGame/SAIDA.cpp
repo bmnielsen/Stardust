@@ -8,7 +8,7 @@ TEST(SAIDA, RunThirty)
     while (count < 30)
     {
         BWTest test;
-        test.maps = Maps::Get("sscait");
+        test.maps = Maps::Get("cog");
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
         {
