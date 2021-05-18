@@ -133,6 +133,8 @@ void StardustAIModule::onFrame()
 {
     if (BWAPI::BroodwarPtr->getFrameCount() < frameSkip) return;
     if (gameFinished) return;
+    if (BWAPI::Broodwar->isPaused()) return;
+    if (BWAPI::Broodwar->isReplay()) return;
 
 #ifdef FRAME_LIMIT
     if (BWAPI::Broodwar->getFrameCount() > FRAME_LIMIT)
