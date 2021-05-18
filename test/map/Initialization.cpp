@@ -1,7 +1,21 @@
 #include "BWTest.h"
 #include "DoNothingModule.h"
 
-TEST(Initialization, AllCOG)
+TEST(Initialization, AllCOGMaps)
+{
+    Maps::RunOnEach(Maps::Get("cog"), [](BWTest test)
+    {
+        test.opponentModule = []()
+        {
+            return new DoNothingModule();
+        };
+        test.frameLimit = 10;
+        test.expectWin = false;
+        test.run();
+    });
+}
+
+TEST(Initialization, AllCOGStartLocations)
 {
     Maps::RunOnEachStartLocation(Maps::Get("cog"), [](BWTest test)
     {
@@ -128,6 +142,48 @@ TEST(Initialization, BlueStorm)
 {
     BWTest test;
     test.map = Maps::GetOne("Blue");
+    test.randomSeed = 40072;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.run();
+}
+
+TEST(Initialization, NeoMoonGlaive)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Glaive");
+    test.randomSeed = 40072;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.run();
+}
+
+TEST(Initialization, Destination)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Destination");
+    test.randomSeed = 40072;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.run();
+}
+
+TEST(Initialization, NeoHeartbreakerRidge)
+{
+    BWTest test;
+    test.map = Maps::GetOne("NeoHeartbreakerRidge");
     test.randomSeed = 40072;
     test.opponentModule = []()
     {
