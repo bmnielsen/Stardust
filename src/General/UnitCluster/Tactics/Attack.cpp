@@ -46,7 +46,24 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
 
         if (unitAndTarget.first == vanguard) vanguardTarget = unitAndTarget.second;
     }
-    if (canFormArc && vanguardTarget && vanguardTarget->canAttack(vanguard))
+    canFormArc = canFormArc && vanguardTarget && vanguardTarget->canAttack(vanguard);
+
+    // If it is a ground unit, check that our vanguard unit has a clear path to its target
+    if (canFormArc && !vanguard->isFlying)
+    {
+        std::vector<BWAPI::TilePosition> tiles;
+        Geo::FindTilesBetween(vanguard->getTilePosition(), vanguardTarget->getTilePosition(), tiles);
+        for (auto tile : tiles)
+        {
+            if (!Map::isWalkable(tile))
+            {
+                canFormArc = false;
+                break;
+            }
+        }
+    }
+
+    if (canFormArc)
     {
         auto pivot = vanguard->lastPosition + Geo::ScaleVector(vanguardTarget->lastPosition - vanguard->lastPosition,
                                                                vanguard->lastPosition.getApproxDistance(vanguardTarget->lastPosition) + 64);

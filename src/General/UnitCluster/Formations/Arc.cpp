@@ -9,8 +9,8 @@
 
 namespace
 {
-    const double separationDetectionLimitFactor = 1.5;
-    const double separationWeight = 64.0;
+    const double separationDetectionLimitFactor = 1.25;
+    const double separationWeight = 32.0;
 }
 
 bool UnitCluster::formArc(BWAPI::Position pivot, int desiredDistance)
@@ -71,17 +71,17 @@ bool UnitCluster::formArc(BWAPI::Position pivot, int desiredDistance)
         int goalX = 0;
         int goalY = 0;
 
-        // If we have a separation component, weight the goal at least equally
+        // If we have a separation component, weight the goal at least twice as high
         int separationLength = Geo::ApproximateDistance(separationX, 0, separationY, 0);
         int desiredDistChange = myUnit->lastPosition.getApproxDistance(pivot) - desiredDistance + (UnitUtil::IsRangedUnit(myUnit->type) ? 0 : 32);
         BWAPI::Position vector;
         if (desiredDistChange > 0)
         {
-            vector = Geo::ScaleVector(pivot - myUnit->lastPosition, std::max(desiredDistChange, separationLength));
+            vector = Geo::ScaleVector(pivot - myUnit->lastPosition, std::max(desiredDistChange, separationLength * 2));
         }
         else
         {
-            vector = Geo::ScaleVector(pivot - myUnit->lastPosition, -std::max(-desiredDistChange, separationLength));
+            vector = Geo::ScaleVector(pivot - myUnit->lastPosition, -std::max(-desiredDistChange, separationLength * 2));
         }
 
         if (vector != BWAPI::Positions::Invalid)
