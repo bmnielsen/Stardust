@@ -73,16 +73,31 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
     }
     else if (zealotsRequired > 0)
     {
-        // If we need to start producing our first dragoons soon, queue one
         double percentZealotsRequired = (double)zealotsRequired / (double)(zealotCount + zealotsRequired);
-        if (percentZealotsRequired < 0.2 && dragoonCount == 0)
+
+        // If we are supply-blocked, cancel a non-started cybernetics core
+        // Otherwise start queueing dragoons if we are ready to start transitioning
+        if ((BWAPI::Broodwar->self()->supplyTotal() - BWAPI::Broodwar->self()->supplyUsed()) < 4 &&
+            Units::countIncomplete(BWAPI::UnitTypes::Protoss_Pylon) == 0)
+        {
+            for (const auto &core : Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
+            {
+                if (!core->isConstructionStarted())
+                {
+                    Log::Get() << "Cancelling " << core->type << "@" << core->tile << " because of upcoming supply block";
+                    Builder::cancel(core->tile);
+                }
+            }
+        }
+        else if (percentZealotsRequired < 0.2 && dragoonCount == 0)
         {
             prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                           BWAPI::UnitTypes::Protoss_Dragoon,
                                                                           1,
                                                                           1);
         }
-        else if (percentZealotsRequired > 0.4)
+
+        if (percentZealotsRequired > 0.4)
         {
             cancelTrainingUnits(prioritizedProductionGoals,
                                 BWAPI::UnitTypes::Protoss_Dragoon,
