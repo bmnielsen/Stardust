@@ -9,7 +9,6 @@
 
 MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         : UnitImpl(unit)
-        , distToTargetPosition(0)
         , producer(nullptr)
         , energy(unit->getEnergy())
         , lastCastFrame(-1)

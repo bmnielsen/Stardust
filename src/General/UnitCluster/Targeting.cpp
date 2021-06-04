@@ -18,10 +18,9 @@ namespace
         // This is similar to the target prioritization in Locutus that originally came from Steamhammer/UAlbertaBot
 
         const BWAPI::UnitType targetType = target->type;
-        auto closeToOurBase = [&target]()
+        auto notCloseToTargetPosition = [&target]()
         {
-            auto ourBasePosition = BWAPI::Position(Map::getMyMain()->getPosition());
-            return target->getDistance(ourBasePosition) < 1000;
+            return target->distToTargetPosition > 1500;
         };
 
         if (targetType == BWAPI::UnitTypes::Zerg_Infested_Terran ||
@@ -51,7 +50,7 @@ namespace
         }
 
         // Proxies
-        if (target->type.isBuilding() && closeToOurBase())
+        if (target->type.isBuilding() && !target->isFlying && notCloseToTargetPosition())
         {
             if (target->canAttackGround() || target->canAttackAir())
             {
@@ -67,7 +66,7 @@ namespace
 
         if (targetType.isWorker())
         {
-            if ((target->bwapiUnit->isConstructing() || target->bwapiUnit->isRepairing()) && closeToOurBase())
+            if ((target->bwapiUnit->isConstructing() || target->bwapiUnit->isRepairing()) && notCloseToTargetPosition())
             {
                 return 15;
             }
@@ -219,6 +218,33 @@ namespace
 std::vector<std::pair<MyUnit, Unit>>
 UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPosition, bool staticPosition)
 {
+    // Perform a scan to remove target units that are at much different distances from our target position than the vanguard unit
+    // This indicates we have picked up enemy units that are in a different region separated from us by a cliff
+    if (!vanguard->isFlying)
+    {
+        for (auto it = targetUnits.begin(); it != targetUnits.end();)
+        {
+            auto &unit = *it;
+            if (!unit->isFlying)
+            {
+                unit->distToTargetPosition = PathFinding::GetGroundDistance(
+                        unit->lastPosition,
+                        targetPosition,
+                        unit->type,
+                        PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+
+                if (unit->distToTargetPosition != -1 && abs(unit->distToTargetPosition - vanguardDistToTarget) > 700
+                    && !vanguard->isInEnemyWeaponRange(unit))
+                {
+                    it = targetUnits.erase(it);
+                    continue;
+                }
+            }
+
+            it++;
+        }
+    }
+
     std::vector<std::pair<MyUnit, Unit>> result;
 
     // For our targeting we want to know if we are attacking a reachable enemy base

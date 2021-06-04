@@ -14,7 +14,6 @@ typedef std::shared_ptr<MyUnitImpl> MyUnit;
 class MyUnitImpl : public UnitImpl
 {
 public:
-    int distToTargetPosition;
     BWAPI::Unit producer;
 
     int energy;                         // Estimated energy of the unit

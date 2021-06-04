@@ -41,6 +41,8 @@ public:
     int tilePositionY;                  // Y coordinate of the tile position
     BWAPI::TilePosition buildTile;      // For landed buildings, the tile position of the build tile (top-left tile)
 
+    int distToTargetPosition;           // Transient field used in targeting / combat sim / combat micro
+
     int lastSeen;                       // Frame the unit was last updated
     int lastSeenAttacking;              // Frame when the unit was last seen making an attack
 

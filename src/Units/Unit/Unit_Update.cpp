@@ -47,6 +47,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , tilePositionX(unit->getPosition().x >> 5U)
         , tilePositionY(unit->getPosition().y >> 5U)
         , buildTile(computeBuildTile(unit))
+        , distToTargetPosition(-1)
         , lastSeen(BWAPI::Broodwar->getFrameCount())
         , lastSeenAttacking(-1)
         , type(unit->getType())
@@ -95,6 +96,8 @@ void UnitImpl::created()
 void UnitImpl::update(BWAPI::Unit unit)
 {
     if (!unit || !unit->exists()) return;
+
+    distToTargetPosition = -1;
 
     updateGrid(unit);
 

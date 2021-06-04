@@ -30,7 +30,7 @@ namespace
 UnitCluster::UnitCluster(const MyUnit &unit)
         : center(unit->lastPosition)
         , vanguard(unit)
-        , vanguardDistToTarget(0)
+        , vanguardDistToTarget(-1)
         , vanguardDistToMain(0)
         , percentageToEnemyMain(0.0)
         , ballRadius(16)
@@ -52,7 +52,7 @@ void UnitCluster::absorbCluster(const std::shared_ptr<UnitCluster> &other, BWAPI
 {
     units.insert(other->units.begin(), other->units.end());
     area += other->area;
-    ballRadius = (int)sqrt((double)area / pi);
+    ballRadius = (int) sqrt((double) area / pi);
     lineRadius = 16 * units.size();
     updatePositions(targetPosition);
 }
@@ -141,7 +141,10 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
             continue;
         }
 
-        unit->distToTargetPosition = PathFinding::GetGroundDistance(targetPosition, unit->lastPosition, unit->type);
+        unit->distToTargetPosition = PathFinding::GetGroundDistance(targetPosition,
+                                                                    unit->lastPosition,
+                                                                    unit->type,
+                                                                    PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
         if (unit->distToTargetPosition > groundDistToTarget || (unit->distToTargetPosition == -1 && groundDistToTarget != INT_MAX))
         {
             unitIt++;
@@ -165,7 +168,7 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
         unitIt++;
     }
 
-    ballRadius = (int)sqrt((double)area / pi);
+    ballRadius = (int) sqrt((double) area / pi);
     lineRadius = 16 * units.size();
 
     if (groundVanguard)
