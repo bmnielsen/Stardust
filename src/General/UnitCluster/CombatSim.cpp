@@ -135,6 +135,8 @@ namespace
                                  narrowChoke->end2Exit);
         }
 
+        bool allTierOne = true;
+
         // Add our units with initial target
         int myCount = 0;
         for (auto &unitAndTarget : unitsAndTargets)
@@ -149,6 +151,7 @@ namespace
             if (added)
             {
                 myCount++;
+                if (unitAndTarget.first->type != BWAPI::UnitTypes::Protoss_Zealot) allTierOne = false;
 
 #if DEBUG_COMBATSIM_CSV
                 if (unitAndTarget.first->id < minUnitId) minUnitId = unitAndTarget.first->id;
@@ -187,6 +190,12 @@ namespace
                 if (added)
                 {
                     enemyCount++;
+                    if (unit->type != BWAPI::UnitTypes::Protoss_Zealot &&
+                        unit->type != BWAPI::UnitTypes::Zerg_Zergling &&
+                        unit->type != BWAPI::UnitTypes::Terran_Marine)
+                    {
+                        allTierOne = false;
+                    }
                 }
             }
         }
@@ -237,7 +246,7 @@ namespace
         int initialMine = score(attacking ? sim.getState().first : sim.getState().second);
         int initialEnemy = score(attacking ? sim.getState().second : sim.getState().first);
 
-        for (int i = 0; i < 144; i++)
+        for (int i = 0; i < ((allTierOne && !attacking) ? 60 : 144); i++)
         {
 #if DEBUG_COMBATSIM_DRAW
             std::map<int, std::tuple<int, int, int>> player1DrawData;
