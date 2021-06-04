@@ -295,17 +295,6 @@ void UnitCluster::holdChoke(Choke *choke,
             continue;
         }
 
-        // In cases where the position is not walkable, try with the goal position instead
-        pos = myUnit->lastPosition + BWAPI::Position(goalX, goalY);
-        if (pos.isValid() && BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos)))
-        {
-#if DEBUG_UNIT_ORDERS
-            CherryVis::log(myUnit->id) << "Target not walkable; falling back to goal boid";
-#endif
-            myUnit->moveTo(pos, true);
-            continue;
-        }
-
         // If the position is still invalid or unwalkable, move directly to the target position or back depending on which way we are going
         if (distDiff > 0)
         {
