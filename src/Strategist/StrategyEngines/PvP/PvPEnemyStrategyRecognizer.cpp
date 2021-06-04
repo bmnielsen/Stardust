@@ -348,14 +348,26 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 if (isWorkerRush()) return ProtossStrategy::WorkerRush;
 
                 // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their nexus
-                if (!isProxy())
+                if (BWAPI::Broodwar->getFrameCount() < 5000 && !isProxy())
                 {
                     strategy = ProtossStrategy::Unknown;
                     continue;
                 }
 
-                // Otherwise intentionally fall through to zealot rush handling
+                // We assume the enemy has transitioned from the proxy when either:
+                // - They have taken gas
+                // - Our scout is dead and we are past frame 5000
+                if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Assimilator) > 0 ||
+                    (BWAPI::Broodwar->getFrameCount() >= 5000 &&
+                     (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted ||
+                      Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingFailed ||
+                      Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingBlocked)))
+                {
+                    strategy = ProtossStrategy::TwoGate;
+                    continue;
+                }
 
+                break;
             case ProtossStrategy::ZealotRush:
                 if (isWorkerRush()) return ProtossStrategy::WorkerRush;
 
