@@ -243,15 +243,25 @@ void EarlyGameDefendMainBaseSquad::initializeChoke()
 
         if (choke->isNarrowChoke)
         {
-            auto end1Dist = PathFinding::GetGroundDistance(base->getPosition(),
-                                                           choke->end1Center,
-                                                           BWAPI::UnitTypes::Protoss_Dragoon,
-                                                           PathFinding::PathFindingOptions::UseNearestBWEMArea);
-            auto end2Dist = PathFinding::GetGroundDistance(base->getPosition(),
-                                                           choke->end2Center,
-                                                           BWAPI::UnitTypes::Protoss_Dragoon,
-                                                           PathFinding::PathFindingOptions::UseNearestBWEMArea);
-            chokeDefendEnd = end1Dist < end2Dist ? choke->end1Center : choke->end2Center;
+            auto grid = PathFinding::getNavigationGrid(base->getTilePosition());
+            auto end1Node = grid ? &(*grid)[choke->end1Center] : nullptr;
+            auto end2Node = grid ? &(*grid)[choke->end2Center] : nullptr;
+            if (end1Node && end1Node->nextNode && end2Node && end2Node->nextNode)
+            {
+                chokeDefendEnd = end1Node->cost < end2Node->cost ? choke->end1Center : choke->end2Center;
+            }
+            else
+            {
+                auto end1Dist = PathFinding::GetGroundDistance(base->getPosition(),
+                                                               choke->end1Center,
+                                                               BWAPI::UnitTypes::Protoss_Dragoon,
+                                                               PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                auto end2Dist = PathFinding::GetGroundDistance(base->getPosition(),
+                                                               choke->end2Center,
+                                                               BWAPI::UnitTypes::Protoss_Dragoon,
+                                                               PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                chokeDefendEnd = end1Dist < end2Dist ? choke->end1Center : choke->end2Center;
+            }
         }
     }
     else
