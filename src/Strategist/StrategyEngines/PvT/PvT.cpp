@@ -192,7 +192,12 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                          Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode);
         if (enemyTanks > 3)
         {
-            int desiredZealots = std::min(dragoonCount, enemyTanks * 2);
+            // Keep proportionally more dragoons if the enemy has a lot of vultures
+            int desiredZealots = std::min((dragoonCount * 3) / 2, enemyTanks * 3);
+            if (Units::countEnemy(BWAPI::UnitTypes::Terran_Vulture) > enemyTanks)
+            {
+                desiredZealots = std::min(dragoonCount, enemyTanks * 3);
+            }
             if (desiredZealots > zealotCount)
             {
                 mainArmyProduction(prioritizedProductionGoals,
