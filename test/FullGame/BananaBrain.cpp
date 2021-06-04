@@ -192,3 +192,20 @@ TEST(BananaBrain, BBS)
 
     test.run();
 }
+
+TEST(BananaBrain, ProxyGates)
+{
+    BWTest test;
+    test.map = Maps::GetOne("NeoHeartbreakerRidge");
+    test.randomSeed = 71137;
+    test.frameLimit = 8000;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ProtossStrategy::kPvP_99ProxyGate;
+        return bbModule;
+    };
+
+    test.run();
+}
