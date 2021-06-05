@@ -25,6 +25,8 @@ bool UnitCluster::formArc(BWAPI::Position pivot, int desiredDistance)
         return false;
     }
 
+    CherryVis::log() << "Arc!";
+
     int vanguardDistToPivot = vanguard->lastPosition.getApproxDistance(pivot);
 
     // Now micro the units
