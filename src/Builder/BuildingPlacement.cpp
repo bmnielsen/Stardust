@@ -224,8 +224,35 @@ namespace BuildingPlacement
         {
             for (auto &base : Map::allBases())
             {
-                // Main is handled by start block, unless one couldn't be found
-                if (base == Map::getMyMain() && baseStaticDefenses.find(base) != baseStaticDefenses.end()) continue;
+                // Main has its locations handled by the start block
+                if (base == Map::getMyMain() && baseStaticDefenses.find(base) != baseStaticDefenses.end())
+                {
+                    auto &mainDefenses = baseStaticDefenses[base];
+
+                    // Score each position based on their distance to the mineral line center and geyser
+                    std::vector<std::pair<BWAPI::TilePosition, int>> tilesAndScore;
+                    for (auto &tile : mainDefenses.second)
+                    {
+                        auto pos = BWAPI::Position(tile) + BWAPI::Position(16, 16);
+                        int score = pos.getApproxDistance(base->mineralLineCenter);
+                        if (!base->geysers().empty())
+                        {
+                            score += pos.getApproxDistance((*base->geysers().begin())->getPosition());
+                        }
+                        tilesAndScore.emplace_back(std::make_pair(tile, score));
+                    }
+
+                    std::sort(tilesAndScore.begin(), tilesAndScore.end());
+
+                    mainDefenses.second.clear();
+
+                    for (auto &tileAndScore : tilesAndScore)
+                    {
+                        mainDefenses.second.push_back(tileAndScore.first);
+                    }
+
+                    continue;
+                }
 
                 // Find the end mineral patches, which are the patches furthest away from each other
                 BWAPI::Unit end1, end2;
