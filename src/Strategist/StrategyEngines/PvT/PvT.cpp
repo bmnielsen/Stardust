@@ -5,6 +5,7 @@
 #include "UnitUtil.h"
 #include "Players.h"
 #include "Workers.h"
+#include "Builder.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -224,12 +225,69 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::AntiMarineRush:
         {
+            auto buildCannons = [&prioritizedProductionGoals](int desiredCount)
+            {
+                auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(Map::getMyMain());
+                if (!baseStaticDefenseLocations.first.isValid()) return 0;
+
+                int completedCannons = 0;
+                for (const auto &location : baseStaticDefenseLocations.second)
+                {
+                    if (!location.isValid()) continue;
+
+                    auto cannon = Units::myBuildingAt(location);
+                    if (cannon)
+                    {
+                        desiredCount--;
+
+                        if (cannon->completed)
+                        {
+                            completedCannons++;
+                        }
+
+                        continue;
+                    }
+
+                    if (desiredCount > 0)
+                    {
+                        auto buildAtTile = [&prioritizedProductionGoals](BWAPI::TilePosition tile, BWAPI::UnitType type)
+                        {
+                            if (Builder::isPendingHere(tile)) return;
+
+                            auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
+                            prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                        type,
+                                                                                        buildLocation);
+                        };
+
+                        auto pylon = Units::myBuildingAt(baseStaticDefenseLocations.first);
+                        if (pylon)
+                        {
+                            if (pylon->completed)
+                            {
+                                buildAtTile(location, BWAPI::UnitTypes::Protoss_Photon_Cannon);
+                                desiredCount--;
+                            }
+                        }
+                        else if (!pylon)
+                        {
+                            buildAtTile(baseStaticDefenseLocations.first, BWAPI::UnitTypes::Protoss_Pylon);
+                            return completedCannons;
+                        }
+                    }
+                }
+
+                return completedCannons;
+            };
+
             // Take enemy production into account when determining how many marines they have
             int enemyMarines = Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) + 1;
             if (enemyStrategy == TerranStrategy::ProxyRush) enemyMarines += 2;
 
+            int completedCannons = buildCannons(enemyMarines < 4 ? 1 : 2);
+
             // Get a zealot for every two marines
-            int desiredZealots = std::max(4, (enemyMarines + 1) / 2);
+            int desiredZealots = std::max(4, (enemyMarines + 1) / 2) - (completedCannons * 2);
             int zealotsRequired = desiredZealots - zealotCount - dragoonCount;
 
             handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired);
