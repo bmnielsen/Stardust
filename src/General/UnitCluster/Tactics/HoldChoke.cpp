@@ -24,7 +24,10 @@ void UnitCluster::holdChoke(Choke *choke,
 
     BWAPI::Position farEnd = choke->end1Center == defendEnd ? choke->end2Center : choke->end1Center;
     int centerDist = choke->center.getApproxDistance(defendEnd);
-    int meleeDist = std::max(choke->width / 2, centerDist);
+    int meleeDist = std::max(choke->width / 2, centerDist) +
+                    (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran
+                     ? BWAPI::UnitTypes::Terran_Marine.groundWeapon().maxRange()
+                     : BWAPI::UnitTypes::Protoss_Zealot.groundWeapon().maxRange());
 
     // On the first pass, determine which types of units should attack
     bool meleeShouldAttack = false;
@@ -68,9 +71,19 @@ void UnitCluster::holdChoke(Choke *choke,
             continue;
         }
 
-        // For melee units vs. ranged units, attack if the target has us in range
+        // For melee units vs. ranged units, attack when the target is through the choke or when we are in its attack range
         if (UnitUtil::IsRangedUnit(target->type))
         {
+            // Target is through the choke
+            if (choke->center.getApproxDistance(target->lastPosition) >= centerDist &&
+                target->getDistance(defendEnd) < target->getDistance(farEnd))
+            {
+                rangedShouldAttack = true;
+                meleeShouldAttack = true;
+                break;
+            }
+
+            // We are well within the target's attack range
             if (myUnit->isInEnemyWeaponRange(target, -16))
             {
                 rangedShouldAttack = true;
@@ -162,12 +175,13 @@ void UnitCluster::holdChoke(Choke *choke,
         BWAPI::Position targetPos;
         int distDiff;
 
-        int defendEndDist = myUnit->getDistance(defendEnd);
+        int defendEndDist = myUnit->lastPosition.getApproxDistance(defendEnd);
+        int farEndDist = myUnit->lastPosition.getApproxDistance(farEnd);
+        int distToCenter = myUnit->lastPosition.getApproxDistance(choke->center);
 
         if (UnitUtil::IsRangedUnit(myUnit->type))
         {
-            int distToCenter = myUnit->getDistance(choke->center);
-            if (distToCenter < defendEndDist)
+            if (farEndDist < defendEndDist || distToCenter < defendEndDist)
             {
                 // Unit is on wrong side of the defend end, closer to choke center
                 // If the unit is far away, use the choke center as the reference point
@@ -189,9 +203,9 @@ void UnitCluster::holdChoke(Choke *choke,
         }
         else
         {
-            if (myUnit->getDistance(farEnd) < defendEndDist)
+            if (farEndDist < defendEndDist || distToCenter < defendEndDist)
             {
-                // Unit is on the wrong side of the choke
+                // Unit needs to move towards the defend end
                 targetPos = defendEnd;
                 distDiff = defendEndDist;
             }
@@ -206,7 +220,7 @@ void UnitCluster::holdChoke(Choke *choke,
             else
             {
                 targetPos = choke->center;
-                distDiff = myUnit->getDistance(targetPos) - meleeDist;
+                distDiff = distToCenter - meleeDist;
             }
         }
 
@@ -278,6 +292,7 @@ void UnitCluster::holdChoke(Choke *choke,
 
 #if DEBUG_UNIT_BOIDS
         CherryVis::log(myUnit->id) << "HoldChoke boids towards " << BWAPI::WalkPosition(defendEnd)
+                                   << "; targetPos=" << BWAPI::WalkPosition(targetPos)
                                    << "; distDiff=" << distDiff
                                    << ": goal=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX, goalY))
                                    << "; separation=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(separationX, separationY))
