@@ -234,7 +234,7 @@ namespace BuildingPlacement
                     for (auto &tile : mainDefenses.second)
                     {
                         auto pos = BWAPI::Position(tile) + BWAPI::Position(16, 16);
-                        int score = pos.getApproxDistance(base->mineralLineCenter);
+                        int score = pos.getApproxDistance(base->mineralLineCenter) * 2;
                         if (!base->geysers().empty())
                         {
                             score += pos.getApproxDistance((*base->geysers().begin())->getPosition());
