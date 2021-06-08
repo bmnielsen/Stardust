@@ -300,7 +300,7 @@ TEST(ContainAtChoke, ZealotsAndDragoonsVsZerglingsOnRamp)
 TEST(ContainAtChoke, ZealotsVsMarinesOnRamp)
 {
     BWTest test;
-    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentRace = BWAPI::Races::Terran;
     test.opponentModule = []()
     {
         return new AttackAtFrameModule(BWAPI::Position(BWAPI::WalkPosition(50, 375)), 200);
@@ -360,7 +360,7 @@ TEST(ContainAtChoke, ZealotsVsMarinesOnRamp)
 TEST(ContainAtChoke, ZealotsAndDragoonsVsMarinesOnRamp)
 {
     BWTest test;
-    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentRace = BWAPI::Races::Terran;
     test.opponentModule = []()
     {
         return new AttackAtFrameModule(BWAPI::Position(BWAPI::WalkPosition(50, 375)), 200);
