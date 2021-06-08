@@ -249,7 +249,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // We get at least four zealots, but ensure we match enemy zealot production to avoid getting overrun
             // When they are doing a proxy, add in a couple of extra zealots to handle the ones in production
-            int enemyZealots = Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot);
+            int enemyZealots = Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) + 1;
             if (enemyStrategy == ProtossStrategy::ProxyRush) enemyZealots += 2;
             int desiredZealots = std::max(4, enemyZealots);
             int zealotsRequired = desiredZealots - zealotCount;

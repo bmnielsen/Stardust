@@ -102,6 +102,7 @@ namespace
     {
         if (isFastExpansion()) return false;
         if (BWAPI::Broodwar->getFrameCount() >= 5000) return false;
+        if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Assimilator) > 0) return false;
 
         // Check if we have directly scouted an enemy building in a proxy location
         auto enemyMain = Map::getEnemyStartingMain();
