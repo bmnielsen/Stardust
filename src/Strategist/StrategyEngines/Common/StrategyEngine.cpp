@@ -295,12 +295,13 @@ void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal
         return;
     }
 
-    if (zealotCount == 0)
+    if (zealotCount < desiredZealots)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                    BWAPI::UnitTypes::Protoss_Zealot,
                                                                    1,
                                                                    1);
+        desiredZealots--;
     }
     if (dragoonCount == 0)
     {

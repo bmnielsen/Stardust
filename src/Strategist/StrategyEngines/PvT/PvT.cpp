@@ -224,10 +224,13 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::AntiMarineRush:
         {
-            // If we haven't reached a "critical mass" of dragoons yet, get at least four zealots
-            // Otherwise keep two zealots while pumping dragoons
-            int desiredZealots = (dragoonCount < 3 ? 4 : 2) + std::max(0, (Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) - 6) / 3);
-            int zealotsRequired = desiredZealots - zealotCount;
+            // Take enemy production into account when determining how many marines they have
+            int enemyMarines = Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) + 1;
+            if (enemyStrategy == TerranStrategy::ProxyRush) enemyMarines += 2;
+
+            // Get a zealot for every two marines
+            int desiredZealots = (enemyMarines + 1) / 2;
+            int zealotsRequired = desiredZealots - zealotCount - dragoonCount;
 
             handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired);
 
