@@ -229,7 +229,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             if (enemyStrategy == TerranStrategy::ProxyRush) enemyMarines += 2;
 
             // Get a zealot for every two marines
-            int desiredZealots = (enemyMarines + 1) / 2;
+            int desiredZealots = std::max(4, (enemyMarines + 1) / 2);
             int zealotsRequired = desiredZealots - zealotCount - dragoonCount;
 
             handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired);
