@@ -19,6 +19,13 @@ public:
 
     std::string getOurStrategy() override { return OurStrategyNames[ourStrategy]; }
 
+    bool isEnemyRushing() override
+    {
+        return enemyStrategy == ProtossStrategy::WorkerRush ||
+               enemyStrategy == ProtossStrategy::ProxyRush ||
+               enemyStrategy == ProtossStrategy::ZealotRush;
+    }
+
 private:
     enum class ProtossStrategy
     {

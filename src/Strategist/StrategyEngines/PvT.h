@@ -19,6 +19,13 @@ public:
 
     bool isFastExpanding() override { return ourStrategy == OurStrategy::FastExpansion; }
 
+    bool isEnemyRushing() override
+    {
+        return enemyStrategy == TerranStrategy::WorkerRush ||
+               enemyStrategy == TerranStrategy::ProxyRush ||
+               enemyStrategy == TerranStrategy::MarineRush;
+    }
+
 private:
     enum class TerranStrategy
     {

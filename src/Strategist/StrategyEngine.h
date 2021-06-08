@@ -23,6 +23,8 @@ public:
 
     virtual bool isFastExpanding() { return false; }
 
+    virtual bool isEnemyRushing() { return false; }
+
 protected:
     static bool hasEnemyStolenOurGas();
 

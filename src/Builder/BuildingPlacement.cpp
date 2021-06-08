@@ -6,6 +6,8 @@
 #include "UnitUtil.h"
 #include "Geo.h"
 #include "Block.h"
+#include "Strategist.h"
+#include "Units.h"
 
 #include "Blocks/StartNormalLeft.h"
 #include "Blocks/StartNormalRight.h"
@@ -67,6 +69,8 @@ namespace BuildingPlacement
         std::map<const BWEM::Area *, BWAPI::Position> areaOrigins;
         std::map<const BWEM::Area *, BWAPI::Position> areaExits;
         std::map<Neighbourhood, std::map<int, BuildLocationSet>> availableBuildLocations;
+
+        bool buildAwayFromExit;
 
         BuildLocationSet _availableGeysers;
 
@@ -951,6 +955,7 @@ namespace BuildingPlacement
         updateRequired = true;
         availableBuildLocations.clear();
         _availableGeysers.clear();
+        buildAwayFromExit = false;
 
         initializeTileAvailability();
         updateNeighbourhoods();
@@ -1001,7 +1006,7 @@ namespace BuildingPlacement
         }
 
         // Destruction of depots indicates we've lost a base
-        updateRequired = (unit->player == BWAPI::Broodwar->self() && unit->type.isResourceDepot()) || updateRequired;
+        updateRequired = updateRequired || (unit->player == BWAPI::Broodwar->self() && unit->type.isResourceDepot());
     }
 
     void onMainChokeChanged()
@@ -1012,6 +1017,15 @@ namespace BuildingPlacement
 
     void update()
     {
+        // Build away from the exit if the enemy has units in our base or is doing a rush
+        bool newBuildAwayFromExit = Strategist::getStrategyEngine()->isEnemyRushing()
+                                    || !Units::enemyAtBase(Map::getMyMain()).empty();
+        if (newBuildAwayFromExit != buildAwayFromExit)
+        {
+            buildAwayFromExit = newBuildAwayFromExit;
+            updateRequired = true;
+        }
+
         if (updateRequired)
         {
             updateNeighbourhoods();
@@ -1071,8 +1085,8 @@ namespace BuildingPlacement
         // Finally prioritize based on distance
         // We weight builder distance more than distance from exit
         // Tech buildings prefer further away from the exit
-        int aDist = a.isTech ? (a.builderFrames * 2 - a.distanceToExit) : (a.builderFrames * 2 + a.distanceToExit);
-        int bDist = b.isTech ? (b.builderFrames * 2 - b.distanceToExit) : (b.builderFrames * 2 + b.distanceToExit);
+        int aDist = (a.isTech || buildAwayFromExit) ? (a.builderFrames * 2 - a.distanceToExit) : (a.builderFrames * 2 + a.distanceToExit);
+        int bDist = (b.isTech || buildAwayFromExit) ? (b.builderFrames * 2 - b.distanceToExit) : (b.builderFrames * 2 + b.distanceToExit);
         if (aDist < bDist) return true;
         if (aDist > bDist) return false;
 
