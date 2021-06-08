@@ -286,9 +286,16 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             int completedCannons = buildCannons(enemyMarines < 4 ? 1 : 2);
 
-            // Get a zealot for every two marines
-            int desiredZealots = std::max(4, (enemyMarines + 1) / 2) - (completedCannons * 2);
-            int zealotsRequired = desiredZealots - zealotCount - dragoonCount;
+            // Determine how many zealots we want
+            // Zealots are relatively useless against groups of kiting marines, so we want to transition to dragoons as quickly as possible
+            int zealotsRequired = 0;
+            if (completedCannons < 2)
+            {
+                // If we haven't reached a "critical mass" of dragoons yet, get at least four zealots
+                // Otherwise keep two zealots while pumping dragoons
+                int desiredZealots = (dragoonCount < 3 ? 4 : 2) - (completedCannons * 2);
+                zealotsRequired = desiredZealots - zealotCount;
+            }
 
             handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired);
 
