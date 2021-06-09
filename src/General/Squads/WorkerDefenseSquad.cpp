@@ -3,6 +3,8 @@
 #include "UnitUtil.h"
 #include "Workers.h"
 #include "Geo.h"
+#include "BuildingPlacement.h"
+#include "Units.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -10,13 +12,24 @@ std::vector<std::pair<MyUnit, Unit>> WorkerDefenseSquad::selectTargets(std::set<
 {
     std::vector<std::pair<MyUnit, Unit>> result;
 
-    auto selectTarget = [&enemyUnits](MyUnit &worker)
+    bool hasCannonInMineralLine = false;
+    auto &defenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
+    if (defenseLocations.first.isValid() && !defenseLocations.second.empty())
+    {
+        auto cannon = Units::myBuildingAt(*defenseLocations.second.begin());
+        if (cannon && cannon.completed && cannon->bwapiUnit->isPowered())
+        {
+            hasCannonInMineralLine = true;
+        }
+    }
+
+    auto selectTarget = [&enemyUnits, &hasCannonInMineralLine](MyUnit &worker)
     {
         Unit closestEnemy = nullptr;
         int closestEnemyDist = INT_MAX;
         for (auto &enemy : enemyUnits)
         {
-            if (!worker->isInEnemyWeaponRange(enemy, 48)) continue;
+            if (!worker->isInEnemyWeaponRange(enemy, hasCannonInMineralLine ? 0 : 48)) continue;
 
             int dist = worker->getDistance(enemy);
             if (dist < closestEnemyDist)
