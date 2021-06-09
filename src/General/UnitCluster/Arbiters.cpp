@@ -185,7 +185,7 @@ void Squad::executeArbiters()
         int threatY = 0;
         auto addThreatForType = [&](BWAPI::UnitType type, int radius)
         {
-            int detectionLimit = radius + 32;
+            int detectionLimit = radius + 48;
 
             for (const auto &unit : Units::allEnemyOfType(type))
             {
