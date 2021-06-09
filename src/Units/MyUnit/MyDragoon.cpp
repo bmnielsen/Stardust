@@ -122,7 +122,10 @@ bool MyDragoon::isReady() const
     return true;
 }
 
-void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking)
+void MyDragoon::attackUnit(const Unit &target,
+                           std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                           bool clusterAttacking,
+                           int enemyAoeRadius)
 {
     int cooldown = target->isFlying ? bwapiUnit->getAirWeaponCooldown() : bwapiUnit->getGroundWeaponCooldown();
 
@@ -143,7 +146,7 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
             return;
         }
 
-        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
+        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking, enemyAoeRadius);
         return;
     }
 
@@ -164,7 +167,7 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
         if (predictedDistanceToTarget > myRange ||
             (currentDistanceToTarget > targetRange && currentDistanceToTarget <= myRange && predictedDistanceToTarget >= currentDistanceToTarget))
         {
-            MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
+            MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking, enemyAoeRadius);
             return;
         }
 
@@ -221,9 +224,9 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
         desiredDistance = currentDistanceToTarget > myRange ? (myRange - 12) : myRange;
     }
 
-        // The target is stationary or moving towards us, so kite it if we can
     else if (myRange >= targetRange)
     {
+        // The target is stationary or moving towards us, so kite it if we can
         int cooldownDistance = (int) ((double) (cooldown - BWAPI::Broodwar->getRemainingLatencyFrames() - 2) * type.topSpeed());
         desiredDistance = std::min(myRange, myRange + (cooldownDistance - (predictedDistanceToTarget - myRange)) / 2);
 
@@ -299,7 +302,7 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Attack boid invalid; attacking";
 #endif
-        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
+        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking, enemyAoeRadius);
     }
     else
     {

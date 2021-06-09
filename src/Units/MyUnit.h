@@ -33,7 +33,10 @@ public:
 
     void issueMoveOrders();
 
-    virtual void attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking = true);
+    virtual void attackUnit(const Unit &target,
+                            std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                            bool clusterAttacking = true,
+                            int enemyAoeRadius = 0);
 
     [[nodiscard]] virtual bool isReady() const;
 

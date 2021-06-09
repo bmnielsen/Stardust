@@ -112,7 +112,7 @@ void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(myUnit->id) << "Contain: Attacking " << *target;
 #endif
-            myUnit->attackUnit(target, unitsAndTargets, false);
+            myUnit->attackUnit(target, unitsAndTargets, false, enemyAoeRadius);
             continue;
         }
 

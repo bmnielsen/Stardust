@@ -28,6 +28,8 @@ public:
     int ballRadius;
     int lineRadius;
 
+    int enemyAoeRadius;
+
     Activity currentActivity;
     SubActivity currentSubActivity;
     int lastActivityChange;

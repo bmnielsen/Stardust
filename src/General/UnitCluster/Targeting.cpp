@@ -256,11 +256,23 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
     bool targetIsReachableEnemyBase = !staticPosition && isTargetReachableEnemyBase(targetPosition, vanguard);
 
     // Create the target objects
+    // This also updates the enemy AOE radius
     std::vector<Target> targets;
     targets.reserve(targetUnits.size());
+    enemyAoeRadius = 0;
     for (const auto &targetUnit : targetUnits)
     {
-        if (targetUnit->exists()) targets.emplace_back(targetUnit, vanguard);
+        if (targetUnit->exists())
+        {
+            targets.emplace_back(targetUnit, vanguard);
+
+            enemyAoeRadius = std::max(enemyAoeRadius, targetUnit->groundWeapon().outerSplashRadius());
+        }
+    }
+
+    if (enemyAoeRadius > 0)
+    {
+        CherryVis::log() << "Enemy AOE radius: " << enemyAoeRadius;
     }
 
 #if DEBUG_TARGETING

@@ -108,7 +108,10 @@ bool MyUnitImpl::isBeingManufacturedOrCarried() const
     return bwapiUnit->isLoaded();
 }
 
-void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking)
+void MyUnitImpl::attackUnit(const Unit &target,
+                            std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                            bool clusterAttacking,
+                            int enemyAoeRadius)
 {
     // If the enemy is a long way away, move to it
     int dist = getDistance(target);

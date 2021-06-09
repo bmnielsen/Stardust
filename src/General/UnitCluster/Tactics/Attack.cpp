@@ -116,7 +116,7 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
             CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
                                                     << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
 #endif
-            myUnit->attackUnit(unitAndTarget.second, unitsAndTargets);
+            myUnit->attackUnit(unitAndTarget.second, unitsAndTargets, true, enemyAoeRadius);
         }
         else
         {

@@ -136,6 +136,10 @@ public:
 
     [[nodiscard]] int range(const Unit &target) const;
 
+    [[nodiscard]] BWAPI::WeaponType groundWeapon() const;
+
+    [[nodiscard]] BWAPI::WeaponType airWeapon() const;
+
     [[nodiscard]] BWAPI::WeaponType getWeapon(const Unit &target) const;
 
     [[nodiscard]] bool isInOurWeaponRange(const Unit &target,
