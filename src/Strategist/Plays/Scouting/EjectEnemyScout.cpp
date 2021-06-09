@@ -50,20 +50,21 @@ void EjectEnemyScout::update()
 
     if (!scout) scout = newScout;
 
-    // Release the dragoon if there is no scout or an enemey combat unit in the base
-    if (dragoon && (enemyCombatUnitInBase || !scout))
-    {
-        status.removedUnits.push_back(dragoon);
-    }
-
     // End the play if there is no scout after frame 10000
     if (!scout && BWAPI::Broodwar->getFrameCount() > 10000)
     {
         status.complete = true;
     }
 
-    // If there is a scout, make sure we get a dragoon
-    if (scout && !dragoon)
+    // Release the dragoon if there is no scout or an enemy combat unit in the base
+    if (dragoon && (enemyCombatUnitInBase || !scout))
+    {
+        status.removedUnits.push_back(dragoon);
+        return;
+    }
+
+    // If there is a scout and no enemy unit in our base, make sure we get a dragoon
+    if (scout && !dragoon && !enemyCombatUnitInBase)
     {
         status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Dragoon, Map::getMyMain()->getPosition(), 1000);
     }
