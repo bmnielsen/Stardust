@@ -131,6 +131,7 @@ void MyDragoon::attackUnit(const Unit &target,
 
     int myRange = range(target);
     int targetRange = target->groundRange();
+    if (target->type == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine) targetRange = 96;
     bool rangingBunker = target->type == BWAPI::UnitTypes::Terran_Bunker && myRange > targetRange;
 
     // If we are not on cooldown, defer to normal unit attack unless we are ranging a bunker
