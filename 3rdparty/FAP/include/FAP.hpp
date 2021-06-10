@@ -585,8 +585,8 @@ namespace FAP {
           closestEnemy->unitType == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) {
           moveTowards(fu, closestEnemy->x, closestEnemy->y, closestEnemy->cell);
         } else if (fu.attackCooldownRemaining > 1) {
-          auto const dx = closestEnemy->x - fu.x;
-          auto const dy = closestEnemy->y - fu.y;
+          auto const dx = fu.x - closestEnemy->x;
+          auto const dy = fu.y - closestEnemy->y;
           updatePositionTowards(fu, dx, dy);
         }
       }
