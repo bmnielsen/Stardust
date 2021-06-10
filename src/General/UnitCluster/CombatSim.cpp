@@ -9,8 +9,9 @@
 #include "DebugFlag_CombatSim.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
-#define DEBUG_COMBATSIM_CSV  false // Writes a CSV file for each cluster with detailed sim information
-#define DEBUG_COMBATSIM_DRAW false // Draws positions for all units
+#define DEBUG_COMBATSIM_CSV  false         // Writes a CSV file for each cluster with detailed sim information
+#define DEBUG_COMBATSIM_DRAW true          // Draws positions for all units
+#define DEBUG_COMBATSIM_DRAW_FREQUENCY 100 // Frame frequency to draw combat sim info
 #endif
 
 namespace
@@ -253,7 +254,7 @@ namespace
             std::map<int, std::tuple<int, int, int>> player1DrawData;
             std::map<int, std::tuple<int, int, int>> player2DrawData;
 
-            if ((unitsAndTargets.size() + targets.size()) < 10)
+            if (attacking && ((unitsAndTargets.size() + targets.size()) < 10 || BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
             {
                 auto setDrawData = [](auto &simData, auto &localData)
                 {
@@ -270,18 +271,16 @@ namespace
             sim.simulate<true, choke>(1);
 
 #if DEBUG_COMBATSIM_DRAW
-            if ((unitsAndTargets.size() + targets.size()) < 10)
+            if (attacking && ((unitsAndTargets.size() + targets.size()) < 10 || BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
             {
-                auto draw = [](auto &simData, auto &localData)
+                auto draw = [](auto &simData, auto &localData, auto color)
                 {
                     for (auto &unit : simData)
                     {
-                        auto color = CherryVis::DrawColor::Yellow;
-
                         auto it = localData.find(unit.id);
                         if (it != localData.end() && unit.attackCooldownRemaining > std::get<2>(it->second))
                         {
-                            color = CherryVis::DrawColor::Cyan;
+                            color = CherryVis::DrawColor::Orange;
                         }
                         if (it != localData.end())
                         {
@@ -296,20 +295,20 @@ namespace
                         CherryVis::drawCircle(std::get<0>(unit.second), std::get<1>(unit.second), 1, CherryVis::DrawColor::Red);
                     }
                 };
-                draw(*sim.getState().first, player1DrawData);
-                draw(*sim.getState().second, player2DrawData);
+                draw(*sim.getState().first, player1DrawData, CherryVis::DrawColor::Yellow);
+                draw(*sim.getState().second, player2DrawData, CherryVis::DrawColor::Cyan);
             }
 #endif
 
 #if DEBUG_COMBATSIM_CSV
             for (auto unit : *sim.getState().first)
-        {
-            writeSimCsvLine(unit, i);
-        }
-        for (auto unit : *sim.getState().second)
-        {
-            writeSimCsvLine(unit, i);
-        }
+            {
+                writeSimCsvLine(unit, i);
+            }
+            for (auto unit : *sim.getState().second)
+            {
+                writeSimCsvLine(unit, i);
+            }
 #endif
         }
 
