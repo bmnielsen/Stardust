@@ -180,13 +180,8 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     auto midAndLateGameMainArmyProduction = [&]()
     {
-        // Keep a baseline production until we have a large army
-        int higherPriorityCount = 0;
-        if ((zealotCount + dragoonCount) < 25)
-        {
-            // Roughly two units per mining base
-            higherPriorityCount = (Workers::mineralWorkers() / 8) - inProgressCount;
-        }
+        // Baseline production is one combat unit for every 6 workers (approximately 3 units per mining base)
+        int higherPriorityCount = (Workers::mineralWorkers() / 6) - inProgressCount;
 
         // Counter tanks with speedlots once the enemy has at least four
         int enemyTanks = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +

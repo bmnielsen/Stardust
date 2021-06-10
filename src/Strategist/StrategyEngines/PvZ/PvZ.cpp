@@ -265,13 +265,8 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // TODO: Higher-tech units
 
-            // Keep a baseline production until we have a large army
-            int higherPriorityCount = 0;
-            if ((zealotCount + dragoonCount) < 25)
-            {
-                // Roughly two units per mining base
-                higherPriorityCount = (Workers::mineralWorkers() / 8) - inProgressCount;
-            }
+            // Baseline production is one combat unit for every 6 workers (approximately 3 units per mining base)
+            int higherPriorityCount = (Workers::mineralWorkers() / 6) - inProgressCount;
 
             // Keep some zealots in the mix if the opponent has a lot of lings
             int requiredZealots = 0;
