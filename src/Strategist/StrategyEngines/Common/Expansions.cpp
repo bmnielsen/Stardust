@@ -98,7 +98,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
 
     // Determine whether we want to expand now
     bool gasStarved = BWAPI::Broodwar->self()->minerals() > 1500 && BWAPI::Broodwar->self()->gas() < 500;
-    bool wantToExpand = true;
+    int excessMineralAssignments = 0;
     if (!gasStarved)
     {
         // Expand if we have no bases with more than 3 available mineral assignments
@@ -107,11 +107,8 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         int availableMineralAssignmentsThreshold = (Strategist::isEnemyContained() ? 6 : 3) + takeExpansionPlays.size();
         for (auto base : Map::getMyBases())
         {
-            if (Workers::availableMineralAssignments(base) > availableMineralAssignmentsThreshold)
-            {
-                wantToExpand = false;
-                break;
-            }
+            excessMineralAssignments = std::max(excessMineralAssignments,
+                                                Workers::availableMineralAssignments(base) - availableMineralAssignmentsThreshold);
         }
     }
 
@@ -172,7 +169,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         {
             if (takeExpansionPlay->cancellable())
             {
-                if (!wantToExpand || !safe ||
+                if (excessMineralAssignments > 1 || !safe ||
                     takeExpansionPlay->enemyValue > 4 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
                 {
                     takeExpansionPlay->status.complete = true;
@@ -186,7 +183,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Take an island expansion when we are on two bases, want to expand and it is safe to do so
-    if (takeIslandExpansionPlays.empty() && wantToExpand && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
+    if (takeIslandExpansionPlays.empty() && excessMineralAssignments == 0 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
     {
         Base *closestIslandBase = nullptr;
         int closestIslandBaseDist = INT_MAX;
@@ -212,7 +209,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Break out if we don't want to expand to a normal base
-    if (!wantToExpand || !safeToExpand()) return;
+    if (excessMineralAssignments > 0 || !safeToExpand()) return;
 
     // Determine if we want to consider a mineral-only base
     auto shouldTakeMineralOnly = [&gasStarved]()
