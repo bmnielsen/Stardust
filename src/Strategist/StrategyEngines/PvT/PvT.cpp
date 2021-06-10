@@ -285,7 +285,11 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             int enemyMarines = Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) + 1;
             if (enemyStrategy == TerranStrategy::ProxyRush) enemyMarines += 2;
 
-            int completedCannons = buildCannons(enemyMarines < 10 ? 1 : 2);
+            // Build cannons if the strategy has been stable for 5 seconds
+            int completedCannons =
+                    enemyStrategyChanged < (BWAPI::Broodwar->getFrameCount() - 120)
+                    ? buildCannons(enemyMarines < 10 ? 1 : 2)
+                    : 0;
 
             // Determine how many zealots we want
             // Zealots are relatively useless against groups of kiting marines, so we want to transition to dragoons as quickly as possible
