@@ -44,8 +44,9 @@ namespace
 
         int groundDamage = Players::weaponDamage(unit->player, weaponType.groundWeapon());
         int airDamage = Players::weaponDamage(unit->player, weaponType.airWeapon());
-        if ((unit->burrowed && unit->type != BWAPI::UnitTypes::Zerg_Lurker) ||
-            (!unit->burrowed && unit->type == BWAPI::UnitTypes::Zerg_Lurker))
+        if (unit->type != BWAPI::UnitTypes::Terran_Vulture_Spider_Mine &&
+            ((unit->burrowed && unit->type != BWAPI::UnitTypes::Zerg_Lurker) ||
+             (!unit->burrowed && unit->type == BWAPI::UnitTypes::Zerg_Lurker)))
         {
             groundDamage = airDamage = 0;
         }
