@@ -191,14 +191,15 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         // Counter tanks with speedlots once the enemy has at least four
         int enemyTanks = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
                          Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode);
-        if (enemyTanks > 3)
+        if (enemyTanks > 2)
         {
             // Keep proportionally more dragoons if the enemy has a lot of vultures
             int desiredZealots = std::min((dragoonCount * 3) / 2, enemyTanks * 3);
             if (Units::countEnemy(BWAPI::UnitTypes::Terran_Vulture) > enemyTanks)
             {
-                desiredZealots = std::min(dragoonCount, enemyTanks * 3);
+                desiredZealots = std::min(dragoonCount, enemyTanks * 2);
             }
+
             if (desiredZealots > zealotCount)
             {
                 mainArmyProduction(prioritizedProductionGoals,
