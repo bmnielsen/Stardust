@@ -734,7 +734,41 @@ namespace FAP {
       }
     }
 
-    if (closestEnemy != enemyUnits.end() && closestDistSquared <= fu.speedSquared) {
+    if (closestEnemy == enemyUnits.end()) return false;
+
+    // Compute edge-to-edge x and y offsets
+    int xDist =
+      fu.x > closestEnemy->x
+      ? ((fu.x - fu.unitType.dimensionLeft()) - (closestEnemy->x + closestEnemy->unitType.dimensionRight()) - 1)
+      : ((closestEnemy->x - closestEnemy->unitType.dimensionLeft()) - (fu.x + fu.unitType.dimensionRight()) - 1);
+    int yDist =
+      fu.y > closestEnemy->y
+      ? ((fu.y - fu.unitType.dimensionUp()) - (closestEnemy->y + closestEnemy->unitType.dimensionDown()) - 1)
+      : ((closestEnemy->y - closestEnemy->unitType.dimensionUp()) - (fu.y + fu.unitType.dimensionDown()) - 1);
+    if (xDist < 0) xDist = 0;
+    if (yDist < 0) yDist = 0;
+
+    // Do the BW approximate distance calculation
+    int dist;
+
+    if (xDist < yDist)
+    {
+      if (xDist < (yDist >> 2)) {
+        dist = yDist;
+      } else {
+        unsigned int minCalc = (3 * xDist) >> 3;
+        dist = ((minCalc >> 5) + minCalc + yDist - (yDist >> 4) - (yDist >> 6));
+      }
+    } else {
+      if (yDist < (xDist >> 2)) {
+        dist = xDist;
+      } else {
+        unsigned int minCalc = (3 * yDist) >> 3;
+        dist = ((minCalc >> 5) + minCalc + xDist - (xDist >> 4) - (xDist >> 6));
+      }
+    }
+
+    if (dist <= fu.groundMaxRange) {
       if (closestEnemy->flying)
         dealDamage(*closestEnemy, fu.airDamage, fu.airDamageType, fu);
       else
@@ -743,7 +777,8 @@ namespace FAP {
       didSomething = true;
       return true;
     }
-    else if (closestEnemy != enemyUnits.end() && closestDistSquared > fu.speedSquared) {
+    else if (closestDistSquared > fu.speedSquared &&
+             (fu.unitType != BWAPI::UnitTypes::Terran_Vulture_Spider_Mine || dist <= 96)) {
       auto const dx = closestEnemy->x - fu.x;
       auto const dy = closestEnemy->y - fu.y;
 
