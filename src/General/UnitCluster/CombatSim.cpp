@@ -10,6 +10,9 @@
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_COMBATSIM_CSV  false         // Writes a CSV file for each cluster with detailed sim information
+#endif
+
+#if INSTRUMENTATION_ENABLED
 #define DEBUG_COMBATSIM_DRAW true          // Draws positions for all units
 #define DEBUG_COMBATSIM_DRAW_FREQUENCY 100 // Frame frequency to draw combat sim info
 #endif
