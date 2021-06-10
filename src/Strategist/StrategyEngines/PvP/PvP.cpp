@@ -298,13 +298,8 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                          2);
             }
 
-            // Keep a baseline production until we have a large army
-            int higherPriorityCount = 0;
-            if ((zealotCount + dragoonCount) < 25)
-            {
-                // Roughly two units per mining base
-                higherPriorityCount = (Workers::mineralWorkers() / 8) - inProgressCount;
-            }
+            // Baseline production is one combat unit for every 6 workers (approximately 3 units per mining base)
+            int higherPriorityCount = (Workers::mineralWorkers() / 6) - inProgressCount;
 
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
