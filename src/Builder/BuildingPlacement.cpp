@@ -230,7 +230,7 @@ namespace BuildingPlacement
                     auto &mainDefenses = baseStaticDefenses[base];
 
                     // Score each position based on their distance to the mineral line center and geyser
-                    std::vector<std::pair<BWAPI::TilePosition, int>> tilesAndScore;
+                    std::vector<std::pair<int, BWAPI::TilePosition>> tilesAndScore;
                     for (auto &tile : mainDefenses.second)
                     {
                         auto pos = BWAPI::Position(tile) + BWAPI::Position(16, 16);
@@ -239,7 +239,7 @@ namespace BuildingPlacement
                         {
                             score += pos.getApproxDistance((*base->geysers().begin())->getPosition());
                         }
-                        tilesAndScore.emplace_back(std::make_pair(tile, score));
+                        tilesAndScore.emplace_back(std::make_pair(score, tile));
                     }
 
                     std::sort(tilesAndScore.begin(), tilesAndScore.end());
@@ -248,7 +248,7 @@ namespace BuildingPlacement
 
                     for (auto &tileAndScore : tilesAndScore)
                     {
-                        mainDefenses.second.push_back(tileAndScore.first);
+                        mainDefenses.second.push_back(tileAndScore.second);
                     }
 
                     continue;
@@ -903,7 +903,7 @@ namespace BuildingPlacement
             // - Large building: 2
             // - Medium building: 3
             // - Pylon: 4
-            // - Defensive location: 5
+            // - Defensive location: 5 (first 8)
             // - Choke cannon placement: 10
 
             std::vector<long> blocksHeatmap(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
@@ -952,9 +952,11 @@ namespace BuildingPlacement
             for (const auto &baseAndStaticDefenses : baseStaticDefenses)
             {
                 addLocation(baseAndStaticDefenses.second.first, 2, 2, 4);
+                bool first = true;
                 for (const auto &cannon : baseAndStaticDefenses.second.second)
                 {
-                    addLocation(cannon, 2, 2, 5);
+                    addLocation(cannon, 2, 2, first ? 8 : 5);
+                    first = false;
                 }
             }
 
