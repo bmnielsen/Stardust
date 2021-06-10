@@ -1,9 +1,10 @@
 #include "BWTest.h"
 #include "DoNothingModule.h"
+#include "DoNothingStrategyEngine.h"
 
 #include "Map.h"
 #include "Strategist.h"
-#include "TestAttackBasePlay.h"
+#include "TestMainArmyAttackBasePlay.h"
 
 namespace
 {
@@ -75,8 +76,10 @@ TEST(DragoonKiting, DragoonVsZergling)
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 117)));
 
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -128,8 +131,10 @@ TEST(DragoonKiting, DragoonVsZealotConfinedSpace)
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(116, 8)));
 
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
