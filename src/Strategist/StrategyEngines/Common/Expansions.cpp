@@ -102,9 +102,16 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     if (!gasStarved)
     {
         // Expand if we have no bases with more than 3 available mineral assignments
-        // If the enemy is contained, set the threshold to 6 instead
         // Adjust by the number of pending expansions to avoid instability when a build worker is reserved for the expansion
-        int availableMineralAssignmentsThreshold = (Strategist::isEnemyContained() ? 6 : 3) + takeExpansionPlays.size();
+        int availableMineralAssignmentsThreshold = 3 + takeExpansionPlays.size();
+
+        // If the enemy is contained, boost the threshold
+        // This is for now only applied to terran, since we can lose games against protoss and zerg by overexpanding
+        if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran && Strategist::isEnemyContained())
+        {
+            availableMineralAssignmentsThreshold += 3;
+        }
+
         for (auto base : Map::getMyBases())
         {
             excessMineralAssignments = std::max(excessMineralAssignments,
