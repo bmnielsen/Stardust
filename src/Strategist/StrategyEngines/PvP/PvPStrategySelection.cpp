@@ -30,6 +30,22 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
         int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
                         completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
 
+        // Transition immediately if we've misdetected a proxy rush
+        if (enemyStrategy == ProtossStrategy::ProxyRush &&
+            newEnemyStrategy != ProtossStrategy::WorkerRush &&
+            newEnemyStrategy != ProtossStrategy::ProxyRush &&
+            newEnemyStrategy != ProtossStrategy::ZealotRush &&
+            newEnemyStrategy != ProtossStrategy::ZealotAllIn)
+        {
+            return true;
+        }
+
+        // Transition immediately if we're past frame 4500 and haven't seen an enemy zealot yet
+        if (BWAPI::Broodwar->getFrameCount() > 4500 && !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Zealot))
+        {
+            return true;
+        }
+
         // Transition immediately if we've discovered a different enemy strategy and have at least three completed dragoons
         if (newEnemyStrategy != ProtossStrategy::BlockScouting &&
             newEnemyStrategy != ProtossStrategy::WorkerRush &&
