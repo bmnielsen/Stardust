@@ -594,8 +594,8 @@ namespace FAP {
       didSomething = true;
       if (closestEnemy != enemyUnits.end()) {
         if constexpr (choke) {
-          // Defending unit moves to defend the choke
-          if (fu.player == 2) {
+          // Defending unit moves to defend the choke if it is not in the same side as its target
+          if (fu.player == 2 && chokeGeometry->tileSide[fu.cell] != chokeGeometry->tileSide[closestEnemy->cell]) {
             defendChoke(fu, *closestEnemy);
             return;
           }
