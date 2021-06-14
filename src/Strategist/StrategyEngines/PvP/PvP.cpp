@@ -154,7 +154,11 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             }
         }
         else if (antiCannonRushPlay && (
-                enemyStrategy == ProtossStrategy::FastExpansion || zealotProxy))
+                enemyStrategy == ProtossStrategy::FastExpansion
+                || enemyStrategy == ProtossStrategy::OneGateCore
+                || enemyStrategy == ProtossStrategy::ZealotRush
+                || enemyStrategy == ProtossStrategy::TwoGate
+                || zealotProxy))
         {
             antiCannonRushPlay->status.complete = true;
         }
