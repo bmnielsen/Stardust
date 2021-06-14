@@ -188,11 +188,19 @@ void UnitCluster::holdChoke(Choke *choke,
                 targetPos = (defendEndDist > std::max(centerDist, 32) * 2) ? choke->center : defendEnd;
                 distDiff = defendEndDist;
             }
-            else if (distToCenter < centerDist)
+            else if (distToCenter < centerDist || defendEndDist < 32)
             {
-                // Unit is on wrong side of the defend end, closer to defend end
-                targetPos = choke->center;
-                distDiff = -defendEndDist - myUnit->groundRange();
+                // Unit is on wrong side of the defend end, closer to defend end, or very close to it
+                if (distToCenter > 48)
+                {
+                    targetPos = choke->center;
+                    distDiff = -defendEndDist - myUnit->groundRange();
+                }
+                else
+                {
+                    targetPos = farEnd;
+                    distDiff = -defendEndDist - myUnit->groundRange() - centerDist;
+                }
             }
             else
             {

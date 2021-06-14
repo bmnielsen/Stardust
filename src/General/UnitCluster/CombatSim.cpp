@@ -13,8 +13,9 @@
 #endif
 
 #if INSTRUMENTATION_ENABLED
-#define DEBUG_COMBATSIM_DRAW true          // Draws positions for all units
-#define DEBUG_COMBATSIM_DRAW_FREQUENCY 100 // Frame frequency to draw combat sim info
+#define DEBUG_COMBATSIM_DRAW true           // Draws positions for all units
+#define DEBUG_COMBATSIM_DRAW_FREQUENCY 100  // Frame frequency to draw combat sim info
+#define DEBUG_COMBATSIM_DRAW_ATTACKER false // Whether to draw attacker or defender
 #endif
 
 namespace
@@ -257,7 +258,8 @@ namespace
             std::map<int, std::tuple<int, int, int>> player1DrawData;
             std::map<int, std::tuple<int, int, int>> player2DrawData;
 
-            if (attacking && ((unitsAndTargets.size() + targets.size()) < 10 || BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
+            if (attacking == DEBUG_COMBATSIM_DRAW_ATTACKER
+                && ((unitsAndTargets.size() + targets.size()) < 10 || BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
             {
                 auto setDrawData = [](auto &simData, auto &localData)
                 {
@@ -274,7 +276,8 @@ namespace
             sim.simulate<true, choke>(1);
 
 #if DEBUG_COMBATSIM_DRAW
-            if (attacking && ((unitsAndTargets.size() + targets.size()) < 10 || BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
+            if (attacking == DEBUG_COMBATSIM_DRAW_ATTACKER
+                && ((unitsAndTargets.size() + targets.size()) < 10 || BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
             {
                 auto draw = [](auto &simData, auto &localData, auto color)
                 {
