@@ -25,6 +25,8 @@ public:
 
     virtual bool isEnemyRushing() { return false; }
 
+    virtual bool isEnemyProxy() { return false; }
+
 protected:
     static bool hasEnemyStolenOurGas();
 

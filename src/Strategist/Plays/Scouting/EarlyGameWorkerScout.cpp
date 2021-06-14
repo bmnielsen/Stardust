@@ -46,6 +46,12 @@ namespace
             naturalPriority = 600;
         }
 
+        // If we suspect a proxy, scout the natural more aggressively in case we missed a fast expand
+        if (Strategist::getStrategyEngine()->isEnemyProxy())
+        {
+            naturalPriority = 480;
+        }
+
         auto tileValid = [](BWAPI::TilePosition tile, int neutralElevation)
         {
             if (!tile.isValid()) return false;

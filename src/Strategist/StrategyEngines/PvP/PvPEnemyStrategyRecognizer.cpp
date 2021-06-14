@@ -151,6 +151,7 @@ namespace
             if (BWAPI::Broodwar->getFrameCount() > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
 
             // Expect first gateway or forge by frame 2200
+            // This will sometimes fail if the enemy does a fast expansion we don't see
             if (BWAPI::Broodwar->getFrameCount() > 2200
                 && !countAtLeast(BWAPI::UnitTypes::Protoss_Gateway, 1)
                 && !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1))

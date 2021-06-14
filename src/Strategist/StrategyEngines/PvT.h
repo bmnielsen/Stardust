@@ -26,6 +26,11 @@ public:
                enemyStrategy == TerranStrategy::MarineRush;
     }
 
+    bool isEnemyProxy() override
+    {
+        return enemyStrategy == TerranStrategy::ProxyRush;
+    }
+
 private:
     enum class TerranStrategy
     {

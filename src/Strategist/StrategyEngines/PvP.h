@@ -26,6 +26,11 @@ public:
                enemyStrategy == ProtossStrategy::ZealotRush;
     }
 
+    bool isEnemyProxy() override
+    {
+        return enemyStrategy == ProtossStrategy::ProxyRush;
+    }
+
 private:
     enum class ProtossStrategy
     {
