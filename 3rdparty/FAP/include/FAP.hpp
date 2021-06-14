@@ -98,6 +98,7 @@ namespace FAP {
     template<bool choke = false>
     int distSquared(FAPUnit<UnitExtension> const &u1, const FAPUnit<UnitExtension> &u2);
     static int isInRange(FAPUnit<UnitExtension> const &attacker, const FAPUnit<UnitExtension> &target, int minRange, int maxRange);
+    static int edgeToPointDistance(FAPUnit<UnitExtension> const &fu, int x, int y);
     static bool isSuicideUnit(BWAPI::UnitType ut);
 
     template<bool tankSplash, bool choke>
@@ -345,6 +346,39 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
+  int FastAPproximation<UnitExtension>::edgeToPointDistance(FAPUnit<UnitExtension> const &fu, int x, int y) {
+    // Compute edge-to-edge x and y offsets
+    int xDist =
+      fu.x > x
+      ? ((fu.x - fu.unitType.dimensionLeft()) - x - 1)
+      : (x - (fu.x + fu.unitType.dimensionRight()) - 1);
+    int yDist =
+      fu.y > y
+      ? ((fu.y - fu.unitType.dimensionUp()) - y - 1)
+      : (y - (fu.y + fu.unitType.dimensionDown()) - 1);
+    if (xDist < 0) xDist = 0;
+    if (yDist < 0) yDist = 0;
+
+    // Do the BW approximate distance calculation
+    if (xDist < yDist)
+    {
+      if (xDist < (yDist >> 2)) {
+        return yDist;
+      }
+
+      unsigned int minCalc = (3 * xDist) >> 3;
+      return ((minCalc >> 5) + minCalc + yDist - (yDist >> 4) - (yDist >> 6));
+    }
+
+    if (yDist < (xDist >> 2)) {
+      return xDist;
+    }
+
+    unsigned int minCalc = (3 * yDist) >> 3;
+    return ((minCalc >> 5) + minCalc + xDist - (xDist >> 4) - (xDist >> 6));
+  }
+
+  template<typename UnitExtension>
   bool FastAPproximation<UnitExtension>::isSuicideUnit(BWAPI::UnitType const ut) {
     return (ut == BWAPI::UnitTypes::Zerg_Scourge ||
       ut == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine ||
@@ -498,12 +532,8 @@ namespace FAP {
         dy = chokeGeometry->backwardVector[3 + sideDiff].y;
       } else {
         // Otherwise the unit should move to keep its distance to the choke entrance
-        int maxRangeSquared = std::max((fu.flying ? target.airMaxRangeSquared : target.groundMaxRangeSquared),
-                                       (target.flying ? fu.airMaxRangeSquared : fu.groundMaxRangeSquared));
-        int distChokeEntranceSquared =
-              (fu.x - chokeGeometry->forward[3 + sideDiff].x) * (fu.x - chokeGeometry->forward[3 + sideDiff].x) +
-              (fu.y - chokeGeometry->forward[3 + sideDiff].y) * (fu.y - chokeGeometry->forward[3 + sideDiff].y);
-        if (distChokeEntranceSquared < maxRangeSquared) {
+        int dist = edgeToPointDistance(fu, chokeGeometry->forward[3 + sideDiff].x, chokeGeometry->forward[3 + sideDiff].y);
+        if (dist < (target.flying ? fu.airMaxRange : fu.groundMaxRange)) {
           dx = fu.x - chokeGeometry->forward[3 + sideDiff].x;
           dy = fu.y - chokeGeometry->forward[3 + sideDiff].y;
         } else {
@@ -564,9 +594,8 @@ namespace FAP {
       didSomething = true;
       if (closestEnemy != enemyUnits.end()) {
         if constexpr (choke) {
-          // Defending unit moves to defend the choke if it is not in the same side as its target or is not in its target's attack range
-          if (fu.player == 2 && (chokeGeometry->tileSide[fu.cell] != chokeGeometry->tileSide[closestEnemy->cell]
-                              || !isInRange(*closestEnemy, fu, (fu.flying ? 0 : closestEnemy->groundMinRange), (fu.flying ? closestEnemy->airMaxRange : closestEnemy->groundMaxRange)))) {
+          // Defending unit moves to defend the choke
+          if (fu.player == 2) {
             defendChoke(fu, *closestEnemy);
             return;
           }
