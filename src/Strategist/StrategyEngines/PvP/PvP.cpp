@@ -247,6 +247,8 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // Start with one-gate core with two zealots until we have more scouting information
             oneGateCoreOpening(prioritizedProductionGoals, dragoonCount, zealotCount, 2);
+
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
             break;
         }
         case OurStrategy::AntiZealotRush:
@@ -502,7 +504,7 @@ void PvP::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
 {
     // Basic infantry skill upgrades are queued when we have enough of them and are still building them
     upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 6);
-    upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+    upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
 
     // Cases where we want the upgrade as soon as we start building one of the units
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);

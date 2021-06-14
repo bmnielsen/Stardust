@@ -276,7 +276,7 @@ void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal
                                         int desiredZealots)
 {
     // If our core is done or we want no zealots just return dragoons
-    if (desiredZealots == 0 || Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0)
+    if (desiredZealots <= zealotCount || Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                    BWAPI::UnitTypes::Protoss_Dragoon,
@@ -285,31 +285,20 @@ void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal
         return;
     }
 
-    // Ensure gas before zealot
-    if (Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0)
-    {
-        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                   BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                   1,
-                                                                   -1);
-        return;
-    }
-
-    if (zealotCount < desiredZealots)
+    if (dragoonCount == 0)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                    BWAPI::UnitTypes::Protoss_Zealot,
                                                                    1,
                                                                    1);
         desiredZealots--;
-    }
-    if (dragoonCount == 0)
-    {
+
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                    BWAPI::UnitTypes::Protoss_Dragoon,
                                                                    1,
                                                                    1);
     }
+
     if (zealotCount < desiredZealots)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,

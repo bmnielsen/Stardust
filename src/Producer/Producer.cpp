@@ -1483,6 +1483,9 @@ namespace Producer
         // Pulls refineries earlier if there are minerals available to do so
         void pullRefineries()
         {
+            // Disable for now, since it doesn't make sense to have an excess of gas through the early game
+            return;
+
             auto refineryType = BWAPI::Broodwar->self()->getRace().getRefinery();
             for (auto it = committedItems.begin(); it != committedItems.end(); it++)
             {
