@@ -26,7 +26,11 @@ namespace UnitUtil
         if (offsetY == 4 && (offsetX < -3 || offsetX > 2)) return false;
         if ((offsetY == -4 || offsetY == 3) && (offsetX < -6 || offsetX > 5)) return false;
         if ((offsetY == -3 || offsetY == 2) && (offsetX < -7 || offsetX > 6)) return false;
-        return (offsetX >= -7 && offsetX <= 7);
+        if (buildingType.tileWidth() == 2)
+        {
+            return (offsetX >= -7 && offsetX <= 7);
+        }
+        return (offsetX >= -8 && offsetX <= 7);
     }
 
     int BuildTime(BWAPI::UnitType type)
