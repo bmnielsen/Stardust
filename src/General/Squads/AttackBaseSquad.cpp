@@ -279,6 +279,19 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     if (cluster.vanguard) radius += cluster.vanguard->getDistance(cluster.center);
     Units::enemyInRadius(enemyUnits, cluster.center, radius);
 
+    // Clear all of the enemy units if we haven't seen any of them for a while
+    bool seenAnyRecently = false;
+    int cutoff = BWAPI::Broodwar->getFrameCount() - 72;
+    for (const auto &unit : enemyUnits)
+    {
+        if (unit->lastSeen >= cutoff)
+        {
+            seenAnyRecently = true;
+            break;
+        }
+    }
+    if (!seenAnyRecently) enemyUnits.clear();
+
     // If there are no enemies near the cluster, just move towards the target
     if (enemyUnits.empty())
     {
