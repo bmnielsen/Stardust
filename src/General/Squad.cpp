@@ -188,6 +188,7 @@ void Squad::updateClusters()
         {
             CherryVis::drawCircle((*clusterIt)->center.x, (*clusterIt)->center.y, (*clusterIt)->ballRadius, CherryVis::DrawColor::Teal);
             CherryVis::drawCircle((*clusterIt)->center.x, (*clusterIt)->center.y, (*clusterIt)->lineRadius, CherryVis::DrawColor::Blue);
+            CherryVis::drawCircle((*clusterIt)->vanguard->lastPosition.x, (*clusterIt)->vanguard->lastPosition.y, 32, CherryVis::DrawColor::Grey);
             clusterIt++;
         }
     }
