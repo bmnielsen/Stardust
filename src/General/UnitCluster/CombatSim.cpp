@@ -449,31 +449,38 @@ CombatSimResult UnitCluster::runCombatSim(BWAPI::Position targetPosition,
     }
 
     // Check if the armies are separated by a narrow choke
-    // We consider this to be the case if our cluster center is on one side of the choke and their furthest unit is on the other side
+    // We consider this to be the case if our cluster center is on one side of the choke
+    // and most of their units are on the other side
     Choke *narrowChoke = choke;
     if (!narrowChoke)
     {
-        auto furthest = BWAPI::Positions::Invalid;
-        auto furthestDist = 0;
-        for (const auto &unit : targets)
-        {
-            if (!unit->completed) continue;
-            if (!unit->simPositionValid) continue;
+        // First check for the next narrow choke between our center and the target position
+        narrowChoke = PathFinding::SeparatingNarrowChoke(center,
+                                                         targetPosition,
+                                                         BWAPI::UnitTypes::Protoss_Dragoon,
+                                                         PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
 
-            int dist = unit->getDistance(center);
-            if (dist > furthestDist)
+        // Next validate that most of the enemy units are behind that choke
+        if (narrowChoke)
+        {
+            int count = 0;
+            int total = 0;
+            for (const auto &unit : targets)
             {
-                furthestDist = dist;
-                furthest = unit->simPosition;
-            }
-        }
+                if (!unit->completed) continue;
+                if (!unit->simPositionValid) continue;
 
-        if (furthest.isValid())
-        {
-            narrowChoke = PathFinding::SeparatingNarrowChoke(center,
-                                                             furthest,
-                                                             BWAPI::UnitTypes::Protoss_Dragoon,
-                                                             PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+                total++;
+
+                if (narrowChoke == PathFinding::SeparatingNarrowChoke(center,
+                                                                      unit->simPosition,
+                                                                      BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                      PathFinding::PathFindingOptions::UseNeighbouringBWEMArea))
+                {
+                    count++;
+                }
+            }
+            if (count < (total - count)) narrowChoke = nullptr;
         }
     }
 
