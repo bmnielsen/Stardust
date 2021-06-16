@@ -9,6 +9,31 @@
 
 namespace
 {
+    double reinforcementFactor(UnitCluster &cluster, double closestReinforcements, double reinforcementPercentage)
+    {
+        // Only adjust for reinforcements when our army is out on the field
+        // TODO: Would also be nice to adjust for units in production when waiting to break out from our main
+        if (cluster.percentageToEnemyMain < 0.2) return 1.0;
+
+        CherryVis::log() << std::setprecision(2) << BWAPI::WalkPosition(cluster.center)
+                         << ": cluster@" << cluster.percentageToEnemyMain
+                         << "; reinforcements@" << closestReinforcements
+                         << "; reinforcement%=" << reinforcementPercentage
+                         << "; dist=" << (1.0 - ((closestReinforcements / cluster.percentageToEnemyMain) / 2))
+                         << "; %=" << (1.0 - reinforcementPercentage)
+                         << "; adjustedDist=" << (1.0 - std::min(1.0, reinforcementPercentage / 0.2) *
+                                                        ((closestReinforcements / cluster.percentageToEnemyMain) / 2));
+
+        // For distance, scale the effect from 0 (far away) to 0.5 (close)
+        double distanceFactor = (closestReinforcements / cluster.percentageToEnemyMain) / 2;
+
+        // Then scale it lower if the number of reinforcements is low
+        distanceFactor *= std::min(1.0, reinforcementPercentage / 0.2);
+
+        // Combine with the reinforcement percentage
+        return (1.0 - distanceFactor) * (1.0 - reinforcementPercentage);
+    }
+
     bool shouldAttack(UnitCluster &cluster, const CombatSimResult &simResult, double aggression = 1.0)
     {
         double distanceFactor = 1.0;
@@ -80,14 +105,20 @@ namespace
         return result;
     }
 
-    bool shouldStartAttack(UnitCluster &cluster, CombatSimResult &simResult)
+    bool shouldStartAttack(UnitCluster &cluster,
+                           CombatSimResult &simResult,
+                           double closestReinforcements,
+                           double reinforcementPercentage)
     {
-        bool attack = shouldAttack(cluster, simResult);
+        bool attack = shouldAttack(cluster, simResult, reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage));
         cluster.addSimResult(simResult, attack);
         return attack;
     }
 
-    bool shouldContinueAttack(UnitCluster &cluster, CombatSimResult &simResult)
+    bool shouldContinueAttack(UnitCluster &cluster,
+                              CombatSimResult &simResult,
+                              double closestReinforcements,
+                              double reinforcementPercentage)
     {
         bool attack = shouldAttack(cluster, simResult, 1.2);
 
@@ -159,10 +190,13 @@ namespace
         return false;
     }
 
-    bool shouldStopRegrouping(UnitCluster &cluster, CombatSimResult &simResult)
+    bool shouldStopRegrouping(UnitCluster &cluster,
+                              CombatSimResult &simResult,
+                              double closestReinforcements,
+                              double reinforcementPercentage)
     {
-        // Always attack if we are maxed
-        if (BWAPI::Broodwar->self()->supplyUsed() > 380)
+        // Always attack if we are maxed and have no reinforcements nearby
+        if (BWAPI::Broodwar->self()->supplyUsed() > 380 && closestReinforcements > 0.9)
         {
             return true;
         }
@@ -177,6 +211,10 @@ namespace
             // Scale based on length: 0 pixels long gives no reduction, 128 or higher gives 0.35 reduction
             aggression -= std::max(0.0, 0.35 * std::min(1.0, ((double) simResult.narrowChoke->length) / 128.0));
         }
+
+        // Adjust the aggression for reinforcements
+        aggression *= reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage);
+
         bool attack = shouldAttack(cluster, simResult, aggression);
 
         cluster.addSimResult(simResult, attack);
@@ -281,19 +319,38 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
 
     // TODO: If our units can't do any damage (e.g. ground-only vs. air, melee vs. kiting ranged units), do something else
 
+    // Find the closest reinforcements to our army
+    // Here reinforcements are defined as a cluster further away from the target position that is moving
+    double closestReinforcements = 0.0;
+    int totalReinforcements = 0;
+    for (auto &other : clusters)
+    {
+        if (other->center == cluster.center) continue;
+        if (other->percentageToEnemyMain > cluster.percentageToEnemyMain) continue;
+        if (other->currentActivity != UnitCluster::Activity::Moving) continue;
+
+        totalReinforcements += other->units.size();
+
+        if (other->percentageToEnemyMain > closestReinforcements)
+        {
+            closestReinforcements = other->percentageToEnemyMain;
+        }
+    }
+    double reinforcementPercentage = (double) totalReinforcements / (double) (cluster.units.size() + totalReinforcements);
+
     // Make the final decision based on what state we are currently in
 
     bool attack;
     switch (cluster.currentActivity)
     {
         case UnitCluster::Activity::Moving:
-            attack = shouldStartAttack(cluster, simResult);
+            attack = shouldStartAttack(cluster, simResult, closestReinforcements, reinforcementPercentage);
             break;
         case UnitCluster::Activity::Attacking:
-            attack = shouldContinueAttack(cluster, simResult);
+            attack = shouldContinueAttack(cluster, simResult, closestReinforcements, reinforcementPercentage);
             break;
         case UnitCluster::Activity::Regrouping:
-            attack = shouldStopRegrouping(cluster, simResult);
+            attack = shouldStopRegrouping(cluster, simResult, closestReinforcements, reinforcementPercentage);
             break;
     }
 
