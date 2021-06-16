@@ -103,14 +103,10 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
 {
     int sumX = 0;
     int sumY = 0;
-    auto mainPosition = Map::getMyMain()->getPosition();
 
-    MyUnit groundVanguard = nullptr;
-    MyUnit flyingVanguard = nullptr;
-    int groundDistToMain = -1;
-    int groundDistToTarget = INT_MAX;
-    int flyingDistToMain = -1;
-    int flyingDistToTarget = -1;
+    // Start by pruning dead units and recomputing unit distances and the cluster center position
+    int minGroundDistance = INT_MAX;
+    int minAirDistance = INT_MAX;
     for (auto unitIt = units.begin(); unitIt != units.end();)
     {
         auto unit = *unitIt;
@@ -127,16 +123,11 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
 
         if (unit->isFlying)
         {
-            unit->distToTargetPosition = unit->getDistance(targetPosition);
-            if (unit->distToTargetPosition >= flyingDistToTarget)
+            unit->distToTargetPosition = unit->lastPosition.getApproxDistance(targetPosition);
+            if (unit->distToTargetPosition < minAirDistance)
             {
-                unitIt++;
-                continue;
+                minAirDistance = unit->distToTargetPosition;
             }
-
-            flyingVanguard = unit;
-            flyingDistToTarget = unit->distToTargetPosition;
-            flyingDistToMain = unit->getDistance(mainPosition);
 
             unitIt++;
             continue;
@@ -146,24 +137,9 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
                                                                     unit->lastPosition,
                                                                     unit->type,
                                                                     PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
-        if (unit->distToTargetPosition > groundDistToTarget || (unit->distToTargetPosition == -1 && groundDistToTarget != INT_MAX))
+        if (unit->distToTargetPosition != -1 && unit->distToTargetPosition < minGroundDistance)
         {
-            unitIt++;
-            continue;
-        }
-
-        int mainDist = PathFinding::GetGroundDistance(mainPosition, unit->lastPosition, unit->type);
-        if (unit->distToTargetPosition != -1 || (mainDist != -1 && mainDist > groundDistToMain))
-        {
-            groundVanguard = unit;
-            if (unit->distToTargetPosition != -1)
-            {
-                groundDistToTarget = unit->distToTargetPosition;
-            }
-            if (mainDist != -1)
-            {
-                groundDistToMain = mainDist;
-            }
+            minGroundDistance = unit->distToTargetPosition;
         }
 
         unitIt++;
@@ -172,27 +148,61 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     ballRadius = (int) sqrt((double) area / pi);
     lineRadius = 16 * units.size();
 
-    if (groundVanguard)
-    {
-        vanguard = groundVanguard;
-        vanguardDistToMain = groundDistToMain;
-        vanguardDistToTarget = groundDistToTarget;
-    }
-    else
-    {
-        vanguard = flyingVanguard;
-        vanguardDistToMain = flyingDistToMain;
-        vanguardDistToTarget = flyingDistToTarget;
-    }
-
     if (units.empty()) return;
 
     center = BWAPI::Position(sumX / units.size(), sumY / units.size());
 
-    // Ensure the vanguard and vanguard distances are set if we for whatever reason couldn't get any proper distances above
-    if (!vanguard) vanguard = *units.begin();
-    if (vanguardDistToTarget == INT_MAX) vanguardDistToTarget = vanguard->getDistance(targetPosition);
-    if (vanguardDistToMain == -1) vanguardDistToMain = vanguard->getDistance(mainPosition);
+    // Now determine which unit is our vanguard unit
+    // This is generally the unit closest to the target position, but if more than one unit is at approximately the
+    // same distance, we take the one closest to the cluster center
+    vanguard = nullptr;
+    int minCenterDist = INT_MAX;
+    for (auto &unit : units)
+    {
+        if (unit->distToTargetPosition == -1) continue;
+        if (unit->isFlying != (minGroundDistance == INT_MAX)) continue;
+        if (unit->distToTargetPosition - (unit->isFlying ? minAirDistance : minGroundDistance) > 32) continue;
+
+        int centerDist = unit->lastPosition.getApproxDistance(center);
+        if (centerDist < minCenterDist)
+        {
+            vanguard = unit;
+            minCenterDist = centerDist;
+        }
+    }
+
+    // If the vanguard isn't set, it means we have no units with a valid distance to the goal
+    // So fall back to air distances for all units
+    if (!vanguard)
+    {
+        minAirDistance = INT_MAX;
+        for (auto &unit : units)
+        {
+            unit->distToTargetPosition = unit->lastPosition.getApproxDistance(targetPosition);
+            if (unit->distToTargetPosition < minAirDistance)
+            {
+                minAirDistance = unit->distToTargetPosition;
+                vanguard = unit;
+            }
+        }
+    }
+
+    vanguardDistToTarget = vanguard->distToTargetPosition;
+    if (vanguard->isFlying)
+    {
+        vanguardDistToMain = vanguard->lastPosition.getApproxDistance(Map::getMyMain()->getPosition());
+    }
+    else
+    {
+        vanguardDistToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(),
+                                                            vanguard->lastPosition,
+                                                            vanguard->type,
+                                                            PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+        if (vanguardDistToMain == -1)
+        {
+            vanguardDistToMain = vanguard->lastPosition.getApproxDistance(Map::getMyMain()->getPosition());
+        }
+    }
 
     if (vanguardDistToTarget > 0 || vanguardDistToMain > 0)
     {
