@@ -244,16 +244,16 @@ namespace
             return false;
         }
 
-        // Continue if our number of units has increased in the past 48 frames.
+        // Continue if our number of units has increased in the past 72 frames.
         // This gives our reinforcements time to link up with the rest of the cluster before engaging.
         int count = 0;
-        for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 48; it++)
+        for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 72; it++)
         {
             if (simResult.myUnitCount > it->first.myUnitCount)
             {
 #if DEBUG_COMBATSIM
                 CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                                 << ": continuing regroup as more friendly units have joined the cluster in the past 48 frames";
+                                 << ": continuing regroup as more friendly units have joined the cluster in the past 72 frames";
 #endif
                 return false;
             }
