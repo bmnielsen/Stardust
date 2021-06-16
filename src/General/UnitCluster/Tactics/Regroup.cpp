@@ -149,7 +149,7 @@ namespace
                 // Continue if the sim hasn't been stable for 6 frames
                 if (consecutiveFleeFrames < 6)
                 {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
                     CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing contain as the sim has not yet been stable for 6 frames";
 #endif
                     return true;
@@ -158,7 +158,7 @@ namespace
                 // Continue if the sim has recommended containing more than fleeing
                 if (containFrames > fleeFrames)
                 {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
                     CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing contain; flee=" << fleeFrames
                                      << " vs. contain=" << containFrames;
 #endif
@@ -184,7 +184,7 @@ namespace
                 // Continue if the sim hasn't been stable for 6 frames
                 if (consecutiveContainFrames < 6)
                 {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
                     CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": not containing as the sim has not yet been stable for 6 frames";
 #endif
                     return false;
@@ -193,7 +193,7 @@ namespace
                 // Continue if the sim has recommended fleeing more than containing
                 if (fleeFrames > containFrames)
                 {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
                     CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing flee; flee=" << fleeFrames
                                      << " vs. contain=" << containFrames;
 #endif
@@ -207,7 +207,7 @@ namespace
                 {
                     if (simResult.myUnitCount > it->first.myUnitCount)
                     {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
                         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
                                          << ": waiting to contain as more friendly units have joined the cluster in the past 60 frames";
 #endif

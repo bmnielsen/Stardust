@@ -15,6 +15,7 @@ namespace
         // TODO: Would also be nice to adjust for units in production when waiting to break out from our main
         if (cluster.percentageToEnemyMain < 0.2) return 1.0;
 
+#if DEBUG_COMBATSIM_LOG
         CherryVis::log() << std::setprecision(2) << BWAPI::WalkPosition(cluster.center)
                          << ": cluster@" << cluster.percentageToEnemyMain
                          << "; reinforcements@" << closestReinforcements
@@ -23,6 +24,7 @@ namespace
                          << "; %=" << (1.0 - reinforcementPercentage)
                          << "; adjustedDist=" << (1.0 - std::min(1.0, reinforcementPercentage / 0.2) *
                                                         ((closestReinforcements / cluster.percentageToEnemyMain) / 2));
+#endif
 
         // For distance, scale the effect from 0 (far away) to 0.5 (close)
         double distanceFactor = (closestReinforcements / cluster.percentageToEnemyMain) / 2;
@@ -165,7 +167,7 @@ namespace
         // Continue if the sim hasn't been stable for 6 frames
         if (consecutiveRetreatFrames < 6)
         {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
             CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing attack as the sim has not yet been stable for 6 frames";
 #endif
             return true;
@@ -174,7 +176,7 @@ namespace
         // Continue if the sim has recommended attacking more than regrouping
         if (attackFrames > regroupFrames)
         {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
             CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing attack; regroup=" << regroupFrames
                              << " vs. attack=" << attackFrames;
 #endif
@@ -228,7 +230,7 @@ namespace
         // Continue if the sim hasn't been stable for 12 frames
         if (consecutiveAttackFrames < 12)
         {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
             CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing regroup as the sim has not yet been stable for 12 frames";
 #endif
             return false;
@@ -237,7 +239,7 @@ namespace
         // Continue if the sim has recommended regrouping more than attacking
         if (regroupFrames > attackFrames)
         {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
             CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing regroup; regroup=" << regroupFrames
                              << " vs. attack=" << attackFrames;
 #endif
@@ -251,7 +253,7 @@ namespace
         {
             if (simResult.myUnitCount > it->first.myUnitCount)
             {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
                 CherryVis::log() << BWAPI::WalkPosition(cluster.center)
                                  << ": continuing regroup as more friendly units have joined the cluster in the past 72 frames";
 #endif
