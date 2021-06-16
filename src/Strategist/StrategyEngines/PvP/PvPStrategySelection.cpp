@@ -4,7 +4,7 @@
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Units.h"
 
-std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
+std::map <PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
         {OurStrategy::EarlyGameDefense, "EarlyGameDefense"},
         {OurStrategy::AntiZealotRush,   "AntiZealotRush"},
         {OurStrategy::FastExpansion,    "FastExpansion"},
@@ -19,7 +19,7 @@ namespace
     std::map<BWAPI::UnitType, int> emptyUnitCountMap;
 }
 
-PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, std::vector<std::shared_ptr<Play>> &plays)
+PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, std::vector <std::shared_ptr<Play>> &plays)
 {
     auto canTransitionFromAntiZealotRush = [&]()
     {
@@ -57,9 +57,20 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
             if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) <= unitCount) return true;
         }
 
-        // Require Dragoon Range
+        // Transition immediately if we have at least two dragoons and the enemy has expanded
+        if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) > 1 &&
+            completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] > 1)
+        {
+            return true;
+        }
+
+        // Require Dragoon Range to be started
         // TODO: This is probably much too conservative
-        if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0) return false;
+        if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0 &&
+            !Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
+        {
+            return false;
+        }
 
         // Transition when we have at least 10 units
         return unitCount >= 10;
