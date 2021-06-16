@@ -9,7 +9,9 @@
 #include "DebugFlag_CombatSim.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
-#define DEBUG_COMBATSIM_CSV  false         // Writes a CSV file for each cluster with detailed sim information
+#define DEBUG_COMBATSIM_CSV false          // Writes a CSV file for each cluster with detailed sim information
+#define DEBUG_COMBATSIM_CSV_FREQUENCY 100  // Frequency at which to write CSV output
+#define DEBUG_COMBATSIM_CSV_ATTACKER false // Whether to output CSV for attacker or defender
 #endif
 
 #if INSTRUMENTATION_ENABLED
@@ -239,13 +241,16 @@ namespace
             csv << std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
         };
 
-        for (auto &unitAndTarget : unitsAndTargets)
+        if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
         {
-            writeActualCsvLine(unitAndTarget.first);
-        }
-        for (auto &target : targets)
-        {
-            writeActualCsvLine(target);
+            for (auto &unitAndTarget : unitsAndTargets)
+            {
+                writeActualCsvLine(unitAndTarget.first);
+            }
+            for (auto &target : targets)
+            {
+                writeActualCsvLine(target);
+            }
         }
 #endif
 
@@ -307,13 +312,16 @@ namespace
 #endif
 
 #if DEBUG_COMBATSIM_CSV
-            for (auto unit : *sim.getState().first)
+            if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
             {
-                writeSimCsvLine(unit, i);
-            }
-            for (auto unit : *sim.getState().second)
-            {
-                writeSimCsvLine(unit, i);
+                for (auto unit : *sim.getState().first)
+                {
+                    writeSimCsvLine(unit, i);
+                }
+                for (auto unit : *sim.getState().second)
+                {
+                    writeSimCsvLine(unit, i);
+                }
             }
 #endif
         }
