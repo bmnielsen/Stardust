@@ -188,25 +188,30 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     }
 
     vanguardDistToTarget = vanguard->distToTargetPosition;
-    if (vanguard->isFlying)
-    {
-        vanguardDistToMain = vanguard->lastPosition.getApproxDistance(Map::getMyMain()->getPosition());
-    }
-    else
-    {
-        vanguardDistToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(),
-                                                            vanguard->lastPosition,
-                                                            vanguard->type,
-                                                            PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
-        if (vanguardDistToMain == -1)
-        {
-            vanguardDistToMain = vanguard->lastPosition.getApproxDistance(Map::getMyMain()->getPosition());
-        }
-    }
 
-    if (vanguardDistToTarget > 0 || vanguardDistToMain > 0)
+    auto vanguardDistTo = [&](BWAPI::Position pos)
     {
-        percentageToEnemyMain = (double) vanguardDistToMain / (double) (vanguardDistToMain + vanguardDistToTarget);
+        if (vanguard->isFlying)
+        {
+            return vanguard->lastPosition.getApproxDistance(Map::getMyMain()->getPosition());
+        }
+
+        auto dist = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(),
+                                                                vanguard->lastPosition,
+                                                                vanguard->type,
+                                                                PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+        if (dist != -1) return dist;
+
+        return vanguard->lastPosition.getApproxDistance(Map::getMyMain()->getPosition());
+    };
+
+    vanguardDistToMain = vanguardDistTo(Map::getMyMain()->getPosition());
+
+    auto enemyMain = Map::getEnemyMain();
+    int vanguardDistToEnemyMain = vanguardDistTo(enemyMain ? enemyMain->getPosition() : targetPosition);
+    if (vanguardDistToEnemyMain > 0 || vanguardDistToMain > 0)
+    {
+        percentageToEnemyMain = (double) vanguardDistToMain / (double) (vanguardDistToMain + vanguardDistToEnemyMain);
     }
     else
     {
