@@ -276,7 +276,8 @@ void Squad::updateClusters()
         os << "center: " << BWAPI::WalkPosition(cluster->center)
            << "\nactivity: " << cluster->getCurrentActivity()
            << "\nsub-activity: " << cluster->getCurrentSubActivity()
-           << "\ntarget: " << BWAPI::WalkPosition(targetPosition);
+           << "\ntarget: " << BWAPI::WalkPosition(targetPosition)
+           << "\n%dist: " << std::setprecision(2) << cluster->percentageToEnemyMain;
         if (cluster == currentVanguardCluster)
         {
             os << "\n*Vanguard*";
@@ -304,27 +305,35 @@ void Squad::execute()
         dbg << "\n" << cluster->getCurrentActivity();
         if (cluster->currentSubActivity != UnitCluster::SubActivity::None) dbg << "-" << cluster->getCurrentSubActivity();
 
-        auto addSimResult = [&dbg, &cluster](const std::pair<CombatSimResult, bool> &simResult)
+        auto addSimResult = [&dbg](const std::pair<CombatSimResult, bool> &simResult)
         {
             if (simResult.first.frame != BWAPI::Broodwar->getFrameCount()) return;
-
-            // See AttackBaseSquad
-            double distanceFactor = 1.2 - 0.4 * cluster->percentageToEnemyMain;
-            if (simResult.first.narrowChoke && cluster->percentageToEnemyMain > 0.7)
-            {
-                distanceFactor *= 0.8;
-            }
 
             dbg << "\n"
                 << simResult.first.initialMine << "," << simResult.first.initialEnemy
                 << "-" << simResult.first.finalMine << "," << simResult.first.finalEnemy
-                << std::setprecision(2)
-                << ": d=" << distanceFactor
-                << "; %l=" << simResult.first.myPercentLost()
+                << std::setprecision(2);
+            if (simResult.first.distanceFactor > -0.1)
+            {
+                dbg << "; d=" << simResult.first.distanceFactor;
+            }
+            if (simResult.first.aggression > -0.1)
+            {
+                dbg << "; a=" << simResult.first.aggression;
+            }
+            if (simResult.first.closestReinforcements > -0.1)
+            {
+                dbg << "; cr=" << simResult.first.closestReinforcements;
+            }
+            if (simResult.first.reinforcementPercentage > -0.1)
+            {
+                dbg << "; r%=" << simResult.first.reinforcementPercentage;
+            }
+            dbg << "; %l=" << simResult.first.myPercentLost()
                 << "; vg=" << simResult.first.valueGain()
                 << "; %g=" << simResult.first.percentGain()
-                << "; %t=" << simResult.first.myPercentageOfTotal()
-                << (simResult.second ? "; ATTACK" : "; RETREAT");
+                << "; %t=" << simResult.first.myPercentageOfTotal();
+            if (simResult.second) dbg << "; ATCK";
         };
 
         if (!cluster->recentSimResults.empty()) addSimResult(*cluster->recentSimResults.rbegin());

@@ -20,12 +20,9 @@
 #define DEBUG_CARRIER_STATUS false
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS false
-#define DEBUG_ARBITER_STATUS true
+#define DEBUG_ARBITER_STATUS false
 #define DEBUG_PRODUCINGBUILDING_STATUS false
 #define DEBUG_ENEMY_STATUS false
-#endif
-
-#if INSTRUMENTATION_ENABLED
 #define DEBUG_ENEMY_TIMINGS true
 #endif
 

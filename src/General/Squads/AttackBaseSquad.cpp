@@ -36,7 +36,7 @@ namespace
         return (1.0 - distanceFactor) * (1.0 - reinforcementPercentage);
     }
 
-    bool shouldAttack(UnitCluster &cluster, const CombatSimResult &simResult, double aggression = 1.0)
+    bool shouldAttack(UnitCluster &cluster, CombatSimResult &simResult, double aggression = 1.0)
     {
         double distanceFactor = 1.0;
 
@@ -95,6 +95,9 @@ namespace
 
         bool result = attack();
 
+        simResult.distanceFactor = distanceFactor;
+        simResult.aggression = aggression;
+
 #if DEBUG_COMBATSIM_LOG
         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
                          << std::setprecision(2) << "-" << aggression << "-" << distanceFactor
@@ -114,7 +117,12 @@ namespace
                            double reinforcementPercentage)
     {
         bool attack = shouldAttack(cluster, simResult, reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage));
+
+        simResult.closestReinforcements = closestReinforcements;
+        simResult.reinforcementPercentage = reinforcementPercentage;
+
         cluster.addSimResult(simResult, attack);
+
         return attack;
     }
 
@@ -198,8 +206,8 @@ namespace
                               double closestReinforcements,
                               double reinforcementPercentage)
     {
-        // Always attack if we are maxed and have no reinforcements nearby
-        if (BWAPI::Broodwar->self()->supplyUsed() > 380 && closestReinforcements > 0.9)
+        // Always attack if we are maxed and have no significant reinforcements incoming
+        if (BWAPI::Broodwar->self()->supplyUsed() > 380 && reinforcementPercentage < 0.1)
         {
             return true;
         }
@@ -219,6 +227,9 @@ namespace
         aggression *= reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage);
 
         bool attack = shouldAttack(cluster, simResult, aggression);
+
+        simResult.closestReinforcements = closestReinforcements;
+        simResult.reinforcementPercentage = reinforcementPercentage;
 
         cluster.addSimResult(simResult, attack);
 

@@ -270,11 +270,6 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         }
     }
 
-    if (enemyAoeRadius > 0)
-    {
-        CherryVis::log() << "Enemy AOE radius: " << enemyAoeRadius;
-    }
-
 #if DEBUG_TARGETING
     std::ostringstream dbg;
     dbg << "Targeting for cluster " << BWAPI::TilePosition(center) << " - targetIsReachableEnemyBase=" << targetIsReachableEnemyBase;

@@ -129,6 +129,8 @@ namespace
                          << (contain ? "; CONTAIN_CHOKE" : "; DON'T_CONTAIN_CHOKE");
 #endif
 
+        simResult.distanceFactor = distanceFactor;
+
         cluster.addRegroupSimResult(simResult, contain);
 
         // What we decide depends on the current regroup activity
