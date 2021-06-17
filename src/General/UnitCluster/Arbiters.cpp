@@ -77,7 +77,7 @@ namespace
 
         auto centerTile = BWAPI::TilePosition(centerPosition);
 
-        auto grid = Players::grid(BWAPI::Broodwar->enemy());
+        auto &grid = Players::grid(BWAPI::Broodwar->enemy());
 
         // Determine how many tanks we want to hit, based on the total energy of our arbiters
         // The more energy we have, the more tanks we want to hit with one cast

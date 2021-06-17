@@ -303,7 +303,7 @@ bool Plasma::clusterMove(UnitCluster &cluster, BWAPI::Position targetPosition)
         // Otherwise move towards the egg
         // For some reason just moving towards the egg position makes normal BW pathing bug out
         // So we look for the closest position between here and the egg that is walkable and not occupied by a friendly unit
-        auto grid = Players::grid(BWAPI::Broodwar->self());
+        auto &grid = Players::grid(BWAPI::Broodwar->self());
         int eggHeight = BWAPI::Broodwar->getGroundHeight(bestEgg->getInitialTilePosition());
         int dist;
         for (dist = 64; dist < (bestDist + 16); dist += 16)

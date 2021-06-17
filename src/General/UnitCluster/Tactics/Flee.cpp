@@ -12,7 +12,7 @@ void UnitCluster::flee(std::set<Unit> &enemyUnits)
     move(Map::getMyMain()->getPosition());
     return;
 
-    auto grid = Players::grid(BWAPI::Broodwar->enemy());
+    auto &grid = Players::grid(BWAPI::Broodwar->enemy());
     bool canFormArc = true;
     for (auto &unit : units)
     {

@@ -864,7 +864,7 @@ namespace Producer
         // Finds the frame where we have enough of a resource for the item and its prerequisites
         int frameWhenResourcesMet(const ProductionItem &item, ProductionItemSet &prerequisiteItems, bool isMinerals)
         {
-            auto resource = isMinerals ? minerals : gas;
+            auto &resource = isMinerals ? minerals : gas;
             int itemCost = isMinerals ? item.mineralPrice() : item.gasPrice();
 
             int f;

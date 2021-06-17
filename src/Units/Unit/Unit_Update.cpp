@@ -277,7 +277,7 @@ void UnitImpl::updateUnitInFog()
         if (burrowed)
         {
             // Assume the unit is still burrowed here unless we have detection on the position or the unit was doomed before it burrowed
-            auto grid = Players::grid(BWAPI::Broodwar->self());
+            auto &grid = Players::grid(BWAPI::Broodwar->self());
             if (health > 0 && grid.detection(lastPosition) == 0) return;
         }
 

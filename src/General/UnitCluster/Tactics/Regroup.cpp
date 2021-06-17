@@ -74,7 +74,7 @@ namespace
         if (!initialSimResult.narrowChoke) return false;
 
         // Never contain a choke that is covered by enemy static defense at both ends
-        auto grid = Players::grid(BWAPI::Broodwar->enemy());
+        auto &grid = Players::grid(BWAPI::Broodwar->enemy());
         if (grid.staticGroundThreat(initialSimResult.narrowChoke->end1Center) > 0 &&
             grid.staticGroundThreat(initialSimResult.narrowChoke->end2Center) > 0)
         {

@@ -39,7 +39,7 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
 {
     int startX = position.x >> 3U;
     int startY = position.y >> 3U;
-    for (auto pos : getPositionsInRange(type, range))
+    for (auto &pos : getPositionsInRange(type, range))
     {
         int x = startX + pos.x;
         int y = startY + pos.y;

@@ -438,7 +438,7 @@ void EarlyGameWorkerScout::update()
     {
         // Plot a path, avoiding static defenses and the enemy mineral line
         // Also reject tiles outside the scout areas to limit the search space
-        auto grid = Players::grid(BWAPI::Broodwar->enemy());
+        auto &grid = Players::grid(BWAPI::Broodwar->enemy());
         auto avoidThreatTiles = [&](BWAPI::TilePosition tile)
         {
             if (!Map::isWalkable(tile)) return false;

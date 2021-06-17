@@ -30,7 +30,7 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
     }
 
     // Form an arc if none of our units are in danger or in range yet
-    auto grid = Players::grid(BWAPI::Broodwar->enemy());
+    auto &grid = Players::grid(BWAPI::Broodwar->enemy());
     Unit vanguardTarget = nullptr;
     bool canFormArc = true;
     for (auto &unitAndTarget : unitsAndTargets)
