@@ -8,6 +8,8 @@
 
 namespace
 {
+    std::vector<unsigned char> collision;
+
     int id = 1;
 
     auto inline makeUnit(BWAPI::UnitType type, BWAPI::Position pos)
@@ -188,9 +190,12 @@ TEST(CombatSim, Choke)
         CombatSim::initialize();
         Log::SetDebug(true);
 
+        collision.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
+
         int diffNormal;
         {
-            FAP::FastAPproximation sim;
+            std::fill(collision.begin(), collision.end(), 0);
+            FAP::FastAPproximation sim(collision);
             initializeBridgeSimUnits(sim);
 
             int initialMine = score(sim.getState().first);
@@ -220,7 +225,8 @@ TEST(CombatSim, Choke)
                 return;
             }
 
-            FAP::FastAPproximation sim;
+            std::fill(collision.begin(), collision.end(), 0);
+            FAP::FastAPproximation sim(collision);
             sim.setChokeGeometry(choke->tileSide, choke->end1Center, choke->end2Center, choke->end1Exit, choke->end2Exit);
             initializeBridgeSimUnits(sim);
 
@@ -281,9 +287,12 @@ TEST(CombatSim, Ramp)
         CombatSim::initialize();
         Log::SetDebug(true);
 
+        collision.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
+
         int diffNormal;
         {
-            FAP::FastAPproximation sim;
+            std::fill(collision.begin(), collision.end(), 0);
+            FAP::FastAPproximation sim(collision);
             initializeRampSimUnits(sim);
 
             int initialMine = score(sim.getState().first);
@@ -313,7 +322,8 @@ TEST(CombatSim, Ramp)
                 return;
             }
 
-            FAP::FastAPproximation sim;
+            std::fill(collision.begin(), collision.end(), 0);
+            FAP::FastAPproximation sim(collision);
             sim.setChokeGeometry(choke->tileSide, choke->end1Center, choke->end2Center, choke->end1Exit, choke->end2Exit);
             initializeRampSimUnits<true>(sim);
 
@@ -374,8 +384,11 @@ TEST(CombatSim, TankMinRange)
         CombatSim::initialize();
         Log::SetDebug(true);
 
+        collision.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
+
         {
-            FAP::FastAPproximation sim;
+            std::fill(collision.begin(), collision.end(), 0);
+            FAP::FastAPproximation sim(collision);
 
             sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(7, 30))));
             sim.addIfCombatUnitPlayer2(makeUnit(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode, BWAPI::Position(BWAPI::TilePosition(7, 31))));
@@ -399,7 +412,8 @@ TEST(CombatSim, TankMinRange)
         }
 
         {
-            FAP::FastAPproximation sim;
+            std::fill(collision.begin(), collision.end(), 0);
+            FAP::FastAPproximation sim(collision);
 
             sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(BWAPI::TilePosition(7, 30))));
             sim.addIfCombatUnitPlayer2(makeUnit(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode, BWAPI::Position(BWAPI::TilePosition(14, 35))));
@@ -450,8 +464,11 @@ TEST(CombatSim, TankBug)
         CombatSim::initialize();
         Log::SetDebug(true);
 
+        collision.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
+
         {
-            FAP::FastAPproximation sim;
+            std::fill(collision.begin(), collision.end(), 0);
+            FAP::FastAPproximation sim(collision);
 
             sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(917,3355)));
             sim.addIfCombatUnitPlayer1(makeUnit(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(892,3338)));
