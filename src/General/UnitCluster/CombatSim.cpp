@@ -22,6 +22,10 @@
 
 namespace
 {
+    // FAP collision vector
+    // Allocated here at initialization to avoid re-allocations
+    std::vector<unsigned char> collision;
+
     // Cache of unit scores
     int baseScore[BWAPI::UnitTypes::Enum::MAX];
     int scaledScore[BWAPI::UnitTypes::Enum::MAX];
@@ -133,7 +137,8 @@ namespace
         int minUnitId = INT_MAX;
 #endif
 
-        FAP::FastAPproximation sim;
+        std::fill(collision.begin(), collision.end(), 0);
+        FAP::FastAPproximation sim(collision);
         if (narrowChoke)
         {
             sim.setChokeGeometry(narrowChoke->tileSide,
@@ -353,6 +358,8 @@ namespace CombatSim
 {
     void initialize()
     {
+        collision.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
+
         for (auto type : BWAPI::UnitTypes::allUnitTypes())
         {
             // Base the score on the cost
