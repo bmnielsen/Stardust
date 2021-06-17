@@ -193,16 +193,16 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     {
         if (vanguard->isFlying)
         {
-            return vanguard->lastPosition.getApproxDistance(Map::getMyMain()->getPosition());
+            return vanguard->lastPosition.getApproxDistance(pos);
         }
 
-        auto dist = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(),
-                                                                vanguard->lastPosition,
-                                                                vanguard->type,
-                                                                PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+        auto dist = PathFinding::GetGroundDistance(pos,
+                                                   vanguard->lastPosition,
+                                                   vanguard->type,
+                                                   PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
         if (dist != -1) return dist;
 
-        return vanguard->lastPosition.getApproxDistance(Map::getMyMain()->getPosition());
+        return vanguard->lastPosition.getApproxDistance(pos);
     };
 
     vanguardDistToMain = vanguardDistTo(Map::getMyMain()->getPosition());
