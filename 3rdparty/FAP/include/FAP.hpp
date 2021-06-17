@@ -37,6 +37,8 @@ namespace FAP {
 
   template<typename UnitExtension = std::tuple<>>
   struct FastAPproximation {
+    FastAPproximation(std::vector<unsigned char> &collision) : collision(collision) {}
+
     /**
      * \brief Adds the unit to the simulator for player 1, only if it is a combat unit
      * \param fu The FAPUnit to add
@@ -86,7 +88,8 @@ namespace FAP {
     // Current approach to collisions: allow two units to share the same grid cell, using half-tile resolution
     // This seems to strike a reasonable balance between improving how large melee armies are simmed and avoiding
     // expensive collision-based pathing calculations
-    std::vector<unsigned char> collision = std::vector<unsigned char>(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
+    std::vector<unsigned char> &collision;
+
     template<bool choke>
     void initializeCollision(FAPUnit<UnitExtension> &fu);
     template<bool choke = false>
