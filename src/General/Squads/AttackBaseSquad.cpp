@@ -131,6 +131,14 @@ namespace
                               double closestReinforcements,
                               double reinforcementPercentage)
     {
+        double aggression = 1.2;
+
+        // Increase aggression if we are close to maxed and have no significant reinforcements incoming
+        if (BWAPI::Broodwar->self()->supplyUsed() > 300 && reinforcementPercentage < 0.1)
+        {
+            aggression += 0.005 * (double)(BWAPI::Broodwar->self()->supplyUsed() - 300);
+        }
+
         bool attack = shouldAttack(cluster, simResult, 1.2);
 
         cluster.addSimResult(simResult, attack);
