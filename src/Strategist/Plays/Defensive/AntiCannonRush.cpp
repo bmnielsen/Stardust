@@ -55,7 +55,12 @@ namespace
     }
 }
 
-AntiCannonRush::AntiCannonRush() : Play("AntiCannonRush"), scout(nullptr), builtPylon(false), builtCannon(false)
+AntiCannonRush::AntiCannonRush()
+        : Play("AntiCannonRush")
+        , safeEnemyStrategyDetermined(false)
+        , scout(nullptr)
+        , builtPylon(false)
+        , builtCannon(false)
 {
     // Compute the scout tiles
     auto areas = Map::getMyMainAreas();
@@ -151,7 +156,7 @@ void AntiCannonRush::update()
     }
 
     // Disband when we are fairly certain the cannon rush is not happening or is over
-    if ((BWAPI::Broodwar->getFrameCount() >= 4000 && !builtCannon && !builtPylon) ||
+    if (((BWAPI::Broodwar->getFrameCount() >= 4000 || safeEnemyStrategyDetermined) && !builtCannon && !builtPylon) ||
         (BWAPI::Broodwar->getFrameCount() >= 7000 && pylons.empty() && cannonsAndAttackers.empty()))
     {
         status.complete = true;

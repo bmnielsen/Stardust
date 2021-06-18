@@ -5,6 +5,9 @@
 class AntiCannonRush : public Play
 {
 public:
+    // Whether the enemy's current strategy is considered "safe" from a cannon rush perspective
+    bool safeEnemyStrategyDetermined;
+
     AntiCannonRush();
 
     void update() override;

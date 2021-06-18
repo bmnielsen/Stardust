@@ -135,7 +135,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     updateAttackPlays(plays, defendOurMain);
 
     // Ensure we have an anti cannon rush play if the enemy strategy warrants it
-    if (BWAPI::Broodwar->getFrameCount() < 6000)
+    if (BWAPI::Broodwar->getFrameCount() < 4000)
     {
         // If we've detected a proxy, keep track of whether we have identified it as a zealot rush
         // Once we've either seen the proxied gateway or a zealot, we assume the enemy isn't doing a "proxy" cannon rush
@@ -160,7 +160,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 || enemyStrategy == ProtossStrategy::TwoGate
                 || zealotProxy))
         {
-            antiCannonRushPlay->status.complete = true;
+            antiCannonRushPlay->safeEnemyStrategyDetermined = true;
         }
     }
 
