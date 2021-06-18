@@ -440,7 +440,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
             // If we are targeting an enemy base, ignore outlying buildings (except static defense) unless we have a higher-priority target
             // Rationale: When we have a non-building target, we want to consider buildings since they might be blocking us from attacking them
-            if (target.priority < 7 && !hasNonBuilding && targetIsReachableEnemyBase && distanceToTargetPosition > 200)
+            if (target.priority < 7 && (!hasNonBuilding || target.unit->isFlying) && targetIsReachableEnemyBase && distanceToTargetPosition > 200)
             {
 #if DEBUG_TARGETING
                 dbg << "\n Skipping " << *target.unit << " as priority < 7, targetIsReachableEnemyBase, distanceToTargetPosition > 200";
