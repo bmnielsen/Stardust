@@ -99,10 +99,12 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 defendOurMain = false;
 
                 // Transition from a defend squad when the vanguard cluster has 3 units and can do so
+                // Exception: always attack if the enemy strategy is fast expansion
                 if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
                 {
-                    defendOurMain = vanguard->units.size() < 3 ||
-                                    !((DefendMyMain *) mainArmyPlay)->canTransitionToAttack();
+                    defendOurMain = enemyStrategy != ProtossStrategy::FastExpansion &&
+                                    (vanguard->units.size() < 3 ||
+                                     !((DefendMyMain *) mainArmyPlay)->canTransitionToAttack());
                 }
 
                 // Transition to a defend squad if our attack squad has been pushed back into our main
