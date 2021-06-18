@@ -205,21 +205,21 @@ void Squad::executeArbiters()
         };
         addThreatForType(BWAPI::UnitTypes::Terran_Science_Vessel, 8 * 8);
         addThreatForType(BWAPI::UnitTypes::Terran_Goliath,
-                         Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Goliath.airWeapon()));
+                         Players::weaponRange(BWAPI::Broodwar->enemy(), BWAPI::UnitTypes::Terran_Goliath.airWeapon()));
         addThreatForType(BWAPI::UnitTypes::Terran_Missile_Turret,
-                         Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Missile_Turret.airWeapon()));
+                         Players::weaponRange(BWAPI::Broodwar->enemy(), BWAPI::UnitTypes::Terran_Missile_Turret.airWeapon()));
         addThreatForType(BWAPI::UnitTypes::Terran_Marine,
-                         Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Marine.airWeapon()));
+                         Players::weaponRange(BWAPI::Broodwar->enemy(), BWAPI::UnitTypes::Terran_Marine.airWeapon()));
         addThreatForType(BWAPI::UnitTypes::Terran_Ghost,
-                         Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Ghost.airWeapon()));
+                         Players::weaponRange(BWAPI::Broodwar->enemy(), BWAPI::UnitTypes::Terran_Ghost.airWeapon()));
         addThreatForType(BWAPI::UnitTypes::Terran_Bunker,
-                         Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Marine.airWeapon()) + 32);
+                         Players::weaponRange(BWAPI::Broodwar->enemy(), BWAPI::UnitTypes::Terran_Marine.airWeapon()) + 32);
         addThreatForType(BWAPI::UnitTypes::Terran_Wraith,
-                         Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Wraith.airWeapon()));
+                         Players::weaponRange(BWAPI::Broodwar->enemy(), BWAPI::UnitTypes::Terran_Wraith.airWeapon()));
         addThreatForType(BWAPI::UnitTypes::Terran_Valkyrie,
-                         Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Valkyrie.airWeapon()));
+                         Players::weaponRange(BWAPI::Broodwar->enemy(), BWAPI::UnitTypes::Terran_Valkyrie.airWeapon()));
         addThreatForType(BWAPI::UnitTypes::Terran_Battlecruiser,
-                         Players::weaponRange(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Battlecruiser.airWeapon()));
+                         Players::weaponRange(BWAPI::Broodwar->enemy(), BWAPI::UnitTypes::Terran_Battlecruiser.airWeapon()));
 
         // Separation
         int separationX = 0;
