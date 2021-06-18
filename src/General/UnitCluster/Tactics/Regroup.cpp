@@ -235,9 +235,35 @@ namespace
         return false;
     }
 
-    bool shouldStandGround(const CombatSimResult &initialSimResult, bool hasValidTarget)
+    bool shouldStandGround(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, const CombatSimResult &initialSimResult, bool hasValidTarget)
     {
-        if (!hasValidTarget) return true;
+        // If none of our units has a target, and none of our units are in danger, stand ground
+        if (!hasValidTarget)
+        {
+            auto &grid = Players::grid(BWAPI::Broodwar->enemy());
+            bool anyThreat = false;
+            for (auto &unitAndTarget : unitsAndTargets)
+            {
+                if (unitAndTarget.first->isFlying)
+                {
+                    if (grid.airThreat(unitAndTarget.first->lastPosition) > 0)
+                    {
+                        anyThreat = true;
+                        break;
+                    }
+                }
+                else
+                {
+                    if (grid.groundThreat(unitAndTarget.first->lastPosition) > 0)
+                    {
+                        anyThreat = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!anyThreat) return true;
+        }
 
         // For now just stand ground if the sim result indicates no damage to our units
         // We may want to make this less strict later
@@ -276,7 +302,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             {
                 setSubActivity(SubActivity::ContainChoke);
             }
-            else if (shouldStandGround(simResult, hasValidTarget))
+            else if (shouldStandGround(unitsAndTargets, simResult, hasValidTarget))
             {
                 setSubActivity(SubActivity::StandGround);
             }
@@ -310,7 +336,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             {
                 setSubActivity(SubActivity::ContainChoke);
             }
-            else if (!shouldStandGround(simResult, hasValidTarget))
+            else if (!shouldStandGround(unitsAndTargets, simResult, hasValidTarget))
             {
                 // Flee if it is no longer safe to stand ground
                 setSubActivity(SubActivity::Flee);
@@ -325,7 +351,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             {
                 setSubActivity(SubActivity::ContainChoke);
             }
-            else if (shouldStandGround(simResult, hasValidTarget))
+            else if (shouldStandGround(unitsAndTargets, simResult, hasValidTarget))
             {
                 // While fleeing we will often link up with reinforcements, or the enemy will not pursue, so it makes sense to stand ground instead
                 setSubActivity(SubActivity::StandGround);
