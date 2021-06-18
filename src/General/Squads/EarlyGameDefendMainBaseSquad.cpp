@@ -422,7 +422,10 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
             cluster.attack(unitsAndTargets, targetPosition);
         }
 
-        workerDefenseSquad->execute(workersAndTargets, unitsAndTargets);
+        if (cluster.isVanguardCluster)
+        {
+            workerDefenseSquad->execute(workersAndTargets, unitsAndTargets);
+        }
 
         return;
     }
