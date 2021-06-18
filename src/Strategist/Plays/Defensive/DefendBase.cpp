@@ -135,6 +135,16 @@ void DefendBase::update()
                                              true,
                                              gridNodePredicate);
     }
+
+    // In early-game situations, take any zealots that aren't in the vanguard cluster
+    // This handles situations where our first wave of zealots went on attack before an enemy proxy attack hit
+    if (requestedUnits > 0 && base == Map::getMyMain() && BWAPI::Broodwar->getFrameCount() < 10000)
+    {
+        status.unitRequirements.emplace_back(requestedUnits,
+                                             BWAPI::UnitTypes::Protoss_Zealot,
+                                             base->getPosition(),
+                                             false);
+    }
 }
 
 void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
