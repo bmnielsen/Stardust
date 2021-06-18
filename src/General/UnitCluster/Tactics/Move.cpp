@@ -13,14 +13,14 @@ void UnitCluster::move(BWAPI::Position targetPosition)
     // Determine if the cluster should flock
     // Criteria:
     // - Must be the vanguard cluster
-    // - No units may be in a leaf area or narrow choke (as this makes it likely that they will get stuck on buildings or terrain)
+    // - No units may be in a leaf area or narrow area (as this makes it likely that they will get stuck on buildings or terrain)
     bool shouldFlock = isVanguardCluster;
     if (shouldFlock)
     {
         for (const auto &unit : units)
         {
             auto pos = unit->getTilePosition();
-            if (Map::isInNarrowChoke(pos) || Map::isInLeafArea(pos))
+            if (Map::isInNarrowChoke(pos) || Map::isInLeafArea(pos) || Map::walkableWidth(pos.x, pos.y) < 4)
             {
                 shouldFlock = false;
                 break;
