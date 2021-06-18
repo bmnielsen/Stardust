@@ -14,6 +14,9 @@ namespace Map
 {
     namespace
     {
+        int mapWidth;
+        int mapHeight;
+        
         MapSpecificOverride *_mapSpecificOverride;
         std::vector<Base *> bases;
         std::vector<Base *> startingLocationBases;
@@ -254,7 +257,7 @@ namespace Map
                 {
                     for (auto tile : base->mineralLineTiles)
                     {
-                        inOwnMineralLine[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = false;
+                        inOwnMineralLine[tile.x + tile.y * mapWidth] = false;
                     }
                     PathFinding::removeBlockingTiles(base->mineralLineTiles);
                 }
@@ -306,7 +309,7 @@ namespace Map
                 {
                     for (auto tile : base->mineralLineTiles)
                     {
-                        inOwnMineralLine[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = true;
+                        inOwnMineralLine[tile.x + tile.y * mapWidth] = true;
                     }
                     PathFinding::addBlockingTiles(base->mineralLineTiles);
                 }
@@ -479,7 +482,7 @@ namespace Map
 
         void computeNarrowChokeTiles()
         {
-            narrowChokeTiles.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            narrowChokeTiles.resize(mapWidth * mapHeight);
 
             for (const auto &pair : chokes)
             {
@@ -487,22 +490,22 @@ namespace Map
 
                 for (const auto &chokeTile : pair.second->chokeTiles)
                 {
-                    narrowChokeTiles[chokeTile.x + chokeTile.y * BWAPI::Broodwar->mapWidth()] = true;
+                    narrowChokeTiles[chokeTile.x + chokeTile.y * mapWidth] = true;
                 }
             }
 
 #if CHERRYVIS_ENABLED
             // Dump to CherryVis
-            std::vector<long> narrowChokeTilesCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            std::vector<long> narrowChokeTilesCVis(mapWidth * mapHeight);
+            for (int y = 0; y < mapHeight; y++)
             {
-                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+                for (int x = 0; x < mapWidth; x++)
                 {
-                    narrowChokeTilesCVis[x + y * BWAPI::Broodwar->mapWidth()] = narrowChokeTiles[x + y * BWAPI::Broodwar->mapWidth()];
+                    narrowChokeTilesCVis[x + y * mapWidth] = narrowChokeTiles[x + y * mapWidth];
                 }
             }
 
-            CherryVis::addHeatmap("NarrowChokeTiles", narrowChokeTilesCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+            CherryVis::addHeatmap("NarrowChokeTiles", narrowChokeTilesCVis, mapWidth, mapHeight);
 #endif
         }
 
@@ -526,33 +529,33 @@ namespace Map
                 NextArea:;
             }
 
-            leafAreaTiles.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            leafAreaTiles.resize(mapWidth * mapHeight);
 
-            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            for (int y = 0; y < mapHeight; y++)
             {
-                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+                for (int x = 0; x < mapWidth; x++)
                 {
                     BWAPI::TilePosition here(x, y);
                     auto area = BWEM::Map::Instance().GetArea(here);
                     if (area && leafAreas.find(area) != leafAreas.end())
                     {
-                        leafAreaTiles[here.x + here.y * BWAPI::Broodwar->mapWidth()] = true;
+                        leafAreaTiles[here.x + here.y * mapWidth] = true;
                     }
                 }
             }
 
 #if CHERRYVIS_ENABLED
             // Dump to CherryVis
-            std::vector<long> leafAreaTilesCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            std::vector<long> leafAreaTilesCVis(mapWidth * mapHeight);
+            for (int y = 0; y < mapHeight; y++)
             {
-                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+                for (int x = 0; x < mapWidth; x++)
                 {
-                    leafAreaTilesCVis[x + y * BWAPI::Broodwar->mapWidth()] = leafAreaTiles[x + y * BWAPI::Broodwar->mapWidth()];
+                    leafAreaTilesCVis[x + y * mapWidth] = leafAreaTiles[x + y * mapWidth];
                 }
             }
 
-            CherryVis::addHeatmap("LeafAreaTiles", leafAreaTilesCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+            CherryVis::addHeatmap("LeafAreaTiles", leafAreaTilesCVis, mapWidth, mapHeight);
 #endif
         }
 
@@ -561,71 +564,71 @@ namespace Map
         {
 #if CHERRYVIS_ENABLED
             // Ground height is at tile resolution
-            std::vector<long> groundHeight(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            std::vector<long> groundHeight(mapWidth * mapHeight);
+            for (int y = 0; y < mapHeight; y++)
             {
-                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+                for (int x = 0; x < mapWidth; x++)
                 {
-                    groundHeight[x + y * BWAPI::Broodwar->mapWidth()] = BWAPI::Broodwar->getGroundHeight(x, y);
+                    groundHeight[x + y * mapWidth] = BWAPI::Broodwar->getGroundHeight(x, y);
                 }
             }
 
-            CherryVis::addHeatmap("GroundHeight", groundHeight, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+            CherryVis::addHeatmap("GroundHeight", groundHeight, mapWidth, mapHeight);
 
             // Buildability is at tile resolution
-            std::vector<long> buildability(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            std::vector<long> buildability(mapWidth * mapHeight);
+            for (int y = 0; y < mapHeight; y++)
             {
-                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+                for (int x = 0; x < mapWidth; x++)
                 {
-                    buildability[x + y * BWAPI::Broodwar->mapWidth()] = BWAPI::Broodwar->isBuildable(x, y);
+                    buildability[x + y * mapWidth] = BWAPI::Broodwar->isBuildable(x, y);
                 }
             }
 
-            CherryVis::addHeatmap("Buildable", buildability, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+            CherryVis::addHeatmap("Buildable", buildability, mapWidth, mapHeight);
 
             // Walkability is at walk tile resolution
-            std::vector<long> walkability(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 16);
-            for (int y = 0; y < BWAPI::Broodwar->mapHeight() * 4; y++)
+            std::vector<long> walkability(mapWidth * mapHeight * 16);
+            for (int y = 0; y < mapHeight * 4; y++)
             {
-                for (int x = 0; x < BWAPI::Broodwar->mapWidth() * 4; x++)
+                for (int x = 0; x < mapWidth * 4; x++)
                 {
-                    walkability[x + y * BWAPI::Broodwar->mapWidth() * 4] = BWAPI::Broodwar->isWalkable(x, y);
+                    walkability[x + y * mapWidth * 4] = BWAPI::Broodwar->isWalkable(x, y);
                 }
             }
 
-            CherryVis::addHeatmap("Walkable", walkability, BWAPI::Broodwar->mapWidth() * 4, BWAPI::Broodwar->mapHeight() * 4);
+            CherryVis::addHeatmap("Walkable", walkability, mapWidth * 4, mapHeight * 4);
 
             // Mineral lines from all bases
-            std::vector<long> mineralLineCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            std::vector<long> mineralLineCvis(mapWidth * mapHeight);
             for (auto &base : bases)
             {
-                for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+                for (int y = 0; y < mapHeight; y++)
                 {
-                    for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+                    for (int x = 0; x < mapWidth; x++)
                     {
                         BWAPI::TilePosition here(x, y);
 
                         if (base->workerDefenseRallyPatch && base->workerDefenseRallyPatch->getTilePosition() == here)
                         {
-                            mineralLineCvis[x + y * BWAPI::Broodwar->mapWidth()] = 10;
+                            mineralLineCvis[x + y * mapWidth] = 10;
                         }
                         else if (BWAPI::TilePosition(base->mineralLineCenter) == here)
                         {
-                            mineralLineCvis[x + y * BWAPI::Broodwar->mapWidth()] = 10;
+                            mineralLineCvis[x + y * mapWidth] = 10;
                         }
                         else if (base->isInMineralLine(here))
                         {
-                            mineralLineCvis[x + y * BWAPI::Broodwar->mapWidth()] = -10;
+                            mineralLineCvis[x + y * mapWidth] = -10;
                         }
                     }
                 }
             }
 
-            CherryVis::addHeatmap("MineralLines", mineralLineCvis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+            CherryVis::addHeatmap("MineralLines", mineralLineCvis, mapWidth, mapHeight);
 
             // Bases and resources
-            std::vector<long> basesCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+            std::vector<long> basesCvis(mapWidth * mapHeight);
             auto setBaseTiles = [&basesCvis](BWAPI::TilePosition tile, BWAPI::TilePosition size, long value)
             {
                 auto bottomRight = tile + size;
@@ -634,7 +637,7 @@ namespace Map
                 {
                     for (int x = tile.x; x < bottomRight.x; x++)
                     {
-                        basesCvis[x + y * BWAPI::Broodwar->mapWidth()] = value;
+                        basesCvis[x + y * mapWidth] = value;
                     }
                 }
             };
@@ -652,19 +655,19 @@ namespace Map
                 }
                 val += 20;
             }
-            CherryVis::addHeatmap("Bases", basesCvis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+            CherryVis::addHeatmap("Bases", basesCvis, mapWidth, mapHeight);
 
             // Chokes
-            std::vector<long> chokesCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 16);
+            std::vector<long> chokesCvis(mapWidth * mapHeight * 16);
             for (auto &bwemChokeAndChoke : chokes)
             {
                 for (auto pos : bwemChokeAndChoke.first->Geometry())
                 {
-                    chokesCvis[pos.x + pos.y * BWAPI::Broodwar->mapWidth() * 4] = 1;
+                    chokesCvis[pos.x + pos.y * mapWidth * 4] = 1;
                 }
 
                 BWAPI::WalkPosition center(bwemChokeAndChoke.second->center);
-                chokesCvis[center.x + center.y * BWAPI::Broodwar->mapWidth() * 4] = 30;
+                chokesCvis[center.x + center.y * mapWidth * 4] = 30;
 
                 if (bwemChokeAndChoke.second->isNarrowChoke)
                 {
@@ -673,48 +676,51 @@ namespace Map
                     BWAPI::WalkPosition end1Exit(bwemChokeAndChoke.second->end1Exit);
                     BWAPI::WalkPosition end2Exit(bwemChokeAndChoke.second->end2Exit);
 
-                    chokesCvis[end1Exit.x + end1Exit.y * BWAPI::Broodwar->mapWidth() * 4] = 15;
-                    chokesCvis[end2Exit.x + end2Exit.y * BWAPI::Broodwar->mapWidth() * 4] = 15;
-                    chokesCvis[end1Center.x + end1Center.y * BWAPI::Broodwar->mapWidth() * 4] = 20;
-                    chokesCvis[end2Center.x + end2Center.y * BWAPI::Broodwar->mapWidth() * 4] = 20;
+                    chokesCvis[end1Exit.x + end1Exit.y * mapWidth * 4] = 15;
+                    chokesCvis[end2Exit.x + end2Exit.y * mapWidth * 4] = 15;
+                    chokesCvis[end1Center.x + end1Center.y * mapWidth * 4] = 20;
+                    chokesCvis[end2Center.x + end2Center.y * mapWidth * 4] = 20;
                 }
 
                 if (bwemChokeAndChoke.second->highElevationTile.isValid())
                 {
                     auto highTile = BWAPI::WalkPosition(bwemChokeAndChoke.second->highElevationTile) + BWAPI::WalkPosition(2, 2);
-                    chokesCvis[highTile.x + highTile.y * BWAPI::Broodwar->mapWidth() * 4] = 30;
+                    chokesCvis[highTile.x + highTile.y * mapWidth * 4] = 30;
                 }
             }
 
-            CherryVis::addHeatmap("Chokes", chokesCvis, BWAPI::Broodwar->mapWidth() * 4, BWAPI::Broodwar->mapHeight() * 4);
+            CherryVis::addHeatmap("Chokes", chokesCvis, mapWidth * 4, mapHeight * 4);
 
             // Narrow Chokes
-            std::vector<long> narrowChokesCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 16);
+            std::vector<long> narrowChokesCvis(mapWidth * mapHeight * 16);
             for (auto &bwemChokeAndChoke : chokes)
             {
                 auto &choke = bwemChokeAndChoke.second;
                 if (!choke->isNarrowChoke) continue;
 
                 BWAPI::WalkPosition center(choke->center);
-                narrowChokesCvis[center.x + center.y * BWAPI::Broodwar->mapWidth() * 4] = 30;
+                narrowChokesCvis[center.x + center.y * mapWidth * 4] = 30;
 
                 BWAPI::WalkPosition end1Center(bwemChokeAndChoke.second->end1Center);
                 BWAPI::WalkPosition end2Center(bwemChokeAndChoke.second->end2Center);
                 BWAPI::WalkPosition end1Exit(bwemChokeAndChoke.second->end1Exit);
                 BWAPI::WalkPosition end2Exit(bwemChokeAndChoke.second->end2Exit);
-                narrowChokesCvis[end1Exit.x + end1Exit.y * BWAPI::Broodwar->mapWidth() * 4] = 15;
-                narrowChokesCvis[end2Exit.x + end2Exit.y * BWAPI::Broodwar->mapWidth() * 4] = 15;
-                narrowChokesCvis[end1Center.x + end1Center.y * BWAPI::Broodwar->mapWidth() * 4] = 20;
-                narrowChokesCvis[end2Center.x + end2Center.y * BWAPI::Broodwar->mapWidth() * 4] = 20;
+                narrowChokesCvis[end1Exit.x + end1Exit.y * mapWidth * 4] = 15;
+                narrowChokesCvis[end2Exit.x + end2Exit.y * mapWidth * 4] = 15;
+                narrowChokesCvis[end1Center.x + end1Center.y * mapWidth * 4] = 20;
+                narrowChokesCvis[end2Center.x + end2Center.y * mapWidth * 4] = 20;
             }
 
-            CherryVis::addHeatmap("NarrowChokes", narrowChokesCvis, BWAPI::Broodwar->mapWidth() * 4, BWAPI::Broodwar->mapHeight() * 4);
+            CherryVis::addHeatmap("NarrowChokes", narrowChokesCvis, mapWidth * 4, mapHeight * 4);
 #endif
         }
     }
 
     void initialize()
     {
+        mapWidth = BWAPI::Broodwar->mapWidth();
+        mapHeight = BWAPI::Broodwar->mapHeight();
+        
         if (_mapSpecificOverride)
         {
             delete _mapSpecificOverride;
@@ -732,11 +738,11 @@ namespace Map
         _minChokeWidth = 0;
         myStartingMainAreas.clear();
         inOwnMineralLine.clear();
-        inOwnMineralLine.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+        inOwnMineralLine.resize(mapWidth * mapHeight);
         narrowChokeTiles.clear();
         leafAreaTiles.clear();
         tileLastSeen.clear();
-        tileLastSeen.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+        tileLastSeen.resize(mapWidth * mapHeight);
 
         NoGoAreas::initialize();
 
@@ -936,13 +942,13 @@ namespace Map
         NoGoAreas::update();
 
         // Update the last seen frame for all visible tiles
-        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+        for (int y = 0; y < mapHeight; y++)
         {
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            for (int x = 0; x < mapWidth; x++)
             {
                 if (BWAPI::Broodwar->isVisible(x, y))
                 {
-                    tileLastSeen[x + y * BWAPI::Broodwar->mapWidth()] = BWAPI::Broodwar->getFrameCount();
+                    tileLastSeen[x + y * mapWidth] = BWAPI::Broodwar->getFrameCount();
                 }
             }
         }
@@ -1123,35 +1129,35 @@ namespace Map
     void dumpVisibilityHeatmap()
     {
 #if CHERRYVIS_ENABLED
-        std::vector<long> newVisibility(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
-        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+        std::vector<long> newVisibility(mapWidth * mapHeight, 0);
+        for (int y = 0; y < mapHeight; y++)
         {
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            for (int x = 0; x < mapWidth; x++)
             {
                 if (BWAPI::Broodwar->isVisible(x, y))
-                    newVisibility[x + y * BWAPI::Broodwar->mapWidth()] = 1;
+                    newVisibility[x + y * mapWidth] = 1;
             }
         }
 
         if (newVisibility != visibility)
         {
-            CherryVis::addHeatmap("FogOfWar", newVisibility, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+            CherryVis::addHeatmap("FogOfWar", newVisibility, mapWidth, mapHeight);
             visibility = newVisibility;
         }
 
-        std::vector<long> newPower(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
-        for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+        std::vector<long> newPower(mapWidth * mapHeight, 0);
+        for (int y = 0; y < mapHeight; y++)
         {
-            for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+            for (int x = 0; x < mapWidth; x++)
             {
                 if (BWAPI::Broodwar->hasPower(x, y, BWAPI::UnitTypes::Protoss_Photon_Cannon))
-                    newPower[x + y * BWAPI::Broodwar->mapWidth()] = 1;
+                    newPower[x + y * mapWidth] = 1;
             }
         }
 
         if (newPower != power)
         {
-            CherryVis::addHeatmap("Power", newPower, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+            CherryVis::addHeatmap("Power", newPower, mapWidth, mapHeight);
             power = newPower;
         }
 #endif
@@ -1164,26 +1170,26 @@ namespace Map
 
     bool isInOwnMineralLine(int x, int y)
     {
-        return inOwnMineralLine[x + y * BWAPI::Broodwar->mapWidth()];
+        return inOwnMineralLine[x + y * mapWidth];
     }
 
     bool isInNarrowChoke(BWAPI::TilePosition pos)
     {
-        return narrowChokeTiles[pos.x + pos.y * BWAPI::Broodwar->mapWidth()];
+        return narrowChokeTiles[pos.x + pos.y * mapWidth];
     }
 
     bool isInLeafArea(BWAPI::TilePosition pos)
     {
-        return leafAreaTiles[pos.x + pos.y * BWAPI::Broodwar->mapWidth()];
+        return leafAreaTiles[pos.x + pos.y * mapWidth];
     }
 
     int lastSeen(BWAPI::TilePosition tile)
     {
-        return tileLastSeen[tile.x + tile.y * BWAPI::Broodwar->mapWidth()];
+        return tileLastSeen[tile.x + tile.y * mapWidth];
     }
 
     int lastSeen(int x, int y)
     {
-        return tileLastSeen[x + y * BWAPI::Broodwar->mapWidth()];
+        return tileLastSeen[x + y * mapWidth];
     }
 }
