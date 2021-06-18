@@ -27,17 +27,17 @@ public:
 
         long operator[](BWAPI::Position pos) const
         {
-            return data[(pos.x >> 3U) + (pos.y >> 3U) * maxX];
+            return data[(pos.x >> 3U) * maxY + (pos.y >> 3U)];
         }
 
         long operator[](BWAPI::WalkPosition pos) const
         {
-            return data[pos.x + pos.y * maxX];
+            return data[pos.x * maxY + pos.y];
         }
 
         long at(int walkX, int walkY) const
         {
-            return data[walkX + walkY * maxX];
+            return data[walkX * maxY + walkY];
         }
 
         void add(BWAPI::UnitType type, int range, BWAPI::Position position, int delta);

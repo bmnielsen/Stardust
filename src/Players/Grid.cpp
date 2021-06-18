@@ -45,10 +45,10 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
         int y = startY + pos.y;
         if (x >= 0 && x < maxX && y >= 0 && y < maxY)
         {
-            data[x + y * maxX] += delta;
+            data[x * maxY + y] += delta;
 
 #if ASSERT_NEGATIVE_VALUES
-            if (data[x + y * maxX] < 0)
+            if (data[x * maxY + y] < 0)
             {
                 Log::Get() << "Negative value @ " << BWAPI::Position(x, y) << "\n"
                            << "start=" << BWAPI::WalkPosition(position)
