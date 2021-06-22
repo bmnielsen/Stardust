@@ -136,14 +136,33 @@ void DefendBase::update()
                                              gridNodePredicate);
     }
 
-    // In early-game situations, take any zealots that aren't in the vanguard cluster
-    // This handles situations where our first wave of zealots went on attack before an enemy proxy attack hit
-    if (requestedUnits > 0 && base == Map::getMyMain() && BWAPI::Broodwar->getFrameCount() < 10000)
+    // Handle early-game defense of the main or natural a bit differently
+    if ((base == Map::getMyMain() || base == Map::getMyNatural()) && BWAPI::Broodwar->getFrameCount() < 10000)
     {
+        // Take all units that are very close to the base
+        auto gridNodePredicate = [](const NavigationGrid::GridNode &gridNode)
+        {
+            return gridNode.cost < 1200;
+        };
         status.unitRequirements.emplace_back(requestedUnits,
                                              BWAPI::UnitTypes::Protoss_Zealot,
                                              base->getPosition(),
-                                             false);
+                                             true,
+                                             gridNodePredicate);
+        status.unitRequirements.emplace_back(requestedUnits,
+                                             BWAPI::UnitTypes::Protoss_Dragoon,
+                                             base->getPosition(),
+                                             true,
+                                             gridNodePredicate);
+
+        // Take zealots not in the vanguard cluster if we still need more units
+        if (requestedUnits > 0)
+        {
+            status.unitRequirements.emplace_back(requestedUnits,
+                                                 BWAPI::UnitTypes::Protoss_Zealot,
+                                                 base->getPosition(),
+                                                 false);
+        }
     }
 }
 
