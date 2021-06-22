@@ -7,7 +7,7 @@
 
 std::ostream &operator<<(std::ostream &os, const UnitImpl &unit)
 {
-    os << unit.type << ":" << unit.id << "@" << BWAPI::WalkPosition(unit.getTilePosition());
+    os << unit.type << ":" << unit.id << "@" << BWAPI::WalkPosition(unit.lastPosition);
     return os;
 }
 
