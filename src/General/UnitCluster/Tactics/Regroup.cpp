@@ -278,23 +278,25 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                           BWAPI::Position targetPosition,
                           bool hasValidTarget)
 {
+    auto staticDefense = [&enemyUnits]()
+    {
+        for (const auto &unit : enemyUnits)
+        {
+            if (unit->isStaticGroundDefense())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
     // First choose which regrouping mode we want to use
     switch (currentSubActivity)
     {
         case SubActivity::None:
         {
-            // Does the enemy have static defense?
-            bool staticDefense = false;
-            for (const auto &unit : enemyUnits)
-            {
-                if (unit->isStaticGroundDefense())
-                {
-                    staticDefense = true;
-                    break;
-                }
-            }
-
-            if (staticDefense && shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
+            if (staticDefense() && shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::ContainStaticDefense);
             }
@@ -346,8 +348,13 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::Flee:
         {
-            // We might flee through a choke that we can contain from the other side
-            if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
+            // We might be able to start containing static defense after fleeing a bit
+            // We might also flee through a choke that we can contain from the other side
+            if (staticDefense() && shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
+            {
+                setSubActivity(SubActivity::ContainStaticDefense);
+            }
+            else if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::ContainChoke);
             }

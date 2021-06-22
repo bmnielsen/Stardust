@@ -202,9 +202,9 @@ void Squad::updateClusters()
                 continue;
             }
 
-            // Combine into the cluster with the most units
-            auto &combineInto = ((*firstIt)->units.size() >= (*secondIt)->units.size()) ? *firstIt : *secondIt;
-            auto &combineFrom = ((*firstIt)->units.size() >= (*secondIt)->units.size()) ? *secondIt : *firstIt;
+            // Combine into the cluster closest to the target
+            auto &combineInto = ((*firstIt)->vanguardDistToMain < (*secondIt)->vanguardDistToMain) ? *firstIt : *secondIt;
+            auto &combineFrom = ((*firstIt)->vanguardDistToMain < (*secondIt)->vanguardDistToMain) ? *secondIt : *firstIt;
 
             combineInto->absorbCluster(combineFrom, targetPosition);
 

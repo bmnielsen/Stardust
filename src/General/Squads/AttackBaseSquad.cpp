@@ -117,12 +117,7 @@ namespace
                            double reinforcementPercentage)
     {
         bool attack = shouldAttack(cluster, simResult, reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage));
-
-        simResult.closestReinforcements = closestReinforcements;
-        simResult.reinforcementPercentage = reinforcementPercentage;
-
         cluster.addSimResult(simResult, attack);
-
         return attack;
     }
 
@@ -134,7 +129,7 @@ namespace
         double aggression = 1.2;
 
         // Increase aggression if we are close to maxed and have no significant reinforcements incoming
-        if (BWAPI::Broodwar->self()->supplyUsed() > 300 && reinforcementPercentage < 0.1)
+        if (BWAPI::Broodwar->self()->supplyUsed() > 300 && reinforcementPercentage < 0.15)
         {
             aggression += 0.005 * (double)(BWAPI::Broodwar->self()->supplyUsed() - 300);
         }
@@ -215,8 +210,9 @@ namespace
                               double reinforcementPercentage)
     {
         // Always attack if we are maxed and have no significant reinforcements incoming
-        if (BWAPI::Broodwar->self()->supplyUsed() > 380 && reinforcementPercentage < 0.1)
+        if (BWAPI::Broodwar->self()->supplyUsed() > 380 && reinforcementPercentage < 0.075)
         {
+            cluster.addSimResult(simResult, true);
             return true;
         }
 
@@ -235,9 +231,6 @@ namespace
         aggression *= reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage);
 
         bool attack = shouldAttack(cluster, simResult, aggression);
-
-        simResult.closestReinforcements = closestReinforcements;
-        simResult.reinforcementPercentage = reinforcementPercentage;
 
         cluster.addSimResult(simResult, attack);
 
@@ -359,6 +352,9 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
         }
     }
     double reinforcementPercentage = (double) totalReinforcements / (double) (cluster.units.size() + totalReinforcements);
+
+    simResult.closestReinforcements = closestReinforcements;
+    simResult.reinforcementPercentage = reinforcementPercentage;
 
     // Make the final decision based on what state we are currently in
 

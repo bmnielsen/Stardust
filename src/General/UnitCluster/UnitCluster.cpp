@@ -55,7 +55,17 @@ void UnitCluster::absorbCluster(const std::shared_ptr<UnitCluster> &other, BWAPI
     area += other->area;
     ballRadius = (int) sqrt((double) area / pi);
     lineRadius = 16 * units.size();
-    updatePositions(targetPosition);
+
+    // Recompute the center
+    if (units.empty()) return; // should never happen, but guard against divide-by-zero
+    int sumX = 0;
+    int sumY = 0;
+    for (auto &unit : units)
+    {
+        sumX += unit->lastPosition.x;
+        sumY += unit->lastPosition.y;
+    }
+    center = BWAPI::Position(sumX / units.size(), sumY / units.size());
 }
 
 void UnitCluster::addUnit(const MyUnit &unit)
