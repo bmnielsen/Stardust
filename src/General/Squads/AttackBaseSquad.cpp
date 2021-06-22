@@ -80,8 +80,9 @@ namespace
             }
 
             // Attack if we expect to end the fight with a sufficiently larger army and aren't losing an unacceptable percentage of it
-            if (simResult.myPercentageOfTotal() > (0.9 - 0.35 * distanceFactor * aggression)
-                && simResult.percentGain() > -0.05 * distanceFactor * aggression)
+            double percentOfTotal = simResult.myPercentageOfTotal() - (0.9 - 0.35 * distanceFactor * aggression);
+            if (percentOfTotal > 0.0
+                && simResult.percentGain() > (-0.05 * distanceFactor * aggression - percentOfTotal))
             {
                 return true;
             }
