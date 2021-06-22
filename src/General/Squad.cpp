@@ -186,9 +186,6 @@ void Squad::updateClusters()
         }
         else
         {
-            CherryVis::drawCircle((*clusterIt)->center.x, (*clusterIt)->center.y, (*clusterIt)->ballRadius, CherryVis::DrawColor::Teal);
-            CherryVis::drawCircle((*clusterIt)->center.x, (*clusterIt)->center.y, (*clusterIt)->lineRadius, CherryVis::DrawColor::Blue);
-            CherryVis::drawCircle((*clusterIt)->vanguard->lastPosition.x, (*clusterIt)->vanguard->lastPosition.y, 32, CherryVis::DrawColor::Grey);
             clusterIt++;
         }
     }
@@ -284,6 +281,10 @@ void Squad::updateClusters()
         }
 
         values.push_back(os.str());
+
+        CherryVis::drawCircle(cluster->center.x, cluster->center.y, cluster->ballRadius, CherryVis::DrawColor::Teal);
+        CherryVis::drawCircle(cluster->center.x, cluster->center.y, cluster->lineRadius, CherryVis::DrawColor::Blue);
+        CherryVis::drawCircle(cluster->vanguard->lastPosition.x, cluster->vanguard->lastPosition.y, 32, CherryVis::DrawColor::Grey);
     }
     CherryVis::setBoardListValue((std::ostringstream() << label << "_clusters").str(), values);
 #endif
