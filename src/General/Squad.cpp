@@ -203,8 +203,8 @@ void Squad::updateClusters()
             }
 
             // Combine into the cluster closest to the target
-            auto &combineInto = ((*firstIt)->vanguardDistToMain < (*secondIt)->vanguardDistToMain) ? *firstIt : *secondIt;
-            auto &combineFrom = ((*firstIt)->vanguardDistToMain < (*secondIt)->vanguardDistToMain) ? *secondIt : *firstIt;
+            auto &combineInto = ((*firstIt)->vanguardDistToTarget < (*secondIt)->vanguardDistToTarget) ? *firstIt : *secondIt;
+            auto &combineFrom = ((*firstIt)->vanguardDistToTarget < (*secondIt)->vanguardDistToTarget) ? *secondIt : *firstIt;
 
             combineInto->absorbCluster(combineFrom, targetPosition);
 
