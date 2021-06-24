@@ -375,15 +375,15 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
 
     if (attack || ignoreCombatSim)
     {
+        cluster.setActivity(UnitCluster::Activity::Attacking);
+
         // Move instead if none of our units have a valid target
         if (!hasValidTarget)
         {
-            cluster.setActivity(UnitCluster::Activity::Moving);
             cluster.move(targetPosition);
             return;
         }
 
-        cluster.setActivity(UnitCluster::Activity::Attacking);
         cluster.attack(unitsAndTargets, targetPosition);
         return;
     }
