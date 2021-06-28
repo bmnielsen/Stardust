@@ -387,9 +387,9 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // In this case we want to expand when we consider it safe to do so: we have an attacking or containing army
             // that is close to the enemy base
 
-            // We never expand before frame 10000 unless the enemy has done so or is doing an opening that will not give
-            // immediate pressure
-            if (BWAPI::Broodwar->getFrameCount() < 10000 &&
+            // We never expand before frame 10000 (12000 if the enemy is doing a dragoon all-in) unless the enemy has done so
+            // or is doing an opening that will not give immediate pressure
+            if (BWAPI::Broodwar->getFrameCount() < (enemyStrategy == ProtossStrategy::DragoonAllIn ? 12000 : 10000) &&
                 Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) < 2 &&
                 enemyStrategy != ProtossStrategy::EarlyRobo &&
                 enemyStrategy != ProtossStrategy::Turtle)
@@ -424,7 +424,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             int naturalDist = PathFinding::GetGroundDistance(natural->getPosition(), mainArmyPlay->base->getPosition());
             if (naturalDist != -1 && dist > (naturalDist - 320))
             {
-                CherryVis::setBoardValue("natural", "vanguard-cluster-too-close");
+                CherryVis::setBoardValue("natural", "vanguard-cluster-not-beyond-natural");
                 break;
             }
 
@@ -440,11 +440,21 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // In other words, we want the cluster to be in some kind of stable attack or contain state
             if (vanguardCluster->currentActivity == UnitCluster::Activity::Moving
                 || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
-                    && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
+                    && (vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee
+                        || vanguardCluster->currentSubActivity == UnitCluster::SubActivity::StandGround)))
             {
                 // We don't cancel a queued expansion in this case
                 CherryVis::setBoardValue("natural", "vanguard-cluster-not-attacking");
                 return;
+            }
+
+            // If the cluster is attacking, it should be significantly closer to the enemy main, unless we are past frame 12500
+            if (BWAPI::Broodwar->getFrameCount() < 12500 &&
+                vanguardCluster->currentActivity == UnitCluster::Activity::Attacking &&
+                vanguardCluster->percentageToEnemyMain < 0.7)
+            {
+                CherryVis::setBoardValue("natural", "vanguard-cluster-too-close");
+                break;
             }
 
             CherryVis::setBoardValue("natural", "take");
