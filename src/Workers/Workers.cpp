@@ -32,6 +32,16 @@ namespace Workers
         int mineralWorkerCount;
         std::pair<int, int> gasWorkerCount;
 
+        int desiredRefineryWorkers(Base *base, BWAPI::TilePosition refineryTile)
+        {
+            if (base && base->geyserRequiresFourWorkers(refineryTile))
+            {
+                return 4;
+            }
+
+            return 3;
+        }
+
         // Removes a worker's base and mineral patch or gas assignments
         void removeFromResource(
                 const MyUnit &unit,
@@ -84,7 +94,7 @@ namespace Workers
             for (auto refinery : base->refineries())
             {
                 if (!refinery->isCompleted()) continue;
-                count += 3;
+                count += desiredRefineryWorkers(base, refinery->getInitialTilePosition());
             }
             for (const auto &worker : baseWorkers[base])
             {
@@ -276,7 +286,7 @@ namespace Workers
                 if (!refinery->isCompleted()) continue;
 
                 int workers = refineryWorkers[refinery].size();
-                if (workers >= 3) continue;
+                if (workers >= desiredRefineryWorkers(workerBase[unit], refinery->getInitialTilePosition())) continue;
 
                 int dist = unit->bwapiUnit->getDistance(refinery);
                 if (dist < bestDist)
@@ -308,7 +318,10 @@ namespace Workers
                 {
                     if (refinery->getType() != BWAPI::Broodwar->self()->getRace().getRefinery()) continue;
                     if (!refinery->isCompleted()) continue;
-                    if (refineryWorkers[refinery].size() >= 3) continue;
+                    if (refineryWorkers[refinery].size() >= desiredRefineryWorkers(workerBase[worker], refinery->getInitialTilePosition()))
+                    {
+                        continue;
+                    }
 
                     // TODO: Consider depleted geysers
 
@@ -479,6 +492,22 @@ namespace Workers
                     auto refinery = assignRefinery(worker);
                     countGasWorker(worker, refinery);
                 }
+            }
+        }
+
+        // We assign 4 workers to bottom geysers, which would confuse our producer, since the fourth worker doesn't contribute
+        // to higher income compared to a normal geyser
+        // So reduce our gas worker counts by one for each refinery with 4 workers assigned to it
+        for (auto &refineryAndWorkers : refineryWorkers)
+        {
+            if (refineryAndWorkers.second.size() <= 3) continue;
+            if (refineryAndWorkers.first->getResources() <= 0)
+            {
+                gasWorkerCount.second--;
+            }
+            else
+            {
+                gasWorkerCount.first--;
             }
         }
 
@@ -875,7 +904,10 @@ namespace Workers
             int gasAvailable = 0;
             for (const auto &refinery : baseAndWorkers.first->refineries())
             {
-                if (refinery->isCompleted()) gasAvailable += 3;
+                if (refinery->isCompleted())
+                {
+                    gasAvailable += desiredRefineryWorkers(baseAndWorkers.first, refinery->getInitialTilePosition());
+                }
             }
             if (gasAvailable == 0) continue;
 

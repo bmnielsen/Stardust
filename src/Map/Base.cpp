@@ -191,6 +191,13 @@ bool Base::hasGeyserAt(BWAPI::TilePosition pos) const
     return false;
 }
 
+bool Base::geyserRequiresFourWorkers(BWAPI::TilePosition geyserTile) const
+{
+    if (!hasGeyserAt(geyserTile)) return false;
+
+    return (geyserTile.y - tile.y) > 5;
+}
+
 void Base::analyzeMineralLine()
 {
     // Compute the approximate center of the mineral line

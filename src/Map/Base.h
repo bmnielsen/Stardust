@@ -49,6 +49,8 @@ public:
 
     [[nodiscard]] bool hasGeyserAt(BWAPI::TilePosition tile) const;
 
+    [[nodiscard]] bool geyserRequiresFourWorkers(BWAPI::TilePosition geyserTile) const;
+
 private:
 
     BWAPI::TilePosition tile;
