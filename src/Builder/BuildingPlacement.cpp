@@ -1144,4 +1144,29 @@ namespace BuildingPlacement
     {
         return std::make_pair(chokeCannonBlock ? chokeCannonBlock->powerPylon : BWAPI::TilePositions::Invalid, chokeCannonPlacement);
     }
+
+    bool isInNeighbourhood(BWAPI::TilePosition buildTile, Neighbourhood neighbourhood)
+    {
+        if (!buildTile.isValid()) return false;
+
+        // Return true when we don't know where a neighbourhood is
+        // Otherwise we might lock up completely if we ask for a location in an uninitialized neighbourhood
+        if (neighbourhoodAreas.find(neighbourhood) == neighbourhoodAreas.end()) return true;
+
+        // Find the block containing the build tile
+        for (auto &block : blocks)
+        {
+            if (buildTile.x < block->topLeft.x) continue;
+            if (buildTile.x >= (block->topLeft.x + block->width())) continue;
+            if (buildTile.y < block->topLeft.y) continue;
+            if (buildTile.y >= (block->topLeft.y + block->height())) continue;
+
+            auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center()));
+            auto it = neighbourhoodAreas[neighbourhood].find(area);
+            return it != neighbourhoodAreas[neighbourhood].end();
+        }
+
+        Log::Get() << "WARNING: Tile " << buildTile << " not in a block";
+        return false;
+    }
 }

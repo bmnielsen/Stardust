@@ -83,4 +83,6 @@ namespace BuildingPlacement
     std::pair<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>> &baseStaticDefenseLocations(Base *base);
 
     std::pair<BWAPI::TilePosition, BWAPI::TilePosition> mainChokeCannonLocations();
+
+    bool isInNeighbourhood(BWAPI::TilePosition buildTile, Neighbourhood neighbourhood);
 }
