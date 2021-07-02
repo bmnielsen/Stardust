@@ -7,6 +7,7 @@
 #include "Strategist.h"
 #include "Workers.h"
 
+#include "Plays/Macro/HiddenBase.h"
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
@@ -30,6 +31,7 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
     plays.emplace_back(std::make_shared<EjectEnemyScout>());
     plays.emplace_back(std::make_shared<DefendMyMain>());
+    plays.emplace_back(std::make_shared<HiddenBase>());
 }
 
 void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
@@ -319,19 +321,27 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::DTExpand:
         {
+            auto hiddenBasePlay = getPlay<HiddenBase>(plays);
+
             int dtCount = Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar);
             if (dtCount < 2)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                          BWAPI::UnitTypes::Protoss_Dark_Templar,
                                                                          2 - dtCount,
-                                                                         1);
+                                                                         2,
+                                                                         hiddenBasePlay
+                                                                         ? BuildingPlacement::Neighbourhood::HiddenBase
+                                                                         : BuildingPlacement::Neighbourhood::AllMyBases);
             }
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
-                                                                       -1);
+                                                                       -1,
+                                                                       hiddenBasePlay
+                                                                       ? BuildingPlacement::Neighbourhood::MainBase
+                                                                       : BuildingPlacement::Neighbourhood::AllMyBases);
 
             // Make sure we get dragoon range to defend our choke effectively
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);

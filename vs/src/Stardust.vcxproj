@@ -141,6 +141,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Defensive\AntiCannonRush.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Defensive\DefendBase.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\CullArmy.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\HiddenBase.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\SaturateBases.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\TakeExpansion.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\TakeIslandExpansion.cpp" />

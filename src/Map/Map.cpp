@@ -1035,6 +1035,50 @@ namespace Map
         Log::Get() << "Set enemy natural to " << base->getTilePosition();
     }
 
+    Base *getHiddenBase()
+    {
+        auto myMain = playerToPlayerBases[BWAPI::Broodwar->self()].startingMain;
+        auto enemyMain = playerToPlayerBases[BWAPI::Broodwar->enemy()].startingMain;
+        if (!enemyMain) return nullptr;
+
+        Base *best = nullptr;
+        int bestScore = -1;
+        for (auto base : bases)
+        {
+            if (base->owner) continue;
+            if (base->gas() < 2000) continue;
+
+            int ourDist = PathFinding::GetGroundDistance(
+                    base->getPosition(),
+                    myMain->getPosition(),
+                    BWAPI::UnitTypes::Protoss_Probe,
+                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            if (ourDist == -1) continue;
+
+            int enemyDist = PathFinding::GetGroundDistance(
+                    base->getPosition(),
+                    enemyMain->getPosition(),
+                    BWAPI::UnitTypes::Protoss_Probe,
+                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
+            if (enemyDist == -1) enemyDist = 10000;
+
+            // Initialize score based on distances
+            int score = (enemyDist * 3) / 2 + ourDist;
+
+            // Increase score based on available resources
+            score += base->minerals() / 100;
+            score += base->gas() / 50;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = base;
+            }
+        }
+
+        return best;
+    }
+
     Base *baseNear(BWAPI::Position position)
     {
         auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(position));

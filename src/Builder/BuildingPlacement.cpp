@@ -47,7 +47,7 @@ namespace BuildingPlacement
 {
     namespace
     {
-        std::vector<Neighbourhood> ALL_NEIGHBOURHOODS = {Neighbourhood::MainBase, Neighbourhood::AllMyBases};
+        std::vector<Neighbourhood> ALL_NEIGHBOURHOODS = {Neighbourhood::MainBase, Neighbourhood::AllMyBases, Neighbourhood::HiddenBase};
 
         // Stores a bitmask for each tile
         // 1: not buildable
@@ -71,6 +71,7 @@ namespace BuildingPlacement
         std::map<Neighbourhood, std::map<int, BuildLocationSet>> availableBuildLocations;
 
         bool buildAwayFromExit;
+        Base *hiddenBase;
 
         BuildLocationSet _availableGeysers;
 
@@ -158,6 +159,29 @@ namespace BuildingPlacement
                 neighbourhoodAreas[Neighbourhood::AllMyBases].insert(base->getArea());
                 areaOrigins[base->getArea()] = base->mineralLineCenter;
                 areaExits[base->getArea()] = mainExit;
+            }
+
+            // Hidden base
+            if (hiddenBase)
+            {
+                auto addArea = [](auto area)
+                {
+                    neighbourhoodAreas[Neighbourhood::HiddenBase].insert(area);
+                    areaOrigins[area] = hiddenBase->mineralLineCenter;
+                    areaExits[area] = hiddenBase->mineralLineCenter;
+                };
+
+                addArea(hiddenBase->getArea());
+
+                // Include nearby areas in case the base area itself has no building locations
+                for (auto &choke : hiddenBase->getArea()->ChokePoints())
+                {
+                    if (hiddenBase->getPosition().getApproxDistance(BWAPI::Position(choke->Center()) + BWAPI::Position(4, 4)) < 640)
+                    {
+                        addArea(choke->GetAreas().first);
+                        addArea(choke->GetAreas().second);
+                    }
+                }
             }
         }
 
@@ -985,6 +1009,7 @@ namespace BuildingPlacement
         availableBuildLocations.clear();
         _availableGeysers.clear();
         buildAwayFromExit = false;
+        hiddenBase = nullptr;
 
         initializeTileAvailability();
         updateNeighbourhoods();
@@ -1053,6 +1078,12 @@ namespace BuildingPlacement
         {
             buildAwayFromExit = newBuildAwayFromExit;
             updateRequired = true;
+        }
+
+        if (!hiddenBase)
+        {
+            hiddenBase = Map::getHiddenBase();
+            if (hiddenBase) updateRequired = true;
         }
 
         if (updateRequired)

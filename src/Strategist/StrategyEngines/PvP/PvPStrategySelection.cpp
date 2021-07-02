@@ -1,6 +1,7 @@
 #include "StrategyEngines/PvP.h"
 
 #include "Map.h"
+#include "Plays/Macro/HiddenBase.h"
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Units.h"
 
@@ -78,7 +79,8 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
     auto isDTExpandFeasible = [&]()
     {
-        if (ourStrategy != OurStrategy::DTExpand && BWAPI::Broodwar->getFrameCount() > 9000) return false;
+        auto frameCutoff = getPlay<HiddenBase>(plays) == nullptr ? 9000 : 10500;
+        if (ourStrategy != OurStrategy::DTExpand && BWAPI::Broodwar->getFrameCount() > frameCutoff) return false;
 
         // Make sure our main choke is easily defensible
         auto choke = Map::getMyMainChoke();

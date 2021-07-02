@@ -57,7 +57,8 @@ namespace BuildingPlacement
     enum class Neighbourhood
     {
         MainBase,
-        AllMyBases
+        AllMyBases,
+        HiddenBase
     }; // TODO: Add proxy, etc.
 
     void initialize();
