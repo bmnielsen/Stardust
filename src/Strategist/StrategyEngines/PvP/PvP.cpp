@@ -75,8 +75,19 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 defendOurMain = true;
                 break;
             case OurStrategy::DTExpand:
-                defendOurMain = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Dark_Templar) < 1);
+            {
+                // Wait until we have at least completed two dark templar that aren't in our main
+                auto &mainAreas = Map::getMyMainAreas();
+                int dtCount = 0;
+                for (const auto &unit : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Dark_Templar))
+                {
+                    auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition));
+                    if (mainAreas.find(area) == mainAreas.end()) dtCount++;
+                }
+
+                defendOurMain = dtCount >= 2;
                 break;
+            }
             case OurStrategy::FastExpansion:
             case OurStrategy::Normal:
             case OurStrategy::MidGame:
