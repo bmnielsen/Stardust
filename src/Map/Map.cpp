@@ -1062,13 +1062,8 @@ namespace Map
                     PathFinding::PathFindingOptions::UseNearestBWEMArea);
             if (enemyDist == -1) enemyDist = 10000;
 
-            // Initialize score based on distances
-            int score = (enemyDist * 3) / 2 + ourDist;
-
-            // Increase score based on available resources
-            score += base->minerals() / 100;
-            score += base->gas() / 50;
-
+            // Pick the base with the longest total distance
+            int score = ourDist + enemyDist;
             if (score > bestScore)
             {
                 bestScore = score;
