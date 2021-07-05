@@ -136,8 +136,8 @@ namespace
         int naturalDist;
         if (pushedBackToNatural(cluster, 800, &naturalDist))
         {
-            // Scales linearly from 1.0 at 800 distance to 2.0 at 320 distance
-            aggression *= 1.0 + (800.0 - std::max((double)naturalDist, 320.0)) / 480.0;
+            // Scales linearly from 1.0 at 1000 distance to 2.0 at <500 distance
+            aggression *= 1.0 + (1000.0 - std::max((double)naturalDist, 500.0)) / 500.0;
         }
 
         bool attack = shouldAttack(cluster, simResult, aggression);
@@ -162,8 +162,8 @@ namespace
         int naturalDist;
         if (pushedBackToNatural(cluster, 800, &naturalDist))
         {
-            // Scales linearly from 1.0 at 800 distance to 2.0 at 320 distance
-            aggression *= 1.0 + (800.0 - std::max((double)naturalDist, 320.0)) / 480.0;
+            // Scales linearly from 1.0 at 1000 distance to 2.0 at <500 distance
+            aggression *= 1.0 + (1000.0 - std::max((double)naturalDist, 500.0)) / 500.0;
         }
 
         bool attack = shouldAttack(cluster, simResult, aggression);
@@ -263,8 +263,9 @@ namespace
         aggression *= reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage);
 
         // Adjust the aggression if we have been pushed back into our natural
-        if (pushedBackToNatural(cluster, 320))
+        if (pushedBackToNatural(cluster, 500))
         {
+            if (BWAPI::Broodwar->getFrameCount() % 10 == 0) Log::Get() << "PUSHED BACK";
             aggression *= 2.0;
         }
 
