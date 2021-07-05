@@ -94,7 +94,7 @@ namespace
         {
             if (!enemy->lastPositionValid) continue;
             if (enemy->undetected) continue;
-            if (grid.detection(enemy->lastPosition) > 0) continue;
+            if (grid.detection(enemy->lastPosition) > 0 && grid.groundThreat(enemy->lastPosition) > 0) continue;
             if (!myUnit->canAttack(enemy)) continue;
 
             int dist = myUnit->getDistance(enemy);
@@ -166,7 +166,7 @@ namespace
     {
         auto vulnerableCannonPredicate = [&](const Unit &cannon)
         {
-            if (unit->completed) return false;
+            if (cannon->completed) return false;
 
             // Attack a cannon if we think we can kill it before it completes
             auto damagePerAttack = Players::attackDamage(unit->player, unit->type, cannon->player, cannon->type);
@@ -175,13 +175,6 @@ namespace
 
             int attacks = (int) ((float) (cannon->lastHealth + cannon->lastShields) / (float) damagePerAttack);
             int framesToKill = nextAttack + attacks * unit->type.groundWeapon().damageCooldown();
-
-            if (BWAPI::Broodwar->getFrameCount() % 10 == 0) Log::Get() << "CANNON LOGIC";
-
-            CherryVis::log(unit->id) << "DT attack cannon? "
-                                     << "dpa=" << damagePerAttack << "; moveFrames=" << moveFrames << "; nextAttack=" << nextAttack
-                                     << "; attacks=" << attacks << "; framesToKill=" << framesToKill << "; completion="
-                                     << cannon->estimatedCompletionFrame;
 
             return (BWAPI::Broodwar->getFrameCount() + framesToKill) < cannon->estimatedCompletionFrame;
         };
