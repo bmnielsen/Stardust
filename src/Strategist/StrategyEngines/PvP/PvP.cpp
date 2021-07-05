@@ -120,8 +120,10 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                                      !((DefendMyMain *) mainArmyPlay)->canTransitionToAttack());
                 }
 
-                // Transition to a defend squad if our attack squad has been pushed back into our main
-                if (typeid(*mainArmyPlay) == typeid(AttackEnemyBase))
+                // Transition to a defend squad if our attack squad has been pushed back into our main and we haven't yet taken our natural
+                auto natural = Map::getMyNatural();
+                if (typeid(*mainArmyPlay) == typeid(AttackEnemyBase)
+                    && (!natural || natural->owner != BWAPI::Broodwar->self() || !natural->resourceDepot || !natural->resourceDepot->completed))
                 {
                     if (vanguard->currentActivity == UnitCluster::Activity::Regrouping &&
                         vanguard->currentSubActivity == UnitCluster::SubActivity::Flee)
