@@ -44,6 +44,10 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     // Determines if we consider it safe to expand to an island
     auto safeToIslandExpand = [&]()
     {
+        // Disable island expansions for now
+        // We need to make more intelligent decisions on when to do it and implement better worker transfers
+        return false;
+
         // Only expand when our army is on the offensive
         auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
         if (!mainArmyPlay) return false;
