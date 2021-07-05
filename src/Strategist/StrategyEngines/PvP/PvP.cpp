@@ -531,6 +531,23 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     }
 
     cancelNaturalExpansion(plays, prioritizedProductionGoals);
+
+    // Take our hidden base expansion in cases where we have been prevented from taking our natural
+    if (BWAPI::Broodwar->getFrameCount() > 15000)
+    {
+        auto hiddenBasePlay = getPlay<HiddenBase>(plays);
+        if (hiddenBasePlay && hiddenBasePlay->base->ownedSince == -1)
+        {
+            if (BWAPI::Broodwar->getFrameCount() % 10 == 0) Log::Get() << "TAKING HIDDEN BASE";
+
+            auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(hiddenBasePlay->base->getTilePosition()),
+                                                                  0, 0, 0);
+            prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     BWAPI::UnitTypes::Protoss_Nexus,
+                                                                     buildLocation);
+
+        }
+    }
 }
 
 void PvP::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
