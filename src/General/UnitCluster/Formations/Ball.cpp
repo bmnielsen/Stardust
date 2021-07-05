@@ -26,8 +26,8 @@ namespace
     // TODO: These parameters need to be tuned
     const double goalWeight = 128.0;
     const double cohesionWeight = 64.0;
-    const double separationDetectionLimitFactor = 2.0;
-    const double separationWeight = 96.0;
+    const double defaultSeparationDetectionLimitFactor = 2.0;
+    const double defaultSeparationWeight = 96.0;
 }
 
 bool UnitCluster::moveAsBall(BWAPI::Position targetPosition)
@@ -38,6 +38,17 @@ bool UnitCluster::moveAsBall(BWAPI::Position targetPosition)
 
     // Scaling factor for cohesion boid is based on the size of the squad
     double cohesionFactor = cohesionWeight / sqrt(area / pi);
+
+    // Separation depends on whether the enemy has AOE attackers
+    double separationDetectionLimitFactor = defaultSeparationDetectionLimitFactor;
+    double separationWeight = defaultSeparationWeight;
+    if (enemyAoeRadius > 0)
+    {
+        if (BWAPI::Broodwar->getFrameCount() % 10 == 0) Log::Get() << "AOE BALL";
+
+        separationDetectionLimitFactor = ((double)enemyAoeRadius + 16.0) / 32.0;
+        separationWeight = 160;
+    }
 
     for (const auto &unit : units)
     {
