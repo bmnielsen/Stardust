@@ -3,6 +3,7 @@
 #include "Geo.h"
 #include "Boids.h"
 #include "UnitUtil.h"
+#include "Map.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -368,8 +369,7 @@ void UnitCluster::holdChoke(Choke *choke,
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(myUnit->id) << "Target not walkable; pulling back";
 #endif
-            // This isn't really correct for ranged units, but we don't expect them to be getting invalid positions often
-            myUnit->moveTo(defendEnd, true);
+            myUnit->moveTo(Map::getMyMain()->getPosition());
         }
         else
         {
