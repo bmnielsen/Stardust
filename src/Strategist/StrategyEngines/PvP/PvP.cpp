@@ -85,7 +85,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     if (mainAreas.find(area) == mainAreas.end()) dtCount++;
                 }
 
-                defendOurMain = dtCount >= 2;
+                defendOurMain = dtCount < 2;
                 break;
             }
             case OurStrategy::FastExpansion:
