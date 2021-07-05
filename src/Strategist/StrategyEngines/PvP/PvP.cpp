@@ -535,7 +535,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     cancelNaturalExpansion(plays, prioritizedProductionGoals);
 
     // Take our hidden base expansion in cases where we have been prevented from taking our natural
-    if (BWAPI::Broodwar->getFrameCount() > 15000)
+    if (BWAPI::Broodwar->getFrameCount() > 14000)
     {
         auto hiddenBasePlay = getPlay<HiddenBase>(plays);
         if (hiddenBasePlay && hiddenBasePlay->base->ownedSince == -1)
