@@ -2,6 +2,7 @@
 
 #include "Units.h"
 #include "UnitUtil.h"
+#include "Map.h"
 
 #include "DebugFlag_CombatSim.h"
 
@@ -9,6 +10,18 @@
 
 namespace
 {
+    bool pushedBackToNatural(UnitCluster &cluster, int threshold, int *pDist = nullptr)
+    {
+        if (!cluster.isVanguardCluster) return false;
+
+        auto natural = Map::getMyNatural();
+        if (!natural || natural->owner != BWAPI::Broodwar->self() || !natural->resourceDepot || !natural->resourceDepot->completed) return false;
+
+        auto dist = cluster.center.getApproxDistance(natural->getPosition());
+        if (pDist) *pDist = dist;
+        return dist < threshold;
+    }
+
     double reinforcementFactor(UnitCluster &cluster, double closestReinforcements, double reinforcementPercentage)
     {
         // Only adjust for reinforcements when our army is out on the field
@@ -117,7 +130,17 @@ namespace
                            double closestReinforcements,
                            double reinforcementPercentage)
     {
-        bool attack = shouldAttack(cluster, simResult, reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage));
+        double aggression = reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage);
+
+        // Increase aggression if we are trying to fight our way out of our natural
+        int naturalDist;
+        if (pushedBackToNatural(cluster, 800, &naturalDist))
+        {
+            // Scales linearly from 1.0 at 800 distance to 2.0 at 320 distance
+            aggression *= 1.0 + (800.0 - std::max((double)naturalDist, 320.0)) / 480.0;
+        }
+
+        bool attack = shouldAttack(cluster, simResult, aggression);
         cluster.addSimResult(simResult, attack);
         return attack;
     }
@@ -135,7 +158,15 @@ namespace
             aggression += 0.005 * (double)(BWAPI::Broodwar->self()->supplyUsed() - 300);
         }
 
-        bool attack = shouldAttack(cluster, simResult, 1.2);
+        // Increase aggression if we are trying to fight our way out of our natural
+        int naturalDist;
+        if (pushedBackToNatural(cluster, 800, &naturalDist))
+        {
+            // Scales linearly from 1.0 at 800 distance to 2.0 at 320 distance
+            aggression *= 1.0 + (800.0 - std::max((double)naturalDist, 320.0)) / 480.0;
+        }
+
+        bool attack = shouldAttack(cluster, simResult, aggression);
 
         cluster.addSimResult(simResult, attack);
 
@@ -230,6 +261,12 @@ namespace
 
         // Adjust the aggression for reinforcements
         aggression *= reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage);
+
+        // Adjust the aggression if we have been pushed back into our natural
+        if (pushedBackToNatural(cluster, 320))
+        {
+            aggression *= 2.0;
+        }
 
         bool attack = shouldAttack(cluster, simResult, aggression);
 
