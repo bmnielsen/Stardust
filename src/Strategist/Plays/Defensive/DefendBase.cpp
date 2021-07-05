@@ -120,22 +120,6 @@ void DefendBase::update()
         ourValue += CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Zealot);
     }
 
-    // TODO: Request zealot or dragoon when we have that capability
-    if (requestedUnits > 0)
-    {
-        // Only reserve units that have a safe path to the base
-        auto gridNodePredicate = [](const NavigationGrid::GridNode &gridNode)
-        {
-            return gridNode.cost < 1200 || Players::grid(BWAPI::Broodwar->enemy()).groundThreat(gridNode.center()) == 0;
-        };
-
-        status.unitRequirements.emplace_back(requestedUnits,
-                                             BWAPI::UnitTypes::Protoss_Dragoon,
-                                             base->getPosition(),
-                                             true,
-                                             gridNodePredicate);
-    }
-
     // Handle early-game defense of the main or natural a bit differently
     if ((base == Map::getMyMain() || base == Map::getMyNatural()) && BWAPI::Broodwar->getFrameCount() < 10000)
     {
@@ -163,6 +147,28 @@ void DefendBase::update()
                                                  base->getPosition(),
                                                  false);
         }
+
+        return;
+    }
+
+    // TODO: Request zealot or dragoon when we have that capability
+    if (requestedUnits > 0)
+    {
+        // If we are under pressure, don't defend this base
+        auto pressure = Strategist::pressure();
+        if (pressure > 0.6) return;
+
+        // Only reserve units that have a safe path to the base
+        auto gridNodePredicate = [](const NavigationGrid::GridNode &gridNode)
+        {
+            return gridNode.cost < 1200 || Players::grid(BWAPI::Broodwar->enemy()).groundThreat(gridNode.center()) == 0;
+        };
+
+        status.unitRequirements.emplace_back(requestedUnits,
+                                             BWAPI::UnitTypes::Protoss_Dragoon,
+                                             base->getPosition(),
+                                             pressure < 0.4,
+                                             gridNodePredicate);
     }
 }
 
