@@ -21,7 +21,12 @@ void HiddenBase::update()
         return;
     }
 
-    if (BWAPI::Broodwar->getFrameCount() > 15000)
+    // Stop the play when:
+    // - We are past frame 15000
+    // - We have taken our natural
+    auto natural = Map::getMyNatural();
+    if (BWAPI::Broodwar->getFrameCount() > 15000 ||
+        (natural && natural->owner == BWAPI::Broodwar->self() && natural->resourceDepot && natural->resourceDepot->completed))
     {
         if (builder)
         {
@@ -51,7 +56,7 @@ void HiddenBase::update()
         Builder::addReservedBuilder(builder);
         Workers::reserveWorker(builder);
     }
-    
+
     // Ensure the builder moves towards the hidden base when it isn't building anything
     if (!Builder::hasPendingBuilding(builder))
     {
