@@ -32,11 +32,15 @@ namespace
         for (auto base : Map::getEnemyBases())
         {
             if (base->island) continue;
+            if (!base->resourceDepot || !base->resourceDepot->completed) continue;
 
             bool hasCannon = false;
             for (const auto &cannon : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon))
             {
-                if (!cannon->completed) continue;
+                if (!cannon->completed && cannon->estimatedCompletionFrame < (BWAPI::Broodwar->getFrameCount() + 120))
+                {
+                    continue;
+                }
                 if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(cannon->lastPosition)) == base->getArea())
                 {
                     hasCannon = true;
@@ -164,25 +168,25 @@ namespace
 
     void executeUnit(MyUnit &unit)
     {
-        auto vulnerableCannonPredicate = [&](const Unit &cannon)
+        auto canKillBeforeCompletedPredicate = [&](const Unit &target)
         {
-            if (cannon->completed) return false;
+            if (target->completed) return false;
 
-            // Attack a cannon if we think we can kill it before it completes
-            auto damagePerAttack = Players::attackDamage(unit->player, unit->type, cannon->player, cannon->type);
-            auto moveFrames = (int) ((double) unit->getDistance(cannon) * 1.4 / unit->type.topSpeed());
+            // Attack a target if we think we can kill it before it completes
+            auto damagePerAttack = Players::attackDamage(unit->player, unit->type, target->player, target->type);
+            auto moveFrames = (int) ((double) unit->getDistance(target) * 1.4 / unit->type.topSpeed());
             auto nextAttack = std::max(unit->cooldownUntil - BWAPI::Broodwar->getFrameCount(), moveFrames);
 
-            int attacks = (int) ((float) (cannon->lastHealth + cannon->lastShields) / (float) damagePerAttack);
+            int attacks = (int) ((float) (target->lastHealth + target->lastShields) / (float) damagePerAttack);
             int framesToKill = nextAttack + attacks * unit->type.groundWeapon().damageCooldown();
 
-            return (BWAPI::Broodwar->getFrameCount() + framesToKill) < cannon->estimatedCompletionFrame;
+            return (BWAPI::Broodwar->getFrameCount() + framesToKill) < target->estimatedCompletionFrame;
         };
         auto cannonTarget = getTarget(unit,
                                       Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon),
                                       false,
                                       300,
-                                      vulnerableCannonPredicate);
+                                      canKillBeforeCompletedPredicate);
         if (cannonTarget)
         {
 #if DEBUG_UNIT_ORDERS
@@ -219,7 +223,15 @@ namespace
             }
         }
 
-        auto otherTarget = getTarget(unit, Units::allEnemy(), false);
+        // Prioritize completed nexuses, observatories we can kill before they complete, robo facilities, everything else
+        auto completedPredicate = [](const Unit &target)
+        {
+            return target->completed;
+        };
+        auto otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Nexus), false, 500, completedPredicate);
+        if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Observatory), false, 500, canKillBeforeCompletedPredicate);
+        if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Robotics_Facility), false, 500);
+        if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemy(), false);
         if (otherTarget)
         {
 #if DEBUG_UNIT_ORDERS
@@ -234,7 +246,7 @@ namespace
         if (!nextExpansions.empty())
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit->id) << "Moving to next probably enemy expansion @ " << BWAPI::WalkPosition((*nextExpansions.begin())->getPosition());
+            CherryVis::log(unit->id) << "Moving to next probable enemy expansion @ " << BWAPI::WalkPosition((*nextExpansions.begin())->getPosition());
 #endif
             moveToBase(unit, *nextExpansions.begin());
             return;

@@ -374,8 +374,8 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     }
 
     // If we have a backdoor natural, expand if we are gas blocked
-    // This generally happens when we are teching to DT or observers
-    if (Map::mapSpecificOverride()->hasBackdoorNatural())
+    // This generally happens when we are teching as a response to something
+    if (Map::mapSpecificOverride()->hasBackdoorNatural() && ourStrategy != OurStrategy::DTExpand)
     {
         if (BWAPI::Broodwar->self()->minerals() > 400 &&
             BWAPI::Broodwar->self()->gas() < 100 &&
