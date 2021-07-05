@@ -176,6 +176,8 @@ namespace
             int attacks = (int) ((float) (cannon->lastHealth + cannon->lastShields) / (float) damagePerAttack);
             int framesToKill = nextAttack + attacks * unit->type.groundWeapon().damageCooldown();
 
+            if (BWAPI::Broodwar->getFrameCount() % 10 == 0) Log::Get() << "CANNON LOGIC";
+
             CherryVis::log(unit->id) << "DT attack cannon? "
                                      << "dpa=" << damagePerAttack << "; moveFrames=" << moveFrames << "; nextAttack=" << nextAttack
                                      << "; attacks=" << attacks << "; framesToKill=" << framesToKill << "; completion="
