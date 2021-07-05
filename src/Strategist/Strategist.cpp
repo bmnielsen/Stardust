@@ -15,6 +15,10 @@
 #include "Play.h"
 #include "Strategist.h"
 
+#include "Plays/MainArmy/DefendMyMain.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
+#include "Plays/MainArmy/MopUp.h"
+
 /*
  * Broadly, the Strategist (via a StrategyEngine) decides on a prioritized list of plays to run, each of which can order
  * units from the producer and influence the organization and behaviour of its managed units. The StrategyEngine also
@@ -413,6 +417,7 @@ namespace Strategist
 
             CherryVis::setBoardValue("enemyContained", enemyContained ? "true" : "false");
             CherryVis::setBoardValue("workerScoutStatus", workerScoutStatusToString());
+            CherryVis::setBoardValue("pressure", (std::ostringstream() << std::setprecision(2) << pressure()).str());
 #endif
         }
     }
@@ -577,6 +582,20 @@ namespace Strategist
     bool isEnemyContained()
     {
         return enemyContained;
+    }
+
+    double pressure()
+    {
+        auto mainArmyPlay = StrategyEngine::getPlay<MainArmyPlay>(plays);
+        if (!mainArmyPlay) return 1.0;
+
+        if (typeid(*mainArmyPlay) == typeid(DefendMyMain)) return 1.0;
+        if (typeid(*mainArmyPlay) == typeid(MopUp)) return 0.0;
+
+        auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
+        if (!vanguard) return 1.0;
+
+        return 1.0 - vanguard->percentageToEnemyMain;
     }
 
     WorkerScoutStatus getWorkerScoutStatus()
