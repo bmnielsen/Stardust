@@ -750,8 +750,9 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     }
 
     // Get an observer when we have a second gas
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
+    if ((Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
         (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && BWAPI::Broodwar->getFrameCount() > 10000))
+        && Strategist::pressure() < 0.4)
     {
         CherryVis::setBoardValue("detection", "macro-build-observer");
         buildObserver();
