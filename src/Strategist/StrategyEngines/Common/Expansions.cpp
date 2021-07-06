@@ -44,10 +44,6 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     // Determines if we consider it safe to expand to an island
     auto safeToIslandExpand = [&]()
     {
-        // Disable island expansions for now
-        // We need to make more intelligent decisions on when to do it and implement better worker transfers
-        return false;
-
         // Only expand when our army is on the offensive
         auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
         if (!mainArmyPlay) return false;
@@ -193,8 +189,12 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         return;
     }
 
-    // Take an island expansion when we are on two bases, want to expand and it is safe to do so
-    if (takeIslandExpansionPlays.empty() && excessMineralAssignments == 0 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
+    // Take an island expansion in the following cases:
+    // - We are on three bases and already have a robo facility
+    // - We are contained on one base and it is after frame 16000
+    if (takeIslandExpansionPlays.empty() && excessMineralAssignments == 0 &&
+        ((Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Robotics_Facility) > 0)
+         || (BWAPI::Broodwar->getFrameCount() > 16000 && Units::countAll(BWAPI::UnitTypes::Protoss_Nexus) == 1 && Strategist::areWeContained())))
     {
         Base *closestIslandBase = nullptr;
         int closestIslandBaseDist = INT_MAX;
