@@ -84,8 +84,8 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
         // Make sure our main choke is easily defensible
         auto choke = Map::getMyMainChoke();
-        if (!choke) return false;
-        if (Map::getMyMain() && Map::getMyNatural() &&
+        if (!choke || !choke->isNarrowChoke || !choke->isRamp) return false;
+        if (!Map::mapSpecificOverride()->hasBackdoorNatural() && Map::getMyMain() && Map::getMyNatural() &&
             BWAPI::Broodwar->getGroundHeight(Map::getMyMain()->getTilePosition())
             <= BWAPI::Broodwar->getGroundHeight(Map::getMyNatural()->getTilePosition()))
         {
