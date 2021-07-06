@@ -1119,7 +1119,7 @@ namespace BuildingPlacement
 
         // If our enemy is Protoss, prioritize the cannon choke power pylon next
         // We use this for detection on our choke in reaction to DTs
-        if (chokeCannonBlock && BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss)
+        if (chokeCannonBlock && BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss && !buildAwayFromExit)
         {
             if (chokeCannonBlock->powerPylon == a.location.tile) return true;
             if (chokeCannonBlock->powerPylon == b.location.tile) return false;
