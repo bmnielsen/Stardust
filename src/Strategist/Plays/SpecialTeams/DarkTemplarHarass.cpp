@@ -223,7 +223,7 @@ namespace
             }
         }
 
-        // Prioritize completed nexuses, observatories we can kill before they complete, robo facilities, everything else
+        // Prioritize completed nexuses, observatories we can kill before they complete, robo facilities, completed things, everything else
         auto completedPredicate = [](const Unit &target)
         {
             return target->completed;
@@ -231,6 +231,7 @@ namespace
         auto otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Nexus), false, 500, completedPredicate);
         if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Observatory), false, 500, canKillBeforeCompletedPredicate);
         if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Robotics_Facility), false, 500);
+        if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemy(), false, INT_MAX, completedPredicate);
         if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemy(), false);
         if (otherTarget)
         {
