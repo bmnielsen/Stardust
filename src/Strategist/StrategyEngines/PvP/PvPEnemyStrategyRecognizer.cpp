@@ -207,6 +207,15 @@ namespace
             return true;
         }
 
+        // Assume the enemy has done a dragoon all-in if it has successfully set up a contain on us before frame 10000
+        if (BWAPI::Broodwar->getFrameCount() < 10000
+            && createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 10)
+            && Strategist::areWeContained())
+        {
+            Log::Get() << "CONTAINED";
+            return true;
+        }
+
         // Otherwise work off of goon timings
         if (BWAPI::Broodwar->getFrameCount() < 7000)
         {

@@ -585,6 +585,25 @@ namespace Strategist
         return enemyContained;
     }
 
+    bool areWeContained()
+    {
+        // We consider ourselves to be contained if our main army is in our base and wants to attack, but can't
+        auto mainArmyPlay = StrategyEngine::getPlay<MainArmyPlay>(plays);
+        if (!mainArmyPlay) return false;
+
+        if (typeid(*mainArmyPlay) != typeid(AttackEnemyBase)) return false;
+
+        auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
+        if (!vanguard) return false;
+        if (vanguard->currentActivity != UnitCluster::Activity::Regrouping) return false;
+
+        auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(vanguard->vanguard ? vanguard->vanguard->lastPosition : vanguard->center));
+        if (!area) return false;
+
+        auto mainAreas = Map::getMyMainAreas();
+        return mainAreas.find(area) != mainAreas.end();
+    }
+
     double pressure()
     {
         auto mainArmyPlay = StrategyEngine::getPlay<MainArmyPlay>(plays);

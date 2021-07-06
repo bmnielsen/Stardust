@@ -30,6 +30,8 @@ namespace Strategist
 
     bool isEnemyContained();
 
+    bool areWeContained();
+
     // A measure between 0 and 1 of how much pressure we feel ourselves to be under,
     // where 0 is no pressure and 1 is full pressure
     double pressure();
