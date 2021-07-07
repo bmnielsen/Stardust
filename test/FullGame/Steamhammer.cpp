@@ -8,6 +8,7 @@ TEST(Steamhammer, RunThirty)
     while (count < 30)
     {
         BWTest test;
+        test.opponentName = "Steamhammer";
         test.opponentRace = BWAPI::Races::Zerg;
         test.maps = Maps::Get("cog");
         test.opponentModule = []()
@@ -54,6 +55,7 @@ TEST(Steamhammer, RunThirty)
 TEST(Steamhammer, RunOne)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;
 //    test.map = Maps::GetOne("Destination");
 //    test.randomSeed = 53123;
@@ -90,6 +92,7 @@ TEST(Steamhammer, RunOne)
 TEST(Steamhammer, Microwave_9PoolGasHatchSpeed7D)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
@@ -103,6 +106,7 @@ TEST(Steamhammer, Microwave_9PoolGasHatchSpeed7D)
 TEST(Steamhammer, 4PoolHard)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Destination");
     test.randomSeed = 50443;
     test.opponentRace = BWAPI::Races::Zerg;
@@ -118,6 +122,7 @@ TEST(Steamhammer, 4PoolHard)
 TEST(Steamhammer, 4PoolSoft)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
@@ -131,6 +136,7 @@ TEST(Steamhammer, 4PoolSoft)
 TEST(Steamhammer, OverhatchExpoMuta)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
@@ -144,6 +150,7 @@ TEST(Steamhammer, OverhatchExpoMuta)
 TEST(Steamhammer, OverpoolSpeed)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
@@ -158,6 +165,7 @@ TEST(Steamhammer, OverpoolSpeed)
 TEST(Steamhammer, OverpoolTurtleZero)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;
     test.map = Maps::GetOne("Benzene");
     test.randomSeed = 99546;
@@ -174,6 +182,7 @@ TEST(Steamhammer, OverpoolTurtleZero)
 TEST(Steamhammer, 11Gas10PoolLurker)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Jade");
     test.randomSeed = 22113;
     test.opponentRace = BWAPI::Races::Zerg;
@@ -190,6 +199,7 @@ TEST(Steamhammer, 11Gas10PoolLurker)
 TEST(Steamhammer, 7Pool6GasLurker)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
@@ -218,6 +228,7 @@ TEST(Steamhammer, 4HatchBeforeLair)
 TEST(Steamhammer, 9PoolSpeed)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Python");
     test.randomSeed = 30841;
     test.opponentRace = BWAPI::Races::Zerg;
@@ -234,6 +245,7 @@ TEST(Steamhammer, 9PoolSpeed)
 TEST(Steamhammer, 8Hatch7Pool)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Circuit Breaker");
     test.randomSeed = 59756;
     test.opponentRace = BWAPI::Races::Zerg;
@@ -250,6 +262,7 @@ TEST(Steamhammer, 8Hatch7Pool)
 TEST(Steamhammer, 9PoolSpeedAllIn)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
@@ -264,6 +277,7 @@ TEST(Steamhammer, 9PoolSpeedAllIn)
 TEST(Steamhammer, 2HatchLurkerAllIn)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
@@ -278,6 +292,7 @@ TEST(Steamhammer, 2HatchLurkerAllIn)
 TEST(Steamhammer, OverhatchExpoLing)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
     {
@@ -292,6 +307,7 @@ TEST(Steamhammer, OverhatchExpoLing)
 TEST(Steamhammer, 9HatchExpo9Pool9Gas)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Destination");
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
@@ -307,6 +323,7 @@ TEST(Steamhammer, 9HatchExpo9Pool9Gas)
 TEST(Steamhammer, 11HatchTurtleLurker)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Heartbreak Ridge");
     test.randomSeed = 9020;
     test.opponentRace = BWAPI::Races::Zerg;
@@ -324,6 +341,7 @@ TEST(Steamhammer, 11HatchTurtleLurker)
 TEST(Steamhammer, 11HatchTurtleHydra)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Destination");
     test.randomSeed = 94484;
     test.opponentRace = BWAPI::Races::Zerg;
@@ -342,6 +360,7 @@ TEST(Steamhammer, 11HatchTurtleHydra)
 TEST(Steamhammer, ZZZKMutaRush)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Destination");
     test.randomSeed = 94484;
     test.opponentRace = BWAPI::Races::Zerg;
@@ -359,6 +378,7 @@ TEST(Steamhammer, ZZZKMutaRush)
 TEST(Steamhammer, 12HatchTurtle)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Destination");
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
@@ -374,6 +394,7 @@ TEST(Steamhammer, 12HatchTurtle)
 TEST(Steamhammer, Over10Hatch1Sunk)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("La Mancha");
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
@@ -389,6 +410,7 @@ TEST(Steamhammer, Over10Hatch1Sunk)
 TEST(Steamhammer, 7PoolMid_GasSteal)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Circuit Breaker");
     test.randomSeed = 42530;
     test.opponentRace = BWAPI::Races::Zerg;
@@ -406,6 +428,7 @@ TEST(Steamhammer, 7PoolMid_GasSteal)
 TEST(Steamhammer, 11HatchTurtleMuta)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Empire");
     test.randomSeed = 75376;
     test.opponentRace = BWAPI::Races::Zerg;
@@ -422,6 +445,7 @@ TEST(Steamhammer, 11HatchTurtleMuta)
 TEST(Steamhammer, 973HydraBust)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Fighting Spirit");
     test.randomSeed = 60426;
     test.opponentRace = BWAPI::Races::Zerg;
@@ -439,6 +463,7 @@ TEST(Steamhammer, 973HydraBust)
 TEST(Steamhammer, GasSteal)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Python");
     test.randomSeed = 1234;
     test.opponentRace = BWAPI::Races::Zerg;
@@ -456,6 +481,7 @@ TEST(Steamhammer, GasSteal)
 TEST(Steamhammer, Plasma)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Plasma");
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
@@ -470,6 +496,7 @@ TEST(Steamhammer, Plasma)
 TEST(Steamhammer, 1012Gate)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
@@ -484,6 +511,7 @@ TEST(Steamhammer, 1012Gate)
 TEST(Steamhammer, DTRush)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.randomSeed = 16752;
     test.map = Maps::GetOne("Benzene");
     test.opponentRace = BWAPI::Races::Protoss;
@@ -500,6 +528,7 @@ TEST(Steamhammer, DTRush)
 TEST(Steamhammer, Vultures)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.randomSeed = 53781;
     test.map = Maps::GetOne("Destination");
     test.opponentRace = BWAPI::Races::Terran;
@@ -516,7 +545,9 @@ TEST(Steamhammer, Vultures)
 TEST(Steamhammer, BBS)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Terran;
+    test.frameLimit = 8000;
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
@@ -530,6 +561,7 @@ TEST(Steamhammer, BBS)
 TEST(Steamhammer, SiegeExpand)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Terran;
     test.opponentModule = []()
     {
@@ -544,6 +576,7 @@ TEST(Steamhammer, SiegeExpand)
 TEST(Steamhammer, UAlbertaBotMarineRush)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.map = Maps::GetOne("Luna");
     test.randomSeed = 95324;
     test.opponentRace = BWAPI::Races::Random;
@@ -560,6 +593,7 @@ TEST(Steamhammer, UAlbertaBotMarineRush)
 TEST(Steamhammer, SCVRush)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Terran;
     test.opponentModule = []()
     {
@@ -574,6 +608,7 @@ TEST(Steamhammer, SCVRush)
 TEST(Steamhammer, RunOneRandom)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Random;
     test.opponentModule = []()
     {
@@ -606,6 +641,7 @@ TEST(Steamhammer, RunOneRandom)
 TEST(Steamhammer, RunOneWithIslandExpo)
 {
     BWTest test;
+    test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;
     test.map = Maps::GetOne("Andromeda");
     test.frameLimit = 20000;

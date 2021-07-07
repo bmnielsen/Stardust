@@ -8,6 +8,7 @@ TEST(Locutus, RunThirty)
     while (count < 30)
     {
         BWTest test;
+        test.opponentName = "Locutus";
         test.maps = Maps::Get("sscait");
         test.opponentRace = BWAPI::Races::Protoss;
         test.opponentModule = []()
@@ -55,6 +56,7 @@ TEST(Locutus, RunThirty)
 TEST(Locutus, RunOne)
 {
     BWTest test;
+    test.opponentName = "Locutus";
     test.maps = Maps::Get("sscait");
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
@@ -94,6 +96,7 @@ TEST(Locutus, RunOne)
 TEST(Locutus, 4GateGoon)
 {
     BWTest test;
+    test.opponentName = "Locutus";
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
@@ -107,6 +110,7 @@ TEST(Locutus, 4GateGoon)
 TEST(Locutus, ForgeExpand)
 {
     BWTest test;
+    test.opponentName = "Locutus";
     test.map = Maps::GetOne("Fighting Spirit");
     test.randomSeed = 2450;
     test.opponentRace = BWAPI::Races::Protoss;
@@ -122,6 +126,7 @@ TEST(Locutus, ForgeExpand)
 TEST(Locutus, 99Gate)
 {
     BWTest test;
+    test.opponentName = "Locutus";
     test.map = Maps::GetOne("Python");
     test.randomSeed = 49094;
     test.opponentRace = BWAPI::Races::Protoss;
@@ -137,6 +142,7 @@ TEST(Locutus, 99Gate)
 TEST(Locutus, Proxy99Gate)
 {
     BWTest test;
+    test.opponentName = "Locutus";
     test.map = Maps::GetOne("Heartbreak");
     test.randomSeed = 91613;
     test.opponentRace = BWAPI::Races::Protoss;
@@ -152,6 +158,7 @@ TEST(Locutus, Proxy99Gate)
 TEST(Locutus, 1012Gate)
 {
     BWTest test;
+    test.opponentName = "Locutus";
     test.map = Maps::GetOne("Tau");
     test.randomSeed = 10473;
     test.opponentRace = BWAPI::Races::Protoss;
@@ -167,6 +174,7 @@ TEST(Locutus, 1012Gate)
 TEST(Locutus, 2GateDTRush)
 {
     BWTest test;
+    test.opponentName = "Locutus";
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
@@ -180,6 +188,7 @@ TEST(Locutus, 2GateDTRush)
 TEST(Locutus, CannonFirst4GateGoon)
 {
     BWTest test;
+    test.opponentName = "Locutus";
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
@@ -193,6 +202,7 @@ TEST(Locutus, CannonFirst4GateGoon)
 TEST(Locutus, PlasmaProxy2Gate)
 {
     BWTest test;
+    test.opponentName = "Locutus";
     test.map = Maps::GetOne("Plasma");
     test.randomSeed = 97016;
 //    test.frameLimit = 14000;

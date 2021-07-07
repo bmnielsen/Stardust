@@ -8,6 +8,7 @@ TEST(Iron, RunThirty)
     while (count < 30)
     {
         BWTest test;
+        test.opponentName = "Iron";
         test.maps = Maps::Get("sscait");
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
@@ -44,6 +45,7 @@ TEST(Iron, RunThirty)
 TEST(Iron, RunOne)
 {
     BWTest test;
+    test.opponentName = "Iron";
     test.opponentRace = BWAPI::Races::Terran;
     test.maps = Maps::Get("sscait");
     test.opponentModule = []()
@@ -71,6 +73,7 @@ TEST(Iron, RunOne)
 TEST(Iron, TestMopUp)
 {
     BWTest test;
+    test.opponentName = "Iron";
     test.opponentRace = BWAPI::Races::Terran;
     test.map = Maps::GetOne("Andromeda");
     test.randomSeed = 42;

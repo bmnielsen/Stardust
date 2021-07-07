@@ -10,6 +10,7 @@ TEST(Crona, RunThirty)
     {
         BWTest test;
         BananaBrain* bbModule;
+        test.opponentName = "Crona";
         test.maps = Maps::Get("cog");
         test.opponentRace = BWAPI::Races::Zerg;
         test.opponentModule = [&]()
@@ -57,6 +58,7 @@ TEST(Crona, RunOne)
 {
     BWTest test;
     BananaBrain* bbModule;
+    test.opponentName = "Crona";
     test.opponentRace = BWAPI::Races::Zerg;
     test.maps = Maps::Get("sscait");
     test.opponentModule = [&]()

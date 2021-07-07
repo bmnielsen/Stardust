@@ -55,6 +55,7 @@ TEST(BananaBrain, RunThirty)
     while (count < 30)
     {
         BWTest test;
+        test.opponentName = "BananaBrain";
         BananaBrain* bbModule;
         test.maps = Maps::Get("cog");
         test.opponentRace = BWAPI::Races::Protoss;
@@ -111,6 +112,7 @@ TEST(BananaBrain, RunOne)
 {
     BWTest test;
     BananaBrain* bbModule;
+    test.opponentName = "BananaBrain";
     test.opponentRace = BWAPI::Races::Protoss;
     test.maps = Maps::Get("sscait");
     test.opponentModule = [&]()
@@ -154,6 +156,7 @@ TEST(BananaBrain, RunOne)
 TEST(BananaBrain, 1012Gate)
 {
     BWTest test;
+    test.opponentName = "BananaBrain";
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
@@ -168,6 +171,7 @@ TEST(BananaBrain, 1012Gate)
 TEST(BananaBrain, 2GateDT)
 {
     BWTest test;
+    test.opponentName = "BananaBrain";
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
@@ -196,6 +200,7 @@ TEST(BananaBrain, BBS)
 TEST(BananaBrain, ProxyGates)
 {
     BWTest test;
+    test.opponentName = "BananaBrain";
     test.map = Maps::GetOne("NeoHeartbreakerRidge");
     test.randomSeed = 71137;
     test.frameLimit = 8000;
@@ -204,6 +209,42 @@ TEST(BananaBrain, ProxyGates)
     {
         auto bbModule = new BananaBrain();
         bbModule->strategyName = ProtossStrategy::kPvP_99ProxyGate;
+        return bbModule;
+    };
+
+    test.run();
+}
+
+TEST(BananaBrain, Robo)
+{
+    BWTest test;
+    test.opponentName = "BananaBrain";
+    test.map = Maps::GetOne("Fighting");
+    test.randomSeed = 45417;
+    test.frameLimit = 15000;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ProtossStrategy::kPvP_3GateRobo;
+        return bbModule;
+    };
+
+    test.run();
+}
+
+TEST(BananaBrain, 4Gate)
+{
+    BWTest test;
+    test.opponentName = "BananaBrain";
+    test.map = Maps::GetOne("Ride");
+    test.randomSeed = 45417;
+    test.frameLimit = 20000;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ProtossStrategy::kPvP_4GateGoon;
         return bbModule;
     };
 

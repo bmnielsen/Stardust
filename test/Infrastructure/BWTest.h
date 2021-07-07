@@ -34,6 +34,8 @@ public:
     std::shared_ptr<Maps::MapMetadata> map;
     std::vector<Maps::MapMetadata> maps;
 
+    std::string opponentName = "Opponent";
+
     int frameLimit = 30000;
     int timeLimit = 600;
     int randomSeed = -1;

@@ -8,6 +8,7 @@ TEST(SAIDA, RunThirty)
     while (count < 30)
     {
         BWTest test;
+        test.opponentName = "SAIDA";
         test.maps = Maps::Get("cog");
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
@@ -44,6 +45,7 @@ TEST(SAIDA, RunThirty)
 TEST(SAIDA, RunOne)
 {
     BWTest test;
+    test.opponentName = "SAIDA";
     test.opponentRace = BWAPI::Races::Terran;
     test.maps = Maps::Get("sscait");
     test.opponentModule = []()
@@ -71,6 +73,7 @@ TEST(SAIDA, RunOne)
 TEST(SAIDA, FightingSpirit)
 {
     BWTest test;
+    test.opponentName = "SAIDA";
     test.opponentRace = BWAPI::Races::Terran;
     test.map = Maps::GetOne("Fighting");
     test.opponentModule = []()
@@ -98,6 +101,7 @@ TEST(SAIDA, FightingSpirit)
 TEST(SAIDA, Destination)
 {
     BWTest test;
+    test.opponentName = "SAIDA";
     test.opponentRace = BWAPI::Races::Terran;
     test.map = Maps::GetOne("Destination");
     test.frameLimit = 25000;

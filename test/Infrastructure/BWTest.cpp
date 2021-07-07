@@ -287,7 +287,7 @@ void BWTest::runGame(bool opponent)
 {
     BW::GameOwner gameOwner;
     BWAPI::BroodwarImpl_handle h(gameOwner.getGame());
-    h->setCharacterName(opponent ? "Opponent" : "Startest");
+    h->setCharacterName(opponent ? opponentName : "Startest");
     h->setGameType(BWAPI::GameTypes::Melee);
     BWAPI::BroodwarImpl.bwgame.setMapFileName(map->filename);
     BWAPI::Race race = opponent ? opponentRace : myRace;
