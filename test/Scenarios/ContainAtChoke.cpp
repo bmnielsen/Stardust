@@ -1,10 +1,11 @@
 #include "BWTest.h"
 #include "DoNothingModule.h"
+#include "DoNothingStrategyEngine.h"
 #include "StardustAIModule.h"
 
 #include "Map.h"
 #include "Strategist.h"
-#include "TestAttackBasePlay.h"
+#include "TestMainArmyAttackBasePlay.h"
 #include "Units.h"
 
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -104,8 +105,10 @@ TEST(ContainAtChoke, DragoonsVsDragoonsOnBridge)
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(9, 118)));
 
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -114,8 +117,10 @@ TEST(ContainAtChoke, DragoonsVsDragoonsOnBridge)
     {
         auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(7, 7)));
 
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack, true));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack, true));
         Strategist::setOpening(openingPlays);
     };
 
@@ -189,8 +194,10 @@ TEST(ContainAtChoke, ZealotsAndDragoonsVsZerglingsOnBridge)
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(9, 118)));
 
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -272,6 +279,8 @@ TEST(ContainAtChoke, ZealotsAndDragoonsVsZerglingsOnRamp)
     // Order the dragoon to attack the bottom base
     test.onStartMine = []()
     {
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<DefendMyMain>());
         Strategist::setOpening(openingPlays);
@@ -332,6 +341,8 @@ TEST(ContainAtChoke, ZealotsVsMarinesOnRamp)
     // Order the dragoon to attack the bottom base
     test.onStartMine = []()
     {
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<DefendMyMain>());
         Strategist::setOpening(openingPlays);
@@ -398,6 +409,8 @@ TEST(ContainAtChoke, ZealotsAndDragoonsVsMarinesOnRamp)
     // Order the dragoon to attack the bottom base
     test.onStartMine = []()
     {
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<DefendMyMain>());
         Strategist::setOpening(openingPlays);
@@ -459,6 +472,8 @@ TEST(ContainAtChoke, DragoonsVsDragoonsOnRamp)
     // Order the dragoon to attack the bottom base
     test.onStartMine = []()
     {
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<DefendMyMain>());
         Strategist::setOpening(openingPlays);
@@ -529,8 +544,10 @@ TEST(ContainAtChoke, DragoonsVsDragoonsRetreatThroughBridge)
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(9, 118)));
 
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -539,8 +556,10 @@ TEST(ContainAtChoke, DragoonsVsDragoonsRetreatThroughBridge)
     {
         auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(7, 7)));
 
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack, true));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack, true));
         Strategist::setOpening(openingPlays);
     };
 
@@ -607,8 +626,10 @@ TEST(ContainAtChoke, DragoonsVsDragoonsRetreatThroughRamp)
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(9, 118)));
 
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
@@ -617,8 +638,10 @@ TEST(ContainAtChoke, DragoonsVsDragoonsRetreatThroughRamp)
     {
         auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(7, 7)));
 
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack, true));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack, true));
         Strategist::setOpening(openingPlays);
     };
 
@@ -636,6 +659,117 @@ TEST(ContainAtChoke, DragoonsVsDragoonsRetreatThroughRamp)
         }
 
         EXPECT_FALSE(hasEnemyCombatUnit);
+    };
+
+    test.run();
+}
+
+TEST(ContainAtChoke, DragoonsVsDragoonsLargeArmy)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        auto module = new StardustAIModule();
+        CherryVis::disable();
+        return module;
+    };
+    test.map = Maps::GetOne("Alchemist");
+    test.randomSeed = 42;
+    test.frameLimit = 2000;
+    test.expectWin = false;
+
+    // Equal dragoon armies at each side of the choke
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(63, 110)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(64, 110)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(65, 110)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(66, 110)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(67, 110)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(68, 110)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(69, 110)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(70, 110)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(71, 110)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(63, 111)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(64, 111)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(65, 111)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(66, 111)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(67, 111)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(68, 111)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(69, 111)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(70, 111)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(71, 111)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(63, 112)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(64, 112)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(65, 112)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(66, 112)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(67, 112)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(68, 112)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(69, 112)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(70, 112)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(71, 112)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Observer, BWAPI::TilePosition(57, 101)), // For vision on enemy army
+    };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(50, 101)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(51, 101)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(52, 101)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(53, 101)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(54, 101)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(55, 101)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(56, 101)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(58, 101)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(59, 101)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(50, 102)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(51, 102)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(52, 102)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(53, 102)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(54, 102)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(55, 102)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(56, 102)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(57, 102)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(58, 102)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(59, 102)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(50, 103)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(51, 103)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(52, 103)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(53, 103)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(54, 103)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(55, 103)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(56, 103)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(57, 103)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(58, 103)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::TilePosition(59, 103)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Observer, BWAPI::TilePosition(67, 109)), // For vision on enemy army
+    };
+
+    Base *baseToAttack = nullptr;
+
+    test.onStartMine = [&baseToAttack]()
+    {
+        BWAPI::Broodwar->self()->setUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge, 1);
+
+        baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(43, 118)));
+
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack));
+        Strategist::setOpening(openingPlays);
+    };
+
+    test.onStartOpponent = []()
+    {
+        BWAPI::Broodwar->self()->setUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge, 1);
+
+        auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 51)));
+
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack));
+        Strategist::setOpening(openingPlays);
     };
 
     test.run();
