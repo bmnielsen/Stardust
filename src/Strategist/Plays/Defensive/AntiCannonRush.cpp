@@ -4,6 +4,7 @@
 #include "Map.h"
 #include "Units.h"
 #include "UnitUtil.h"
+#include "Opponent.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -142,6 +143,10 @@ void AntiCannonRush::update()
             {
                 Log::Get() << "Found enemy pylon in our base";
                 builtPylon = true;
+
+                int startFrame = (unit->completed ? BWAPI::Broodwar->getFrameCount() : unit->estimatedCompletionFrame)
+                        - UnitUtil::BuildTime(unit->type);
+                Opponent::setGameValue("pylonInOurMain", startFrame);
             }
         }
         else if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
@@ -151,15 +156,34 @@ void AntiCannonRush::update()
                 cannonsAndAttackers[unit] = {};
                 builtCannon = true;
                 Log::Get() << "Found enemy cannon in our base";
+
+                // Built cannon implies built pylon, even if we haven't seen it
+                if (!builtPylon)
+                {
+                    builtPylon = true;
+                    int startFrame = (unit->completed ? BWAPI::Broodwar->getFrameCount() : unit->estimatedCompletionFrame)
+                                     - UnitUtil::BuildTime(unit->type)
+                                     - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
+                    Opponent::setGameValue("pylonInOurMain", startFrame);
+                }
             }
         }
     }
 
     // Disband when we are fairly certain the cannon rush is not happening or is over
-    if (((BWAPI::Broodwar->getFrameCount() >= 4000 || safeEnemyStrategyDetermined) && !builtCannon && !builtPylon) ||
+    if (((BWAPI::Broodwar->getFrameCount() >= 4000 || safeEnemyStrategyDetermined) && !builtPylon) ||
         (BWAPI::Broodwar->getFrameCount() >= 7000 && pylons.empty() && cannonsAndAttackers.empty()))
     {
         status.complete = true;
+        return;
+    }
+
+    // Use our previous game results to determine when the play should go "active", i.e. reserve a worker
+    // We start our scouting 500 frames before we've previously seen a pylon start
+    int worstCasePylonFrame =
+            Opponent::minValueInPreviousGames("pylonInOurMain", 0, 20000, 15, 10);
+    if (!builtPylon && worstCasePylonFrame > (BWAPI::Broodwar->getFrameCount() + 500))
+    {
         return;
     }
 
