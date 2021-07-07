@@ -44,8 +44,6 @@ bool UnitCluster::moveAsBall(BWAPI::Position targetPosition)
     double separationWeight = defaultSeparationWeight;
     if (enemyAoeRadius > 0)
     {
-        if (BWAPI::Broodwar->getFrameCount() % 10 == 0) Log::Get() << "AOE BALL";
-
         separationDetectionLimitFactor = ((double)enemyAoeRadius + 16.0) / 32.0;
         separationWeight = 160;
     }

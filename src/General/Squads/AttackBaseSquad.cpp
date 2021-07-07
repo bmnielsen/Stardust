@@ -265,7 +265,6 @@ namespace
         // Adjust the aggression if we have been pushed back into our natural
         if (pushedBackToNatural(cluster, 500))
         {
-            if (BWAPI::Broodwar->getFrameCount() % 10 == 0) Log::Get() << "PUSHED BACK";
             aggression *= 2.0;
         }
 
