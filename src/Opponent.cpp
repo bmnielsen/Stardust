@@ -163,7 +163,7 @@ namespace Opponent
         int count = 0;
         for (auto it = previousGames.rbegin(); it != previousGames.rend(); it++)
         {
-            if (count >= maxCount) return result;
+            if (count >= maxCount) break;
 
             try
             {
@@ -182,5 +182,35 @@ namespace Opponent
         }
 
         return result;
+    }
+
+    double winLossRatio(double defaultValue, int maxCount)
+    {
+        int wins = 0;
+        int losses = 0;
+
+        int count = 0;
+        for (auto it = previousGames.rbegin(); it != previousGames.rend(); it++)
+        {
+            if (count >= maxCount) break;
+
+            try
+            {
+                auto valIt = it->find("won");
+                if (valIt != it->end())
+                {
+                    (valIt->get<bool>() ? wins : losses)++;
+                }
+            }
+            catch (std::exception &ex)
+            {
+                // Just skip this game result
+            }
+
+            count++;
+        }
+
+        if (wins == 0 && losses == 0) return defaultValue;
+        return (double)wins / (double)(wins + losses);
     }
 }

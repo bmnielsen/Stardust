@@ -180,11 +180,15 @@ void AntiCannonRush::update()
 
     // Use our previous game results to determine when the play should go "active", i.e. reserve a worker
     // We start our scouting 500 frames before we've previously seen a pylon start
-    int worstCasePylonFrame =
-            Opponent::minValueInPreviousGames("pylonInOurMain", 0, 20000, 15, 10);
-    if (!builtPylon && worstCasePylonFrame > (BWAPI::Broodwar->getFrameCount() + 500))
+    // An exception is if we have never lost to this opponent, in which case we play it safe
+    if (Opponent::winLossRatio(0.0) < 0.99)
     {
-        return;
+        int worstCasePylonFrame =
+                Opponent::minValueInPreviousGames("pylonInOurMain", 0, 20000, 15, 10);
+        if (!builtPylon && worstCasePylonFrame > (BWAPI::Broodwar->getFrameCount() + 500))
+        {
+            return;
+        }
     }
 
     // Gather units that should attack
