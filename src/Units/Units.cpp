@@ -264,6 +264,11 @@ namespace Units
             if (enemyUnitTimings[unit->type].size() == 1)
             {
                 Log::Get() << "First enemy of type discovered: " << *unit;
+
+                if (unit->type == BWAPI::UnitTypes::Protoss_Dark_Templar)
+                {
+                    Opponent::setGameValue("firstDarkTemplarCompleted", completionFrame);
+                }
             }
 
             if (unit->type.isBuilding() && includeMorphs)

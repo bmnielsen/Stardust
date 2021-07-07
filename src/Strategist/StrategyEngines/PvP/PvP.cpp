@@ -6,6 +6,7 @@
 #include "UnitUtil.h"
 #include "Strategist.h"
 #include "Workers.h"
+#include "Opponent.h"
 
 #include "Plays/Macro/HiddenBase.h"
 #include "Plays/Macro/SaturateBases.h"
@@ -805,47 +806,49 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    // If we haven't found the enemy main, be conservative and assume we might see DTs by frame 7800
+    // Initialize the expected DT completion frame based on previous game observations
+    // We assume worst case until we have at least 10 games played against the opponent
+    int expectedCompletionFrame =
+            Opponent::minValueInPreviousGames("firstDarkTemplarCompleted", 7300, 20000, 15, 10);
+
+    // If we haven't found the enemy main, be conservative and assume we might see DTs 500 frames after earliest completion
     auto enemyMain = Map::getEnemyMain();
     if (!enemyMain)
     {
-        buildCannon(7800);
-        CherryVis::setBoardValue("detection", "cannon-at-7000");
+        buildCannon(expectedCompletionFrame + 500);
+        CherryVis::setBoardValue("detection", "cannon-at-worst-case");
         return;
     }
 
     // Otherwise compute when the enemy could get DTs based on our scouting information
 
     // First estimate when the enemy's templar archives will / might finish
-    int templarArchivesFinished;
     auto &templarArchiveTimings = Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Templar_Archives);
     if (!templarArchiveTimings.empty())
     {
         // We've scouted a templar archives directly, so use its completion frame
-        templarArchivesFinished = templarArchiveTimings.begin()->first + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Templar_Archives);
+        // It's unlikely the enemy is building a templar archives as a fake-out
+        expectedCompletionFrame =
+                templarArchiveTimings.begin()->first
+                + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Templar_Archives)
+                + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar);
     }
     else
     {
+        // If we've scouted a citadel, so assume the templar archives is started as soon as the citadel finishes, unless
+        // we've scouted the base in the meantime or our previous game data indicates it is likely to be a fake-out
         auto &citadelTimings = Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Citadel_of_Adun);
-        if (!citadelTimings.empty())
+        if (!citadelTimings.empty() && expectedCompletionFrame < 10000)
         {
-            // We've scouted a citadel, so assume the templar archives is started as soon as the citadel finishes, unless
-            // we've scouted the base in the meantime
-            templarArchivesFinished = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Templar_Archives) +
-                                      std::max(enemyMain->lastScouted,
-                                               citadelTimings.begin()->first + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Citadel_of_Adun));
-        }
-        else
-        {
-            // We haven't scouted a templar archives or citadel, so assume the enemy started at frame 4000 unless we have scouted
-            // since then
-            templarArchivesFinished = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Templar_Archives) +
-                                      UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Citadel_of_Adun) +
-                                      std::max(4000, enemyMain->lastScouted);
+            expectedCompletionFrame =
+                    UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Templar_Archives)
+                    + std::max(enemyMain->lastScouted,
+                               citadelTimings.begin()->first + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Citadel_of_Adun))
+                               + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar);
         }
     }
 
-    // Next compute the transit time from the enemy's closest gateway
+    // Compute the transit time from the enemy's closest gateway
     auto myMainChoke = Map::getMyMainChoke();
     auto myPosition = myMainChoke ? myMainChoke->center : Map::getMyMain()->getPosition();
     int closestGatewayFrames = PathFinding::ExpectedTravelTime(enemyMain->getPosition(),
@@ -868,14 +871,13 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     }
 
 #if OUTPUT_DETECTION_DEBUG
-    CherryVis::log() << "detection: expect templar archives @ " << templarArchivesFinished
-                     << "; DT @ " << (UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar) + templarArchivesFinished)
+    CherryVis::log() << "detection: expected DT completion @ " << expectedCompletionFrame
                      << "; DT at our choke @ "
-                     << (closestGatewayFrames + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar) + templarArchivesFinished);
+                     << (closestGatewayFrames + expectedCompletionFrame);
 #endif
 
     // Now sum everything up to get the frame where we need detection
-    int frame = templarArchivesFinished + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar) + closestGatewayFrames;
+    int frame = expectedCompletionFrame + closestGatewayFrames;
     if (templarArchiveTimings.empty())
     {
         buildCannon(frame);
