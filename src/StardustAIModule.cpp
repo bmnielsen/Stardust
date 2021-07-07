@@ -125,6 +125,7 @@ void StardustAIModule::onStart()
 
 void StardustAIModule::onEnd(bool isWinner)
 {
+    Opponent::gameEnd(isWinner);
     WorkerOrderTimer::write();
     CherryVis::gameEnd();
 }
