@@ -810,7 +810,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     int expectedCompletionFrame = 7300;
     if (Opponent::winLossRatio(0.0, 200) < 0.99)
     {
-        expectedCompletionFrame = Opponent::minValueInPreviousGames("firstDarkTemplarCompleted", 7300, 20000, 15, 10);
+        expectedCompletionFrame = Opponent::minValueInPreviousGames("firstDarkTemplarCompleted", 7300, 15, 10);
     }
 
     // If we haven't found the enemy main, be conservative and assume we might see DTs 500 frames after earliest completion

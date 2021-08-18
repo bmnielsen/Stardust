@@ -184,7 +184,7 @@ void AntiCannonRush::update()
     if (Opponent::winLossRatio(0.0, 200) < 0.99)
     {
         int worstCasePylonFrame =
-                Opponent::minValueInPreviousGames("pylonInOurMain", 0, 20000, 15, 10);
+                Opponent::minValueInPreviousGames("pylonInOurMain", 0, 15, 10);
         if (!builtPylon && worstCasePylonFrame > (BWAPI::Broodwar->getFrameCount() + 500))
         {
             return;
