@@ -268,9 +268,12 @@ namespace PathFinding
     {
         if (unitType.topSpeed() < 0.0001) return 0;
 
-        int dist = unitType.isFlyer()
-                   ? start.getApproxDistance(end)
-                   : GetGroundDistance(start, end, unitType, options);
+        if (unitType.isFlyer())
+        {
+            return (int) ((double) start.getApproxDistance(end) / unitType.topSpeed());
+        }
+
+        int dist = GetGroundDistance(start, end, unitType, options);
         if (dist == -1) return defaultIfInaccessible;
         return (int) ((double) dist * 1.4 / unitType.topSpeed());
     }

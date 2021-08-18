@@ -265,9 +265,14 @@ namespace Units
             {
                 Log::Get() << "First enemy of type discovered: " << *unit;
 
+                // Track some common tech rush units in our opponent model
                 if (unit->type == BWAPI::UnitTypes::Protoss_Dark_Templar)
                 {
                     Opponent::setGameValue("firstDarkTemplarCompleted", completionFrame);
+                }
+                else if (unit->type == BWAPI::UnitTypes::Zerg_Mutalisk)
+                {
+                    Opponent::setGameValue("firstMutaliskCompleted", completionFrame);
                 }
             }
 

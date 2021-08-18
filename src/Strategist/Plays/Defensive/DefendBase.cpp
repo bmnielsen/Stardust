@@ -9,6 +9,7 @@
 #include "PathFinding.h"
 #include "BuildingPlacement.h"
 #include "Builder.h"
+#include "Opponent.h"
 
 DefendBase::DefendBase(Base *base, int enemyValue)
         : Play((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
@@ -310,15 +311,24 @@ int DefendBase::desiredCannons()
     }
 
     // Next, if the enemy is Zerg, guard against mutas we haven't scouted
-    // TODO: Consider value of seen units to determine if the enemy could have gone for mutas
-    if (!enemyAirThreat && BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg && BWAPI::Broodwar->getFrameCount() > 10000)
+    // TODO: Do economic modelling to determine if the enemy could have mutas
+    auto enemyMain = Map::getEnemyStartingMain();
+    if (!enemyAirThreat && BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg && enemyMain)
     {
-        auto enemyMain = Map::getEnemyStartingMain();
-        if (enemyMain && enemyMain->owner == BWAPI::Broodwar->enemy()
-            && enemyMain->lastScouted < (BWAPI::Broodwar->getFrameCount() - UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Spire)))
+        // We use our opponent model to determine the worst-case completion frame, unless we have never lost a game against this opponent, in
+        // which case we assume the worst
+        int expectedMutaliskCompletionFrame = 8500;
+        if (Opponent::winLossRatio(0.0, 200) < 0.99)
         {
-            enemyAirThreat = true;
+            expectedMutaliskCompletionFrame = Opponent::minValueInPreviousGames("firstMutaliskCompleted", 8500, 20000, 15, 10);
         }
+
+        int flightTime = PathFinding::ExpectedTravelTime(base->getPosition(), enemyMain->getPosition(), BWAPI::UnitTypes::Zerg_Mutalisk) - 50;
+
+        int cannonBuildTime = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
+        if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Forge) < 1) cannonBuildTime += UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Forge);
+
+        if (BWAPI::Broodwar->getFrameCount() > (expectedMutaliskCompletionFrame + flightTime - cannonBuildTime)) enemyAirThreat = true;
     }
 
     // Main and natural are special cases, we only get cannons there to defend against air threats

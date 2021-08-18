@@ -181,7 +181,7 @@ void AntiCannonRush::update()
     // Use our previous game results to determine when the play should go "active", i.e. reserve a worker
     // We start our scouting 500 frames before we've previously seen a pylon start
     // An exception is if we have never lost to this opponent, in which case we play it safe
-    if (Opponent::winLossRatio(0.0) < 0.99)
+    if (Opponent::winLossRatio(0.0, 200) < 0.99)
     {
         int worstCasePylonFrame =
                 Opponent::minValueInPreviousGames("pylonInOurMain", 0, 20000, 15, 10);
