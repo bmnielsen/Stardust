@@ -118,7 +118,7 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
                                                                -1);
 
     // Upgrade goon range at 2 dragoons unless we are still behind in zealots
-    if (zealotsRequired == 0 || zealotCount > 4)
+    if (zealotsRequired <= 0 || zealotCount > 4 || dragoonCount > 10)
     {
         upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
     }
