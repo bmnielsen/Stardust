@@ -193,3 +193,17 @@ TEST(Initialization, NeoHeartbreakerRidge)
     test.expectWin = false;
     test.run();
 }
+
+TEST(Initialization, CircuitBreaker)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Breaker");
+    test.randomSeed = 40072;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.run();
+}
