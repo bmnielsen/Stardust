@@ -143,7 +143,7 @@ namespace Producer
                     , producer(nullptr)
                     , isPrerequisite(false)
                     , queuedBuilding(queuedBuilding)
-                    , buildLocation(InvalidBuildLocation)
+                    , buildLocation(BuildingPlacement::BuildLocation(Block::Location(queuedBuilding->tile), 0, 0, 0))
                     , reservedBuilder(nullptr)
                     , estimatedWorkerMovementTime(0) {}
         };
@@ -495,27 +495,47 @@ namespace Producer
         // For buildings, whether this building can produce an item at the given location
         bool canProduceFrom(const Type &type, const ProductionLocation &location, const ProductionItem &producerItem)
         {
-            // For now we just check the case where we want to produce a worker from a specific base
-            auto unitType = std::get_if<BWAPI::UnitType>(&type);
-            if (!unitType || !unitType->isWorker()) return true;
-
+            // Handle case where we want to produce a worker from a specific base
             auto base = std::get_if<Base *>(&location);
-            if (!base) return true;
+            if (base)
+            {
+                auto unitType = std::get_if<BWAPI::UnitType>(&type);
+                if (!unitType || !unitType->isWorker()) return true;
 
-            return producerItem.buildLocation.location.tile == (*base)->getTilePosition();
+                return producerItem.buildLocation.location.tile == (*base)->getTilePosition();
+            }
+
+            // Handle case where we want to produce from a specific neighbourhood
+            auto neighbourhood = std::get_if<BuildingPlacement::Neighbourhood>(&location);
+            if (neighbourhood)
+            {
+                return BuildingPlacement::isInNeighbourhood(producerItem.buildLocation.location.tile, *neighbourhood);
+            }
+
+            return true;
         }
 
         // For buildings, whether this building can produce an item at the given location
         bool canProduceFrom(const Type &type, const ProductionLocation &location, const MyUnit &producer)
         {
-            // For now we just check the case where we want to produce a worker from a specific base
-            auto unitType = std::get_if<BWAPI::UnitType>(&type);
-            if (!unitType || !unitType->isWorker()) return true;
-
+            // Handle case where we want to produce a worker from a specific base
             auto base = std::get_if<Base *>(&location);
-            if (!base) return true;
+            if (base)
+            {
+                auto unitType = std::get_if<BWAPI::UnitType>(&type);
+                if (!unitType || !unitType->isWorker()) return true;
 
-            return producer == (*base)->resourceDepot;
+                return producer == (*base)->resourceDepot;
+            }
+
+            // Handle case where we want to produce from a specific neighbourhood
+            auto neighbourhood = std::get_if<BuildingPlacement::Neighbourhood>(&location);
+            if (neighbourhood)
+            {
+                return BuildingPlacement::isInNeighbourhood(producer->buildTile, *neighbourhood);
+            }
+
+            return true;
         }
 
         // Shifts one item in the given set by the given amount
@@ -629,7 +649,7 @@ namespace Producer
             if (pylon.buildLocation.location.tile.isValid()) return;
 
             auto fixedNeighbourhood = std::get_if<BuildingPlacement::Neighbourhood>(&pylon.location);
-            auto neighbourhood = fixedNeighbourhood ? *fixedNeighbourhood : BuildingPlacement::Neighbourhood::MainBase;
+            auto neighbourhood = fixedNeighbourhood ? *fixedNeighbourhood : BuildingPlacement::Neighbourhood::AllMyBases;
 
             auto &pylonLocations = buildLocations[neighbourhood][2];
             if (pylonLocations.empty()) return;
@@ -707,7 +727,7 @@ namespace Producer
                 if (!unitType->requiresPsi()) continue;
 
                 auto locationNeighbourhood = std::get_if<BuildingPlacement::Neighbourhood>(&item.location);
-                auto neighbourhood = locationNeighbourhood ? *locationNeighbourhood : BuildingPlacement::Neighbourhood::MainBase;
+                auto neighbourhood = locationNeighbourhood ? *locationNeighbourhood : BuildingPlacement::Neighbourhood::AllMyBases;
                 auto &locations = buildLocations[neighbourhood][unitType->tileWidth()];
 
                 // Get the frame when the next available build location will be powered
@@ -864,7 +884,7 @@ namespace Producer
         // Finds the frame where we have enough of a resource for the item and its prerequisites
         int frameWhenResourcesMet(const ProductionItem &item, ProductionItemSet &prerequisiteItems, bool isMinerals)
         {
-            auto resource = isMinerals ? minerals : gas;
+            auto &resource = isMinerals ? minerals : gas;
             int itemCost = isMinerals ? item.mineralPrice() : item.gasPrice();
 
             int f;
@@ -1483,6 +1503,9 @@ namespace Producer
         // Pulls refineries earlier if there are minerals available to do so
         void pullRefineries()
         {
+            // Disable for now, since it doesn't make sense to have an excess of gas through the early game
+            return;
+
             auto refineryType = BWAPI::Broodwar->self()->getRace().getRefinery();
             for (auto it = committedItems.begin(); it != committedItems.end(); it++)
             {
@@ -1623,7 +1646,7 @@ namespace Producer
             for (auto &item : prerequisiteItems)
             {
                 if (item->is(producerType) && canProduceFrom(type, location, *item))
-                    producers.push_back(std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame)));
+                    producers.emplace_back(std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame)));
             }
 
             // Committed producers
@@ -1647,7 +1670,7 @@ namespace Producer
                 }
                 else
                 {
-                    producers.push_back(std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame)));
+                    producers.emplace_back(std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame)));
                 }
             }
 
@@ -1695,12 +1718,17 @@ namespace Producer
                 existingProducers[unit] = producer;
             }
 
-            // If we at this point have no producers, it means we have added a location restriction that could not be met
+            // If we at this point have no producers, it means we have buildings that can produce the item, but not in the location we need
+            // So add a new producer at the correct location to the prerequisite items
             if (producers.empty())
             {
-                if (unitType) Log::Get() << "WARNING: No producers for " << *unitType;
-                if (upgradeOrTechType) Log::Get() << "WARNING: No producers for " << *upgradeOrTechType;
-                return;
+                int startFrame = std::max(0, prerequisitesAvailable - UnitUtil::BuildTime(producerType));
+                auto producerItem = std::make_shared<ProductionItem>(producerType, startFrame, location);
+                prerequisiteItems.insert(producerItem);
+
+                reserveBuildPositions(prerequisiteItems);
+
+                producers.emplace_back(std::make_shared<Producer>(producerItem, std::max(prerequisitesAvailable, producerItem->completionFrame)));
             }
 
             // Step 3: Repeatedly commit a unit from the earliest producer available, or a new one if applicable, until we have built enough
@@ -1942,7 +1970,11 @@ namespace Producer
                     (item->startFrame - item->buildLocation.builderFrames) <= BWAPI::Broodwar->getRemainingLatencyFrames())
                 {
                     // TODO: Should be resolved earlier
-                    if (!item->buildLocation.location.tile.isValid()) continue;
+                    if (!item->buildLocation.location.tile.isValid())
+                    {
+                        Log::Get() << "ERROR: No build location for " << *unitType;
+                        continue;
+                    }
 
                     // Special case: never try to build a prerequisite cybernetics core before the assimilator has been queued
                     // This may happen because a worker needs to travel further to the core build location

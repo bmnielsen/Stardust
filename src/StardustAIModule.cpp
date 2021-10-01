@@ -15,6 +15,7 @@
 #include "WorkerOrderTimer.h"
 #include "Bullets.h"
 #include "Players.h"
+#include "Geo.h"
 
 // While instrumenting we have a lower global frame limit to ensure we get data if the game locks up
 #if INSTRUMENTATION_ENABLED_VERBOSE
@@ -34,6 +35,7 @@
 #define GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_ENEMY 0
 #define AIR_THREAT_HEATMAP_FREQUENCY_ENEMY 0
 #define DETECTION_HEATMAP_FREQUENCY_ENEMY 0
+#define STASIS_RANGE_HEATMAP_FREQUENCY_ENEMY 0
 
 #define COLLISION_HEATMAP_FREQUENCY_MINE 0
 #define GROUND_THREAT_HEATMAP_FREQUENCY_MINE 0
@@ -70,6 +72,7 @@ void StardustAIModule::onStart()
     Workers::initialize();
     Bullets::initialize();
     Players::initialize();
+    Geo::initialize();
     PathFinding::clearGrids();
     PathFinding::initializeSearch();
 
@@ -122,6 +125,7 @@ void StardustAIModule::onStart()
 
 void StardustAIModule::onEnd(bool isWinner)
 {
+    Opponent::gameEnd(isWinner);
     WorkerOrderTimer::write();
     CherryVis::gameEnd();
 }
@@ -130,6 +134,8 @@ void StardustAIModule::onFrame()
 {
     if (BWAPI::BroodwarPtr->getFrameCount() < frameSkip) return;
     if (gameFinished) return;
+    if (BWAPI::Broodwar->isPaused()) return;
+    if (BWAPI::Broodwar->isReplay()) return;
 
 #ifdef FRAME_LIMIT
     if (BWAPI::Broodwar->getFrameCount() > FRAME_LIMIT)
@@ -287,6 +293,12 @@ void StardustAIModule::onFrame()
     if (BWAPI::Broodwar->getFrameCount() % DETECTION_HEATMAP_FREQUENCY_MINE == 0)
     {
         Players::grid(BWAPI::Broodwar->self()).dumpDetectionHeatmapIfChanged("DetectionMine");
+    }
+#endif
+#if STASIS_RANGE_HEATMAP_FREQUENCY_ENEMY
+    if (BWAPI::Broodwar->getFrameCount() % STASIS_RANGE_HEATMAP_FREQUENCY_ENEMY == 0)
+    {
+        Players::grid(BWAPI::Broodwar->enemy()).dumpStasisRangeHeatmapIfChanged("StasisRange");
     }
 #endif
 #if VISIBILITY_HEATMAP_FREQUENCY

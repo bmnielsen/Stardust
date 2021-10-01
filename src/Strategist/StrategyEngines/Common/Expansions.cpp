@@ -97,19 +97,25 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Determine whether we want to expand now
-    bool wantToExpand = true;
+    bool gasStarved = BWAPI::Broodwar->self()->minerals() > 1500 && BWAPI::Broodwar->self()->gas() < 500;
+    int excessMineralAssignments = 0;
+    if (!gasStarved)
     {
         // Expand if we have no bases with more than 3 available mineral assignments
-        // If the enemy is contained, set the threshold to 6 instead
         // Adjust by the number of pending expansions to avoid instability when a build worker is reserved for the expansion
-        int availableMineralAssignmentsThreshold = (Strategist::isEnemyContained() ? 6 : 3) + takeExpansionPlays.size();
+        int availableMineralAssignmentsThreshold = 3 + takeExpansionPlays.size();
+
+        // If the enemy is contained, boost the threshold
+        // This is for now only applied to terran, since we can lose games against protoss and zerg by overexpanding
+        if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran && Strategist::isEnemyContained())
+        {
+            availableMineralAssignmentsThreshold += 3;
+        }
+
         for (auto base : Map::getMyBases())
         {
-            if (Workers::availableMineralAssignments(base) > availableMineralAssignmentsThreshold)
-            {
-                wantToExpand = false;
-                break;
-            }
+            excessMineralAssignments = std::max(excessMineralAssignments,
+                                                Workers::availableMineralAssignments(base) - availableMineralAssignmentsThreshold);
         }
     }
 
@@ -170,7 +176,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         {
             if (takeExpansionPlay->cancellable())
             {
-                if (!wantToExpand || !safe ||
+                if (excessMineralAssignments > 1 || !safe ||
                     takeExpansionPlay->enemyValue > 4 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
                 {
                     takeExpansionPlay->status.complete = true;
@@ -183,8 +189,12 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         return;
     }
 
-    // Take an island expansion when we are on two bases, want to expand and it is safe to do so
-    if (takeIslandExpansionPlays.empty() && wantToExpand && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2)
+    // Take an island expansion in the following cases:
+    // - We are on three bases and already have a robo facility
+    // - We are contained on one base and it is after frame 16000
+    if (takeIslandExpansionPlays.empty() && excessMineralAssignments == 0 &&
+        ((Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Robotics_Facility) > 0)
+         || (BWAPI::Broodwar->getFrameCount() > 16000 && Units::countAll(BWAPI::UnitTypes::Protoss_Nexus) == 1 && Strategist::areWeContained())))
     {
         Base *closestIslandBase = nullptr;
         int closestIslandBaseDist = INT_MAX;
@@ -210,11 +220,13 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Break out if we don't want to expand to a normal base
-    if (!wantToExpand || !safeToExpand()) return;
+    if (excessMineralAssignments > 0 || !safeToExpand()) return;
 
     // Determine if we want to consider a mineral-only base
-    auto shouldTakeMineralOnly = []()
+    auto shouldTakeMineralOnly = [&gasStarved]()
     {
+        if (gasStarved) return false;
+
         // Take a mineral-only if we have an excess of gas
         if (BWAPI::Broodwar->self()->gas() > 1500) return true;
 
@@ -302,7 +314,7 @@ void StrategyEngine::takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &pl
     // Otherwise just queue the natural nexus as any normal macro item
 
     auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(natural->getTilePosition()),
-                                                          BuildingPlacement::builderFrames(BuildingPlacement::Neighbourhood::MainBase,
+                                                          BuildingPlacement::builderFrames(Map::getMyMain()->mineralLineCenter,
                                                                                            natural->getTilePosition(),
                                                                                            BWAPI::UnitTypes::Protoss_Nexus),
                                                           0, 0);

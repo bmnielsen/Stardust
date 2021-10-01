@@ -17,5 +17,8 @@ private:
     const BWEM::Area *mineralWalkingTargetArea;
     BWAPI::Position mineralWalkingStartPosition;
 
-    void attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking) override;
+    void attackUnit(const Unit &target,
+                    std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                    bool clusterAttacking,
+                    int enemyAoeRadius) override;
 };

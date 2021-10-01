@@ -211,13 +211,13 @@ void MyUnitImpl::moveToNextWaypoint()
     {
         // Get the next position after this waypoint
         BWAPI::Position next = targetPosition;
-        if (chokePath.size() > 1) next = BWAPI::Position(chokePath[1]->Center()) + BWAPI::Position(2, 2);
+        if (chokePath.size() > 1) next = BWAPI::Position(chokePath[1]->Center()) + BWAPI::Position(4, 4);
 
         // Move to the part of the choke closest to the next position
         int bestDist = currentlyMovingTowards.getApproxDistance(next);
         for (auto walkPosition : nextWaypoint->Geometry())
         {
-            auto pos = BWAPI::Position(walkPosition) + BWAPI::Position(2, 2);
+            auto pos = BWAPI::Position(walkPosition) + BWAPI::Position(4, 4);
             int dist = pos.getApproxDistance(next);
             if (dist < bestDist)
             {

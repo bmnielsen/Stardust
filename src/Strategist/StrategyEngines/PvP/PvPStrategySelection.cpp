@@ -1,10 +1,11 @@
 #include "StrategyEngines/PvP.h"
 
 #include "Map.h"
+#include "Plays/Macro/HiddenBase.h"
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Units.h"
 
-std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
+std::map <PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
         {OurStrategy::EarlyGameDefense, "EarlyGameDefense"},
         {OurStrategy::AntiZealotRush,   "AntiZealotRush"},
         {OurStrategy::FastExpansion,    "FastExpansion"},
@@ -19,11 +20,8 @@ namespace
     std::map<BWAPI::UnitType, int> emptyUnitCountMap;
 }
 
-PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, std::vector<std::shared_ptr<Play>> &plays)
+PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, std::vector <std::shared_ptr<Play>> &plays)
 {
-    int enemyStrategyStableFor = 0;
-    if (newEnemyStrategy == enemyStrategy) enemyStrategyStableFor = BWAPI::Broodwar->getFrameCount() - enemyStrategyChanged;
-
     auto canTransitionFromAntiZealotRush = [&]()
     {
         // Count total combat units
@@ -32,6 +30,22 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
         auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
         int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
                         completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+
+        // Transition immediately if we've misdetected a proxy rush
+        if (enemyStrategy == ProtossStrategy::ProxyRush &&
+            newEnemyStrategy != ProtossStrategy::WorkerRush &&
+            newEnemyStrategy != ProtossStrategy::ProxyRush &&
+            newEnemyStrategy != ProtossStrategy::ZealotRush &&
+            newEnemyStrategy != ProtossStrategy::ZealotAllIn)
+        {
+            return true;
+        }
+
+        // Transition immediately if we're past frame 4500 and haven't seen an enemy zealot yet
+        if (BWAPI::Broodwar->getFrameCount() > 4500 && !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Zealot))
+        {
+            return true;
+        }
 
         // Transition immediately if we've discovered a different enemy strategy and have at least three completed dragoons
         if (newEnemyStrategy != ProtossStrategy::BlockScouting &&
@@ -44,9 +58,20 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
             if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) <= unitCount) return true;
         }
 
-        // Require Dragoon Range
+        // Transition immediately if we have at least two dragoons and the enemy has expanded
+        if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) > 1 &&
+            completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] > 1)
+        {
+            return true;
+        }
+
+        // Require Dragoon Range to be started
         // TODO: This is probably much too conservative
-        if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0) return false;
+        if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0 &&
+            !Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
+        {
+            return false;
+        }
 
         // Transition when we have at least 10 units
         return unitCount >= 10;
@@ -54,12 +79,13 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
     auto isDTExpandFeasible = [&]()
     {
-        if (ourStrategy != OurStrategy::DTExpand && BWAPI::Broodwar->getFrameCount() > 9000) return false;
+        auto frameCutoff = getPlay<HiddenBase>(plays) == nullptr ? 9000 : 10500;
+        if (ourStrategy != OurStrategy::DTExpand && BWAPI::Broodwar->getFrameCount() > frameCutoff) return false;
 
         // Make sure our main choke is easily defensible
         auto choke = Map::getMyMainChoke();
-        if (!choke) return false;
-        if (Map::getMyMain() && Map::getMyNatural() &&
+        if (!choke || !choke->isNarrowChoke || !choke->isRamp) return false;
+        if (!Map::mapSpecificOverride()->hasBackdoorNatural() && Map::getMyMain() && Map::getMyNatural() &&
             BWAPI::Broodwar->getGroundHeight(Map::getMyMain()->getTilePosition())
             <= BWAPI::Broodwar->getGroundHeight(Map::getMyNatural()->getTilePosition()))
         {

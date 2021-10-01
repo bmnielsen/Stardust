@@ -62,6 +62,9 @@ namespace Map
 
     void setEnemyStartingNatural(Base *base);
 
+    // A base with gas that is far away from both starting bases
+    Base *getHiddenBase();
+
     Base *baseNear(BWAPI::Position position);
 
     std::set<Base *> unscoutedStartingLocations();

@@ -109,6 +109,7 @@ namespace
     bool isProxy()
     {
         if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
+        if (Units::countEnemy(BWAPI::UnitTypes::Terran_Refinery) > 0) return false;
 
         // Otherwise check if we have directly scouted an enemy building in a proxy location
         auto enemyMain = Map::getEnemyStartingMain();
@@ -262,18 +263,23 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
             case TerranStrategy::ProxyRush:
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;
 
-                // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their command center
-                if (!isProxy())
+                // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their depot
+                if (BWAPI::Broodwar->getFrameCount() < 6000 && !isProxy())
                 {
                     strategy = TerranStrategy::Unknown;
                     continue;
                 }
 
-                // Consider the rush to be over after 6000 frames
-                // From there the Normal handler will potentially transition into MarineAllIn
-                if (BWAPI::Broodwar->getFrameCount() >= 6000)
+                // We assume the enemy has transitioned from the proxy when either:
+                // - They have taken gas
+                // - Our scout is dead and we are past frame 5000
+                if (Units::countEnemy(BWAPI::UnitTypes::Terran_Refinery) > 0 ||
+                    (BWAPI::Broodwar->getFrameCount() >= 6000 &&
+                     (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted ||
+                      Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingFailed ||
+                      Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingBlocked)))
                 {
-                    strategy = TerranStrategy::NormalOpening;
+                    strategy = TerranStrategy::Unknown;
                     continue;
                 }
 

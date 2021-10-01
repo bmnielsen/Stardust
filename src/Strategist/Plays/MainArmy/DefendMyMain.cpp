@@ -159,7 +159,9 @@ void DefendMyMain::update()
     // Queue emergency production if:
     // - The squad has been regrouping recently
     // - The enemy has us outnumbered by more than two combat units
+    // - We don't have any completed cannons (vs. Terran)
     if (lastRegroupFrame > 0 && lastRegroupFrame > (BWAPI::Broodwar->getFrameCount() - REGROUP_EMERGENCY_TIMEOUT) &&
+        (BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran || Units::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon) == 0) &&
         (squad->combatUnitCount() == 0 || (enemyCombatUnits.size() + std::max(0, (int) enemyWorkers.size() - 1)) > (squad->combatUnitCount() + 2)))
     {
         auto desiredEmergencyProduction = requireDragoons ? BWAPI::UnitTypes::Protoss_Dragoon : BWAPI::UnitTypes::Protoss_Zealot;

@@ -25,7 +25,8 @@ namespace
                                     std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                                     std::set<Unit> &enemyUnits,
                                     std::set<MyUnit> &detectors,
-                                    const CombatSimResult &initialSimResult)
+                                    const CombatSimResult &initialSimResult,
+                                    BWAPI::Position targetPosition)
     {
         // Run a combat sim excluding enemy static defense
         std::vector<std::pair<MyUnit, Unit>> filteredUnitsAndTargets;
@@ -46,7 +47,7 @@ namespace
             if (!unit->isStaticGroundDefense()) filteredEnemyUnits.insert(unit);
         }
 
-        auto simResult = cluster.runCombatSim(filteredUnitsAndTargets, filteredEnemyUnits, detectors, false, initialSimResult.narrowChoke);
+        auto simResult = cluster.runCombatSim(targetPosition, filteredUnitsAndTargets, filteredEnemyUnits, detectors, false, initialSimResult.narrowChoke);
 
         bool contain = simResult.myPercentLost() <= 0.001 ||
                        (simResult.valueGain() > 0 && simResult.percentGain() > -0.05) ||
@@ -67,19 +68,20 @@ namespace
                             std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                             std::set<Unit> &enemyUnits,
                             std::set<MyUnit> &detectors,
-                            const CombatSimResult &initialSimResult)
+                            const CombatSimResult &initialSimResult,
+                            BWAPI::Position targetPosition)
     {
         if (!initialSimResult.narrowChoke) return false;
 
         // Never contain a choke that is covered by enemy static defense at both ends
-        auto grid = Players::grid(BWAPI::Broodwar->enemy());
+        auto &grid = Players::grid(BWAPI::Broodwar->enemy());
         if (grid.staticGroundThreat(initialSimResult.narrowChoke->end1Center) > 0 &&
             grid.staticGroundThreat(initialSimResult.narrowChoke->end2Center) > 0)
         {
             return false;
         }
 
-        auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors, false, initialSimResult.narrowChoke);
+        auto simResult = cluster.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors, false, initialSimResult.narrowChoke);
 
         double distanceFactor = 1.0;
         auto attack = [&]()
@@ -127,6 +129,8 @@ namespace
                          << (contain ? "; CONTAIN_CHOKE" : "; DON'T_CONTAIN_CHOKE");
 #endif
 
+        simResult.distanceFactor = distanceFactor;
+
         cluster.addRegroupSimResult(simResult, contain);
 
         // What we decide depends on the current regroup activity
@@ -147,7 +151,7 @@ namespace
                 // Continue if the sim hasn't been stable for 6 frames
                 if (consecutiveFleeFrames < 6)
                 {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
                     CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing contain as the sim has not yet been stable for 6 frames";
 #endif
                     return true;
@@ -156,7 +160,7 @@ namespace
                 // Continue if the sim has recommended containing more than fleeing
                 if (containFrames > fleeFrames)
                 {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
                     CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing contain; flee=" << fleeFrames
                                      << " vs. contain=" << containFrames;
 #endif
@@ -182,7 +186,7 @@ namespace
                 // Continue if the sim hasn't been stable for 6 frames
                 if (consecutiveContainFrames < 6)
                 {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
                     CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": not containing as the sim has not yet been stable for 6 frames";
 #endif
                     return false;
@@ -191,23 +195,23 @@ namespace
                 // Continue if the sim has recommended fleeing more than containing
                 if (fleeFrames > containFrames)
                 {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
                     CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing flee; flee=" << fleeFrames
                                      << " vs. contain=" << containFrames;
 #endif
                     return false;
                 }
 
-                // Continue if our number of units has increased in the past 12 frames.
+                // Continue if our number of units has increased in the past 60 frames.
                 // This gives our reinforcements time to link up with the rest of the cluster before containing.
                 int count = 0;
-                for (auto it = cluster.recentRegroupSimResults.rbegin(); it != cluster.recentRegroupSimResults.rend() && count < 12; it++)
+                for (auto it = cluster.recentRegroupSimResults.rbegin(); it != cluster.recentRegroupSimResults.rend() && count < 60; it++)
                 {
                     if (simResult.myUnitCount > it->first.myUnitCount)
                     {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
                         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                                         << ": waiting to contain as more friendly units have joined the cluster in the past 12 frames";
+                                         << ": waiting to contain as more friendly units have joined the cluster in the past 60 frames";
 #endif
                         return false;
                     }
@@ -231,9 +235,35 @@ namespace
         return false;
     }
 
-    bool shouldStandGround(const CombatSimResult &initialSimResult, bool hasValidTarget)
+    bool shouldStandGround(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, const CombatSimResult &initialSimResult, bool hasValidTarget)
     {
-        if (!hasValidTarget) return true;
+        // If none of our units has a target, and none of our units are in danger, stand ground
+        if (!hasValidTarget)
+        {
+            auto &grid = Players::grid(BWAPI::Broodwar->enemy());
+            bool anyThreat = false;
+            for (auto &unitAndTarget : unitsAndTargets)
+            {
+                if (unitAndTarget.first->isFlying)
+                {
+                    if (grid.airThreat(unitAndTarget.first->lastPosition) > 0)
+                    {
+                        anyThreat = true;
+                        break;
+                    }
+                }
+                else
+                {
+                    if (grid.groundThreat(unitAndTarget.first->lastPosition) > 0)
+                    {
+                        anyThreat = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!anyThreat) return true;
+        }
 
         // For now just stand ground if the sim result indicates no damage to our units
         // We may want to make this less strict later
@@ -248,31 +278,33 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                           BWAPI::Position targetPosition,
                           bool hasValidTarget)
 {
+    auto staticDefense = [&enemyUnits]()
+    {
+        for (const auto &unit : enemyUnits)
+        {
+            if (unit->isStaticGroundDefense())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
     // First choose which regrouping mode we want to use
     switch (currentSubActivity)
     {
         case SubActivity::None:
         {
-            // Does the enemy have static defense?
-            bool staticDefense = false;
-            for (const auto &unit : enemyUnits)
-            {
-                if (unit->isStaticGroundDefense())
-                {
-                    staticDefense = true;
-                    break;
-                }
-            }
-
-            if (staticDefense && shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            if (staticDefense() && shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::ContainStaticDefense);
             }
-            else if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            else if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::ContainChoke);
             }
-            else if (shouldStandGround(simResult, hasValidTarget))
+            else if (shouldStandGround(unitsAndTargets, simResult, hasValidTarget))
             {
                 setSubActivity(SubActivity::StandGround);
             }
@@ -285,7 +317,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::ContainStaticDefense:
         {
-            if (!shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            if (!shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::Flee);
             }
@@ -293,7 +325,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::ContainChoke:
         {
-            if (!shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            if (!shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::Flee);
             }
@@ -302,11 +334,11 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         case SubActivity::StandGround:
         {
             // We might be standing ground near a choke that we are now able to contain
-            if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::ContainChoke);
             }
-            else if (!shouldStandGround(simResult, hasValidTarget))
+            else if (!shouldStandGround(unitsAndTargets, simResult, hasValidTarget))
             {
                 // Flee if it is no longer safe to stand ground
                 setSubActivity(SubActivity::Flee);
@@ -316,12 +348,17 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::Flee:
         {
-            // We might flee through a choke that we can contain from the other side
-            if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult))
+            // We might be able to start containing static defense after fleeing a bit
+            // We might also flee through a choke that we can contain from the other side
+            if (staticDefense() && shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
+            {
+                setSubActivity(SubActivity::ContainStaticDefense);
+            }
+            else if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::ContainChoke);
             }
-            else if (shouldStandGround(simResult, hasValidTarget))
+            else if (shouldStandGround(unitsAndTargets, simResult, hasValidTarget))
             {
                 // While fleeing we will often link up with reinforcements, or the enemy will not pursue, so it makes sense to stand ground instead
                 setSubActivity(SubActivity::StandGround);

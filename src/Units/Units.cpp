@@ -20,11 +20,9 @@
 #define DEBUG_CARRIER_STATUS false
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS false
+#define DEBUG_ARBITER_STATUS false
 #define DEBUG_PRODUCINGBUILDING_STATUS false
 #define DEBUG_ENEMY_STATUS false
-#endif
-
-#if INSTRUMENTATION_ENABLED
 #define DEBUG_ENEMY_TIMINGS true
 #endif
 
@@ -71,7 +69,7 @@ namespace Units
         {
             if (unit->lastPositionValid && !unit->beingManufacturedOrCarried)
             {
-                Players::grid(unit->player).unitDestroyed(unit->type, unit->lastPosition, unit->completed, unit->burrowed);
+                Players::grid(unit->player).unitDestroyed(unit->type, unit->lastPosition, unit->completed, unit->burrowed, unit->immobile);
 #if DEBUG_GRID_UPDATES
                 CherryVis::log(unit->id) << "Grid::unitDestroyed " << unit->lastPosition;
                 Log::Debug() << *unit << ": Grid::unitDestroyed " << unit->lastPosition;
@@ -266,6 +264,11 @@ namespace Units
             if (enemyUnitTimings[unit->type].size() == 1)
             {
                 Log::Get() << "First enemy of type discovered: " << *unit;
+
+                if (unit->type == BWAPI::UnitTypes::Protoss_Dark_Templar)
+                {
+                    Opponent::setGameValue("firstDarkTemplarCompleted", completionFrame);
+                }
             }
 
             if (unit->type.isBuilding() && includeMorphs)
@@ -487,6 +490,15 @@ namespace Units
             {
                 researchInProgress.insert(bwapiUnit->getTech());
             }
+
+            if (bwapiUnit->getBuildUnit())
+            {
+                auto producing = unitIdToMyUnit.find(bwapiUnit->getBuildUnit()->getID());
+                if (producing != unitIdToMyUnit.end())
+                {
+                    producing->second->producer = bwapiUnit;
+                }
+            }
         }
 
         // Update visible enemy units
@@ -587,7 +599,7 @@ namespace Units
 
                 if (unit->lastPositionValid && !unit->beingManufacturedOrCarried)
                 {
-                    Players::grid(unit->player).unitDestroyed(unit->type, unit->lastPosition, unit->completed, unit->burrowed);
+                    Players::grid(unit->player).unitDestroyed(unit->type, unit->lastPosition, unit->completed, unit->burrowed, unit->immobile);
 #if DEBUG_GRID_UPDATES
                     CherryVis::log(unit->id) << "Grid::unitDestroyed " << unit->lastPosition;
                     Log::Debug() << *unit << ": Grid::unitDestroyed " << unit->lastPosition;
@@ -714,6 +726,9 @@ namespace Units
 #if DEBUG_OBSERVER_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Observer;
 #endif
+#if DEBUG_ARBITER_STATUS
+            output = output || unit->type == BWAPI::UnitTypes::Protoss_Arbiter;
+#endif
 #if DEBUG_PRODUCINGBUILDING_STATUS
             output = output || (unit->type.isBuilding() && unit->type.canProduce());
 #endif
@@ -761,6 +776,11 @@ namespace Units
                       << ";mvng=" << unit->bwapiUnit->isMoving() << ";rdy=" << unit->isReady()
                       << ";stk=" << unit->bwapiUnit->isStuck()
                       << ";lstmv=" << (unit->getLastMoveFrame() - BWAPI::Broodwar->getFrameCount());
+            }
+
+            if (unit->energy > 0)
+            {
+                debug << ";nrg=" << unit->energy;
             }
 
             debug << ";cdn=" << (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
@@ -936,6 +956,11 @@ namespace Units
     std::unordered_set<MyUnit> &allMineIncompleteOfType(BWAPI::UnitType type)
     {
         return myIncompleteUnitsByType[type];
+    }
+
+    std::map<BWAPI::UnitType, std::unordered_set<MyUnit>> &allMineIncompleteByType()
+    {
+        return myIncompleteUnitsByType;
     }
 
     std::unordered_set<Unit> &allEnemy()

@@ -18,7 +18,7 @@ namespace
         return mainAreas.find(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(pos))) != mainAreas.end();
     }
 
-    bool addEnemyUnits(std::set<Unit> &enemyUnits, Choke *choke)
+    bool addEnemyUnits(std::set<Unit> &enemyUnits, Choke *choke, BWAPI::Position clusterCenter = BWAPI::Positions::Invalid, int clusterRadius = -1)
     {
         // Get enemy combat units in our base
         auto combatUnitSeenRecentlyPredicate = [](const Unit &unit)
@@ -57,6 +57,12 @@ namespace
         if (choke)
         {
             Units::enemyInRadius(enemyUnits, choke->center, 192, combatUnitSeenRecentlyPredicate);
+        }
+
+        // If we passed a cluster center and a valid radius, get enemy combat units close to it
+        if (clusterCenter != BWAPI::Positions::Invalid && clusterRadius > 0)
+        {
+            Units::enemyInRadius(enemyUnits, clusterCenter, clusterRadius + BWAPI::UnitTypes::Terran_Marine.groundWeapon().maxRange() + 32);
         }
 
         // If there are no enemy combat units, include enemy buildings to defend against gas steals or other cheese
@@ -243,15 +249,25 @@ void EarlyGameDefendMainBaseSquad::initializeChoke()
 
         if (choke->isNarrowChoke)
         {
-            auto end1Dist = PathFinding::GetGroundDistance(base->getPosition(),
-                                                           choke->end1Center,
-                                                           BWAPI::UnitTypes::Protoss_Dragoon,
-                                                           PathFinding::PathFindingOptions::UseNearestBWEMArea);
-            auto end2Dist = PathFinding::GetGroundDistance(base->getPosition(),
-                                                           choke->end2Center,
-                                                           BWAPI::UnitTypes::Protoss_Dragoon,
-                                                           PathFinding::PathFindingOptions::UseNearestBWEMArea);
-            chokeDefendEnd = end1Dist < end2Dist ? choke->end1Center : choke->end2Center;
+            auto grid = PathFinding::getNavigationGrid(base->getTilePosition());
+            auto end1Node = grid ? &(*grid)[choke->end1Center] : nullptr;
+            auto end2Node = grid ? &(*grid)[choke->end2Center] : nullptr;
+            if (end1Node && end1Node->nextNode && end2Node && end2Node->nextNode)
+            {
+                chokeDefendEnd = end1Node->cost < end2Node->cost ? choke->end1Center : choke->end2Center;
+            }
+            else
+            {
+                auto end1Dist = PathFinding::GetGroundDistance(base->getPosition(),
+                                                               choke->end1Center,
+                                                               BWAPI::UnitTypes::Protoss_Dragoon,
+                                                               PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                auto end2Dist = PathFinding::GetGroundDistance(base->getPosition(),
+                                                               choke->end2Center,
+                                                               BWAPI::UnitTypes::Protoss_Dragoon,
+                                                               PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                chokeDefendEnd = end1Dist < end2Dist ? choke->end1Center : choke->end2Center;
+            }
         }
     }
     else
@@ -279,8 +295,19 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
 {
     if (Map::getMyMainChoke() != choke) initializeChoke();
 
+    // Against terran, add units that are close to our cluster units
+    // This handles cases where the enemy draws them out of the choke
+    int furthestFromCenter = -1;
+    if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran)
+    {
+        for (auto &unit : cluster.units)
+        {
+            furthestFromCenter = std::max(furthestFromCenter, unit->lastPosition.getApproxDistance(cluster.center));
+        }
+    }
+
     std::set<Unit> enemyUnits;
-    bool enemyInOurBase = addEnemyUnits(enemyUnits, choke);
+    bool enemyInOurBase = addEnemyUnits(enemyUnits, choke, cluster.center, furthestFromCenter);
 
     updateDetectionNeeds(enemyUnits);
 
@@ -305,7 +332,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     }
 
     // Run combat sim
-    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors, false);
+    auto simResult = cluster.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors, false);
 
     // Make the attack / retreat decision based on the sim result
     // TODO: Needs tuning
@@ -395,7 +422,10 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
             cluster.attack(unitsAndTargets, targetPosition);
         }
 
-        workerDefenseSquad->execute(workersAndTargets, unitsAndTargets);
+        if (cluster.isVanguardCluster)
+        {
+            workerDefenseSquad->execute(workersAndTargets, unitsAndTargets);
+        }
 
         return;
     }

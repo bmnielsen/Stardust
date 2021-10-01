@@ -2,6 +2,7 @@
 
 #include "Units.h"
 #include "UnitUtil.h"
+#include "Map.h"
 
 #include "DebugFlag_CombatSim.h"
 
@@ -9,7 +10,46 @@
 
 namespace
 {
-    bool shouldAttack(UnitCluster &cluster, const CombatSimResult &simResult, double aggression = 1.0)
+    bool pushedBackToNatural(UnitCluster &cluster, int threshold, int *pDist = nullptr)
+    {
+        if (!cluster.isVanguardCluster) return false;
+
+        auto natural = Map::getMyNatural();
+        if (!natural || natural->owner != BWAPI::Broodwar->self() || !natural->resourceDepot || !natural->resourceDepot->completed) return false;
+
+        auto dist = cluster.center.getApproxDistance(natural->getPosition());
+        if (pDist) *pDist = dist;
+        return dist < threshold;
+    }
+
+    double reinforcementFactor(UnitCluster &cluster, double closestReinforcements, double reinforcementPercentage)
+    {
+        // Only adjust for reinforcements when our army is out on the field
+        // TODO: Would also be nice to adjust for units in production when waiting to break out from our main
+        if (cluster.percentageToEnemyMain < 0.2) return 1.0;
+
+#if DEBUG_COMBATSIM_LOG
+        CherryVis::log() << std::setprecision(2) << BWAPI::WalkPosition(cluster.center)
+                         << ": cluster@" << cluster.percentageToEnemyMain
+                         << "; reinforcements@" << closestReinforcements
+                         << "; reinforcement%=" << reinforcementPercentage
+                         << "; dist=" << (1.0 - ((closestReinforcements / cluster.percentageToEnemyMain) / 2))
+                         << "; %=" << (1.0 - reinforcementPercentage)
+                         << "; adjustedDist=" << (1.0 - std::min(1.0, reinforcementPercentage / 0.2) *
+                                                        ((closestReinforcements / cluster.percentageToEnemyMain) / 2));
+#endif
+
+        // For distance, scale the effect from 0 (far away) to 0.5 (close)
+        double distanceFactor = (closestReinforcements / cluster.percentageToEnemyMain) / 2;
+
+        // Then scale it lower if the number of reinforcements is low
+        distanceFactor *= std::min(1.0, reinforcementPercentage / 0.2);
+
+        // Combine with the reinforcement percentage
+        return (1.0 - distanceFactor) * (1.0 - reinforcementPercentage);
+    }
+
+    bool shouldAttack(UnitCluster &cluster, CombatSimResult &simResult, double aggression = 1.0)
     {
         double distanceFactor = 1.0;
 
@@ -53,7 +93,9 @@ namespace
             }
 
             // Attack if we expect to end the fight with a sufficiently larger army and aren't losing an unacceptable percentage of it
-            if (simResult.myPercentageOfTotal() > (1.0 - 0.45 * distanceFactor) && simResult.percentGain() > -0.05 * distanceFactor)
+            double percentOfTotal = simResult.myPercentageOfTotal() - (0.9 - 0.35 * distanceFactor * aggression);
+            if (percentOfTotal > 0.0
+                && simResult.percentGain() > (-0.05 * distanceFactor * aggression - percentOfTotal))
             {
                 return true;
             }
@@ -66,6 +108,9 @@ namespace
         };
 
         bool result = attack();
+
+        simResult.distanceFactor = distanceFactor;
+        simResult.aggression = aggression;
 
 #if DEBUG_COMBATSIM_LOG
         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
@@ -80,16 +125,48 @@ namespace
         return result;
     }
 
-    bool shouldStartAttack(UnitCluster &cluster, CombatSimResult &simResult)
+    bool shouldStartAttack(UnitCluster &cluster,
+                           CombatSimResult &simResult,
+                           double closestReinforcements,
+                           double reinforcementPercentage)
     {
-        bool attack = shouldAttack(cluster, simResult);
+        double aggression = reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage);
+
+        // Increase aggression if we are trying to fight our way out of our natural
+        int naturalDist;
+        if (pushedBackToNatural(cluster, 800, &naturalDist))
+        {
+            // Scales linearly from 1.0 at 1000 distance to 2.0 at <500 distance
+            aggression *= 1.0 + (1000.0 - std::max((double)naturalDist, 500.0)) / 500.0;
+        }
+
+        bool attack = shouldAttack(cluster, simResult, aggression);
         cluster.addSimResult(simResult, attack);
         return attack;
     }
 
-    bool shouldContinueAttack(UnitCluster &cluster, CombatSimResult &simResult)
+    bool shouldContinueAttack(UnitCluster &cluster,
+                              CombatSimResult &simResult,
+                              double closestReinforcements,
+                              double reinforcementPercentage)
     {
-        bool attack = shouldAttack(cluster, simResult, 1.2);
+        double aggression = 1.2;
+
+        // Increase aggression if we are close to maxed and have no significant reinforcements incoming
+        if (BWAPI::Broodwar->self()->supplyUsed() > 300 && reinforcementPercentage < 0.15)
+        {
+            aggression += 0.005 * (double)(BWAPI::Broodwar->self()->supplyUsed() - 300);
+        }
+
+        // Increase aggression if we are trying to fight our way out of our natural
+        int naturalDist;
+        if (pushedBackToNatural(cluster, 800, &naturalDist))
+        {
+            // Scales linearly from 1.0 at 1000 distance to 2.0 at <500 distance
+            aggression *= 1.0 + (1000.0 - std::max((double)naturalDist, 500.0)) / 500.0;
+        }
+
+        bool attack = shouldAttack(cluster, simResult, aggression);
 
         cluster.addSimResult(simResult, attack);
 
@@ -134,7 +211,7 @@ namespace
         // Continue if the sim hasn't been stable for 6 frames
         if (consecutiveRetreatFrames < 6)
         {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
             CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing attack as the sim has not yet been stable for 6 frames";
 #endif
             return true;
@@ -143,7 +220,7 @@ namespace
         // Continue if the sim has recommended attacking more than regrouping
         if (attackFrames > regroupFrames)
         {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
             CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing attack; regroup=" << regroupFrames
                              << " vs. attack=" << attackFrames;
 #endif
@@ -159,11 +236,15 @@ namespace
         return false;
     }
 
-    bool shouldStopRegrouping(UnitCluster &cluster, CombatSimResult &simResult)
+    bool shouldStopRegrouping(UnitCluster &cluster,
+                              CombatSimResult &simResult,
+                              double closestReinforcements,
+                              double reinforcementPercentage)
     {
-        // Always attack if we are maxed
-        if (BWAPI::Broodwar->self()->supplyUsed() > 380)
+        // Always attack if we are maxed and have no significant reinforcements incoming
+        if (BWAPI::Broodwar->self()->supplyUsed() > 380 && reinforcementPercentage < 0.075)
         {
+            cluster.addSimResult(simResult, true);
             return true;
         }
 
@@ -177,6 +258,16 @@ namespace
             // Scale based on length: 0 pixels long gives no reduction, 128 or higher gives 0.35 reduction
             aggression -= std::max(0.0, 0.35 * std::min(1.0, ((double) simResult.narrowChoke->length) / 128.0));
         }
+
+        // Adjust the aggression for reinforcements
+        aggression *= reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage);
+
+        // Adjust the aggression if we have been pushed back into our natural
+        if (pushedBackToNatural(cluster, 500))
+        {
+            aggression *= 2.0;
+        }
+
         bool attack = shouldAttack(cluster, simResult, aggression);
 
         cluster.addSimResult(simResult, attack);
@@ -190,7 +281,7 @@ namespace
         // Continue if the sim hasn't been stable for 12 frames
         if (consecutiveAttackFrames < 12)
         {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
             CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing regroup as the sim has not yet been stable for 12 frames";
 #endif
             return false;
@@ -199,23 +290,23 @@ namespace
         // Continue if the sim has recommended regrouping more than attacking
         if (regroupFrames > attackFrames)
         {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
             CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing regroup; regroup=" << regroupFrames
                              << " vs. attack=" << attackFrames;
 #endif
             return false;
         }
 
-        // Continue if our number of units has increased in the past 48 frames.
+        // Continue if our number of units has increased in the past 72 frames.
         // This gives our reinforcements time to link up with the rest of the cluster before engaging.
         int count = 0;
-        for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 48; it++)
+        for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 72; it++)
         {
             if (simResult.myUnitCount > it->first.myUnitCount)
             {
-#if DEBUG_COMBATSIM
+#if DEBUG_COMBATSIM_LOG
                 CherryVis::log() << BWAPI::WalkPosition(cluster.center)
-                                 << ": continuing regroup as more friendly units have joined the cluster in the past 48 frames";
+                                 << ": continuing regroup as more friendly units have joined the cluster in the past 72 frames";
 #endif
                 return false;
             }
@@ -277,9 +368,31 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     }
 
     // Run combat sim
-    auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors);
+    auto simResult = cluster.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors);
 
     // TODO: If our units can't do any damage (e.g. ground-only vs. air, melee vs. kiting ranged units), do something else
+
+    // Find the closest reinforcements to our army
+    // Here reinforcements are defined as a cluster further away from the target position that is moving
+    double closestReinforcements = 0.0;
+    int totalReinforcements = 0;
+    for (auto &other : clusters)
+    {
+        if (other->center == cluster.center) continue;
+        if (other->percentageToEnemyMain > cluster.percentageToEnemyMain) continue;
+        if (other->currentActivity != UnitCluster::Activity::Moving) continue;
+
+        totalReinforcements += other->units.size();
+
+        if (other->percentageToEnemyMain > closestReinforcements)
+        {
+            closestReinforcements = other->percentageToEnemyMain;
+        }
+    }
+    double reinforcementPercentage = (double) totalReinforcements / (double) (cluster.units.size() + totalReinforcements);
+
+    simResult.closestReinforcements = closestReinforcements;
+    simResult.reinforcementPercentage = reinforcementPercentage;
 
     // Make the final decision based on what state we are currently in
 
@@ -287,27 +400,27 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     switch (cluster.currentActivity)
     {
         case UnitCluster::Activity::Moving:
-            attack = shouldStartAttack(cluster, simResult);
+            attack = shouldStartAttack(cluster, simResult, closestReinforcements, reinforcementPercentage);
             break;
         case UnitCluster::Activity::Attacking:
-            attack = shouldContinueAttack(cluster, simResult);
+            attack = shouldContinueAttack(cluster, simResult, closestReinforcements, reinforcementPercentage);
             break;
         case UnitCluster::Activity::Regrouping:
-            attack = shouldStopRegrouping(cluster, simResult);
+            attack = shouldStopRegrouping(cluster, simResult, closestReinforcements, reinforcementPercentage);
             break;
     }
 
     if (attack || ignoreCombatSim)
     {
+        cluster.setActivity(UnitCluster::Activity::Attacking);
+
         // Move instead if none of our units have a valid target
         if (!hasValidTarget)
         {
-            cluster.setActivity(UnitCluster::Activity::Moving);
             cluster.move(targetPosition);
             return;
         }
 
-        cluster.setActivity(UnitCluster::Activity::Attacking);
         cluster.attack(unitsAndTargets, targetPosition);
         return;
     }

@@ -37,6 +37,8 @@ namespace FAP {
 
   template<typename UnitExtension = std::tuple<>>
   struct FastAPproximation {
+    FastAPproximation(std::vector<unsigned char> &collision) : collision(collision) {}
+
     /**
      * \brief Adds the unit to the simulator for player 1, only if it is a combat unit
      * \param fu The FAPUnit to add
@@ -86,7 +88,8 @@ namespace FAP {
     // Current approach to collisions: allow two units to share the same grid cell, using half-tile resolution
     // This seems to strike a reasonable balance between improving how large melee armies are simmed and avoiding
     // expensive collision-based pathing calculations
-    std::vector<unsigned char> collision = std::vector<unsigned char>(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
+    std::vector<unsigned char> &collision;
+
     template<bool choke>
     void initializeCollision(FAPUnit<UnitExtension> &fu);
     template<bool choke = false>
@@ -98,6 +101,7 @@ namespace FAP {
     template<bool choke = false>
     int distSquared(FAPUnit<UnitExtension> const &u1, const FAPUnit<UnitExtension> &u2);
     static int isInRange(FAPUnit<UnitExtension> const &attacker, const FAPUnit<UnitExtension> &target, int minRange, int maxRange);
+    static int edgeToPointDistance(FAPUnit<UnitExtension> const &fu, int x, int y);
     static bool isSuicideUnit(BWAPI::UnitType ut);
 
     template<bool tankSplash, bool choke>
@@ -140,6 +144,8 @@ namespace FAP {
   constexpr bool AssertValidUnit() {
     static_assert(Unit<uv>::hasFlag(UnitValues::x));
     static_assert(Unit<uv>::hasFlag(UnitValues::y));
+    static_assert(Unit<uv>::hasFlag(UnitValues::targetX));
+    static_assert(Unit<uv>::hasFlag(UnitValues::targetY));
     static_assert(Unit<uv>::hasFlag(UnitValues::health));
     static_assert(Unit<uv>::hasFlag(UnitValues::maxHealth));
     static_assert(Unit<uv>::hasFlag(UnitValues::armor));
@@ -343,6 +349,39 @@ namespace FAP {
   }
 
   template<typename UnitExtension>
+  int FastAPproximation<UnitExtension>::edgeToPointDistance(FAPUnit<UnitExtension> const &fu, int x, int y) {
+    // Compute edge-to-edge x and y offsets
+    int xDist =
+      fu.x > x
+      ? ((fu.x - fu.unitType.dimensionLeft()) - x - 1)
+      : (x - (fu.x + fu.unitType.dimensionRight()) - 1);
+    int yDist =
+      fu.y > y
+      ? ((fu.y - fu.unitType.dimensionUp()) - y - 1)
+      : (y - (fu.y + fu.unitType.dimensionDown()) - 1);
+    if (xDist < 0) xDist = 0;
+    if (yDist < 0) yDist = 0;
+
+    // Do the BW approximate distance calculation
+    if (xDist < yDist)
+    {
+      if (xDist < (yDist >> 2)) {
+        return yDist;
+      }
+
+      unsigned int minCalc = (3 * xDist) >> 3;
+      return ((minCalc >> 5) + minCalc + yDist - (yDist >> 4) - (yDist >> 6));
+    }
+
+    if (yDist < (xDist >> 2)) {
+      return xDist;
+    }
+
+    unsigned int minCalc = (3 * yDist) >> 3;
+    return ((minCalc >> 5) + minCalc + xDist - (xDist >> 4) - (xDist >> 6));
+  }
+
+  template<typename UnitExtension>
   bool FastAPproximation<UnitExtension>::isSuicideUnit(BWAPI::UnitType const ut) {
     return (ut == BWAPI::UnitTypes::Zerg_Scourge ||
       ut == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine ||
@@ -359,6 +398,7 @@ namespace FAP {
     } else {
       collision[fu.cell] += fu.collisionValue;
     }
+    fu.targetCell = (fu.targetX >> 4) + ((fu.targetY >> 4) * BWAPI::Broodwar->mapWidth() * 2);
   }
 
   template<typename UnitExtension>
@@ -474,7 +514,17 @@ namespace FAP {
       if (closestEnemy != enemyUnits.end()) fu.target = closestEnemy->id;
     }
 
-    auto defendChoke = [this](FAPUnit<UnitExtension> &fu, FAPUnit<UnitExtension> &target) {
+    auto updatePositionTowards = [this](FAPUnit<UnitExtension> &fu, int dx, int dy) {
+      auto ds = dx * dx + dy * dy;
+      if (ds > 0) {
+        auto r = fu.speed / sqrt(ds);
+        updatePosition(fu,
+                       fu.x + static_cast<int>(dx * r),
+                       fu.y + static_cast<int>(dy * r));
+      }
+    };
+
+    auto defendChoke = [this, &updatePositionTowards](FAPUnit<UnitExtension> &fu, FAPUnit<UnitExtension> &target) {
       auto sideDiff = chokeGeometry->tileSide[fu.cell] - chokeGeometry->tileSide[target.cell];
 
       int dx, dy;
@@ -485,12 +535,8 @@ namespace FAP {
         dy = chokeGeometry->backwardVector[3 + sideDiff].y;
       } else {
         // Otherwise the unit should move to keep its distance to the choke entrance
-        int maxRangeSquared = std::max((fu.flying ? target.airMaxRangeSquared : target.groundMaxRangeSquared),
-                                       (target.flying ? fu.airMaxRangeSquared : fu.groundMaxRangeSquared));
-        int distChokeEntranceSquared =
-              (fu.x - chokeGeometry->forward[3 + sideDiff].x) * (fu.x - chokeGeometry->forward[3 + sideDiff].x) +
-              (fu.y - chokeGeometry->forward[3 + sideDiff].y) * (fu.y - chokeGeometry->forward[3 + sideDiff].y);
-        if (distChokeEntranceSquared < maxRangeSquared) {
+        int dist = edgeToPointDistance(fu, chokeGeometry->forward[3 + sideDiff].x, chokeGeometry->forward[3 + sideDiff].y);
+        if (dist < (target.flying ? fu.airMaxRange : fu.groundMaxRange)) {
           dx = fu.x - chokeGeometry->forward[3 + sideDiff].x;
           dy = fu.y - chokeGeometry->forward[3 + sideDiff].y;
         } else {
@@ -498,37 +544,49 @@ namespace FAP {
           dy = chokeGeometry->forward[3 + sideDiff].y - fu.y;
         }
       }
-      updatePosition(fu,
-                     fu.x + static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
-                     fu.y + static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
+      updatePositionTowards(fu, dx, dy);
     };
 
-    auto moveTowards = [this](FAPUnit<UnitExtension> &fu, FAPUnit<UnitExtension> &other) {
+    auto moveTowards = [this, &updatePositionTowards](FAPUnit<UnitExtension> &fu, int x, int y, int cell) {
       int dx, dy;
 
       // Movement in chokes is handled differently, as we force the units to path through the choke ends
       if constexpr (choke) {
         if (fu.flying) {
-          dx = other.x - fu.x;
-          dy = other.y - fu.y;
+          dx = x - fu.x;
+          dy = y - fu.y;
         } else {
-          auto sideDiff = chokeGeometry->tileSide[fu.cell] - chokeGeometry->tileSide[other.cell];
+          auto sideDiff = chokeGeometry->tileSide[fu.cell] - chokeGeometry->tileSide[cell];
           if (sideDiff == 0) {
-            dx = other.x - fu.x;
-            dy = other.y - fu.y;
+            dx = x - fu.x;
+            dy = y - fu.y;
           } else {
             dx = chokeGeometry->forward[3 + sideDiff].x - fu.x;
             dy = chokeGeometry->forward[3 + sideDiff].y - fu.y;
           }
         }
       } else {
-        dx = other.x - fu.x;
-        dy = other.y - fu.y;
+        dx = x - fu.x;
+        dy = y - fu.y;
       }
-      updatePosition(fu,
-                     fu.x + static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
-                     fu.y + static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
+      updatePositionTowards(fu, dx, dy);
     };
+
+    // Move towards target position if there is no target
+    if (closestEnemy == enemyUnits.end()) {
+      if constexpr (choke) {
+        // Attacking units always moves forward; defending units stay put
+        // TODO: Defending units should really get into defend position, but this isn't a state we expect to see often
+        if (fu.player == 1) {
+          didSomething = true;
+          moveTowards(fu, fu.targetX, fu.targetY, fu.targetCell);
+        }
+      } else {
+        didSomething = true;
+        moveTowards(fu, fu.targetX, fu.targetY, fu.targetCell);
+      }
+      return;
+    }
 
     // Kite is true for dragoons and vultures that are on their attack cooldown.
     // - If the unit is in a narrow choke, possibly do some special handling depending on where the unit and its target are.
@@ -539,16 +597,15 @@ namespace FAP {
       didSomething = true;
       if (closestEnemy != enemyUnits.end()) {
         if constexpr (choke) {
-          // Defending unit moves to defend the choke if it is not in the same side as its target or is not in its target's attack range
-          if (fu.player == 2 && (chokeGeometry->tileSide[fu.cell] != chokeGeometry->tileSide[closestEnemy->cell]
-                              || !isInRange(*closestEnemy, fu, (fu.flying ? 0 : closestEnemy->groundMinRange), (fu.flying ? closestEnemy->airMaxRange : closestEnemy->groundMaxRange)))) {
+          // Defending unit moves to defend the choke if it is not in the same side as its target
+          if (fu.player == 2 && chokeGeometry->tileSide[fu.cell] != chokeGeometry->tileSide[closestEnemy->cell]) {
             defendChoke(fu, *closestEnemy);
             return;
           }
 
           // Attacking unit moves forward if it is in the choke
           if (fu.player == 1 && chokeGeometry->tileSide[fu.cell] == 0) {
-            moveTowards(fu, *closestEnemy);
+            moveTowards(fu, closestEnemy->x, closestEnemy->y, closestEnemy->cell);
             return;
           }
 
@@ -558,14 +615,11 @@ namespace FAP {
         // Move towards the enemy if it is out of range or is a sieged tank
         if (!isInRange(fu, *closestEnemy, (closestEnemy->flying ? 0 : fu.groundMinRange), (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange)) ||
           closestEnemy->unitType == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) {
-          moveTowards(fu, *closestEnemy);
+          moveTowards(fu, closestEnemy->x, closestEnemy->y, closestEnemy->cell);
         } else if (fu.attackCooldownRemaining > 1) {
-          auto const dx = closestEnemy->x - fu.x;
-          auto const dy = closestEnemy->y - fu.y;
-          updatePosition(
-            fu,
-            fu.x - static_cast<int>(dx * (fu.speed / sqrt(dx * dx + dy * dy))),
-            fu.y - static_cast<int>(dy * (fu.speed / sqrt(dx * dx + dy * dy))));
+          auto const dx = fu.x - closestEnemy->x;
+          auto const dy = fu.y - closestEnemy->y;
+          updatePositionTowards(fu, dx, dy);
         }
       }
       return;
@@ -625,7 +679,7 @@ namespace FAP {
       if constexpr (choke) {
         // Attacking units always moves forward
         if (fu.player == 1) {
-          moveTowards(fu, *closestEnemy);
+          moveTowards(fu, closestEnemy->x, closestEnemy->y, closestEnemy->cell);
         } else {
           // Defending units move to attack when ready to "spring the trap"
           // Criteria for this is one of the following:
@@ -642,13 +696,13 @@ namespace FAP {
           }
 
           if (attack) {
-            moveTowards(fu, *closestEnemy);
+            moveTowards(fu, closestEnemy->x, closestEnemy->y, closestEnemy->cell);
           } else {
             defendChoke(fu, *closestEnemy);
           }
         }
       } else {
-        moveTowards(fu, *closestEnemy);
+        moveTowards(fu, closestEnemy->x, closestEnemy->y, closestEnemy->cell);
       }
     }
   }
@@ -712,7 +766,41 @@ namespace FAP {
       }
     }
 
-    if (closestEnemy != enemyUnits.end() && closestDistSquared <= fu.speedSquared) {
+    if (closestEnemy == enemyUnits.end()) return false;
+
+    // Compute edge-to-edge x and y offsets
+    int xDist =
+      fu.x > closestEnemy->x
+      ? ((fu.x - fu.unitType.dimensionLeft()) - (closestEnemy->x + closestEnemy->unitType.dimensionRight()) - 1)
+      : ((closestEnemy->x - closestEnemy->unitType.dimensionLeft()) - (fu.x + fu.unitType.dimensionRight()) - 1);
+    int yDist =
+      fu.y > closestEnemy->y
+      ? ((fu.y - fu.unitType.dimensionUp()) - (closestEnemy->y + closestEnemy->unitType.dimensionDown()) - 1)
+      : ((closestEnemy->y - closestEnemy->unitType.dimensionUp()) - (fu.y + fu.unitType.dimensionDown()) - 1);
+    if (xDist < 0) xDist = 0;
+    if (yDist < 0) yDist = 0;
+
+    // Do the BW approximate distance calculation
+    int dist;
+
+    if (xDist < yDist)
+    {
+      if (xDist < (yDist >> 2)) {
+        dist = yDist;
+      } else {
+        unsigned int minCalc = (3 * xDist) >> 3;
+        dist = ((minCalc >> 5) + minCalc + yDist - (yDist >> 4) - (yDist >> 6));
+      }
+    } else {
+      if (yDist < (xDist >> 2)) {
+        dist = xDist;
+      } else {
+        unsigned int minCalc = (3 * yDist) >> 3;
+        dist = ((minCalc >> 5) + minCalc + xDist - (xDist >> 4) - (xDist >> 6));
+      }
+    }
+
+    if (dist <= fu.groundMaxRange) {
       if (closestEnemy->flying)
         dealDamage(*closestEnemy, fu.airDamage, fu.airDamageType, fu);
       else
@@ -721,7 +809,8 @@ namespace FAP {
       didSomething = true;
       return true;
     }
-    else if (closestEnemy != enemyUnits.end() && closestDistSquared > fu.speedSquared) {
+    else if (closestDistSquared > fu.speedSquared &&
+             (fu.unitType != BWAPI::UnitTypes::Terran_Vulture_Spider_Mine || dist <= 96)) {
       auto const dx = closestEnemy->x - fu.x;
       auto const dy = closestEnemy->y - fu.y;
 

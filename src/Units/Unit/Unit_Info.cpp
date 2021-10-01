@@ -7,7 +7,7 @@
 
 std::ostream &operator<<(std::ostream &os, const UnitImpl &unit)
 {
-    os << unit.type << ":" << unit.id << "@" << BWAPI::WalkPosition(unit.getTilePosition());
+    os << unit.type << ":" << unit.id << "@" << BWAPI::WalkPosition(unit.lastPosition);
     return os;
 }
 
@@ -50,12 +50,12 @@ bool UnitImpl::canBeAttackedBy(const Unit &attacker) const
 
 bool UnitImpl::canAttackGround() const
 {
-    return UnitUtil::CanAttackGround(type);
+    return !immobile && UnitUtil::CanAttackGround(type);
 }
 
 bool UnitImpl::canAttackAir() const
 {
-    return UnitUtil::CanAttackAir(type);
+    return !immobile && UnitUtil::CanAttackAir(type);
 }
 
 bool UnitImpl::isStaticGroundDefense() const
@@ -111,14 +111,29 @@ int UnitImpl::range(const Unit &target) const
     return target->isFlying ? airRange() : groundRange();
 }
 
-BWAPI::WeaponType UnitImpl::getWeapon(const Unit &target) const
+BWAPI::WeaponType UnitImpl::groundWeapon() const
 {
     auto weaponUnitType = type;
     if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
     if (type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
     if (type == BWAPI::UnitTypes::Protoss_Reaver) weaponUnitType = BWAPI::UnitTypes::Protoss_Scarab;
 
-    return target->isFlying ? UnitUtil::GetAirWeapon(weaponUnitType) : UnitUtil::GetGroundWeapon(weaponUnitType);
+    return UnitUtil::GetGroundWeapon(weaponUnitType);
+}
+
+BWAPI::WeaponType UnitImpl::airWeapon() const
+{
+    auto weaponUnitType = type;
+    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+    if (type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
+    if (type == BWAPI::UnitTypes::Protoss_Reaver) weaponUnitType = BWAPI::UnitTypes::Protoss_Scarab;
+
+    return UnitUtil::GetAirWeapon(weaponUnitType);
+}
+
+BWAPI::WeaponType UnitImpl::getWeapon(const Unit &target) const
+{
+    return target->isFlying ? airWeapon() : groundWeapon();
 }
 
 bool UnitImpl::isInOurWeaponRange(const Unit &target, BWAPI::Position predictedTargetPosition, int buffer) const

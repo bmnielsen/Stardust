@@ -30,7 +30,7 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
     }
 
     // Form an arc if none of our units are in danger or in range yet
-    auto grid = Players::grid(BWAPI::Broodwar->enemy());
+    auto &grid = Players::grid(BWAPI::Broodwar->enemy());
     Unit vanguardTarget = nullptr;
     bool canFormArc = true;
     for (auto &unitAndTarget : unitsAndTargets)
@@ -46,7 +46,24 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
 
         if (unitAndTarget.first == vanguard) vanguardTarget = unitAndTarget.second;
     }
-    if (canFormArc && vanguardTarget && vanguardTarget->canAttack(vanguard))
+    canFormArc = canFormArc && vanguardTarget && vanguardTarget->canAttack(vanguard);
+
+    // If it is a ground unit, check that our vanguard unit has a clear path to its target
+    if (canFormArc && !vanguard->isFlying)
+    {
+        std::vector<BWAPI::TilePosition> tiles;
+        Geo::FindTilesBetween(vanguard->getTilePosition(), vanguardTarget->getTilePosition(), tiles);
+        for (auto tile : tiles)
+        {
+            if (!Map::isWalkable(tile))
+            {
+                canFormArc = false;
+                break;
+            }
+        }
+    }
+
+    if (canFormArc)
     {
         auto pivot = vanguard->lastPosition + Geo::ScaleVector(vanguardTarget->lastPosition - vanguard->lastPosition,
                                                                vanguard->lastPosition.getApproxDistance(vanguardTarget->lastPosition) + 64);
@@ -76,7 +93,7 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
             count++;
         }
 
-        if (countWithinLimit >= 8 || (accumulator / count) <= (desiredDistance + 24)) desiredDistance -= 32;
+        if (countWithinLimit >= 8 || (count > 0 && (accumulator / count) <= (desiredDistance + 24))) desiredDistance -= 32;
 
         if (formArc(pivot, desiredDistance)) return;
     }
@@ -99,7 +116,7 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
             CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
                                                     << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
 #endif
-            myUnit->attackUnit(unitAndTarget.second, unitsAndTargets);
+            myUnit->attackUnit(unitAndTarget.second, unitsAndTargets, true, enemyAoeRadius);
         }
         else
         {

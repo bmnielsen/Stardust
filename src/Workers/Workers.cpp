@@ -29,6 +29,19 @@ namespace Workers
         std::map<MyUnit, BWAPI::Unit> workerRefinery;
         std::map<BWAPI::Unit, std::set<MyUnit>> refineryWorkers;
 
+        int mineralWorkerCount;
+        std::pair<int, int> gasWorkerCount;
+
+        int desiredRefineryWorkers(Base *base, BWAPI::TilePosition refineryTile)
+        {
+            if (base && base->geyserRequiresFourWorkers(refineryTile))
+            {
+                return 4;
+            }
+
+            return 3;
+        }
+
         // Removes a worker's base and mineral patch or gas assignments
         void removeFromResource(
                 const MyUnit &unit,
@@ -81,7 +94,7 @@ namespace Workers
             for (auto refinery : base->refineries())
             {
                 if (!refinery->isCompleted()) continue;
-                count += 3;
+                count += desiredRefineryWorkers(base, refinery->getInitialTilePosition());
             }
             for (const auto &worker : baseWorkers[base])
             {
@@ -273,7 +286,7 @@ namespace Workers
                 if (!refinery->isCompleted()) continue;
 
                 int workers = refineryWorkers[refinery].size();
-                if (workers >= 3) continue;
+                if (workers >= desiredRefineryWorkers(workerBase[unit], refinery->getInitialTilePosition())) continue;
 
                 int dist = unit->bwapiUnit->getDistance(refinery);
                 if (dist < bestDist)
@@ -305,7 +318,10 @@ namespace Workers
                 {
                     if (refinery->getType() != BWAPI::Broodwar->self()->getRace().getRefinery()) continue;
                     if (!refinery->isCompleted()) continue;
-                    if (refineryWorkers[refinery].size() >= 3) continue;
+                    if (refineryWorkers[refinery].size() >= desiredRefineryWorkers(workerBase[worker], refinery->getInitialTilePosition()))
+                    {
+                        continue;
+                    }
 
                     // TODO: Consider depleted geysers
 
@@ -381,6 +397,32 @@ namespace Workers
 
     void updateAssignments()
     {
+        mineralWorkerCount = 0;
+        auto countMineralWorker = [](const MyUnit &worker, const BWAPI::Unit &mineralPatch)
+        {
+            if (!mineralPatch) return;
+            if (!mineralPatch->exists()) return;
+            if (worker->bwapiUnit->getDistance(mineralPatch) > 200) return;
+
+            mineralWorkerCount++;
+        };
+        gasWorkerCount = std::make_pair(0, 0);
+        auto countGasWorker = [](const MyUnit &worker, const BWAPI::Unit &refinery)
+        {
+            if (!refinery) return;
+            if (!refinery->exists()) return;
+            if (worker->bwapiUnit->getDistance(refinery) > 200) return;
+
+            if (refinery->getResources() <= 0)
+            {
+                gasWorkerCount.second++;
+            }
+            else
+            {
+                gasWorkerCount.first++;
+            }
+        };
+
         // Special case on frame 0: try to optimize for earliest possible fifth mineral returned
         if (BWAPI::Broodwar->getFrameCount() == 0)
         {
@@ -397,7 +439,11 @@ namespace Workers
             {
                 // If the worker is already assigned to a mineral patch, we don't need to do any more
                 auto mineralPatch = workerMineralPatch[worker];
-                if (mineralPatch) continue;
+                if (mineralPatch)
+                {
+                    countMineralWorker(worker, mineralPatch);
+                    continue;
+                }
 
                 // Release from assigned base if it is mined out
                 auto base = workerBase[worker];
@@ -412,7 +458,11 @@ namespace Workers
             {
                 // If the worker is already assigned to a refinery, we don't need to do any more
                 auto refinery = workerRefinery[worker];
-                if (refinery && refinery->exists()) continue;
+                if (refinery && refinery->exists())
+                {
+                    countGasWorker(worker, refinery);
+                    continue;
+                }
             }
 
             // If the worker doesn't have an assigned base, assign it one
@@ -434,14 +484,35 @@ namespace Workers
             {
                 if (workerJob[worker] == Job::Minerals)
                 {
-                    assignMineralPatch(worker);
+                    auto mineralPatch = assignMineralPatch(worker);
+                    countMineralWorker(worker, mineralPatch);
                 }
                 else
                 {
-                    assignRefinery(worker);
+                    auto refinery = assignRefinery(worker);
+                    countGasWorker(worker, refinery);
                 }
             }
         }
+
+        // We assign 4 workers to bottom geysers, which would confuse our producer, since the fourth worker doesn't contribute
+        // to higher income compared to a normal geyser
+        // So reduce our gas worker counts by one for each refinery with 4 workers assigned to it
+        for (auto &refineryAndWorkers : refineryWorkers)
+        {
+            if (refineryAndWorkers.second.size() <= 3) continue;
+            if (refineryAndWorkers.first->getResources() <= 0)
+            {
+                gasWorkerCount.second--;
+            }
+            else
+            {
+                gasWorkerCount.first--;
+            }
+        }
+
+        CherryVis::setBoardValue("mineralWorkers", (std::ostringstream() << mineralWorkerCount).str());
+        CherryVis::setBoardValue("gasWorkers", (std::ostringstream() << gasWorkerCount.first << ":" << gasWorkerCount.second).str());
     }
 
     void issueOrders()
@@ -814,42 +885,12 @@ namespace Workers
 
     int mineralWorkers()
     {
-        int mineralWorkers = 0;
-        for (auto &workerAndAssignedPatch : workerMineralPatch)
-        {
-            if (workerAndAssignedPatch.first->exists() && workerAndAssignedPatch.second &&
-                workerAndAssignedPatch.first->bwapiUnit->getDistance(workerAndAssignedPatch.second)
-                < 200) // Don't count workers that are on a long journey towards the patch
-            {
-                mineralWorkers++;
-            }
-        }
-
-        return mineralWorkers;
+        return mineralWorkerCount;
     }
 
     std::pair<int, int> gasWorkers()
     {
-        auto result = std::make_pair(0, 0);
-        for (auto &workerAndAssignedRefinery : workerRefinery)
-        {
-            if (workerAndAssignedRefinery.first->exists() && workerAndAssignedRefinery.second && workerAndAssignedRefinery.second->exists() &&
-                workerAndAssignedRefinery.first->bwapiUnit->getDistance(workerAndAssignedRefinery.second)
-                < 200) // Don't count workers that are on a long journey towards the refinery
-            {
-                if (workerAndAssignedRefinery.second->getResources() <= 0)
-                {
-                    result.second++;
-                }
-                else
-                {
-                    result.first++;
-                }
-            }
-        }
-
-        CherryVis::setBoardValue("gasWorkers", (std::ostringstream() << result.first << ":" << result.second).str());
-        return result;
+        return gasWorkerCount;
     }
 
     int reassignableMineralWorkers()
@@ -863,7 +904,10 @@ namespace Workers
             int gasAvailable = 0;
             for (const auto &refinery : baseAndWorkers.first->refineries())
             {
-                if (refinery->isCompleted()) gasAvailable += 3;
+                if (refinery->isCompleted())
+                {
+                    gasAvailable += desiredRefineryWorkers(baseAndWorkers.first, refinery->getInitialTilePosition());
+                }
             }
             if (gasAvailable == 0) continue;
 

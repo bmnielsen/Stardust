@@ -17,6 +17,11 @@ public:
 
     Choke *narrowChoke;
 
+    double distanceFactor;
+    double aggression;
+    double closestReinforcements;
+    double reinforcementPercentage;
+
     CombatSimResult(int myUnitCount,
                     int enemyUnitCount,
                     int initialMine,
@@ -33,7 +38,11 @@ public:
             , finalMine(finalMine)
             , finalEnemy(finalEnemy)
             , enemyHasUndetectedUnits(enemyHasUndetectedUnits)
-            , narrowChoke(narrowChoke) {}
+            , narrowChoke(narrowChoke)
+            , distanceFactor(-1.0)
+            , aggression(-1.0)
+            , closestReinforcements(-1.0)
+            , reinforcementPercentage(-1.0) {}
 
     CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0, false, nullptr) {};
 

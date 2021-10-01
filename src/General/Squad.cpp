@@ -18,7 +18,7 @@ namespace
     const int COMBINE_THRESHOLD = 480;
 
     // Units are removed from a cluster if they are further than this distance from the cluster vanguard, adjusted for cluster size
-    const int REMOVE_THRESHOLD = 480;
+    const int REMOVE_THRESHOLD = 600;
 }
 
 void Squad::addUnit(const MyUnit &unit)
@@ -28,6 +28,10 @@ void Squad::addUnit(const MyUnit &unit)
     if (unit->type.isDetector())
     {
         detectors.insert(unit);
+    }
+    else if (unit->type == BWAPI::UnitTypes::Protoss_Arbiter)
+    {
+        arbiters.insert(unit);
     }
     else
     {
@@ -101,6 +105,17 @@ void Squad::removeUnit(const MyUnit &unit)
         return;
     }
 
+    if (unit->type == BWAPI::UnitTypes::Protoss_Arbiter)
+    {
+        auto arbiterIt = arbiters.find(unit);
+        if (arbiterIt == arbiters.end()) return;
+
+        CherryVis::log(unit->id) << "Removed from squad: " << label;
+
+        arbiters.erase(arbiterIt);
+        return;
+    }
+
     auto clusterIt = unitToCluster.find(unit);
     if (clusterIt == unitToCluster.end()) return;
 
@@ -147,6 +162,19 @@ void Squad::updateClusters()
         }
     }
 
+    // Remove dead arbiters
+    for (auto arbiterIt = arbiters.begin(); arbiterIt != arbiters.end();)
+    {
+        if (!(*arbiterIt)->exists())
+        {
+            arbiterIt = arbiters.erase(arbiterIt);
+        }
+        else
+        {
+            arbiterIt++;
+        }
+    }
+
     // Update the clusters: remove dead units, recompute position data
     for (auto clusterIt = clusters.begin(); clusterIt != clusters.end();)
     {
@@ -158,8 +186,6 @@ void Squad::updateClusters()
         }
         else
         {
-            CherryVis::drawCircle((*clusterIt)->center.x, (*clusterIt)->center.y, (*clusterIt)->ballRadius, CherryVis::DrawColor::Teal);
-            CherryVis::drawCircle((*clusterIt)->center.x, (*clusterIt)->center.y, (*clusterIt)->lineRadius, CherryVis::DrawColor::Blue);
             clusterIt++;
         }
     }
@@ -176,9 +202,9 @@ void Squad::updateClusters()
                 continue;
             }
 
-            // Combine into the cluster with the most units
-            auto &combineInto = ((*firstIt)->units.size() >= (*secondIt)->units.size()) ? *firstIt : *secondIt;
-            auto &combineFrom = ((*firstIt)->units.size() >= (*secondIt)->units.size()) ? *secondIt : *firstIt;
+            // Combine into the cluster closest to the target
+            auto &combineInto = ((*firstIt)->vanguardDistToTarget < (*secondIt)->vanguardDistToTarget) ? *firstIt : *secondIt;
+            auto &combineFrom = ((*firstIt)->vanguardDistToTarget < (*secondIt)->vanguardDistToTarget) ? *secondIt : *firstIt;
 
             combineInto->absorbCluster(combineFrom, targetPosition);
 
@@ -247,13 +273,18 @@ void Squad::updateClusters()
         os << "center: " << BWAPI::WalkPosition(cluster->center)
            << "\nactivity: " << cluster->getCurrentActivity()
            << "\nsub-activity: " << cluster->getCurrentSubActivity()
-           << "\ntarget: " << BWAPI::WalkPosition(targetPosition);
+           << "\ntarget: " << BWAPI::WalkPosition(targetPosition)
+           << "\n%dist: " << std::setprecision(2) << cluster->percentageToEnemyMain;
         if (cluster == currentVanguardCluster)
         {
             os << "\n*Vanguard*";
         }
 
         values.push_back(os.str());
+
+        CherryVis::drawCircle(cluster->center.x, cluster->center.y, cluster->ballRadius, CherryVis::DrawColor::Teal);
+        CherryVis::drawCircle(cluster->center.x, cluster->center.y, cluster->lineRadius, CherryVis::DrawColor::Blue);
+        CherryVis::drawCircle(cluster->vanguard->lastPosition.x, cluster->vanguard->lastPosition.y, 32, CherryVis::DrawColor::Grey);
     }
     CherryVis::setBoardListValue((std::ostringstream() << label << "_clusters").str(), values);
 #endif
@@ -275,27 +306,35 @@ void Squad::execute()
         dbg << "\n" << cluster->getCurrentActivity();
         if (cluster->currentSubActivity != UnitCluster::SubActivity::None) dbg << "-" << cluster->getCurrentSubActivity();
 
-        auto addSimResult = [&dbg, &cluster](const std::pair<CombatSimResult, bool> &simResult)
+        auto addSimResult = [&dbg](const std::pair<CombatSimResult, bool> &simResult)
         {
             if (simResult.first.frame != BWAPI::Broodwar->getFrameCount()) return;
-
-            // See AttackBaseSquad
-            double distanceFactor = 1.2 - 0.4 * cluster->percentageToEnemyMain;
-            if (simResult.first.narrowChoke && cluster->percentageToEnemyMain > 0.7)
-            {
-                distanceFactor *= 0.8;
-            }
 
             dbg << "\n"
                 << simResult.first.initialMine << "," << simResult.first.initialEnemy
                 << "-" << simResult.first.finalMine << "," << simResult.first.finalEnemy
-                << std::setprecision(2)
-                << ": d=" << distanceFactor
-                << "; %l=" << simResult.first.myPercentLost()
+                << std::setprecision(2);
+            if (simResult.first.distanceFactor > -0.1)
+            {
+                dbg << "; d=" << simResult.first.distanceFactor;
+            }
+            if (simResult.first.aggression > -0.1)
+            {
+                dbg << "; a=" << simResult.first.aggression;
+            }
+            if (simResult.first.closestReinforcements > -0.1)
+            {
+                dbg << "; cr=" << simResult.first.closestReinforcements;
+            }
+            if (simResult.first.reinforcementPercentage > -0.1)
+            {
+                dbg << "; r%=" << simResult.first.reinforcementPercentage;
+            }
+            dbg << "; %l=" << simResult.first.myPercentLost()
                 << "; vg=" << simResult.first.valueGain()
                 << "; %g=" << simResult.first.percentGain()
-                << "; %t=" << simResult.first.myPercentageOfTotal()
-                << (simResult.second ? "; ATTACK" : "; RETREAT");
+                << "; %t=" << simResult.first.myPercentageOfTotal();
+            if (simResult.second) dbg << "; ATCK";
         };
 
         if (!cluster->recentSimResults.empty()) addSimResult(*cluster->recentSimResults.rbegin());
@@ -306,11 +345,13 @@ void Squad::execute()
     }
 
     executeDetectors();
+    executeArbiters();
 }
 
 std::vector<MyUnit> Squad::getUnits() const
 {
     std::vector<MyUnit> result(detectors.begin(), detectors.end());
+    result.insert(result.end(), arbiters.begin(), arbiters.end());
 
     for (auto &unitAndCluster : unitToCluster)
     {
@@ -318,6 +359,11 @@ std::vector<MyUnit> Squad::getUnits() const
     }
 
     return result;
+}
+
+bool Squad::empty() const
+{
+    return detectors.empty() && arbiters.empty() && unitToCluster.empty();
 }
 
 int Squad::combatUnitCount() const
@@ -336,6 +382,10 @@ std::map<BWAPI::UnitType, int> Squad::getUnitCountByType() const
     for (const auto &detector : detectors)
     {
         result[detector->type]++;
+    }
+    for (const auto &arbiter : arbiters)
+    {
+        result[arbiter->type]++;
     }
 
     return result;

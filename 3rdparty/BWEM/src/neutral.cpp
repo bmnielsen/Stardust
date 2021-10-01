@@ -105,7 +105,7 @@ void Neutral::RemoveFromTiles()
 			tile.RemoveNeutral(this);
 			if (m_pNextStacked) tile.AddNeutral(m_pNextStacked);
 		}
-		else
+		else if (tile.GetNeutral())
 		{
 			Neutral * pPrevStacked = tile.GetNeutral();
 			while (pPrevStacked != nullptr && pPrevStacked->NextStacked() != this)
@@ -135,7 +135,7 @@ vector<const Area *> Neutral::BlockedAreas() const
 {
 	vector<const Area *> Result;
 	for (WalkPosition w : m_blockedAreas) {
-		auto area = GetMap()->GetArea(w);
+		auto area = GetMap()->GetNearestArea(w);
 
 		// if walk position belongs to any area
 		if (area)

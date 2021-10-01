@@ -267,7 +267,8 @@ namespace NoGoAreas
     {
         if (unit->type == BWAPI::UnitTypes::Terran_Nuclear_Missile)
         {
-            addCircle(unit->lastPosition, 256 + 32, unit);
+            CherryVis::log() << "Detected nuke targeting " << BWAPI::WalkPosition(unit->lastPosition);
+            addCircle(unit->lastPosition, 288 + 32, unit);
         }
     }
 
@@ -275,7 +276,8 @@ namespace NoGoAreas
     {
         if (bullet->getType() == BWAPI::BulletTypes::Psionic_Storm)
         {
-            addCircle(bullet->getPosition(), 48 + 32, bullet);
+            CherryVis::log() << "Detected storm targeting " << BWAPI::WalkPosition(bullet->getPosition());
+            addCircle(bullet->getPosition(), 80 + 32, bullet);
         }
 
         if (bullet->getType() == BWAPI::BulletTypes::Subterranean_Spines)
@@ -289,7 +291,8 @@ namespace NoGoAreas
 
         if (bullet->getType() == BWAPI::BulletTypes::EMP_Missile)
         {
-            addCircle(bullet->getTargetPosition(), 60 + 32, bullet);
+            CherryVis::log() << "Detected EMP targeting " << BWAPI::WalkPosition(bullet->getTargetPosition());
+            addCircle(bullet->getTargetPosition(), 80 + 32, bullet);
         }
     }
 }

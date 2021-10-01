@@ -48,6 +48,13 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
                                                                     -1,
                                                                     2);
 
+        // Cancel a building nexus (we don't want to fast expand)
+        for (const auto &nexus : Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Nexus))
+        {
+            Log::Get() << "Cancelling " << nexus->type << "@" << nexus->tile << " because of recognized rush";
+            Builder::cancel(nexus->tile);
+        }
+
         // Cancel a building cybernetics core unless it is close to being finished or we don't need the minerals
         // This handles cases where we queue the core shortly before scouting the rush
         for (const auto &core : Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
@@ -66,16 +73,31 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
     }
     else if (zealotsRequired > 0)
     {
-        // If we need to start producing our first dragoons soon, queue one
         double percentZealotsRequired = (double)zealotsRequired / (double)(zealotCount + zealotsRequired);
-        if (percentZealotsRequired < 0.2 && dragoonCount == 0)
+
+        // If we are supply-blocked, cancel a non-started cybernetics core
+        // Otherwise start queueing dragoons if we are ready to start transitioning
+        if ((BWAPI::Broodwar->self()->supplyTotal() - BWAPI::Broodwar->self()->supplyUsed()) < 4 &&
+            Units::countIncomplete(BWAPI::UnitTypes::Protoss_Pylon) == 0)
+        {
+            for (const auto &core : Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
+            {
+                if (!core->isConstructionStarted())
+                {
+                    Log::Get() << "Cancelling " << core->type << "@" << core->tile << " because of upcoming supply block";
+                    Builder::cancel(core->tile);
+                }
+            }
+        }
+        else if (percentZealotsRequired < 0.2 && dragoonCount == 0)
         {
             prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                           BWAPI::UnitTypes::Protoss_Dragoon,
                                                                           1,
                                                                           1);
         }
-        else if (percentZealotsRequired > 0.4)
+
+        if (percentZealotsRequired > 0.4)
         {
             cancelTrainingUnits(prioritizedProductionGoals,
                                 BWAPI::UnitTypes::Protoss_Dragoon,
@@ -254,7 +276,7 @@ void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal
                                         int desiredZealots)
 {
     // If our core is done or we want no zealots just return dragoons
-    if (desiredZealots == 0 || Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0)
+    if (desiredZealots <= zealotCount || Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                    BWAPI::UnitTypes::Protoss_Dragoon,
@@ -263,30 +285,20 @@ void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal
         return;
     }
 
-    // Ensure gas before zealot
-    if (Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0)
-    {
-        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                   BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                   1,
-                                                                   -1);
-        return;
-    }
-
-    if (zealotCount == 0)
+    if (dragoonCount == 0)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                    BWAPI::UnitTypes::Protoss_Zealot,
                                                                    1,
                                                                    1);
-    }
-    if (dragoonCount == 0)
-    {
+        desiredZealots--;
+
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                    BWAPI::UnitTypes::Protoss_Dragoon,
                                                                    1,
                                                                    1);
     }
+
     if (zealotCount < desiredZealots)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -325,22 +337,23 @@ void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal
 
     if (highPriorityCount > 0)
     {
+        int produceAtHighPriority = std::max(highPriorityCount, count);
+
         prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                                  unitType,
-                                                                                 std::max(highPriorityCount, count),
+                                                                                 produceAtHighPriority,
                                                                                  -1);
-        if (highPriorityCount < count)
-        {
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       unitType,
-                                                                       count - highPriorityCount,
-                                                                       -1);
-            highPriorityCount = 0;
-        }
-        else
-        {
-            highPriorityCount -= count;
-        }
+
+        highPriorityCount -= produceAtHighPriority;
+        count -= produceAtHighPriority;
+    }
+
+    if (count > 0)
+    {
+        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   unitType,
+                                                                   count,
+                                                                   -1);
     }
 }
 

@@ -112,7 +112,7 @@ void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(myUnit->id) << "Contain: Attacking " << *target;
 #endif
-            myUnit->attackUnit(target, unitsAndTargets, false);
+            myUnit->attackUnit(target, unitsAndTargets, false, enemyAoeRadius);
             continue;
         }
 
@@ -172,9 +172,11 @@ void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
             {
                 nextNodeCenter = nextNode->center();
                 secondNodeCenter = secondNode->center();
+#if DEBUG_UNIT_BOIDS
                 CherryVis::log(myUnit->id) << "Contain (goal boid):"
                                            << " nextNode=" << BWAPI::WalkPosition(nextNodeCenter) << " (" << nextNode->cost << ")"
                                            << "; secondNode=" << BWAPI::WalkPosition(secondNodeCenter) << " (" << secondNode->cost << ")";
+#endif
             }
             else
             {
@@ -270,6 +272,11 @@ void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
         if (pos == BWAPI::Positions::Invalid)
         {
             myUnit->moveTo(pullingBack ? Map::getMyMain()->getPosition() : targetPosition);
+        }
+        else if (pullingBack && grid.staticGroundThreat(pos) > 0)
+        {
+            // This handles the case where the unit wants to pull back, but the position is threatened
+            myUnit->moveTo(Map::getMyMain()->getPosition());
         }
         else
         {

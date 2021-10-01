@@ -9,7 +9,9 @@
 
 MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         : UnitImpl(unit)
-        , distToTargetPosition(0)
+        , producer(nullptr)
+        , energy(unit->getEnergy())
+        , lastCastFrame(-1)
         , issuedOrderThisFrame(false)
         , moveCommand(nullptr)
         , targetPosition(BWAPI::Positions::Invalid)
@@ -30,6 +32,15 @@ std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit)
 void MyUnitImpl::update(BWAPI::Unit unit)
 {
     if (!unit || !unit->exists()) return;
+
+    if (bwapiUnit->isCompleted()) producer = nullptr;
+
+    if (energy - unit->getEnergy() > 45)
+    {
+        lastCastFrame = BWAPI::Broodwar->getFrameCount();
+        Log::Get() << "Unit cast spell: " << *this;
+    }
+    energy = unit->getEnergy();
 
     // If this unit has just gone on cooldown, add an upcoming attack on its target
     if (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit ||
@@ -97,7 +108,10 @@ bool MyUnitImpl::isBeingManufacturedOrCarried() const
     return bwapiUnit->isLoaded();
 }
 
-void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking)
+void MyUnitImpl::attackUnit(const Unit &target,
+                            std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                            bool clusterAttacking,
+                            int enemyAoeRadius)
 {
     // If the enemy is a long way away, move to it
     int dist = getDistance(target);
@@ -154,6 +168,18 @@ void MyUnitImpl::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Un
     CherryVis::log(id) << "Attack: Moving to intercept @ " << BWAPI::WalkPosition(interceptPosition);
 #endif
     moveTo(interceptPosition);
+}
+
+bool MyUnitImpl::isReady() const
+{
+    // When we have a large army, only micro units every other frame to avoid having commands dropped
+    if (BWAPI::Broodwar->self()->supplyUsed() > 250 &&
+        (BWAPI::Broodwar->getFrameCount() % 2) != (id % 2))
+    {
+        return false;
+    }
+
+    return !immobile;
 }
 
 bool MyUnitImpl::unstick()

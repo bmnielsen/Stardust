@@ -15,6 +15,7 @@ namespace Builder
     {
         std::vector<std::shared_ptr<Building>> pendingBuildings;
         std::map<MyUnit, std::vector<std::shared_ptr<Building>>> builderQueues;
+        std::set<MyUnit> reservedBuilders;
 
         // Ensures the worker is being ordered to build this building
         void build(Building &building)
@@ -66,11 +67,15 @@ namespace Builder
                 it = it->get() == &building ? builderQueue.erase(it) : it + 1;
             }
 
-            // When the builder has no more buildings in its queue, release it back to Workers
+            // When the builder has no more buildings in its queue, release it back to Workers, unless it is reserved
             if (builderQueue.empty())
             {
-                CherryVis::log(builder->id) << "Releasing from non-mining duties (builder queue empty)";
-                Workers::releaseWorker(builder);
+                if (reservedBuilders.find(builder) == reservedBuilders.end())
+                {
+                    CherryVis::log(builder->id) << "Releasing from non-mining duties (builder queue empty)";
+                    Workers::releaseWorker(builder);
+                }
+
                 builderQueues.erase(builder);
             }
         }
@@ -103,6 +108,19 @@ namespace Builder
 
     void update()
     {
+        // Clear dead reserved builders
+        for (auto it = reservedBuilders.begin(); it != reservedBuilders.end();)
+        {
+            if ((*it)->exists())
+            {
+                it++;
+            }
+            else
+            {
+                it = reservedBuilders.erase(it);
+            }
+        }
+
         // Prune the list of pending buildings
         for (auto it = pendingBuildings.begin(); it != pendingBuildings.end();)
         {
@@ -270,9 +288,10 @@ namespace Builder
 
         // First get the closest worker currently available for reassignment
         int bestTravelTime = INT_MAX;
-        MyUnit bestWorker = Workers::getClosestReassignableWorker(buildPosition, true, &bestTravelTime);
+        MyUnit bestWorker = Workers::getClosestReassignableWorker(buildPosition, !type.isResourceDepot(), &bestTravelTime);
 
         // Next see if any existing builder will be finished in time to reach the desired position faster
+        int bestReservedTravelTime = INT_MAX;
         for (auto &builderAndQueue : builderQueues)
         {
             if (!builderAndQueue.first->exists()) continue;
@@ -302,10 +321,33 @@ namespace Builder
             totalTravelTime += expectedTravelTime;
 
             // Give a bonus to already-building workers, as we don't want to take a lot of workers off minerals
-            if ((totalTravelTime / 2) < bestTravelTime)
+            if ((totalTravelTime / 2) < bestTravelTime && totalTravelTime < bestReservedTravelTime)
             {
+                bestReservedTravelTime = totalTravelTime;
                 bestTravelTime = totalTravelTime;
                 bestWorker = builderAndQueue.first;
+            }
+        }
+
+        // Finally check if there is a reserved builder we can use
+        for (auto &reservedBuilder : reservedBuilders)
+        {
+            // Don't consider this again if it already has a queue
+            if (builderQueues.find(reservedBuilder) != builderQueues.end()) continue;
+
+            int expectedTravelTime = PathFinding::ExpectedTravelTime(reservedBuilder->lastPosition,
+                                                                     buildPosition,
+                                                                     reservedBuilder->type,
+                                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                                     -1);
+            if (expectedTravelTime == -1) continue; // Reserved builder might be on an island
+
+            // Give a bonus to reserved builders (similar to above)
+            if ((expectedTravelTime / 2) < bestTravelTime && expectedTravelTime < bestReservedTravelTime)
+            {
+                bestReservedTravelTime = expectedTravelTime;
+                bestTravelTime = expectedTravelTime;
+                bestWorker = reservedBuilder;
             }
         }
 
@@ -350,11 +392,21 @@ namespace Builder
         return nullptr;
     }
 
-    bool hasPendingBuilding(MyUnit builder)
+    bool hasPendingBuilding(const MyUnit &builder)
     {
         auto it = builderQueues.find(builder);
         if (it == builderQueues.end()) return false;
 
         return !it->second.empty();
+    }
+
+    void addReservedBuilder(const MyUnit &builder)
+    {
+        reservedBuilders.insert(builder);
+    }
+
+    void releaseReservedBuilder(const MyUnit &builder)
+    {
+        reservedBuilders.erase(builder);
     }
 }

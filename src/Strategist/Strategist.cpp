@@ -1,4 +1,5 @@
 #include <utility>
+#include <iomanip>
 #include <Strategist/Plays/MainArmy/AttackEnemyBase.h>
 #include "Units.h"
 #include "PathFinding.h"
@@ -14,6 +15,10 @@
 
 #include "Play.h"
 #include "Strategist.h"
+
+#include "Plays/MainArmy/DefendMyMain.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
+#include "Plays/MainArmy/MopUp.h"
 
 /*
  * Broadly, the Strategist (via a StrategyEngine) decides on a prioritized list of plays to run, each of which can order
@@ -97,8 +102,8 @@ namespace Strategist
                 }
             }
 
-            // Grab a count of incomplete units
-            auto typeToIncompleteUnits = Units::countIncompleteByType();
+            // Grab a copy of our incomplete units
+            auto typeToIncompleteUnits = Units::allMineIncompleteByType();
 
             // Process each play
             // They greedily take the reassignable units closest to where they want them
@@ -189,10 +194,15 @@ namespace Strategist
 
                     // "Reserve" incomplete units if possible
                     auto incompleteUnits = typeToIncompleteUnits.find(unitRequirement.type);
-                    while (incompleteUnits != typeToIncompleteUnits.end() && incompleteUnits->second > 0 && unitRequirement.count > 0)
+                    while (incompleteUnits != typeToIncompleteUnits.end() && !incompleteUnits->second.empty() && unitRequirement.count > 0)
                     {
+                        if ((*incompleteUnits->second.begin())->producer)
+                        {
+                            (*incompleteUnits->second.begin())->producer->setRallyPoint(unitRequirement.position);
+                        }
+
                         unitRequirement.count--;
-                        incompleteUnits->second--;
+                        incompleteUnits->second.erase(incompleteUnits->second.begin());
                         play->assignedIncompleteUnits[unitRequirement.type]++;
                     }
                 }
@@ -212,19 +222,36 @@ namespace Strategist
                             unitToPlay.erase(reassignableUnit.unit);
                         }
 
-                        // For now skip for units we don't yet support in main army plays
-                        if (reassignableUnit.unit->isFlying && !reassignableUnit.unit->type.isDetector()) continue;
+                        // Skip units our main army plays don't know how to use
+                        if (reassignableUnit.unit->isFlying &&
+                            !reassignableUnit.unit->type.isDetector() &&
+                            reassignableUnit.unit->type != BWAPI::UnitTypes::Protoss_Arbiter)
+                        {
+                            continue;
+                        }
 
                         unitToPlay[reassignableUnit.unit] = playReceivingUnassignedUnits;
                         playReceivingUnassignedUnits->addUnit(reassignableUnit.unit);
                         CherryVis::log(reassignableUnit.unit->id) << "Added to play: " << playReceivingUnassignedUnits->label;
                     }
                 }
+
+                auto playPosition = playReceivingUnassignedUnits->getSquad()
+                                    ? playReceivingUnassignedUnits->getSquad()->getTargetPosition()
+                                    : Map::getMyMain()->getPosition();
                 for (const auto &typeAndIncompleteUnits : typeToIncompleteUnits)
                 {
-                    if (typeAndIncompleteUnits.second > 0)
+                    if (typeAndIncompleteUnits.first.isBuilding()) continue;
+                    if (typeAndIncompleteUnits.first.isWorker()) continue;
+
+                    for (const auto &incompleteUnit : typeAndIncompleteUnits.second)
                     {
-                        playReceivingUnassignedUnits->assignedIncompleteUnits[typeAndIncompleteUnits.first] += typeAndIncompleteUnits.second;
+                        if (incompleteUnit->producer)
+                        {
+                            incompleteUnit->producer->setRallyPoint(playPosition);
+                        }
+                        
+                        playReceivingUnassignedUnits->assignedIncompleteUnits[typeAndIncompleteUnits.first]++;
                     }
                 }
             }
@@ -391,6 +418,7 @@ namespace Strategist
 
             CherryVis::setBoardValue("enemyContained", enemyContained ? "true" : "false");
             CherryVis::setBoardValue("workerScoutStatus", workerScoutStatusToString());
+            CherryVis::setBoardValue("pressure", (std::ostringstream() << std::setprecision(2) << pressure()).str());
 #endif
         }
     }
@@ -557,6 +585,39 @@ namespace Strategist
         return enemyContained;
     }
 
+    bool areWeContained()
+    {
+        // We consider ourselves to be contained if our main army is in our base and wants to attack, but can't
+        auto mainArmyPlay = StrategyEngine::getPlay<MainArmyPlay>(plays);
+        if (!mainArmyPlay) return false;
+
+        if (typeid(*mainArmyPlay) != typeid(AttackEnemyBase)) return false;
+
+        auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
+        if (!vanguard) return false;
+        if (vanguard->currentActivity != UnitCluster::Activity::Regrouping) return false;
+
+        auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(vanguard->vanguard ? vanguard->vanguard->lastPosition : vanguard->center));
+        if (!area) return false;
+
+        auto mainAreas = Map::getMyMainAreas();
+        return mainAreas.find(area) != mainAreas.end();
+    }
+
+    double pressure()
+    {
+        auto mainArmyPlay = StrategyEngine::getPlay<MainArmyPlay>(plays);
+        if (!mainArmyPlay) return 1.0;
+
+        if (typeid(*mainArmyPlay) == typeid(DefendMyMain)) return 1.0;
+        if (typeid(*mainArmyPlay) == typeid(MopUp)) return 0.0;
+
+        auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
+        if (!vanguard) return 1.0;
+
+        return 1.0 - vanguard->percentageToEnemyMain;
+    }
+
     WorkerScoutStatus getWorkerScoutStatus()
     {
         return workerScoutStatus;
@@ -581,5 +642,10 @@ namespace Strategist
     void setStrategyEngine(std::unique_ptr<StrategyEngine> strategyEngine)
     {
         engine = std::move(strategyEngine);
+    }
+
+    StrategyEngine *getStrategyEngine()
+    {
+        return engine.get();
     }
 }

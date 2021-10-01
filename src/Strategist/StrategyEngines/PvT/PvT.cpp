@@ -4,12 +4,16 @@
 #include "Map.h"
 #include "UnitUtil.h"
 #include "Players.h"
+#include "Workers.h"
+#include "Builder.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
+#include "Plays/SpecialTeams/CarrierHarass.h"
+#include "Plays/SpecialTeams/ElevatorRush.h"
 
 namespace
 {
@@ -29,6 +33,19 @@ void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
     plays.emplace_back(std::make_shared<EjectEnemyScout>());
     plays.emplace_back(std::make_shared<DefendMyMain>());
+
+    // AIST S4 vs. Human match - do a fast expansion on Fighting Spirit and Circuit Breaker
+    /*
+    if (BWAPI::Broodwar->mapHash() == "d2f5633cc4bb0fca13cd1250729d5530c82c7451" ||
+        BWAPI::Broodwar->mapHash() == "dcabb11c83e68f47c5c5bdbea0204167a00e336f" ||
+        BWAPI::Broodwar->mapHash() == "5731c103687826de48ba3cc7d6e37e2537b0e902" ||
+        BWAPI::Broodwar->mapHash() == "bf84532dcdd21b3328670d766edc209fa1520149" ||
+        BWAPI::Broodwar->mapHash() == "450a792de0e544b51af5de578061cb8a2f020f32" ||
+        BWAPI::Broodwar->mapHash() == "1221d83d6ff9a87955d3083257b31131261bc366")
+    {
+        ourStrategy = OurStrategy::FastExpansion;
+    }
+    */
 }
 
 void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
@@ -53,6 +70,20 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 #if CHERRYVIS_ENABLED
         CherryVis::log() << "Our strategy changed from " << OurStrategyNames[ourStrategy] << " to " << OurStrategyNames[newStrategy];
 #endif
+
+        // AIST S4 vs. Human match - When we transition from early-game defense to normal on specific maps, do an elevator rush
+        /*
+        if (ourStrategy == OurStrategy::EarlyGameDefense && newStrategy == OurStrategy::NormalOpening &&
+            (BWAPI::Broodwar->mapHash() == "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b" ||
+             BWAPI::Broodwar->mapHash() == "e39c1c81740a97a733d227e238bd11df734eaf96" ||
+             BWAPI::Broodwar->mapHash() == "6f8da3c3cc8d08d9cf882700efa049280aedca8c" ||
+             BWAPI::Broodwar->mapHash() == "fe25d8b79495870ac1981c2dfee9368f543321e3" ||
+             BWAPI::Broodwar->mapHash() == "d9757c0adcfd61386dff8fe3e493e9e8ef9b45e3" ||
+             BWAPI::Broodwar->mapHash() == "ecb9c70c5594a5c6882baaf4857a61824fba0cfa"))
+        {
+            //plays.insert(plays.begin(), std::make_shared<ElevatorRush>());
+        }
+        */
 
         ourStrategy = newStrategy;
     }
@@ -98,6 +129,30 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     updateDefendBasePlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 15000);
+
+    // AIST S4 vs. Human match - Harass enemy bases with carriers after we have our first two arbiters out
+    /*
+    if (!defendOurMain && Units::countAll(BWAPI::UnitTypes::Protoss_Arbiter) > 1)
+    {
+        auto carrierHarass = getPlay<CarrierHarass>(plays);
+        if (!carrierHarass)
+        {
+            auto beforeMainArmyIt = [&plays]()
+            {
+                auto it = plays.begin();
+                for (; it != plays.end(); it++)
+                {
+                    if (std::dynamic_pointer_cast<MainArmyPlay>(*it) != nullptr)
+                    {
+                        break;
+                    }
+                }
+                return it;
+            };
+            plays.emplace(beforeMainArmyIt(), std::make_shared<CarrierHarass>());
+        }
+    }
+    */
 }
 
 void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
@@ -125,14 +180,21 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     auto midAndLateGameMainArmyProduction = [&]()
     {
-        int higherPriorityCount = (Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) / 10) - inProgressCount;
+        // Baseline production is one combat unit for every 6 workers (approximately 3 units per mining base)
+        int higherPriorityCount = (Workers::mineralWorkers() / 6) - inProgressCount;
 
         // Counter tanks with speedlots once the enemy has at least four
         int enemyTanks = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
                          Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode);
-        if (enemyTanks > 3)
+        if (enemyTanks > 2)
         {
-            int desiredZealots = std::min(dragoonCount, enemyTanks * 2);
+            // Keep proportionally more dragoons if the enemy has a lot of vultures
+            int desiredZealots = std::min((dragoonCount * 3) / 2, enemyTanks * 3);
+            if (Units::countEnemy(BWAPI::UnitTypes::Terran_Vulture) > enemyTanks)
+            {
+                desiredZealots = std::min(dragoonCount, enemyTanks * 2);
+            }
+
             if (desiredZealots > zealotCount)
             {
                 mainArmyProduction(prioritizedProductionGoals,
@@ -159,10 +221,81 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::AntiMarineRush:
         {
-            // If we haven't reached a "critical mass" of dragoons yet, get at least four zealots
-            // Otherwise keep two zealots while pumping dragoons
-            int desiredZealots = (dragoonCount < 3 ? 4 : 2) + std::max(0, (Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) - 6) / 3);
-            int zealotsRequired = desiredZealots - zealotCount;
+            auto buildCannons = [&prioritizedProductionGoals](int desiredCount)
+            {
+                auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(Map::getMyMain());
+                if (!baseStaticDefenseLocations.first.isValid()) return 0;
+
+                int completedCannons = 0;
+                for (const auto &location : baseStaticDefenseLocations.second)
+                {
+                    if (!location.isValid()) continue;
+
+                    auto cannon = Units::myBuildingAt(location);
+                    if (cannon)
+                    {
+                        desiredCount--;
+
+                        if (cannon->completed)
+                        {
+                            completedCannons++;
+                        }
+
+                        continue;
+                    }
+
+                    if (desiredCount > 0)
+                    {
+                        auto buildAtTile = [&prioritizedProductionGoals](BWAPI::TilePosition tile, BWAPI::UnitType type)
+                        {
+                            if (Builder::isPendingHere(tile)) return;
+
+                            auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
+                            prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                        type,
+                                                                                        buildLocation);
+                        };
+
+                        auto pylon = Units::myBuildingAt(baseStaticDefenseLocations.first);
+                        if (pylon)
+                        {
+                            if (pylon->completed)
+                            {
+                                buildAtTile(location, BWAPI::UnitTypes::Protoss_Photon_Cannon);
+                                desiredCount--;
+                            }
+                        }
+                        else if (!pylon)
+                        {
+                            buildAtTile(baseStaticDefenseLocations.first, BWAPI::UnitTypes::Protoss_Pylon);
+                            return completedCannons;
+                        }
+                    }
+                }
+
+                return completedCannons;
+            };
+
+            // Take enemy production into account when determining how many marines they have
+            int enemyMarines = Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) + 1;
+            if (enemyStrategy == TerranStrategy::ProxyRush) enemyMarines += 2;
+
+            // Build cannons if the strategy has been stable for 5 seconds
+            int completedCannons =
+                    enemyStrategyChanged < (BWAPI::Broodwar->getFrameCount() - 120)
+                    ? buildCannons(enemyMarines < 10 ? 1 : 2)
+                    : 0;
+
+            // Determine how many zealots we want
+            // Zealots are relatively useless against groups of kiting marines, so we want to transition to dragoons as quickly as possible
+            int zealotsRequired = 0;
+            if (completedCannons < 2)
+            {
+                // If we haven't reached a "critical mass" of dragoons yet, get at least four zealots
+                // Otherwise keep two zealots while pumping dragoons
+                int desiredZealots = (dragoonCount < 3 ? 4 : 2) - (completedCannons * 2);
+                zealotsRequired = desiredZealots - zealotCount;
+            }
 
             handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired);
 
@@ -191,6 +324,31 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::MidGame:
         {
+            // Have some DTs harrassing until the enemy has vessels
+            // TODO: Implement DT tactics and re-enable
+            /*
+            int dtCount = Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar);
+            if (dtCount < 4 &&
+                !Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Science_Vessel) &&
+                !Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Science_Facility))
+            {
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         BWAPI::UnitTypes::Protoss_Dark_Templar,
+                                                                         1,
+                                                                         1);
+            }
+             */
+
+            // Build arbiters on three completed nexuses
+            int arbiterCount = Units::countAll(BWAPI::UnitTypes::Protoss_Arbiter);
+            if (arbiterCount < 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2)
+            {
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         BWAPI::UnitTypes::Protoss_Arbiter,
+                                                                         1,
+                                                                         1);
+            }
+
             midAndLateGameMainArmyProduction();
 
             // Default upgrades
@@ -233,6 +391,14 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     if (!natural || natural->ownedSince != -1)
     {
         CherryVis::setBoardValue("natural", "complete");
+        return;
+    }
+
+    // Don't expand while we are setting up an elevator rush
+    auto elevatorRush = getPlay<ElevatorRush>(plays);
+    if (elevatorRush && elevatorRush->getSquad()->empty())
+    {
+        CherryVis::setBoardValue("natural", "wait-elevator");
         return;
     }
 
@@ -298,6 +464,8 @@ void PvT::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Khaydarin_Core, BWAPI::UnitTypes::Protoss_Arbiter, false);
+    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::TechTypes::Stasis_Field, BWAPI::UnitTypes::Protoss_Arbiter, false);
 
     defaultGroundUpgrades(prioritizedProductionGoals);
 

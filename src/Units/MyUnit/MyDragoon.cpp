@@ -86,6 +86,8 @@ bool MyDragoon::unstick()
 
 bool MyDragoon::isReady() const
 {
+    if (!MyUnitImpl::isReady()) return false;
+
     // If the last attack has just started, give the dragoon some frames to complete it
     if (BWAPI::Broodwar->getFrameCount() - lastAttackStartedAt + BWAPI::Broodwar->getRemainingLatencyFrames() <= DRAGOON_ATTACK_FRAMES)
     {
@@ -120,12 +122,16 @@ bool MyDragoon::isReady() const
     return true;
 }
 
-void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking)
+void MyDragoon::attackUnit(const Unit &target,
+                           std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                           bool clusterAttacking,
+                           int enemyAoeRadius)
 {
     int cooldown = target->isFlying ? bwapiUnit->getAirWeaponCooldown() : bwapiUnit->getGroundWeaponCooldown();
 
     int myRange = range(target);
     int targetRange = target->groundRange();
+    if (target->type == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine) targetRange = 96;
     bool rangingBunker = target->type == BWAPI::UnitTypes::Terran_Bunker && myRange > targetRange;
 
     // If we are not on cooldown, defer to normal unit attack unless we are ranging a bunker
@@ -141,7 +147,7 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
             return;
         }
 
-        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
+        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking, enemyAoeRadius);
         return;
     }
 
@@ -162,7 +168,7 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
         if (predictedDistanceToTarget > myRange ||
             (currentDistanceToTarget > targetRange && currentDistanceToTarget <= myRange && predictedDistanceToTarget >= currentDistanceToTarget))
         {
-            MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
+            MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking, enemyAoeRadius);
             return;
         }
 
@@ -219,9 +225,9 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
         desiredDistance = currentDistanceToTarget > myRange ? (myRange - 12) : myRange;
     }
 
-        // The target is stationary or moving towards us, so kite it if we can
     else if (myRange >= targetRange)
     {
+        // The target is stationary or moving towards us, so kite it if we can
         int cooldownDistance = (int) ((double) (cooldown - BWAPI::Broodwar->getRemainingLatencyFrames() - 2) * type.topSpeed());
         desiredDistance = std::min(myRange, myRange + (cooldownDistance - (predictedDistanceToTarget - myRange)) / 2);
 
@@ -297,7 +303,7 @@ void MyDragoon::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Uni
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Attack boid invalid; attacking";
 #endif
-        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
+        MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking, enemyAoeRadius);
     }
     else
     {

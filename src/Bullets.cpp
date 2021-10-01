@@ -85,7 +85,7 @@ namespace Bullets
                 Units::onBulletCreate(bullet);
                 NoGoAreas::onBulletCreate(bullet);
                 seenBulletFrames[bullet->getID()] = BWAPI::Broodwar->getFrameCount();
-                return;
+                continue;
             }
 
             // For marine rifle hits, check if we can deduce whether or not the enemy has the range upgrade for shots from a bunker

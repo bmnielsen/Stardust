@@ -55,7 +55,7 @@ namespace
 #endif
         if (ahead.isValid())
         {
-            auto grid = Players::grid(BWAPI::Broodwar->enemy());
+            auto &grid = Players::grid(BWAPI::Broodwar->enemy());
             if (grid.airThreat(ahead) > 0 && grid.detection(ahead) > 0)
             {
 #if DEBUG_UNIT_ORDERS

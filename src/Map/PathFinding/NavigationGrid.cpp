@@ -4,7 +4,7 @@
 #include "Map.h"
 
 #if INSTRUMENTATION_ENABLED
-#define NAVIGATION_HEATMAP_ENABLED true
+#define NAVIGATION_HEATMAP_ENABLED false
 #define OUTPUT_GRID_TIMING false
 #endif
 
@@ -118,7 +118,7 @@ void NavigationGrid::update()
 
         // Compute the cost of this node
         auto cost = current->cost + (direction % 2 == 1 ? COST_DIAGONAL : COST_STRAIGHT);
-        cost -= Map::unwalkableProximity(x, y);
+        cost -= std::max((unsigned short)4U, Map::unwalkableProximity(x, y));
 
         // If the node already has a lower cost, we don't need to consider it
         if (node.cost <= cost) return;

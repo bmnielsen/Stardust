@@ -4,6 +4,8 @@
 
 namespace Geo
 {
+    void initialize();
+
     int ApproximateDistance(int x1, int x2, int y1, int y2);
 
     int EdgeToEdgeDistance(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter);
@@ -22,6 +24,10 @@ namespace Geo
                   BWAPI::TilePosition secondtopLeft, int secondWidth, int secondHeight);
 
     bool Walkable(BWAPI::UnitType type, BWAPI::Position center);
+
+    BWAPI::Position FindClosestUnwalkablePosition(BWAPI::Position start,
+                                                  int searchRadius,
+                                                  BWAPI::Position furtherFrom = BWAPI::Positions::Invalid);
 
     BWAPI::Position FindClosestUnwalkablePosition(BWAPI::Position start,
                                                   BWAPI::Position closeTo,

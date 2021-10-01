@@ -99,6 +99,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\EarlyGameDefendMainBaseSquad.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\MopUpSquad.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\WorkerDefenseSquad.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Arbiters.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\CombatSim.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Detectors.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\UnitCluster\Formations\Arc.cpp" />
@@ -140,6 +141,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Defensive\AntiCannonRush.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Defensive\DefendBase.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\CullArmy.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\HiddenBase.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\SaturateBases.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\TakeExpansion.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\TakeIslandExpansion.cpp" />
@@ -152,7 +154,9 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\EarlyGameWorkerScout.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\EjectEnemyScout.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\ScoutEnemyExpos.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\CarrierHarass.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\DarkTemplarHarass.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\ElevatorRush.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Strategist.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\AttackPlays.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\Expansions.cpp" />

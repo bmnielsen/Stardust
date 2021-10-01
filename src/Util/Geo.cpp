@@ -5,10 +5,43 @@
 namespace
 {
     const double pi = 3.14159265358979323846;
+
+    struct radiusPosition
+    {
+        int radius;
+        int x;
+        int y;
+    };
+    std::vector<radiusPosition> radiusPositions;
 }
 
 namespace Geo
 {
+    void initialize()
+    {
+        radiusPositions.clear();
+
+        for (int x = -256; x <= 256; x++)
+        {
+            for (int y = -256; y <= 256; y++)
+            {
+                int dist = Geo::ApproximateDistance(0, x, 0, y);
+                if (dist > 256) continue;
+                radiusPositions.emplace_back(radiusPosition{dist, x, y});
+            }
+        }
+
+        sort(radiusPositions.begin(), radiusPositions.end(),
+             [](const radiusPosition &a, const radiusPosition &b) -> bool
+             {
+                 if (a.radius < b.radius) return true;
+                 if (a.radius > b.radius) return false;
+                 if (a.x < b.x) return true;
+                 if (a.x > b.x) return false;
+                 return (a.y < b.y);
+             });
+    }
+
     int ApproximateDistance(int x1, int x2, int y1, int y2)
     {
         unsigned int min = abs(x1 - x2);
@@ -119,6 +152,34 @@ namespace Geo
             }
         }
         return true;
+    }
+
+    BWAPI::Position FindClosestUnwalkablePosition(BWAPI::Position start, int searchRadius, BWAPI::Position furtherFrom)
+    {
+        if (searchRadius > 256) return Geo::FindClosestUnwalkablePosition(start, start, searchRadius, furtherFrom);
+
+        double furtherFromAngle = furtherFrom == BWAPI::Positions::Invalid ? 0.0 : atan2(start.y - furtherFrom.y, start.x - furtherFrom.x);
+        for (auto &radiusPosition : radiusPositions)
+        {
+            // Stop the search when we exceed the radius
+            if (radiusPosition.radius > searchRadius) return BWAPI::Positions::Invalid;
+
+            auto here = BWAPI::Position(start.x + radiusPosition.x, start.y + radiusPosition.y);
+
+            // Skip valid and walkable positions
+            if (here.isValid() && BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(here))) continue;
+
+            // If this is defined, we expect this position to be opposite the one we find here
+            if (furtherFrom != BWAPI::Positions::Invalid)
+            {
+                double angle = atan2(here.y - start.y, here.x - start.x);
+                if (std::abs(angle - furtherFromAngle) > (pi / 4.0)) continue;
+            }
+
+            return here;
+        }
+
+        return BWAPI::Positions::Invalid;
     }
 
     BWAPI::Position FindClosestUnwalkablePosition(BWAPI::Position start, BWAPI::Position closeTo, int searchRadius, BWAPI::Position furtherFrom)

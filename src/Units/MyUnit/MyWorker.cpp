@@ -142,7 +142,10 @@ bool MyWorker::mineralWalk(const Choke *choke)
     return true;
 }
 
-void MyWorker::attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking)
+void MyWorker::attackUnit(const Unit &target,
+                          std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                          bool clusterAttacking,
+                          int enemyAoeRadius)
 {
-    MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking);
+    MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking, enemyAoeRadius);
 }

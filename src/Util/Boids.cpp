@@ -58,7 +58,7 @@ namespace Boids
             {
                 if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
 
-                if (!Map::isWalkable(x, y)) continue;
+                if (!unit->isFlying && !Map::isWalkable(x, y)) continue;
                 if (NoGoAreas::isNoGo(x, y)) continue;
 
                 int dist = Geo::ApproximateDistance(unit->tilePositionX, x, unit->tilePositionY, y);
@@ -83,6 +83,21 @@ namespace Boids
         // We are within the detection limit
         // Push away with maximum force at 0 distance, no force at detection limit
         double distFactor = 1.0 - (double) dist / detectionLimit;
+        int centerDist = Geo::ApproximateDistance(unit->lastPosition.x, other->lastPosition.x, unit->lastPosition.y, other->lastPosition.y);
+        if (centerDist == 0) return;
+        double scalingFactor = distFactor * distFactor * weight / centerDist;
+        separationX -= (int) ((double) (other->lastPosition.x - unit->lastPosition.x) * scalingFactor);
+        separationY -= (int) ((double) (other->lastPosition.y - unit->lastPosition.y) * scalingFactor);
+    }
+
+    void AddSeparation(const UnitImpl *unit, const Unit &other, int detectionLimit, double weight, int &separationX, int &separationY)
+    {
+        auto dist = unit->getDistance(other);
+        if (dist >= detectionLimit) return;
+
+        // We are within the detection limit
+        // Push away with maximum force at 0 distance, no force at detection limit
+        double distFactor = 1.0 - (double) dist / (double)detectionLimit;
         int centerDist = Geo::ApproximateDistance(unit->lastPosition.x, other->lastPosition.x, unit->lastPosition.y, other->lastPosition.y);
         if (centerDist == 0) return;
         double scalingFactor = distFactor * distFactor * weight / centerDist;
@@ -165,6 +180,27 @@ namespace Boids
         if (vector == BWAPI::Positions::Invalid || (totalX == 0 && totalY == 0))
         {
             return unit->lastPosition;
+        }
+
+        // Flying units don't need to worry about walkability or collisions
+        if (unit->isFlying)
+        {
+            auto pos = unit->lastPosition + vector;
+
+            // Snap to map edges
+            if (pos.x < 0) pos.x = 0;
+            if (pos.x >= BWAPI::Broodwar->mapWidth() * 32) pos.x = (BWAPI::Broodwar->mapWidth() * 32) - 1;
+            if (pos.y < 0) pos.y = 0;
+            if (pos.y >= BWAPI::Broodwar->mapHeight() * 32) pos.y = (BWAPI::Broodwar->mapHeight() * 32) - 1;
+
+#if DRAW_BOIDS
+            if (pos != BWAPI::Positions::Invalid)
+            {
+                CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Blue);
+            }
+#endif
+
+            return pos;
         }
 
         // Get the furthest walkable position along the vector

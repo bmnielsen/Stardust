@@ -102,6 +102,7 @@ namespace
     {
         if (isFastExpansion()) return false;
         if (BWAPI::Broodwar->getFrameCount() >= 5000) return false;
+        if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Assimilator) > 0) return false;
 
         // Check if we have directly scouted an enemy building in a proxy location
         auto enemyMain = Map::getEnemyStartingMain();
@@ -150,6 +151,7 @@ namespace
             if (BWAPI::Broodwar->getFrameCount() > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
 
             // Expect first gateway or forge by frame 2200
+            // This will sometimes fail if the enemy does a fast expansion we don't see
             if (BWAPI::Broodwar->getFrameCount() > 2200
                 && !countAtLeast(BWAPI::UnitTypes::Protoss_Gateway, 1)
                 && !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1))
@@ -202,6 +204,15 @@ namespace
             createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 4, BWAPI::UnitTypes::Protoss_Robotics_Facility, 1) &&
             createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 4, BWAPI::UnitTypes::Protoss_Templar_Archives, 1))
         {
+            return true;
+        }
+
+        // Assume the enemy has done a dragoon all-in if it has successfully set up a contain on us before frame 10000
+        if (BWAPI::Broodwar->getFrameCount() < 10000
+            && createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 10)
+            && Strategist::areWeContained())
+        {
+            Log::Get() << "CONTAINED";
             return true;
         }
 
@@ -348,14 +359,26 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 if (isWorkerRush()) return ProtossStrategy::WorkerRush;
 
                 // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their nexus
-                if (!isProxy())
+                if (BWAPI::Broodwar->getFrameCount() < 5000 && !isProxy())
                 {
                     strategy = ProtossStrategy::Unknown;
                     continue;
                 }
 
-                // Otherwise intentionally fall through to zealot rush handling
+                // We assume the enemy has transitioned from the proxy when either:
+                // - They have taken gas
+                // - Our scout is dead and we are past frame 5000
+                if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Assimilator) > 0 ||
+                    (BWAPI::Broodwar->getFrameCount() >= 5000 &&
+                     (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted ||
+                      Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingFailed ||
+                      Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingBlocked)))
+                {
+                    strategy = ProtossStrategy::TwoGate;
+                    continue;
+                }
 
+                break;
             case ProtossStrategy::ZealotRush:
                 if (isWorkerRush()) return ProtossStrategy::WorkerRush;
 

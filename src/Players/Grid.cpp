@@ -7,12 +7,14 @@
 #define ASSERT_NEGATIVE_VALUES false
 #endif
 
-// We add a buffer on detection and threat ranges
-// Generally this is more useful as it forces our units to keep their distance
-const int RANGE_BUFFER = 48;
-
 namespace
 {
+    // We add a buffer on detection and threat ranges
+    // Generally this is more useful as it forces our units to keep their distance
+    const int RANGE_BUFFER = 48;
+
+    const int STASIS_RANGE = 44;
+
     std::map<std::pair<BWAPI::UnitType, int>, std::set<BWAPI::WalkPosition>> positionsInRangeCache;
 
     std::set<BWAPI::WalkPosition> &getPositionsInRange(BWAPI::UnitType type, int range)
@@ -37,16 +39,16 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
 {
     int startX = position.x >> 3U;
     int startY = position.y >> 3U;
-    for (auto pos : getPositionsInRange(type, range))
+    for (auto &pos : getPositionsInRange(type, range))
     {
         int x = startX + pos.x;
         int y = startY + pos.y;
         if (x >= 0 && x < maxX && y >= 0 && y < maxY)
         {
-            data[x + y * maxX] += delta;
+            data[x * maxY + y] += delta;
 
 #if ASSERT_NEGATIVE_VALUES
-            if (data[x + y * maxX] < 0)
+            if (data[x * maxY + y] < 0)
             {
                 Log::Get() << "Negative value @ " << BWAPI::Position(x, y) << "\n"
                            << "start=" << BWAPI::WalkPosition(position)
@@ -67,7 +69,7 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
     frameLastUpdated = BWAPI::Broodwar->getFrameCount();
 }
 
-void Grid::dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &data) const
+void Grid::dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &data)
 {
 #if CHERRYVIS_ENABLED
     if (data.frameLastDumped >= data.frameLastUpdated) return;
@@ -78,20 +80,25 @@ void Grid::dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &
 #endif
 }
 
-void Grid::unitCreated(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed)
+void Grid::unitCreated(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed, bool immobile)
 {
     if (!type.isFlyer() && !burrowed) _collision.add(type, 0, position, 1);
-    if (completed) unitCompleted(type, position, burrowed);
+    if (!immobile && (type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode ||
+        type == BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode))
+    {
+        _stasisRange.add(type, STASIS_RANGE, position, 1);
+    }
+    if (completed) unitCompleted(type, position, burrowed, immobile);
 }
 
-void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool burrowed)
+void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool burrowed, bool immobile)
 {
     auto weaponUnitType = type;
     if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
     if (type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
     if (type == BWAPI::UnitTypes::Protoss_Reaver) weaponUnitType = BWAPI::UnitTypes::Protoss_Scarab;
 
-    if (weaponUnitType.groundWeapon() != BWAPI::WeaponTypes::None &&
+    if (weaponUnitType.groundWeapon() != BWAPI::WeaponTypes::None && !immobile &&
         ((burrowed && type == BWAPI::UnitTypes::Zerg_Lurker) || (!burrowed && type != BWAPI::UnitTypes::Zerg_Lurker)))
     {
         _groundThreat.add(
@@ -130,7 +137,7 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool bu
         }
     }
 
-    if (weaponUnitType.airWeapon() != BWAPI::WeaponTypes::None && !burrowed)
+    if (weaponUnitType.airWeapon() != BWAPI::WeaponTypes::None && !immobile && !burrowed)
     {
         _airThreat.add(
                 weaponUnitType,
@@ -140,7 +147,7 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool bu
                 * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
     }
 
-    if (type.isDetector())
+    if (type.isDetector() && !immobile)
     {
         if (type.isBuilding())
         {
@@ -156,21 +163,28 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool bu
 void Grid::unitMoved(BWAPI::UnitType type,
                      BWAPI::Position position,
                      bool burrowed,
+                     bool immobile,
                      BWAPI::UnitType fromType,
                      BWAPI::Position fromPosition,
-                     bool fromBurrowed)
+                     bool fromBurrowed,
+                     bool fromImmobile)
 {
-    if (type == fromType && burrowed == fromBurrowed &&
+    if (type == fromType && burrowed == fromBurrowed && immobile == fromImmobile &&
         ((position.x >> 3U) == (fromPosition.x >> 3U)) && ((position.y >> 3U) == (fromPosition.y >> 3U)))
         return;
 
-    unitDestroyed(fromType, fromPosition, true, fromBurrowed);
-    unitCreated(type, position, true, burrowed);
+    unitDestroyed(fromType, fromPosition, true, fromBurrowed, fromImmobile);
+    unitCreated(type, position, true, burrowed, immobile);
 }
 
-void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed)
+void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed, bool immobile)
 {
     if (!type.isFlyer() && !burrowed) _collision.add(type, 0, position, -1);
+    if (!immobile && (type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode ||
+        type == BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode))
+    {
+        _stasisRange.add(type, STASIS_RANGE, position, -1);
+    }
 
     // If the unit was a building that was destroyed or cancelled before being completed, we only
     // need to update the collision grid
@@ -181,7 +195,7 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
     if (type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
     if (type == BWAPI::UnitTypes::Protoss_Reaver) weaponUnitType = BWAPI::UnitTypes::Protoss_Scarab;
 
-    if (weaponUnitType.groundWeapon() != BWAPI::WeaponTypes::None &&
+    if (weaponUnitType.groundWeapon() != BWAPI::WeaponTypes::None && !immobile &&
         ((burrowed && type == BWAPI::UnitTypes::Zerg_Lurker) || (!burrowed && type != BWAPI::UnitTypes::Zerg_Lurker)))
     {
         _groundThreat.add(
@@ -220,7 +234,7 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
         }
     }
 
-    if (weaponUnitType.airWeapon() != BWAPI::WeaponTypes::None && !burrowed)
+    if (weaponUnitType.airWeapon() != BWAPI::WeaponTypes::None && !immobile && !burrowed)
     {
         _airThreat.add(
                 type,
@@ -230,7 +244,7 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
                 * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
     }
 
-    if (type.isDetector())
+    if (type.isDetector() && !immobile)
     {
         if (type.isBuilding())
         {

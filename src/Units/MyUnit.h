@@ -14,7 +14,10 @@ typedef std::shared_ptr<MyUnitImpl> MyUnit;
 class MyUnitImpl : public UnitImpl
 {
 public:
-    int distToTargetPosition;
+    BWAPI::Unit producer;
+
+    int energy;                         // Estimated energy of the unit
+    int lastCastFrame;                  // Last frame the unit cast some kind of energy-using spell
 
     explicit MyUnitImpl(BWAPI::Unit unit);
 
@@ -30,9 +33,12 @@ public:
 
     void issueMoveOrders();
 
-    virtual void attackUnit(const Unit &target, std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, bool clusterAttacking = true);
+    virtual void attackUnit(const Unit &target,
+                            std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                            bool clusterAttacking = true,
+                            int enemyAoeRadius = 0);
 
-    [[nodiscard]] virtual bool isReady() const { return true; };
+    [[nodiscard]] virtual bool isReady() const;
 
     virtual bool unstick();
 
@@ -43,6 +49,8 @@ public:
     void move(BWAPI::Position position, bool force = false);
 
     void attack(BWAPI::Unit target, bool force = false);
+
+    void attackMove(BWAPI::Position position);
 
     void rightClick(BWAPI::Unit target);
 

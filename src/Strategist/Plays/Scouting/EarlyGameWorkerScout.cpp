@@ -46,6 +46,12 @@ namespace
             naturalPriority = 600;
         }
 
+        // If we suspect a proxy, scout the natural more aggressively in case we missed a fast expand
+        if (Strategist::getStrategyEngine()->isEnemyProxy())
+        {
+            naturalPriority = 480;
+        }
+
         auto tileValid = [](BWAPI::TilePosition tile, int neutralElevation)
         {
             if (!tile.isValid()) return false;
@@ -432,7 +438,7 @@ void EarlyGameWorkerScout::update()
     {
         // Plot a path, avoiding static defenses and the enemy mineral line
         // Also reject tiles outside the scout areas to limit the search space
-        auto grid = Players::grid(BWAPI::Broodwar->enemy());
+        auto &grid = Players::grid(BWAPI::Broodwar->enemy());
         auto avoidThreatTiles = [&](BWAPI::TilePosition tile)
         {
             if (!Map::isWalkable(tile)) return false;
@@ -562,15 +568,21 @@ bool EarlyGameWorkerScout::reserveScout()
     // Scout after the first gateway if playing a non-random opponent on a two-player map
     // In all other cases scout after the first pylon
     auto scoutAfterBuilding = BWAPI::UnitTypes::Protoss_Pylon;
+    auto scoutAtBuildingCount = 1;
     if (Map::getEnemyStartingMain() && !Opponent::isUnknownRace())
     {
         scoutAfterBuilding = BWAPI::UnitTypes::Protoss_Gateway;
+    }
+    if (Strategist::getStrategyEngine()->isFastExpanding())
+    {
+        scoutAfterBuilding = BWAPI::UnitTypes::Protoss_Nexus;
+        scoutAtBuildingCount = 2;
     }
 
     // If a building of the required type already exists, this play is being added late
     // This happens vs. random when the play is re-initialized once the enemy race is known
     // In this case grab our furthest worker from the main base, as it is likely to have already been our scout
-    if (Units::countAll(scoutAfterBuilding) > 0)
+    if (Units::countAll(scoutAfterBuilding) >= scoutAtBuildingCount)
     {
         int bestDist = 0;
         for (const auto &worker : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))

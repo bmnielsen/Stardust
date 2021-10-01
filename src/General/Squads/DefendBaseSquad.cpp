@@ -2,6 +2,18 @@
 
 void DefendBaseSquad::execute()
 {
+    for (auto it = enemyUnits.begin(); it != enemyUnits.end();)
+    {
+        if ((*it)->exists())
+        {
+            it++;
+        }
+        else
+        {
+            it = enemyUnits.erase(it);
+        }
+    }
+
     Squad::execute();
 
     if (clusters.empty())

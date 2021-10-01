@@ -27,17 +27,17 @@ public:
 
         long operator[](BWAPI::Position pos) const
         {
-            return data[(pos.x >> 3U) + (pos.y >> 3U) * maxX];
+            return data[(pos.x >> 3U) * maxY + (pos.y >> 3U)];
         }
 
         long operator[](BWAPI::WalkPosition pos) const
         {
-            return data[pos.x + pos.y * maxX];
+            return data[pos.x * maxY + pos.y];
         }
 
         long at(int walkX, int walkY) const
         {
-            return data[walkX + walkY * maxX];
+            return data[walkX * maxY + walkY];
         }
 
         void add(BWAPI::UnitType type, int range, BWAPI::Position position, int delta);
@@ -45,18 +45,20 @@ public:
 
     explicit Grid(std::shared_ptr<UpgradeTracker> upgradeTracker) : upgradeTracker(std::move(upgradeTracker)) {}
 
-    void unitCreated(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed);
+    void unitCreated(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed, bool immobile);
 
-    void unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool burrowed);
+    void unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool burrowed, bool immobile);
 
     void unitMoved(BWAPI::UnitType type,
                    BWAPI::Position position,
                    bool burrowed,
+                   bool immobile,
                    BWAPI::UnitType fromType,
                    BWAPI::Position fromPosition,
-                   bool fromBurrowed);
+                   bool fromBurrowed,
+                   bool fromImmobile);
 
-    void unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed);
+    void unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed, bool immobile);
 
     void unitWeaponDamageUpgraded(BWAPI::UnitType type, BWAPI::Position position, BWAPI::WeaponType weapon, int formerDamage, int newDamage);
 
@@ -94,6 +96,12 @@ public:
 
     long detection(int walkX, int walkY) const { return _detection.at(walkX, walkY); };
 
+    long stasisRange(BWAPI::Position position) const { return _stasisRange[position]; };
+
+    long stasisRange(BWAPI::WalkPosition position) const { return _stasisRange[position]; };
+
+    long stasisRange(int walkX, int walkY) const { return _stasisRange.at(walkX, walkY); };
+
     void dumpCollisionHeatmapIfChanged(const std::string &heatmapName) const { dumpHeatmapIfChanged(heatmapName, _collision); };
 
     void dumpGroundThreatHeatmapIfChanged(const std::string &heatmapName) const { dumpHeatmapIfChanged(heatmapName, _groundThreat); };
@@ -104,6 +112,8 @@ public:
 
     void dumpDetectionHeatmapIfChanged(const std::string &heatmapName) const { dumpHeatmapIfChanged(heatmapName, _detection); };
 
+    void dumpStasisRangeHeatmapIfChanged(const std::string &heatmapName) const { dumpHeatmapIfChanged(heatmapName, _stasisRange); };
+
 private:
     std::shared_ptr<UpgradeTracker> upgradeTracker;
 
@@ -112,6 +122,7 @@ private:
     GridData _staticGroundThreat;
     GridData _airThreat;
     GridData _detection;
+    GridData _stasisRange;
 
-    void dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &data) const;
+    static void dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &data);
 };

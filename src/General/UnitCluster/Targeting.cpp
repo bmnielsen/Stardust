@@ -8,7 +8,7 @@
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_TARGETING false  // Writes verbose log info to debug for each unit targeting
-#define DRAW_TARGETING true  // Draws lines between our units and their targets
+#define DRAW_TARGETING false  // Draws lines between our units and their targets
 #endif
 
 namespace
@@ -18,10 +18,9 @@ namespace
         // This is similar to the target prioritization in Locutus that originally came from Steamhammer/UAlbertaBot
 
         const BWAPI::UnitType targetType = target->type;
-        auto closeToOurBase = [&target]()
+        auto notCloseToTargetPosition = [&target]()
         {
-            auto ourBasePosition = BWAPI::Position(Map::getMyMain()->getPosition());
-            return target->getDistance(ourBasePosition) < 1000;
+            return target->distToTargetPosition > 1500;
         };
 
         if (targetType == BWAPI::UnitTypes::Zerg_Infested_Terran ||
@@ -51,7 +50,7 @@ namespace
         }
 
         // Proxies
-        if (target->type.isBuilding() && closeToOurBase())
+        if (target->type.isBuilding() && !target->isFlying && notCloseToTargetPosition())
         {
             if (target->canAttackGround() || target->canAttackAir())
             {
@@ -67,7 +66,7 @@ namespace
 
         if (targetType.isWorker())
         {
-            if ((target->bwapiUnit->isConstructing() || target->bwapiUnit->isRepairing()) && closeToOurBase())
+            if ((target->bwapiUnit->isConstructing() || target->bwapiUnit->isRepairing()) && notCloseToTargetPosition())
             {
                 return 15;
             }
@@ -197,7 +196,7 @@ namespace
         explicit Attacker(MyUnit unit) : unit(std::move(unit)), framesToAttack(INT_MAX) {}
     };
 
-    bool isTargetReachableEnemyBase(BWAPI::Position targetPosition)
+    bool isTargetReachableEnemyBase(BWAPI::Position targetPosition, const MyUnit &vanguard)
     {
         // First check if the target is an enemy base
         auto targetBase = Map::baseNear(targetPosition);
@@ -205,13 +204,12 @@ namespace
         if (targetBase->owner != BWAPI::Broodwar->enemy()) return false;
         if (targetBase->lastScouted != -1 && (!targetBase->resourceDepot || !targetBase->resourceDepot->exists())) return false;
 
-        // Next check if we can path to it
-        if (!Map::getMyMainChoke()) return true;
+        if (!vanguard) return true;
 
         auto grid = PathFinding::getNavigationGrid(targetBase->getTilePosition());
         if (!grid) return true;
 
-        auto node = (*grid)[Map::getMyMainChoke()->center];
+        auto node = (*grid)[vanguard->lastPosition];
         return node.nextNode != nullptr;
     }
 }
@@ -219,6 +217,33 @@ namespace
 std::vector<std::pair<MyUnit, Unit>>
 UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPosition, bool staticPosition)
 {
+    // Perform a scan to remove target units that are at much different distances from our target position than the vanguard unit
+    // This indicates we have picked up enemy units that are in a different region separated from us by a cliff
+    if (!vanguard->isFlying)
+    {
+        for (auto it = targetUnits.begin(); it != targetUnits.end();)
+        {
+            auto &unit = *it;
+            if (!unit->isFlying)
+            {
+                unit->distToTargetPosition = PathFinding::GetGroundDistance(
+                        unit->lastPosition,
+                        targetPosition,
+                        unit->type,
+                        PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+
+                if (unit->distToTargetPosition != -1 && abs(unit->distToTargetPosition - vanguardDistToTarget) > 700
+                    && !vanguard->isInEnemyWeaponRange(unit))
+                {
+                    it = targetUnits.erase(it);
+                    continue;
+                }
+            }
+
+            it++;
+        }
+    }
+
     std::vector<std::pair<MyUnit, Unit>> result;
 
     // For our targeting we want to know if we are attacking a reachable enemy base
@@ -228,14 +253,21 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
     // - The base is owned by the enemy
     // - The base has a resource depot or hasn't been scouted yet
     // - The base has a navigation grid path from our main choke (i.e. hasn't been walled-off)
-    bool targetIsReachableEnemyBase = !staticPosition && isTargetReachableEnemyBase(targetPosition);
+    bool targetIsReachableEnemyBase = !staticPosition && isTargetReachableEnemyBase(targetPosition, vanguard);
 
     // Create the target objects
+    // This also updates the enemy AOE radius
     std::vector<Target> targets;
     targets.reserve(targetUnits.size());
+    enemyAoeRadius = 0;
     for (const auto &targetUnit : targetUnits)
     {
-        if (targetUnit->exists()) targets.emplace_back(targetUnit, vanguard);
+        if (targetUnit->exists())
+        {
+            targets.emplace_back(targetUnit, vanguard);
+
+            enemyAoeRadius = std::max(enemyAoeRadius, targetUnit->groundWeapon().outerSplashRadius());
+        }
     }
 
 #if DEBUG_TARGETING
@@ -300,13 +332,12 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             continue;
         }
 
-        attackers.emplace_back(unit);
-        auto &attacker = *attackers.rbegin();
-        attacker.targets.reserve(targets.size());
-        attacker.closeTargets.reserve(targets.size());
-
         bool isRanged = UnitUtil::IsRangedUnit(unit->type);
         int distanceToTargetPosition = unit->getDistance(targetPosition);
+
+        // Start by doing a pass to gather the types of targets we have and filter those we don't want to consider
+        bool hasNonBuilding = false;
+        std::vector<std::pair<Target *, int>> filteredTargets;
         for (auto &target : targets)
         {
             if (target.unit->type == BWAPI::UnitTypes::Zerg_Larva ||
@@ -317,15 +348,6 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             {
 #if DEBUG_TARGETING
                 dbg << "\n Skipping " << *target.unit << " because of type / detection / health / can't attack";
-#endif
-                continue;
-            }
-
-            // If we are targeting an enemy base, ignore outlying buildings (except static defense)
-            if (target.priority < 7 && targetIsReachableEnemyBase && distanceToTargetPosition > 200)
-            {
-#if DEBUG_TARGETING
-                dbg << "\n Skipping " << *target.unit << " as priority < 7, targetIsReachableEnemyBase, distanceToTargetPosition > 200";
 #endif
                 continue;
             }
@@ -371,27 +393,69 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 continue;
             }
 
-            // Skip targets that are out of range and moving away from us, unless we are close to our target position
-            if (distanceToTargetPosition > 500 && distToRange > 0)
+            // The next checks apply if we are not close to our target position
+            if (distanceToTargetPosition > 500)
             {
-                auto predictedTargetPosition = target.unit->predictPosition(1);
-                if (predictedTargetPosition.isValid() && unit->getDistance(target.unit, predictedTargetPosition) > range)
+                // Skip targets that are out of range and moving away from us
+                if (distanceToTargetPosition > 500 && distToRange > 0)
+                {
+                    auto predictedTargetPosition = target.unit->predictPosition(1);
+                    if (predictedTargetPosition.isValid() && unit->getDistance(target.unit, predictedTargetPosition) > range)
+                    {
+#if DEBUG_TARGETING
+                        dbg << "\n Skipping " << *target.unit << " as it is out of range and moving away from us";
+#endif
+                        continue;
+                    }
+                }
+
+                // Skip targets that are further away from the target position and are either:
+                // - Out of range
+                // - In our range, but we aren't in their range, and we are on cooldown
+                if (unit->isFlying == target.unit->isFlying && unit->distToTargetPosition != -1 && target.unit->distToTargetPosition != -1
+                    && unit->distToTargetPosition < target.unit->distToTargetPosition
+                    && (distToRange > 0
+                        || (unit->cooldownUntil > BWAPI::Broodwar->getFrameCount() && !unit->isInEnemyWeaponRange(target.unit))))
                 {
 #if DEBUG_TARGETING
-                    dbg << "\n Skipping " << *target.unit << " as it is out of range and moving away from us";
+                    dbg << "\n Skipping " << *target.unit << " as it is further away from the target position";
 #endif
                     continue;
                 }
             }
 
             // This is a suitable target
+            filteredTargets.emplace_back(std::make_pair(&target, distToRange));
+
+            if (target.priority > 7) hasNonBuilding = true;
+        }
+
+        attackers.emplace_back(unit);
+        auto &attacker = *attackers.rbegin();
+        attacker.targets.reserve(filteredTargets.size());
+        attacker.closeTargets.reserve(filteredTargets.size());
+        for (auto &targetAndDistToRange : filteredTargets)
+        {
+            auto &target = *(targetAndDistToRange.first);
+
+            // If we are targeting an enemy base, ignore outlying buildings (except static defense) unless we have a higher-priority target
+            // Rationale: When we have a non-building target, we want to consider buildings since they might be blocking us from attacking them
+            if (target.priority < 7 && (!hasNonBuilding || target.unit->isFlying) && targetIsReachableEnemyBase && distanceToTargetPosition > 200)
+            {
+#if DEBUG_TARGETING
+                dbg << "\n Skipping " << *target.unit << " as priority < 7, targetIsReachableEnemyBase, distanceToTargetPosition > 200";
+#endif
+                continue;
+            }
+
 #if DEBUG_TARGETING
             dbg << "\n Added target " << *target.unit;
 #endif
             attacker.targets.emplace_back(&target);
 
             int framesToAttack = std::max(unit->cooldownUntil - BWAPI::Broodwar->getFrameCount(),
-                                          (int) ((double) distToRange / unit->type.topSpeed()) + BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+                                          (int) ((double) targetAndDistToRange.second / unit->type.topSpeed())
+                                          + BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
 
             if (framesToAttack < attacker.framesToAttack)
             {

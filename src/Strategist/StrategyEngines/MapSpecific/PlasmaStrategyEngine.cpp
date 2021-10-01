@@ -185,7 +185,7 @@ void PlasmaStrategyEngine::handleNaturalExpansion(std::vector<std::shared_ptr<Pl
     if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase)) return;
 
     auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(natural->getTilePosition()),
-                                                          BuildingPlacement::builderFrames(BuildingPlacement::Neighbourhood::MainBase,
+                                                          BuildingPlacement::builderFrames(Map::getMyMain()->mineralLineCenter,
                                                                                            natural->getTilePosition(),
                                                                                            BWAPI::UnitTypes::Protoss_Nexus),
                                                           0, 0);

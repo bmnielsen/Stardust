@@ -17,6 +17,20 @@ public:
 
     std::string getOurStrategy() override { return OurStrategyNames[ourStrategy]; }
 
+    bool isFastExpanding() override { return ourStrategy == OurStrategy::FastExpansion; }
+
+    bool isEnemyRushing() override
+    {
+        return enemyStrategy == TerranStrategy::WorkerRush ||
+               enemyStrategy == TerranStrategy::ProxyRush ||
+               enemyStrategy == TerranStrategy::MarineRush;
+    }
+
+    bool isEnemyProxy() override
+    {
+        return enemyStrategy == TerranStrategy::ProxyRush;
+    }
+
 private:
     enum class TerranStrategy
     {

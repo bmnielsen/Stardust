@@ -17,7 +17,7 @@ void UpgradeTracker::update(Grid &grid)
                 if (unit->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
                 if (unit->type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
 
-                if (unit->lastPositionValid && !unit->beingManufacturedOrCarried &&
+                if (unit->lastPositionValid && !unit->beingManufacturedOrCarried && !unit->immobile &&
                     (weaponUnitType.groundWeapon() == weaponAndDamage.first ||
                      weaponUnitType.airWeapon() == weaponAndDamage.first))
                 {
@@ -55,7 +55,7 @@ void UpgradeTracker::update(Grid &grid)
                 auto weaponUnitType = unit->type;
                 if (unit->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
 
-                if (unit->lastPositionValid && !unit->beingManufacturedOrCarried &&
+                if (unit->lastPositionValid && !unit->beingManufacturedOrCarried && !unit->immobile &&
                     (weaponUnitType.groundWeapon() == weaponAndRange.first ||
                      weaponUnitType.airWeapon() == weaponAndRange.first))
                 {
@@ -117,7 +117,7 @@ void UpgradeTracker::update(Grid &grid)
             // Update the grid for all known units with this type
             auto updateGrid = [&](const Unit &unit)
             {
-                if (unit->lastPositionValid && !unit->beingManufacturedOrCarried && unit->type == unitAndSightRange.first)
+                if (unit->lastPositionValid && !unit->beingManufacturedOrCarried && !unit->immobile && unit->type == unitAndSightRange.first)
                 {
                     grid.unitSightRangeUpgraded(unit->type, unit->lastPosition, unitAndSightRange.second, current);
 
@@ -287,7 +287,7 @@ void UpgradeTracker::setWeaponRange(BWAPI::WeaponType wpn, int range, Grid &grid
         auto weaponUnitType = unit->type;
         if (unit->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
 
-        if (unit->lastPositionValid && !unit->beingManufacturedOrCarried &&
+        if (unit->lastPositionValid && !unit->beingManufacturedOrCarried && !unit->immobile &&
             (weaponUnitType.groundWeapon() == wpn ||
              weaponUnitType.airWeapon() == wpn))
         {

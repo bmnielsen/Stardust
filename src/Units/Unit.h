@@ -41,6 +41,8 @@ public:
     int tilePositionY;                  // Y coordinate of the tile position
     BWAPI::TilePosition buildTile;      // For landed buildings, the tile position of the build tile (top-left tile)
 
+    int distToTargetPosition;           // Transient field used in targeting / combat sim / combat micro
+
     int lastSeen;                       // Frame the unit was last updated
     int lastSeenAttacking;              // Frame when the unit was last seen making an attack
 
@@ -79,6 +81,7 @@ public:
     int stimmedUntil;                   // If stimmed, when the stim will wear off
 
     bool undetected;                    // Whether the unit is currently cloaked and undetected
+    bool immobile;                      // Whether the unit is currently immobilized by stasis or lockdown
     bool burrowed;                      // Whether the unit is currently burrowed
     int lastBurrowing;                  // Frame we last observed the unit burrowing
 
@@ -132,6 +135,10 @@ public:
     [[nodiscard]] int airRange() const;
 
     [[nodiscard]] int range(const Unit &target) const;
+
+    [[nodiscard]] BWAPI::WeaponType groundWeapon() const;
+
+    [[nodiscard]] BWAPI::WeaponType airWeapon() const;
 
     [[nodiscard]] BWAPI::WeaponType getWeapon(const Unit &target) const;
 

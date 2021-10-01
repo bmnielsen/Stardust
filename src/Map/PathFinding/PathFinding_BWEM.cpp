@@ -213,7 +213,7 @@ namespace PathFinding
         if (adjustedStart == BWAPI::Positions::Invalid || adjustedEnd == BWAPI::Positions::Invalid) return BWEM::CPPath();
 
         // Start with the BWEM path
-        auto bwemPath = BWEM::Map::Instance().GetPath(adjustedStart, adjustedEnd, pathLength);
+        auto &bwemPath = BWEM::Map::Instance().GetPath(adjustedStart, adjustedEnd, pathLength);
 
         // We can always use BWEM's default pathfinding if:
         // - The minimum choke width is equal to or greater than the unit width

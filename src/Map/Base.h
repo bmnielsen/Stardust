@@ -47,6 +47,10 @@ public:
 
     [[nodiscard]] bool isInMineralLine(BWAPI::TilePosition pos) const;
 
+    [[nodiscard]] bool hasGeyserAt(BWAPI::TilePosition tile) const;
+
+    [[nodiscard]] bool geyserRequiresFourWorkers(BWAPI::TilePosition geyserTile) const;
+
 private:
 
     BWAPI::TilePosition tile;

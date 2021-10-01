@@ -32,11 +32,15 @@ namespace
         for (auto base : Map::getEnemyBases())
         {
             if (base->island) continue;
+            if (!base->resourceDepot || !base->resourceDepot->completed) continue;
 
             bool hasCannon = false;
             for (const auto &cannon : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon))
             {
-                if (!cannon->completed) continue;
+                if (!cannon->completed && cannon->estimatedCompletionFrame < (BWAPI::Broodwar->getFrameCount() + 120))
+                {
+                    continue;
+                }
                 if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(cannon->lastPosition)) == base->getArea())
                 {
                     hasCannon = true;
@@ -94,7 +98,8 @@ namespace
         {
             if (!enemy->lastPositionValid) continue;
             if (enemy->undetected) continue;
-            if (grid.detection(enemy->lastPosition) > 0) continue;
+            if (grid.detection(enemy->lastPosition) > 0 && grid.groundThreat(enemy->lastPosition) > 0) continue;
+            if (!myUnit->canAttack(enemy)) continue;
 
             int dist = myUnit->getDistance(enemy);
             if (dist > distThreshold) continue;
@@ -103,10 +108,13 @@ namespace
 
             if (dist < bestTargetDist || (dist == bestTargetDist && (enemy->lastHealth + enemy->lastShields) < bestTargetHealth))
             {
-                auto predictedEnemyPosition = enemy->predictPosition(1);
-                if (predictedEnemyPosition.isValid() && myUnit->getDistance(enemy, predictedEnemyPosition) > dist)
+                if (!allowRetreating)
                 {
-                    continue;
+                    auto predictedEnemyPosition = enemy->predictPosition(1);
+                    if (predictedEnemyPosition.isValid() && myUnit->getDistance(enemy, predictedEnemyPosition) > dist)
+                    {
+                        continue;
+                    }
                 }
 
                 bestTarget = enemy;
@@ -127,14 +135,23 @@ namespace
             auto node = (*grid)[unit->getTilePosition()];
             auto nextNode = node.nextNode;
             auto secondNode = nextNode ? nextNode->nextNode : nullptr;
-            auto onPathPredicate = [&](const Unit &unit)
+            auto blockingPredicate = [&](const Unit &enemy)
             {
-                auto tilePosition = unit->getTilePosition();
-                return (tilePosition.x == node.x && tilePosition.y == node.y) ||
-                       (nextNode && (tilePosition.x == nextNode->x && tilePosition.y == nextNode->y)) ||
-                       (secondNode && (tilePosition.x == secondNode->x && tilePosition.y == secondNode->y));
+                // Consider it to be blocking if the unit is on one of the next two path nodes
+                auto tilePosition = enemy->getTilePosition();
+                if ((tilePosition.x == node.x && tilePosition.y == node.y) ||
+                    (nextNode && (tilePosition.x == nextNode->x && tilePosition.y == nextNode->y)) ||
+                    (secondNode && (tilePosition.x == secondNode->x && tilePosition.y == secondNode->y)))
+                {
+                    return true;
+                }
+
+                // Consider it blocking if we are in a narrow choke, the enemy is in our attack range, and the enemy is closer to the goal
+                return Map::isInNarrowChoke(unit->getTilePosition())
+                       && unit->isInOurWeaponRange(enemy)
+                       && (*grid)[enemy->getTilePosition()].cost <= node.cost;
             };
-            auto target = getTarget(unit, Units::allEnemy(), false, 100, onPathPredicate);
+            auto target = getTarget(unit, Units::allEnemy(), false, 100, blockingPredicate);
             if (target)
             {
 #if DEBUG_UNIT_ORDERS
@@ -151,6 +168,35 @@ namespace
 
     void executeUnit(MyUnit &unit)
     {
+        auto canKillBeforeCompletedPredicate = [&](const Unit &target)
+        {
+            if (target->completed) return false;
+
+            // Attack a target if we think we can kill it before it completes
+            auto damagePerAttack = Players::attackDamage(unit->player, unit->type, target->player, target->type);
+            auto moveFrames = (int) ((double) unit->getDistance(target) * 1.4 / unit->type.topSpeed());
+            auto nextAttack = std::max(unit->cooldownUntil - BWAPI::Broodwar->getFrameCount(), moveFrames);
+
+            int attacks = (int) ((float) (target->lastHealth + target->lastShields) / (float) damagePerAttack);
+            int framesToKill = nextAttack + attacks * unit->type.groundWeapon().damageCooldown();
+
+            return (BWAPI::Broodwar->getFrameCount() + framesToKill) < target->estimatedCompletionFrame;
+        };
+        auto cannonTarget = getTarget(unit,
+                                      Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon),
+                                      false,
+                                      300,
+                                      canKillBeforeCompletedPredicate);
+        if (cannonTarget)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(unit->id) << "Attacking cannon " << *cannonTarget;
+#endif
+            std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
+            unit->attackUnit(cannonTarget, emptyUnitsAndTargets);
+            return;
+        }
+
         auto workerTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Probe), false, 300);
         if (workerTarget)
         {
@@ -166,7 +212,7 @@ namespace
         if (base)
         {
             if (unit->getDistance(base->mineralLineCenter) > 320 ||
-                Map::isInNarrowChoke(base->getTilePosition()) ||
+                Map::isInNarrowChoke(unit->getTilePosition()) ||
                 BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) != base->getArea())
             {
 #if DEBUG_UNIT_ORDERS
@@ -177,7 +223,16 @@ namespace
             }
         }
 
-        auto otherTarget = getTarget(unit, Units::allEnemy(), false);
+        // Prioritize completed nexuses, observatories we can kill before they complete, robo facilities, completed things, everything else
+        auto completedPredicate = [](const Unit &target)
+        {
+            return target->completed;
+        };
+        auto otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Nexus), false, 500, completedPredicate);
+        if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Observatory), false, 500, canKillBeforeCompletedPredicate);
+        if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Robotics_Facility), false, 500);
+        if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemy(), false, INT_MAX, completedPredicate);
+        if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemy(), false);
         if (otherTarget)
         {
 #if DEBUG_UNIT_ORDERS
@@ -192,7 +247,7 @@ namespace
         if (!nextExpansions.empty())
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit->id) << "Moving to next probably enemy expansion @ " << BWAPI::WalkPosition((*nextExpansions.begin())->getPosition());
+            CherryVis::log(unit->id) << "Moving to next probable enemy expansion @ " << BWAPI::WalkPosition((*nextExpansions.begin())->getPosition());
 #endif
             moveToBase(unit, *nextExpansions.begin());
             return;
