@@ -16,7 +16,7 @@ namespace Opponent
 
     void setGameValue(const std::string &key, int value);
 
-    int minValueInPreviousGames(const std::string &key, int defaultTooFewResults, int defaultNoData, int maxCount = INT_MAX, int minCount = 0);
+    int minValueInPreviousGames(const std::string &key, int defaultNoData, int maxCount = INT_MAX, int minCount = 0);
 
     double winLossRatio(double defaultValue, int maxCount = INT_MAX);
 }

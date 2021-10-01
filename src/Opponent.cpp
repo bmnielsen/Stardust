@@ -89,6 +89,11 @@ namespace Opponent
         Log::Get() << "Read " << previousGames.size() << " previous game result(s)";
 
         currentGame["mapHash"] = BWAPI::Broodwar->mapHash();
+
+        // Default values for some items
+        currentGame["pylonInOurMain"] = INT_MAX;
+        currentGame["firstDarkTemplarCompleted"] = INT_MAX;
+        currentGame["firstMutaliskCompleted"] = INT_MAX;
     }
 
     void gameEnd(bool isWinner)
@@ -154,11 +159,11 @@ namespace Opponent
         currentGame[key] = value;
     }
 
-    int minValueInPreviousGames(const std::string &key, int defaultTooFewResults, int defaultNoData, int maxCount, int minCount)
+    int minValueInPreviousGames(const std::string &key, int defaultNoData, int maxCount, int minCount)
     {
-        if (previousGames.size() < minCount) return defaultTooFewResults;
+        if (previousGames.size() < minCount) return defaultNoData;
 
-        int result = defaultNoData;
+        int result = INT_MAX;
 
         int count = 0;
         for (auto it = previousGames.rbegin(); it != previousGames.rend(); it++)
@@ -168,10 +173,16 @@ namespace Opponent
             try
             {
                 auto valIt = it->find(key);
-                if (valIt != it->end())
+
+                // If we hit a record where this data point isn't recorded, this means it was played by a previous version of the bot
+                // Apply the minimum game count restriction and return
+                if (valIt == it->end())
                 {
-                    result = std::min(result, valIt->get<int>());
+                    if (count < minCount) return defaultNoData;
+                    return result;
                 }
+
+                result = std::min(result, valIt->get<int>());
             }
             catch (std::exception &ex)
             {

@@ -283,6 +283,14 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                     continue;
                 }
 
+                // Also bail out of thinking it is a proxy rush if we have more dragoons than the enemy has marines
+                if (BWAPI::Broodwar->getFrameCount() >= 6000 &&
+                    Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) < Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon))
+                {
+                    strategy = TerranStrategy::Unknown;
+                    continue;
+                }
+
                 break;
             case TerranStrategy::MarineRush:
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;

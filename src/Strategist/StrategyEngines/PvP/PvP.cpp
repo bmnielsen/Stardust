@@ -32,7 +32,7 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
     plays.emplace_back(std::make_shared<EjectEnemyScout>());
     plays.emplace_back(std::make_shared<DefendMyMain>());
-    plays.emplace_back(std::make_shared<HiddenBase>());
+    //plays.emplace_back(std::make_shared<HiddenBase>());
 }
 
 void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
@@ -808,9 +808,9 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     // We assume worst case until we have at least 10 games played against the opponent
     // If we have never lost to the opponent, we continue playing conservatively even if we have never seen a DT
     int expectedCompletionFrame = 7300;
-    if (Opponent::winLossRatio(0.0) < 0.99)
+    if (Opponent::winLossRatio(0.0, 200) < 0.99)
     {
-        expectedCompletionFrame = Opponent::minValueInPreviousGames("firstDarkTemplarCompleted", 7300, 20000, 15, 10);
+        expectedCompletionFrame = Opponent::minValueInPreviousGames("firstDarkTemplarCompleted", 7300, 15, 10);
     }
 
     // If we haven't found the enemy main, be conservative and assume we might see DTs 500 frames after earliest completion

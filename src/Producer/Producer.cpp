@@ -366,8 +366,11 @@ namespace Producer
             }
 
             // Fill supply with available and provided supply
+            // For provided we use the total of our completed supply providers as we want to store values over the supply limit
             supply.assign(PREDICT_FRAMES, BWAPI::Broodwar->self()->supplyTotal() - BWAPI::Broodwar->self()->supplyUsed());
-            totalSupply.assign(PREDICT_FRAMES, BWAPI::Broodwar->self()->supplyTotal());
+            totalSupply.assign(PREDICT_FRAMES,
+                               Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) * BWAPI::UnitTypes::Protoss_Nexus.supplyProvided()
+                               + Units::countCompleted(BWAPI::UnitTypes::Protoss_Pylon) * BWAPI::UnitTypes::Protoss_Pylon.supplyProvided());
 
             // Assume workers being built will go to minerals
             for (const auto &unit : Units::allMine())
@@ -1274,14 +1277,14 @@ namespace Producer
             {
                 if (supply[f] < item.supplyRequired())
                 {
+                    // Break out if we are at max supply - this is a supply block we cannot fix
+                    if (totalSupply[f] >= 400) return false;
+
                     if (!blocked)
                     {
-                        // Break out if we are at max supply
-                        if (totalSupply[f] >= 400) return false;
-
                         supplyBlockFrames.push_back(f);
+                        blocked = true;
                     }
-                    blocked = true;
                 }
                 else
                     blocked = false;

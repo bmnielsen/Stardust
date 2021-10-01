@@ -118,7 +118,7 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
                                                                -1);
 
     // Upgrade goon range at 2 dragoons unless we are still behind in zealots
-    if (zealotsRequired == 0 || zealotCount > 4)
+    if (zealotsRequired <= 0 || zealotCount > 4 || dragoonCount > 10)
     {
         upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
     }
@@ -369,9 +369,12 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
     {
         for (auto &base : Map::getMyBases())
         {
-            if (base == Map::getMyMain() || base == Map::getMyNatural())
+            bool isMainOrNaturalInEarlyGame =
+                    (base == Map::getMyMain() || base == Map::getMyNatural()) && BWAPI::Broodwar->getFrameCount() < 20000;
+
+            // Don't defend our main or natural with a DefendBase play if our main army is close to it
+            if (isMainOrNaturalInEarlyGame)
             {
-                // Don't defend our main or natural with a DefendBase play if our main army is close to it
                 if (typeid(*mainArmyPlay) == typeid(AttackEnemyBase))
                 {
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
@@ -396,8 +399,8 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
                 enemyValue += CombatSim::unitValue(unit);
             }
 
-            // If too many enemies are threatening the base, don't bother trying to defend it
-            if (enemyValue > 5 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
+            // If too many enemies are threatening the base, don't bother trying to defend it, unless it is our main or natural in the early game
+            if (!isMainOrNaturalInEarlyGame && enemyValue > 5 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
             {
                 continue;
             }
