@@ -446,7 +446,7 @@ namespace Units
             // Create or update
             MyUnit unit;
             auto it = unitIdToMyUnit.find(bwapiUnit->getID());
-            if (it == unitIdToMyUnit.end())
+            if (it == unitIdToMyUnit.end() || !it->second || !it->second->exists())
             {
                 if (bwapiUnit->getType().isWorker())
                 {
