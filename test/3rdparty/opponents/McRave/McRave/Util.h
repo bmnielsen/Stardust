@@ -1,6 +1,8 @@
 #pragma once
 #include <BWAPI.h>
 
+using namespace BWAPI;
+
 namespace McRave::Util {
 
     const BWEM::ChokePoint * getClosestChokepoint(BWAPI::Position);
@@ -33,89 +35,13 @@ namespace McRave::Util {
         return a > b && a < c;
     }
 
-    template<typename F>
-    std::shared_ptr<UnitInfo> getClosestUnit(BWAPI::Position here, PlayerState player, F &&pred) {
-        auto distBest = DBL_MAX;
-        auto &units = Units::getUnits(player);
-        std::shared_ptr<UnitInfo> best = nullptr;
+    std::shared_ptr<UnitInfo> getClosestUnit(BWAPI::Position here, PlayerState player, std::function<bool(UnitInfo&)> &&pred);
 
-        for (auto &u : units) {
-            auto &unit = *u;
+    std::shared_ptr<UnitInfo> getFurthestUnit(BWAPI::Position here, PlayerState player, std::function<bool(UnitInfo&)> &&pred);
 
-            if (!unit.unit() || !pred(unit))
-                continue;
+    std::shared_ptr<UnitInfo> getClosestUnitGround(BWAPI::Position here, PlayerState player, std::function<bool(UnitInfo&)> &&pred);
 
-            auto dist = here.getDistance(unit.getPosition());
-            if (dist < distBest) {
-                best = u;
-                distBest = dist;
-            }
-        }
-        return best;
-    }
-
-    template<typename F>
-    std::shared_ptr<UnitInfo> getFurthestUnit(BWAPI::Position here, PlayerState player, F &&pred) {
-        auto distBest = 0.0;
-        auto &units = Units::getUnits(player);
-        std::shared_ptr<UnitInfo> best = nullptr;
-
-        for (auto &u : units) {
-            auto &unit = *u;
-
-            if (!unit.unit() || !pred(unit))
-                continue;
-
-            auto dist = here.getDistance(unit.getPosition());
-            if (dist > distBest) {
-                best = u;
-                distBest = dist;
-            }
-        }
-        return best;
-    }
-
-    template<typename F>
-    std::shared_ptr<UnitInfo> getClosestUnitGround(BWAPI::Position here, PlayerState player, F &&pred) {
-        auto distBest = DBL_MAX;
-        auto &units = Units::getUnits(player);
-        std::shared_ptr<UnitInfo> best = nullptr;
-
-        for (auto &u : units) {
-            auto &unit = *u;
-
-            if (!unit.unit() || !pred(unit))
-                continue;
-
-            auto dist = BWEB::Map::getGroundDistance(here, unit.getPosition());
-            if (dist < distBest) {
-                best = u;
-                distBest = dist;
-            }
-        }
-        return best;
-    }
-
-    template<typename F>
-    std::shared_ptr<UnitInfo> getFurthestUnitGround(BWAPI::Position here, PlayerState player, F &&pred) {
-        auto distBest = 0.0;
-        auto &units = Units::getUnits(player);
-        std::shared_ptr<UnitInfo> best = nullptr;
-
-        for (auto &u : units) {
-            auto &unit = *u;
-
-            if (!unit.unit() || !pred(unit))
-                continue;
-
-            auto dist = BWEB::Map::getGroundDistance(here, unit.getPosition());
-            if (dist > distBest) {
-                best = u;
-                distBest = dist;
-            }
-        }
-        return best;
-    }
+    std::shared_ptr<UnitInfo> getFurthestUnitGround(BWAPI::Position here, PlayerState player, std::function<bool(UnitInfo&)> &&pred);
 
     // Written by Hannes 8)
     template<typename T, int idx = 0>
@@ -126,109 +52,11 @@ namespace McRave::Util {
         return idx;
     }
 
-    template<typename F>
-    void testPointOnPath(BWEB::Path& path, F &&pred) {
-        BWAPI::TilePosition last = BWAPI::TilePositions::Invalid;
+    void testPointOnPath(BWEB::Path& path, std::function<bool(Position)> &&pred);
 
-        // For each TilePosition on the path
-        for (auto &pos : path.getTiles()) {
+    void testAllPointOnPath(BWEB::Path& path, std::function<bool(Position)> &&pred);
 
-            // If last wasn't valid, this is likely the first TilePosition
-            if (!last.isValid()) {
-                last = pos;
-                continue;
-            }
+    BWAPI::Position findPointOnPath(BWEB::Path& path, std::function<bool(Position)> &&pred, int cnt = INT_MAX);
 
-            // As long as last doesn't equal pos
-            while (last != pos) {
-                if (pred(Position(last) + Position(16, 16)))
-                    return;
-
-                // Increment or decrement based on where we need to go
-                last.x != pos.x ? (last.x > pos.x ? last.x-- : last.x++) : 0;
-                last.y != pos.y ? (last.y > pos.y ? last.y-- : last.y++) : 0;
-            }
-            last = pos;
-        }
-    }
-
-    template<typename F>
-    void testAllPointOnPath(BWEB::Path& path, F &&pred) {
-        BWAPI::TilePosition last = BWAPI::TilePositions::Invalid;
-
-        // For each TilePosition on the path
-        for (auto &pos : path.getTiles()) {
-
-            // If last wasn't valid, this is likely the first TilePosition
-            if (!last.isValid()) {
-                last = pos;
-                continue;
-            }
-
-            // As long as last doesn't equal pos
-            while (last != pos) {
-                pred(Position(last) + Position(16, 16));
-
-                // Increment or decrement based on where we need to go
-                last.x != pos.x ? (last.x > pos.x ? last.x-- : last.x++) : 0;
-                last.y != pos.y ? (last.y > pos.y ? last.y-- : last.y++) : 0;
-            }
-            last = pos;
-        }
-    }
-
-    template<typename F>
-    BWAPI::Position findPointOnPath(BWEB::Path& path, F &&pred, int cnt = INT_MAX) {
-        BWAPI::TilePosition last = BWAPI::TilePositions::Invalid;
-
-        // For each TilePosition on the path
-        for (auto &pos : path.getTiles()) {
-
-            // If last wasn't valid, this is likely the first TilePosition
-            if (!last.isValid()) {
-                last = pos;
-                continue;
-            }
-
-            // As long as last doesn't equal pos
-            while (last != pos) {
-                if (pred(Position(last) + Position(16, 16)))
-                    return Position(last) + Position(16, 16);
-
-                // Increment or decrement based on where we need to go
-                last.x != pos.x ? (last.x > pos.x ? last.x-- : last.x++) : 0;
-                last.y != pos.y ? (last.y > pos.y ? last.y-- : last.y++) : 0;
-            }
-            last = pos;
-        }
-        return Positions::Invalid;
-    }
-
-    template<typename F>
-    std::vector<BWAPI::Position> findAllPointOnPath(BWEB::Path& path, F &&pred) {
-        BWAPI::TilePosition last = BWAPI::TilePositions::Invalid;
-        std::vector<BWAPI::Position> returnVector;
-
-        // For each TilePosition on the path
-        for (auto &pos : path.getTiles()) {
-
-            // If last wasn't valid, this is likely the first TilePosition
-            if (!last.isValid()) {
-                last = pos;
-                continue;
-            }
-
-            // As long as last doesn't equal pos
-            while (last != pos) {
-                if (pred(Position(last) + Position(16, 16)))
-                    returnVector.push_back(Position(last) + Position(16, 16));
-
-                // Increment or decrement based on where we need to go
-                last.x != pos.x ? (last.x > pos.x ? last.x-- : last.x++) : 0;
-                last.y != pos.y ? (last.y > pos.y ? last.y-- : last.y++) : 0;
-            }
-            last = pos;
-        }
-        return returnVector;
-    }
+    std::vector<BWAPI::Position> findAllPointOnPath(BWEB::Path& path, std::function<bool(Position)> &&pred);
 }

@@ -8,13 +8,13 @@ namespace McRave::Transports {
 
     namespace {
 
-        constexpr tuple commands{ Command::transport, Command::escort, Command::retreat };
+        constexpr tuple<bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&)> commands{ Command::transport, Command::escort, Command::retreat };
 
         void updateCargo(UnitInfo& unit)
         {
             auto cargoSize = 0;
             for (auto &c : unit.getAssignedCargo()) {
-                if (auto &cargo = c.lock())
+                if (auto cargo = c.lock())
                     cargoSize += cargo->getType().spaceRequired();
             }
 
@@ -48,7 +48,7 @@ namespace McRave::Transports {
 
             // Check if we are ready to remove any units
             auto &cargoList = unit.getAssignedCargo();
-            for (auto &c = cargoList.begin(); c != cargoList.end(); c++) {
+            for (auto c = cargoList.begin(); c != cargoList.end(); c++) {
                 auto &cargo = *(c->lock());
 
                 if (cargo.getRole() == Role::Combat && !readyToAssignUnit(cargo)) {
@@ -96,7 +96,7 @@ namespace McRave::Transports {
             shared_ptr<UnitInfo> closestCargo = nullptr;
             auto distBest = DBL_MAX;
             for (auto &c : unit.getAssignedCargo()) {
-                auto &cargo = c.lock();
+                auto cargo = c.lock();
 
                 //Broodwar->drawLineMap(unit.getPosition(), cargo->getPosition(), Colors::Cyan);
 
@@ -289,7 +289,7 @@ namespace McRave::Transports {
         // If unit has a transport, remove it from the transports cargo, then set transport to nullptr
         if (unit.hasTransport()) {
             auto &cargoList = unit.getTransport().getAssignedCargo();
-            for (auto &cargo = cargoList.begin(); cargo != cargoList.end(); cargo++) {
+            for (auto cargo = cargoList.begin(); cargo != cargoList.end(); cargo++) {
                 if (cargo->lock() && cargo->lock() == unit.shared_from_this()) {
                     cargoList.erase(cargo);
                     break;
@@ -300,7 +300,7 @@ namespace McRave::Transports {
 
         // If unit is a transport, set the transport of all cargo to nullptr
         for (auto &c : unit.getAssignedCargo()) {
-            if (auto &cargo = c.lock())
+            if (auto cargo = c.lock())
                 cargo->setTransport(nullptr);
         }
     }

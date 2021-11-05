@@ -237,7 +237,7 @@ namespace McRave::Resources {
 
     void removeResource(Unit unit)
     {
-        auto &resource = getResourceInfo(unit);
+        auto resource = getResourceInfo(unit);
 
         if (resource) {
 

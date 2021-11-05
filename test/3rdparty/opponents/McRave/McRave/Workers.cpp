@@ -232,7 +232,7 @@ namespace McRave::Workers {
             const auto needMinerals =       unit.unit()->isCarryingGas() && !Resources::isMineralSaturated() && isGasunit && gasWorkers > BuildOrder::gasWorkerLimit();
             const auto needNewAssignment =  !unit.hasResource() || needGas || needMinerals || threatened || (excessAssigned && !threatened) || (isMineralunit && transferStation);
             auto distBest =                 threatened ? 0.0 : DBL_MAX;
-            auto &oldResource =             unit.hasResource() ? unit.getResource().shared_from_this() : nullptr;
+            auto oldResource =             unit.hasResource() ? unit.getResource().shared_from_this() : nullptr;
 
             // Return if we dont need an assignment
             if (!needNewAssignment)
@@ -335,7 +335,8 @@ namespace McRave::Workers {
             }
         }
 
-        constexpr tuple commands{ Command::misc, Command::attack, Command::click, Command::burrow, Command::returnResource, Command::build, Command::clearNeutral, Command::move, Command::kite, Command::gather };
+        constexpr tuple<bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&)>
+                commands{ Command::misc, Command::attack, Command::click, Command::burrow, Command::returnResource, Command::build, Command::clearNeutral, Command::move, Command::kite, Command::gather };
         void updateDecision(UnitInfo& unit)
         {
             // Convert our commands to strings to display what the unit is doing for debugging

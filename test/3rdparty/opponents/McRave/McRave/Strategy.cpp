@@ -704,7 +704,7 @@ namespace McRave::Strategy {
             // If we have seen an enemy worker before we've scouted the enemy, follow it
             enemyStrat.early.possible = false;
             if ((Players::getVisibleCount(PlayerState::Enemy, Protoss_Probe) > 0 || Players::getVisibleCount(PlayerState::Enemy, Terran_SCV) > 0) && Util::getTime() < Time(2, 00)) {
-                auto &enemyWorker = Util::getClosestUnit(BWEB::Map::getMainPosition(), PlayerState::Enemy, [&](auto &u) {
+                auto enemyWorker = Util::getClosestUnit(BWEB::Map::getMainPosition(), PlayerState::Enemy, [&](auto &u) {
                     return u.getType().isWorker();
                 });
                 if (enemyWorker) {

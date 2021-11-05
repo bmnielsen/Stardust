@@ -828,7 +828,9 @@ namespace McRave::Planning {
             buildingsPlanned.clear();
 
             // Add up how many more buildings of each type we need
-            for (auto &[building, count] : BuildOrder::getBuildQueue()) {
+            for (auto &[b, count] : BuildOrder::getBuildQueue()) {
+                auto &building = b;
+
                 int queuedCount = 0;
 
                 auto morphed = !building.whatBuilds().first.isWorker();
@@ -868,7 +870,7 @@ namespace McRave::Planning {
 
                     //Visuals::drawBox(Position(here) + Position(4, 4), Position(here + building.tileSize()) - Position(4, 4), Colors::White);
 
-                    auto &builder = Util::getClosestUnitGround(center, PlayerState::Self, [&](auto &u) {
+                    auto builder = Util::getClosestUnitGround(center, PlayerState::Self, [&](auto &u) {
                         if (u.getType().getRace() != building.getRace()
                             || u.getBuildType() != None
                             || u.unit()->getOrder() == Orders::ConstructingBuilding

@@ -108,7 +108,7 @@ namespace McRave::Stations {
             return;
 
         auto &list = (unit->getPlayer() == Broodwar->self()) ? myStations : enemyStations;
-        auto &existing = find(list.begin(), list.end(), newStation);
+        auto existing = find(list.begin(), list.end(), newStation);
         if (existing != list.end() && *existing == newStation)
             return;
 
@@ -148,7 +148,7 @@ namespace McRave::Stations {
             return;
 
         auto &list = unit->getPlayer() == Broodwar->self() ? myStations : enemyStations;
-        auto &existing = find(list.begin(), list.end(), newStation);
+        auto existing = find(list.begin(), list.end(), newStation);
         if (existing == list.end())
             return;
 

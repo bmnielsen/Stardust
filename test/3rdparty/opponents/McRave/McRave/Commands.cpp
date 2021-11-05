@@ -123,7 +123,7 @@ namespace McRave::Command {
 
         // If unit is potentially stuck, try to find a manner pylon
         else if (unit.getRole() == Role::Worker && (unit.framesHoldingResource() >= 100 || unit.framesHoldingResource() <= -200)) {
-            auto &pylon = Util::getClosestUnit(unit.getPosition(), PlayerState::Enemy, [&](auto &u) {
+            auto pylon = Util::getClosestUnit(unit.getPosition(), PlayerState::Enemy, [&](auto &u) {
                 return u.getType() == UnitTypes::Protoss_Pylon;
             });
             if (pylon && pylon->unit() && pylon->unit()->exists() && pylon->getPosition().getDistance(unit.getPosition()) < 128.0) {
@@ -724,7 +724,7 @@ namespace McRave::Command {
             double score =          1.0 / (threat * distance);
 
             for (auto &c : unit.getAssignedCargo()) {
-                if (auto &cargo = c.lock()) {
+                if (auto cargo = c.lock()) {
 
                     // If we just dropped units, we need to make sure not to leave them
                     if (unit.getTransportState() == TransportState::Monitoring) {

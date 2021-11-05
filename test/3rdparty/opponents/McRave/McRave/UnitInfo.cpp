@@ -287,7 +287,7 @@ namespace McRave
         else if (getPlayer()->isEnemy(Broodwar->self())) {
 
             if (unit()->getOrderTarget()) {
-                auto &targetInfo = Units::getUnitInfo(unit()->getOrderTarget());
+                auto targetInfo = Units::getUnitInfo(unit()->getOrderTarget());
                 if (targetInfo) {
                     target = targetInfo;
                     targetInfo->getTargetedBy().push_back(this->weak_from_this());

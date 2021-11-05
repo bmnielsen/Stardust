@@ -646,7 +646,7 @@ namespace BWEB::Blocks
 
     void eraseBlock(const TilePosition here)
     {
-        for (auto &it = allBlocks.begin(); it != allBlocks.end(); ++it) {
+        for (auto it = allBlocks.begin(); it != allBlocks.end(); ++it) {
             auto &block = *it;
             if (here.x >= block.getTilePosition().x && here.x < block.getTilePosition().x + block.width() && here.y >= block.getTilePosition().y && here.y < block.getTilePosition().y + block.height()) {
                 allBlocks.erase(it);

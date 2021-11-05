@@ -1004,7 +1004,7 @@ namespace BWEB {
         // Returns how many visible ground defensive structures exist in this Walls defense locations
         int count = 0;
         for (auto &tile : defenses[0]) {
-            auto &type = Map::isUsed(tile);
+            auto type = Map::isUsed(tile);
             if (type == UnitTypes::Protoss_Photon_Cannon
                 || type == UnitTypes::Zerg_Sunken_Colony
                 || type == UnitTypes::Terran_Bunker)
@@ -1018,7 +1018,7 @@ namespace BWEB {
         // Returns how many visible air defensive structures exist in this Walls defense locations
         int count = 0;
         for (auto &tile : defenses[0]) {
-            auto &type = Map::isUsed(tile);
+            auto type = Map::isUsed(tile);
             if (type == UnitTypes::Protoss_Photon_Cannon
                 || type == UnitTypes::Zerg_Spore_Colony
                 || type == UnitTypes::Terran_Missile_Turret)

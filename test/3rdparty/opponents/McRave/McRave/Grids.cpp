@@ -382,7 +382,7 @@ namespace McRave::Grids
             return true;
         };
 
-        const auto fullyFogged = [&](auto &t) {
+        const auto fullyFogged = [&](auto t) {
             for (int x = -2; x <= 2; x++) {
                 for (int y = -2; y <= 2; y++) {
                     auto tile = t + TilePosition(x,y);
@@ -396,7 +396,7 @@ namespace McRave::Grids
             return true;
         };
 
-        const auto fullyRanged = [&](auto &t) {
+        const auto fullyRanged = [&](auto t) {
             for (int x = -6; x <= 6; x++) {
                 for (int y = -6; y <= 6; y++) {
                     auto tile = t + TilePosition(x, y);

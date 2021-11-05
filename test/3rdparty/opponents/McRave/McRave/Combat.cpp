@@ -52,7 +52,8 @@ namespace McRave::Combat {
         };
 
         multimap<Position, Formation> groundFormations;
-        constexpr tuple commands{ Command::misc, Command::special, Command::attack, Command::approach, Command::kite, Command::defend, Command::explore, Command::escort, Command::retreat, Command::move };
+        constexpr tuple<bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&)>
+                commands{ Command::misc, Command::special, Command::attack, Command::approach, Command::kite, Command::defend, Command::explore, Command::escort, Command::retreat, Command::move };
 
         void getBestPathFormationPoint(UnitInfo &unit)
         {
@@ -134,7 +135,8 @@ namespace McRave::Combat {
             }
 
             // Generate formation positions
-            for (auto &[pos, formation] : groundFormations) {
+            for (auto &[pos, f] : groundFormations) {
+                auto &formation = f;
 
                 if (formation.range == 0.0
                     || !formation.center.isValid())
@@ -303,7 +305,8 @@ namespace McRave::Combat {
 
         void assignFormations()
         {
-            for (auto &[_, formation] : groundFormations) {
+            for (auto &[_, f] : groundFormations) {
+                auto &formation = f;
 
                 for (int i = 0; i < 4; i++) {
 
@@ -731,7 +734,7 @@ namespace McRave::Combat {
 
             // If this is a light air unit, defend any bases under heavy attack
             else if ((unit.isLightAir() || unit.getType() == Zerg_Scourge) && ((Units::getImmThreat() > 25.0 && Stations::getMyStations().size() >= 3 && Stations::getMyStations().size() > Stations::getEnemyStations().size()) || (Players::ZvZ() && Units::getImmThreat() > 5.0))) {
-                auto &attacker = Util::getClosestUnit(BWEB::Map::getMainPosition(), PlayerState::Enemy, [&](auto &u) {
+                auto attacker = Util::getClosestUnit(BWEB::Map::getMainPosition(), PlayerState::Enemy, [&](auto &u) {
                     return u.isThreatening() && !u.isHidden();
                 });
                 if (attacker)

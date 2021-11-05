@@ -199,7 +199,7 @@ namespace McRave {
     }
 
     /// Writes to a file, very slow function!
-    static void easyWrite(std::string& stuff)
+    static void easyWrite(std::string stuff)
     {
         std::ofstream writeFile;
         writeFile.open("bwapi-data/write/McRave_Debug_Log.txt", std::ios::app);

@@ -24,7 +24,7 @@ namespace McRave::Math {
             double cnt = 0.0;
             for (auto &i : unit.unit()->getInterceptors()) {
                 if (i && !i->exists()) {
-                    auto &interceptor = Units::getUnitInfo(i);
+                    auto interceptor = Units::getUnitInfo(i);
                     if (interceptor)
                         cnt += interceptor->getMaxGroundStrength();
                 }
@@ -59,7 +59,7 @@ namespace McRave::Math {
             double cnt = 0.0;
             for (auto &i : unit.unit()->getInterceptors()) {
                 if (i && !i->exists()) {
-                    auto &interceptor = Units::getUnitInfo(i);
+                    auto interceptor = Units::getUnitInfo(i);
                     if (interceptor)
                         cnt += interceptor->getMaxAirStrength();
                 }

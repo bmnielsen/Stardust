@@ -151,7 +151,7 @@ namespace McRave::Buildings {
         {
             // Terran building needs new scv
             if (building.getType().getRace() == Races::Terran && !building.unit()->isCompleted() && !building.unit()->getBuildUnit()) {
-                auto &builder = Util::getClosestUnit(building.getPosition(), PlayerState::Self, [&](auto &u) {
+                auto builder = Util::getClosestUnit(building.getPosition(), PlayerState::Self, [&](auto &u) {
                     return u.getType().isWorker() && u.getBuildType() == None;
                 });
 

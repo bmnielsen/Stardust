@@ -354,7 +354,9 @@ namespace McRave::Goals {
 
             // Assign an Overlord to each Wall
             if (!Players::vT()) {
-                for (auto &[_, wall] : BWEB::Walls::getWalls()) {
+                for (auto &[_, w] : BWEB::Walls::getWalls()) {
+                    auto &wall = w;
+
                     if (!Terrain::isInAllyTerritory(wall.getArea()))
                         continue;
 
