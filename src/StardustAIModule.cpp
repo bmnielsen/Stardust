@@ -134,8 +134,12 @@ void StardustAIModule::onFrame()
 {
     if (BWAPI::BroodwarPtr->getFrameCount() < frameSkip) return;
     if (gameFinished) return;
+#ifdef VS_HUMAN
     if (BWAPI::Broodwar->isPaused()) return;
     if (BWAPI::Broodwar->isReplay()) return;
+#else
+    if (BWAPI::Broodwar->isPaused()) BWAPI::Broodwar->resumeGame();
+#endif
 
 #ifdef FRAME_LIMIT
     if (BWAPI::Broodwar->getFrameCount() > FRAME_LIMIT)
@@ -150,7 +154,8 @@ void StardustAIModule::onFrame()
     // Before doing anything else, check if the opponent has left or been eliminated
     for (auto &event : BWAPI::Broodwar->getEvents())
     {
-        if (event.getType() == BWAPI::EventType::PlayerLeft && event.getPlayer() == BWAPI::Broodwar->enemy())
+        if (event.getType() == BWAPI::EventType::PlayerLeft && event.getPlayer() == BWAPI::Broodwar->enemy()
+            && BWAPI::Broodwar->getFrameCount() > 100)
         {
             Log::Get() << "Opponent has left the game";
             BWAPI::Broodwar->sendText("gg");
