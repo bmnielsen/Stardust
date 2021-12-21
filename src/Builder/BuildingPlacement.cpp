@@ -253,25 +253,61 @@ namespace BuildingPlacement
                 {
                     auto &mainDefenses = baseStaticDefenses[base];
 
-                    // Score each position based on their distance to the mineral line center and geyser
+                    // Start by scoring the positions by how well they defend the mineral line
+                    auto mainChoke = Map::getMyMainChoke();
+                    auto chokeToMineralLineDist = mainChoke ? mainChoke->center.getApproxDistance(base->mineralLineCenter) : 0;
                     std::vector<std::pair<int, BWAPI::TilePosition>> tilesAndScore;
                     for (auto &tile : mainDefenses.second)
                     {
                         auto pos = BWAPI::Position(tile) + BWAPI::Position(16, 16);
-                        int score = pos.getApproxDistance(base->mineralLineCenter) * 2;
+                        int score = pos.getApproxDistance(base->mineralLineCenter) * 4;
                         if (!base->geysers().empty())
                         {
                             score += pos.getApproxDistance((*base->geysers().begin())->getPosition());
                         }
+                        if (mainChoke)
+                        {
+                            score += (mainChoke->center.getApproxDistance(pos) - chokeToMineralLineDist) * 2;
+                        }
                         tilesAndScore.emplace_back(std::make_pair(score, tile));
                     }
-
                     std::sort(tilesAndScore.begin(), tilesAndScore.end());
 
-                    mainDefenses.second.clear();
+                    // Next find the position that best defends the start block
+                    auto startBlockPylonPos = BWAPI::Position(startBlock->powerPylon) + BWAPI::Position(16, 16);
+                    auto chokeToStartBlockDist = mainChoke
+                            ? mainChoke->center.getApproxDistance(startBlockPylonPos)
+                            : 0;
+                    BWAPI::TilePosition bestStartBlockTile = BWAPI::TilePositions::Invalid;
+                    int bestScore = INT_MAX;
+                    for (auto &tile : mainDefenses.second)
+                    {
+                        auto pos = BWAPI::Position(tile) + BWAPI::Position(16, 16);
+                        int score = pos.getApproxDistance(startBlockPylonPos);
+                        if (mainChoke)
+                        {
+                            score += (mainChoke->center.getApproxDistance(pos) - chokeToStartBlockDist);
+                        }
+                        if (score < bestScore)
+                        {
+                            bestStartBlockTile = tile;
+                            bestScore = score;
+                        }
+                    }
 
+                    // Now assign the locations
+                    // We use the scores for how well they defend the mineral line, but put the cannon that best defends the start block second
+                    mainDefenses.second.clear();
+                    auto firstTile = tilesAndScore.begin()->second;
+                    mainDefenses.second.push_back(firstTile);
+                    if (bestStartBlockTile != BWAPI::TilePositions::Invalid && bestStartBlockTile != firstTile)
+                    {
+                        mainDefenses.second.push_back(bestStartBlockTile);
+                    }
                     for (auto &tileAndScore : tilesAndScore)
                     {
+                        if (tileAndScore.second == firstTile) continue;
+                        if (tileAndScore.second == bestStartBlockTile) continue;
                         mainDefenses.second.push_back(tileAndScore.second);
                     }
 

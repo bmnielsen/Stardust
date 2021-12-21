@@ -283,20 +283,12 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             // Build cannons if the strategy has been stable for 5 seconds
             int completedCannons =
                     enemyStrategyChanged < (BWAPI::Broodwar->getFrameCount() - 120)
-                    ? buildCannons(enemyMarines < 10 ? 1 : 2)
+                    ? buildCannons(2)
                     : 0;
 
             // Determine how many zealots we want
             // Zealots are relatively useless against groups of kiting marines, so we want to transition to dragoons as quickly as possible
-            int zealotsRequired = 0;
-            if (completedCannons < 2)
-            {
-                // If we haven't reached a "critical mass" of dragoons yet, get at least four zealots
-                // Otherwise keep two zealots while pumping dragoons
-                int desiredZealots = (dragoonCount < 3 ? 4 : 2) - (completedCannons * 2);
-                zealotsRequired = desiredZealots - zealotCount;
-            }
-
+            int zealotsRequired = std::max(0, (dragoonCount < 3 ? 3 : 2) - (completedCannons * 2));
             handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired);
 
             break;
