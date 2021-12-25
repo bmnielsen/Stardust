@@ -13,6 +13,6 @@ list(FILTER BOSS_SRC_FILES EXCLUDE REGEX deprecated)
 
 add_library(Steamhammer SHARED ${SRC_FILES} ${BOSS_SRC_FILES})
 
-target_link_libraries(Steamhammer -L/usr/local/Cellar/llvm/8.0.0/lib BWAPILIB)
+target_link_libraries(Steamhammer -L/usr/local/Cellar/llvm/13.0.0_2/lib BWAPILIB)
 target_include_directories(Steamhammer SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/Steamhammer/Source)
 target_compile_options(Steamhammer PRIVATE -w)

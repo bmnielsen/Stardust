@@ -16,6 +16,6 @@ include_directories(${LOCUTUS_INCLUDES})
 
 add_library(Locutus SHARED ${SRC_FILES} ${BOSS_SRC_FILES} ${BWTA_SRC_FILES} ${BWEM_SRC_FILES} ${BWEB_SRC_FILES})
 
-target_link_libraries(Locutus -L/usr/local/Cellar/llvm/8.0.0/lib BWAPILIB c++fs)
+target_link_libraries(Locutus -L/usr/local/Cellar/llvm/13.0.0_2/lib BWAPILIB)
 target_include_directories(Locutus SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/Locutus/Source)
 target_compile_options(Locutus PRIVATE -w)
