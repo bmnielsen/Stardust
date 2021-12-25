@@ -276,10 +276,6 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 return completedCannons;
             };
 
-            // Take enemy production into account when determining how many marines they have
-            int enemyMarines = Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) + 1;
-            if (enemyStrategy == TerranStrategy::ProxyRush) enemyMarines += 2;
-
             // Build cannons if the strategy has been stable for 5 seconds
             int completedCannons =
                     enemyStrategyChanged < (BWAPI::Broodwar->getFrameCount() - 120)

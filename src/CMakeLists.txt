@@ -46,7 +46,7 @@ ELSE (MSVC)
     target_compile_definitions(Stardust PUBLIC LOGGING_ENABLED=true)
     target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
     target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED_VERBOSE=true)
-    target_link_libraries(Stardust -L/usr/local/Cellar/llvm/8.0.0/lib BWAPILIB BWEM FAP libzstd_static c++fs)
+    target_link_libraries(Stardust -L/usr/local/Cellar/llvm/13.0.0_2/lib BWAPILIB BWEM FAP libzstd_static)
 ENDIF (MSVC)
 
 target_include_directories(Stardust PUBLIC ${STARDUST_INCLUDES})
