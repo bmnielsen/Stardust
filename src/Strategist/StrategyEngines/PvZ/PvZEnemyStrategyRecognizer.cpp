@@ -43,7 +43,7 @@ namespace
 
     bool isWorkerRush()
     {
-        if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
+        if (currentFrame >= 6000) return false;
 
         int workers = 0;
         for (const Unit &unit : Units::allEnemy())
@@ -73,7 +73,7 @@ namespace
 
     bool isZerglingRush()
     {
-        if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
+        if (currentFrame >= 6000) return false;
 
         return createdBeforeFrame(BWAPI::UnitTypes::Zerg_Spawning_Pool, 1500) ||
                createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 2500);
@@ -82,7 +82,7 @@ namespace
     bool isZerglingAllIn()
     {
         // Expect a ling all-in if the enemy builds two in-base hatches on a low worker count
-        if (BWAPI::Broodwar->getFrameCount() < 5000 &&
+        if (currentFrame < 5000 &&
             Units::countEnemy(BWAPI::UnitTypes::Zerg_Spawning_Pool) > 0 &&
             Units::countEnemy(BWAPI::UnitTypes::Zerg_Hatchery) > 2 &&
             Units::countEnemy(BWAPI::UnitTypes::Zerg_Drone) < 15 &&
@@ -91,13 +91,13 @@ namespace
             return true;
         }
 
-        if (BWAPI::Broodwar->getFrameCount() < 6000)
+        if (currentFrame < 6000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 4000, 8) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 5000, 12);
         }
 
-        if (BWAPI::Broodwar->getFrameCount() < 8000)
+        if (currentFrame < 8000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 7000, 20) &&
                    Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 10;
@@ -143,7 +143,7 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
                 if (isZerglingRush()) return ZergStrategy::ZerglingRush;
 
                 // Default to something reasonable if our scouting completely fails
-                if (BWAPI::Broodwar->getFrameCount() > 4000)
+                if (currentFrame > 4000)
                 {
                     strategy = ZergStrategy::PoolBeforeHatchery;
                     continue;
@@ -178,7 +178,7 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
 
                 // Consider the rush to be over after 6000 frames
                 // From there the PoolBeforeHatchery handler will potentially transition into ZerglingAllIn
-                if (BWAPI::Broodwar->getFrameCount() >= 6000)
+                if (currentFrame >= 6000)
                 {
                     strategy = ZergStrategy::PoolBeforeHatchery;
                     continue;

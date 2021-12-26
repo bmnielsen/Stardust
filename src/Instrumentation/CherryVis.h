@@ -3,6 +3,9 @@
 #include <BWAPI.h>
 
 #if INSTRUMENTATION_ENABLED
+
+extern int currentFrame;
+
 #define CHERRYVIS_ENABLED true
 #endif
 

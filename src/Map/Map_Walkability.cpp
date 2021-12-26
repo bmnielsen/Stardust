@@ -539,7 +539,7 @@ namespace Map
         // Units that affect tile walkability
         // Skip on frame 0, since we handle static neutrals and our base explicitly
         // Skip refineries, since creation of a refinery does not affect tile walkability (there was already a geyser)
-        if (BWAPI::Broodwar->getFrameCount() > 0 && unit->type.isBuilding() && !unit->isFlying && !unit->type.isRefinery())
+        if (currentFrame > 0 && unit->type.isBuilding() && !unit->isFlying && !unit->type.isRefinery())
         {
             if (updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), false))
             {
@@ -555,7 +555,7 @@ namespace Map
     {
         // Update tile walkability for discovered mineral fields
         // TODO: Is this even needed?
-        if (BWAPI::Broodwar->getFrameCount() > 0 && unit->getType().isMineralField())
+        if (currentFrame > 0 && unit->getType().isMineralField())
         {
             if (updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), false))
             {

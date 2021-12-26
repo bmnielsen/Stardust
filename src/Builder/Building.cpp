@@ -18,7 +18,7 @@ Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyUnit builde
 void Building::constructionStarted(MyUnit startedUnit)
 {
     unit = std::move(startedUnit);
-    startFrame = BWAPI::Broodwar->getFrameCount();
+    startFrame = currentFrame;
 }
 
 BWAPI::Position Building::getPosition() const
@@ -43,14 +43,14 @@ int Building::expectedFramesUntilStarted() const
                                             builder->type,
                                             PathFinding::PathFindingOptions::UseNearestBWEMArea);
 
-    return std::max(workerFrames, desiredStartFrame - BWAPI::Broodwar->getFrameCount());
+    return std::max(workerFrames, desiredStartFrame - currentFrame);
 }
 
 int Building::expectedFramesUntilCompletion() const
 {
     if (startFrame != -1)
     {
-        return UnitUtil::BuildTime(type) - (BWAPI::Broodwar->getFrameCount() - startFrame);
+        return UnitUtil::BuildTime(type) - (currentFrame - startFrame);
     }
 
     return UnitUtil::BuildTime(type) + expectedFramesUntilStarted();

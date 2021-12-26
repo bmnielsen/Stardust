@@ -145,7 +145,7 @@ void UnitCluster::holdChoke(Choke *choke,
         {
             // If on cooldown, attack to activate kiting logic if in the target's range and on the same side
             // Otherwise fall through to choke boids
-            if (myUnit->cooldownUntil > (BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames() + 2))
+            if (myUnit->cooldownUntil > (currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames() + 2))
             {
                 return myUnit->isInEnemyWeaponRange(target, 64) && inSameSide(myUnit, target);
             }

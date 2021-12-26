@@ -202,15 +202,15 @@ namespace Producer
             /*
             Log::LogWrapper csv = Log::Csv(label);
 
-            int seconds = BWAPI::Broodwar->getFrameCount() / 24;
-            csv << BWAPI::Broodwar->getFrameCount();
+            int seconds = currentFrame / 24;
+            csv << currentFrame;
             csv << (seconds / 60);
             csv << (seconds % 60);
             csv << BWAPI::Broodwar->self()->minerals();
             csv << BWAPI::Broodwar->self()->gas();
             csv << (BWAPI::Broodwar->self()->supplyTotal() - BWAPI::Broodwar->self()->supplyUsed());
 
-            if (BWAPI::Broodwar->getFrameCount() < 2) Log::Debug() << label << ":";
+            if (currentFrame < 2) Log::Debug() << label << ":";
 
             for (auto &item : items)
             {
@@ -218,7 +218,7 @@ namespace Producer
                 csv << itemLabel(item) << item->startFrame << item->completionFrame;
                 csv << minerals[item->startFrame] << gas[item->startFrame] << supply[item->startFrame];
 
-                if (BWAPI::Broodwar->getFrameCount() < 2) Log::Debug() << itemLabel(item) << ": " << item->startFrame << ";" << item->completionFrame;
+                if (currentFrame < 2) Log::Debug() << itemLabel(item) << ": " << item->startFrame << ";" << item->completionFrame;
             }
              */
         }
@@ -226,7 +226,7 @@ namespace Producer
         int getRemainingBuildTime(const MyUnit &producer)
         {
             if (producer->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
-                (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+                (currentFrame - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
             {
                 return buildTime(producer->bwapiUnit->getLastCommand().getUnitType());
             }
@@ -239,7 +239,7 @@ namespace Producer
         int getRemainingUpgradeTime(const MyUnit &producer)
         {
             if (producer->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Upgrade &&
-                (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+                (currentFrame - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
             {
                 return buildTime(producer->bwapiUnit->getLastCommand().getUpgradeType());
             }
@@ -252,7 +252,7 @@ namespace Producer
         int getRemainingResearchTime(const MyUnit &producer)
         {
             if (producer->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Research &&
-                (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+                (currentFrame - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
             {
                 return buildTime(producer->bwapiUnit->getLastCommand().getTechType());
             }
@@ -351,7 +351,7 @@ namespace Producer
         {
             // Decide on the length of the prediction window
             // In the early game we use a 4500-frame window, which shrinks to 2000 later on
-            PREDICT_FRAMES = std::max(2000, std::min(4500, 12000 - BWAPI::Broodwar->getFrameCount()));
+            PREDICT_FRAMES = std::max(2000, std::min(4500, 12000 - currentFrame));
 
             // Fill mineral and gas with current rates
             minerals.assign(PREDICT_FRAMES, BWAPI::Broodwar->self()->minerals());
@@ -1688,7 +1688,7 @@ namespace Producer
                 // This is not perfect, as it will reduce the count of all production goals targeting this unit type, but it's probably
                 // rare that we have multiple goals with limited numbers of the same unit type anyway.
                 if (unitType && toProduce != -1 && unit->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
-                    (BWAPI::Broodwar->getFrameCount() - unit->bwapiUnit->getLastCommandFrame() - 1) < BWAPI::Broodwar->getLatencyFrames() &&
+                    (currentFrame - unit->bwapiUnit->getLastCommandFrame() - 1) < BWAPI::Broodwar->getLatencyFrames() &&
                     unit->bwapiUnit->getLastCommand().getUnitType() == *unitType)
                 {
                     toProduce--;
@@ -1995,7 +1995,7 @@ namespace Producer
                                    : Builder::getBuilderUnit(item->buildLocation.location.tile, *unitType, &arrivalFrame);
                     if (builder && arrivalFrame >= item->startFrame)
                     {
-                        Builder::build(*unitType, item->buildLocation.location.tile, builder, BWAPI::Broodwar->getFrameCount() + item->startFrame);
+                        Builder::build(*unitType, item->buildLocation.location.tile, builder, currentFrame + item->startFrame);
                     }
                 }
 

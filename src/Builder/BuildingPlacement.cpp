@@ -931,7 +931,7 @@ namespace BuildingPlacement
                 if (base->owner != BWAPI::Broodwar->self()) continue;
                 if (!base->resourceDepot || !base->resourceDepot->exists()) continue;
                 if (!base->resourceDepot->completed &&
-                    (base->resourceDepot->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount())
+                    (base->resourceDepot->estimatedCompletionFrame - currentFrame)
                     > UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator))
                 {
                     continue;

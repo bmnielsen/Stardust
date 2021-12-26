@@ -25,7 +25,7 @@ void HiddenBase::update()
     // - We are past frame 15000
     // - We have taken our natural
     auto natural = Map::getMyNatural();
-    if (BWAPI::Broodwar->getFrameCount() > 15000 ||
+    if (currentFrame > 15000 ||
         (natural && natural->owner == BWAPI::Broodwar->self() && natural->resourceDepot && natural->resourceDepot->completed))
     {
         if (builder)

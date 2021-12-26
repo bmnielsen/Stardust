@@ -35,14 +35,14 @@ void MyDragoon::update(BWAPI::Unit unit)
 
     // Set lastAttackStartedAt on the frame where our cooldown starts
     int cooldown = std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown());
-    if (BWAPI::Broodwar->getFrameCount() + cooldown - cooldownUntil > 1)
+    if (currentFrame + cooldown - cooldownUntil > 1)
     {
-        lastAttackStartedAt = BWAPI::Broodwar->getFrameCount();
-        potentiallyStuckSince = BWAPI::Broodwar->getFrameCount() + DRAGOON_ATTACK_FRAMES;
+        lastAttackStartedAt = currentFrame;
+        potentiallyStuckSince = currentFrame + DRAGOON_ATTACK_FRAMES;
     }
 
     // Clear potentiallyStuckSince if the unit has moved this frame or has stopped
-    if (potentiallyStuckSince <= BWAPI::Broodwar->getFrameCount() &&
+    if (potentiallyStuckSince <= currentFrame &&
         (!unit->isMoving() || unit->getPosition() != lastPosition))
     {
         potentiallyStuckSince = 0;
@@ -51,7 +51,7 @@ void MyDragoon::update(BWAPI::Unit unit)
     MyUnitImpl::update(unit);
 
     // If we're not currently in an attack, predict the frame when the next attack will start
-    if (BWAPI::Broodwar->getFrameCount() - lastAttackStartedAt > DRAGOON_ATTACK_FRAMES - BWAPI::Broodwar->getRemainingLatencyFrames())
+    if (currentFrame - lastAttackStartedAt > DRAGOON_ATTACK_FRAMES - BWAPI::Broodwar->getRemainingLatencyFrames())
     {
         nextAttackPredictedAt = 0;
 
@@ -60,7 +60,7 @@ void MyDragoon::update(BWAPI::Unit unit)
             bwapiUnit->getLastCommand().getTarget()->isVisible() && bwapiUnit->getLastCommand().getTarget()->getPosition().isValid())
         {
             nextAttackPredictedAt = std::max(
-                    BWAPI::Broodwar->getFrameCount() + 1, std::max(
+                    currentFrame + 1, std::max(
                             bwapiUnit->getLastCommandFrame() + BWAPI::Broodwar->getLatencyFrames(),
                             cooldownUntil));
         }
@@ -73,10 +73,10 @@ bool MyDragoon::unstick()
 
     // This checks for the case of cancelled attacks sticking a dragoon
     if (bwapiUnit->isMoving() && potentiallyStuckSince > 0
-        && potentiallyStuckSince < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 10))
+        && potentiallyStuckSince < (currentFrame - BWAPI::Broodwar->getLatencyFrames() - 10))
     {
         stop();
-        unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames();
+        unstickUntil = currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames();
         potentiallyStuckSince = 0;
         return true;
     }
@@ -89,13 +89,13 @@ bool MyDragoon::isReady() const
     if (!MyUnitImpl::isReady()) return false;
 
     // If the last attack has just started, give the dragoon some frames to complete it
-    if (BWAPI::Broodwar->getFrameCount() - lastAttackStartedAt + BWAPI::Broodwar->getRemainingLatencyFrames() <= DRAGOON_ATTACK_FRAMES)
+    if (currentFrame - lastAttackStartedAt + BWAPI::Broodwar->getRemainingLatencyFrames() <= DRAGOON_ATTACK_FRAMES)
     {
         return false;
     }
 
     // If the next attack is predicted to happen within remaining latency frames, we may want to leave the dragoon alone
-    int framesToNextAttack = nextAttackPredictedAt - BWAPI::Broodwar->getFrameCount();
+    int framesToNextAttack = nextAttackPredictedAt - currentFrame;
     if (framesToNextAttack > 0 && framesToNextAttack <= BWAPI::Broodwar->getRemainingLatencyFrames())
     {
         BWAPI::Unit target = bwapiUnit->getLastCommand().getTarget();

@@ -21,7 +21,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
 
     // If the natural is "owned" by our opponent, it's probably because of some kind of proxy play
     // In this case, delay doing any expansions until mid-game
-    if (natural && natural->owner != BWAPI::Broodwar->self() && BWAPI::Broodwar->getFrameCount() < 12000) return;
+    if (natural && natural->owner != BWAPI::Broodwar->self() && currentFrame < 12000) return;
 
     // Collect any existing TakeExpansion plays
     std::vector<std::shared_ptr<TakeExpansion>> takeExpansionPlays;
@@ -194,7 +194,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     // - We are contained on one base and it is after frame 16000
     if (takeIslandExpansionPlays.empty() && excessMineralAssignments == 0 &&
         ((Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Robotics_Facility) > 0)
-         || (BWAPI::Broodwar->getFrameCount() > 16000 && Units::countAll(BWAPI::UnitTypes::Protoss_Nexus) == 1 && Strategist::areWeContained())))
+         || (currentFrame > 16000 && Units::countAll(BWAPI::UnitTypes::Protoss_Nexus) == 1 && Strategist::areWeContained())))
     {
         Base *closestIslandBase = nullptr;
         int closestIslandBaseDist = INT_MAX;

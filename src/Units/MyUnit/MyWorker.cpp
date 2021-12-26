@@ -87,7 +87,7 @@ bool MyWorker::mineralWalk(const Choke *choke)
     }
 
     // Re-issue orders every second
-    if (BWAPI::Broodwar->getFrameCount() - lastMoveFrame < 24) return true;
+    if (currentFrame - lastMoveFrame < 24) return true;
 
     // If the patch is null, click on any visible patch on the correct side of the choke
     if (!mineralWalkingPatch)
@@ -108,7 +108,7 @@ bool MyWorker::mineralWalk(const Choke *choke)
                 {
                     // The path went through the choke, let's use this field
                     rightClick(staticNeutral);
-                    lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+                    lastMoveFrame = currentFrame;
                     return true;
                 }
             }
@@ -125,7 +125,7 @@ bool MyWorker::mineralWalk(const Choke *choke)
     if (mineralWalkingPatch->exists() && mineralWalkingPatch->isVisible())
     {
         rightClick(mineralWalkingPatch);
-        lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+        lastMoveFrame = currentFrame;
         return true;
     }
 

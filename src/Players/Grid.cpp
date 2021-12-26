@@ -66,7 +66,7 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
         }
     }
 
-    frameLastUpdated = BWAPI::Broodwar->getFrameCount();
+    frameLastUpdated = currentFrame;
 }
 
 void Grid::dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &data)
@@ -76,7 +76,7 @@ void Grid::dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &
 
     CherryVis::addHeatmap(heatmapName, data.data, data.maxX, data.maxY);
 
-    data.frameLastDumped = BWAPI::Broodwar->getFrameCount();
+    data.frameLastDumped = currentFrame;
 #endif
 }
 

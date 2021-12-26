@@ -84,14 +84,14 @@ namespace Bullets
             {
                 Units::onBulletCreate(bullet);
                 NoGoAreas::onBulletCreate(bullet);
-                seenBulletFrames[bullet->getID()] = BWAPI::Broodwar->getFrameCount();
+                seenBulletFrames[bullet->getID()] = currentFrame;
                 continue;
             }
 
             // For marine rifle hits, check if we can deduce whether or not the enemy has the range upgrade for shots from a bunker
             // We check on the frame after we first see the bullet, since this is the frame hidden units appear from the fog
             if (bullet->getType() == BWAPI::BulletTypes::Gauss_Rifle_Hit &&
-                frame->second == (BWAPI::Broodwar->getFrameCount() - 1))
+                frame->second == (currentFrame - 1))
             {
                 checkBunkerRange(bullet);
             }

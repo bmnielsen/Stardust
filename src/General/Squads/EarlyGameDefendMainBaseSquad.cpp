@@ -23,8 +23,8 @@ namespace
         // Get enemy combat units in our base
         auto combatUnitSeenRecentlyPredicate = [](const Unit &unit)
         {
-            if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 48)) return false;
-            if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) return false;
+            if (!unit->type.isBuilding() && unit->lastSeen < (currentFrame - 48)) return false;
+            if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (currentFrame - 120)) return false;
             if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) return false;
 
             return true;
@@ -323,8 +323,8 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     {
         Units::enemyInRadius(enemyUnits, choke->center, 256, [](const Unit &unit)
         {
-            if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 48)) return false;
-            if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) return false;
+            if (!unit->type.isBuilding() && unit->lastSeen < (currentFrame - 48)) return false;
+            if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (currentFrame - 120)) return false;
             if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) return false;
 
             return true;

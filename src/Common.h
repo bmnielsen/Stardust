@@ -4,3 +4,5 @@
 #include <set>
 #include "Log.h"
 #include "CherryVis.h"
+
+extern int currentFrame;

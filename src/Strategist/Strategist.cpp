@@ -260,7 +260,7 @@ namespace Strategist
         bool enemyIsContained()
         {
             // Only change our minds after at least 5 seconds
-            if (BWAPI::Broodwar->getFrameCount() - enemyContainedChanged < 120) return enemyContained;
+            if (currentFrame - enemyContainedChanged < 120) return enemyContained;
 
             // We consider the enemy to be contained if the following is true:
             // - The enemy has a known main base
@@ -341,7 +341,7 @@ namespace Strategist
                 if (unit->isFlying && !unit->type.isBuilding()) return false;
 
                 if (!unit->lastPositionValid) continue;
-                if (unit->type.isWorker() && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
+                if (unit->type.isWorker() && unit->lastSeenAttacking < (currentFrame - 120)) continue;
                 if (!(unit->type.isBuilding() && unit->type.canProduce()) && !UnitUtil::CanAttackGround(unit->type)) continue;
 
                 auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition));
@@ -458,7 +458,7 @@ namespace Strategist
         {
             Log::Get() << "Enemy is " << (enemyContained ? "no longer " : "") << "contained";
             enemyContained = !enemyContained;
-            enemyContainedChanged = BWAPI::Broodwar->getFrameCount();
+            enemyContainedChanged = currentFrame;
         }
 
         // Remove all dead or renegaded units from plays

@@ -126,7 +126,7 @@ namespace Units
             if (unit->type.isResourceDepot() && !enemyUnitTimings[unit->type].empty() && Map::getEnemyStartingMain()
                 && unit->getTilePosition() == Map::getEnemyStartingMain()->getTilePosition())
             {
-                enemyUnitTimings[unit->type].begin()->second = BWAPI::Broodwar->getFrameCount();
+                enemyUnitTimings[unit->type].begin()->second = currentFrame;
                 return;
             }
 
@@ -136,7 +136,7 @@ namespace Units
             int completionFrame;
             if (unit->type.isBuilding())
             {
-                completionFrame = unit->completed ? BWAPI::Broodwar->getFrameCount() : unit->estimatedCompletionFrame;
+                completionFrame = unit->completed ? currentFrame : unit->estimatedCompletionFrame;
             }
             else
             {
@@ -255,11 +255,11 @@ namespace Units
                     }
                 }
 
-                completionFrame = BWAPI::Broodwar->getFrameCount() - framesMoved;
+                completionFrame = currentFrame - framesMoved;
             }
 
             int startFrame = completionFrame - UnitUtil::BuildTime(unit->type);
-            enemyUnitTimings[unit->type].emplace_back(std::make_pair(startFrame, BWAPI::Broodwar->getFrameCount()));
+            enemyUnitTimings[unit->type].emplace_back(std::make_pair(startFrame, currentFrame));
 
             if (enemyUnitTimings[unit->type].size() == 1)
             {
@@ -283,7 +283,7 @@ namespace Units
                     morphsFrom.first != BWAPI::UnitTypes::Zerg_Drone)
                 {
                     enemyUnitTimings[morphsFrom.first].emplace_back(std::make_pair(startFrame - UnitUtil::BuildTime(morphsFrom.first),
-                                                                                   BWAPI::Broodwar->getFrameCount()));
+                                                                                   currentFrame));
                 }
             }
         }
@@ -309,7 +309,7 @@ namespace Units
                 if (!unit->lastPositionValid) return nullptr;
 
                 auto combatUnit =
-                        (UnitUtil::IsCombatUnit(unit->type) || unit->lastSeenAttacking >= (BWAPI::Broodwar->getFrameCount() - 120))
+                        (UnitUtil::IsCombatUnit(unit->type) || unit->lastSeenAttacking >= (currentFrame - 120))
                         && (unit->isTransport() || UnitUtil::CanAttackGround(unit->type));
 
                 Base *closest = nullptr;
@@ -327,7 +327,7 @@ namespace Units
                     // For our bases, ignore units we haven't seen for a while
                     if (base->owner == BWAPI::Broodwar->self() &&
                         !unit->type.isBuilding() &&
-                        unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 240))
+                        unit->lastSeen < (currentFrame - 240))
                     {
                         continue;
                     }
@@ -558,7 +558,7 @@ namespace Units
         std::vector<Unit> destroyedEnemyUnits;
         for (auto &unit : enemyUnits)
         {
-            if (unit->lastSeen == BWAPI::Broodwar->getFrameCount()) continue;
+            if (unit->lastSeen == currentFrame) continue;
 
             unit->updateUnitInFog();
 
@@ -626,7 +626,7 @@ namespace Units
         assignEnemyUnitsToBases();
 
         // Occasionally check for any inconsistencies in the enemy unit collections
-        if (BWAPI::Broodwar->getFrameCount() % 48 == 0)
+        if (currentFrame % 48 == 0)
         {
             for (auto it = enemyUnits.begin(); it != enemyUnits.end();)
             {
@@ -744,7 +744,7 @@ namespace Units
 
             // First line is command
             debug << "cmd=" << unit->bwapiUnit->getLastCommand().getType() << ";f="
-                  << (BWAPI::Broodwar->getFrameCount() - unit->bwapiUnit->getLastCommandFrame());
+                  << (currentFrame - unit->bwapiUnit->getLastCommandFrame());
             if (unit->bwapiUnit->getLastCommand().getTarget())
             {
                 debug << ";tgt=" << unit->bwapiUnit->getLastCommand().getTarget()->getType()
@@ -780,7 +780,7 @@ namespace Units
                 debug << "spd=" << ((int) (100.0 * speed / unit->type.topSpeed()))
                       << ";mvng=" << unit->bwapiUnit->isMoving() << ";rdy=" << unit->isReady()
                       << ";stk=" << unit->bwapiUnit->isStuck()
-                      << ";lstmv=" << (unit->getLastMoveFrame() - BWAPI::Broodwar->getFrameCount());
+                      << ";lstmv=" << (unit->getLastMoveFrame() - currentFrame);
             }
 
             if (unit->energy > 0)
@@ -788,11 +788,11 @@ namespace Units
                 debug << ";nrg=" << unit->energy;
             }
 
-            debug << ";cdn=" << (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
+            debug << ";cdn=" << (unit->cooldownUntil - currentFrame);
 
-            if (unit->getUnstickUntil() >= BWAPI::Broodwar->getFrameCount())
+            if (unit->getUnstickUntil() >= currentFrame)
             {
-                debug << ";unstck=" << (unit->getUnstickUntil() - BWAPI::Broodwar->getFrameCount());
+                debug << ";unstck=" << (unit->getUnstickUntil() - currentFrame);
             }
 
             if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon)

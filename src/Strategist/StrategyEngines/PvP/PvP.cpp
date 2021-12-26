@@ -48,7 +48,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 #endif
 
         enemyStrategy = newEnemyStrategy;
-        enemyStrategyChanged = BWAPI::Broodwar->getFrameCount();
+        enemyStrategyChanged = currentFrame;
     }
 
     if (ourStrategy != newStrategy)
@@ -153,7 +153,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     updateAttackPlays(plays, defendOurMain);
 
     // Ensure we have an anti cannon rush play if the enemy strategy warrants it
-    if (BWAPI::Broodwar->getFrameCount() < 4000)
+    if (currentFrame < 4000)
     {
         // If we've detected a proxy, keep track of whether we have identified it as a zealot rush
         // Once we've either seen the proxied gateway or a zealot, we assume the enemy isn't doing a "proxy" cannon rush
@@ -164,7 +164,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         if (enemyStrategy == ProtossStrategy::EarlyForge ||
             (enemyStrategy == ProtossStrategy::ProxyRush && !zealotProxy) ||
             enemyStrategy == ProtossStrategy::BlockScouting ||
-            (enemyStrategy == ProtossStrategy::Unknown && BWAPI::Broodwar->getFrameCount() > 2000))
+            (enemyStrategy == ProtossStrategy::Unknown && currentFrame > 2000))
         {
             if (!antiCannonRushPlay)
             {
@@ -413,7 +413,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 
             // We never expand before frame 10000 (12000 if the enemy is doing a dragoon all-in) unless the enemy has done so
             // or is doing an opening that will not give immediate pressure
-            if (BWAPI::Broodwar->getFrameCount() < (enemyStrategy == ProtossStrategy::DragoonAllIn ? 12000 : 10000) &&
+            if (currentFrame < (enemyStrategy == ProtossStrategy::DragoonAllIn ? 12000 : 10000) &&
                 Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) < 2 &&
                 enemyStrategy != ProtossStrategy::EarlyRobo &&
                 enemyStrategy != ProtossStrategy::Turtle)
@@ -473,7 +473,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             // If the cluster is attacking, it should be significantly closer to the enemy main, unless we are past frame 12500
-            if (BWAPI::Broodwar->getFrameCount() < 12500 &&
+            if (currentFrame < 12500 &&
                 vanguardCluster->currentActivity == UnitCluster::Activity::Attacking &&
                 vanguardCluster->percentageToEnemyMain < 0.7)
             {
@@ -536,7 +536,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     cancelNaturalExpansion(plays, prioritizedProductionGoals);
 
     // Take our hidden base expansion in cases where we have been prevented from taking our natural
-    if (BWAPI::Broodwar->getFrameCount() > 14000)
+    if (currentFrame > 14000)
     {
         auto hiddenBasePlay = getPlay<HiddenBase>(plays);
         if (hiddenBasePlay && hiddenBasePlay->base->ownedSince == -1)
@@ -600,7 +600,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
             return UnitUtil::BuildTime(buildingType);
         }
 
-        return earliestCompletion - BWAPI::Broodwar->getFrameCount();
+        return earliestCompletion - currentFrame;
     };
 
     auto buildObserver = [&](int frameNeeded = 0)
@@ -621,7 +621,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
             }
 
             // TODO: When the Producer understands to build something at a specific frame, use that
-            if ((BWAPI::Broodwar->getFrameCount() + 500) < frameStarted) return;
+            if ((currentFrame + 500) < frameStarted) return;
         }
 
         auto priority = Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0
@@ -654,7 +654,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
                 }
 
                 // TODO: When the Producer understands to build something at a specific frame, use that
-                if ((BWAPI::Broodwar->getFrameCount() + 500) < frameStarted) return;
+                if ((currentFrame + 500) < frameStarted) return;
             }
 
             auto buildAtTile = [&prioritizedProductionGoals](BWAPI::TilePosition tile, BWAPI::UnitType type)
@@ -750,7 +750,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
 
     // Get an observer when we have a second gas
     if ((Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
-        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && BWAPI::Broodwar->getFrameCount() > 10000))
+        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && currentFrame > 10000))
         && Strategist::pressure() < 0.4)
     {
         CherryVis::setBoardValue("detection", "macro-build-observer");
@@ -778,9 +778,9 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         }
 
         // Add some frame stops to ensure we don't build a cannon while the enemy is still producing zealots
-        if ((BWAPI::Broodwar->getFrameCount() < 7000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 8) ||
-            (BWAPI::Broodwar->getFrameCount() < 8000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 10) ||
-            (BWAPI::Broodwar->getFrameCount() < 9000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 12))
+        if ((currentFrame < 7000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 8) ||
+            (currentFrame < 8000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 10) ||
+            (currentFrame < 9000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 12))
         {
             CherryVis::setBoardValue("detection", "anti-zealot-rush");
             return;
@@ -792,13 +792,13 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
                           enemyStrategy == ProtossStrategy::ZealotRush ||
                           enemyStrategy == ProtossStrategy::ZealotAllIn
                           || (enemyStrategy == ProtossStrategy::TwoGate && Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) > 5);
-    if ((enemyStrategy == ProtossStrategy::EarlyForge && BWAPI::Broodwar->getFrameCount() < 6000)
-        || (zealotStrategy && BWAPI::Broodwar->getFrameCount() < 6500)
-        || (zealotStrategy && Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) > 1 && BWAPI::Broodwar->getFrameCount() < 9000)
-        || (enemyStrategy == ProtossStrategy::DragoonAllIn && BWAPI::Broodwar->getFrameCount() < 8000)
-        || (enemyStrategy == ProtossStrategy::EarlyRobo && BWAPI::Broodwar->getFrameCount() < 8000)
-        || (enemyStrategy == ProtossStrategy::FastExpansion && BWAPI::Broodwar->getFrameCount() < 7000)
-        || (enemyStrategy == ProtossStrategy::Turtle && BWAPI::Broodwar->getFrameCount() < 8000))
+    if ((enemyStrategy == ProtossStrategy::EarlyForge && currentFrame < 6000)
+        || (zealotStrategy && currentFrame < 6500)
+        || (zealotStrategy && Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) > 1 && currentFrame < 9000)
+        || (enemyStrategy == ProtossStrategy::DragoonAllIn && currentFrame < 8000)
+        || (enemyStrategy == ProtossStrategy::EarlyRobo && currentFrame < 8000)
+        || (enemyStrategy == ProtossStrategy::FastExpansion && currentFrame < 7000)
+        || (enemyStrategy == ProtossStrategy::Turtle && currentFrame < 8000))
     {
         CherryVis::setBoardValue("detection", "strategy-exception");
         return;

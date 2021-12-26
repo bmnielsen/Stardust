@@ -60,7 +60,7 @@ namespace
 
     bool isWorkerRush()
     {
-        if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
+        if (currentFrame >= 6000) return false;
 
         int workers = 0;
         for (const Unit &unit : Units::allEnemy())
@@ -90,7 +90,7 @@ namespace
 
     bool isZealotRush()
     {
-        if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
+        if (currentFrame >= 6000) return false;
 
         // We expect a zealot rush if we see an early zealot, early second zealot or early second gateway
         return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 2800) ||
@@ -101,7 +101,7 @@ namespace
     bool isProxy()
     {
         if (isFastExpansion()) return false;
-        if (BWAPI::Broodwar->getFrameCount() >= 5000) return false;
+        if (currentFrame >= 5000) return false;
         if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Assimilator) > 0) return false;
 
         // Check if we have directly scouted an enemy building in a proxy location
@@ -148,11 +148,11 @@ namespace
             Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
         {
             // Expect first pylon by frame 1300
-            if (BWAPI::Broodwar->getFrameCount() > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
+            if (currentFrame > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
 
             // Expect first gateway or forge by frame 2200
             // This will sometimes fail if the enemy does a fast expansion we don't see
-            if (BWAPI::Broodwar->getFrameCount() > 2200
+            if (currentFrame > 2200
                 && !countAtLeast(BWAPI::UnitTypes::Protoss_Gateway, 1)
                 && !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1))
             {
@@ -160,7 +160,7 @@ namespace
             }
 
             // If the enemy hasn't built a forge, expect a second pylon by frame 4000 if we still have a live scout
-            if (BWAPI::Broodwar->getFrameCount() > 4000 &&
+            if (currentFrame > 4000 &&
                 Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted &&
                 !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1) &&
                 !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 2))
@@ -178,7 +178,7 @@ namespace
     {
         // In the early game, we consider the enemy to be doing a zealot all-in if we either see a lot of zealots or see two gateways with
         // no core or gas
-        if (BWAPI::Broodwar->getFrameCount() < 6000)
+        if (currentFrame < 6000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 5000, 4) ||
                    (noneCreated(BWAPI::UnitTypes::Protoss_Assimilator) &&
@@ -187,7 +187,7 @@ namespace
         }
 
         // Later on, we consider it to be a zealot all-in purely based on the counts
-        if (BWAPI::Broodwar->getFrameCount() < 8000)
+        if (currentFrame < 8000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 7000, 8) &&
                    Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) > 4;
@@ -200,7 +200,7 @@ namespace
     bool isDragoonAllIn()
     {
         // It's unlikely our worker scout survives long enough, but detect this if the enemy gets four gates before robo / citadel
-        if (BWAPI::Broodwar->getFrameCount() < 10000 &&
+        if (currentFrame < 10000 &&
             createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 4, BWAPI::UnitTypes::Protoss_Robotics_Facility, 1) &&
             createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 4, BWAPI::UnitTypes::Protoss_Templar_Archives, 1))
         {
@@ -208,7 +208,7 @@ namespace
         }
 
         // Assume the enemy has done a dragoon all-in if it has successfully set up a contain on us before frame 10000
-        if (BWAPI::Broodwar->getFrameCount() < 10000
+        if (currentFrame < 10000
             && createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 10)
             && Strategist::areWeContained())
         {
@@ -217,31 +217,31 @@ namespace
         }
 
         // Otherwise work off of goon timings
-        if (BWAPI::Broodwar->getFrameCount() < 7000)
+        if (currentFrame < 7000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 7);
         }
-        if (BWAPI::Broodwar->getFrameCount() < 8000)
+        if (currentFrame < 8000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 7) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7600, 10);
         }
-        if (BWAPI::Broodwar->getFrameCount() < 9000)
+        if (currentFrame < 9000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7600, 10) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8700, 14);
         }
-        if (BWAPI::Broodwar->getFrameCount() < 10000)
+        if (currentFrame < 10000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8700, 14) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9800, 18);
         }
-        if (BWAPI::Broodwar->getFrameCount() < 11000)
+        if (currentFrame < 11000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9800, 18) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10900, 22);
         }
-        if (BWAPI::Broodwar->getFrameCount() < 12000)
+        if (currentFrame < 12000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10900, 22) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 12000, 26);
@@ -272,7 +272,7 @@ namespace
     bool isMidGame()
     {
         // We consider ourselves to be in the mid-game after frame 10000 if the enemy has taken their natural or teched to something beyond goons
-        if (BWAPI::Broodwar->getFrameCount() < 10000) return false;
+        if (currentFrame < 10000) return false;
 
         return countAtLeast(BWAPI::UnitTypes::Protoss_Nexus, 2) ||
                countAtLeast(BWAPI::UnitTypes::Protoss_Templar_Archives, 1) ||
@@ -340,7 +340,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 }
 
                 // Default to something reasonable if our scouting completely fails
-                if (BWAPI::Broodwar->getFrameCount() > 4000)
+                if (currentFrame > 4000)
                 {
                     strategy = ProtossStrategy::OneGateCore;
                     continue;
@@ -359,7 +359,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 if (isWorkerRush()) return ProtossStrategy::WorkerRush;
 
                 // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their nexus
-                if (BWAPI::Broodwar->getFrameCount() < 5000 && !isProxy())
+                if (currentFrame < 5000 && !isProxy())
                 {
                     strategy = ProtossStrategy::Unknown;
                     continue;
@@ -369,7 +369,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 // - They have taken gas
                 // - Our scout is dead and we are past frame 5000
                 if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Assimilator) > 0 ||
-                    (BWAPI::Broodwar->getFrameCount() >= 5000 &&
+                    (currentFrame >= 5000 &&
                      (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted ||
                       Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingFailed ||
                       Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingBlocked)))
@@ -384,7 +384,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
 
                 // Consider the rush to be over after 6000 frames
                 // From there the TwoGate handler will potentially transition into ZealotAllIn
-                if (BWAPI::Broodwar->getFrameCount() >= 6000)
+                if (currentFrame >= 6000)
                 {
                     strategy = ProtossStrategy::TwoGate;
                     continue;

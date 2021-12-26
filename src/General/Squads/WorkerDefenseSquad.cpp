@@ -161,7 +161,7 @@ void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAn
         }
 
         // When on cooldown, kite if we are too close to our target
-        if ((worker->cooldownUntil - BWAPI::Broodwar->getFrameCount()) > (BWAPI::Broodwar->getRemainingLatencyFrames() + 3) &&
+        if ((worker->cooldownUntil - currentFrame) > (BWAPI::Broodwar->getRemainingLatencyFrames() + 3) &&
             worker->getDistance(target) < (worker->groundRange() - 2))
         {
 #if DEBUG_UNIT_ORDERS

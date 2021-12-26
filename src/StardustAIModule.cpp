@@ -17,6 +17,8 @@
 #include "Players.h"
 #include "Geo.h"
 
+int currentFrame;
+
 // While instrumenting we have a lower global frame limit to ensure we get data if the game locks up
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define FRAME_LIMIT 30000
@@ -63,6 +65,8 @@ namespace
 
 void StardustAIModule::onStart()
 {
+    currentFrame = 0;
+
     // Initialize globals that just need to make sure their global data is reset
     Log::initialize();
     Builder::initialize();
@@ -132,17 +136,13 @@ void StardustAIModule::onEnd(bool isWinner)
 
 void StardustAIModule::onFrame()
 {
-    if (BWAPI::BroodwarPtr->getFrameCount() < frameSkip) return;
+    if (BWAPI::Broodwar->getFrameCount() < frameSkip) return;
     if (gameFinished) return;
-#ifdef VS_HUMAN
     if (BWAPI::Broodwar->isPaused()) return;
     if (BWAPI::Broodwar->isReplay()) return;
-#else
-    if (BWAPI::Broodwar->isPaused()) BWAPI::Broodwar->resumeGame();
-#endif
 
 #ifdef FRAME_LIMIT
-    if (BWAPI::Broodwar->getFrameCount() > FRAME_LIMIT)
+    if (currentFrame > FRAME_LIMIT)
     {
         BWAPI::Broodwar->leaveGame();
         return;
@@ -155,7 +155,7 @@ void StardustAIModule::onFrame()
     for (auto &event : BWAPI::Broodwar->getEvents())
     {
         if (event.getType() == BWAPI::EventType::PlayerLeft && event.getPlayer() == BWAPI::Broodwar->enemy()
-            && BWAPI::Broodwar->getFrameCount() > 100)
+            && currentFrame > 100)
         {
             Log::Get() << "Opponent has left the game";
             BWAPI::Broodwar->sendText("gg");
@@ -241,81 +241,83 @@ void StardustAIModule::onFrame()
     NoGoAreas::writeInstrumentation();
 
 #if COLLISION_HEATMAP_FREQUENCY_ENEMY
-    if (BWAPI::Broodwar->getFrameCount() % COLLISION_HEATMAP_FREQUENCY_ENEMY == 0)
+    if (currentFrame % COLLISION_HEATMAP_FREQUENCY_ENEMY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpCollisionHeatmapIfChanged("CollisionEnemy");
     }
 #endif
 #if COLLISION_HEATMAP_FREQUENCY_MINE
-    if (BWAPI::Broodwar->getFrameCount() % COLLISION_HEATMAP_FREQUENCY_MINE == 0)
+    if (currentFrame % COLLISION_HEATMAP_FREQUENCY_MINE == 0)
     {
         Players::grid(BWAPI::Broodwar->self()).dumpCollisionHeatmapIfChanged("CollisionMine");
     }
 #endif
 #if GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY
-    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY == 0)
+    if (currentFrame % GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpGroundThreatHeatmapIfChanged("GroundThreatEnemy");
     }
 #endif
 #if GROUND_THREAT_HEATMAP_FREQUENCY_MINE
-    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_HEATMAP_FREQUENCY_MINE == 0)
+    if (currentFrame % GROUND_THREAT_HEATMAP_FREQUENCY_MINE == 0)
     {
         Players::grid(BWAPI::Broodwar->self()).dumpGroundThreatHeatmapIfChanged("GroundThreatMine");
     }
 #endif
 #if GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_ENEMY
-    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_ENEMY == 0)
+    if (currentFrame % GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_ENEMY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpStaticGroundThreatHeatmapIfChanged("GroundThreatStaticEnemy");
     }
 #endif
 #if GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_MINE
-    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_MINE == 0)
+    if (currentFrame % GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_MINE == 0)
     {
         Players::grid(BWAPI::Broodwar->self()).dumpStaticGroundThreatHeatmapIfChanged("GroundThreatStaticMine");
     }
 #endif
 #if AIR_THREAT_HEATMAP_FREQUENCY_ENEMY
-    if (BWAPI::Broodwar->getFrameCount() % AIR_THREAT_HEATMAP_FREQUENCY_ENEMY == 0)
+    if (currentFrame % AIR_THREAT_HEATMAP_FREQUENCY_ENEMY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpAirThreatHeatmapIfChanged("AirThreatEnemy");
     }
 #endif
 #if AIR_THREAT_HEATMAP_FREQUENCY_MINE
-    if (BWAPI::Broodwar->getFrameCount() % AIR_THREAT_HEATMAP_FREQUENCY_MINE == 0)
+    if (currentFrame % AIR_THREAT_HEATMAP_FREQUENCY_MINE == 0)
     {
         Players::grid(BWAPI::Broodwar->self()).dumpAirThreatHeatmapIfChanged("AirThreatMine");
     }
 #endif
 #if DETECTION_HEATMAP_FREQUENCY_ENEMY
-    if (BWAPI::Broodwar->getFrameCount() % DETECTION_HEATMAP_FREQUENCY_ENEMY == 0)
+    if (currentFrame % DETECTION_HEATMAP_FREQUENCY_ENEMY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpDetectionHeatmapIfChanged("DetectionEnemy");
     }
 #endif
 #if DETECTION_HEATMAP_FREQUENCY_MINE
-    if (BWAPI::Broodwar->getFrameCount() % DETECTION_HEATMAP_FREQUENCY_MINE == 0)
+    if (currentFrame % DETECTION_HEATMAP_FREQUENCY_MINE == 0)
     {
         Players::grid(BWAPI::Broodwar->self()).dumpDetectionHeatmapIfChanged("DetectionMine");
     }
 #endif
 #if STASIS_RANGE_HEATMAP_FREQUENCY_ENEMY
-    if (BWAPI::Broodwar->getFrameCount() % STASIS_RANGE_HEATMAP_FREQUENCY_ENEMY == 0)
+    if (currentFrame % STASIS_RANGE_HEATMAP_FREQUENCY_ENEMY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpStasisRangeHeatmapIfChanged("StasisRange");
     }
 #endif
 #if VISIBILITY_HEATMAP_FREQUENCY
-    if (BWAPI::Broodwar->getFrameCount() % VISIBILITY_HEATMAP_FREQUENCY == 0)
+    if (currentFrame % VISIBILITY_HEATMAP_FREQUENCY == 0)
     {
         Map::dumpVisibilityHeatmap();
     }
 #endif
-    CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
+    CherryVis::frameEnd(currentFrame);
     Timer::checkpoint("Instrumentation");
 
     Timer::stop();
+
+    currentFrame++;
 }
 
 void StardustAIModule::onSendText(std::string)

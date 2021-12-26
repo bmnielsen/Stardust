@@ -27,7 +27,7 @@ namespace
 
         int remainingHitPoints = unit->getType().maxHitPoints() - unit->getHitPoints();
         double hitPointsPerFrame = (unit->getType().maxHitPoints() * 0.9) / unit->getType().buildTime();
-        return BWAPI::Broodwar->getFrameCount() + (int) (remainingHitPoints / hitPointsPerFrame);
+        return currentFrame + (int) (remainingHitPoints / hitPointsPerFrame);
     }
 
     BWAPI::TilePosition computeBuildTile(BWAPI::Unit unit)
@@ -48,7 +48,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , tilePositionY(unit->getPosition().y >> 5U)
         , buildTile(computeBuildTile(unit))
         , distToTargetPosition(-1)
-        , lastSeen(BWAPI::Broodwar->getFrameCount())
+        , lastSeen(currentFrame)
         , lastSeenAttacking(-1)
         , type(unit->getType())
         , id(unit->getID())
@@ -56,7 +56,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , lastPositionValid(true)
         , lastPositionVisible(true)
         , beingManufacturedOrCarried(false)
-        , frameLastMoved(BWAPI::Broodwar->getFrameCount())
+        , frameLastMoved(currentFrame)
         , predictedPosition(BWAPI::Positions::Invalid)
         , simPosition(unit->getPosition())
         , simPositionValid(true)
@@ -68,12 +68,12 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , completed(unit->isCompleted())
         , estimatedCompletionFrame(-1)
         , isFlying(unit->isFlying())
-        , cooldownUntil(BWAPI::Broodwar->getFrameCount() + std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown()))
-        , stimmedUntil(BWAPI::Broodwar->getFrameCount() + unit->getStimTimer())
+        , cooldownUntil(currentFrame + std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown()))
+        , stimmedUntil(currentFrame + unit->getStimTimer())
         , undetected(isUndetected(unit))
         , immobile(unit->isStasised() || unit->isLockedDown())
         , burrowed(unit->isBurrowed())
-        , lastBurrowing(unit->getOrder() == BWAPI::Orders::Burrowing ? BWAPI::Broodwar->getFrameCount() : 0) {}
+        , lastBurrowing(unit->getOrder() == BWAPI::Orders::Burrowing ? currentFrame : 0) {}
 
 void UnitImpl::created()
 {
@@ -104,11 +104,11 @@ void UnitImpl::update(BWAPI::Unit unit)
     player = unit->getPlayer();
     type = unit->getType();
 
-    lastSeen = BWAPI::Broodwar->getFrameCount();
+    lastSeen = currentFrame;
 
     if (lastPosition != unit->getPosition())
     {
-        frameLastMoved = BWAPI::Broodwar->getFrameCount();
+        frameLastMoved = currentFrame;
     }
 
     tilePositionX = unit->getPosition().x >> 5U;
@@ -122,7 +122,7 @@ void UnitImpl::update(BWAPI::Unit unit)
 
     if (player->getRace() == BWAPI::Races::Terran && unit->isCompleted() && unit->getHitPoints() > lastHealth)
     {
-        lastHealFrame = BWAPI::Broodwar->getFrameCount();
+        lastHealFrame = currentFrame;
     }
 
     // Cloaked units show up with 0 hit points and shields, so default to max and otherwise don't touch them
@@ -145,7 +145,7 @@ void UnitImpl::update(BWAPI::Unit unit)
     immobile = unit->isStasised() || unit->isLockedDown();
 
     burrowed = unit->isBurrowed();
-    lastBurrowing = unit->getOrder() == BWAPI::Orders::Burrowing ? BWAPI::Broodwar->getFrameCount() : 0;
+    lastBurrowing = unit->getOrder() == BWAPI::Orders::Burrowing ? currentFrame : 0;
 
     completed = unit->isCompleted();
     estimatedCompletionFrame = estimateCompletionFrame(unit);
@@ -156,12 +156,12 @@ void UnitImpl::update(BWAPI::Unit unit)
     if (unit->isVisible())
     {
         auto cooldown = std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown());
-        if (cooldown > 0 && cooldown > (cooldownUntil - BWAPI::Broodwar->getFrameCount() + 1))
+        if (cooldown > 0 && cooldown > (cooldownUntil - currentFrame + 1))
         {
-            lastSeenAttacking = BWAPI::Broodwar->getFrameCount();
+            lastSeenAttacking = currentFrame;
         }
-        cooldownUntil = BWAPI::Broodwar->getFrameCount() + cooldown;
-        stimmedUntil = BWAPI::Broodwar->getFrameCount() + unit->getStimTimer();
+        cooldownUntil = currentFrame + cooldown;
+        stimmedUntil = currentFrame + unit->getStimTimer();
     }
 
     // Process upcoming attacks
@@ -169,7 +169,7 @@ void UnitImpl::update(BWAPI::Unit unit)
     for (auto it = upcomingAttacks.begin(); it != upcomingAttacks.end();)
     {
         // Remove attacks when they expire
-        if (BWAPI::Broodwar->getFrameCount() >= it->expiryFrame)
+        if (currentFrame >= it->expiryFrame)
         {
 #if UPCOMING_ATTACKS_DEBUG
             CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as it has expired";
@@ -236,7 +236,7 @@ void UnitImpl::updateUnitInFog()
     bool positionVisible = BWAPI::Broodwar->isVisible(tilePositionX, tilePositionY);
 
     // Detect burrowed units we have observed burrowing
-    if (lastBurrowing == BWAPI::Broodwar->getFrameCount() - 1 && !burrowed && positionVisible)
+    if (lastBurrowing == currentFrame - 1 && !burrowed && positionVisible)
     {
         // Update grid
         Players::grid(player).unitMoved(type, lastPosition, true, immobile, type, lastPosition, false, immobile);
@@ -290,7 +290,7 @@ void UnitImpl::updateUnitInFog()
         // if we haven't seen it in 10 seconds and have a unit that it would otherwise
         // fire upon
     else if (type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode &&
-             lastSeen < (BWAPI::Broodwar->getFrameCount() - 240))
+             lastSeen < (currentFrame - 240))
     {
         // Look for a unit inside the tank's sight range
         // TODO: Could also look for a unit inside the tank's weapon range that the enemy can see
@@ -321,7 +321,7 @@ void UnitImpl::updateUnitInFog()
     }
 
     // Mark buildings complete in the grid if we expect them to have completed in the fog
-    if (lastPositionValid && !completed && estimatedCompletionFrame != -1 && estimatedCompletionFrame <= BWAPI::Broodwar->getFrameCount())
+    if (lastPositionValid && !completed && estimatedCompletionFrame != -1 && estimatedCompletionFrame <= currentFrame)
     {
         completed = true;
         estimatedCompletionFrame = -1;
@@ -628,7 +628,7 @@ void UnitImpl::updatePredictedPosition()
     };
 
     // If the unit just entered the fog, record the offset
-    if (lastSeen == BWAPI::Broodwar->getFrameCount() - 1)
+    if (lastSeen == currentFrame - 1)
     {
         // First reject units that are not interesting (i.e. are not mobile ground combat units)
         // When we start using corsairs vs. mutas we'll probably need to simulate air unit movement as well

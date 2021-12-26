@@ -51,7 +51,7 @@ void EjectEnemyScout::update()
     if (!scout) scout = newScout;
 
     // End the play if there is no scout after frame 10000
-    if (!scout && BWAPI::Broodwar->getFrameCount() > 10000)
+    if (!scout && currentFrame > 10000)
     {
         status.complete = true;
     }

@@ -59,7 +59,7 @@ namespace
             totalEnergy += arbiter->energy;
 
             // Cast at most one stasis per two seconds
-            if ((BWAPI::Broodwar->getFrameCount() - arbiter->lastCastFrame) < 48) return nullptr;
+            if ((currentFrame - arbiter->lastCastFrame) < 48) return nullptr;
 
             if (arbiter->energy > bestEnergy)
             {

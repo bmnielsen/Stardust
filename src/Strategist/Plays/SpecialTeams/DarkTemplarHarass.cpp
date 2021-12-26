@@ -37,7 +37,7 @@ namespace
             bool hasCannon = false;
             for (const auto &cannon : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon))
             {
-                if (!cannon->completed && cannon->estimatedCompletionFrame < (BWAPI::Broodwar->getFrameCount() + 120))
+                if (!cannon->completed && cannon->estimatedCompletionFrame < (currentFrame + 120))
                 {
                     continue;
                 }
@@ -175,12 +175,12 @@ namespace
             // Attack a target if we think we can kill it before it completes
             auto damagePerAttack = Players::attackDamage(unit->player, unit->type, target->player, target->type);
             auto moveFrames = (int) ((double) unit->getDistance(target) * 1.4 / unit->type.topSpeed());
-            auto nextAttack = std::max(unit->cooldownUntil - BWAPI::Broodwar->getFrameCount(), moveFrames);
+            auto nextAttack = std::max(unit->cooldownUntil - currentFrame, moveFrames);
 
             int attacks = (int) ((float) (target->lastHealth + target->lastShields) / (float) damagePerAttack);
             int framesToKill = nextAttack + attacks * unit->type.groundWeapon().damageCooldown();
 
-            return (BWAPI::Broodwar->getFrameCount() + framesToKill) < target->estimatedCompletionFrame;
+            return (currentFrame + framesToKill) < target->estimatedCompletionFrame;
         };
         auto cannonTarget = getTarget(unit,
                                       Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon),

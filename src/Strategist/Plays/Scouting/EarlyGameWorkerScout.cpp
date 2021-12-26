@@ -345,7 +345,7 @@ void EarlyGameWorkerScout::update()
 
     // Determine the next tile we want to scout or move to
     BWAPI::TilePosition tile;
-    if (hidingUntil > BWAPI::Broodwar->getFrameCount())
+    if (hidingUntil > currentFrame)
     {
         tile = getTileToHideOn();
     }
@@ -375,9 +375,9 @@ void EarlyGameWorkerScout::update()
     for (auto &unit : Units::allEnemy())
     {
         if (!unit->lastPositionValid) continue;
-        if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
+        if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (currentFrame - 120)) continue;
         if (!UnitUtil::CanAttackGround(unit->type)) continue;
-        if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
+        if (!unit->type.isBuilding() && unit->lastSeen < (currentFrame - 120)) continue;
 
         int detectionLimit = std::max(128, unit->groundRange() + 64);
         int dist = scout->getDistance(unit);
@@ -643,7 +643,7 @@ void EarlyGameWorkerScout::updateTargetBase()
     targetBase = nullptr;
     closestDistanceToTargetBase = INT_MAX;
     lastDistanceToTargetBase = INT_MAX;
-    lastForewardMotionFrame = BWAPI::Broodwar->getFrameCount();
+    lastForewardMotionFrame = currentFrame;
 
     // Assign the enemy starting main if we know it
     if (Map::getEnemyStartingMain())
@@ -719,7 +719,7 @@ bool EarlyGameWorkerScout::isScoutBlocked()
     {
         closestDistanceToTargetBase = node.cost;
         lastDistanceToTargetBase = node.cost;
-        lastForewardMotionFrame = BWAPI::Broodwar->getFrameCount();
+        lastForewardMotionFrame = currentFrame;
         return false;
     }
 
@@ -729,7 +729,7 @@ bool EarlyGameWorkerScout::isScoutBlocked()
     if (node.cost > 3000) return false;
 
     // Consider us to be blocked if we haven't made forward progress in five seconds
-    if ((BWAPI::Broodwar->getFrameCount() - lastForewardMotionFrame) > 120) return true;
+    if ((currentFrame - lastForewardMotionFrame) > 120) return true;
 
     return false;
 }

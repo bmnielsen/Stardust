@@ -241,7 +241,7 @@ void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
             auto pylonUnit = Units::myBuildingAt(baseStaticDefenseLocations.first);
             if (pylonUnit)
             {
-                framesToPylon = pylonUnit->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount();
+                framesToPylon = pylonUnit->estimatedCompletionFrame - currentFrame;
             }
             else
             {

@@ -61,7 +61,7 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 #endif
 
         enemyStrategy = newEnemyStrategy;
-        enemyStrategyChanged = BWAPI::Broodwar->getFrameCount();
+        enemyStrategyChanged = currentFrame;
     }
 
     if (ourStrategy != newStrategy)
@@ -278,7 +278,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             // Build cannons if the strategy has been stable for 5 seconds
             int completedCannons =
-                    enemyStrategyChanged < (BWAPI::Broodwar->getFrameCount() - 120)
+                    enemyStrategyChanged < (currentFrame - 120)
                     ? buildCannons(2)
                     : 0;
 
@@ -500,7 +500,7 @@ void PvT::handleDetection(std::vector<std::shared_ptr<Play>> &plays, std::map<in
     }
 
     // Get obs earlier if we've seen a vulture or tank, indicating mech play and likely spider mines
-    if (BWAPI::Broodwar->getFrameCount() > 10000 && (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) ||
+    if (currentFrame > 10000 && (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) ||
                                                      Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) ||
                                                      Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Vulture)))
     {
@@ -509,7 +509,7 @@ void PvT::handleDetection(std::vector<std::shared_ptr<Play>> &plays, std::map<in
     }
 
     // Otherwise start getting obs at frame 14000
-    if (BWAPI::Broodwar->getFrameCount() > 14000)
+    if (currentFrame > 14000)
     {
         buildObserver();
         return;

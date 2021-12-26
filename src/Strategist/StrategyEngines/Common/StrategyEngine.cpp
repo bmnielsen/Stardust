@@ -227,7 +227,7 @@ void StrategyEngine::cancelTrainingUnits(std::map<int, std::vector<ProductionGoa
         // Check if the producer is available
         // To avoid instability from latcom, we assume it is available if we have just ordered it to do something
         if (!producer->bwapiUnit->isTraining() ||
-            (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+            (currentFrame - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
         {
             requiredCapacity--;
             continue;
@@ -248,7 +248,7 @@ void StrategyEngine::cancelTrainingUnits(std::map<int, std::vector<ProductionGoa
     }
     for (const auto &producer : Units::allMineIncompleteOfType(type.whatBuilds().first))
     {
-        if ((producer->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount()) < 60) requiredCapacity--;
+        if ((producer->estimatedCompletionFrame - currentFrame) < 60) requiredCapacity--;
     }
 
     if (requiredCapacity < 1) return;
@@ -370,7 +370,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
         for (auto &base : Map::getMyBases())
         {
             bool isMainOrNaturalInEarlyGame =
-                    (base == Map::getMyMain() || base == Map::getMyNatural()) && BWAPI::Broodwar->getFrameCount() < 20000;
+                    (base == Map::getMyMain() || base == Map::getMyNatural()) && currentFrame < 20000;
 
             // Don't defend our main or natural with a DefendBase play if our main army is close to it
             if (isMainOrNaturalInEarlyGame)
@@ -441,7 +441,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
 
 void StrategyEngine::scoutExpos(std::vector<std::shared_ptr<Play>> &plays, int startingFrame)
 {
-    if (BWAPI::Broodwar->getFrameCount() < startingFrame) return;
+    if (currentFrame < startingFrame) return;
     if (getPlay<ScoutEnemyExpos>(plays) != nullptr) return;
 
     plays.emplace_back(std::make_shared<ScoutEnemyExpos>());

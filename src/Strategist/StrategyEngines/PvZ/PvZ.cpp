@@ -45,7 +45,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 #endif
 
         enemyStrategy = newEnemyStrategy;
-        enemyStrategyChanged = BWAPI::Broodwar->getFrameCount();
+        enemyStrategyChanged = currentFrame;
     }
 
     if (ourStrategy != newStrategy)
@@ -419,7 +419,7 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
 
     // Build an observer when we are on two gas or the enemy has lurker tech
     if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
-        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && BWAPI::Broodwar->getFrameCount() > 10000) ||
+        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && currentFrame > 10000) ||
         Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker_Egg) ||
         Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker) ||
         Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Lurker_Aspect))

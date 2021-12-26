@@ -54,7 +54,7 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
 
         auto vanguard = attackEnemyBasePlay->getSquad()->vanguardCluster();
         if (vanguard && (vanguard->currentActivity != UnitCluster::Activity::Regrouping
-                         || (!isMainOrNatural && vanguard->lastActivityChange > (BWAPI::Broodwar->getFrameCount() - 120))))
+                         || (!isMainOrNatural && vanguard->lastActivityChange > (currentFrame - 120))))
         {
             mainArmyTarget = attackEnemyBasePlay->base;
         }
@@ -91,7 +91,7 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
         // Attack with a separate play if the unit value corresponds to three dragoons or less
         // Give up attacking an expansion in this way if it hasn't succeeded in 3000 frames (a bit over 2 minutes)
         if (enemyValue <= 3 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon) &&
-            base->ownedSince > (BWAPI::Broodwar->getFrameCount() - 3000))
+            base->ownedSince > (currentFrame - 3000))
         {
             attackableExpansionsToEnemyUnitValue[base] = enemyValue;
             continue;

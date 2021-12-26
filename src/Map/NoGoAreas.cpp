@@ -10,7 +10,7 @@ namespace
         BWAPI::Bullet bullet;
         Unit unit;
 
-        NoGoAreaExpiry(int framesToExpiry) : frame(BWAPI::Broodwar->getFrameCount() + framesToExpiry), bullet(nullptr), unit(nullptr) {}
+        NoGoAreaExpiry(int framesToExpiry) : frame(currentFrame + framesToExpiry), bullet(nullptr), unit(nullptr) {}
 
         NoGoAreaExpiry(BWAPI::Bullet bullet) : frame(-1), bullet(bullet), unit(nullptr) {}
 
@@ -18,7 +18,7 @@ namespace
 
         bool isExpired()
         {
-            if (frame != -1) return BWAPI::Broodwar->getFrameCount() >= frame;
+            if (frame != -1) return currentFrame >= frame;
             if (bullet) return !bullet->exists();
             return !unit->exists();
         }

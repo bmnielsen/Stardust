@@ -360,7 +360,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
         }
 
         // Other targets are valid if they have been seen in the past 5 seconds
-        if (unitAndTarget.second->lastSeen > (BWAPI::Broodwar->getFrameCount() - 120))
+        if (unitAndTarget.second->lastSeen > (currentFrame - 120))
         {
             hasValidTarget = true;
             break;

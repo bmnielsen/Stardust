@@ -37,7 +37,7 @@ void MyUnitImpl::update(BWAPI::Unit unit)
 
     if (energy - unit->getEnergy() > 45)
     {
-        lastCastFrame = BWAPI::Broodwar->getFrameCount();
+        lastCastFrame = currentFrame;
         Log::Get() << "Unit cast spell: " << *this;
     }
     energy = unit->getEnergy();
@@ -47,7 +47,7 @@ void MyUnitImpl::update(BWAPI::Unit unit)
         bwapiUnit->getOrder() == BWAPI::Orders::AttackUnit)
     {
         auto cooldown = std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown());
-        if (cooldown > 0 && cooldown > (cooldownUntil - BWAPI::Broodwar->getFrameCount() + 1))
+        if (cooldown > 0 && cooldown > (cooldownUntil - currentFrame + 1))
         {
             auto target = Units::get(
                     (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit)
@@ -70,7 +70,7 @@ void MyUnitImpl::update(BWAPI::Unit unit)
         unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Cancel_Train &&
         unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Cancel_Train_Slot &&
         unit->getTrainingQueue().size() > 1 &&
-        unit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))
+        unit->getLastCommandFrame() < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
     {
         Log::Get() << "WARNING: Training queue for " << unit->getType() << " @ " << unit->getTilePosition()
                    << " is too deep! Cancelling later units.";
@@ -129,7 +129,7 @@ void MyUnitImpl::attackUnit(const Unit &target,
     bool forceAttackCommand = false;
     auto predictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
     if (!predictedPosition.isValid()) predictedPosition = lastPosition;
-    if (bwapiUnit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 6))
+    if (bwapiUnit->getLastCommandFrame() < (currentFrame - BWAPI::Broodwar->getLatencyFrames() - 6))
     {
         forceAttackCommand = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, target->lastPosition) > dist;
     }
@@ -174,7 +174,7 @@ bool MyUnitImpl::isReady() const
 {
     // When we have a large army, only micro units every other frame to avoid having commands dropped
     if (BWAPI::Broodwar->self()->supplyUsed() > 250 &&
-        (BWAPI::Broodwar->getFrameCount() % 2) != (id % 2))
+        (currentFrame % 2) != (id % 2))
     {
         return false;
     }
@@ -185,7 +185,7 @@ bool MyUnitImpl::isReady() const
 bool MyUnitImpl::unstick()
 {
     // If we recently sent a command meant to unstick the unit, give it a bit of time to kick in
-    if (unstickUntil > BWAPI::Broodwar->getFrameCount())
+    if (unstickUntil > currentFrame)
     {
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Unstick pending until " << unstickUntil;
@@ -195,14 +195,14 @@ bool MyUnitImpl::unstick()
     }
 
     // If the unit is listed as stuck, send a stop command unless we have done so recently
-    if (bwapiUnit->isStuck() && unstickUntil < (BWAPI::Broodwar->getFrameCount() - 10))
+    if (bwapiUnit->isStuck() && unstickUntil < (currentFrame - 10))
     {
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Sending stop command to unstick";
 #endif
 
         stop();
-        unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames();
+        unstickUntil = currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames();
         return true;
     }
 

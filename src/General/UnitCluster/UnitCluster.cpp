@@ -240,7 +240,7 @@ void UnitCluster::setActivity(UnitCluster::Activity newActivity, SubActivity new
 
     currentActivity = newActivity;
     currentSubActivity = newSubActivity;
-    lastActivityChange = BWAPI::Broodwar->getFrameCount();
+    lastActivityChange = currentFrame;
 }
 
 void UnitCluster::setSubActivity(SubActivity newSubActivity)

@@ -22,7 +22,7 @@ namespace
 PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std::vector<std::shared_ptr<Play>> &plays)
 {
     int enemyStrategyStableFor = 0;
-    if (newEnemyStrategy == enemyStrategy) enemyStrategyStableFor = BWAPI::Broodwar->getFrameCount() - enemyStrategyChanged;
+    if (newEnemyStrategy == enemyStrategy) enemyStrategyStableFor = currentFrame - enemyStrategyChanged;
 
     auto canTransitionFromAntiAllIn = [&]()
     {

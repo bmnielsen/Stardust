@@ -308,7 +308,7 @@ void Squad::execute()
 
         auto addSimResult = [&dbg](const std::pair<CombatSimResult, bool> &simResult)
         {
-            if (simResult.first.frame != BWAPI::Broodwar->getFrameCount()) return;
+            if (simResult.first.frame != currentFrame) return;
 
             dbg << "\n"
                 << simResult.first.initialMine << "," << simResult.first.initialEnemy

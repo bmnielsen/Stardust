@@ -49,7 +49,7 @@ namespace CherryVis
                 count++;
 
                 (*stream)
-                        << "\"" << BWAPI::Broodwar->getFrameCount() << "\":"
+                        << "\"" << currentFrame << "\":"
                         << frameData.dump(-1, ' ', true);
             }
 
@@ -69,9 +69,9 @@ namespace CherryVis
             void createPart()
             {
                 std::ostringstream filenameBuilder;
-                filenameBuilder << "heatmap_" << heatmapName << "_" << BWAPI::Broodwar->getFrameCount() << ".json.zstd";
+                filenameBuilder << "heatmap_" << heatmapName << "_" << currentFrame << ".json.zstd";
 
-                parts.emplace_back(BWAPI::Broodwar->getFrameCount(), filenameBuilder.str());
+                parts.emplace_back(currentFrame, filenameBuilder.str());
 
                 stream = new zstd::ofstream("bwapi-data/write/cvis/" + filenameBuilder.str());
                 (*stream) << "{";
@@ -214,7 +214,7 @@ namespace CherryVis
     void unitFirstSeen(BWAPI::Unit unit)
     {
 #if CHERRYVIS_ENABLED
-        int frame = BWAPI::Broodwar->getFrameCount();
+        int frame = currentFrame;
         if (frame == 0) frame = 1;
 
         frameToUnitsFirstSeen[std::to_string(frame)].push_back({

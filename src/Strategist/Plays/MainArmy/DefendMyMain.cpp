@@ -48,7 +48,7 @@ void DefendMyMain::update()
         if (unit->type.isWorker())
         {
             enemyWorkers.insert(unit);
-            if (unit->lastSeenAttacking > (BWAPI::Broodwar->getFrameCount() - 48)) enemyCombatUnits.insert(unit);
+            if (unit->lastSeenAttacking > (currentFrame - 48)) enemyCombatUnits.insert(unit);
         }
         else if (UnitUtil::IsCombatUnit(unit->type) && unit->type.canAttack())
         {
@@ -153,14 +153,14 @@ void DefendMyMain::update()
     // Keep track of when the squad was last regrouping, considering an empty squad to be regrouping
     if (!enemyCombatUnits.empty() && !scoutHarass && (squad->getUnits().empty() || squad->hasClusterWithActivity(UnitCluster::Activity::Regrouping)))
     {
-        lastRegroupFrame = BWAPI::Broodwar->getFrameCount();
+        lastRegroupFrame = currentFrame;
     }
 
     // Queue emergency production if:
     // - The squad has been regrouping recently
     // - The enemy has us outnumbered by more than two combat units
     // - We don't have any completed cannons (vs. Terran)
-    if (lastRegroupFrame > 0 && lastRegroupFrame > (BWAPI::Broodwar->getFrameCount() - REGROUP_EMERGENCY_TIMEOUT) &&
+    if (lastRegroupFrame > 0 && lastRegroupFrame > (currentFrame - REGROUP_EMERGENCY_TIMEOUT) &&
         (BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran || Units::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon) == 0) &&
         (squad->combatUnitCount() == 0 || (enemyCombatUnits.size() + std::max(0, (int) enemyWorkers.size() - 1)) > (squad->combatUnitCount() + 2)))
     {

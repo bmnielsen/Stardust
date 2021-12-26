@@ -68,7 +68,7 @@ void MyUnitImpl::issueMoveOrders()
     if (unstickMoveUnit()) return;
 
     // If the unit has just been unstuck, reissue the command to move towards our current target position
-    if (unstickUntil == BWAPI::Broodwar->getFrameCount())
+    if (unstickUntil == currentFrame)
     {
         move(currentlyMovingTowards);
         return;
@@ -313,7 +313,7 @@ void MyUnitImpl::updateMoveWaypoints()
     }
 
     // For a direct move, resend the move command frequently to avoid units doing weird stuff because of collisions
-    if (lastMoveFrame < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 12))
+    if (lastMoveFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames() - 12))
     {
         move(currentlyMovingTowards, true);
     }
@@ -413,7 +413,7 @@ void MyUnitImpl::updateChokePath(const BWEM::Area *unitArea)
 bool MyUnitImpl::unstickMoveUnit()
 {
     // First validate that the last move command was issued more than 6+LF frames ago
-    if ((BWAPI::Broodwar->getFrameCount() - lastMoveFrame) < (BWAPI::Broodwar->getLatencyFrames() + 6))
+    if ((currentFrame - lastMoveFrame) < (BWAPI::Broodwar->getLatencyFrames() + 6))
     {
         return false;
     }
@@ -441,13 +441,13 @@ bool MyUnitImpl::unstickMoveUnit()
     }
 
     // If we haven't moved for the past 48 frames, assume previous attempts to unstick the unit have failed and try to reset completely
-    if (frameLastMoved < (BWAPI::Broodwar->getFrameCount() - 48))
+    if (frameLastMoved < (currentFrame - 48))
     {
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Unstick by sending stop command";
 #endif
         stop();
-        unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames();
+        unstickUntil = currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames();
         return true;
     }
 
@@ -497,7 +497,7 @@ bool MyUnitImpl::unstickMoveUnit()
             CherryVis::log(id) << "Unstick by moving to neighbouring walkable tile";
 #endif
             move(best);
-            unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames() + 4;
+            unstickUntil = currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames() + 4;
             return true;
         }
     }
@@ -508,6 +508,6 @@ bool MyUnitImpl::unstickMoveUnit()
 
     // Reissue the move command
     move(currentlyMovingTowards, true);
-    unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames();
+    unstickUntil = currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames();
     return true;
 }

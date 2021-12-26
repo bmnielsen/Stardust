@@ -30,7 +30,7 @@ public:
                     int finalEnemy,
                     bool enemyHasUndetectedUnits,
                     Choke *narrowChoke)
-            : frame(BWAPI::Broodwar->getFrameCount())
+            : frame(currentFrame)
             , myUnitCount(myUnitCount)
             , enemyUnitCount(enemyUnitCount)
             , initialMine(initialMine)

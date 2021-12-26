@@ -291,7 +291,7 @@ bool Plasma::clusterMove(UnitCluster &cluster, BWAPI::Position targetPosition)
         int weaponRange = myUnit->groundRange();
         if (bestEgg->isVisible() &&
             bestDist <= weaponRange &&
-            myUnit->cooldownUntil < (BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames() + 2))
+            myUnit->cooldownUntil < (currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames() + 2))
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(myUnit->id) << "Attacking closest egg @ " << BWAPI::WalkPosition(bestEgg->getInitialPosition());

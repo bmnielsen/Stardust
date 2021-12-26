@@ -424,7 +424,7 @@ namespace Workers
         };
 
         // Special case on frame 0: try to optimize for earliest possible fifth mineral returned
-        if (BWAPI::Broodwar->getFrameCount() == 0)
+        if (currentFrame == 0)
         {
             assignInitialMineralWorkers();
         }
@@ -668,7 +668,7 @@ namespace Workers
                             // Exception: If we are not at the patch yet, and our last command was sent a long time ago,
                             // we probably want to wait and allow our order timer optimization to send the command instead.
                             int dist = worker->bwapiUnit->getDistance(mineralPatch);
-                            if (dist > 20 && worker->bwapiUnit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - 20)) continue;
+                            if (dist > 20 && worker->bwapiUnit->getLastCommandFrame() < (currentFrame - 20)) continue;
 
                             worker->gather(mineralPatch);
                             continue;
@@ -681,7 +681,7 @@ namespace Workers
                             if (worker->bwapiUnit->getOrderTarget() && worker->bwapiUnit->getOrderTarget()->getResources()
                                 && worker->bwapiUnit->getOrderTarget() != mineralPatch
                                 && worker->bwapiUnit->getLastCommandFrame()
-                                   < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))
+                                   < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
                             {
                                 worker->gather(mineralPatch);
                             }

@@ -273,7 +273,7 @@ namespace Map
                        << playerLabel(owner);
 
             base->owner = owner;
-            base->ownedSince = BWAPI::Broodwar->getFrameCount();
+            base->ownedSince = currentFrame;
             base->resourceDepot = nullptr;
             setResourceDepot();
 
@@ -901,12 +901,12 @@ namespace Map
             if (BWAPI::Broodwar->isVisible(base->getTilePosition().x + 1, base->getTilePosition().y + 1) ||
                 BWAPI::Broodwar->isVisible(base->getTilePosition().x + 2, base->getTilePosition().y + 1))
             {
-                base->lastScouted = BWAPI::Broodwar->getFrameCount();
+                base->lastScouted = currentFrame;
             }
 
                 // If the base hasn't been owned for a while, and the enemy could be zerg, can we see creep?
             else if (
-                    (base->ownedSince == -1 || base->ownedSince < (BWAPI::Broodwar->getFrameCount() - 2500)) &&
+                    (base->ownedSince == -1 || base->ownedSince < (currentFrame - 2500)) &&
                     BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran &&
                     BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss &&
                     checkCreep(base))
@@ -929,7 +929,7 @@ namespace Map
         }
 
         // Periodically check if base ownership is out-of-sync for any bases
-        if (BWAPI::Broodwar->getFrameCount() % 24 == 17)
+        if (currentFrame % 24 == 17)
         {
             for (auto &base : bases)
             {
@@ -948,7 +948,7 @@ namespace Map
             {
                 if (BWAPI::Broodwar->isVisible(x, y))
                 {
-                    tileLastSeen[x + y * mapWidth] = BWAPI::Broodwar->getFrameCount();
+                    tileLastSeen[x + y * mapWidth] = currentFrame;
                 }
             }
         }

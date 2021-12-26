@@ -200,7 +200,7 @@ void TakeIslandExpansion::update()
                 {
                     int frames = 600 +
                                  PathFinding::ExpectedTravelTime(base->getPosition(), bestBase->getPosition(), BWAPI::UnitTypes::Protoss_Shuttle);
-                    if (nexus->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount() > frames)
+                    if (nexus->estimatedCompletionFrame - currentFrame > frames)
                     {
                         break;
                     }

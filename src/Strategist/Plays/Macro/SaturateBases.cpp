@@ -14,7 +14,7 @@ namespace
         if (resourceDepot->bwapiUnit->isTraining()) return true;
 
         if (resourceDepot->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
-            (BWAPI::Broodwar->getFrameCount() - resourceDepot->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+            (currentFrame - resourceDepot->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
         {
             return true;
         }

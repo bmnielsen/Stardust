@@ -12,7 +12,7 @@ void ScoutEnemyExpos::update()
     if (scout && !scout->exists()) scout = nullptr;
 
     // Clear the target base if it has been scouted
-    if (targetBase && (targetBase->owner != nullptr || (BWAPI::Broodwar->getFrameCount() - targetBase->lastScouted) < 1000))
+    if (targetBase && (targetBase->owner != nullptr || (currentFrame - targetBase->lastScouted) < 1000))
     {
         targetBase = nullptr;
     }
@@ -31,7 +31,7 @@ void ScoutEnemyExpos::update()
         int scoreFactor = 0;
         auto handleBase = [&](Base *base)
         {
-            int framesSinceScouted = BWAPI::Broodwar->getFrameCount() - base->lastScouted;
+            int framesSinceScouted = currentFrame - base->lastScouted;
             scoreFactor++;
 
             double score = (double) framesSinceScouted / (double) scoreFactor;

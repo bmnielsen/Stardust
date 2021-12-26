@@ -42,7 +42,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
         }
 
         // Transition immediately if we're past frame 4500 and haven't seen an enemy zealot yet
-        if (BWAPI::Broodwar->getFrameCount() > 4500 && !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Zealot))
+        if (currentFrame > 4500 && !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Zealot))
         {
             return true;
         }
@@ -80,7 +80,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
     auto isDTExpandFeasible = [&]()
     {
         auto frameCutoff = getPlay<HiddenBase>(plays) == nullptr ? 9000 : 10500;
-        if (ourStrategy != OurStrategy::DTExpand && BWAPI::Broodwar->getFrameCount() > frameCutoff) return false;
+        if (ourStrategy != OurStrategy::DTExpand && currentFrame > frameCutoff) return false;
 
         // Make sure our main choke is easily defensible
         auto choke = Map::getMyMainChoke();

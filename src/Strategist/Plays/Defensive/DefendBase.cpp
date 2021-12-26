@@ -122,7 +122,7 @@ void DefendBase::update()
     }
 
     // Handle early-game defense of the main or natural a bit differently
-    if ((base == Map::getMyMain() || base == Map::getMyNatural()) && BWAPI::Broodwar->getFrameCount() < 10000)
+    if ((base == Map::getMyMain() || base == Map::getMyNatural()) && currentFrame < 10000)
     {
         // Take all units that are very close to the base
         auto gridNodePredicate = [](const NavigationGrid::GridNode &gridNode)
@@ -195,7 +195,7 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
             // If it is the main in the early game, give it higher priority
             // If it is the last cannon, give it lower priority until the others are completed
             int priority = PRIORITY_MAINARMY;
-            if (base == Map::getMyMain() && BWAPI::Broodwar->getFrameCount() < 12000)
+            if (base == Map::getMyMain() && currentFrame < 12000)
             {
                 priority = PRIORITY_NORMAL;
             }
@@ -328,7 +328,7 @@ int DefendBase::desiredCannons()
         int cannonBuildTime = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
         if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Forge) < 1) cannonBuildTime += UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Forge);
 
-        if (BWAPI::Broodwar->getFrameCount() > (expectedMutaliskCompletionFrame + flightTime - cannonBuildTime)) enemyAirThreat = true;
+        if (currentFrame > (expectedMutaliskCompletionFrame + flightTime - cannonBuildTime)) enemyAirThreat = true;
     }
 
     // Main and natural are special cases, we only get cannons there to defend against air threats
@@ -336,7 +336,7 @@ int DefendBase::desiredCannons()
     {
         if (enemyAirUnits > 6) return 4;
         if (enemyAirThreat) return 3;
-        if (enemyDropThreat && BWAPI::Broodwar->getFrameCount() > 8000) return 1;
+        if (enemyDropThreat && currentFrame > 8000) return 1;
         return 0;
     }
 

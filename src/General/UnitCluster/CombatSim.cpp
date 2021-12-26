@@ -95,13 +95,13 @@ namespace
                 .setElevation(BWAPI::Broodwar->getGroundHeight(unit->lastPosition.x >> 5, unit->lastPosition.y >> 5))
 
                 .setAttackerCount(unit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
-                .setAttackCooldownRemaining(std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount()))
+                .setAttackCooldownRemaining(std::max(0, unit->cooldownUntil - currentFrame))
 
                 .setSpeedUpgrade(false) // Squares the speed
                 .setRangeUpgrade(false) // Squares the ranges
                 .setShieldUpgrades(0)
 
-                .setStimmed(unit->stimmedUntil > BWAPI::Broodwar->getFrameCount())
+                .setStimmed(unit->stimmedUntil > currentFrame)
                 .setUndetected(unit->isCliffedTank(vanguard) || (unit->undetected && !mobileDetection))
 
                 .setID(unit->id)
@@ -194,7 +194,7 @@ namespace
 
             // Only include workers if they have been seen attacking recently
             // TODO: Handle worker rushes
-            if (!unit->type.isWorker() || (BWAPI::Broodwar->getFrameCount() - unit->lastSeenAttacking) < 120)
+            if (!unit->type.isWorker() || (currentFrame - unit->lastSeenAttacking) < 120)
             {
                 bool added = attacking
                              ? sim.addIfCombatUnitPlayer2<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection))
@@ -219,9 +219,9 @@ namespace
         auto writeSimCsvLine = [&simCsvLabel](const auto &unit, int simFrame)
         {
             auto csv = Log::Csv(simCsvLabel);
-            csv << BWAPI::Broodwar->getFrameCount();
+            csv << currentFrame;
             csv << simFrame;
-            csv << BWAPI::Broodwar->getFrameCount() + simFrame;
+            csv << currentFrame + simFrame;
             csv << unit.unitType;
             csv << unit.id;
             csv << unit.x;
@@ -234,19 +234,19 @@ namespace
         auto writeActualCsvLine = [&actualCsvLabel](const Unit &unit)
         {
             auto csv = Log::Csv(actualCsvLabel);
-            csv << BWAPI::Broodwar->getFrameCount();
+            csv << currentFrame;
             csv << "-";
-            csv << BWAPI::Broodwar->getFrameCount();
+            csv << currentFrame;
             csv << unit->type;
             csv << unit->id;
             csv << unit->lastPosition.x;
             csv << unit->lastPosition.y;
             csv << unit->lastHealth;
             csv << unit->lastShields;
-            csv << std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
+            csv << std::max(0, unit->cooldownUntil - currentFrame);
         };
 
-        if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
+        if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && currentFrame % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
         {
             for (auto &unitAndTarget : unitsAndTargets)
             {
@@ -269,7 +269,7 @@ namespace
             std::map<int, std::tuple<int, int, int>> player2DrawData;
 
             if (attacking == DEBUG_COMBATSIM_DRAW_ATTACKER
-                && ((unitsAndTargets.size() + targets.size()) < 10 || BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
+                && ((unitsAndTargets.size() + targets.size()) < 10 || currentFrame % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
             {
                 auto setDrawData = [](auto &simData, auto &localData)
                 {
@@ -287,7 +287,7 @@ namespace
 
 #if DEBUG_COMBATSIM_DRAW
             if (attacking == DEBUG_COMBATSIM_DRAW_ATTACKER
-                && ((unitsAndTargets.size() + targets.size()) < 10 || BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
+                && ((unitsAndTargets.size() + targets.size()) < 10 || currentFrame % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
             {
                 auto draw = [](auto &simData, auto &localData, auto color)
                 {
@@ -317,7 +317,7 @@ namespace
 #endif
 
 #if DEBUG_COMBATSIM_CSV
-            if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
+            if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && currentFrame % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
             {
                 for (auto unit : *sim.getState().first)
                 {
@@ -502,7 +502,7 @@ CombatSimResult UnitCluster::runCombatSim(BWAPI::Position targetPosition,
 void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
 {
     // Reset recent sim results if it hasn't been run on the last frame
-    if (!recentSimResults.empty() && recentSimResults.rbegin()->first.frame != BWAPI::Broodwar->getFrameCount() - 1)
+    if (!recentSimResults.empty() && recentSimResults.rbegin()->first.frame != currentFrame - 1)
     {
         recentSimResults.clear();
     }
@@ -513,7 +513,7 @@ void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
 void UnitCluster::addRegroupSimResult(CombatSimResult &simResult, bool contain)
 {
     // Reset recent sim results if it hasn't been run on the last frame
-    if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->first.frame != BWAPI::Broodwar->getFrameCount() - 1)
+    if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->first.frame != currentFrame - 1)
     {
         recentRegroupSimResults.clear();
     }

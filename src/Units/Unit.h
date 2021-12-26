@@ -27,7 +27,7 @@ struct UpcomingAttack
             : attacker(std::move(attacker))
             , bullet(nullptr)
             , bulletId(-1)
-            , expiryFrame(BWAPI::Broodwar->getFrameCount() + frames)
+            , expiryFrame(currentFrame + frames)
             , damage(damage) {}
 };
 
@@ -110,7 +110,7 @@ public:
 
     [[nodiscard]] virtual bool isBeingManufacturedOrCarried() const { return false; };
 
-    [[nodiscard]] bool isBeingHealed() const { return BWAPI::Broodwar->getFrameCount() < (lastHealFrame + 24); };
+    [[nodiscard]] bool isBeingHealed() const { return currentFrame < (lastHealFrame + 24); };
 
     [[nodiscard]] bool isAttackable() const;
 

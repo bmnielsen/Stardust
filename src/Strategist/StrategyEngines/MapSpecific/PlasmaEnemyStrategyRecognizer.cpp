@@ -14,7 +14,7 @@ namespace
 {
     bool isProxy()
     {
-        if (BWAPI::Broodwar->getFrameCount() >= 10000) return false;
+        if (currentFrame >= 10000) return false;
 
         // We expect enemies to bug out or do weird things on Plasma, so ignore their main base timings
 
@@ -46,7 +46,7 @@ PlasmaStrategyEngine::EnemyStrategy PlasmaStrategyEngine::recognizeEnemyStrategy
             case EnemyStrategy::Unknown:
                 // Assume zergs won't do a proxy, and that others would do a proxy before frame 6000
                 if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg ||
-                    BWAPI::Broodwar->getFrameCount() > 6000)
+                    currentFrame > 6000)
                 {
                     strategy = EnemyStrategy::Normal;
                     continue;

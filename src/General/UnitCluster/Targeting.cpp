@@ -95,7 +95,7 @@ namespace
             }
 
             // Workers that have attacked in the last four seconds
-            if ((BWAPI::Broodwar->getFrameCount() - target->lastSeenAttacking) < 96)
+            if ((currentFrame - target->lastSeenAttacking) < 96)
             {
                 return 11;
             }
@@ -307,7 +307,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             // If the unit isn't on its cooldown yet, simulate the attack on the target for use in later targeting
             // If the unit is on its cooldown, there will be an upcomingAttack already registered on the target
             // This ensures consistency between our targeting and combat sim (avoiding double-counting of damage)
-            if (target && (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount()) <= (BWAPI::Broodwar->getLatencyFrames() + 2))
+            if (target && (unit->cooldownUntil - currentFrame) <= (BWAPI::Broodwar->getLatencyFrames() + 2))
             {
                 target->dealDamage(unit);
             }
@@ -415,7 +415,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 if (unit->isFlying == target.unit->isFlying && unit->distToTargetPosition != -1 && target.unit->distToTargetPosition != -1
                     && unit->distToTargetPosition < target.unit->distToTargetPosition
                     && (distToRange > 0
-                        || (unit->cooldownUntil > BWAPI::Broodwar->getFrameCount() && !unit->isInEnemyWeaponRange(target.unit))))
+                        || (unit->cooldownUntil > currentFrame && !unit->isInEnemyWeaponRange(target.unit))))
                 {
 #if DEBUG_TARGETING
                     dbg << "\n Skipping " << *target.unit << " as it is further away from the target position";
@@ -453,7 +453,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 #endif
             attacker.targets.emplace_back(&target);
 
-            int framesToAttack = std::max(unit->cooldownUntil - BWAPI::Broodwar->getFrameCount(),
+            int framesToAttack = std::max(unit->cooldownUntil - currentFrame,
                                           (int) ((double) targetAndDistToRange.second / unit->type.topSpeed())
                                           + BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
 
@@ -511,7 +511,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
         bool isRanged = UnitUtil::IsRangedUnit(unit->type);
         int cooldownMoveFrames = std::max(0,
-                                          unit->cooldownUntil - BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getRemainingLatencyFrames() - 2);
+                                          unit->cooldownUntil - currentFrame - BWAPI::Broodwar->getRemainingLatencyFrames() - 2);
 
         int distanceToTargetPosition = unit->getDistance(targetPosition);
         for (auto &potentialTarget : attacker.targets)
@@ -678,7 +678,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         {
             auto currentTarget = getCurrentTarget(unit);
             if (currentTarget && unit->getDistance(currentTarget->unit) < 11 * 32 &&
-                unit->bwapiUnit->getLastCommandFrame() > (BWAPI::Broodwar->getFrameCount() - 96))
+                unit->bwapiUnit->getLastCommandFrame() > (currentFrame - 96))
             {
                 bestTarget = currentTarget;
 

@@ -53,10 +53,10 @@ namespace Log
         if (!logFile) return;
         if (csv) return;
 
-        int seconds = BWAPI::Broodwar->getFrameCount() / 24;
+        int seconds = currentFrame / 24;
         int minutes = seconds / 60;
         seconds = seconds % 60;
-        (*os) << BWAPI::Broodwar->getFrameCount() << "(" << minutes << ":" << (seconds < 10 ? "0" : "") << seconds << "): ";
+        (*os) << currentFrame << "(" << minutes << ":" << (seconds < 10 ? "0" : "") << seconds << "): ";
     }
 
     LogWrapper::LogWrapper(const LogWrapper &other)
