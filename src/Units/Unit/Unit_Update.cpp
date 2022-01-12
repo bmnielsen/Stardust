@@ -127,7 +127,7 @@ void UnitImpl::update(BWAPI::Unit unit)
     }
 
     // Currently ignoring Terran buildings since they can burn, should track this better if we want to use this for them
-    if (unit->getHitPoints() < lastHealth && (player->getRace() != BWAPI::Races::Terran || !type.isBuilding()))
+    if (unit->getShields() < lastShields || (unit->getHitPoints() < lastHealth && (player->getRace() != BWAPI::Races::Terran || !type.isBuilding())))
     {
         lastAttackedFrame = currentFrame;
     }
