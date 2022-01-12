@@ -13,6 +13,7 @@
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
 #include "Plays/SpecialTeams/CarrierHarass.h"
+#include "Plays/SpecialTeams/Elevator.h"
 #include "Plays/SpecialTeams/ElevatorRush.h"
 
 namespace
@@ -72,7 +73,6 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 #endif
 
         // AIST S4 vs. Human match - When we transition from early-game defense to normal on specific maps, do an elevator rush
-        /*
         if (ourStrategy == OurStrategy::EarlyGameDefense && newStrategy == OurStrategy::NormalOpening &&
             (BWAPI::Broodwar->mapHash() == "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b" ||
              BWAPI::Broodwar->mapHash() == "e39c1c81740a97a733d227e238bd11df734eaf96" ||
@@ -81,9 +81,8 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
              BWAPI::Broodwar->mapHash() == "d9757c0adcfd61386dff8fe3e493e9e8ef9b45e3" ||
              BWAPI::Broodwar->mapHash() == "ecb9c70c5594a5c6882baaf4857a61824fba0cfa"))
         {
-            //plays.insert(plays.begin(), std::make_shared<ElevatorRush>());
+            plays.insert(plays.begin(), std::make_shared<Elevator>());
         }
-        */
 
         ourStrategy = newStrategy;
     }
