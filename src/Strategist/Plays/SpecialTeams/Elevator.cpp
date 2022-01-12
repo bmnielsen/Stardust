@@ -73,7 +73,7 @@ void Elevator::update()
     if (complete)
     {
         // Move all transferred units to the squad
-        for (auto &unit : transferred)
+        for (auto &unit: transferred)
         {
             squad->addUnit(unit);
         }
@@ -167,7 +167,7 @@ void Elevator::update()
         {
             MyUnit closestPickup = nullptr;
             int closestPickupDist = INT_MAX;
-            for (auto &unit : transferQueue)
+            for (auto &unit: transferQueue)
             {
                 int dist = PathFinding::GetGroundDistance(unit->lastPosition, pickupPosition, unit->type);
                 if (dist != -1 && dist < closestPickupDist)
@@ -208,19 +208,29 @@ void Elevator::update()
     }
 
     // Micro transferred units
-    for (auto &unit : transferred)
+    for (auto &unit: transferred)
     {
         unit->moveTo(dropPosition);
     }
+
+    auto isTransferringUnitUnderAttack = [&]()
+    {
+        for (auto &unit : transferring)
+        {
+            if (unit->bwapiUnit->isUnderAttack()) return true;
+        }
+
+        return false;
+    };
 
     // Move transferred units to the squad if the shuttle is empty and either:
     // - The squad is already attacking
     // - We have moved at least 8 of them
     // - We have no more waiting
-    // TODO attack if any of our transferred units are under attack?
-    if (transferring.empty() && (!squad->empty() || transferred.size() > 7 || transferQueue.empty()))
+    // - One of our transferring units is under attack
+    if (transferring.empty() && (!squad->empty() || transferred.size() > 7 || transferQueue.empty() || isTransferringUnitUnderAttack()))
     {
-        for (auto &unit : transferred)
+        for (auto &unit: transferred)
         {
             squad->addUnit(unit);
         }
@@ -235,14 +245,14 @@ void Elevator::update()
 }
 
 void Elevator::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                           const std::function<void(const MyUnit)> &movableUnitCallback)
+                       const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     if (shuttle) removedUnitCallback(shuttle);
-    for (auto &unit : transferQueue)
+    for (auto &unit: transferQueue)
     {
         removedUnitCallback(unit);
     }
-    for (auto &unit : transferred)
+    for (auto &unit: transferred)
     {
         removedUnitCallback(unit);
     }
@@ -253,7 +263,7 @@ void Elevator::disband(const std::function<void(const MyUnit)> &removedUnitCallb
 void Elevator::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
     // Only produces a shuttle when the requirement hasn't been met
-    for (auto &unitRequirement : status.unitRequirements)
+    for (auto &unitRequirement: status.unitRequirements)
     {
         if (unitRequirement.count < 1) continue;
         if (unitRequirement.type != BWAPI::UnitTypes::Protoss_Shuttle) continue;
