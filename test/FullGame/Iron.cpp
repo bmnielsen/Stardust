@@ -91,3 +91,32 @@ TEST(Iron, TestMopUp)
     };
     test.run();
 }
+
+TEST(Iron, TestElevator)
+{
+    BWTest test;
+    test.opponentName = "Iron";
+    test.opponentRace = BWAPI::Races::Terran;
+    test.map = Maps::GetOne("Destination");
+    test.frameLimit = 15000;
+    test.opponentModule = []()
+    {
+        return new iron::Iron();
+    };
+    test.onStartOpponent = []()
+    {
+        std::cout.setstate(std::ios_base::failbit);
+    };
+    test.onEndMine = [&test](bool won)
+    {
+        std::ostringstream replayName;
+        replayName << "Iron_" << test.map->shortname();
+        if (!won)
+        {
+            replayName << "_LOSS";
+        }
+        replayName << "_" << test.randomSeed;
+        test.replayName = replayName.str();
+    };
+    test.run();
+}
