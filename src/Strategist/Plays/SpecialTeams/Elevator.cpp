@@ -217,7 +217,7 @@ void Elevator::update()
     {
         for (auto &unit : transferring)
         {
-            if (unit->bwapiUnit->isUnderAttack()) return true;
+            if (unit->isBeingAttacked()) return true;
         }
 
         return false;

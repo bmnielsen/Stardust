@@ -65,6 +65,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , health(unit->getHitPoints())
         , shields(unit->getShields())
         , lastHealFrame(-1)
+        , lastAttackedFrame(-1)
         , completed(unit->isCompleted())
         , estimatedCompletionFrame(-1)
         , isFlying(unit->isFlying())
@@ -123,6 +124,12 @@ void UnitImpl::update(BWAPI::Unit unit)
     if (player->getRace() == BWAPI::Races::Terran && unit->isCompleted() && unit->getHitPoints() > lastHealth)
     {
         lastHealFrame = currentFrame;
+    }
+
+    // Currently ignoring Terran buildings since they can burn, should track this better if we want to use this for them
+    if (unit->getHitPoints() < lastHealth && (player->getRace() != BWAPI::Races::Terran || !type.isBuilding()))
+    {
+        lastAttackedFrame = currentFrame;
     }
 
     // Cloaked units show up with 0 hit points and shields, so default to max and otherwise don't touch them

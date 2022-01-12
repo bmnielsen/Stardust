@@ -71,6 +71,7 @@ public:
     int shields;                        // Estimated shields of the unit, adjusted for upcoming attacks
 
     int lastHealFrame;                  // Last frame the unit was healed or repaired
+    int lastAttackedFrame;              // Last frame the unit was attacked
 
     bool completed;                     // Whether the unit was completed
     int estimatedCompletionFrame;       // If not completed, the frame when we expect the unit to complete
@@ -111,6 +112,8 @@ public:
     [[nodiscard]] virtual bool isBeingManufacturedOrCarried() const { return false; };
 
     [[nodiscard]] bool isBeingHealed() const { return currentFrame < (lastHealFrame + 24); };
+
+    [[nodiscard]] bool isBeingAttacked() const { return !upcomingAttacks.empty() || currentFrame < (lastAttackedFrame + 48); };
 
     [[nodiscard]] bool isAttackable() const;
 
