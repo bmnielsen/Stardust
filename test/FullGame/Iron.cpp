@@ -97,8 +97,9 @@ TEST(Iron, TestElevator)
     BWTest test;
     test.opponentName = "Iron";
     test.opponentRace = BWAPI::Races::Terran;
-    test.map = Maps::GetOne("Destination");
+    test.map = Maps::GetOne("Heartbreak");
     test.frameLimit = 15000;
+    test.randomSeed = 19550;
     test.opponentModule = []()
     {
         return new iron::Iron();
