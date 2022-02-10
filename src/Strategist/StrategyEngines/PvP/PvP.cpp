@@ -633,116 +633,11 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
                                                           1);
     };
 
-    auto buildCannon = [&](int frameNeeded = 0, bool alsoAtBases = false)
-    {
-        auto buildCannonAt = [&](BWAPI::TilePosition pylonTile, BWAPI::TilePosition cannonTile)
-        {
-            if (!pylonTile.isValid()) return;
-            if (!cannonTile.isValid()) return;
-
-            // If we know what frame the cannon is needed, check if we need to start building it now
-            if (frameNeeded > 0)
-            {
-                int frameStarted = frameNeeded - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
-                if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Forge) == 0)
-                {
-                    frameStarted -= framesNeededFor(BWAPI::UnitTypes::Protoss_Forge);
-                }
-                else if (!Units::myBuildingAt(pylonTile))
-                {
-                    frameStarted -= UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
-                }
-
-                // TODO: When the Producer understands to build something at a specific frame, use that
-                if ((currentFrame + 500) < frameStarted) return;
-            }
-
-            auto buildAtTile = [&prioritizedProductionGoals](BWAPI::TilePosition tile, BWAPI::UnitType type)
-            {
-                if (Units::myBuildingAt(tile) != nullptr) return;
-                if (Builder::isPendingHere(tile)) return;
-
-                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
-                auto priority = Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0
-                                ? PRIORITY_EMERGENCY
-                                : PRIORITY_NORMAL;
-                prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                  type,
-                                                                  buildLocation);
-            };
-
-            auto pylon = Units::myBuildingAt(pylonTile);
-            if (pylon && pylon->completed)
-            {
-                buildAtTile(cannonTile, BWAPI::UnitTypes::Protoss_Photon_Cannon);
-            }
-            else
-            {
-                buildAtTile(pylonTile, BWAPI::UnitTypes::Protoss_Pylon);
-            }
-        };
-
-        // Get the cannon location
-        auto cannonLocations = BuildingPlacement::mainChokeCannonLocations();
-        MyUnit chokeCannon = nullptr;
-        if (cannonLocations.first != BWAPI::TilePositions::Invalid)
-        {
-            chokeCannon = Units::myBuildingAt(cannonLocations.second);
-            if (!chokeCannon)
-            {
-                buildCannonAt(cannonLocations.first, cannonLocations.second);
-            }
-        }
-        else
-        {
-            alsoAtBases = true;
-        }
-
-        if (alsoAtBases)
-        {
-            auto buildAtBase = [&buildCannonAt](Base *base, int count = 1)
-            {
-                if (!base || base->owner != BWAPI::Broodwar->self()) return;
-
-                auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-                if (baseStaticDefenseLocations.first != BWAPI::TilePositions::Invalid)
-                {
-                    for (const auto &location : baseStaticDefenseLocations.second)
-                    {
-                        if (count < 1) break;
-
-                        if (Units::myBuildingAt(location))
-                        {
-                            count--;
-                            continue;
-                        }
-
-                        buildCannonAt(baseStaticDefenseLocations.first, location);
-                        return;
-                    }
-                }
-            };
-
-            if (!chokeCannon || !chokeCannon->completed)
-            {
-                buildAtBase(Map::getMyMain());
-            }
-            if (!Map::mapSpecificOverride()->hasBackdoorNatural())
-            {
-                buildAtBase(Map::getMyNatural(), 2);
-            }
-            if (chokeCannon && chokeCannon->completed)
-            {
-                buildAtBase(Map::getMyMain());
-            }
-        }
-    };
-
     // If the enemy is known to have produced a DT, get a cannon and observer
     if (enemyStrategy == ProtossStrategy::DarkTemplarRush ||
         Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Dark_Templar))
     {
-        buildCannon(0, true);
+        buildDefensiveCannons(prioritizedProductionGoals, true, 0, 1);
         buildObserver();
         CherryVis::setBoardValue("detection", "emergency-build-cannon-and-observer");
         return;
@@ -817,7 +712,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     auto enemyMain = Map::getEnemyMain();
     if (!enemyMain)
     {
-        buildCannon(expectedCompletionFrame + 500);
+        buildDefensiveCannons(prioritizedProductionGoals, true, expectedCompletionFrame + 500);
         CherryVis::setBoardValue("detection", "cannon-at-worst-case");
         return;
     }
@@ -882,13 +777,13 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     int frame = expectedCompletionFrame + closestGatewayFrames;
     if (templarArchiveTimings.empty())
     {
-        buildCannon(frame);
+        buildDefensiveCannons(prioritizedProductionGoals, true, frame);
         CherryVis::setBoardValue("detection", (std::ostringstream() << "cannon-at-" << frame).str());
     }
     else
     {
         buildObserver(frame);
-        buildCannon(frame, true);
+        buildDefensiveCannons(prioritizedProductionGoals, true,frame, 1);
         CherryVis::setBoardValue("detection", (std::ostringstream() << "cannon-and-observer-at-" << frame).str());
     }
 }

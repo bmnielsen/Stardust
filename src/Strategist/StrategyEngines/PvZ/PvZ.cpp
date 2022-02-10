@@ -5,6 +5,7 @@
 #include "Strategist.h"
 #include "Players.h"
 #include "Workers.h"
+#include "Opponent.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -415,6 +416,13 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) > 0 || Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observer) > 0)
     {
         return;
+    }
+
+    // If the opponent has done a lurker rush recently, build a cannon at the choke to protect our main
+    auto lurkerInMain = Opponent::minValueInPreviousGames("firstLurkerAtOurMain", INT_MAX, 20, 0);
+    if (lurkerInMain < 12000)
+    {
+        buildDefensiveCannons(prioritizedProductionGoals, true, lurkerInMain);
     }
 
     // Build an observer when we are on two gas or the enemy has lurker tech

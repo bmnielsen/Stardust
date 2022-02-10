@@ -30,7 +30,7 @@ public:
     template<class T>
     static T *getPlay(std::vector<std::shared_ptr<Play>> &plays)
     {
-        for (auto &play : plays)
+        for (auto &play: plays)
         {
             if (auto match = std::dynamic_pointer_cast<T>(play))
             {
@@ -99,4 +99,9 @@ protected:
     static void updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays, bool defendOurMain);
 
     static void reserveMineralsForExpansion(std::vector<std::pair<int, int>> &mineralReservations);
+
+    static void buildDefensiveCannons(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                      bool atChoke = true,
+                                      int frameNeeded = 0,
+                                      int atBases = 0);
 };
