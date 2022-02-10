@@ -338,6 +338,9 @@ int DefendBase::desiredCannons()
         return 0;
     }
 
+    int cannonBuildTime = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Forge) < 1) cannonBuildTime += UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Forge);
+
     // Next, if the enemy is Zerg, guard against mutas we haven't scouted
     // TODO: Do economic modelling to determine if the enemy could have mutas
     auto enemyMain = Map::getEnemyStartingMain();
@@ -353,17 +356,21 @@ int DefendBase::desiredCannons()
 
         int flightTime = PathFinding::ExpectedTravelTime(base->getPosition(), enemyMain->getPosition(), BWAPI::UnitTypes::Zerg_Mutalisk) - 50;
 
-        int cannonBuildTime = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
-        if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Forge) < 1) cannonBuildTime += UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Forge);
-
         if (currentFrame > (expectedMutaliskCompletionFrame + flightTime - cannonBuildTime)) enemyAirThreat = true;
     }
 
-    // Main and natural are special cases, we only get cannons there to defend against air threats
+    // Main and natural are special cases, we only get cannons there to defend against air threats or sneak attacks
     if (base == Map::getMyMain() || base == Map::getMyNatural())
     {
         if (enemyAirUnits > 6) return 4;
         if (enemyAirThreat) return 3;
+
+        auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
+        if (sneakAttack < 10000 && currentFrame > (sneakAttack - cannonBuildTime))
+        {
+            return 3;
+        }
+
         if (enemyDropThreat && currentFrame > 8000) return 1;
         return 0;
     }

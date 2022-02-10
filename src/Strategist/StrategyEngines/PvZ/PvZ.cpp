@@ -85,7 +85,12 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 }
             }
 
-            return (count >= requiredUnitCount && (!requireDragoon || hasDragoon));
+            if (count < requiredUnitCount || (requireDragoon && !hasDragoon)) return false;
+
+            // If the enemy has done a sneak attack recently, don't leave our base until we have built defensive cannons
+            if (currentFrame > 10000) return true; // only relevant in early game
+            auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
+            return sneakAttack > 10000 || Units::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon) >= 2;
         };
 
         switch (ourStrategy)
@@ -166,6 +171,19 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     handleGasStealProduction(prioritizedProductionGoals, zealotCount);
 
+    auto buildAntiSneakAttackCannons = [&]()
+    {
+        // Only relevant in early game
+        if (currentFrame > 10000) return;
+
+        // Check if the enemy has done a sneak attack recently
+        auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
+        if (sneakAttack > 10000) return;
+
+        // Build three cannons
+        buildDefensiveCannons(prioritizedProductionGoals, false, 0, 3);
+    };
+
     // Main army production
     switch (ourStrategy)
     {
@@ -194,6 +212,17 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             int zealotsRequired = desiredZealots - zealotCount;
 
             handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired);
+
+            // We can build anti-sneak-attack cannons when we have started goon range
+            if (Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
+            {
+                CherryVis::setBoardValue("anti-sneak-attack", "started-goon-range");
+                buildAntiSneakAttackCannons();
+            }
+            else
+            {
+                CherryVis::setBoardValue("anti-sneak-attack", "not-started-goon-range");
+            }
 
             break;
         }
@@ -225,6 +254,9 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             // Default upgrades
             handleUpgrades(prioritizedProductionGoals);
+
+            // Build anti-sneak-attack cannons immediately
+            buildAntiSneakAttackCannons();
 
             break;
         }
@@ -260,6 +292,17 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             // Only upgrade goon range
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
+            // Build anti-sneak-attack cannons on 4 completed units
+            if ((zealotCount + dragoonCount - inProgressCount) >= 4)
+            {
+                CherryVis::setBoardValue("anti-sneak-attack", "enough-units");
+                buildAntiSneakAttackCannons();
+            }
+            else
+            {
+                CherryVis::setBoardValue("anti-sneak-attack", "not-enough-units");
+            }
+
             break;
         }
         case OurStrategy::MidGame:
@@ -291,6 +334,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
 
             handleUpgrades(prioritizedProductionGoals);
+            buildAntiSneakAttackCannons();
 
             break;
         }
