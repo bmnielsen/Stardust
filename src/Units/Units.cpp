@@ -274,6 +274,20 @@ namespace Units
                 {
                     Opponent::setGameValue("firstMutaliskCompleted", completionFrame);
                 }
+                else if (unit->type == BWAPI::UnitTypes::Zerg_Lurker)
+                {
+                    // Get frames it would take this lurker to get to our main choke
+                    auto mainChoke = Map::getMyMainChoke();
+                    if (mainChoke)
+                    {
+                        auto frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                                      mainChoke->center,
+                                                                      BWAPI::UnitTypes::Zerg_Lurker,
+                                                                      PathFinding::PathFindingOptions::UseNeighbouringBWEMArea,
+                                                                      1000);
+                        Opponent::setGameValue("firstLurkerAtOurMain", completionFrame + frames);
+                    }
+                }
             }
 
             if (unit->type.isBuilding() && includeMorphs)

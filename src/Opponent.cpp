@@ -13,6 +13,7 @@ namespace Opponent
         bool raceUnknown;
         std::vector<nlohmann::json> previousGames;
         nlohmann::json currentGame;
+        std::set<std::string> setKeys;
 
         std::vector<std::string> dataLoadPaths = {
                 "bwapi-data/read/",
@@ -60,6 +61,8 @@ namespace Opponent
 
     void initialize()
     {
+        setKeys.clear();
+
         name = BWAPI::Broodwar->enemy()->getName();
         std::transform(name.begin(), name.end(), name.begin(), ::tolower);
         name.erase(std::remove_if(name.begin(), name.end(), ::isspace), name.end());
@@ -94,6 +97,8 @@ namespace Opponent
         currentGame["pylonInOurMain"] = INT_MAX;
         currentGame["firstDarkTemplarCompleted"] = INT_MAX;
         currentGame["firstMutaliskCompleted"] = INT_MAX;
+        currentGame["firstLurkerAtOurMain"] = INT_MAX;
+        currentGame["sneakAttack"] = INT_MAX;
     }
 
     void gameEnd(bool isWinner)
@@ -156,7 +161,25 @@ namespace Opponent
 
     void setGameValue(const std::string &key, int value)
     {
+#if CHERRYVIS_ENABLED
+        if (currentGame[key] != value)
+        {
+            CherryVis::log() << "Set game value " << key << " to " << value;
+        }
+#endif
+#if LOGGING_ENABLED
+        if (currentGame[key] != value)
+        {
+            Log::Get() << "Set game value " << key << " to " << value;
+        }
+#endif
         currentGame[key] = value;
+        setKeys.insert(key);
+    }
+
+    bool isGameValueSet(const std::string &key)
+    {
+        return setKeys.find(key) != setKeys.end();
     }
 
     int minValueInPreviousGames(const std::string &key, int defaultNoData, int maxCount, int minCount)
