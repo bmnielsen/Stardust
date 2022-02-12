@@ -6,6 +6,8 @@ namespace Opponent
 {
     void initialize();
 
+    void update();
+
     void gameEnd(bool isWinner);
 
     std::string &getName();

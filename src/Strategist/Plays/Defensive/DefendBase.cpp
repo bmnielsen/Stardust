@@ -11,26 +11,6 @@
 #include "Builder.h"
 #include "Opponent.h"
 
-namespace
-{
-    void recordSneakAttack()
-    {
-        if (Opponent::isGameValueSet("sneakAttack")) return;
-
-        // Verify our main army is out on the map
-        auto attackSquad = General::getAttackBaseSquad(Map::getEnemyMain());
-        if (!attackSquad) return;
-
-        auto vanguardCluster = attackSquad->vanguardCluster();
-        if (!vanguardCluster) return;
-
-        if (vanguardCluster->percentageToEnemyMain < 0.5) return;
-
-        // Record the sneak attack
-        Opponent::setGameValue("sneakAttack", currentFrame);
-    }
-}
-
 DefendBase::DefendBase(Base *base, int enemyValue)
         : Play((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
         , base(base)
@@ -70,14 +50,6 @@ void DefendBase::update()
 {
     squad->enemyUnits.clear();
     squad->enemyUnits.insert(Units::enemyAtBase(base).begin(), Units::enemyAtBase(base).end());
-
-    // Detect sneak attacks
-    // A sneak attack is when the enemy has at least 4 units in our main base in the early game while our army is out on the map
-    // This might happen because of a runaround or a drop
-    if (currentFrame < 12000 && base == Map::getMyMain() && squad->enemyUnits.size() >= 4)
-    {
-        recordSneakAttack();
-    }
 
     // Clear dead static defense buildings
     if (pylon && !pylon->exists()) pylon = nullptr;

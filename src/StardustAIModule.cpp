@@ -194,6 +194,9 @@ void StardustAIModule::onFrame()
     Timer::checkpoint("Events");
 
     // Update general information things
+    Opponent::update();
+    Timer::checkpoint("Players::update");
+
     Players::update();
     Timer::checkpoint("Players::update");
 

@@ -5,6 +5,10 @@
 
 #include <nlohmann/json.hpp>
 
+#include "Map.h"
+#include "General.h"
+#include "Units.h"
+
 namespace Opponent
 {
     namespace
@@ -99,6 +103,30 @@ namespace Opponent
         currentGame["firstMutaliskCompleted"] = INT_MAX;
         currentGame["firstLurkerAtOurMain"] = INT_MAX;
         currentGame["sneakAttack"] = INT_MAX;
+    }
+
+    void update()
+    {
+        // Detect sneak attacks
+        // A sneak attack is when the enemy has at least 4 units in our main base in the early game while our army is out on the map
+        // This might happen because of a runaround or a drop
+        if (currentFrame < 12000 && !isGameValueSet("sneakAttack"))
+        {
+            auto mainBase = Map::getMyMain();
+            if (mainBase && mainBase->owner == BWAPI::Broodwar->self() && Units::enemyAtBase(mainBase).size() >= 4)
+            {
+                // Verify our main army is out on the map
+                auto attackSquad = General::getAttackBaseSquad(Map::getEnemyMain());
+                if (attackSquad)
+                {
+                    auto vanguardCluster = attackSquad->vanguardCluster();
+                    if (vanguardCluster && vanguardCluster->percentageToEnemyMain > 0.5)
+                    {
+                        setGameValue("sneakAttack", currentFrame);
+                    }
+                }
+            }
+        }
     }
 
     void gameEnd(bool isWinner)
