@@ -614,7 +614,8 @@ void UnitImpl::updatePredictedPosition()
     double vanguardDirection = 0.0;
     auto getAttackEnemyMainVanguard = [&]()
     {
-        auto squad = General::getAttackBaseSquad(Map::getEnemyMain());
+        auto squad = General::getAttackBaseSquad(Map::getEnemyStartingNatural());
+        if (!squad) squad = General::getAttackBaseSquad(Map::getEnemyMain());
         if (!squad) return false;
 
         auto vanguardCluster = squad->vanguardCluster();

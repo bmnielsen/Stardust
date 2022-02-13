@@ -8,6 +8,7 @@
 #include "Map.h"
 #include "General.h"
 #include "Units.h"
+#include "PathFinding.h"
 
 namespace Opponent
 {
@@ -113,17 +114,36 @@ namespace Opponent
         if (currentFrame < 12000 && !isGameValueSet("sneakAttack"))
         {
             auto mainBase = Map::getMyMain();
-            if (mainBase && mainBase->owner == BWAPI::Broodwar->self() && Units::enemyAtBase(mainBase).size() >= 4)
+            auto enemyMain = Map::getEnemyStartingMain();
+            if (mainBase && enemyMain && Units::enemyAtBase(mainBase).size() >= 4)
             {
-                // Verify our main army is out on the map
-                auto attackSquad = General::getAttackBaseSquad(Map::getEnemyMain());
-                if (attackSquad)
+                // Verify we have at least four combat units closer to the enemy's main than ours
+                int combatUnitsOnMap = 0;
+                auto countType = [&](BWAPI::UnitType type)
                 {
-                    auto vanguardCluster = attackSquad->vanguardCluster();
-                    if (vanguardCluster && vanguardCluster->percentageToEnemyMain > 0.5)
+                    for (auto &unit: Units::allMineCompletedOfType(type))
                     {
-                        setGameValue("sneakAttack", currentFrame);
+                        if (!unit->exists()) continue;
+                        if (!unit->completed) continue;
+                        int distOurs = PathFinding::GetGroundDistance(unit->lastPosition,
+                                                                      mainBase->getPosition(),
+                                                                      unit->type,
+                                                                      PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+                        int distTheirs = PathFinding::GetGroundDistance(unit->lastPosition,
+                                                                        enemyMain->getPosition(),
+                                                                        unit->type,
+                                                                        PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+                        if (distTheirs <= distOurs)
+                        {
+                            combatUnitsOnMap++;
+                        }
                     }
+                };
+                countType(BWAPI::UnitTypes::Protoss_Zealot);
+                countType(BWAPI::UnitTypes::Protoss_Dragoon);
+                if (combatUnitsOnMap >= 4)
+                {
+                    setGameValue("sneakAttack", currentFrame);
                 }
             }
         }
