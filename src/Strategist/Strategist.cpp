@@ -96,7 +96,7 @@ namespace Strategist
                 {
                     typeToReassignableUnits[unit->type].emplace_back(unit);
                 }
-                else
+                else if (playIt->second->canReassignUnit(unit))
                 {
                     typeToReassignableUnits[unit->type].emplace_back(unit, playIt->second);
                 }

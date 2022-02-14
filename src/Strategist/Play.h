@@ -75,6 +75,8 @@ public:
     // Whether this play should receive any unassigned combat units
     [[nodiscard]] virtual bool receivesUnassignedUnits() const { return false; }
 
+    [[nodiscard]] virtual bool canReassignUnit(const MyUnit &unit) const { return true; }
+
     // Returns the play's squad, if it has one
     virtual std::shared_ptr<Squad> getSquad() { return nullptr; }
 
