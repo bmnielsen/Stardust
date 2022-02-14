@@ -327,7 +327,7 @@ void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal
         {
             prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                                      unitType,
-                                                                                     std::max(highPriorityCount, count),
+                                                                                     highPriorityCount,
                                                                                      -1);
             highPriorityCount = 0;
         }
@@ -340,7 +340,7 @@ void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal
 
     if (highPriorityCount > 0)
     {
-        int produceAtHighPriority = std::max(highPriorityCount, count);
+        int produceAtHighPriority = std::min(highPriorityCount, count);
 
         prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                                  unitType,
