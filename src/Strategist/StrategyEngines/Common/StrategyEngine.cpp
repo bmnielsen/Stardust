@@ -1,9 +1,3 @@
-#include <Strategist/Plays/MainArmy/DefendMyMain.h>
-#include <Strategist/Plays/MainArmy/AttackEnemyBase.h>
-#include <Strategist/Plays/MainArmy/MopUp.h>
-#include <Strategist/Plays/Macro/CullArmy.h>
-#include <Strategist/Plays/Defensive/DefendBase.h>
-#include <Strategist/Plays/Scouting/ScoutEnemyExpos.h>
 #include "StrategyEngine.h"
 
 #include "Map.h"
@@ -11,6 +5,15 @@
 #include "Units.h"
 #include "UnitUtil.h"
 #include "General.h"
+
+#include "Plays/MainArmy/DefendMyMain.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
+#include "Plays/MainArmy/MopUp.h"
+#include "Plays/Macro/CullArmy.h"
+#include "Plays/Defensive/DefendBase.h"
+#include "Plays/Scouting/ScoutEnemyExpos.h"
+#include "Plays/SpecialTeams/DarkTemplarHarass.h"
+#include "Plays/SpecialTeams/ShuttleHarass.h"
 
 bool StrategyEngine::hasEnemyStolenOurGas()
 {
@@ -436,6 +439,37 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
                 baseToDefend.first,
                 baseToDefend.second));
         CherryVis::log() << "Added defend base play for base @ " << BWAPI::WalkPosition(baseToDefend.first->getPosition());
+    }
+}
+
+void StrategyEngine::updateSpecialTeamsPlays(std::vector<std::shared_ptr<Play>> &plays)
+{
+    // Ensure we have a DarkTemplarHarass play if we have any DTs
+    {
+        auto darkTemplarHarassPlay = getPlay<DarkTemplarHarass>(plays);
+        bool haveDarkTemplar = Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0;
+        if (darkTemplarHarassPlay && !haveDarkTemplar)
+        {
+            darkTemplarHarassPlay->status.complete = true;
+        }
+        else if (haveDarkTemplar && !darkTemplarHarassPlay)
+        {
+            plays.emplace_back(std::make_shared<DarkTemplarHarass>());
+        }
+    }
+
+    // Ensure we have a ShuttleHarass play if we have any shuttles
+    {
+        auto shuttleHarassPlay = getPlay<ShuttleHarass>(plays);
+        bool haveShuttles = Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) > 0;
+        if (shuttleHarassPlay && !haveShuttles)
+        {
+            shuttleHarassPlay->status.complete = true;
+        }
+        else if (haveShuttles && !shuttleHarassPlay)
+        {
+            plays.emplace_back(std::make_shared<ShuttleHarass>());
+        }
     }
 }
 

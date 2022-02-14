@@ -126,6 +126,7 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
     updateAttackPlays(plays, defendOurMain);
     updateDefendBasePlays(plays);
+    updateSpecialTeamsPlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 15000);
 

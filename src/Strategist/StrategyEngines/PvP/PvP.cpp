@@ -15,7 +15,6 @@
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
 #include "Plays/Defensive/AntiCannonRush.h"
-#include "Plays/SpecialTeams/DarkTemplarHarass.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define OUTPUT_DETECTION_DEBUG false
@@ -182,20 +181,6 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         }
     }
 
-    // Ensure we have a DarkTemplarHarass play if we have any DTs
-    {
-        auto darkTemplarHarassPlay = getPlay<DarkTemplarHarass>(plays);
-        bool haveDarkTemplar = Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0;
-        if (darkTemplarHarassPlay && !haveDarkTemplar)
-        {
-            darkTemplarHarassPlay->status.complete = true;
-        }
-        else if (haveDarkTemplar && !darkTemplarHarassPlay)
-        {
-            plays.emplace_back(std::make_shared<DarkTemplarHarass>());
-        }
-    }
-
     // Set the worker scout mode
     // This is just completing the play when we don't expect the scout to be able to gather any additional useful information
     if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
@@ -231,6 +216,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     updateDefendBasePlays(plays);
+    updateSpecialTeamsPlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 15000);
 }
