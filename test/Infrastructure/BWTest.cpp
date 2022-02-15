@@ -238,7 +238,7 @@ void BWTest::run()
         signal(SIGSEGV, handler);
         signal(SIGABRT, handler);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
         runGame(true);
         _exit(EXIT_SUCCESS);
     }
