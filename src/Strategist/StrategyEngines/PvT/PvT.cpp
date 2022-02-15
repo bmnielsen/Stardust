@@ -33,6 +33,7 @@ void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
     plays.emplace_back(std::make_shared<EjectEnemyScout>());
+    plays.emplace_back(std::make_shared<Elevator>());
     plays.emplace_back(std::make_shared<DefendMyMain>());
 
     // AIST S4 vs. Human match - do a fast expansion on Fighting Spirit and Circuit Breaker
@@ -327,6 +328,19 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             }
              */
 
+            // Against mech, get one shuttle unless the enemy has many goliaths or marines
+            // Obs may get higher priority depending on what we have scouted
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) < 1 &&
+                enemyStrategy == TerranStrategy::MidGameMech &&
+                Units::countEnemy(BWAPI::UnitTypes::Terran_Goliath) < 3 &&
+                Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) < 10)
+            {
+                prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                               BWAPI::UnitTypes::Protoss_Shuttle,
+                                                                               1,
+                                                                               1);
+            }
+
             // Build arbiters on three completed nexuses
             int arbiterCount = Units::countAll(BWAPI::UnitTypes::Protoss_Arbiter);
             if (arbiterCount < 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2)
@@ -473,19 +487,19 @@ void PvT::handleDetection(std::vector<std::shared_ptr<Play>> &plays, std::map<in
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     if (mainArmyPlay && mainArmyPlay->getSquad() && !mainArmyPlay->getSquad()->getDetectors().empty()) return;
 
-    auto buildObserver = [&]()
+    auto buildObserver = [&](int priority = PRIORITY_NORMAL)
     {
-        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                 BWAPI::UnitTypes::Protoss_Observer,
-                                                                 1,
-                                                                 1);
+        prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                          BWAPI::UnitTypes::Protoss_Observer,
+                                                          1,
+                                                          1);
     };
 
     // Build an observer if the enemy has cloaked wraith tech
     if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Control_Tower) ||
         Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Cloaking_Field))
     {
-        buildObserver();
+        buildObserver(PRIORITY_SPECIALTEAMS);
         return;
     }
 
@@ -495,7 +509,7 @@ void PvT::handleDetection(std::vector<std::shared_ptr<Play>> &plays, std::map<in
     // Get obs immediately if we've seen a spider mine
     if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Vulture_Spider_Mine))
     {
-        buildObserver();
+        buildObserver(PRIORITY_SPECIALTEAMS);
         return;
     }
 

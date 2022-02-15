@@ -6,6 +6,7 @@
 #include "Units.h"
 #include "Builder.h"
 #include "PathFinding.h"
+#include "Strategist.h"
 
 /*
  * For now does a fairly hard-coded rush on two maps.
@@ -23,6 +24,9 @@ Elevator::Elevator()
     squad->ignoreCombatSim = true;
 
     General::addSquad(squad);
+
+    pickupPosition = BWAPI::Positions::Invalid;
+    dropPosition = BWAPI::Positions::Invalid;
 
     // Destination
     if (BWAPI::Broodwar->mapHash() == "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b" ||
@@ -98,11 +102,31 @@ void Elevator::update()
         return;
     }
 
-    // Ensure we have a shuttle
+    // If we don't have a shuttle, the play hasn't started yet, so determine if it should
     if (!shuttle)
     {
-        // Start the play once we have three completed dragoons
-        if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon) < 3) return;
+        // Never start the play after frame 15000
+        if (currentFrame > 15000)
+        {
+            complete = true;
+            return;
+        }
+
+        // Wait to start the play if any of the following checks fail:
+        // - The enemy has taken their natural behind a bunker
+        // - We have a stable contain
+        // - We have at least 5 dragoons
+        auto enemyNatural = Map::getEnemyStartingNatural();
+        if (!Strategist::isEnemyContained() ||
+            Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon) < 5 ||
+            !enemyNatural || enemyNatural->owner != BWAPI::Broodwar->enemy() ||
+            Units::countEnemy(BWAPI::UnitTypes::Terran_Bunker) == 0)
+        {
+            return;
+        }
+
+        // TODO: Support other maps
+        if (pickupPosition == BWAPI::Positions::Invalid) return;
 
         status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Shuttle, pickupPosition);
         return;
@@ -258,21 +282,6 @@ void Elevator::disband(const std::function<void(const MyUnit)> &removedUnitCallb
     }
 
     Play::disband(removedUnitCallback, movableUnitCallback);
-}
-
-void Elevator::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
-{
-    // Only produces a shuttle when the requirement hasn't been met
-    for (auto &unitRequirement: status.unitRequirements)
-    {
-        if (unitRequirement.count < 1) continue;
-        if (unitRequirement.type != BWAPI::UnitTypes::Protoss_Shuttle) continue;
-
-        prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       unitRequirement.type,
-                                                                       unitRequirement.count,
-                                                                       1);
-    }
 }
 
 void Elevator::addUnit(const MyUnit &unit)
