@@ -192,25 +192,38 @@ namespace
 
     bool isMidGame()
     {
-        // TODO: Extend this
-        return currentFrame > 10000 &&
-               (countAtLeast(BWAPI::UnitTypes::Terran_Command_Center, 2) ||
-                (Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
-                 Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode)) > 4);
+        // Never in the mid-game before frame 8000
+        if (currentFrame < 8000) return false;
+
+        // We consider ourselves to be in the mid-game if the enemy has expanded or has siege mode with at least 5 tanks
+
+        // Scouted expansion
+        if (countAtLeast(BWAPI::UnitTypes::Terran_Command_Center, 2)) return true;
+
+        // Inferred taken natural, usually by seeing a bunker
+        auto enemyNatural = Map::getEnemyStartingNatural();
+        if (enemyNatural && enemyNatural->owner == BWAPI::Broodwar->enemy()) return true;
+
+        return Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) &&
+               (Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
+                Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode)) > 4;
     }
 
     bool isMidGameMech()
     {
-        // For now we consider it mech if the sum of their mech units is higher than the sum of their bio units divided by two
         int mech = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
                    Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) +
                    Units::countEnemy(BWAPI::UnitTypes::Terran_Vulture) +
                    Units::countEnemy(BWAPI::UnitTypes::Terran_Goliath);
-        int bio = (Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) +
-                   Units::countEnemy(BWAPI::UnitTypes::Terran_Medic) +
-                   Units::countEnemy(BWAPI::UnitTypes::Terran_Firebat)) / 2;
+        int bio = Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) +
+                  Units::countEnemy(BWAPI::UnitTypes::Terran_Medic) +
+                  Units::countEnemy(BWAPI::UnitTypes::Terran_Firebat);
 
-        return mech >= bio;
+        // Mech if they don't have many bio units
+        if (bio < 10) return true;
+
+        // Mech if they have less than twice as many bio units compared to mech
+        return mech >= (bio / 2);
     }
 }
 
