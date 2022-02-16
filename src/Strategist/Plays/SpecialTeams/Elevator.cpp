@@ -4,7 +4,6 @@
 #include "General.h"
 #include "Workers.h"
 #include "Units.h"
-#include "Builder.h"
 #include "PathFinding.h"
 #include "Strategist.h"
 
@@ -16,15 +15,10 @@ Elevator::Elevator()
         : Play("Elevator")
         , complete(false)
         , shuttle(nullptr)
-        , squad(std::make_shared<AttackBaseSquad>(Map::getEnemyStartingMain()))
+        , squad(nullptr)
         , count(0)
         , pickingUp(true)
 {
-    // Really the squad should be allowed to reposition itself, but for now just have it always attack
-    squad->ignoreCombatSim = true;
-
-    General::addSquad(squad);
-
     pickupPosition = BWAPI::Positions::Invalid;
     dropPosition = BWAPI::Positions::Invalid;
 
@@ -65,6 +59,17 @@ Elevator::Elevator()
 
 void Elevator::update()
 {
+    // Initialization when enemy base is known
+    if (!squad)
+    {
+        auto enemyMain = Map::getEnemyStartingMain();
+        if (!enemyMain) return;
+
+        squad = std::make_shared<AttackBaseSquad>(enemyMain);
+        squad->ignoreCombatSim = true; // Really the squad should be allowed to reposition itself, but for now just have it always attack
+        General::addSquad(squad);
+    }
+
     // Mark the play complete when our shuttle dies
     if (shuttle && !shuttle->exists())
     {
