@@ -103,6 +103,7 @@ void ShuttleHarass::update()
         // Attack the target
         std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
         cargoAndTarget.first->attackUnit(cargoAndTarget.second, emptyUnitsAndTargets);
+        Log::Get() << "ZEALOT BOMB";
     }
 
     // Micro shuttles
