@@ -45,4 +45,6 @@ namespace Strategist
     void setStrategyEngine(std::unique_ptr<StrategyEngine> strategyEngine);
 
     StrategyEngine *getStrategyEngine();
+
+    MainArmyPlay *getMainArmyPlay();
 }

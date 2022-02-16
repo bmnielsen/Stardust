@@ -648,4 +648,9 @@ namespace Strategist
     {
         return engine.get();
     }
+
+    MainArmyPlay *getMainArmyPlay()
+    {
+        return StrategyEngine::getPlay<MainArmyPlay>(plays);
+    }
 }
