@@ -74,6 +74,8 @@ public:
 
     void unloadAll(BWAPI::Position pos);
 
+    void unload(BWAPI::Unit cargo);
+
 protected:
     bool issuedOrderThisFrame;
 

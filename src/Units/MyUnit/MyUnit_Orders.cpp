@@ -306,3 +306,18 @@ void MyUnitImpl::unloadAll(BWAPI::Position pos)
     CherryVis::log(id) << "Order: Unload All " << BWAPI::WalkPosition(pos);
 #endif
 }
+
+void MyUnitImpl::unload(BWAPI::Unit cargo)
+{
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Unload " << cargo->getType() << " @ " << cargo->getTilePosition();
+        return;
+    }
+
+    issuedOrderThisFrame = bwapiUnit->unload(cargo);
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Order: Unload " << cargo->getType() << " @ " << cargo->getTilePosition();
+#endif
+}
