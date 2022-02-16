@@ -212,7 +212,6 @@ namespace
             && createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 10)
             && Strategist::areWeContained())
         {
-            Log::Get() << "CONTAINED";
             return true;
         }
 
