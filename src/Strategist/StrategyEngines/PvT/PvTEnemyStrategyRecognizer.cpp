@@ -195,7 +195,7 @@ namespace
         // Never in the mid-game before frame 8000
         if (currentFrame < 8000) return false;
 
-        // We consider ourselves to be in the mid-game if the enemy has expanded or has siege mode with at least 5 tanks
+        // We consider ourselves to be in the mid-game if the enemy has expanded
 
         // Scouted expansion
         if (countAtLeast(BWAPI::UnitTypes::Terran_Command_Center, 2)) return true;
@@ -204,9 +204,10 @@ namespace
         auto enemyNatural = Map::getEnemyStartingNatural();
         if (enemyNatural && enemyNatural->owner == BWAPI::Broodwar->enemy()) return true;
 
+        // We consider ourselves to be in the mid-game if the enemy has siege tech and a number of siege tanks
         return Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) &&
                (Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
-                Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode)) > 4;
+                Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode)) > (currentFrame > 10000 ? 2 : 4);
     }
 
     bool isMidGameMech()
