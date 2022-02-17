@@ -328,11 +328,11 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             }
              */
 
-            // Against mech, get one shuttle unless the enemy has goliaths or many marines
+            // Against mech, get one shuttle unless the enemy has more than one goliath or many marines
             // Obs may get higher priority depending on what we have scouted
             if (Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) < 1 &&
                 enemyStrategy == TerranStrategy::MidGameMech &&
-                Units::countEnemy(BWAPI::UnitTypes::Terran_Goliath) < 1 &&
+                Units::countEnemy(BWAPI::UnitTypes::Terran_Goliath) < 2 &&
                 Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) < 10)
             {
                 prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,

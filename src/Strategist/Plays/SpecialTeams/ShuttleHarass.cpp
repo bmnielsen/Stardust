@@ -327,9 +327,9 @@ void ShuttleHarass::update()
         // Move to the vanguard center
         moveAvoidingThreats(grid, shuttle, mainArmyVanguard->center);
 
-        // If the shuttle is near the vanguard center, request a zealot
+        // If the shuttle is near the vanguard center, and there is a potential target, request a zealot
         auto vanguardDist = shuttle->getDistance(mainArmyVanguard->center);
-        if (vanguardDist < (500 + mainArmyVanguard->lineRadius))
+        if (vanguardDist < (500 + mainArmyVanguard->lineRadius) && Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode))
         {
             status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Zealot, shuttle->lastPosition, 640);
 #if DEBUG_UNIT_ORDERS
