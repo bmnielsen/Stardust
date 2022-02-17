@@ -303,6 +303,11 @@ void UnitImpl::updateUnitInFog()
         // TODO: Could also look for a unit inside the tank's weapon range that the enemy can see
         for (auto unit : BWAPI::Broodwar->self()->getUnits())
         {
+            if (!unit->getType().isBuilding() && !unit->isCompleted()) continue;
+            if (unit->isLoaded()) continue;
+            if (unit->isFlying()) continue;
+            if (unit->isStasised()) continue;
+
             if (Geo::EdgeToEdgeDistance(
                     unit->getType(),
                     unit->getPosition(),
