@@ -33,7 +33,7 @@ void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
     plays.emplace_back(std::make_shared<EjectEnemyScout>());
-    plays.emplace_back(std::make_shared<Elevator>());
+//    plays.emplace_back(std::make_shared<Elevator>());
     plays.emplace_back(std::make_shared<DefendMyMain>());
 
     // AIST S4 vs. Human match - do a fast expansion on Fighting Spirit and Circuit Breaker
