@@ -7,6 +7,8 @@
 #include "UnitUtil.h"
 #include <iomanip>
 
+#include "DebugFlag_GridUpdates.h"
+
 #if INSTRUMENTATION_ENABLED
 #define UPCOMING_ATTACKS_DEBUG false
 #define PREDICTED_POSITIONS_DEBUG true

@@ -11,6 +11,8 @@
 #include "UnitUtil.h"
 #include "Opponent.h"
 
+#include "DebugFlag_GridUpdates.h"
+
 // These defines configure a per-frame summary of various unit type's orders, commands, etc.
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_PROBE_STATUS false

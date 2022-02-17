@@ -3,6 +3,8 @@
 #include "Units.h"
 #include "Grid.h"
 
+#include "DebugFlag_GridUpdates.h"
+
 void UpgradeTracker::update(Grid &grid)
 {
     for (auto &weaponAndDamage : _weaponDamage)
@@ -294,8 +296,8 @@ void UpgradeTracker::setWeaponRange(BWAPI::WeaponType wpn, int range, Grid &grid
             grid.unitWeaponRangeUpgraded(unit->type, unit->lastPosition, wpn, current, range);
 
 #if DEBUG_GRID_UPDATES
-            CherryVis::log(unit->id) << "Grid::weaponRangeUpgraded from " << weaponAndRange.second << " to " << current;
-                    Log::Debug() << *unit << ": Grid::weaponRangeUpgraded from " << weaponAndRange.second << " to " << current;
+            CherryVis::log(unit->id) << "Grid::weaponRangeUpgraded from " << current << " to " << range;
+                    Log::Debug() << *unit << ": Grid::weaponRangeUpgraded from " << current << " to " << range;
 #endif
         }
     };
