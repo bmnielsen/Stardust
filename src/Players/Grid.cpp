@@ -265,13 +265,18 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
 
 void Grid::unitWeaponDamageUpgraded(BWAPI::UnitType type, BWAPI::Position position, BWAPI::WeaponType weapon, int formerDamage, int newDamage)
 {
+    auto weaponUnitType = type;
+    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+    if (type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
+    if (type == BWAPI::UnitTypes::Protoss_Reaver) weaponUnitType = BWAPI::UnitTypes::Protoss_Scarab;
+
     if (weapon.targetsGround())
     {
         _groundThreat.add(
                 type,
                 upgradeTracker->weaponRange(weapon) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                 position,
-                (newDamage - formerDamage) * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
+                (newDamage - formerDamage) * weaponUnitType.maxGroundHits() * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
 
         if (UnitUtil::IsStationaryAttacker(type))
         {
@@ -279,7 +284,7 @@ void Grid::unitWeaponDamageUpgraded(BWAPI::UnitType type, BWAPI::Position positi
                     type,
                     upgradeTracker->weaponRange(weapon) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                     position,
-                    (newDamage - formerDamage) * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
+                    (newDamage - formerDamage) * weaponUnitType.maxGroundHits() * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
         }
     }
 
@@ -289,7 +294,7 @@ void Grid::unitWeaponDamageUpgraded(BWAPI::UnitType type, BWAPI::Position positi
                 type,
                 upgradeTracker->weaponRange(weapon) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                 position,
-                (newDamage - formerDamage) * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
+                (newDamage - formerDamage) * weaponUnitType.maxAirHits() * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
     }
 }
 
