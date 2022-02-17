@@ -83,11 +83,11 @@ namespace
                 .setSpeed(Players::unitTopSpeed(unit->player, unit->type))
                 .setArmor(Players::unitArmor(unit->player, unit->type))
                 .setGroundCooldown(Players::unitCooldown(unit->player, weaponType)
-                                   / std::max(weaponType.maxGroundHits() * weaponType.groundWeapon().damageFactor(), 1))
+                                   / std::max(weaponType.maxGroundHits(), 1))
                 .setGroundDamage(groundDamage)
                 .setGroundMaxRange(unit->groundRange())
                 .setAirCooldown(Players::unitCooldown(unit->player, weaponType)
-                                / std::max(weaponType.maxAirHits() * weaponType.airWeapon().damageFactor(), 1))
+                                / std::max(weaponType.maxAirHits(), 1))
                 .setAirDamage(airDamage)
                 .setAirMaxRange(unit->airRange())
 

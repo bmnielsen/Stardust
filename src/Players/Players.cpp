@@ -91,8 +91,7 @@ namespace Players
         if (weapon == BWAPI::WeaponTypes::None) return 0;
 
         int damage = (weaponDamage(attackingPlayer, weapon) - unitArmor(targetPlayer, targetUnit))
-                     * (targetUnit.isFlyer() ? attackingUnit.maxAirHits() : attackingUnit.maxGroundHits())
-                     * weapon.damageFactor();
+                     * (targetUnit.isFlyer() ? attackingUnit.maxAirHits() : attackingUnit.maxGroundHits());
 
         if (weapon.damageType() == BWAPI::DamageTypes::Concussive)
         {
