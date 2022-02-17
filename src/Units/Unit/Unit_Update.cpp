@@ -466,7 +466,8 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
     }
 
     // Units that have changed manufactured or carried
-    if (beingManufacturedOrCarried != isBeingManufacturedOrCarried())
+    auto nowBeingManufacturedOrCarried = isBeingManufacturedOrCarried();
+    if (beingManufacturedOrCarried != nowBeingManufacturedOrCarried)
     {
         // If no longer being manufactured or carried, treat as a new unit
         if (beingManufacturedOrCarried)
@@ -499,6 +500,7 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
 
         return;
     }
+    if (nowBeingManufacturedOrCarried) return; // Don't need to update anything for units that are still being manufactured or carried
 
     // Units that have completed
     if (!completed && unit->isCompleted())
