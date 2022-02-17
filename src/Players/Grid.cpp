@@ -148,7 +148,7 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool bu
     if (weaponUnitType.airWeapon() != BWAPI::WeaponTypes::None && !immobile && !burrowed)
     {
         _airThreat.add(
-                weaponUnitType,
+                type,
                 upgradeTracker->weaponRange(weaponUnitType.airWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
                 position,
                 upgradeTracker->weaponDamage(weaponUnitType.airWeapon()) * weaponUnitType.maxAirHits()
