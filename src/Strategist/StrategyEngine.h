@@ -41,6 +41,19 @@ public:
         return nullptr;
     }
 
+    static auto beforeMainArmyIt(std::vector<std::shared_ptr<Play>> &plays)
+    {
+        auto it = plays.begin();
+        for (; it != plays.end(); it++)
+        {
+            if (std::dynamic_pointer_cast<MainArmyPlay>(*it) != nullptr)
+            {
+                break;
+            }
+        }
+        return it;
+    };
+
 protected:
     static bool hasEnemyStolenOurGas();
 

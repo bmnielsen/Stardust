@@ -161,21 +161,9 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Add missing plays
-    auto beforeMainArmyIt = [&plays]()
-    {
-        auto it = plays.begin();
-        for (; it != plays.end(); it++)
-        {
-            if (std::dynamic_pointer_cast<MainArmyPlay>(*it) != nullptr)
-            {
-                break;
-            }
-        }
-        return it;
-    };
     for (auto &attackableExpansionAndEnemyUnitValue : attackableExpansionsToEnemyUnitValue)
     {
-        plays.emplace(beforeMainArmyIt(), std::make_shared<AttackExpansion>(
+        plays.emplace(beforeMainArmyIt(plays), std::make_shared<AttackExpansion>(
                 attackableExpansionAndEnemyUnitValue.first,
                 attackableExpansionAndEnemyUnitValue.second));
         CherryVis::log() << "Added attack expansion play for base @ "
@@ -183,7 +171,7 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
     }
     for (auto &islandExpansion : islandExpansions)
     {
-        plays.emplace(beforeMainArmyIt(), std::make_shared<AttackIslandExpansion>(islandExpansion));
+        plays.emplace(beforeMainArmyIt(plays), std::make_shared<AttackIslandExpansion>(islandExpansion));
         CherryVis::log() << "Added attack island expansion play for base @ "
                          << BWAPI::WalkPosition(islandExpansion->getPosition());
     }
