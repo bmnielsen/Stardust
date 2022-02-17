@@ -52,6 +52,13 @@ void MyUnitImpl::issueMoveOrders()
 {
     if (issuedOrderThisFrame) return;
 
+    // Clear the move command if this unit is loaded
+    if (bwapiUnit->isLoaded())
+    {
+        resetMoveData();
+        return;
+    }
+
     // Process a new move command
     if (moveCommand && moveCommand->targetPosition != targetPosition)
     {
