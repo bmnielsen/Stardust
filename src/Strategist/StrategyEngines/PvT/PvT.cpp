@@ -328,11 +328,11 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             }
              */
 
-            // Against mech, get one shuttle unless the enemy has many goliaths or marines
+            // Against mech, get one shuttle unless the enemy has goliaths or many marines
             // Obs may get higher priority depending on what we have scouted
             if (Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) < 1 &&
                 enemyStrategy == TerranStrategy::MidGameMech &&
-                Units::countEnemy(BWAPI::UnitTypes::Terran_Goliath) < 3 &&
+                Units::countEnemy(BWAPI::UnitTypes::Terran_Goliath) < 1 &&
                 Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) < 10)
             {
                 prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -464,7 +464,11 @@ void PvT::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
 
     // Cases where we want the upgrade as soon as we start building one of the units
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
-    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
+    upgradeWhenUnitCreated(prioritizedProductionGoals,
+                           BWAPI::UpgradeTypes::Gravitic_Drive,
+                           BWAPI::UnitTypes::Protoss_Shuttle,
+                           false,
+                           Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) < 3);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Khaydarin_Core, BWAPI::UnitTypes::Protoss_Arbiter, false);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::TechTypes::Stasis_Field, BWAPI::UnitTypes::Protoss_Arbiter, false);
