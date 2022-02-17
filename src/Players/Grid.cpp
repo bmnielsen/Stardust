@@ -74,7 +74,17 @@ void Grid::dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &
 #if CHERRYVIS_ENABLED
     if (data.frameLastDumped >= data.frameLastUpdated) return;
 
-    CherryVis::addHeatmap(heatmapName, data.data, data.maxX, data.maxY);
+    // Transpose the vector
+    std::vector<long> heatmapData(data.maxX * data.maxY);
+    for (int x = 0; x < data.maxX; x++)
+    {
+        for (int y = 0; y < data.maxY; y++)
+        {
+            heatmapData[x + y * data.maxX] = data.data[x * data.maxY + y];
+        }
+    }
+
+    CherryVis::addHeatmap(heatmapName, heatmapData, data.maxX, data.maxY);
 
     data.frameLastDumped = currentFrame;
 #endif
