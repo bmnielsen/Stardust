@@ -3,7 +3,8 @@
 #include "Geo.h"
 #include "UnitUtil.h"
 
-#if INSTRUMENTATION_ENABLED
+#if INSTRUMENTATION_ENABLED_VERBOSE
+#define LOG_NEGATIVE_VALUES true
 #define ASSERT_NEGATIVE_VALUES false
 #endif
 
@@ -47,20 +48,26 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
         {
             data[x * maxY + y] += delta;
 
-#if ASSERT_NEGATIVE_VALUES
+#if LOG_NEGATIVE_VALUES
             if (data[x * maxY + y] < 0)
             {
-                Log::Get() << "Negative value @ " << BWAPI::Position(x, y) << "\n"
+                Log::Get() << "Negative grid value @ " << BWAPI::Position(x, y) << "\n"
                            << "start=" << BWAPI::WalkPosition(position)
                            << ";type=" << type
-                           << ";range=" << range;
+                           << ";range=" << range
+                           << ";delta=" << delta
+                           << ";value=" << data[x * maxY + y];
 
-                Log::Debug() << "Negative value @ " << BWAPI::Position(x, y) << "\n"
+                Log::Debug() << "Negative grid value @ " << BWAPI::Position(x, y) << "\n"
                              << "start=" << BWAPI::WalkPosition(position)
                              << ";type=" << type
-                             << ";range=" << range;
+                             << ";range=" << range
+                             << ";delta=" << delta
+                             << ";value=" << data[x * maxY + y];
 
+#if ASSERT_NEGATIVE_VALUES
                 BWAPI::Broodwar->leaveGame();
+#endif
             }
 #endif
         }
@@ -206,6 +213,23 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
     if (weaponUnitType.groundWeapon() != BWAPI::WeaponTypes::None && !immobile &&
         ((burrowed && type == BWAPI::UnitTypes::Zerg_Lurker) || (!burrowed && type != BWAPI::UnitTypes::Zerg_Lurker)))
     {
+        // For sieged tanks, add the area close to the tank before removing the entire area
+        // We need to do it in this order to avoid triggering the negative values check
+        if (weaponUnitType.groundWeapon().minRange() > 0)
+        {
+            _groundThreat.add(
+                    type,
+                    weaponUnitType.groundWeapon().minRange() - RANGE_BUFFER,
+                    position,
+                    upgradeTracker->weaponDamage(weaponUnitType.groundWeapon()) * weaponUnitType.maxGroundHits());
+
+            _staticGroundThreat.add(
+                    type,
+                    weaponUnitType.groundWeapon().minRange() - RANGE_BUFFER,
+                    position,
+                    upgradeTracker->weaponDamage(weaponUnitType.groundWeapon()) * weaponUnitType.maxGroundHits());
+        }
+
         _groundThreat.add(
                 type,
                 upgradeTracker->weaponRange(weaponUnitType.groundWeapon()) + RANGE_BUFFER + (type == BWAPI::UnitTypes::Terran_Bunker ? 48 : 0),
@@ -221,22 +245,6 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
                     position,
                     -upgradeTracker->weaponDamage(weaponUnitType.groundWeapon()) * weaponUnitType.maxGroundHits()
                     * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
-        }
-
-        // For sieged tanks, add back the area close to the tank
-        if (weaponUnitType.groundWeapon().minRange() > 0)
-        {
-            _groundThreat.add(
-                    type,
-                    weaponUnitType.groundWeapon().minRange() - RANGE_BUFFER,
-                    position,
-                    upgradeTracker->weaponDamage(weaponUnitType.groundWeapon()) * weaponUnitType.maxGroundHits());
-
-            _staticGroundThreat.add(
-                    type,
-                    weaponUnitType.groundWeapon().minRange() - RANGE_BUFFER,
-                    position,
-                    upgradeTracker->weaponDamage(weaponUnitType.groundWeapon()) * weaponUnitType.maxGroundHits());
         }
     }
 
