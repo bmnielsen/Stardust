@@ -327,11 +327,15 @@ void UnitImpl::updateUnitInFog()
     {
         simPositionValid = predictedPositionValid;
 
-        Players::grid(player).unitDestroyed(type, lastPosition, completed, burrowed, immobile);
+        // Ignore flying buildings that have moved in the fog
+        if (!type.isBuilding() || !isFlying)
+        {
+            Players::grid(player).unitDestroyed(type, lastPosition, completed, burrowed, immobile);
 #if DEBUG_GRID_UPDATES
-        CherryVis::log(id) << "Grid::unitDestroyed (!LPV) " << lastPosition;
-        Log::Debug() << *this << ": Grid::unitDestroyed (!LPV) " << lastPosition;
+            CherryVis::log(id) << "Grid::unitDestroyed (!LPV) " << lastPosition;
+            Log::Debug() << *this << ": Grid::unitDestroyed (!LPV) " << lastPosition;
 #endif
+        }
     }
 
     // Mark buildings complete in the grid if we expect them to have completed in the fog
@@ -590,6 +594,9 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
 #endif
         return;
     }
+
+    // At this point we can ignore any flying buildings
+    if (isFlying && type.isBuilding()) return;
 
     // Units that have moved or changed burrow or immobile state
     if (lastPosition != unit->getPosition() || burrowed != unit->isBurrowed() ||
