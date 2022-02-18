@@ -19,6 +19,10 @@ public:
 
     void removeUnit(const MyUnit &unit) override;
 
+    // Gets the pair of positions to use for an elevator into or out of a base
+    // The first position is in the base, the second outside it
+    static std::pair<BWAPI::TilePosition, BWAPI::TilePosition> selectPositions(Base *base);
+
 protected:
     // This is set to true when we consider the elevator complete
     // We don't disband the play until all units are removed from the squad

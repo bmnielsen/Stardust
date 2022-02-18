@@ -6,56 +6,40 @@
 #include "Units.h"
 #include "PathFinding.h"
 #include "Strategist.h"
+#include "Geo.h"
 
-/*
- * For now does a fairly hard-coded rush on two maps.
- */
+namespace
+{
+    bool validElevatorPosition(BWAPI::TilePosition tile)
+    {
+        auto validAndWalkable = [](BWAPI::TilePosition tile)
+        {
+            return tile.isValid() && Map::isWalkable(tile);
+        };
+
+        // The tile itself must be valid and walkable
+        if (!validAndWalkable(tile)) return false;
+
+        // At least three of its direct neighbours must be valid and walkable
+        int count = 0;
+        if (validAndWalkable(tile + BWAPI::TilePosition(1, 0))) count++;
+        if (validAndWalkable(tile + BWAPI::TilePosition(-1, 0))) count++;
+        if (validAndWalkable(tile + BWAPI::TilePosition(0, 1))) count++;
+        if (validAndWalkable(tile + BWAPI::TilePosition(0, -1))) count++;
+        return count >= 3;
+    }
+}
 
 Elevator::Elevator()
         : Play("Elevator")
         , complete(false)
+        , pickupPosition(BWAPI::Positions::Invalid)
+        , dropPosition(BWAPI::Positions::Invalid)
         , shuttle(nullptr)
         , squad(nullptr)
         , count(0)
         , pickingUp(true)
-{
-    pickupPosition = BWAPI::Positions::Invalid;
-    dropPosition = BWAPI::Positions::Invalid;
-
-    // Destination
-    if (BWAPI::Broodwar->mapHash() == "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b" ||
-        BWAPI::Broodwar->mapHash() == "e39c1c81740a97a733d227e238bd11df734eaf96")
-    {
-        if (BWAPI::Broodwar->self()->getStartLocation().y > 60)
-        {
-            pickupPosition = BWAPI::Position(BWAPI::TilePosition(17, 28)) + BWAPI::Position(16, 16);
-            dropPosition = BWAPI::Position(BWAPI::TilePosition(20, 23)) + BWAPI::Position(16, 16);
-        }
-        else
-        {
-            pickupPosition = BWAPI::Position(BWAPI::TilePosition(76, 97)) + BWAPI::Position(16, 16);
-            dropPosition = BWAPI::Position(BWAPI::TilePosition(75, 102)) + BWAPI::Position(16, 16);
-        }
-    }
-
-    // Heartbreak Ridge
-    if (BWAPI::Broodwar->mapHash() == "6f8da3c3cc8d08d9cf882700efa049280aedca8c" ||
-        BWAPI::Broodwar->mapHash() == "fe25d8b79495870ac1981c2dfee9368f543321e3" ||
-        BWAPI::Broodwar->mapHash() == "d9757c0adcfd61386dff8fe3e493e9e8ef9b45e3" ||
-        BWAPI::Broodwar->mapHash() == "ecb9c70c5594a5c6882baaf4857a61824fba0cfa")
-    {
-        if (BWAPI::Broodwar->self()->getStartLocation().x > 60)
-        {
-            pickupPosition = BWAPI::Position(BWAPI::TilePosition(19, 12)) + BWAPI::Position(16, 16);
-            dropPosition = BWAPI::Position(BWAPI::TilePosition(21, 24)) + BWAPI::Position(16, 16);
-        }
-        else
-        {
-            pickupPosition = BWAPI::Position(BWAPI::TilePosition(108, 83)) + BWAPI::Position(16, 16);
-            dropPosition = BWAPI::Position(BWAPI::TilePosition(108, 73)) + BWAPI::Position(16, 16);
-        }
-    }
-}
+{}
 
 void Elevator::update()
 {
@@ -65,9 +49,44 @@ void Elevator::update()
         auto enemyMain = Map::getEnemyStartingMain();
         if (!enemyMain) return;
 
+        // Get pickup and dropoff positions, aborting if they cannot be determined
+        auto positions = selectPositions(enemyMain);
+        if (!positions.first.isValid() || !positions.second.isValid())
+        {
+            status.complete = true;
+            return;
+        }
+
+        dropPosition = BWAPI::Position(positions.first) + BWAPI::Position(16, 16);
+        pickupPosition = BWAPI::Position(positions.second) + BWAPI::Position(16, 16);
+
         squad = std::make_shared<AttackBaseSquad>(enemyMain);
         squad->ignoreCombatSim = true; // Really the squad should be allowed to reposition itself, but for now just have it always attack
         General::addSquad(squad);
+    }
+
+    // If the drop position has become unwalkable, pick a new one
+    // This could happen if the enemy builds something there
+    if (!validElevatorPosition(BWAPI::TilePosition(dropPosition)))
+    {
+        auto positions = selectPositions(Map::getEnemyStartingMain());
+        if (!positions.first.isValid() || !positions.second.isValid())
+        {
+            complete = true;
+
+#if INSTRUMENTATION_ENABLED
+            Log::Get() << "No longer valid elevator tiles; cancelling elevator";
+#endif
+        }
+        else
+        {
+            dropPosition = BWAPI::Position(positions.first) + BWAPI::Position(16, 16);
+            pickupPosition = BWAPI::Position(positions.second) + BWAPI::Position(16, 16);
+
+#if INSTRUMENTATION_ENABLED
+            Log::Get() << "Updated elevator tiles: " << dropPosition << ", " << pickupPosition;
+#endif
+        }
     }
 
     // Mark the play complete when our shuttle dies
@@ -142,6 +161,14 @@ void Elevator::update()
     {
         if ((*it)->exists())
         {
+            // If the unit is near the pickup position and is under attack, cancel the play
+            // This might happen on maps where there isn't a pickup position sufficiently far away from the natural
+            if ((*it)->isBeingAttacked() && (*it)->lastPosition.getApproxDistance(pickupPosition) < 200)
+            {
+                complete = true;
+                return;
+            }
+
             (*it)->moveTo(pickupPosition);
             it++;
         }
@@ -186,6 +213,7 @@ void Elevator::update()
 
     // Micro the shuttle
     // It switches between pickup and drop
+    // TODO: Micro better so the shuttle doesn't stop
     if (pickingUp)
     {
         if (transferring.size() == 2)
@@ -229,7 +257,8 @@ void Elevator::update()
         }
         else
         {
-            if (shuttle->bwapiUnit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Unload_All_Position)
+            if (shuttle->bwapiUnit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Unload_All_Position ||
+                shuttle->bwapiUnit->getLastCommandFrame() < (currentFrame - 20))
             {
                 shuttle->unloadAll(dropPosition);
             }
@@ -242,9 +271,9 @@ void Elevator::update()
         unit->moveTo(dropPosition);
     }
 
-    auto isTransferringUnitUnderAttack = [&]()
+    auto isTransferredUnitUnderAttack = [&]()
     {
-        for (auto &unit : transferring)
+        for (auto &unit : transferred)
         {
             if (unit->isBeingAttacked()) return true;
         }
@@ -256,8 +285,8 @@ void Elevator::update()
     // - The squad is already attacking
     // - We have moved at least 8 of them
     // - We have no more waiting
-    // - One of our transferring units is under attack
-    if (transferring.empty() && (!squad->empty() || transferred.size() > 7 || transferQueue.empty() || isTransferringUnitUnderAttack()))
+    // - One of our transferred units is under attack
+    if (!squad->empty() || transferred.size() > 7 || transferQueue.empty() || isTransferredUnitUnderAttack())
     {
         for (auto &unit: transferred)
         {
@@ -311,4 +340,139 @@ void Elevator::removeUnit(const MyUnit &unit)
     transferred.erase(unit);
 
     Play::removeUnit(unit);
+}
+
+std::pair<BWAPI::TilePosition, BWAPI::TilePosition> Elevator::selectPositions(Base *base)
+{
+    auto baseTile = BWAPI::TilePositions::Invalid;
+    auto mapTile = BWAPI::TilePositions::Invalid;
+
+    // Get base areas
+    std::set<const BWEM::Area*> areas;
+    if (base->isStartingBase())
+    {
+        auto &baseAreas = Map::getStartingBaseAreas(base);
+        areas.insert(baseAreas.begin(), baseAreas.end());
+    }
+    else
+    {
+        areas.insert(base->getArea());
+    }
+
+    // Get all narrow chokes out of the base areas
+    std::set<Choke*> chokes;
+    for (auto &area : areas)
+    {
+        for (auto &bwemChoke : area->ChokePoints())
+        {
+            auto choke = Map::choke(bwemChoke);
+            if (choke->isNarrowChoke)
+            {
+                chokes.insert(choke);
+            }
+        }
+    }
+
+    // Now score all of the base's edge tiles based on their proximity to the depot and choke(s)
+    struct BaseTile
+    {
+        static bool cmp(const BaseTile &a, const BaseTile &b)
+        {
+            return a.score > b.score;
+        }
+
+        explicit BaseTile(BWAPI::TilePosition tile, const BWEM::Area *area, int score) : tile(tile), area(area), score(score) {}
+
+        BWAPI::TilePosition tile;
+        const BWEM::Area *area;
+        int score;
+    };
+    std::vector<BaseTile> scoredBaseTiles;
+    auto &areasToEdgePositions = Map::getAreasToEdgePositions();
+    for (auto &area : areas)
+    {
+        auto edgePositions = areasToEdgePositions.find(area);
+        if (edgePositions != areasToEdgePositions.end())
+        {
+            for (auto &edgePosition : edgePositions->second)
+            {
+                // Must be a walkable tile with some space around it
+                if (!validElevatorPosition(edgePosition)) continue;
+
+                auto pos = BWAPI::Position(edgePosition) + BWAPI::Position(16, 16);
+                int score = pos.getApproxDistance(base->getPosition()) * chokes.size() * 2;
+                for (auto &choke : chokes)
+                {
+                    score += pos.getApproxDistance(choke->center);
+                }
+                scoredBaseTiles.emplace_back(edgePosition, area, score);
+            }
+        }
+    }
+    std::sort(scoredBaseTiles.begin(), scoredBaseTiles.end(), BaseTile::cmp);
+
+    // Determine the areas to avoid when choosing a map tile
+    // For starting bases we want to also avoid using the natural
+    std::set<const BWEM::Area *> avoidAreas;
+    avoidAreas.insert(areas.begin(), areas.end());
+    if (base->isStartingBase())
+    {
+        auto natural = Map::getStartingBaseNatural(base);
+        if (natural)
+        {
+            avoidAreas.insert(natural->getArea());
+        }
+    }
+
+    // Take the best tile that has a corresponding map tile no more than 8 tiles away
+    auto &edgePositionsToArea = Map::getEdgePositionsToArea();
+    for (auto &tile : scoredBaseTiles)
+    {
+        auto spiral = Geo::Spiral();
+        while (spiral.radius <= 8)
+        {
+            spiral.Next();
+            BWAPI::TilePosition here = tile.tile + BWAPI::TilePosition(spiral.x, spiral.y);
+
+            // Must be a walkable tile with some space around it
+            if (!validElevatorPosition(here)) continue;
+
+            // Must be an edge tile
+            auto edgeTileArea = edgePositionsToArea.find(here);
+            if (edgeTileArea == edgePositionsToArea.end()) continue;
+
+            // Must not be in one of our avoid areas
+            if (avoidAreas.find(edgeTileArea->second) != avoidAreas.end()) continue;
+
+            // We have a match
+            baseTile = tile.tile;
+            mapTile = here;
+            goto breakOuterLoop;
+        }
+    }
+    breakOuterLoop:;
+
+#if CHERRYVIS_ENABLED
+    // Dump to CherryVis if we found valid tiles
+    if (baseTile.isValid() && mapTile.isValid())
+    {
+        std::vector<long> elevatorCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
+        elevatorCVis[baseTile.x + baseTile.y * BWAPI::Broodwar->mapWidth()] = 100;
+        elevatorCVis[mapTile.x + mapTile.y * BWAPI::Broodwar->mapWidth()] = 100;
+
+        CherryVis::addHeatmap("ElevatorTiles", elevatorCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+    }
+#endif
+#if INSTRUMENTATION_ENABLED
+    if (baseTile.isValid() && mapTile.isValid())
+    {
+        Log::Get() << "Selected elevator tiles: " << baseTile << ", " << mapTile;
+    }
+    else
+    {
+        Log::Get() << "Could not find elevator tiles";
+    }
+#endif
+
+    return std::make_pair(baseTile, mapTile);
 }
