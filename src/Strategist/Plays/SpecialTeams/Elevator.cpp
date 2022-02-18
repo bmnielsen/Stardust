@@ -117,6 +117,7 @@ Elevator::Elevator()
         , shuttle(nullptr)
         , squad(nullptr)
         , count(0)
+        , countAddedToSquad(0)
         , pickingUp(true)
 {}
 
@@ -239,9 +240,10 @@ void Elevator::update()
     // - One of our transferred units is under attack
     if (complete || !squad->empty() || transferred.size() > 7 || transferQueue.empty() || isTransferredUnitUnderAttack())
     {
-        for (auto &unit: transferred)
+        for (auto &unit : transferred)
         {
             squad->addUnit(unit);
+            countAddedToSquad++;
             Opponent::incrementGameValue("elevatoredUnits");
         }
         transferred.clear();
@@ -329,7 +331,7 @@ void Elevator::update()
         {
             MyUnit closestPickup = nullptr;
             int closestPickupDist = INT_MAX;
-            for (auto &unit: transferQueue)
+            for (auto &unit : transferQueue)
             {
                 int dist = PathFinding::GetGroundDistance(unit->lastPosition, pickupPosition, unit->type);
                 if (dist != -1 && dist < closestPickupDist)
@@ -382,13 +384,18 @@ void Elevator::update()
     }
 
     // Micro transferred units
-    for (auto &unit: transferred)
+    for (auto &unit : transferred)
     {
         unit->moveTo(dropPosition);
     }
 
-    // Move to complete mode when all of our sets are empty
-    if (count > 10 && transferQueue.empty() && transferring.empty() && transferred.empty())
+    // Move to complete mode when:
+    // - we've transferred 12 units
+    // - we've transferred 10 units and all of our sets are empty
+    // - half or more of our transferred units have died
+    if (count >= 12 ||
+        (count >= 10 && transferQueue.empty() && transferring.empty() && transferred.empty()) ||
+        (countAddedToSquad > 2 && squad->combatUnitCount() <= (countAddedToSquad / 2)))
     {
         complete = true;
     }
@@ -398,11 +405,11 @@ void Elevator::disband(const std::function<void(const MyUnit)> &removedUnitCallb
                        const std::function<void(const MyUnit)> &movableUnitCallback)
 {
     if (shuttle) removedUnitCallback(shuttle);
-    for (auto &unit: transferQueue)
+    for (auto &unit : transferQueue)
     {
         removedUnitCallback(unit);
     }
-    for (auto &unit: transferred)
+    for (auto &unit : transferred)
     {
         removedUnitCallback(unit);
     }

@@ -37,6 +37,7 @@ protected:
     std::set<MyUnit> transferring;
     std::set<MyUnit> transferred;
     int count;
+    int countAddedToSquad;
 
     bool pickingUp; // Whether the shuttle is currently picking up or dropping off
 };
