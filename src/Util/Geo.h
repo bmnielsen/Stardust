@@ -49,11 +49,12 @@ namespace Geo
     public:
         int x;
         int y;
+        int radius;
 
         Spiral()
                 : x(0)
                 , y(0)
-                , iteration(1)
+                , radius(1)
                 , direction(0) {}
 
         void Next()
@@ -62,29 +63,28 @@ namespace Geo
             {
                 case 0:
                     ++x;
-                    if (x == iteration) ++direction;
+                    if (x == radius) ++direction;
                     break;
                 case 1:
                     ++y;
-                    if (y == iteration) ++direction;
+                    if (y == radius) ++direction;
                     break;
                 case 2:
                     --x;
-                    if (-x == iteration) ++direction;
+                    if (-x == radius) ++direction;
                     break;
                 case 3:
                     --y;
-                    if (-y == iteration)
+                    if (-y == radius)
                     {
                         direction = 0;
-                        ++iteration;
+                        ++radius;
                     }
                     break;
             }
         }
 
     private:
-        unsigned int iteration;
         unsigned int direction;
     };
 }
