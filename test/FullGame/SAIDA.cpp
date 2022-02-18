@@ -9,7 +9,7 @@ TEST(SAIDA, RunThirty)
     {
         BWTest test;
         test.opponentName = "SAIDA";
-        test.maps = Maps::Get("cog");
+        test.maps = Maps::Get("sscait");
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
         {
