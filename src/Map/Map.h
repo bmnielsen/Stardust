@@ -85,6 +85,14 @@ namespace Map
 
     std::set<const BWEM::Area *> &getMyMainAreas();
 
+    std::set<const BWEM::Area *> &getStartingBaseAreas(Base *base);
+
+    Base *getStartingBaseNatural(Base *base);
+
+    std::map<const BWEM::Area *, std::set<BWAPI::TilePosition>> &getAreasToEdgePositions();
+
+    std::map<BWAPI::TilePosition, const BWEM::Area *> &getEdgePositionsToArea();
+
     void dumpVisibilityHeatmap();
 
     void dumpWalkability();
@@ -109,6 +117,8 @@ namespace Map
     bool isInNarrowChoke(BWAPI::TilePosition pos);
 
     bool isInLeafArea(BWAPI::TilePosition pos);
+
+    bool isOnIsland(BWAPI::TilePosition pos);
 
     int lastSeen(BWAPI::TilePosition tile);
 
