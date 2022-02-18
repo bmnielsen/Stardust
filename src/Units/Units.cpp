@@ -69,7 +69,7 @@ namespace Units
 
         void unitDestroyed(const Unit &unit)
         {
-            if (unit->lastPositionValid && !unit->beingManufacturedOrCarried)
+            if (unit->lastPositionValid && !unit->beingManufacturedOrCarried && (!unit->type.isBuilding() || !unit->isFlying))
             {
                 Players::grid(unit->player).unitDestroyed(unit->type, unit->lastPosition, unit->completed, unit->burrowed, unit->immobile);
 #if DEBUG_GRID_UPDATES
