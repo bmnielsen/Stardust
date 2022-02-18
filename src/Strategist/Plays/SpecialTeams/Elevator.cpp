@@ -289,16 +289,15 @@ void Elevator::update()
             return;
         }
 
-        // We start the play under the following circumstances:
-        // - The enemy is contained
-        // - The enemy has at least one bunker
+        // Wait to start the play if any of the following checks fail:
+        // - The enemy has taken their natural behind a bunker
+        // - We have a stable contain
         // - We have at least 5 dragoons
-        // - The enemy has taken their natural, or we have at least 10 dragoons
         auto enemyNatural = Map::getEnemyStartingNatural();
         if (!Strategist::isEnemyContained() ||
-            Units::countEnemy(BWAPI::UnitTypes::Terran_Bunker) == 0 ||
             Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon) < 5 ||
-            ((!enemyNatural || enemyNatural->owner != BWAPI::Broodwar->enemy()) && Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon) < 10))
+            !enemyNatural || enemyNatural->owner != BWAPI::Broodwar->enemy() ||
+            Units::countEnemy(BWAPI::UnitTypes::Terran_Bunker) == 0)
         {
             return;
         }
