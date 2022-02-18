@@ -207,3 +207,31 @@ TEST(Initialization, CircuitBreaker)
     test.expectWin = false;
     test.run();
 }
+
+TEST(Initialization, Python)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Python");
+    test.randomSeed = 40072;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.run();
+}
+
+TEST(Initialization, Benzene)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Benzene");
+    test.randomSeed = 40072;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.run();
+}
