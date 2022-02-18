@@ -454,7 +454,7 @@ void StrategyEngine::updateSpecialTeamsPlays(std::vector<std::shared_ptr<Play>> 
         }
         else if (haveDarkTemplar && !darkTemplarHarassPlay)
         {
-            plays.emplace(beforeMainArmyIt(plays), std::make_shared<DarkTemplarHarass>());
+            plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<DarkTemplarHarass>());
         }
     }
 
@@ -468,7 +468,7 @@ void StrategyEngine::updateSpecialTeamsPlays(std::vector<std::shared_ptr<Play>> 
         }
         else if (haveShuttles && !shuttleHarassPlay)
         {
-            plays.emplace(beforeMainArmyIt(plays), std::make_shared<ShuttleHarass>());
+            plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<ShuttleHarass>());
         }
     }
 }

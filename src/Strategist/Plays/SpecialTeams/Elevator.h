@@ -15,6 +15,8 @@ public:
     void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
                  const std::function<void(const MyUnit)> &movableUnitCallback) override;
 
+    [[nodiscard]] bool canReassignUnit(const MyUnit &unit) const override;
+
     void addUnit(const MyUnit &unit) override;
 
     void removeUnit(const MyUnit &unit) override;

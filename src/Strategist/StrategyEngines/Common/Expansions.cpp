@@ -12,6 +12,7 @@
 #include "Plays/Macro/TakeIslandExpansion.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/MainArmy/MopUp.h"
+#include "Plays/SpecialTeams/Elevator.h"
 
 void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays)
 {
@@ -211,7 +212,18 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         if (closestIslandBase && closestIslandBaseDist < 2500 && safeToIslandExpand())
         {
             auto play = std::make_shared<TakeIslandExpansion>(closestIslandBase);
-            plays.emplace(plays.begin(), play);
+
+            // Taking an island base is always lower priority than an elevator
+            auto it = beforePlayIt<Elevator>(plays);
+            if (it == plays.end())
+            {
+                it = plays.begin();
+            }
+            else
+            {
+                it++;
+            }
+            plays.emplace(it, play);
 
             Log::Get() << "Queued island expansion to " << play->depotPosition;
             CherryVis::log() << "Added TakeIslandExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);

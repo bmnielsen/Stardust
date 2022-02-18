@@ -309,11 +309,22 @@ void Elevator::update()
     }
 
     // Request units
-    // Start by rallying 4 until the shuttle is near the pickup tile
-    int needed = ((shuttle->getDistance(pickupPosition) < 320) ? 12 : 4) - count;
-    if (needed > 0)
+    if (count < 12)
     {
-        status.unitRequirements.emplace_back(needed, BWAPI::UnitTypes::Protoss_Dragoon, pickupPosition);
+        int dist = shuttle->getDistance(pickupPosition);
+        int needed = -count;
+        if (dist < 1280)
+        {
+            needed += 4;
+        }
+        if (dist < 320)
+        {
+            needed += 8;
+        }
+        if (needed > 0)
+        {
+            status.unitRequirements.emplace_back(needed, BWAPI::UnitTypes::Protoss_Dragoon, pickupPosition);
+        }
     }
 
     // Micro the shuttle
@@ -390,11 +401,9 @@ void Elevator::update()
     }
 
     // Move to complete mode when:
-    // - we've transferred 12 units
-    // - we've transferred 10 units and all of our sets are empty
+    // - we've transferred more than 10 units and all of our sets are empty
     // - half or more of our transferred units have died
-    if (count >= 12 ||
-        (count >= 10 && transferQueue.empty() && transferring.empty() && transferred.empty()) ||
+    if ((count > 10 && transferQueue.empty() && transferring.empty() && transferred.empty()) ||
         (countAddedToSquad > 2 && squad->combatUnitCount() <= (countAddedToSquad / 2)))
     {
         complete = true;
@@ -415,6 +424,15 @@ void Elevator::disband(const std::function<void(const MyUnit)> &removedUnitCallb
     }
 
     Play::disband(removedUnitCallback, movableUnitCallback);
+}
+
+bool Elevator::canReassignUnit(const MyUnit &unit) const
+{
+    // Don't allow the shuttle to be reassigned
+    if (unit == shuttle) return false;
+
+    // Allow other units to be reassigned only if they are in the transfer queue
+    return transferQueue.find(unit) != transferQueue.end();
 }
 
 void Elevator::addUnit(const MyUnit &unit)

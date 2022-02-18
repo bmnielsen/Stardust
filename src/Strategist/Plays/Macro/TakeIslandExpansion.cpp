@@ -286,6 +286,12 @@ void TakeIslandExpansion::addPrioritizedProductionGoals(std::map<int, std::vecto
     for (auto &unitRequirement : status.unitRequirements)
     {
         if (unitRequirement.count < 1) continue;
+
+        // We only build a shuttle if we don't already have one
+        // If we have one, we'll wait until it is available for island expo duties
+        if (unitRequirement.type != BWAPI::UnitTypes::Protoss_Shuttle) continue;
+        if (Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) > 0) continue;
+
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                  unitRequirement.type,
                                                                  unitRequirement.count,
