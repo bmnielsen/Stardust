@@ -32,4 +32,6 @@ namespace Builder
     void addReservedBuilder(const MyUnit &builder);
 
     void releaseReservedBuilder(const MyUnit &builder);
+
+    bool isInEnemyStaticThreatRange(BWAPI::TilePosition tile, BWAPI::UnitType type);
 }

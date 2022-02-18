@@ -89,7 +89,7 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
         chokeCannon = Units::myBuildingAt(cannonLocations.second);
 
         // Build it if requested
-        if (atChoke && !chokeCannon)
+        if (atChoke && !chokeCannon && !Builder::isInEnemyStaticThreatRange(cannonLocations.second, BWAPI::UnitTypes::Protoss_Photon_Cannon))
         {
             buildCannonAt(cannonLocations.first, cannonLocations.second);
         }

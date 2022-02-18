@@ -6,6 +6,7 @@
 #include "BuildingPlacement.h"
 #include "Map.h"
 #include "NoGoAreas.h"
+#include "Players.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -408,5 +409,17 @@ namespace Builder
     void releaseReservedBuilder(const MyUnit &builder)
     {
         reservedBuilders.erase(builder);
+    }
+
+    bool isInEnemyStaticThreatRange(BWAPI::TilePosition tile, BWAPI::UnitType type)
+    {
+        auto &grid = Players::grid(BWAPI::Broodwar->enemy());
+
+        if (grid.staticGroundThreat(BWAPI::WalkPosition(tile)) > 0) return true;
+        if (grid.staticGroundThreat(BWAPI::WalkPosition(tile + BWAPI::TilePosition(type.tileWidth(), 0))) > 0) return true;
+        if (grid.staticGroundThreat(BWAPI::WalkPosition(tile + BWAPI::TilePosition(type.tileWidth(), type.tileHeight()))) > 0) return true;
+        if (grid.staticGroundThreat(BWAPI::WalkPosition(tile + BWAPI::TilePosition(0, type.tileHeight()))) > 0) return true;
+
+        return false;
     }
 }
