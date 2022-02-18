@@ -104,6 +104,7 @@ namespace Opponent
         currentGame["firstMutaliskCompleted"] = INT_MAX;
         currentGame["firstLurkerAtOurMain"] = INT_MAX;
         currentGame["sneakAttack"] = INT_MAX;
+        currentGame["elevatoredUnits"] = 0;
     }
 
     void update()
@@ -222,6 +223,25 @@ namespace Opponent
         }
 #endif
         currentGame[key] = value;
+        setKeys.insert(key);
+    }
+
+    void incrementGameValue(const std::string &key, int delta)
+    {
+        int currentValue = 0;
+        if (isGameValueSet(key))
+        {
+            currentValue = currentGame[key];
+        }
+
+        currentGame[key] = currentValue + delta;
+
+#if CHERRYVIS_ENABLED
+        CherryVis::log() << "Incremented game value " << key << " from " << currentValue << " to " << currentGame[key];
+#endif
+#if LOGGING_ENABLED
+        Log::Get() << "Incremented game value " << key << " from " << currentValue << " to " << currentGame[key];
+#endif
         setKeys.insert(key);
     }
 

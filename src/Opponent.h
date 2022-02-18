@@ -18,6 +18,8 @@ namespace Opponent
 
     void setGameValue(const std::string &key, int value);
 
+    void incrementGameValue(const std::string &key, int delta = 1);
+
     bool isGameValueSet(const std::string &key);
 
     int minValueInPreviousGames(const std::string &key, int defaultNoData, int maxCount = INT_MAX, int minCount = 0);

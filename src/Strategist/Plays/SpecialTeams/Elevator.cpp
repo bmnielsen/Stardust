@@ -7,6 +7,7 @@
 #include "PathFinding.h"
 #include "Strategist.h"
 #include "Geo.h"
+#include "Opponent.h"
 
 namespace
 {
@@ -27,6 +28,84 @@ namespace
         if (validAndWalkable(tile + BWAPI::TilePosition(0, 1))) count++;
         if (validAndWalkable(tile + BWAPI::TilePosition(0, -1))) count++;
         return count >= 3;
+    }
+
+    BWAPI::Position scaledPosition(BWAPI::Position currentPosition, BWAPI::Position vector, int length)
+    {
+        auto scaledVector = Geo::ScaleVector(vector, length);
+        if (scaledVector == BWAPI::Positions::Invalid) return BWAPI::Positions::Invalid;
+
+        return currentPosition + scaledVector;
+    }
+
+    void shuttleMove(MyUnit &shuttle, BWAPI::Position pos)
+    {
+        // Always move towards a position three tiles away
+        auto moveTarget = scaledPosition(shuttle->lastPosition, pos - shuttle->lastPosition, 96);
+
+        // If it is invalid, it means we are exactly on our target position, so just use our main until we get somewhere else
+        if (moveTarget == BWAPI::Positions::Invalid) moveTarget = Map::getMyMain()->getPosition();
+
+        // If it is off the map, move directly to the target
+        if (!moveTarget.isValid()) moveTarget = pos;
+
+        shuttle->moveTo(moveTarget);
+    }
+
+    void drop(MyUnit &shuttle, BWAPI::Position pos)
+    {
+        if (shuttle->bwapiUnit->getLoadedUnits().empty()) return;
+
+        if (shuttle->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Unload)
+        {
+            // Wait 12 frames after ordering an unload
+            if (shuttle->bwapiUnit->getLastCommandFrame() < (currentFrame - 12)) return;
+
+            // Move to the drop position on the 12th frame
+            if (shuttle->bwapiUnit->getLastCommandFrame() == (currentFrame - 12))
+            {
+                shuttleMove(shuttle, pos);
+                return;
+            }
+        }
+
+        // If we are close enough to the target position, start to drop
+        // Otherwise move towards the position
+        if (shuttle->getDistance(pos) < 32)
+        {
+            shuttle->unload(*(shuttle->bwapiUnit->getLoadedUnits().begin()));
+        }
+        else
+        {
+            shuttleMove(shuttle, pos);
+        }
+    }
+
+    void pickup(MyUnit &shuttle, MyUnit &cargo)
+    {
+        if (shuttle->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Load)
+        {
+            // Wait 12 frames after ordering a load
+            if (shuttle->bwapiUnit->getLastCommandFrame() < (currentFrame - 12)) return;
+
+            // Move to the load position on the 12th frame
+            if (shuttle->bwapiUnit->getLastCommandFrame() == (currentFrame - 12))
+            {
+                shuttleMove(shuttle, cargo->lastPosition);
+                return;
+            }
+        }
+
+        // If we are close enough to the cargo, start to load
+        // Otherwise move towards its position
+        if (shuttle->getDistance(cargo) < 12)
+        {
+            shuttle->load(cargo->bwapiUnit);
+        }
+        else
+        {
+            shuttleMove(shuttle, cargo->lastPosition);
+        }
     }
 }
 
@@ -96,67 +175,7 @@ void Elevator::update()
         shuttle = nullptr;
     }
 
-    // Handle the complete state
-    // Here we are just waiting until there are no units remaining that this play needs to own
-    if (complete)
-    {
-        // Move all transferred units to the squad
-        for (auto &unit: transferred)
-        {
-            squad->addUnit(unit);
-        }
-        transferred.clear();
-
-        status.removedUnits.insert(status.removedUnits.end(), transferQueue.begin(), transferQueue.end());
-        transferQueue.clear();
-
-        // TODO: Handle case where the shuttle has units in it
-        if (shuttle)
-        {
-            status.removedUnits.push_back(shuttle);
-            shuttle = nullptr;
-        }
-
-        // Disband the play when the squad is empty or the enemy starting main is destroyed
-        if (squad->empty() || Map::getEnemyStartingMain()->owner != BWAPI::Broodwar->enemy())
-        {
-            status.complete = true;
-        }
-
-        return;
-    }
-
-    // If we don't have a shuttle, the play hasn't started yet, so determine if it should
-    if (!shuttle)
-    {
-        // Never start the play after frame 15000
-        if (currentFrame > 15000)
-        {
-            complete = true;
-            return;
-        }
-
-        // Wait to start the play if any of the following checks fail:
-        // - The enemy has taken their natural behind a bunker
-        // - We have a stable contain
-        // - We have at least 5 dragoons
-        auto enemyNatural = Map::getEnemyStartingNatural();
-        if (!Strategist::isEnemyContained() ||
-            Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon) < 5 ||
-            !enemyNatural || enemyNatural->owner != BWAPI::Broodwar->enemy() ||
-            Units::countEnemy(BWAPI::UnitTypes::Terran_Bunker) == 0)
-        {
-            return;
-        }
-
-        // TODO: Support other maps
-        if (pickupPosition == BWAPI::Positions::Invalid) return;
-
-        status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Shuttle, pickupPosition);
-        return;
-    }
-
-    // Clean up and micro transfer queue
+    // Clean up and micro the transfer queue
     for (auto it = transferQueue.begin(); it != transferQueue.end();)
     {
         if ((*it)->exists())
@@ -166,7 +185,6 @@ void Elevator::update()
             if ((*it)->isBeingAttacked() && (*it)->lastPosition.getApproxDistance(pickupPosition) < 200)
             {
                 complete = true;
-                return;
             }
 
             (*it)->moveTo(pickupPosition);
@@ -182,14 +200,6 @@ void Elevator::update()
 
             it = transferQueue.erase(it);
         }
-    }
-
-    // Request units
-    // Start by rallying 4 until the shuttle is near the pickup tile
-    int needed = ((shuttle->getDistance(pickupPosition) < 320) ? 15 : 4) - count;
-    if (needed > 0)
-    {
-        status.unitRequirements.emplace_back(needed, BWAPI::UnitTypes::Protoss_Dragoon, pickupPosition);
     }
 
     // Move units through the sets when their state changes
@@ -211,14 +221,110 @@ void Elevator::update()
     move(transferQueue, transferring, true);
     move(transferring, transferred, false);
 
+    auto isTransferredUnitUnderAttack = [&]()
+    {
+        for (auto &unit : transferred)
+        {
+            if (unit->isBeingAttacked()) return true;
+        }
+
+        return false;
+    };
+
+    // Move transferred units to the squad if:
+    // - The play is complete (no new units are being transferred)
+    // - The squad is already attacking
+    // - We have moved at least 8 of them
+    // - We have no more waiting
+    // - One of our transferred units is under attack
+    if (complete || !squad->empty() || transferred.size() > 7 || transferQueue.empty() || isTransferredUnitUnderAttack())
+    {
+        for (auto &unit: transferred)
+        {
+            squad->addUnit(unit);
+            Opponent::incrementGameValue("elevatoredUnits");
+        }
+        transferred.clear();
+    }
+
+    // Handle the complete state
+    // Here we are just waiting until there are no units remaining that this play needs to own
+    if (complete)
+    {
+        // Release all units from the transfer queue
+        status.removedUnits.insert(status.removedUnits.end(), transferQueue.begin(), transferQueue.end());
+        transferQueue.clear();
+
+        // If units are in transit, drop them off
+        if (shuttle && !shuttle->bwapiUnit->getLoadedUnits().empty())
+        {
+            drop(shuttle, dropPosition);
+            return;
+        }
+
+        // Release the shuttle
+        if (shuttle)
+        {
+            status.removedUnits.push_back(shuttle);
+            shuttle = nullptr;
+        }
+
+        // Disband the play when the squad is empty or the enemy starting main is destroyed
+        if (squad->empty() || Map::getEnemyStartingMain()->owner != BWAPI::Broodwar->enemy())
+        {
+            status.complete = true;
+        }
+
+        return;
+    }
+
+    // If we don't have a shuttle, the play hasn't started yet, so determine if it should
+    // The shuttle dying triggers play completion, so execution won't get this far
+    if (!shuttle)
+    {
+        // Never start the play after frame 15000
+        if (currentFrame > 15000)
+        {
+            complete = true;
+            return;
+        }
+
+        // We start the play under the following circumstances:
+        // - The enemy is contained
+        // - The enemy has at least one bunker
+        // - We have at least 5 dragoons
+        // - The enemy has taken their natural, or we have at least 10 dragoons
+        auto enemyNatural = Map::getEnemyStartingNatural();
+        if (!Strategist::isEnemyContained() ||
+            Units::countEnemy(BWAPI::UnitTypes::Terran_Bunker) == 0 ||
+            Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon) < 5 ||
+            ((!enemyNatural || enemyNatural->owner != BWAPI::Broodwar->enemy()) && Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon) < 10))
+        {
+            return;
+        }
+
+        status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Shuttle, pickupPosition);
+        return;
+    }
+
+    // Request units
+    // Start by rallying 4 until the shuttle is near the pickup tile
+    int needed = ((shuttle->getDistance(pickupPosition) < 320) ? 12 : 4) - count;
+    if (needed > 0)
+    {
+        status.unitRequirements.emplace_back(needed, BWAPI::UnitTypes::Protoss_Dragoon, pickupPosition);
+    }
+
     // Micro the shuttle
     // It switches between pickup and drop
-    // TODO: Micro better so the shuttle doesn't stop
     if (pickingUp)
     {
         if (transferring.size() == 2)
         {
             pickingUp = false;
+#if CHERRYVIS_ENABLED
+            CherryVis::log(shuttle->id) << "Elevator: Shuttle full, switching to drop-off state";
+#endif
         }
         else
         {
@@ -235,33 +341,44 @@ void Elevator::update()
             }
             if (closestPickup && closestPickupDist < 64)
             {
-                shuttle->load(closestPickup->bwapiUnit);
+                pickup(shuttle, closestPickup);
+#if CHERRYVIS_ENABLED
+                CherryVis::log(shuttle->id) << "Elevator: Loading " << (*closestPickup);
+#endif
             }
             else if (!transferring.empty() && closestPickupDist > 500)
             {
                 // Transfer one unit if the next one is a long way away
                 pickingUp = false;
+#if CHERRYVIS_ENABLED
+                CherryVis::log(shuttle->id) << "Elevator: Next unit is far away, switching to drop-off state";
+#endif
             }
             else
             {
-                shuttle->moveTo(pickupPosition);
+                shuttleMove(shuttle, pickupPosition);
+#if CHERRYVIS_ENABLED
+                CherryVis::log(shuttle->id) << "Elevator: Waiting for unit to load";
+#endif
             }
         }
     }
     if (!pickingUp)
     {
-        if (transferring.empty())
+        if (transferring.empty() && shuttle->bwapiUnit->getLoadedUnits().empty())
         {
             pickingUp = true;
-            shuttle->moveTo(pickupPosition);
+            shuttleMove(shuttle, pickupPosition);
+#if CHERRYVIS_ENABLED
+            CherryVis::log(shuttle->id) << "Elevator: Shuttle empty, switching to pickup state";
+#endif
         }
         else
         {
-            if (shuttle->bwapiUnit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Unload_All_Position ||
-                shuttle->bwapiUnit->getLastCommandFrame() < (currentFrame - 20))
-            {
-                shuttle->unloadAll(dropPosition);
-            }
+            drop(shuttle, dropPosition);
+#if CHERRYVIS_ENABLED
+            CherryVis::log(shuttle->id) << "Elevator: Drop unit";
+#endif
         }
     }
 
@@ -269,30 +386,6 @@ void Elevator::update()
     for (auto &unit: transferred)
     {
         unit->moveTo(dropPosition);
-    }
-
-    auto isTransferredUnitUnderAttack = [&]()
-    {
-        for (auto &unit : transferred)
-        {
-            if (unit->isBeingAttacked()) return true;
-        }
-
-        return false;
-    };
-
-    // Move transferred units to the squad if the shuttle is empty and either:
-    // - The squad is already attacking
-    // - We have moved at least 8 of them
-    // - We have no more waiting
-    // - One of our transferred units is under attack
-    if (!squad->empty() || transferred.size() > 7 || transferQueue.empty() || isTransferredUnitUnderAttack())
-    {
-        for (auto &unit: transferred)
-        {
-            squad->addUnit(unit);
-        }
-        transferred.clear();
     }
 
     // Move to complete mode when all of our sets are empty
@@ -436,6 +529,9 @@ std::pair<BWAPI::TilePosition, BWAPI::TilePosition> Elevator::selectPositions(Ba
 
             // Must be a walkable tile with some space around it
             if (!validElevatorPosition(here)) continue;
+
+            // Must not be on an island
+            if (Map::isOnIsland(here)) continue;
 
             // Must be an edge tile
             auto edgeTileArea = edgePositionsToArea.find(here);
