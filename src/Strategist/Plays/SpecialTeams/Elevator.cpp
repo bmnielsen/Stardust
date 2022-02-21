@@ -284,8 +284,8 @@ void Elevator::update()
     // The shuttle dying triggers play completion, so execution won't get this far
     if (!shuttle)
     {
-        // Never start the play after frame 15000
-        if (currentFrame > 15000)
+        // Never start the play after frame 12000
+        if (currentFrame > 12000)
         {
             complete = true;
             return;
