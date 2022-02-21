@@ -196,10 +196,7 @@ namespace Strategist
                     auto incompleteUnits = typeToIncompleteUnits.find(unitRequirement.type);
                     while (incompleteUnits != typeToIncompleteUnits.end() && !incompleteUnits->second.empty() && unitRequirement.count > 0)
                     {
-                        if ((*incompleteUnits->second.begin())->producer)
-                        {
-                            (*incompleteUnits->second.begin())->producer->setRallyPoint(unitRequirement.position);
-                        }
+                        (*incompleteUnits->second.begin())->setProducerRallyPosition(unitRequirement.position);
 
                         unitRequirement.count--;
                         incompleteUnits->second.erase(incompleteUnits->second.begin());
@@ -246,11 +243,8 @@ namespace Strategist
 
                     for (const auto &incompleteUnit : typeAndIncompleteUnits.second)
                     {
-                        if (incompleteUnit->producer)
-                        {
-                            incompleteUnit->producer->setRallyPoint(playPosition);
-                        }
-                        
+                        incompleteUnit->setProducerRallyPosition(playPosition);
+
                         playReceivingUnassignedUnits->assignedIncompleteUnits[typeAndIncompleteUnits.first]++;
                     }
                 }

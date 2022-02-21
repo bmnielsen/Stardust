@@ -321,3 +321,17 @@ void MyUnitImpl::unload(BWAPI::Unit cargo)
     CherryVis::log(id) << "Order: Unload " << cargo->getType() << " @ " << cargo->getTilePosition();
 #endif
 }
+
+void MyUnitImpl::setProducerRallyPosition(BWAPI::Position pos) const
+{
+    if (!producer) return;
+
+    auto current = producer->getRallyPosition();
+    if (current.isValid() && pos.getApproxDistance(current) < 32) return;
+
+    producer->setRallyPoint(pos);
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(producer->getID()) << "Order: Set rally position to " << BWAPI::WalkPosition(pos);
+#endif
+}

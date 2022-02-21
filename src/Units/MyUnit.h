@@ -76,6 +76,8 @@ public:
 
     void unload(BWAPI::Unit cargo);
 
+    void setProducerRallyPosition(BWAPI::Position pos) const;
+
 protected:
     bool issuedOrderThisFrame;
 
