@@ -6,6 +6,7 @@
 #include "Players.h"
 #include "Workers.h"
 #include "Opponent.h"
+#include "Builder.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -97,8 +98,18 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         {
             case OurStrategy::EarlyGameDefense:
             case OurStrategy::AntiAllIn:
+            {
                 defendOurMain = true;
                 break;
+            }
+            case OurStrategy::AntiSunkenContain:
+            {
+                // Save up for a massive zealot attack at frame 12000
+                defendOurMain = (currentFrame < 12000 ||
+                                 BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) == 0 ||
+                                 BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Leg_Enhancements) == 0);
+                break;
+            }
             default:
             {
                 if (!mainArmyPlay)
@@ -224,6 +235,34 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             {
                 CherryVis::setBoardValue("anti-sneak-attack", "not-started-goon-range");
             }
+
+            break;
+        }
+
+        case OurStrategy::AntiSunkenContain:
+        {
+            // Cancel goons, goon range
+            cancelTrainingUnits(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon);
+            if (Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
+            {
+                for (const auto &core : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
+                {
+                    if (core->bwapiUnit->isUpgrading())
+                    {
+                        core->bwapiUnit->cancelUpgrade();
+                    }
+                }
+            }
+
+            // Build pure zealots
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Zealot,
+                                                                       -1,
+                                                                       -1);
+
+            // Get +1 weapons and zealot speed
+            upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons);
+            upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements);
 
             break;
         }
@@ -370,6 +409,7 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     {
         case OurStrategy::EarlyGameDefense:
         case OurStrategy::AntiAllIn:
+        case OurStrategy::AntiSunkenContain:
         case OurStrategy::Defensive:
             // Don't take our natural if the enemy could be rushing or doing an all-in
             CherryVis::setBoardValue("natural", "wait-defensive");

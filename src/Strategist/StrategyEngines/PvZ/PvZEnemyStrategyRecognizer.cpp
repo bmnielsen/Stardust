@@ -8,6 +8,7 @@
 std::map<PvZ::ZergStrategy, std::string> PvZ::ZergStrategyNames = {
         {ZergStrategy::Unknown,            "Unknown"},
         {ZergStrategy::WorkerRush,         "WorkerRush"},
+        {ZergStrategy::SunkenContain,      "SunkenContain"},
         {ZergStrategy::ZerglingRush,       "ZerglingRush"},
         {ZergStrategy::PoolBeforeHatchery, "PoolBeforeHatchery"},
         {ZergStrategy::HatcheryBeforePool, "HatcheryBeforePool"},
@@ -115,6 +116,32 @@ namespace
                createdBeforeFrame(BWAPI::UnitTypes::Zerg_Creep_Colony, 8000, 5);
     }
 
+    bool isSunkenContain(bool currentlySunkenContain = false)
+    {
+        if (!currentlySunkenContain && currentFrame > 8000) return false;
+
+        // Sunken contain if the enemy owns our natural or if they have a sunken in it
+        auto natural = Map::getMyNatural();
+        if (!natural) return false;
+        if (natural->owner == BWAPI::Broodwar->enemy()) return true;
+
+        auto inOurNatural = [&natural](const Unit &unit)
+        {
+            auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition));
+            return area && area == natural->getArea();
+        };
+        for (auto &creepColony : Units::allEnemyOfType(BWAPI::UnitTypes::Zerg_Creep_Colony))
+        {
+            if (inOurNatural(creepColony)) return true;
+        }
+        for (auto &sunkenColony : Units::allEnemyOfType(BWAPI::UnitTypes::Zerg_Sunken_Colony))
+        {
+            if (inOurNatural(sunkenColony)) return true;
+        }
+
+        return false;
+    }
+
     bool hasLairTech()
     {
         return countAtLeast(BWAPI::UnitTypes::Zerg_Lair, 1) ||
@@ -140,6 +167,7 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
         {
             case ZergStrategy::Unknown:
                 if (isWorkerRush()) return ZergStrategy::WorkerRush;
+                if (isSunkenContain()) return ZergStrategy::SunkenContain;
                 if (isZerglingRush()) return ZergStrategy::ZerglingRush;
 
                 // Default to something reasonable if our scouting completely fails
@@ -175,6 +203,7 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
                 break;
             case ZergStrategy::ZerglingRush:
                 if (isWorkerRush()) return ZergStrategy::WorkerRush;
+                if (isSunkenContain()) return ZergStrategy::SunkenContain;
 
                 // Consider the rush to be over after 6000 frames
                 // From there the PoolBeforeHatchery handler will potentially transition into ZerglingAllIn
@@ -187,6 +216,7 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
                 break;
             case ZergStrategy::PoolBeforeHatchery:
                 if (isWorkerRush()) return ZergStrategy::WorkerRush;
+                if (isSunkenContain()) return ZergStrategy::SunkenContain;
 
                 // We might detect a rush late on large maps or if scouting is denied
                 if (isZerglingRush()) return ZergStrategy::ZerglingRush;
@@ -208,6 +238,7 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
                 break;
             case ZergStrategy::HatcheryBeforePool:
                 if (isWorkerRush()) return ZergStrategy::WorkerRush;
+                if (isSunkenContain()) return ZergStrategy::SunkenContain;
                 if (isZerglingAllIn()) return ZergStrategy::ZerglingAllIn;
 
                 if (isTurtle())
@@ -224,6 +255,8 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
 
                 break;
             case ZergStrategy::ZerglingAllIn:
+                if (isSunkenContain()) return ZergStrategy::SunkenContain;
+
                 if (!isZerglingAllIn())
                 {
                     strategy = ZergStrategy::PoolBeforeHatchery;
@@ -238,9 +271,19 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
 
                 break;
             case ZergStrategy::Turtle:
+                if (isSunkenContain()) return ZergStrategy::SunkenContain;
+
                 if (hasLairTech())
                 {
                     strategy = ZergStrategy::Lair;
+                    continue;
+                }
+
+                break;
+            case ZergStrategy::SunkenContain:
+                if (!isSunkenContain(true))
+                {
+                    strategy = ZergStrategy::PoolBeforeHatchery;
                     continue;
                 }
 

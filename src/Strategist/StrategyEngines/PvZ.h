@@ -30,6 +30,7 @@ private:
     {
         Unknown,
         WorkerRush,             // Detected by seeing more than two workers in our main without other combat units
+        SunkenContain,          // Hatch and sunkens at our natural
         ZerglingRush,           // Detected by seeing early pool or early lings
         PoolBeforeHatchery,     // e.g. 9-pool or overpool
         HatcheryBeforePool,     // e.g. 10 or 12 hatch
@@ -44,6 +45,7 @@ private:
     {
         EarlyGameDefense,       // We don't have scouting data yet
         AntiAllIn,              // For fast rushes or any serious early pressure, defends main until it can get tech out
+        AntiSunkenContain,      // For when enemy builds sunkens at our natural
         FastExpansion,          // For when the opponent plays a greedy or turtle strategy
         Defensive,              // Cautious opening, for when we don't know if the opponent could be going for an all-in
         Normal,                 // Normal non-greedy and non-cautious opening

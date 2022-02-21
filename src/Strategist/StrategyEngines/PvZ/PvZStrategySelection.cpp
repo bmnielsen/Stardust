@@ -1,13 +1,13 @@
 #include "StrategyEngines/PvZ.h"
 
 #include "Map.h"
-#include "Plays/MainArmy/DefendMyMain.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Units.h"
 
 std::map<PvZ::OurStrategy, std::string> PvZ::OurStrategyNames = {
         {OurStrategy::EarlyGameDefense, "EarlyGameDefense"},
         {OurStrategy::AntiAllIn,        "AntiAllIn"},
+        {OurStrategy::AntiSunkenContain,"AntiSunkenContain"},
         {OurStrategy::FastExpansion,    "FastExpansion"},
         {OurStrategy::Defensive,        "Defensive"},
         {OurStrategy::Normal,           "Normal"},
@@ -57,6 +57,11 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                 {
                     case ZergStrategy::Unknown:
                         return strategy;
+                    case ZergStrategy::SunkenContain:
+                    {
+                        strategy = OurStrategy::AntiSunkenContain;
+                        continue;
+                    }
                     case ZergStrategy::WorkerRush:
                     case ZergStrategy::ZerglingRush:
                     case ZergStrategy::ZerglingAllIn:
@@ -88,9 +93,14 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
 
                 break;
             }
-
             case PvZ::OurStrategy::AntiAllIn:
             {
+                if (newEnemyStrategy == ZergStrategy::SunkenContain)
+                {
+                    strategy = OurStrategy::AntiSunkenContain;
+                    continue;
+                }
+
                 // Transition to normal when we consider it safe to do so
                 if (canTransitionFromAntiAllIn())
                 {
@@ -100,8 +110,24 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
 
                 break;
             }
+            case PvZ::OurStrategy::AntiSunkenContain:
+            {
+                if (newEnemyStrategy != ZergStrategy::SunkenContain)
+                {
+                    strategy = OurStrategy::Normal;
+                    continue;
+                }
+
+                break;
+            }
             case PvZ::OurStrategy::FastExpansion:
             {
+                if (newEnemyStrategy == ZergStrategy::SunkenContain)
+                {
+                    strategy = OurStrategy::AntiSunkenContain;
+                    continue;
+                }
+
                 // Transition to normal when the expansion is taken
                 auto natural = Map::getMyNatural();
                 if (!natural || natural->ownedSince != -1)
@@ -114,6 +140,12 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
             }
             case PvZ::OurStrategy::Defensive:
             {
+                if (newEnemyStrategy == ZergStrategy::SunkenContain)
+                {
+                    strategy = OurStrategy::AntiSunkenContain;
+                    continue;
+                }
+
                 if (newEnemyStrategy == ZergStrategy::WorkerRush ||
                     newEnemyStrategy == ZergStrategy::ZerglingRush ||
                     newEnemyStrategy == ZergStrategy::ZerglingAllIn)
@@ -144,6 +176,12 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
             }
             case PvZ::OurStrategy::Normal:
             {
+                if (newEnemyStrategy == ZergStrategy::SunkenContain)
+                {
+                    strategy = OurStrategy::AntiSunkenContain;
+                    continue;
+                }
+
                 if ((newEnemyStrategy == ZergStrategy::WorkerRush ||
                      newEnemyStrategy == ZergStrategy::ZerglingRush ||
                      newEnemyStrategy == ZergStrategy::ZerglingAllIn) &&
