@@ -98,6 +98,11 @@ protected:
 
     static void defaultGroundUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
+    static void upgrade(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                        UpgradeOrTechType upgradeOrTechType,
+                        int level = 1,
+                        int priority = PRIORITY_NORMAL);
+
     static void defaultExpansions(std::vector<std::shared_ptr<Play>> &plays);
 
     static void takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,

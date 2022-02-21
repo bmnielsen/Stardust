@@ -193,3 +193,16 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
         }
     }
 }
+
+void StrategyEngine::upgrade(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                             UpgradeOrTechType upgradeOrTechType,
+                             int level,
+                             int priority)
+{
+    // First bail out if the upgrade is already done or queued
+    if (upgradeOrTechType.currentLevel() >= level) return;
+    if (Units::isBeingUpgradedOrResearched(upgradeOrTechType)) return;
+
+    // Queue the upgrade
+    prioritizedProductionGoals[priority].emplace_back(UpgradeProductionGoal(upgradeOrTechType, level));
+}
