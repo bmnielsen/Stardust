@@ -38,10 +38,10 @@ namespace
     }
 }
 
-TakeIslandExpansion::TakeIslandExpansion(Base *base)
+TakeIslandExpansion::TakeIslandExpansion(Base *base, bool transferWorkers)
         : TakeExpansion(base, 0)
         , shuttle(nullptr)
-        , workerTransferState(0) {}
+        , workerTransferState(transferWorkers ? 0 : 2) {}
 
 void TakeIslandExpansion::update()
 {
@@ -117,6 +117,12 @@ void TakeIslandExpansion::update()
 
         // Jump out now if the shuttle hasn't loaded the builder yet
         if (builder->getDistance(base->getPosition()) > 128) return;
+
+        // The shuttle has transferred the builder and doesn't need to transfer workers, release it
+        if (shuttle && workerTransferState == 2)
+        {
+            status.removedUnits.push_back(shuttle);
+        }
 
         // Ensure the builder clears a blocking neutral
         if (base->blockingNeutral && base->blockingNeutral->exists())

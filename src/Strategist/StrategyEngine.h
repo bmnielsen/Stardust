@@ -111,6 +111,8 @@ protected:
     static void cancelNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                        std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
+    static void takeExpansionWithShuttle(std::vector<std::shared_ptr<Play>> &plays);
+
     static void scoutExpos(std::vector<std::shared_ptr<Play>> &plays, int startingFrame);
 
     static void updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays);

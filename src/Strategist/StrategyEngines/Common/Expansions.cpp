@@ -352,3 +352,58 @@ void StrategyEngine::cancelNaturalExpansion(std::vector<std::shared_ptr<Play>> &
 
     Builder::cancel(natural->getTilePosition());
 }
+
+void StrategyEngine::takeExpansionWithShuttle(std::vector<std::shared_ptr<Play>> &plays)
+{
+    // This is used when the enemy has us contained, so we want to take an expansion as if it were an island expansion
+    // Collect any existing TakeExpansion plays
+
+    // First abort if we have already queued an expansion
+    for (auto &play : plays)
+    {
+        if (auto takeIslandExpansionPlay = std::dynamic_pointer_cast<TakeIslandExpansion>(play))
+        {
+            return;
+        }
+    }
+
+    // Now figure out which expansion to take
+    Base *baseToTake = nullptr;
+    bool transferWorkers = false;
+
+    // If the map has an island expansion, take it
+    {
+        Base *closestIslandBase = nullptr;
+        int closestIslandBaseDist = INT_MAX;
+        for (auto &islandBase : Map::getUntakenIslandExpansions())
+        {
+            int dist = Map::getMyMain()->getPosition().getApproxDistance(islandBase->getPosition());
+            if (dist < closestIslandBaseDist)
+            {
+                closestIslandBase = islandBase;
+                closestIslandBaseDist = dist;
+            }
+        }
+
+        if (closestIslandBase)
+        {
+            baseToTake = closestIslandBase;
+            transferWorkers = true;
+        }
+    }
+
+    // Otherwise use the hidden base
+    if (!baseToTake)
+    {
+        baseToTake = Map::getHiddenBase();
+    }
+
+    if (!baseToTake) return;
+
+    // Queue the play
+    auto play = std::make_shared<TakeIslandExpansion>(baseToTake, transferWorkers);
+    plays.emplace(plays.begin(), play);
+
+    Log::Get() << "Queued island expansion to " << play->depotPosition;
+    CherryVis::log() << "Added TakeIslandExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
+}

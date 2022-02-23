@@ -104,9 +104,8 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             }
             case OurStrategy::AntiSunkenContain:
             {
-                // Save up for a massive zealot attack at frame 12000
-                defendOurMain = (currentFrame < 12000 ||
-                                 BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) == 0 ||
+                // Attack when we have +1 and speed
+                defendOurMain = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) == 0 ||
                                  BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Leg_Enhancements) == 0);
                 break;
             }
@@ -260,9 +259,16 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1,
                                                                        -1);
 
-            // Get +1 weapons and zealot speed
+            // Get +1 weapons, then zealot speed
             upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons);
-            upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements);
+            if (Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) ||
+                BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) > 0)
+            {
+                upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements);
+            }
+
+            // Take one expansion using a shuttle
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Nexus) < 2) takeExpansionWithShuttle(plays);
 
             break;
         }
