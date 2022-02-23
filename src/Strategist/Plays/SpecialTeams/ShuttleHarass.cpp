@@ -6,6 +6,8 @@
 #include "Strategist.h"
 #include "Geo.h"
 
+#include <cfloat>
+
 #include "DebugFlag_UnitOrders.h"
 
 namespace
@@ -203,21 +205,31 @@ void ShuttleHarass::update()
 
             if (!target)
             {
-                int bestDist = INT_MAX;
+                double bestScore = DBL_MAX;
                 auto processUnit = [&](const Unit &unit)
                 {
                     if (!unit->lastPositionValid) return;
                     if (unit->bwapiUnit->isStasised()) return;
 
+                    // Skip tanks that have been repaired in the last 30 seconds
+                    if (unit->lastHealFrame > (currentFrame - 640)) return;
+
                     int dist = shuttle->getDistance(unit);
 
+                    // Don't drop on units covered by anti-air
                     if (dist > 48 && grid.airThreat(unit->lastPosition) > 0) return;
 
-                    if (unit->type == BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) dist = (dist * 3) / 2;
+                    // Prefer sieged tanks
+                    double score = dist;
+                    if (unit->type == BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) score *= 1.5;
 
-                    if (dist < bestDist)
+                    // Prefer damaged tanks
+                    double percentDamaged = (double)unit->health / BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode.maxHitPoints();
+                    score /= std::max(percentDamaged, 0.25);
+
+                    if (score < bestScore)
                     {
-                        bestDist = dist;
+                        bestScore = score;
                         target = unit;
                     }
                 };
