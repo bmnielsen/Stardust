@@ -753,10 +753,7 @@ namespace Workers
             if (unit->bwapiUnit->isCarryingGas()) return false;
             if (!allowCarryMinerals && unit->bwapiUnit->isCarryingMinerals()) return false;
 
-            // Don't interrupt a worker that is currently mining, but other states are OK
-            return (unit->bwapiUnit->getOrder() == BWAPI::Orders::Move
-                    || unit->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals
-                    || unit->bwapiUnit->getOrder() == BWAPI::Orders::ReturnMinerals);
+            return true;
         }
 
         return false;
@@ -765,6 +762,7 @@ namespace Workers
     MyUnit getClosestReassignableWorker(BWAPI::Position position, bool allowCarryMinerals, int *bestTravelTime)
     {
         int bestTime = INT_MAX;
+        int bestScore = INT_MAX;
         MyUnit bestWorker = nullptr;
         for (auto &unit : Units::allMine())
         {
@@ -776,9 +774,19 @@ namespace Workers
                                                     unit->type,
                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea,
                                                     -1);
-            if (travelTime != -1 && travelTime < bestTime)
+
+            // If the unit is currently mining, penalize it by 3 seconds to encourage selecting other workers
+            int score = travelTime;
+            if (unit->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
+                unit->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
+            {
+                score += 72;
+            }
+
+            if (travelTime != -1 && score < bestScore)
             {
                 bestTime = travelTime;
+                bestScore = score;
                 bestWorker = unit;
             }
         }
@@ -850,6 +858,7 @@ namespace Workers
         if (!unit || !unit->exists() || !unit->type.isWorker() || !unit->completed || workerJob[unit] != Job::Reserved) return;
 
         workerJob[unit] = Job::None;
+        CherryVis::log(unit->id) << "Released from non-mining duties";
     }
 
     int availableMineralAssignments(Base *base)
