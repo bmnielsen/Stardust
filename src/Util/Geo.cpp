@@ -49,7 +49,7 @@ namespace Geo
         if (max < min)
             std::swap(min, max);
 
-        if (min < (max >> 2U))
+        if (min <= (max >> 2U))
             return max;
 
         unsigned int minCalc = (3 * min) >> 3U;
@@ -79,8 +79,8 @@ namespace Geo
         BWAPI::Position bottomRight = center + BWAPI::Position(type.dimensionRight(), type.dimensionDown());
 
         // Compute offsets
-        int xDist = (std::max)({topLeft.x - point.x - 1, point.x - bottomRight.x - 1, 0});
-        int yDist = (std::max)({topLeft.y - point.y - 1, point.y - bottomRight.y - 1, 0});
+        int xDist = (std::max)({topLeft.x - point.x, point.x - bottomRight.x - 1, 0});
+        int yDist = (std::max)({topLeft.y - point.y, point.y - bottomRight.y - 1, 0});
 
         // Compute distance
         return ApproximateDistance(xDist, 0, yDist, 0);
