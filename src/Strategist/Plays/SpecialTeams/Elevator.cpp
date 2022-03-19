@@ -109,8 +109,10 @@ namespace
     }
 }
 
-Elevator::Elevator()
+Elevator::Elevator(bool fromOurMain, BWAPI::UnitType unitType)
         : Play("Elevator")
+        , fromOurMain(fromOurMain)
+        , unitType(unitType)
         , complete(false)
         , pickupPosition(BWAPI::Positions::Invalid)
         , dropPosition(BWAPI::Positions::Invalid)
@@ -123,6 +125,16 @@ Elevator::Elevator()
 
 void Elevator::update()
 {
+    auto setPositions = [&]()
+    {
+        auto positions = selectPositions(fromOurMain ? Map::getMyMain() : Map::getEnemyStartingMain());
+        if (!positions.first.isValid() || !positions.second.isValid()) return false;
+
+        dropPosition = BWAPI::Position(fromOurMain ? positions.second : positions.first) + BWAPI::Position(16, 16);
+        pickupPosition = BWAPI::Position(fromOurMain ? positions.first : positions.second) + BWAPI::Position(16, 16);
+        return true;
+    };
+
     // Initialization when enemy base is known
     if (!squad)
     {
@@ -130,18 +142,14 @@ void Elevator::update()
         if (!enemyMain) return;
 
         // Get pickup and dropoff positions, aborting if they cannot be determined
-        auto positions = selectPositions(enemyMain);
-        if (!positions.first.isValid() || !positions.second.isValid())
+        if (!setPositions())
         {
             status.complete = true;
             return;
         }
 
-        dropPosition = BWAPI::Position(positions.first) + BWAPI::Position(16, 16);
-        pickupPosition = BWAPI::Position(positions.second) + BWAPI::Position(16, 16);
-
         squad = std::make_shared<AttackBaseSquad>(enemyMain);
-        squad->ignoreCombatSim = true; // Really the squad should be allowed to reposition itself, but for now just have it always attack
+        squad->ignoreCombatSim = !fromOurMain; // Really the squad should be allowed to reposition itself, but for now just have it always attack
         General::addSquad(squad);
     }
 
@@ -149,22 +157,18 @@ void Elevator::update()
     // This could happen if the enemy builds something there
     if (!validElevatorPosition(BWAPI::TilePosition(dropPosition)))
     {
-        auto positions = selectPositions(Map::getEnemyStartingMain());
-        if (!positions.first.isValid() || !positions.second.isValid())
+        if (setPositions())
+        {
+#if INSTRUMENTATION_ENABLED
+            Log::Get() << "Updated elevator tiles: " << dropPosition << ", " << pickupPosition;
+#endif
+        }
+        else
         {
             complete = true;
 
 #if INSTRUMENTATION_ENABLED
             Log::Get() << "No longer valid elevator tiles; cancelling elevator";
-#endif
-        }
-        else
-        {
-            dropPosition = BWAPI::Position(positions.first) + BWAPI::Position(16, 16);
-            pickupPosition = BWAPI::Position(positions.second) + BWAPI::Position(16, 16);
-
-#if INSTRUMENTATION_ENABLED
-            Log::Get() << "Updated elevator tiles: " << dropPosition << ", " << pickupPosition;
 #endif
         }
     }
@@ -291,17 +295,20 @@ void Elevator::update()
             return;
         }
 
-        // Wait to start the play if any of the following checks fail:
-        // - The enemy has taken their natural behind a bunker
-        // - We have a stable contain
-        // - We have at least 5 dragoons
-        auto enemyNatural = Map::getEnemyStartingNatural();
-        if (!Strategist::isEnemyContained() ||
-            Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon) < 5 ||
-            !enemyNatural || enemyNatural->owner != BWAPI::Broodwar->enemy() ||
-            Units::countEnemy(BWAPI::UnitTypes::Terran_Bunker) == 0)
+        if (!fromOurMain)
         {
-            return;
+            // Wait to start the play if any of the following checks fail:
+            // - The enemy has taken their natural behind a bunker
+            // - We have a stable contain
+            // - We have at least 5 dragoons
+            auto enemyNatural = Map::getEnemyStartingNatural();
+            if (!Strategist::isEnemyContained() ||
+                Units::countCompleted(unitType) < 5 ||
+                !enemyNatural || enemyNatural->owner != BWAPI::Broodwar->enemy() ||
+                Units::countEnemy(BWAPI::UnitTypes::Terran_Bunker) == 0)
+            {
+                return;
+            }
         }
 
         status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Shuttle, pickupPosition);
@@ -323,7 +330,7 @@ void Elevator::update()
         }
         if (needed > 0)
         {
-            status.unitRequirements.emplace_back(needed, BWAPI::UnitTypes::Protoss_Dragoon, pickupPosition);
+            status.unitRequirements.emplace_back(needed, unitType, pickupPosition);
         }
     }
 

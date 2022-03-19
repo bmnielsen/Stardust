@@ -38,8 +38,9 @@ namespace
     }
 }
 
-TakeIslandExpansion::TakeIslandExpansion(Base *base, bool transferWorkers)
+TakeIslandExpansion::TakeIslandExpansion(Base *base, bool canCancel, bool transferWorkers)
         : TakeExpansion(base, 0)
+        , canCancel(canCancel)
         , shuttle(nullptr)
         , workerTransferState(transferWorkers ? 0 : 2) {}
 
@@ -317,6 +318,7 @@ void TakeIslandExpansion::removeUnit(const MyUnit &unit)
 
 bool TakeIslandExpansion::cancellable()
 {
+    if (!canCancel) return false;
     if (!shuttle) return true;
     if (builder) return false;
     return workerTransfer.empty();

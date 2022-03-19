@@ -6,7 +6,7 @@
 class Elevator : public Play
 {
 public:
-    Elevator();
+    Elevator(bool fromOurMain = false, BWAPI::UnitType unitType = BWAPI::UnitTypes::Protoss_Dragoon);
 
     void update() override;
 
@@ -26,6 +26,9 @@ public:
     static std::pair<BWAPI::TilePosition, BWAPI::TilePosition> selectPositions(Base *base);
 
 protected:
+    bool fromOurMain;
+    BWAPI::UnitType unitType;
+
     // This is set to true when we consider the elevator complete
     // We don't disband the play until all units are removed from the squad
     bool complete;

@@ -14,6 +14,28 @@
 #include "Plays/MainArmy/MopUp.h"
 #include "Plays/SpecialTeams/Elevator.h"
 
+namespace
+{
+    auto addIslandExpansionPlay(std::vector<std::shared_ptr<Play>> &plays, Base *base, bool canCancel = true, bool transferWorkers = true)
+    {
+        auto play = std::make_shared<TakeIslandExpansion>(base, canCancel, transferWorkers);
+
+        // Taking an island base is always lower priority than an elevator
+        auto it = StrategyEngine::beforePlayIt<Elevator>(plays);
+        if (it == plays.end())
+        {
+            it = plays.begin();
+        }
+        else
+        {
+            it++;
+        }
+        plays.emplace(it, play);
+
+        return play;
+    }
+}
+
 void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays)
 {
     // This logic does not handle the first decision to take our natural expansion, so if this hasn't been done, bail out now
@@ -211,20 +233,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
 
         if (closestIslandBase && closestIslandBaseDist < 2500 && safeToIslandExpand())
         {
-            auto play = std::make_shared<TakeIslandExpansion>(closestIslandBase);
-
-            // Taking an island base is always lower priority than an elevator
-            auto it = beforePlayIt<Elevator>(plays);
-            if (it == plays.end())
-            {
-                it = plays.begin();
-            }
-            else
-            {
-                it++;
-            }
-            plays.emplace(it, play);
-
+            auto play = addIslandExpansionPlay(plays, closestIslandBase);
             Log::Get() << "Queued island expansion to " << play->depotPosition;
             CherryVis::log() << "Added TakeIslandExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
             return;
@@ -401,9 +410,7 @@ void StrategyEngine::takeExpansionWithShuttle(std::vector<std::shared_ptr<Play>>
     if (!baseToTake) return;
 
     // Queue the play
-    auto play = std::make_shared<TakeIslandExpansion>(baseToTake, transferWorkers);
-    plays.emplace(plays.begin(), play);
-
+    auto play = addIslandExpansionPlay(plays, baseToTake, false, transferWorkers);
     Log::Get() << "Queued island expansion to " << play->depotPosition;
     CherryVis::log() << "Added TakeIslandExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
 }

@@ -13,6 +13,7 @@
 #include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
+#include "Plays/SpecialTeams/Elevator.h"
 
 namespace
 {
@@ -107,6 +108,17 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 // Attack when we have +1 and speed
                 defendOurMain = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) == 0 ||
                                  BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Leg_Enhancements) == 0);
+
+                // Elevator some units out of our main to attack the enemy main
+                {
+                    auto elevatorPlay = getPlay<Elevator>(plays);
+                    if (!elevatorPlay)
+                    {
+                        plays.emplace(beforePlayIt<MainArmyPlay>(plays),
+                                      std::make_shared<Elevator>(true, BWAPI::UnitTypes::Protoss_Zealot));
+                    }
+                }
+
                 break;
             }
             default:
@@ -265,6 +277,15 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) > 0)
             {
                 upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements);
+            }
+
+            // Get a shuttle
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) < 1)
+            {
+                prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                               BWAPI::UnitTypes::Protoss_Shuttle,
+                                                                               1,
+                                                                               1);
             }
 
             // Take one expansion using a shuttle
