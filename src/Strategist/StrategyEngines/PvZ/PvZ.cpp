@@ -534,7 +534,7 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     auto lurkerInMain = Opponent::minValueInPreviousGames("firstLurkerAtOurMain", INT_MAX, 20, 0);
     if (lurkerInMain < 12000)
     {
-        buildDefensiveCannons(prioritizedProductionGoals, true, lurkerInMain);
+        buildDefensiveCannons(prioritizedProductionGoals, true, lurkerInMain - 500, 2);
     }
 
     // Build an observer when we are on two gas or the enemy has lurker tech
