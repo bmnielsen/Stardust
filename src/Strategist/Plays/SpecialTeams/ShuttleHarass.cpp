@@ -10,6 +10,8 @@
 
 #include "DebugFlag_UnitOrders.h"
 
+#define HALT_DISTANCE 96
+
 namespace
 {
     // Define some positions for use in searching outwards from a point at tile resolution
@@ -39,18 +41,57 @@ namespace
         return currentPosition + scaledVector;
     }
 
+    void movePreservingSpeed(const MyUnit &shuttle, BWAPI::Position target)
+    {
+        int dist = shuttle->lastPosition.getApproxDistance(target);
+        if (dist == 0)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(shuttle->id) << "Move to " << BWAPI::WalkPosition(target) << ": on top; moving towards main";
+#endif
+
+            // We're directly on top of the target, so we just need to move away
+            shuttle->moveTo(Map::getMyMain()->getPosition());
+            return;
+        }
+
+        // If the target is far enough away, just move directly
+        if (dist > HALT_DISTANCE)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(shuttle->id) << "Move to " << BWAPI::WalkPosition(target) << ": far away; moving directly";
+#endif
+            shuttle->moveTo(target);
+            return;
+        }
+
+        // Otherwise get a position that overshoots the target sufficiently
+        auto scaledVector = Geo::ScaleVector(target - shuttle->lastPosition, HALT_DISTANCE);
+        auto scaledTarget = shuttle->lastPosition + scaledVector;
+        if (!scaledTarget.isValid())
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(shuttle->id) << "Move to " << BWAPI::WalkPosition(target) << ": near map edge; moving directly";
+#endif
+
+            shuttle->moveTo(target);
+            return;
+        }
+
+#if DEBUG_UNIT_ORDERS
+        CherryVis::log(shuttle->id) << "Move to " << BWAPI::WalkPosition(target) << ": moving to " << BWAPI::WalkPosition(scaledTarget);
+#endif
+
+        shuttle->moveTo(scaledTarget);
+    }
+
     void moveAvoidingThreats(const Grid &grid, const MyUnit &shuttle, BWAPI::Position target)
     {
         // Check for threats one-and-a-half tiles ahead
         auto ahead = scaledPosition(shuttle->lastPosition, target - shuttle->lastPosition, 48);
-        if (!ahead.isValid())
+        if (!ahead.isValid() || grid.airThreat(ahead) == 0)
         {
-            shuttle->moveTo(target);
-            return;
-        }
-        if (grid.airThreat(ahead) == 0)
-        {
-            shuttle->moveTo(ahead);
+            movePreservingSpeed(shuttle, target);
             return;
         }
 
@@ -74,7 +115,7 @@ namespace
         // Move towards the best tile if possible
         if (best != BWAPI::Positions::Invalid)
         {
-            shuttle->moveTo(best);
+            movePreservingSpeed(shuttle, best);
             return;
         }
 
@@ -82,7 +123,7 @@ namespace
         auto behind = scaledPosition(shuttle->lastPosition, shuttle->lastPosition - target, 64);
         if (behind.isValid())
         {
-            shuttle->moveTo(behind);
+            movePreservingSpeed(shuttle, behind);
         }
         else
         {
@@ -170,12 +211,13 @@ void ShuttleHarass::update()
         auto &shuttle = shuttleAndCargo.first;
         auto &cargo = shuttleAndCargo.second;
 
-        // We have loaded cargo
-        if (cargo && cargo->bwapiUnit->isLoaded())
+        // If all cargo is loaded, update their target
+        if (cargo.size() >= 2 &&
+            std::all_of(cargo.begin(), cargo.end(), [](const MyUnit& unit){ return unit->bwapiUnit->isLoaded(); }))
         {
             // Ensure we have a target
             Unit target = nullptr;
-            auto it = cargoAndTargets.find(cargo);
+            auto it = cargoAndTargets.find(*cargo.begin());
             if (it != cargoAndTargets.end() && it->second)
             {
                 target = it->second;
@@ -248,7 +290,10 @@ void ShuttleHarass::update()
                     CherryVis::log(shuttle->id) << "Selected target " << (*target);
                 }
 #endif
-                cargoAndTargets[cargo] = target;
+                for (auto &unit : cargo)
+                {
+                    cargoAndTargets[unit] = target;
+                }
             }
 
             // If we don't have a target, hang around the vanguard cluster until we get one
@@ -270,61 +315,83 @@ void ShuttleHarass::update()
                 }
                 continue;
             }
+        }
 
-            // Drop on the target
-            auto distToTarget = shuttle->getDistance(target);
-            if (distToTarget > 16)
+        // If we are in the drop phase, drop loaded cargo on the target
+        if (!cargo.empty() && cargoAndTargets.find(*cargo.begin()) != cargoAndTargets.end())
+        {
+            // If all of our cargo is dropped, clear it and fall through to get new cargo
+            if (std::all_of(cargo.begin(), cargo.end(), [](const MyUnit& unit){ return !unit->bwapiUnit->isLoaded(); }))
             {
-                moveAvoidingThreats(grid, shuttle, target->lastPosition);
 #if DEBUG_UNIT_ORDERS
-                CherryVis::log(shuttle->id) << "Cargo loaded; moving to target " << BWAPI::WalkPosition(target->lastPosition);
+                CherryVis::log(shuttle->id) << "Cleared cargo";
 #endif
+                cargo.clear();
             }
             else
             {
-                shuttle->unload(cargo->bwapiUnit);
+                auto target = cargoAndTargets[*cargo.begin()];
+
+                // Drop loaded units on the target
+                auto distToTarget = shuttle->getDistance(target);
+                if (distToTarget > 16)
+                {
+                    moveAvoidingThreats(grid, shuttle, target->lastPosition);
 #if DEBUG_UNIT_ORDERS
-                CherryVis::log(shuttle->id) << "Cargo loaded; unloading on target " << BWAPI::WalkPosition(target->lastPosition);
+                    CherryVis::log(shuttle->id) << "Cargo loaded; moving to target " << BWAPI::WalkPosition(target->lastPosition);
 #endif
+                }
+                else
+                {
+                    for (auto &unit : cargo)
+                    {
+                        if (unit->bwapiUnit->isLoaded())
+                        {
+                            shuttle->unload(unit->bwapiUnit);
+                            break;
+                        }
+                    }
+#if DEBUG_UNIT_ORDERS
+                    CherryVis::log(shuttle->id) << "Cargo loaded; unloading on target " << BWAPI::WalkPosition(target->lastPosition);
+#endif
+                }
+                continue;
             }
-            continue;
-        }
-
-        // We have just unloaded cargo
-        if (cargo && cargoAndTargets.find(cargo) != cargoAndTargets.end())
-        {
-#if DEBUG_UNIT_ORDERS
-            CherryVis::log(shuttle->id) << "Cleared cargo";
-#endif
-
-            // Clear our cargo and fall through
-            cargo = nullptr;
         }
 
         // We have cargo awaiting pickup
-        if (cargo)
+        if (!cargo.empty() &&
+            std::any_of(cargo.begin(), cargo.end(), [](const MyUnit& unit){ return !unit->bwapiUnit->isLoaded(); }))
         {
-            cargo->moveTo(shuttle->lastPosition);
+            for (auto &unit : cargo)
+            {
+                if (!unit->bwapiUnit->isLoaded())
+                {
+                    unit->moveTo(shuttle->lastPosition);
 
-            auto distToCargo = shuttle->getDistance(cargo);
-            if (distToCargo > 100)
-            {
-                moveAvoidingThreats(grid, shuttle, cargo->lastPosition);
+                    auto distToCargo = shuttle->getDistance(unit);
+                    if (distToCargo > 100)
+                    {
+                        moveAvoidingThreats(grid, shuttle, unit->lastPosition);
 #if DEBUG_UNIT_ORDERS
-                CherryVis::log(shuttle->id) << "Moving to cargo " << (*cargo);
+                        CherryVis::log(shuttle->id) << "Moving to cargo " << (*unit);
 #endif
-            }
-            else
-            {
-                shuttle->load(cargo->bwapiUnit);
+                    }
+                    else
+                    {
+                        shuttle->load(unit->bwapiUnit);
 #if DEBUG_UNIT_ORDERS
-                CherryVis::log(shuttle->id) << "Loading cargo " << (*cargo);
+                        CherryVis::log(shuttle->id) << "Loading cargo " << (*unit);
 #endif
+                    }
+                    break;
+                }
             }
+
             continue;
         }
 
-        // We don't have cargo
+        // We need more cargo
 
         // If we don't have a main army vanguard, move the shuttle to our main base until we do
         if (!mainArmyVanguard)

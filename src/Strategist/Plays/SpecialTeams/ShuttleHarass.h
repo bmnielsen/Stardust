@@ -16,7 +16,10 @@ public:
         for (auto &shuttleAndCargo : shuttlesAndCargo)
         {
             allUnits.insert(shuttleAndCargo.first);
-            allUnits.insert(shuttleAndCargo.second);
+            for (auto &cargo : shuttleAndCargo.second)
+            {
+                allUnits.insert(cargo);
+            }
         }
         for (auto &cargoAndTarget : cargoAndTargets)
         {
@@ -47,16 +50,16 @@ public:
     {
         if (unit->type == BWAPI::UnitTypes::Protoss_Shuttle)
         {
-            shuttlesAndCargo[unit] = nullptr;
+            shuttlesAndCargo[unit] = {};
         }
         else
         {
-            // This unit will be the cargo of the nearest shuttle not currently assigned anything
+            // This unit will be the cargo of the nearest shuttle not currently "full"
             MyUnit closestShuttle = nullptr;
             int closestShuttleDist = INT_MAX;
             for (auto &shuttleAndCargo : shuttlesAndCargo)
             {
-                if (shuttleAndCargo.second != nullptr) continue;
+                if (shuttleAndCargo.second.size() >= 2) continue;
 
                 int dist = shuttleAndCargo.first->getDistance(unit);
                 if (dist < closestShuttleDist)
@@ -68,7 +71,7 @@ public:
 
             if (closestShuttle)
             {
-                shuttlesAndCargo[closestShuttle] = unit;
+                shuttlesAndCargo[closestShuttle].insert(unit);
             }
             else
             {
@@ -84,11 +87,7 @@ public:
         // Remove as cargo from any shuttles
         for (auto &shuttleAndCargo : shuttlesAndCargo)
         {
-            if (shuttleAndCargo.second == unit)
-            {
-                shuttlesAndCargo[shuttleAndCargo.first] = nullptr;
-                break;
-            }
+            shuttleAndCargo.second.erase(unit);
         }
 
         // Remove shuttle or cargo
@@ -99,6 +98,6 @@ public:
     }
 
 private:
-    std::map<MyUnit, MyUnit> shuttlesAndCargo;
+    std::map<MyUnit, std::set<MyUnit>> shuttlesAndCargo;
     std::map<MyUnit, Unit> cargoAndTargets;
 };
