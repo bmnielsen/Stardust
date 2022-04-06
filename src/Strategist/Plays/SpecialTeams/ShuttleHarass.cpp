@@ -243,6 +243,13 @@ void ShuttleHarass::update()
 #endif
                     target = nullptr;
                 }
+                else if (grid.groundThreat(target->lastPosition) - grid.staticGroundThreat(target->lastPosition) > 30)
+                {
+#if DEBUG_UNIT_ORDERS
+                    CherryVis::log(shuttle->id) << "Clearing target as its last position is now under non-static ground threat";
+#endif
+                    target = nullptr;
+                }
             }
 
             if (!target)
@@ -260,6 +267,9 @@ void ShuttleHarass::update()
 
                     // Don't drop on units covered by anti-air
                     if (dist > 48 && grid.airThreat(unit->lastPosition) > 0) return;
+
+                    // Don't drop on units that are covered by excessive non-static ground threats
+                    if (grid.groundThreat(unit->lastPosition) - grid.staticGroundThreat(unit->lastPosition) > 30) return;
 
                     // Prefer sieged tanks
                     double score = dist;
