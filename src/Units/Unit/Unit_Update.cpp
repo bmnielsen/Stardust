@@ -280,7 +280,7 @@ void UnitImpl::updateUnitInFog()
     }
 
         // If the last position has been visible for two consecutive frames, the unit is gone
-    else if (positionVisible && lastPositionVisible)
+    else if (positionVisible && lastPositionVisible && lastSeen < (currentFrame - 1))
     {
         // Units that we know have been burrowed at this position might still be there
         if (burrowed)
