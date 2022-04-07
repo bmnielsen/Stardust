@@ -81,6 +81,19 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
             continue;
         }
 
+        // If we haven't seen the depot and the base is in the starting area of the main, don't attack it
+        // This is to handle maps like Andromeda where the enemy will often build buildings close to the min-only that are actually
+        // logically part of their main
+        auto enemyMain = Map::getEnemyStartingMain();
+        if (enemyMain && enemyMain->owner == BWAPI::Broodwar->enemy() && !base->resourceDepot)
+        {
+            auto enemyMainAreas = Map::getStartingBaseAreas(enemyMain);
+            if (enemyMainAreas.find(base->getArea()) != enemyMainAreas.end())
+            {
+                continue;
+            }
+        }
+
         // Gather enemy threats at the base
         int enemyValue = 0;
         for (const auto &unit : Units::enemyAtBase(base))
