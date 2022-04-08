@@ -1678,7 +1678,7 @@ namespace Producer
             }
 
             // Completed producers
-            for (auto unit : Units::allMine())
+            for (const auto &unit : Units::allMine())
             {
                 if (!unit->exists() || !unit->completed) continue;
                 if (unit->type != producerType) continue;
@@ -1943,6 +1943,45 @@ namespace Producer
         // Pylons are often built a bit too late, since we don't accurately simulate mineral collection and the build worker
         // can be delayed. So pull pylons a bit earlier whenever we have the resources for it.
         pullPylons();
+
+        // When we are maxed, ensure we have enough gateways to quickly replace losses
+        if (totalSupply[0] >= 400 && supply[0] <= 4)
+        {
+            // Count the gateways we already have
+            int gateways = Units::countCompleted(BWAPI::UnitTypes::Protoss_Gateway) +
+                           Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Gateway).size();
+
+            // Build up to 25 gateways, but keep 2 build locations reserved for other types of buildings
+            // We might have a need to build air units or tech later on in the game
+            unsigned long desiredGateways =
+                    std::min(25 - gateways,
+                             (int)buildLocations[BuildingPlacement::Neighbourhood::AllMyBases][BWAPI::UnitTypes::Protoss_Gateway.tileWidth()].size()
+                             - 2);
+
+            // Scale up to 25 gateways as our bank allows
+            for (int gateway = gateways + 1; gateway <= gateways + desiredGateways; gateway++)
+            {
+                int requiredMinerals = gateway * BWAPI::UnitTypes::Protoss_Dragoon.mineralPrice() + BWAPI::UnitTypes::Protoss_Gateway.mineralPrice();
+                int requiredGas = gateway * BWAPI::UnitTypes::Protoss_Dragoon.gasPrice() + BWAPI::UnitTypes::Protoss_Gateway.gasPrice();
+
+                // Find the frame where it makes sense to build this gateway
+                int startFrame;
+                for (startFrame = PREDICT_FRAMES - 1; startFrame >= 0; startFrame--)
+                {
+                    if (minerals[startFrame] < requiredMinerals) break;
+                    if (minerals[startFrame] < requiredGas) break;
+                }
+                startFrame++;
+                if (startFrame >= PREDICT_FRAMES) break;
+
+                // Commit the item, if we have a build location
+                auto item = std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Gateway, startFrame, BuildingPlacement::Neighbourhood::AllMyBases);
+                auto itemInSet = ProductionItemSet{item};
+                reserveBuildPositions(itemInSet);
+                if (!item->buildLocation.location.tile.isValid()) break;
+                committedItems.insert(item);
+            }
+        }
 
         write(committedItems, "producer");
 
