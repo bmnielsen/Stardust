@@ -6,6 +6,32 @@
 #include "TestMainArmyAttackBasePlay.h"
 #include "Plays/Macro/SaturateBases.h"
 
+namespace
+{
+    class MacroOnlyStrategyEngine : public StrategyEngine
+    {
+        void initialize(std::vector<std::shared_ptr<Play>> &plays) override {}
+
+        void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override {}
+
+        void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
+                              std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                              std::vector<std::pair<int, int>> &mineralReservations) override
+        {
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+
+            auto natural = Map::getMyNatural();
+            if (natural && natural->ownedSince == -1 && BWAPI::Broodwar->getFrameCount() > 3000)
+            {
+                takeNaturalExpansion(plays, prioritizedProductionGoals);
+            }
+        }
+    };
+}
+
 TEST(MaxSupply, StopsProduction)
 {
     BWTest test;
@@ -16,7 +42,7 @@ TEST(MaxSupply, StopsProduction)
     };
     test.map = Maps::GetOne("Fighting Spirit");
     test.randomSeed = 42;
-    test.frameLimit = 15000;
+    test.frameLimit = 20000;
 
     // Kick-start our economy with lots of probes and some basic buildings
     test.myInitialUnits = {
@@ -40,16 +66,14 @@ TEST(MaxSupply, StopsProduction)
             UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(123, 12)),
     };
 
-    Base *baseToAttack = nullptr;
-
-    // Order the dragoon to attack the bottom base
-    test.onStartMine = [&baseToAttack]()
+    test.onStartMine = []()
     {
-        baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(7, 117)));
+        Strategist::setStrategyEngine(std::make_unique<MacroOnlyStrategyEngine>());
 
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<SaturateBases>());
-        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(
+                Map::baseNear(BWAPI::Position(BWAPI::TilePosition(61, 63)))));
         Strategist::setOpening(openingPlays);
     };
     
