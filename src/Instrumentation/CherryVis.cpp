@@ -214,7 +214,7 @@ namespace CherryVis
     void unitFirstSeen(BWAPI::Unit unit)
     {
 #if CHERRYVIS_ENABLED
-        int frame = currentFrame;
+        int frame = BWAPI::Broodwar->getFrameCount();
         if (frame == 0) frame = 1;
 
         frameToUnitsFirstSeen[std::to_string(frame)].push_back({
