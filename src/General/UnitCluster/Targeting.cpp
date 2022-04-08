@@ -342,8 +342,8 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         {
             if (target.unit->type == BWAPI::UnitTypes::Zerg_Larva ||
                 target.unit->type == BWAPI::UnitTypes::Zerg_Egg ||
-                unit->undetected ||
-                unit->health <= 0 ||
+                target.unit->undetected ||
+                target.unit->health <= 0 ||
                 !unit->canAttack(target.unit))
             {
 #if DEBUG_TARGETING

@@ -157,26 +157,33 @@ void MyDragoon::attackUnit(const Unit &target,
     if (rangingBunker && cooldown <= BWAPI::Broodwar->getRemainingLatencyFrames() + 2)
     {
         // What we do depends on where we are and where we're going
-        // - Well out of range: attack
-        // - In range, out of range of the bunker, and not moving towards it: attack
-        // - Out of range and expect momentum to put us in range: stop
-        // - In range and moving towards the bunker: fall through to move boids
 
         auto myPredictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames());
         int predictedDistanceToTarget = Geo::EdgeToEdgeDistance(type, myPredictedPosition, target->type, target->lastPosition);
 
-        if (predictedDistanceToTarget > myRange ||
-            (currentDistanceToTarget > targetRange && currentDistanceToTarget <= myRange && predictedDistanceToTarget >= currentDistanceToTarget))
+        // Well out of range: attack
+        if (predictedDistanceToTarget > myRange)
         {
             MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking, enemyAoeRadius);
             return;
         }
 
+        // Expect momentum to carry us into range: stop
         if (currentDistanceToTarget > myRange && predictedDistanceToTarget <= myRange)
         {
             stop();
             return;
         }
+
+        // In range, out of range of the bunker, bunker is visible: attack
+        if (currentDistanceToTarget > targetRange && currentDistanceToTarget <= myRange && predictedDistanceToTarget >= currentDistanceToTarget &&
+            target->lastPositionVisible)
+        {
+            MyUnitImpl::attackUnit(target, unitsAndTargets, clusterAttacking, enemyAoeRadius);
+            return;
+        }
+
+        // Otherwise fall through to move boids
     }
 
     BWAPI::Position predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);

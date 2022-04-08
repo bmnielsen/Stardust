@@ -19,9 +19,7 @@ BWAPI::TilePosition UnitImpl::getTilePosition() const
 
 bool UnitImpl::isAttackable() const
 {
-    return bwapiUnit != nullptr &&
-           bwapiUnit->exists() &&
-           bwapiUnit->isVisible() &&
+    return exists() &&
            !undetected &&
            !bwapiUnit->isStasised();
 }
