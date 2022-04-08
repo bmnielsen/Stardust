@@ -158,14 +158,14 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
         if ((weaponLevel == 0 || armorLevel >= 1) && weaponLevel < maxLevel &&
             !Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
         {
-            prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+            prioritizedProductionGoals[PRIORITY_HIGHPRIORITYUPGRADES].emplace_back(std::in_place_type<UpgradeProductionGoal>,
                                                                      BWAPI::UpgradeTypes::Protoss_Ground_Weapons,
                                                                      weaponLevel + 1,
                                                                      forgeCount);
         }
         if (!Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Armor) && armorLevel < maxLevel)
         {
-            prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+            prioritizedProductionGoals[PRIORITY_HIGHPRIORITYUPGRADES].emplace_back(std::in_place_type<UpgradeProductionGoal>,
                                                                      BWAPI::UpgradeTypes::Protoss_Ground_Armor,
                                                                      armorLevel + 1,
                                                                      forgeCount);
@@ -173,7 +173,7 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
         if (weaponLevel > 0 && armorLevel == 0 && weaponLevel < maxLevel &&
             !Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
         {
-            prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+            prioritizedProductionGoals[PRIORITY_HIGHPRIORITYUPGRADES].emplace_back(std::in_place_type<UpgradeProductionGoal>,
                                                                      BWAPI::UpgradeTypes::Protoss_Ground_Weapons,
                                                                      weaponLevel + 1,
                                                                      forgeCount);
