@@ -377,6 +377,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         }
     }
 
+    bool buildProbesForNatural = false;
     switch (ourStrategy)
     {
         case OurStrategy::EarlyGameDefense:
@@ -438,6 +439,20 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 break;
             }
 
+            // Get an observatory before expanding
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Observatory) < 1)
+            {
+                // TODO: When producer can handle requesting a building, request the observatory instead
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         BWAPI::UnitTypes::Protoss_Observer,
+                                                                         1,
+                                                                         1);
+
+                CherryVis::setBoardValue("natural", "wait-for-obs");
+                buildProbesForNatural = true;
+                break;
+            }
+
             // Always expand in this situation if we are gas blocked
             if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100)
             {
@@ -464,6 +479,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 vanguardCluster->percentageToEnemyMain < 0.7)
             {
                 CherryVis::setBoardValue("natural", "vanguard-cluster-too-close");
+                buildProbesForNatural = true;
                 break;
             }
 
@@ -473,6 +489,8 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::DTExpand:
         {
+            buildProbesForNatural = true;
+
             // Take our natural as soon as the army has moved beyond it
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
@@ -533,6 +551,20 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                                                      BWAPI::UnitTypes::Protoss_Nexus,
                                                                      buildLocation);
 
+        }
+    }
+
+    // If requested, build up to 10 probes for our natural
+    // They are queued at lowest priority, so will not interfere with army production
+    if (buildProbesForNatural)
+    {
+        auto idleWorkers = Workers::idleWorkerCount();
+        if (idleWorkers < 10)
+        {
+            prioritizedProductionGoals[PRIORITY_LOWEST].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       BWAPI::UnitTypes::Protoss_Probe,
+                                                                       10 - idleWorkers,
+                                                                       1);
         }
     }
 }
