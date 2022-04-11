@@ -213,11 +213,14 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Take an island expansion in the following cases:
-    // - We are on three bases and already have a robo facility
+    // - We are on three bases and already have a robo facility - DISABLED
     // - We are contained on one base and it is after frame 16000
-    if (takeIslandExpansionPlays.empty() && excessMineralAssignments == 0 &&
-        ((Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Robotics_Facility) > 0)
-         || (currentFrame > 16000 && Units::countAll(BWAPI::UnitTypes::Protoss_Nexus) == 1 && Strategist::areWeContained())))
+    if (takeIslandExpansionPlays.empty() && excessMineralAssignments == 0 && (
+//        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2 &&
+//         Units::countCompleted(BWAPI::UnitTypes::Protoss_Robotics_Facility) > 0) ||
+        (currentFrame > 16000 &&
+         Units::countAll(BWAPI::UnitTypes::Protoss_Nexus) == 1 &&
+         Strategist::areWeContained())))
     {
         Base *closestIslandBase = nullptr;
         int closestIslandBaseDist = INT_MAX;
