@@ -311,8 +311,14 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             // Baseline production is one combat unit for every 6 workers (approximately 3 units per mining base)
             int higherPriorityCount = (Workers::mineralWorkers() / 6) - inProgressCount;
 
+            // Prefer goons
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
-            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
+
+            // Build zealots at lowest priority
+            prioritizedProductionGoals[PRIORITY_LOWEST].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     BWAPI::UnitTypes::Protoss_Zealot,
+                                                                     -1,
+                                                                     -1);
 
             // Default upgrades
             handleUpgrades(prioritizedProductionGoals);
