@@ -383,7 +383,8 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         }
     }
 
-    bool buildProbesForNatural = false;
+    bool cancel = true;
+    bool buildProbes = false;
     switch (ourStrategy)
     {
         case OurStrategy::EarlyGameDefense:
@@ -422,6 +423,9 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 break;
             }
 
+            // We expect to want to take our natural soon, so build probes
+            buildProbes = true;
+
             auto squad = mainArmyPlay->getSquad();
             if (!squad || squad->getUnits().size() < 5)
             {
@@ -455,7 +459,6 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                                                          1);
 
                 CherryVis::setBoardValue("natural", "wait-for-obs");
-                buildProbesForNatural = true;
                 break;
             }
 
@@ -475,8 +478,9 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                         || vanguardCluster->currentSubActivity == UnitCluster::SubActivity::StandGround)))
             {
                 // We don't cancel a queued expansion in this case
+                cancel = false;
                 CherryVis::setBoardValue("natural", "vanguard-cluster-not-attacking");
-                return;
+                break;
             }
 
             // If the cluster is attacking, it should be significantly closer to the enemy main, unless we are past frame 12500
@@ -485,7 +489,6 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 vanguardCluster->percentageToEnemyMain < 0.7)
             {
                 CherryVis::setBoardValue("natural", "vanguard-cluster-too-close");
-                buildProbesForNatural = true;
                 break;
             }
 
@@ -495,7 +498,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::DTExpand:
         {
-            buildProbesForNatural = true;
+            buildProbes = true;
 
             // Take our natural as soon as the army has moved beyond it
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
@@ -533,7 +536,6 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee)
             {
                 CherryVis::setBoardValue("natural", "vanguard-fleeing");
-
                 break;
             }
 
@@ -543,7 +545,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         }
     }
 
-    cancelNaturalExpansion(plays, prioritizedProductionGoals);
+    if (cancel) cancelNaturalExpansion(plays, prioritizedProductionGoals);
 
     // Take our hidden base expansion in cases where we have been prevented from taking our natural
     if (currentFrame > 14000)
@@ -562,7 +564,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 
     // If requested, build up to 10 probes for our natural
     // They are queued at lowest priority, so will not interfere with army production
-    if (buildProbesForNatural)
+    if (buildProbes)
     {
         auto idleWorkers = Workers::idleWorkerCount();
         if (idleWorkers < 10)
