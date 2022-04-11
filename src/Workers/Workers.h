@@ -46,4 +46,6 @@ namespace Workers
     int reassignableMineralWorkers();
 
     int reassignableGasWorkers();
+
+    int idleWorkerCount();
 }

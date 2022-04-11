@@ -956,4 +956,17 @@ namespace Workers
 
         return result;
     }
+
+    int idleWorkerCount()
+    {
+        int count = 0;
+        for (const auto &workerAndJob : workerJob)
+        {
+            if (workerAndJob.second == Job::None)
+            {
+                count++;
+            }
+        }
+        return count;
+    }
 }
