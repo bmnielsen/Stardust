@@ -178,8 +178,7 @@ void TakeExpansion::update()
         {
             if (!Builder::hasPendingBuilding(builder) && !blocker->undetected)
             {
-                std::vector<std::pair<MyUnit, Unit>> dummyUnitsAndTargets;
-                builder->attackUnit(blocker, dummyUnitsAndTargets);
+                builder->attackUnit(blocker);
             }
 
             return;

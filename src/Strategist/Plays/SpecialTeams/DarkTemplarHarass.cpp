@@ -157,8 +157,7 @@ namespace
 #if DEBUG_UNIT_ORDERS
                 CherryVis::log(unit->id) << "Attacking blocking unit " << *target;
 #endif
-                std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
-                unit->attackUnit(target, emptyUnitsAndTargets);
+                unit->attackUnit(target);
                 return;
             }
         }
@@ -192,8 +191,7 @@ namespace
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unit->id) << "Attacking cannon " << *cannonTarget;
 #endif
-            std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
-            unit->attackUnit(cannonTarget, emptyUnitsAndTargets);
+            unit->attackUnit(cannonTarget);
             return;
         }
 
@@ -203,8 +201,7 @@ namespace
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unit->id) << "Attacking worker " << *workerTarget;
 #endif
-            std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
-            unit->attackUnit(workerTarget, emptyUnitsAndTargets);
+            unit->attackUnit(workerTarget);
             return;
         }
 
@@ -238,8 +235,7 @@ namespace
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unit->id) << "Attacking target " << *otherTarget;
 #endif
-            std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
-            unit->attackUnit(otherTarget, emptyUnitsAndTargets);
+            unit->attackUnit(otherTarget);
             return;
         }
 

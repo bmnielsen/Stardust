@@ -35,7 +35,6 @@ void CullArmy::update()
     // Micro the units: everybody attacks the next unit
     if (units.size() > 1)
     {
-        std::vector<std::pair<MyUnit, Unit>> dummyUnitsAndTargets;
         for (int i = 0; i < (units.size() - 1); i++)
         {
             // If the unit is stuck, unstick it
@@ -45,7 +44,7 @@ void CullArmy::update()
             if (!units[i]->isReady()) continue;
 
             // Attack the next unit in the list
-            units[i]->attackUnit(units[i + 1], dummyUnitsAndTargets);
+            units[i]->attackUnit(units[i + 1]);
         }
     }
 }

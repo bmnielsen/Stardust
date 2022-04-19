@@ -72,7 +72,6 @@ void EjectEnemyScout::update()
     // If we have a dragoon and a scout, attack!
     if (scout && dragoon && !dragoon->unstick() && dragoon->isReady())
     {
-        std::vector<std::pair<MyUnit, Unit>> dummyUnitsAndTargets;
-        dragoon->attackUnit(scout, dummyUnitsAndTargets);
+        dragoon->attackUnit(scout);
     }
 }

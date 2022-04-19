@@ -116,11 +116,10 @@ void DefendMyMain::update()
         }
 
         // Execute attack with our reserved units
-        std::vector<std::pair<MyUnit, Unit>> dummyUnitsAndTargets;
-        if (reservedGasStealAttacker) reservedGasStealAttacker->attackUnit(gasSteal, dummyUnitsAndTargets);
+        if (reservedGasStealAttacker) reservedGasStealAttacker->attackUnit(gasSteal);
         for (auto &worker : reservedWorkerGasStealAttackers)
         {
-            worker->attackUnit(gasSteal, dummyUnitsAndTargets);
+            worker->attackUnit(gasSteal);
         }
     }
     else

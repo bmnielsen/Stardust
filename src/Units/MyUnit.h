@@ -35,8 +35,21 @@ public:
 
     virtual void attackUnit(const Unit &target,
                             std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
-                            bool clusterAttacking = true,
-                            int enemyAoeRadius = 0);
+                            bool clusterAttacking,
+                            int enemyAoeRadius);
+
+    void attackUnit(const Unit &target)
+    {
+        static std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
+        attackUnit(target, emptyUnitsAndTargets, true, 0);
+    }
+
+    void attackUnit(const Unit &target,
+                    std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                    bool clusterAttacking = true)
+    {
+        attackUnit(target, unitsAndTargets, clusterAttacking, 0);
+    }
 
     [[nodiscard]] virtual bool isReady() const;
 

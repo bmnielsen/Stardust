@@ -197,8 +197,7 @@ void ShuttleHarass::update()
         }
 
         // Attack the target
-        std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
-        cargoAndTarget.first->attackUnit(cargoAndTarget.second, emptyUnitsAndTargets);
+        cargoAndTarget.first->attackUnit(cargoAndTarget.second);
     }
 
     // Micro shuttles
