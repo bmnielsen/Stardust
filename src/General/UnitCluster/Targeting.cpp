@@ -678,7 +678,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         {
             auto currentTarget = getCurrentTarget(unit);
             if (currentTarget && unit->getDistance(currentTarget->unit) < 11 * 32 &&
-                unit->bwapiUnit->getLastCommandFrame() > (currentFrame - 96))
+                unit->lastCommandFrame > (currentFrame - 96))
             {
                 bestTarget = currentTarget;
 

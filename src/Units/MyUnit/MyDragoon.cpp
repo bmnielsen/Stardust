@@ -61,7 +61,7 @@ void MyDragoon::update(BWAPI::Unit unit)
         {
             nextAttackPredictedAt = std::max(
                     currentFrame + 1, std::max(
-                            bwapiUnit->getLastCommandFrame() + BWAPI::Broodwar->getLatencyFrames(),
+                            lastCommandFrame + BWAPI::Broodwar->getLatencyFrames(),
                             cooldownUntil));
         }
     }

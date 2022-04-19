@@ -43,6 +43,8 @@ public:
 
     int distToTargetPosition;           // Transient field used in targeting / combat sim / combat micro
 
+    int lastCommandFrame;               // Frame of the last command to this unit
+
     int lastSeen;                       // Frame the unit was last updated
     int lastSeenAttacking;              // Frame when the unit was last seen making an attack
 

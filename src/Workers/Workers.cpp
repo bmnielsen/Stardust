@@ -668,7 +668,7 @@ namespace Workers
                             // Exception: If we are not at the patch yet, and our last command was sent a long time ago,
                             // we probably want to wait and allow our order timer optimization to send the command instead.
                             int dist = worker->bwapiUnit->getDistance(mineralPatch);
-                            if (dist > 20 && worker->bwapiUnit->getLastCommandFrame() < (currentFrame - 20)) continue;
+                            if (dist > 20 && worker->lastCommandFrame < (currentFrame - 20)) continue;
 
                             worker->gather(mineralPatch);
                             continue;
@@ -680,7 +680,7 @@ namespace Workers
                         {
                             if (worker->bwapiUnit->getOrderTarget() && worker->bwapiUnit->getOrderTarget()->getResources()
                                 && worker->bwapiUnit->getOrderTarget() != mineralPatch
-                                && worker->bwapiUnit->getLastCommandFrame()
+                                && worker->lastCommandFrame
                                    < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
                             {
                                 worker->gather(mineralPatch);

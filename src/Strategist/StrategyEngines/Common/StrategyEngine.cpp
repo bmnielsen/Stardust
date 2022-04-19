@@ -230,7 +230,7 @@ void StrategyEngine::cancelTrainingUnits(std::map<int, std::vector<ProductionGoa
         // Check if the producer is available
         // To avoid instability from latcom, we assume it is available if we have just ordered it to do something
         if (!producer->bwapiUnit->isTraining() ||
-            (currentFrame - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+            (currentFrame - producer->lastCommandFrame - 1) <= BWAPI::Broodwar->getLatencyFrames())
         {
             requiredCapacity--;
             continue;

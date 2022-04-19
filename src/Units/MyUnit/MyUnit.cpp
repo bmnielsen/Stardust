@@ -70,7 +70,7 @@ void MyUnitImpl::update(BWAPI::Unit unit)
         unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Cancel_Train &&
         unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Cancel_Train_Slot &&
         unit->getTrainingQueue().size() > 1 &&
-        unit->getLastCommandFrame() < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+        lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
     {
         Log::Get() << "WARNING: Training queue for " << unit->getType() << " @ " << unit->getTilePosition()
                    << " is too deep! Cancelling later units.";
@@ -129,7 +129,7 @@ void MyUnitImpl::attackUnit(const Unit &target,
     bool forceAttackCommand = false;
     auto predictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
     if (!predictedPosition.isValid()) predictedPosition = lastPosition;
-    if (bwapiUnit->getLastCommandFrame() < (currentFrame - BWAPI::Broodwar->getLatencyFrames() - 6))
+    if (lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames() - 6))
     {
         forceAttackCommand = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, target->lastPosition) > dist;
     }

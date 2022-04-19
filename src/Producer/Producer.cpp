@@ -226,7 +226,7 @@ namespace Producer
         int getRemainingBuildTime(const MyUnit &producer)
         {
             if (producer->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
-                (currentFrame - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+                (currentFrame - producer->lastCommandFrame - 1) <= BWAPI::Broodwar->getLatencyFrames())
             {
                 return buildTime(producer->bwapiUnit->getLastCommand().getUnitType());
             }
@@ -239,7 +239,7 @@ namespace Producer
         int getRemainingUpgradeTime(const MyUnit &producer)
         {
             if (producer->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Upgrade &&
-                (currentFrame - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+                (currentFrame - producer->lastCommandFrame - 1) <= BWAPI::Broodwar->getLatencyFrames())
             {
                 return buildTime(producer->bwapiUnit->getLastCommand().getUpgradeType());
             }
@@ -252,7 +252,7 @@ namespace Producer
         int getRemainingResearchTime(const MyUnit &producer)
         {
             if (producer->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Research &&
-                (currentFrame - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+                (currentFrame - producer->lastCommandFrame - 1) <= BWAPI::Broodwar->getLatencyFrames())
             {
                 return buildTime(producer->bwapiUnit->getLastCommand().getTechType());
             }
@@ -1688,7 +1688,7 @@ namespace Producer
                 // This is not perfect, as it will reduce the count of all production goals targeting this unit type, but it's probably
                 // rare that we have multiple goals with limited numbers of the same unit type anyway.
                 if (unitType && toProduce != -1 && unit->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
-                    (currentFrame - unit->bwapiUnit->getLastCommandFrame() - 1) < BWAPI::Broodwar->getLatencyFrames() &&
+                    (currentFrame - unit->lastCommandFrame - 1) < BWAPI::Broodwar->getLatencyFrames() &&
                     unit->bwapiUnit->getLastCommand().getUnitType() == *unitType)
                 {
                     toProduce--;

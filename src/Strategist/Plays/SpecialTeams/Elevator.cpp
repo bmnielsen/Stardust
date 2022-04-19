@@ -59,10 +59,10 @@ namespace
         if (shuttle->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Unload)
         {
             // Wait 12 frames after ordering an unload
-            if (shuttle->bwapiUnit->getLastCommandFrame() < (currentFrame - 12)) return;
+            if (shuttle->lastCommandFrame < (currentFrame - 12)) return;
 
             // Move to the drop position on the 12th frame
-            if (shuttle->bwapiUnit->getLastCommandFrame() == (currentFrame - 12))
+            if (shuttle->lastCommandFrame == (currentFrame - 12))
             {
                 shuttleMove(shuttle, pos);
                 return;
@@ -86,10 +86,10 @@ namespace
         if (shuttle->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Load)
         {
             // Wait 12 frames after ordering a load
-            if (shuttle->bwapiUnit->getLastCommandFrame() < (currentFrame - 12)) return;
+            if (shuttle->lastCommandFrame < (currentFrame - 12)) return;
 
             // Move to the load position on the 12th frame
-            if (shuttle->bwapiUnit->getLastCommandFrame() == (currentFrame - 12))
+            if (shuttle->lastCommandFrame == (currentFrame - 12))
             {
                 shuttleMove(shuttle, cargo->lastPosition);
                 return;

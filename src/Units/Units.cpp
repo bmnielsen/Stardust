@@ -760,7 +760,7 @@ namespace Units
 
             // First line is command
             debug << "cmd=" << unit->bwapiUnit->getLastCommand().getType() << ";f="
-                  << (currentFrame - unit->bwapiUnit->getLastCommandFrame());
+                  << (currentFrame - unit->lastCommandFrame);
             if (unit->bwapiUnit->getLastCommand().getTarget())
             {
                 debug << ";tgt=" << unit->bwapiUnit->getLastCommand().getTarget()->getType()

@@ -50,6 +50,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , tilePositionY(unit->getPosition().y >> 5U)
         , buildTile(computeBuildTile(unit))
         , distToTargetPosition(-1)
+        , lastCommandFrame(-1)
         , lastSeen(currentFrame)
         , lastSeenAttacking(-1)
         , type(unit->getType())
@@ -101,6 +102,12 @@ void UnitImpl::update(BWAPI::Unit unit)
     if (!unit || !unit->exists()) return;
 
     distToTargetPosition = -1;
+
+    // Convert last command frame to our frame counter
+    if (unit->getLastCommandFrame() >= BWAPI::Broodwar->getFrameCount() - 1)
+    {
+        lastCommandFrame = currentFrame - (BWAPI::Broodwar->getFrameCount() - unit->getLastCommandFrame());
+    }
 
     updateGrid(unit);
 

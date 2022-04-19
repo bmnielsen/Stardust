@@ -18,10 +18,10 @@ void MyUnitImpl::move(BWAPI::Position position, bool force)
         if (bwapiUnit->getLastCommand().getTargetPosition().getApproxDistance(position) > 3) return false;
 
         // Don't resend orders to similar positions too quickly
-        if (bwapiUnit->getLastCommandFrame() > (currentFrame - BWAPI::Broodwar->getLatencyFrames() - 3)) return false;
+        if (lastCommandFrame > (currentFrame - BWAPI::Broodwar->getLatencyFrames() - 3)) return false;
 
         // Don't resend order if the unit is moving
-        return bwapiUnit->getLastCommandFrame() < frameLastMoved;
+        return lastCommandFrame < frameLastMoved;
     };
 
     if (skipMoveCommand()) return;
