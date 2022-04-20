@@ -54,6 +54,7 @@ public:
     BWAPI::Position lastPosition;       // Position of the unit when last seen
     bool lastPositionValid;             // Whether this position is still valid, i.e. we haven't seen the position empty later
     bool lastPositionVisible;           // Whether the last position was visible on the previous frame
+    double lastAngle;                   // Angle of the unit when last seen
     bool beingManufacturedOrCarried;    // Whether the unit is currently being manufactured or carried
     int frameLastMoved;                 // Last frame on which the unit changed position
 
@@ -110,6 +111,8 @@ public:
     [[nodiscard]] BWAPI::TilePosition getTilePosition() const;
 
     [[nodiscard]] bool exists() const { return bwapiUnit != nullptr; };
+
+    [[nodiscard]] int heading() const;
 
     [[nodiscard]] virtual bool isBeingManufacturedOrCarried() const { return false; };
 

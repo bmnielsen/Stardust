@@ -1,6 +1,7 @@
 #include "Geo.h"
 
 #include <set>
+#include <array>
 
 namespace
 {
@@ -13,6 +14,16 @@ namespace
         int y;
     };
     std::vector<radiusPosition> radiusPositions;
+
+    // Copied from openbw's bwgame.h, used for BW direction math
+    const std::array<unsigned int, 64> tan_table = {
+            7, 13, 19, 26, 32, 38, 45, 51, 58, 65, 71, 78, 85, 92,
+            99, 107, 114, 122, 129, 137, 146, 154, 163, 172, 181,
+            190, 200, 211, 221, 233, 244, 256, 269, 283, 297, 312,
+            329, 346, 364, 384, 405, 428, 452, 479, 509, 542, 578,
+            619, 664, 716, 775, 844, 926, 1023, 1141, 1287, 1476,
+            1726, 2076, 2600, 3471, 5211, 10429, std::numeric_limits<unsigned int>::max()
+    };
 }
 
 namespace Geo
@@ -104,9 +115,9 @@ namespace Geo
         BWAPI::Position topLeft = center + BWAPI::Position(-type.dimensionLeft(), -type.dimensionUp());
         BWAPI::Position bottomRight = center + BWAPI::Position(type.dimensionRight(), type.dimensionDown());
 
-        return BWAPI::Position(
+        return {
                 point.x < topLeft.x ? topLeft.x : (point.x > bottomRight.x ? bottomRight.x : point.x),
-                point.y < topLeft.y ? topLeft.y : (point.y > bottomRight.y ? bottomRight.y : point.y));
+                point.y < topLeft.y ? topLeft.y : (point.y > bottomRight.y ? bottomRight.y : point.y)};
     }
 
     bool Overlaps(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter)
@@ -265,10 +276,10 @@ namespace Geo
         // For buildings we assume the top left is the top left of the tile placement, not the top left of the actual building dimensions
         if (type.isBuilding())
         {
-            return BWAPI::Position(topLeft.x + type.tileWidth() * 16, topLeft.y + type.tileHeight() * 16);
+            return {topLeft.x + type.tileWidth() * 16, topLeft.y + type.tileHeight() * 16};
         }
 
-        return BWAPI::Position(topLeft.x + type.dimensionLeft() + 1, topLeft.y + type.dimensionUp() + 1);
+        return {topLeft.x + type.dimensionLeft() + 1, topLeft.y + type.dimensionUp() + 1};
     }
 
     BWAPI::Position ScaleVector(BWAPI::Position vector, int length)
@@ -276,7 +287,46 @@ namespace Geo
         auto magnitude = ApproximateDistance(vector.x, 0, vector.y, 0);
         if (magnitude == 0) return BWAPI::Positions::Invalid;
 
-        double scale = (double) length / (double) magnitude;
-        return BWAPI::Position((int) ((double) vector.x * scale), (int) ((double) vector.y * scale));
+        float scale = (float) length / (float) magnitude;
+        return {(int) ((float) vector.x * scale), (int) ((float) vector.y * scale)};
+    }
+
+    BWAPI::Position PerpendicularVector(BWAPI::Position vector, int length)
+    {
+        if (vector.y == 0)
+        {
+            if (vector.x == 0)
+            {
+                return BWAPI::Positions::Invalid;
+            }
+
+            return {0, length};
+        }
+
+        return ScaleVector({-1000, (1000 * vector.x) / vector.y}, length);
+    }
+
+    int BWDirection(BWAPI::Position vector)
+    {
+        // Combination of the logic in openbw's xy_direction and atan
+
+        if (vector.x == 0) return vector.y <= 0 ? 0 : -128;
+
+        auto raw = (vector.y << 8) / vector.x;
+
+        bool negative = raw < 0;
+        if (negative) raw = -raw;
+
+        size_t r = std::lower_bound(tan_table.begin(), tan_table.end(), raw) - tan_table.begin();
+
+        return int((vector.x > 0 ? 64 : -64) + (negative ? -r : r));
+    }
+
+    int BWAngleDiff(int a, int b)
+    {
+        int diff = a - b;
+        if (diff > 127) diff -= 256;
+        if (diff < -128) diff += 256;
+        return abs(diff);
     }
 }

@@ -1,11 +1,19 @@
 #include "UnitUtil.h"
 
+#include <array>
 
 namespace UnitUtil
 {
     namespace
     {
         const int WARP_IN_FRAMES = 71;
+
+        const std::array<int, 134> weaponAngles = {
+                16, 16, 16, 16, 64, 64, 128, 16, 32, 16, 32, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+                16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 128, 128, 128, 128, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+                16, 128, 128, 16, 16, 16, 16, 16, 16, 32, 16, 32, 16, 16, 16, 128, 128, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 128, 128, 96, 64, 16,
+                32, 32, 32, 16, 16, 16, 32, 16, 16, 16, 16, 16, 0, 16, 16, 16, 16, 16, 32, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16
+        };
     }
 
     bool Powers(BWAPI::TilePosition pylonTile, BWAPI::TilePosition buildingTile, BWAPI::UnitType buildingType)
@@ -182,5 +190,17 @@ namespace UnitUtil
         if (morphsFrom.second > 0) gas += morphsFrom.second * GasCost(morphsFrom.first);
 
         return gas;
+    }
+
+    int GroundWeaponAngle(BWAPI::UnitType type)
+    {
+        if (type.groundWeapon().getID() >= weaponAngles.size()) return 0;
+        return weaponAngles[type.groundWeapon().getID()];
+    }
+
+    int AirWeaponAngle(BWAPI::UnitType type)
+    {
+        if (type.airWeapon().getID() >= weaponAngles.size()) return 0;
+        return weaponAngles[type.airWeapon().getID()];
     }
 }

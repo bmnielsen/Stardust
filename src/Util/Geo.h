@@ -44,6 +44,14 @@ namespace Geo
 
     BWAPI::Position ScaleVector(BWAPI::Position vector, int length);
 
+    BWAPI::Position PerpendicularVector(BWAPI::Position vector, int length);
+
+    // The direction along a vector in BW representation (1/256th of a circle)
+    int BWDirection(BWAPI::Position vector);
+
+    // Difference between two angles in BW representation (1/256th of a circle)
+    int BWAngleDiff(int a, int b);
+
     class Spiral
     {
     public:

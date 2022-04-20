@@ -17,6 +17,15 @@ BWAPI::TilePosition UnitImpl::getTilePosition() const
     return BWAPI::TilePosition{tilePositionX, tilePositionY};
 }
 
+int UnitImpl::heading() const
+{
+    // Do the reverse of what BWAPI does in UnitUpdate to get BW's heading
+    int heading = (int)round((lastAngle * 128.0) / 3.14159265358979323846);
+    heading += 64;
+    if (heading > 127) heading -= 256;
+    return heading;
+}
+
 bool UnitImpl::isAttackable() const
 {
     return exists() &&

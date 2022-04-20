@@ -58,6 +58,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , lastPosition(unit->getPosition())
         , lastPositionValid(true)
         , lastPositionVisible(true)
+        , lastAngle(unit->getAngle())
         , beingManufacturedOrCarried(false)
         , frameLastMoved(currentFrame)
         , predictedPosition(BWAPI::Positions::Invalid)
@@ -124,6 +125,7 @@ void UnitImpl::update(BWAPI::Unit unit)
     tilePositionX = unit->getPosition().x >> 5U;
     tilePositionY = unit->getPosition().y >> 5U;
     lastPosition = simPosition = unit->getPosition();
+    lastAngle = unit->getAngle();
     predictedPosition = BWAPI::Positions::Invalid;
     offsetToVanguardUnit = {};
     lastPositionValid = simPositionValid = true;

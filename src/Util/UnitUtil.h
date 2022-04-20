@@ -29,4 +29,8 @@ namespace UnitUtil
     int MineralCost(BWAPI::UnitType type);
 
     int GasCost(BWAPI::UnitType type);
+
+    int GroundWeaponAngle(BWAPI::UnitType type);
+
+    int AirWeaponAngle(BWAPI::UnitType type);
 }
