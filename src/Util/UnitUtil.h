@@ -33,4 +33,6 @@ namespace UnitUtil
     int GroundWeaponAngle(BWAPI::UnitType type);
 
     int AirWeaponAngle(BWAPI::UnitType type);
+
+    int HaltDistance(BWAPI::UnitType type);
 }

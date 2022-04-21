@@ -4,6 +4,7 @@
 #include "PathFinding.h"
 #include "Map.h"
 #include "Geo.h"
+#include "UnitUtil.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -16,6 +17,8 @@
 
 namespace
 {
+    const int HALT_DISTANCE = UnitUtil::HaltDistance(BWAPI::UnitTypes::Protoss_Observer) + 16;
+
     BWAPI::Position scaledPosition(BWAPI::Position currentPosition, BWAPI::Position vector, int length)
     {
         auto scaledVector = Geo::ScaleVector(vector, length);
@@ -26,8 +29,8 @@ namespace
 
     void moveAwayFrom(MyUnit &detector, BWAPI::Position target)
     {
-        // Move towards two tiles in the opposite direction
-        auto behind = scaledPosition(detector->lastPosition, detector->lastPosition - target, 64);
+        // Move in the opposite direction
+        auto behind = scaledPosition(detector->lastPosition, detector->lastPosition - target, HALT_DISTANCE);
         if (behind.isValid())
         {
 #if DEBUG_UNIT_ORDERS
@@ -69,7 +72,11 @@ namespace
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(detector->id) << "Moving towards target @ " << BWAPI::WalkPosition(target);
 #endif
-        detector->moveTo(target);
+        // Scale to our halt distance
+        auto scaledVector = Geo::ScaleVector(target - detector->lastPosition, HALT_DISTANCE);
+        auto scaledTarget = (scaledVector == BWAPI::Positions::Invalid) ? target : detector->lastPosition + scaledVector;
+        if (!scaledTarget.isValid()) scaledTarget = target;
+        detector->moveTo(scaledTarget);
     }
 }
 

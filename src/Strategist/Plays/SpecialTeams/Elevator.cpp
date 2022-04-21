@@ -8,9 +8,12 @@
 #include "Strategist.h"
 #include "Geo.h"
 #include "Opponent.h"
+#include "UnitUtil.h"
 
 namespace
 {
+    const int SHUTTLE_HALT_DISTANCE = UnitUtil::HaltDistance(BWAPI::UnitTypes::Protoss_Shuttle) + 16;
+
     bool validElevatorPosition(BWAPI::TilePosition tile)
     {
         auto validAndWalkable = [](BWAPI::TilePosition tile)
@@ -40,8 +43,8 @@ namespace
 
     void shuttleMove(MyUnit &shuttle, BWAPI::Position pos)
     {
-        // Always move towards a position three tiles away
-        auto moveTarget = scaledPosition(shuttle->lastPosition, pos - shuttle->lastPosition, 96);
+        // Always move towards a position at least halt distance away
+        auto moveTarget = scaledPosition(shuttle->lastPosition, pos - shuttle->lastPosition, SHUTTLE_HALT_DISTANCE);
 
         // If it is invalid, it means we are exactly on our target position, so just use our main until we get somewhere else
         if (moveTarget == BWAPI::Positions::Invalid) moveTarget = Map::getMyMain()->getPosition();

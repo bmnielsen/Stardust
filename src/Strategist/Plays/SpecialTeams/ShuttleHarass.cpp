@@ -5,15 +5,16 @@
 #include "Units.h"
 #include "Strategist.h"
 #include "Geo.h"
+#include "UnitUtil.h"
 
 #include <cfloat>
 
 #include "DebugFlag_UnitOrders.h"
 
-#define HALT_DISTANCE 96
-
 namespace
 {
+    const int HALT_DISTANCE = UnitUtil::HaltDistance(BWAPI::UnitTypes::Protoss_Shuttle) + 16;
+
     // Define some positions for use in searching outwards from a point at tile resolution
     const BWAPI::Position surroundingPositions[] = {
             BWAPI::Position(0, -48),
@@ -56,7 +57,7 @@ namespace
         }
 
         // If the target is far enough away, just move directly
-        if (dist > HALT_DISTANCE)
+        if (dist >= HALT_DISTANCE)
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(shuttle->id) << "Move to " << BWAPI::WalkPosition(target) << ": far away; moving directly";
