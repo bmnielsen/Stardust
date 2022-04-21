@@ -50,6 +50,94 @@ namespace Units
         std::set<BWAPI::UpgradeType> upgradesInProgress;
         std::set<BWAPI::TechType> researchInProgress;
 
+        void trackResearch(const BWAPI::Unit bwapiUnit)
+        {
+            if (bwapiUnit->getPlayer() == BWAPI::Broodwar->self())
+            {
+                // Terran
+                if (bwapiUnit->isLockedDown()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Lockdown);
+                if (bwapiUnit->isIrradiated()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Irradiate);
+                if (bwapiUnit->isBlind()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Optical_Flare);
+
+                // Zerg
+                if (bwapiUnit->isUnderDarkSwarm()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Dark_Swarm);
+                if (bwapiUnit->isPlagued()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Plague);
+                if (bwapiUnit->isEnsnared()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Ensnare);
+                if (bwapiUnit->isParasited()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Parasite);
+
+                return;
+            }
+
+            // Terran
+            if (bwapiUnit->isStimmed())
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Stim_Packs);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Spider_Mines);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Spell_Scanner_Sweep)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Scanner_Sweep);
+            }
+            if (bwapiUnit->isSieged())
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Tank_Siege_Mode);
+            }
+            if (bwapiUnit->isDefenseMatrixed())
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Defensive_Matrix);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Terran_Wraith && bwapiUnit->isCloaked())
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Cloaking_Field);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Terran_Ghost && bwapiUnit->isCloaked())
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Personnel_Cloaking);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Terran_Nuclear_Silo ||
+                bwapiUnit->getType() == BWAPI::UnitTypes::Terran_Nuclear_Missile)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Nuclear_Strike);
+            }
+
+            // Zerg
+            if (bwapiUnit->getType() != BWAPI::UnitTypes::Zerg_Lurker &&
+                (bwapiUnit->isBurrowed() || bwapiUnit->getOrder() == BWAPI::Orders::Burrowing || bwapiUnit->getOrder() == BWAPI::Orders::Unburrowing))
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Burrowing);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Zerg_Broodling)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Spawn_Broodlings);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Spell_Dark_Swarm)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Dark_Swarm);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Zerg_Lurker_Egg ||
+                bwapiUnit->getType() == BWAPI::UnitTypes::Zerg_Lurker)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Lurker_Aspect);
+            }
+
+            // Protoss
+            if (bwapiUnit->getOrder() == BWAPI::Orders::CastRecall)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Recall);
+            }
+            if (bwapiUnit->getOrder() == BWAPI::Orders::CastStasisField)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Stasis_Field);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Spell_Disruption_Web)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Disruption_Web);
+            }
+        }
+
         void unitCreated(const Unit &unit)
         {
             Map::onUnitCreated(unit);
@@ -443,13 +531,16 @@ namespace Units
         auto ignoreUnit = [](BWAPI::Unit bwapiUnit)
         {
             return bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Interceptor ||
-                   bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Scarab;
+                   bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Scarab ||
+                   bwapiUnit->getType().isSpell();
         };
 
         // Update our units
         // We always have vision of our own units, so we don't have to handle units in fog
         for (auto bwapiUnit : BWAPI::Broodwar->self()->getUnits())
         {
+            trackResearch(bwapiUnit);
+
             if (ignoreUnit(bwapiUnit)) continue;
 
             // If we just mind controlled an enemy unit, consider the enemy unit destroyed
@@ -525,6 +616,8 @@ namespace Units
         // Update visible enemy units
         for (auto bwapiUnit : BWAPI::Broodwar->enemy()->getUnits())
         {
+            trackResearch(bwapiUnit);
+
             if (ignoreUnit(bwapiUnit)) continue;
             if (!bwapiUnit->isVisible()) continue;
 

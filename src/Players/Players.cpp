@@ -121,7 +121,19 @@ namespace Players
 
     bool hasResearched(BWAPI::Player player, BWAPI::TechType type)
     {
+
         return getUpgradeTracker(player)->hasResearched(type);
+    }
+
+    void setHasResearched(BWAPI::Player player, BWAPI::TechType type)
+    {
+#if INSTRUMENTATION_ENABLED
+        if (player == BWAPI::Broodwar->enemy() && !getUpgradeTracker(player)->hasResearched(type))
+        {
+            Log::Get() << "Enemy has researched " << type;
+        }
+#endif
+        getUpgradeTracker(player)->setHasResearched(type);
     }
 
     int upgradeLevel(BWAPI::Player player, BWAPI::UpgradeType type)

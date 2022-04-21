@@ -11,6 +11,43 @@ namespace Bullets
         std::map<int, int> seenBulletFrames;
         int bulletsSeenAtExtendedMarineRange;
 
+        void trackResearch(BWAPI::Bullet bullet)
+        {
+            // Terran
+            if (bullet->getType() == BWAPI::BulletTypes::EMP_Missile)
+            {
+                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::EMP_Shockwave);
+            }
+            if (bullet->getType() == BWAPI::BulletTypes::Yamato_Gun)
+            {
+                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Yamato_Gun);
+            }
+            if (bullet->getType() == BWAPI::BulletTypes::Optical_Flare_Grenade)
+            {
+                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Optical_Flare);
+            }
+
+            // Zerg
+            if (bullet->getType() == BWAPI::BulletTypes::Plague_Cloud)
+            {
+                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Plague);
+            }
+            if (bullet->getType() == BWAPI::BulletTypes::Consume)
+            {
+                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Consume);
+            }
+            if (bullet->getType() == BWAPI::BulletTypes::Ensnare)
+            {
+                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Ensnare);
+            }
+
+            // Protoss
+            if (bullet->getType() == BWAPI::BulletTypes::Psionic_Storm)
+            {
+                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Psionic_Storm);
+            }
+        }
+
         void checkBunkerRange(BWAPI::Bullet bullet)
         {
             // Bail out if we already know the enemy has the upgrade
@@ -77,6 +114,9 @@ namespace Bullets
             {
                 continue;
             }
+
+            // Track enemy research
+            trackResearch(bullet);
 
             // Call onBulletCreate on the first frame the bullet is seen
             auto frame = seenBulletFrames.find(bullet->getID());

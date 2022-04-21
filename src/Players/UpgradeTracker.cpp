@@ -258,6 +258,11 @@ bool UpgradeTracker::hasResearched(BWAPI::TechType type)
     return current;
 }
 
+void UpgradeTracker::setHasResearched(BWAPI::TechType type)
+{
+    _hasResearched[type] = true;
+}
+
 int UpgradeTracker::upgradeLevel(BWAPI::UpgradeType type)
 {
     auto upgradeLevelIt = _upgradeLevel.find(type);

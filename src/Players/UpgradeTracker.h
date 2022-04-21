@@ -26,6 +26,8 @@ public:
 
     bool hasResearched(BWAPI::TechType type);
 
+    void setHasResearched(BWAPI::TechType type);
+
     int upgradeLevel(BWAPI::UpgradeType type);
 
     void setWeaponRange(BWAPI::WeaponType wpn, int range, Grid &grid);
