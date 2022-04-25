@@ -327,17 +327,47 @@ void BWTest::runGame(bool opponent)
 
     auto start = std::chrono::high_resolution_clock::now();
 
+    bool isStardustModule = false;
+    auto setTestHooks = [&](BWAPI::AIModule *module)
+    {
+        auto stardustModule = dynamic_cast<StardustAIModule*>(module);
+        if (!stardustModule)
+        {
+            module->afterOnStart = [&]()
+            {
+                h->setLocalSpeed(0);
+
+                if (opponent && onStartOpponent) onStartOpponent();
+                if (!opponent && onStartMine) onStartMine();
+            };
+            return;
+        }
+
+        if (opponent)
+        {
+            stardustModule->testOnStart = onStartOpponent;
+            stardustModule->testOnFrame = onFrameOpponent;
+            stardustModule->testOnEnd = onEndOpponent;
+        }
+        else
+        {
+            stardustModule->testOnStart = onStartMine;
+            stardustModule->testOnFrame = onFrameMine;
+            stardustModule->testOnEnd = onEndMine;
+        }
+        stardustModule->afterOnStart = [&]()
+        {
+            h->setLocalSpeed(0);
+        };
+        isStardustModule = true;
+    };
+
     if (opponent)
     {
         if (opponentModule)
         {
             auto module = opponentModule();
-            module->afterOnStart = [this, &h]()
-            {
-                h->setLocalSpeed(0);
-
-                if (onStartOpponent) onStartOpponent();
-            };
+            setTestHooks(module);
             h->setAIModule(module);
         }
     }
@@ -354,12 +384,7 @@ void BWTest::runGame(bool opponent)
             if (initialUnitFrames > 0) stardustModule->frameSkip = initialUnitFrames + BWAPI::Broodwar->getLatencyFrames();
             module = stardustModule;
         }
-        module->afterOnStart = [this, &h]()
-        {
-            h->setLocalSpeed(0);
-
-            if (onStartMine) onStartMine();
-        };
+        setTestHooks(module);
         h->setAIModule(module);
         Log::SetOutputToConsole(true);
     }
@@ -408,7 +433,7 @@ void BWTest::runGame(bool opponent)
         {
             h->update();
 
-            if (!leftGame)
+            if (!isStardustModule && !leftGame)
             {
                 if (opponent)
                 {
@@ -456,13 +481,16 @@ void BWTest::runGame(bool opponent)
 
     h->update();
 
-    if (opponent)
+    if (!isStardustModule)
     {
-        if (onEndOpponent) onEndOpponent(gameOwner.getGame().won());
-    }
-    else
-    {
-        if (onEndMine) onEndMine(gameOwner.getGame().won());
+        if (opponent)
+        {
+            if (onEndOpponent) onEndOpponent(gameOwner.getGame().won());
+        }
+        else
+        {
+            if (onEndMine) onEndMine(gameOwner.getGame().won());
+        }
     }
 
     try
