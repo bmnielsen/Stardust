@@ -220,4 +220,13 @@ namespace UnitUtil
         if (type.getID() >= haltDistances.size()) return 0;
         return haltDistances[type.getID()];
     }
+
+    double Acceleration(BWAPI::UnitType type, double currentTopSpeed)
+    {
+        if (currentTopSpeed > type.topSpeed())
+        {
+            return (double)type.acceleration() / 128.0;
+        }
+        return (double)type.acceleration() / 256.0;
+    }
 }

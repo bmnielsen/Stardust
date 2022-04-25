@@ -66,6 +66,10 @@ public:
     BWAPI::Position simPosition;        // The position to use for this unit in combat simulation / targeting / etc.
     bool simPositionValid;              // Whether the simulation position is valid
 
+    // Predicted positions for the next latency + 2 frames, assuming the unit continues moving in its current direction
+    mutable std::vector<BWAPI::Position> predictedPositions;
+    mutable bool predictedPositionsUpdated;
+
     int lastHealth;                     // Health when last seen, adjusted for upcoming attacks
     int lastShields;                    // Shields when last seen, adjusted for upcoming attacks
     int health;                         // Estimated health of the unit, adjusted for upcoming attacks
@@ -176,6 +180,8 @@ public:
 
 private:
     void updateGrid(BWAPI::Unit unit);
+
+    void updatePredictedPositions() const;
 
     bool updateSimPosition();
 };

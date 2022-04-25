@@ -35,4 +35,6 @@ namespace UnitUtil
     int AirWeaponAngle(BWAPI::UnitType type);
 
     int HaltDistance(BWAPI::UnitType type);
+
+    double Acceleration(BWAPI::UnitType type, double currentTopSpeed);
 }

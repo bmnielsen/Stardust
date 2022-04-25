@@ -26,6 +26,7 @@
 #define DEBUG_PRODUCINGBUILDING_STATUS false
 #define DEBUG_ENEMY_STATUS false
 #define DEBUG_ENEMY_TIMINGS true
+#define DEBUG_PREDICTED_POSITIONS false
 #endif
 
 namespace Units
@@ -446,7 +447,7 @@ namespace Units
                     {
                         if (!base->owner) continue;
 
-                        auto predictedPosition = unit->predictPosition(5);
+                        auto predictedPosition = unit->predictPosition(1);
                         if (predictedPosition.isValid())
                         {
                             if (predictedPosition.getApproxDistance(base->getPosition()) >
@@ -935,6 +936,21 @@ namespace Units
 
             CherryVis::log(unit->id) << debug.str();
         }
+
+#if DEBUG_PREDICTED_POSITIONS
+        auto outputPredictedPositions = [](const Unit& unit)
+        {
+            std::ostringstream buf;
+            buf << "0: " << unit->lastPosition;
+            for (int i=1; i <= BWAPI::Broodwar->getLatencyFrames() + 2; i++)
+            {
+                buf << "\n" << i << ": " << unit->predictPosition(i);
+            }
+            CherryVis::log(unit->id) << buf.str();
+        };
+        for (auto &unit : myUnits) outputPredictedPositions(unit);
+        for (auto &unit : enemyUnits) outputPredictedPositions(unit);
+#endif
 
 #if DEBUG_ENEMY_TIMINGS
         std::vector<std::string> values;

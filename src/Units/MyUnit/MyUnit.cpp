@@ -161,7 +161,7 @@ void MyUnitImpl::attackUnit(const Unit &target,
 
     // Plot an intercept course
     auto interceptPosition = intercept(target);
-    if (!interceptPosition.isValid()) interceptPosition = target->predictPosition(5);
+    if (!interceptPosition.isValid()) interceptPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames() + 2);
     if (!interceptPosition.isValid()) interceptPosition = target->lastPosition;
 
 #if DEBUG_UNIT_ORDERS

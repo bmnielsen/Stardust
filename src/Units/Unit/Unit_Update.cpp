@@ -63,6 +63,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , frameLastMoved(currentFrame)
         , simPosition(unit->getPosition())
         , simPositionValid(true)
+        , predictedPositionsUpdated(false)
         , lastHealth(unit->getHitPoints())
         , lastShields(unit->getShields())
         , health(unit->getHitPoints())
@@ -81,6 +82,8 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
 
 void UnitImpl::created()
 {
+    predictedPositions.resize(BWAPI::Broodwar->getLatencyFrames() + 2);
+
     beingManufacturedOrCarried = isBeingManufacturedOrCarried();
 
     update(bwapiUnit);
@@ -129,6 +132,9 @@ void UnitImpl::update(BWAPI::Unit unit)
     lastPositionValid = simPositionValid = true;
     lastPositionVisible = true;
     beingManufacturedOrCarried = isBeingManufacturedOrCarried();
+
+    std::fill(predictedPositions.begin(), predictedPositions.end(), lastPosition);
+    predictedPositionsUpdated = false;
 
     if (player->getRace() == BWAPI::Races::Terran && unit->isCompleted() && unit->getHitPoints() > lastHealth)
     {
@@ -262,6 +268,14 @@ void UnitImpl::updateUnitInFog()
 #endif
 
         burrowed = true;
+    }
+
+    // For predicted positions, units in the fog stay put
+    // So just reset the vector on the first frame it is in the fog
+    if (lastSeen == currentFrame - 1)
+    {
+        std::fill(predictedPositions.begin(), predictedPositions.end(), lastPosition);
+        predictedPositionsUpdated = true;
     }
 
     // Update position simulation
@@ -614,6 +628,76 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
     }
 
     // TODO: Workers in a refinery
+}
+
+void UnitImpl::updatePredictedPositions() const
+{
+    if (predictedPositionsUpdated) return;
+
+    predictedPositionsUpdated = true;
+
+    // Return if we can't predict the movement
+    if (!bwapiUnit || !bwapiUnit->exists() || !bwapiUnit->isVisible()) return;
+
+    // Return if the unit isn't moving
+    double x2 = bwapiUnit->getVelocityX() * bwapiUnit->getVelocityX();
+    double y2 = bwapiUnit->getVelocityY() * bwapiUnit->getVelocityY();
+    if (x2 < 0.01 && y2 < 0.01) return;
+
+    // We go frame-by-frame to simulate acceleration
+    double topSpeed = Players::unitTopSpeed(player, type);
+    double initialSpeed = sqrt(x2 + y2);
+    double currentSpeed = initialSpeed;
+
+    // We keep track of whether the speed can still be changing and what the current speed delta is
+    bool accelerating;
+    double speedDelta;
+    double acceleration;
+    if (bwapiUnit->isAccelerating() && initialSpeed > (topSpeed - 0.1))
+    {
+        accelerating = false;
+        speedDelta = 1.0;
+        // acceleration is not needed
+    }
+    else
+    {
+        accelerating = true;
+        // speedDelta will be computed in the loop before its first usage
+        acceleration = UnitUtil::Acceleration(type, topSpeed);
+    }
+
+    double x = lastPosition.x;
+    double y = lastPosition.y;
+    for (auto& predictedPosition : predictedPositions)
+    {
+        if (accelerating)
+        {
+            if (bwapiUnit->isAccelerating())
+            {
+                currentSpeed += acceleration;
+                if (currentSpeed >= topSpeed)
+                {
+                    currentSpeed = topSpeed;
+                    accelerating = false;
+                }
+            }
+            else
+            {
+                currentSpeed -= acceleration;
+                if (currentSpeed <= 0)
+                {
+                    currentSpeed = 0.0;
+                    accelerating = false;
+                }
+            }
+            speedDelta = currentSpeed / initialSpeed;
+        }
+
+        x += bwapiUnit->getVelocityX() * speedDelta;
+        y += bwapiUnit->getVelocityY() * speedDelta;
+        predictedPosition.x = (int)x;
+        predictedPosition.y = (int)y;
+    }
 }
 
 // Called when updating a unit that is in the fog

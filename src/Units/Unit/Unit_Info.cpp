@@ -167,9 +167,8 @@ int UnitImpl::getDistance(const Unit &other, BWAPI::Position predictedOtherPosit
 
 BWAPI::Position UnitImpl::predictPosition(int frames) const
 {
-    if (!bwapiUnit || !bwapiUnit->exists() || !bwapiUnit->isVisible() || type.topSpeed() < 0.001) return lastPosition;
-
-    return bwapiUnit->getPosition() + BWAPI::Position((int) (frames * bwapiUnit->getVelocityX()), (int) (frames * bwapiUnit->getVelocityY()));
+    updatePredictedPositions();
+    return predictedPositions[frames-1];
 }
 
 // Computes the intercept point of a unit targeting another one, assuming the interceptor
