@@ -63,8 +63,6 @@ public:
     // The second is the angle offset from our vanguard unit's path to the enemy base
     std::pair<int, double> offsetToVanguardUnit;
 
-    BWAPI::Position predictedPosition;  // For units in the fog, the predicted position based on the above offset
-
     BWAPI::Position simPosition;        // The position to use for this unit in combat simulation / targeting / etc.
     bool simPositionValid;              // Whether the simulation position is valid
 
@@ -179,7 +177,7 @@ public:
 private:
     void updateGrid(BWAPI::Unit unit);
 
-    void updatePredictedPosition();
+    bool updateSimPosition();
 };
 
 std::ostream &operator<<(std::ostream &os, const UnitImpl &unit);

@@ -61,7 +61,6 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , lastAngle(unit->getAngle())
         , beingManufacturedOrCarried(false)
         , frameLastMoved(currentFrame)
-        , predictedPosition(BWAPI::Positions::Invalid)
         , simPosition(unit->getPosition())
         , simPositionValid(true)
         , lastHealth(unit->getHitPoints())
@@ -126,7 +125,6 @@ void UnitImpl::update(BWAPI::Unit unit)
     tilePositionY = unit->getPosition().y >> 5U;
     lastPosition = simPosition = unit->getPosition();
     lastAngle = unit->getAngle();
-    predictedPosition = BWAPI::Positions::Invalid;
     offsetToVanguardUnit = {};
     lastPositionValid = simPositionValid = true;
     lastPositionVisible = true;
@@ -266,24 +264,14 @@ void UnitImpl::updateUnitInFog()
         burrowed = true;
     }
 
-    // Update position prediction
-    updatePredictedPosition();
-    auto predictedPositionValid = predictedPosition.isValid();
-    if (predictedPositionValid)
-    {
-        simPosition = predictedPosition;
-        simPositionValid = true;
-    }
-    else
-    {
-        simPositionValid = lastPositionValid;
-    }
+    // Update position simulation
+    auto simPositionSucceeded = updateSimPosition();
 
     // If we've already detected that this unit has moved from its last known location, skip it
     if (!lastPositionValid) return;
 
-    // If the unit has a valid predicted position, treat its last position as invalid
-    if (predictedPositionValid)
+    // If the unit has a valid simulated position, treat its last position as invalid
+    if (simPositionSucceeded)
     {
         lastPositionValid = false;
     }
@@ -334,8 +322,6 @@ void UnitImpl::updateUnitInFog()
     // For the grid, treat units with invalid last position as destroyed
     if (!lastPositionValid)
     {
-        simPositionValid = predictedPositionValid;
-
         // Ignore flying buildings that have moved in the fog
         if (!type.isBuilding() || !isFlying)
         {
@@ -633,7 +619,7 @@ void UnitImpl::updateGrid(BWAPI::Unit unit)
 // Called when updating a unit that is in the fog
 // The basic idea is to record the location of enemy combat units when they go into the fog relative to our attack squad's vanguard
 // We then use this offset to predict where the enemy unit is, regardless of whether we or the enemy are fleeing
-void UnitImpl::updatePredictedPosition()
+bool UnitImpl::updateSimPosition()
 {
     MyUnit vanguard = nullptr;
     double vanguardDirection = 0.0;
@@ -660,23 +646,26 @@ void UnitImpl::updatePredictedPosition()
         return true;
     };
 
+    simPosition = lastPosition;
+    simPositionValid = lastPositionValid;
+
     // If the unit just entered the fog, record the offset
     if (lastSeen == currentFrame - 1)
     {
         // First reject units that are not interesting (i.e. are not mobile ground combat units)
         // When we start using corsairs vs. mutas we'll probably need to simulate air unit movement as well
-        if (isFlying) return;
-        if (burrowed) return;
-        if (type.isBuilding()) return;
-        if (type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) return;
-        if (!UnitUtil::IsCombatUnit(type)) return;
+        if (isFlying) return false;
+        if (burrowed) return false;
+        if (type.isBuilding()) return false;
+        if (type == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) return false;
+        if (!UnitUtil::IsCombatUnit(type)) return false;
 
         // Now attempt to get the vanguard unit of the vanguard attack squad cluster
-        if (!getAttackEnemyMainVanguard()) return;
+        if (!getAttackEnemyMainVanguard()) return false;
 
         // Skip units too far away
         auto vanguardDist = vanguard->lastPosition.getDistance(lastPosition);
-        if (vanguardDist > 640) return;
+        if (vanguardDist > 640) return false;
 
         // Set the distance and angle
         auto angle = atan2(vanguard->lastPosition.y - lastPosition.y, vanguard->lastPosition.x - lastPosition.x);
@@ -691,27 +680,22 @@ void UnitImpl::updatePredictedPosition()
                            << "; diff=" << (offsetToVanguardUnit.second * 57.2958);
 #endif
 
-        // For the initial frame the predicted position is the last position
-        predictedPosition = lastPosition;
-
-        return;
+        return true;
     }
 
-    // If we have an offset, predict the position
-    if (offsetToVanguardUnit.first == 0) return;
-
-    if (!getAttackEnemyMainVanguard())
-    {
-        predictedPosition = BWAPI::Positions::Invalid;
-        return;
-    }
+    // If we have an offset and a vanguard unit, predict the position
+    if (offsetToVanguardUnit.first == 0) return false;
+    if (!getAttackEnemyMainVanguard()) return false;
 
     auto a = vanguardDirection - offsetToVanguardUnit.second;
-    predictedPosition = BWAPI::Position(
+    simPosition = BWAPI::Position(
             vanguard->lastPosition.x - (int) std::round((double) offsetToVanguardUnit.first * std::cos(a)),
             vanguard->lastPosition.y - (int) std::round((double) offsetToVanguardUnit.first * std::sin(a)));
+    simPositionValid = simPosition.isValid();
 
 #if PREDICTED_POSITIONS_DEBUG
-    CherryVis::log(id) << "Predicted position: " << BWAPI::WalkPosition(predictedPosition);
+    CherryVis::log(id) << "Simulated position: " << BWAPI::WalkPosition(simPosition);
 #endif
+
+    return simPositionValid;
 }
