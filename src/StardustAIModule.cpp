@@ -124,11 +124,14 @@ void StardustAIModule::onStart()
     {
         Log::Get() << "No main choke available";
     }
-    //Log::Debug() << "Seed: " << BWAPI::Broodwar->getRandomSeed();
+
+    if (testOnStart) testOnStart();
 }
 
 void StardustAIModule::onEnd(bool isWinner)
 {
+    if (testOnEnd) testOnEnd(isWinner);
+
     Opponent::gameEnd(isWinner);
     WorkerOrderTimer::write();
     CherryVis::gameEnd();
@@ -136,7 +139,11 @@ void StardustAIModule::onEnd(bool isWinner)
 
 void StardustAIModule::onFrame()
 {
-    if (BWAPI::Broodwar->getFrameCount() < frameSkip) return;
+    if (BWAPI::Broodwar->getFrameCount() < frameSkip)
+    {
+        currentFrame++;
+        return;
+    }
     if (gameFinished) return;
     if (BWAPI::Broodwar->isPaused()) return;
     if (BWAPI::Broodwar->isReplay()) return;
@@ -221,6 +228,9 @@ void StardustAIModule::onFrame()
     // Strategist is what makes all of the big decisions
     Strategist::update();
     Timer::checkpoint("Strategist::update");
+
+    // Hook our test infrastructure in here in case we want to have our units do different stuff
+    if (testOnFrame) testOnFrame();
 
     // Update stuff that issues orders
     General::issueOrders();
