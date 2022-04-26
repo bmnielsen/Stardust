@@ -16,6 +16,7 @@ private:
     BWAPI::Unit mineralWalkingPatch;
     const BWEM::Area *mineralWalkingTargetArea;
     BWAPI::Position mineralWalkingStartPosition;
+    int nextAttackPredictedAt;
 
     void attackUnit(const Unit &target,
                     std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
