@@ -284,35 +284,38 @@ namespace CherryVis
 #endif
     }
 
-    void drawLine(int x1, int y1, int x2, int y2, DrawColor color)
+    void drawLine(int x1, int y1, int x2, int y2, DrawColor color, int unitId)
     {
 #if CHERRYVIS_ENABLED
         frameDrawCommands.push_back({
                                             {"code", 20},
                                             {"args", nlohmann::json::array({x1, y1, x2, y2, (int) color})},
-                                            {"str",  "."}
+                                            {"str",  "."},
+                                            {"unit_id",  unitId}
                                     });
 #endif
     }
 
-    void drawCircle(int x, int y, int radius, DrawColor color)
+    void drawCircle(int x, int y, int radius, DrawColor color, int unitId)
     {
 #if CHERRYVIS_ENABLED
         frameDrawCommands.push_back({
                                             {"code", 23},
                                             {"args", nlohmann::json::array({x, y, radius, (int) color})},
-                                            {"str",  "."}
+                                            {"str",  "."},
+                                            {"unit_id",  unitId}
                                     });
 #endif
     }
 
-    void drawText(int x, int y, const std::string &text)
+    void drawText(int x, int y, const std::string &text, int unitId)
     {
 #if CHERRYVIS_ENABLED
         frameDrawCommands.push_back({
                                             {"code", 25},
                                             {"args", nlohmann::json::array({x, y})},
-                                            {"str",  text}
+                                            {"str",  text},
+                                            {"unit_id",  unitId}
                                     });
 #endif
     }

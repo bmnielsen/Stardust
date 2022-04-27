@@ -155,7 +155,8 @@ namespace Boids
                     unit->lastPosition.y,
                     unit->lastPosition.x + x[i],
                     unit->lastPosition.y + y[i],
-                    color);
+                    color,
+                    unit->id);
         }
 #endif
 
@@ -170,7 +171,7 @@ namespace Boids
             auto pos = AvoidNoGoArea(unit);
 
 #if DRAW_BOIDS
-            CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Purple);
+            CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Purple, unit->id);
 #endif
 
             return pos;
@@ -196,7 +197,7 @@ namespace Boids
 #if DRAW_BOIDS
             if (pos != BWAPI::Positions::Invalid)
             {
-                CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Blue);
+                CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Blue, unit->id);
             }
 #endif
 
@@ -221,7 +222,8 @@ namespace Boids
                         unit->lastPosition.y,
                         collisionReferencePos.x + collisionVector.x,
                         collisionReferencePos.y + collisionVector.y,
-                        CherryVis::DrawColor::Teal);
+                        CherryVis::DrawColor::Teal,
+                        unit->id);
 #endif
 
                 auto totalVector = (collisionReferencePos + collisionVector) - unit->lastPosition;
@@ -243,7 +245,7 @@ namespace Boids
 #if DRAW_BOIDS
         if (pos != BWAPI::Positions::Invalid)
         {
-            CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Blue);
+            CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Blue, unit->id);
         }
 #endif
 

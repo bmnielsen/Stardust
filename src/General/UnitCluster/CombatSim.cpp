@@ -303,12 +303,12 @@ namespace
                             localData.erase(it);
                         }
 
-                        CherryVis::drawCircle(unit.x, unit.y, 1, color);
+                        CherryVis::drawCircle(unit.x, unit.y, 1, color, unit.id);
                     }
 
                     for (auto &unit : localData)
                     {
-                        CherryVis::drawCircle(std::get<0>(unit.second), std::get<1>(unit.second), 1, CherryVis::DrawColor::Red);
+                        CherryVis::drawCircle(std::get<0>(unit.second), std::get<1>(unit.second), 1, CherryVis::DrawColor::Red, unit.first);
                     }
                 };
                 draw(*sim.getState().first, player1DrawData, CherryVis::DrawColor::Yellow);

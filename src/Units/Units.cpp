@@ -893,13 +893,6 @@ namespace Units
                       << ";lstmv=" << (unit->getLastMoveFrame() - currentFrame);
             }
 
-            if (unit->energy > 0)
-            {
-                debug << ";nrg=" << unit->energy;
-            }
-
-            debug << ";cdn=" << (unit->cooldownUntil - currentFrame);
-
             if (unit->getUnstickUntil() >= currentFrame)
             {
                 debug << ";unstck=" << (unit->getUnstickUntil() - currentFrame);

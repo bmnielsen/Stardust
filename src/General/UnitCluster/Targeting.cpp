@@ -324,7 +324,8 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                                     unit->lastPosition.y,
                                     target->unit->lastPosition.x,
                                     target->unit->lastPosition.y,
-                                    CherryVis::DrawColor::White);
+                                    CherryVis::DrawColor::White,
+                                    unit->id);
             }
 #endif
 
@@ -707,7 +708,8 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                                 attacker.unit->lastPosition.y,
                                 bestTarget->unit->lastPosition.x,
                                 bestTarget->unit->lastPosition.y,
-                                CherryVis::DrawColor::White);
+                                CherryVis::DrawColor::White,
+                                attacker.unit->id);
 #endif
         }
         else
