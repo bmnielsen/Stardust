@@ -6,7 +6,7 @@
 #include "Workers.h"
 #include "MyWorker.h"
 
-TEST(MovingShot, Probe)
+TEST(MovingShot, ProbeVsSCV)
 {
     BWTest test;
     test.opponentModule = []()
@@ -28,7 +28,7 @@ TEST(MovingShot, Probe)
     };
 
     MyUnit probe = nullptr;
-    Unit scv = nullptr;
+    Unit target = nullptr;
 
     test.onFrameMine = [&]()
     {
@@ -54,63 +54,43 @@ TEST(MovingShot, Probe)
             return;
         }
 
-        if (!scv)
+        if (!target)
         {
             for (auto &unit : Units::allEnemyOfType(BWAPI::UnitTypes::Terran_SCV))
             {
-                scv = unit;
+                target = unit;
             }
-            if (!scv) return;
+            if (!target) return;
         }
-        if (!scv->exists())
+        if (!target->exists())
         {
-            CherryVis::log(scv->id) << "DIED";
+            CherryVis::log(target->id) << "DIED";
             BWAPI::Broodwar->leaveGame();
             return;
         }
 
-//        auto speed = [](BWAPI::Unit unit)
-//        {
-//            return sqrt(unit->getVelocityX() * unit->getVelocityX() + unit->getVelocityY() * unit->getVelocityY());
-//        };
-//
-//        CherryVis::log(probe->id)
-//            << "dist=" << probe->getDistance(scv)
-//            << "; cooldown=" << (probe->cooldownUntil - currentFrame + 1)
-//            << "; spd=" << speed(probe->bwapiUnit)
-//            << "; spd%=" << (speed(probe->bwapiUnit) * 100.0 / probe->type.topSpeed());
-//
-//        CherryVis::log(scv->id)
-//            << "dist=" << scv->getDistance(scv)
-//            << "; cooldown=" << (scv->cooldownUntil - currentFrame + 1)
-//            << "; spd=" << speed(scv->bwapiUnit)
-//            << "; spd%=" << (speed(scv->bwapiUnit) * 100.0 / scv->type.topSpeed());
-
-        probe->attackUnit(scv);
+        probe->attackUnit(target);
     };
 
     test.onFrameOpponent = []()
     {
-        BWAPI::Unit scv = nullptr;
+        BWAPI::Unit target = nullptr;
         for (auto &unit : BWAPI::Broodwar->self()->getUnits())
         {
             if (unit->getType() != BWAPI::UnitTypes::Terran_SCV) continue;
             if (unit->getDistance(BWAPI::Position(BWAPI::TilePosition(69, 20))) > 1000) continue;
-            scv = unit;
+            target = unit;
             break;
         }
-        if (!scv) return;
+        if (!target) return;
 
-//        scv->stop();
-//        return;
-
-        if (scv->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit) return;
+        if (target->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit) return;
 
         for (auto &unit : BWAPI::Broodwar->enemy()->getUnits())
         {
             if (unit->getType() == BWAPI::UnitTypes::Protoss_Probe)
             {
-                scv->attack(unit);
+                target->attack(unit);
                 return;
             }
         }
@@ -118,9 +98,115 @@ TEST(MovingShot, Probe)
 
     test.onEndMine = [&](bool won)
     {
-        if (scv)
+        if (target)
         {
-            EXPECT_FALSE(scv->exists()) << "Failed to kill SCV";
+            EXPECT_FALSE(target->exists()) << "Failed to kill target";
+        }
+
+        if (probe)
+        {
+            std::cout << "Final probe stats: shield=" << probe->lastShields << "; health=" << probe->lastHealth << std::endl;
+        }
+    };
+
+    test.run();
+}
+
+TEST(MovingShot, ProbeVsProbe)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.map = Maps::GetOne("Heartbreak");
+    test.randomSeed = 42;
+    test.frameLimit = 1000;
+    test.expectWin = false;
+
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(75, 20)),
+    };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(72, 20)),
+    };
+
+    MyUnit probe = nullptr;
+    Unit target = nullptr;
+
+    test.onFrameMine = [&]()
+    {
+        if (!probe)
+        {
+            for (auto &unit : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
+            {
+                if (unit->getDistance(BWAPI::Position(BWAPI::TilePosition(69, 20))) < 600)
+                {
+                    probe = unit;
+                    Workers::reserveWorker(probe);
+                    break;
+                }
+            }
+            if (!probe) return;
+        }
+
+        if (!probe->exists())
+        {
+            CherryVis::log(probe->id) << "DIED";
+            BWAPI::Broodwar->leaveGame();
+            ASSERT_FALSE(true) << "Probe died";
+            return;
+        }
+
+        if (!target)
+        {
+            for (auto &unit : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Probe))
+            {
+                target = unit;
+            }
+            if (!target) return;
+        }
+        if (!target->exists())
+        {
+            CherryVis::log(target->id) << "DIED";
+            BWAPI::Broodwar->leaveGame();
+            return;
+        }
+
+        probe->attackUnit(target);
+    };
+
+    test.onFrameOpponent = []()
+    {
+        BWAPI::Unit target = nullptr;
+        for (auto &unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (unit->getType() != BWAPI::UnitTypes::Protoss_Probe) continue;
+            if (unit->getDistance(BWAPI::Position(BWAPI::TilePosition(69, 20))) > 1000) continue;
+            target = unit;
+            break;
+        }
+        if (!target) return;
+
+        if (target->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit) return;
+
+        for (auto &unit : BWAPI::Broodwar->enemy()->getUnits())
+        {
+            if (unit->getType() == BWAPI::UnitTypes::Protoss_Probe)
+            {
+                target->attack(unit);
+                return;
+            }
+        }
+    };
+
+    test.onEndMine = [&](bool won)
+    {
+        if (target)
+        {
+            EXPECT_FALSE(target->exists()) << "Failed to kill target";
         }
 
         if (probe)
