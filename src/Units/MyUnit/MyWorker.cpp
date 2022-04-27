@@ -224,7 +224,6 @@ void MyWorker::attackUnit(const Unit &target,
     int framesToRange = std::max(0, (int)std::ceil((predictedDist - groundRange()) / type.topSpeed())) + BWAPI::Broodwar->getLatencyFrames();
 
     // Adjust the framesToRange by the number of frames it will take us to turn towards the enemy
-    // TODO: Can we predict our heading at latency frmaes?
     auto currentHeading = heading();
     int angleDiff = Geo::BWAngleDiff(Geo::BWDirection(targetPredictedPosition - myPredictedPosition), currentHeading);
     framesToRange += (angleDiff / type.turnRadius());
@@ -241,19 +240,30 @@ void MyWorker::attackUnit(const Unit &target,
             << ", currentAngleDiff=" << Geo::BWAngleDiff(Geo::BWDirection(target->lastPosition - lastPosition), currentHeading);
 
     // Check if we should transition to attack
-    if (nextAttackPredictedAt < (currentFrame - 1))
+    auto shouldTransitionToAttack = [&]()
     {
         // We consider twice the latency for cooldown to account for our approach towards the enemy and provide a bit of a buffer for
         // unforeseen delays
-        if (framesToRange >= (cooldownFrames - BWAPI::Broodwar->getLatencyFrames()))
-        {
-            nextAttackPredictedAt = currentFrame + std::max(BWAPI::Broodwar->getLatencyFrames(), cooldownFrames);
+        if (framesToRange < (cooldownFrames - BWAPI::Broodwar->getLatencyFrames())) return false;
+
+        // If we have an estimation of the enemy order timer, try to time our attack so the enemy's order timer will not allow it to attack
+        // while we are in range
+        if (target->orderProcessTimer == -1) return true;
+        if ((BWAPI::Broodwar->getFrameCount() - 8) % 150 > 135) return true; // timers will be reset soon, so we can't use them for prediction
+
+        int timerAtRange = target->orderProcessTimer - framesToRange - BWAPI::Broodwar->getLatencyFrames();
+        while (timerAtRange < 0) timerAtRange += 9;
+        CherryVis::log(id) << "Timer @ range: " << timerAtRange;
+        return timerAtRange > 6;
+    };
+    if (nextAttackPredictedAt < (currentFrame - 1) && shouldTransitionToAttack())
+    {
+        nextAttackPredictedAt = currentFrame + std::max(BWAPI::Broodwar->getLatencyFrames(), cooldownFrames);
 
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(id) << "Transitioning to attack: cooldownFrames=" << cooldownFrames
-                               << "; framesToRange=" << framesToRange;
+        CherryVis::log(id) << "Transitioning to attack: cooldownFrames=" << cooldownFrames
+                           << "; framesToRange=" << framesToRange;
 #endif
-        }
     }
 
     // Get where we want to move to depending on whether we are attacking or not

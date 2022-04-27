@@ -688,6 +688,32 @@ namespace Units
             enemyUnitDestroyed(unit);
         }
 
+        // Update the order timers
+        if ((BWAPI::Broodwar->getFrameCount() - 8) % 150 == 0)
+        {
+            for (auto &unit : myUnits) unit->orderProcessTimer = -1;
+            for (auto &unit : enemyUnits) unit->orderProcessTimer = -1;
+        }
+        else
+        {
+            auto updateOrderProcessTimer = [](auto &unit)
+            {
+                if (unit->orderProcessTimer > 0)
+                {
+                    unit->orderProcessTimer--;
+                }
+                else if (unit->orderProcessTimer == 0)
+                {
+                    unit->orderProcessTimer = 8;
+                }
+
+                CherryVis::log(unit->id) << "Predicted order process timer: " << unit->orderProcessTimer
+                                   << (((BWAPI::Broodwar->getFrameCount() - 8) % 150 == 0) ? " (RESET)" : "");
+            };
+            for (auto &unit : myUnits) updateOrderProcessTimer(unit);
+            for (auto &unit : enemyUnits) updateOrderProcessTimer(unit);
+        }
+
         // Update visible neutral units to detect addons that have gone neutral or refineries that have become geysers
         destroyedEnemyUnits.clear();
         for (auto bwapiUnit : BWAPI::Broodwar->neutral()->getUnits())
@@ -1000,6 +1026,12 @@ namespace Units
     {
         if (!bullet->getSource() || !bullet->getTarget()) return;
 
+        auto source = get(bullet->getSource());
+        auto target = get(bullet->getTarget());
+        if (!source || !target) return;
+
+        source->lastTarget = target;
+
         // If this bullet is a ranged bullet that deals damage after a delay, track it on the unit it is moving towards
         if (bullet->getType() == BWAPI::BulletTypes::Gemini_Missiles ||         // Wraith
             bullet->getType() == BWAPI::BulletTypes::Fragmentation_Grenade ||   // Vulture
@@ -1016,8 +1048,6 @@ namespace Units
             bullet->getType() == BWAPI::BulletTypes::Halo_Rockets ||            // Valkyrie
             bullet->getType() == BWAPI::BulletTypes::Subterranean_Spines)       // Lurker
         {
-            auto source = get(bullet->getSource());
-            auto target = get(bullet->getTarget());
             if (source && target)
             {
                 target->addUpcomingAttack(source, bullet);

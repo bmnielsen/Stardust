@@ -94,6 +94,9 @@ public:
     std::vector<UpcomingAttack>
             upcomingAttacks;            // List of attacks of this unit that are expected soon
 
+    int orderProcessTimer;              // The expected current value of the unit's order process timer, or -1 if we don't know
+    Unit lastTarget;                    // The last target of this unit
+
     explicit UnitImpl(BWAPI::Unit unit);
 
     virtual ~UnitImpl() = default;

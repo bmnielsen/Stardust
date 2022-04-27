@@ -78,7 +78,9 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , undetected(isUndetected(unit))
         , immobile(unit->isStasised() || unit->isLockedDown())
         , burrowed(unit->isBurrowed())
-        , lastBurrowing(unit->getOrder() == BWAPI::Orders::Burrowing ? currentFrame : 0) {}
+        , lastBurrowing(unit->getOrder() == BWAPI::Orders::Burrowing ? currentFrame : 0)
+        , orderProcessTimer(-1)
+        , lastTarget(nullptr) {}
 
 void UnitImpl::created()
 {
@@ -178,9 +180,18 @@ void UnitImpl::update(BWAPI::Unit unit)
     if (unit->isVisible())
     {
         auto cooldown = std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown());
-        if (cooldown > 0 && cooldown > (cooldownUntil - currentFrame + 1))
+        if (cooldown > 0)
         {
-            lastSeenAttacking = currentFrame;
+            if (cooldown > (cooldownUntil - currentFrame + 1))
+            {
+                lastSeenAttacking = currentFrame;
+                orderProcessTimer = 0;
+            }
+            else if (cooldown > 0 && orderProcessTimer == 0 && lastTarget && lastTarget->exists() && lastTarget->lastPositionValid
+                && getDistance(lastTarget) < range(lastTarget))
+            {
+                orderProcessTimer = cooldown;
+            }
         }
         cooldownUntil = currentFrame + cooldown;
         stimmedUntil = currentFrame + unit->getStimTimer();
