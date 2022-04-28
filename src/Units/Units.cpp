@@ -5,6 +5,7 @@
 #include "Map.h"
 #include "NoGoAreas.h"
 #include "BuildingPlacement.h"
+#include "MyCannon.h"
 #include "MyCarrier.h"
 #include "MyDragoon.h"
 #include "MyWorker.h"
@@ -569,6 +570,11 @@ namespace Units
                 else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Carrier)
                 {
                     unit = std::make_shared<MyCarrier>(bwapiUnit);
+                    unit->created();
+                }
+                else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+                {
+                    unit = std::make_shared<MyCannon>(bwapiUnit);
                     unit->created();
                 }
                 else

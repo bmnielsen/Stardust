@@ -56,7 +56,7 @@ protected:
     int vanguardClusterDistToTargetPosition;
 
     std::set<Unit> enemiesNeedingDetection;
-    std::set<MyUnit> detectors;
+    std::set<MyUnit> detectors; // only mobile detectors
     std::set<MyUnit> arbiters;
 
     [[nodiscard]] virtual bool canAddUnitToCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster, int dist) const;

@@ -169,6 +169,7 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     int minCenterDist = INT_MAX;
     for (auto &unit : units)
     {
+        if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
         if (unit->distToTargetPosition == -1) continue;
         if (unit->isFlying != (minGroundDistance == INT_MAX)) continue;
         if (unit->distToTargetPosition - (unit->isFlying ? minAirDistance : minGroundDistance) > 32) continue;
@@ -188,6 +189,7 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
         minAirDistance = INT_MAX;
         for (auto &unit : units)
         {
+            if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
             unit->distToTargetPosition = unit->lastPosition.getApproxDistance(targetPosition);
             if (unit->distToTargetPosition < minAirDistance)
             {
@@ -195,6 +197,11 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
                 vanguard = unit;
             }
         }
+    }
+
+    if (!vanguard)
+    {
+        vanguard = *units.begin();
     }
 
     vanguardDistToTarget = vanguard->distToTargetPosition;

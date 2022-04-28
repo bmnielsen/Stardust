@@ -50,6 +50,8 @@ bool UnitCluster::moveAsBall(BWAPI::Position targetPosition)
 
     for (const auto &unit : units)
     {
+        if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+
         // If the unit is stuck, unstick it
         if (unit->unstick()) continue;
 
@@ -117,6 +119,8 @@ bool UnitCluster::moveAsBall(BWAPI::Position targetPosition)
         for (const auto &other : units)
         {
             if (other == unit) continue;
+            if (other->isFlying) continue;
+            if (other->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
             Boids::AddSeparation(unit.get(), other, separationDetectionLimitFactor, separationWeight, separationX, separationY);
         }

@@ -19,6 +19,9 @@ void UnitCluster::move(BWAPI::Position targetPosition)
     {
         for (const auto &unit : units)
         {
+            if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+            if (unit->isFlying) continue;
+
             auto pos = unit->getTilePosition();
             if (Map::isInNarrowChoke(pos) || Map::isInLeafArea(pos) || Map::walkableWidth(pos.x, pos.y) < 4)
             {
@@ -32,6 +35,8 @@ void UnitCluster::move(BWAPI::Position targetPosition)
 
     for (const auto &unit : units)
     {
+        if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+
         // If the unit is stuck, unstick it
         if (unit->unstick()) continue;
 

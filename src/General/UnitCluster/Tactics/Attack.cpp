@@ -84,6 +84,7 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
         int countWithinLimit = 0;
         for (auto &unitAndTarget : unitsAndTargets)
         {
+            if (unitAndTarget.first->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
             if (unitAndTarget.first->isFlying) continue;
 
             int dist = effectiveDist(unitAndTarget.first);
@@ -117,6 +118,13 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
                                                     << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
 #endif
             myUnit->attackUnit(unitAndTarget.second, unitsAndTargets, true, enemyAoeRadius);
+        }
+        else if (myUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(unitAndTarget.first->id) << "No target: stopping";
+#endif
+            myUnit->stop();
         }
         else
         {

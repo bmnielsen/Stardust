@@ -25,7 +25,7 @@ void Squad::addUnit(const MyUnit &unit)
 {
     CherryVis::log(unit->id) << "Added to squad: " << label;
 
-    if (unit->type.isDetector())
+    if (unit->type.isDetector() && !unit->type.isBuilding())
     {
         detectors.insert(unit);
     }

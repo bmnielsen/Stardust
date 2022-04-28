@@ -373,6 +373,19 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 continue;
             }
 
+            // Cannons can only attack what they are in range of
+            if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+            {
+                auto predictedRange = unit->getDistance(target.unit, target.unit->predictPosition(BWAPI::Broodwar->getLatencyFrames()));
+                if (predictedRange > (target.unit->isFlying ? unit->airRange() : unit->groundRange()))
+                {
+#if DEBUG_TARGETING
+                    dbg << "\n Skipping " << *target.unit << " as it is not in range";
+#endif
+                    continue;
+                }
+            }
+
             const int range = unit->getDistance(target.unit);
             int distToRange = std::max(0, range - (target.unit->isFlying ? unit->airRange() : unit->groundRange()));
 
@@ -454,9 +467,13 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 #endif
             attacker.targets.emplace_back(&target);
 
-            int framesToAttack = std::max(unit->cooldownUntil - currentFrame,
-                                          (int) ((double) targetAndDistToRange.second / unit->type.topSpeed())
-                                          + BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+            int framesToAttack = unit->cooldownUntil - currentFrame;
+            if (unit->type != BWAPI::UnitTypes::Protoss_Photon_Cannon)
+            {
+                framesToAttack = std::max(
+                        framesToAttack,
+                        (int) ((double) targetAndDistToRange.second / unit->type.topSpeed()) + BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+            }
 
             if (framesToAttack < attacker.framesToAttack)
             {

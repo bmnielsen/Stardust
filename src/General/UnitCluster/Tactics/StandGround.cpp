@@ -18,6 +18,7 @@ void UnitCluster::standGround(std::set<Unit> &enemyUnits, BWAPI::Position target
     for (const auto &unit : enemyUnits)
     {
         if (unit->isFlying) continue;
+        if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
         if (!unit->lastPositionValid) continue;
 
         int dist = vanguard->getDistance(unit);

@@ -49,6 +49,7 @@ void UnitCluster::holdChoke(Choke *choke,
         if (!target) continue;
 
         auto &myUnit = unitAndTarget.first;
+        if (myUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
         // TODO: Check if the unit is in position
 
@@ -162,6 +163,7 @@ void UnitCluster::holdChoke(Choke *choke,
     for (const auto &unitAndTarget : unitsAndTargets)
     {
         auto &myUnit = unitAndTarget.first;
+        if (myUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
         // If the unit is stuck, unstick it
         if (myUnit->unstick()) continue;

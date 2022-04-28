@@ -8,6 +8,7 @@ class AttackBaseSquad : public Squad
 public:
     explicit AttackBaseSquad(Base *base)
             : Squad((std::ostringstream() << "Attack base @ " << base->getTilePosition()).str())
+            , base(base)
             , ignoreCombatSim(false)
     {
         targetPosition = base->getPosition();
@@ -15,6 +16,7 @@ public:
 
     virtual ~AttackBaseSquad() = default;
 
+    Base *base;
     bool ignoreCombatSim;
 
 private:

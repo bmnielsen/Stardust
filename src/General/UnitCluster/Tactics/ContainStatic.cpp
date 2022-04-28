@@ -37,6 +37,7 @@ void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
     for (const auto &unitAndTarget : unitsAndTargets)
     {
         auto &myUnit = unitAndTarget.first;
+        if (myUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
         // If the unit is stuck, unstick it
         if (myUnit->unstick()) continue;

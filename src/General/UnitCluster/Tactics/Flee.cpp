@@ -16,6 +16,8 @@ void UnitCluster::flee(std::set<Unit> &enemyUnits)
     bool canFormArc = true;
     for (auto &unit : units)
     {
+        if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+
         if ((unit->isFlying
              ? grid.airThreat(unit->lastPosition)
              : grid.groundThreat(unit->lastPosition)) > 0)
@@ -69,6 +71,7 @@ void UnitCluster::flee(std::set<Unit> &enemyUnits)
     for (auto &unit : units)
     {
         if (unit->isFlying) continue;
+        if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
         int dist = effectiveDist(unit);
         if (dist <= (desiredDistance + 24)) countWithinLimit++;
