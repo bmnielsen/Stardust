@@ -712,9 +712,6 @@ namespace Units
                 {
                     unit->orderProcessTimer = 8;
                 }
-
-                CherryVis::log(unit->id) << "Predicted order process timer: " << unit->orderProcessTimer
-                                   << (((BWAPI::Broodwar->getFrameCount() - 8) % 150 == 0) ? " (RESET)" : "");
             };
             for (auto &unit : myUnits) updateOrderProcessTimer(unit);
             for (auto &unit : enemyUnits) updateOrderProcessTimer(unit);

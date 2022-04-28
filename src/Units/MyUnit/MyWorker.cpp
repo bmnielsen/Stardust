@@ -9,49 +9,49 @@
 
 namespace
 {
-    BWAPI::Position perpendicularPosition(BWAPI::Position myPosition,
-                                          BWAPI::Position targetPosition,
-                                          BWAPI::Position myCurrentMoveTarget,
-                                          int myCurrentHeading,
-                                          int length)
-    {
-        auto attackVector = Geo::PerpendicularVector(targetPosition - myPosition, length);
-        if (attackVector == BWAPI::Positions::Invalid) return BWAPI::Positions::Invalid;
-
-        // Pick the preferred perpendicular position
-        auto first = targetPosition + attackVector;
-        auto second = targetPosition - attackVector;
-
-        // Start by checking if only one is walkable
-        auto firstWalkable = first.isValid() && Map::isWalkable(BWAPI::TilePosition(first));
-        auto secondWalkable = second.isValid() && Map::isWalkable(BWAPI::TilePosition(second));
-        if (!firstWalkable)
-        {
-            if (secondWalkable)
-            {
-                return second;
-            }
-        }
-        else if (!secondWalkable)
-        {
-            return first;
-        }
-        else if (myCurrentMoveTarget.isValid())
-        {
-            auto firstDist = first.getApproxDistance(myCurrentMoveTarget);
-            auto secondDist = second.getApproxDistance(myCurrentMoveTarget);
-            return (secondDist < firstDist) ? second : first;
-        }
-        else
-        {
-            // Otherwise take the position closest to where we are currently pointing
-            auto firstAngleDiff = Geo::BWAngleDiff(Geo::BWDirection(first - myPosition), myCurrentHeading);
-            auto secondAngleDiff = Geo::BWAngleDiff(Geo::BWDirection(second - myPosition), myCurrentHeading);
-            return (secondAngleDiff < firstAngleDiff) ? second : first;
-        }
-
-        return BWAPI::Positions::Invalid;
-    }
+//    BWAPI::Position perpendicularPosition(BWAPI::Position myPosition,
+//                                          BWAPI::Position targetPosition,
+//                                          BWAPI::Position myCurrentMoveTarget,
+//                                          int myCurrentHeading,
+//                                          int length)
+//    {
+//        auto attackVector = Geo::PerpendicularVector(targetPosition - myPosition, length);
+//        if (attackVector == BWAPI::Positions::Invalid) return BWAPI::Positions::Invalid;
+//
+//        // Pick the preferred perpendicular position
+//        auto first = targetPosition + attackVector;
+//        auto second = targetPosition - attackVector;
+//
+//        // Start by checking if only one is walkable
+//        auto firstWalkable = first.isValid() && Map::isWalkable(BWAPI::TilePosition(first));
+//        auto secondWalkable = second.isValid() && Map::isWalkable(BWAPI::TilePosition(second));
+//        if (!firstWalkable)
+//        {
+//            if (secondWalkable)
+//            {
+//                return second;
+//            }
+//        }
+//        else if (!secondWalkable)
+//        {
+//            return first;
+//        }
+//        else if (myCurrentMoveTarget.isValid())
+//        {
+//            auto firstDist = first.getApproxDistance(myCurrentMoveTarget);
+//            auto secondDist = second.getApproxDistance(myCurrentMoveTarget);
+//            return (secondDist < firstDist) ? second : first;
+//        }
+//        else
+//        {
+//            // Otherwise take the position closest to where we are currently pointing
+//            auto firstAngleDiff = Geo::BWAngleDiff(Geo::BWDirection(first - myPosition), myCurrentHeading);
+//            auto secondAngleDiff = Geo::BWAngleDiff(Geo::BWDirection(second - myPosition), myCurrentHeading);
+//            return (secondAngleDiff < firstAngleDiff) ? second : first;
+//        }
+//
+//        return BWAPI::Positions::Invalid;
+//    }
 }
 
 MyWorker::MyWorker(BWAPI::Unit unit)
@@ -221,12 +221,14 @@ void MyWorker::attackUnit(const Unit &target,
     auto predictedDist = Geo::EdgeToEdgeDistance(type, myPredictedPosition, target->type, targetPredictedPosition);
 
     int cooldownFrames = std::max(0, cooldownUntil - currentFrame);
-    int framesToRange = std::max(0, (int)std::ceil((predictedDist - groundRange()) / type.topSpeed())) + BWAPI::Broodwar->getLatencyFrames();
 
-    // Adjust the framesToRange by the number of frames it will take us to turn towards the enemy
+    // Compute the expected number of frames until we are in range if we start an attack now
     auto currentHeading = heading();
     int angleDiff = Geo::BWAngleDiff(Geo::BWDirection(targetPredictedPosition - myPredictedPosition), currentHeading);
-    framesToRange += (angleDiff / type.turnRadius());
+    int framesToRange =
+            std::max(0, (int)std::ceil((predictedDist - groundRange()) / type.topSpeed()))
+            + BWAPI::Broodwar->getLatencyFrames()
+            + ((angleDiff / type.turnRadius()) * 2);
 
     CherryVis::log(id)
             << "dist=" << getDistance(target)
@@ -242,23 +244,23 @@ void MyWorker::attackUnit(const Unit &target,
     // Check if we should transition to attack
     auto shouldTransitionToAttack = [&]()
     {
-        // We consider twice the latency for cooldown to account for our approach towards the enemy and provide a bit of a buffer for
-        // unforeseen delays
         if (framesToRange < (cooldownFrames - BWAPI::Broodwar->getLatencyFrames())) return false;
+
+        if (dist < 11) return false;
 
         // If we have an estimation of the enemy order timer, try to time our attack so the enemy's order timer will not allow it to attack
         // while we are in range
         if (target->orderProcessTimer == -1) return true;
         if ((BWAPI::Broodwar->getFrameCount() - 8) % 150 > 135) return true; // timers will be reset soon, so we can't use them for prediction
 
-        int timerAtRange = target->orderProcessTimer - framesToRange - BWAPI::Broodwar->getLatencyFrames();
+        int timerAtRange = target->orderProcessTimer - framesToRange;
         while (timerAtRange < 0) timerAtRange += 9;
         CherryVis::log(id) << "Timer @ range: " << timerAtRange;
         return timerAtRange > 6;
     };
     if (nextAttackPredictedAt < (currentFrame - 1) && shouldTransitionToAttack())
     {
-        nextAttackPredictedAt = currentFrame + std::max(BWAPI::Broodwar->getLatencyFrames(), cooldownFrames);
+        nextAttackPredictedAt = currentFrame + framesToRange;
 
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Transitioning to attack: cooldownFrames=" << cooldownFrames
@@ -289,24 +291,24 @@ void MyWorker::attackUnit(const Unit &target,
 
         // If we are on approach to a target that is stationary or moving towards us, try to move to pass it
         // We turn towards to target when we are 2*latency out
-        if (lastPosition.getApproxDistance(targetPredictedPosition) <= lastPosition.getApproxDistance(target->lastPosition) &&
-            (framesToRange > 2*BWAPI::Broodwar->getLatencyFrames() || cooldownFrames > BWAPI::Broodwar->getLatencyFrames()*2))
-        {
-            moveTarget = perpendicularPosition(
-                    lastPosition,
-                    target->lastPosition,
-                    (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Move) ? bwapiUnit->getLastCommand().getTargetPosition()
-                                                                                             : BWAPI::Positions::Invalid,
-                    currentHeading,
-                    groundRange() + (int)(type.topSpeed() * (double)BWAPI::Broodwar->getLatencyFrames()));
-
-#if DEBUG_UNIT_ORDERS
-            if (moveTarget != BWAPI::Positions::Invalid)
-            {
-                CherryVis::log(id) << "Moving to attack @ " << BWAPI::WalkPosition(moveTarget);
-            }
-#endif
-        }
+//        if (lastPosition.getApproxDistance(targetPredictedPosition) <= lastPosition.getApproxDistance(target->lastPosition) &&
+//            (framesToRange > 2*BWAPI::Broodwar->getLatencyFrames() || cooldownFrames > BWAPI::Broodwar->getLatencyFrames()*2))
+//        {
+//            moveTarget = perpendicularPosition(
+//                    lastPosition,
+//                    target->lastPosition,
+//                    (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Move) ? bwapiUnit->getLastCommand().getTargetPosition()
+//                                                                                             : BWAPI::Positions::Invalid,
+//                    currentHeading,
+//                    groundRange() + (int)(type.topSpeed() * (double)BWAPI::Broodwar->getLatencyFrames()));
+//
+//#if DEBUG_UNIT_ORDERS
+//            if (moveTarget != BWAPI::Positions::Invalid)
+//            {
+//                CherryVis::log(id) << "Moving to attack @ " << BWAPI::WalkPosition(moveTarget);
+//            }
+//#endif
+//        }
 
         // Otherwise just move to intercept it
         if (moveTarget == BWAPI::Positions::Invalid)
