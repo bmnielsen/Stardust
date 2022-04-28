@@ -217,3 +217,109 @@ TEST(MovingShot, ProbeVsProbe)
 
     test.run();
 }
+
+TEST(MovingShot, ProbeVsZealot)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.map = Maps::GetOne("Heartbreak");
+    test.randomSeed = 42;
+    test.frameLimit = 1000;
+    test.expectWin = false;
+
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(75, 20)),
+    };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::TilePosition(72, 20)),
+    };
+
+    MyUnit probe = nullptr;
+    Unit target = nullptr;
+
+    test.onFrameMine = [&]()
+    {
+        if (!probe)
+        {
+            for (auto &unit : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
+            {
+                if (unit->getDistance(BWAPI::Position(BWAPI::TilePosition(69, 20))) < 600)
+                {
+                    probe = unit;
+                    Workers::reserveWorker(probe);
+                    break;
+                }
+            }
+            if (!probe) return;
+        }
+
+        if (!probe->exists())
+        {
+            CherryVis::log(probe->id) << "DIED";
+            BWAPI::Broodwar->leaveGame();
+            ASSERT_FALSE(true) << "Probe died";
+            return;
+        }
+
+        if (!target)
+        {
+            for (auto &unit : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Zealot))
+            {
+                target = unit;
+            }
+            if (!target) return;
+        }
+        if (!target->exists())
+        {
+            CherryVis::log(target->id) << "DIED";
+            BWAPI::Broodwar->leaveGame();
+            return;
+        }
+
+        probe->attackUnit(target);
+    };
+
+    test.onFrameOpponent = []()
+    {
+        BWAPI::Unit target = nullptr;
+        for (auto &unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (unit->getType() != BWAPI::UnitTypes::Protoss_Zealot) continue;
+            if (unit->getDistance(BWAPI::Position(BWAPI::TilePosition(69, 20))) > 1000) continue;
+            target = unit;
+            break;
+        }
+        if (!target) return;
+
+        if (target->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit) return;
+
+        for (auto &unit : BWAPI::Broodwar->enemy()->getUnits())
+        {
+            if (unit->getType() == BWAPI::UnitTypes::Protoss_Probe)
+            {
+                target->attack(unit);
+                return;
+            }
+        }
+    };
+
+    test.onEndMine = [&](bool won)
+    {
+        if (target)
+        {
+            EXPECT_FALSE(target->exists()) << "Failed to kill target";
+        }
+
+        if (probe)
+        {
+            std::cout << "Final probe stats: shield=" << probe->lastShields << "; health=" << probe->lastHealth << std::endl;
+        }
+    };
+
+    test.run();
+}
