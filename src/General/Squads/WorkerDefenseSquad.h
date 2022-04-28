@@ -19,6 +19,4 @@ public:
 private:
     Base *base;
     std::vector<MyUnit> units; // All of the reserved workers
-
-    void executeFullWorkerDefense(std::set<Unit> &enemyUnits, const std::vector<MyUnit> &defendBaseUnits);
 };

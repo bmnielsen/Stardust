@@ -121,6 +121,7 @@ void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAn
             if (!patch->isVisible()) continue;
 
             int dist = Geo::EdgeToEdgeDistance(worker->type, worker->lastPosition, patch->getType(), patch->getPosition());
+            if (dist < 10) continue;
             if (dist < furthestPatchDist) continue;
 
             int targetDistToPatch = Geo::EdgeToEdgeDistance(target->type, target->lastPosition, patch->getType(), patch->getPosition());
@@ -135,18 +136,17 @@ void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAn
             CherryVis::log(worker->id) << "No flee patch; attacking: " << target->type << " @ "
                                        << BWAPI::WalkPosition(target->lastPosition);
 #endif
-            worker->attackUnit(target, workersAndTargets, false);
+            worker->attack(target->bwapiUnit, true);
             continue;
         }
 
-        // Attack if we are so close to the patch that we can't flee
-        if (furthestPatchDist < 10)
+        // Flee if we just attacked
+        if (worker->lastSeenAttacking >= (currentFrame - 1))
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(worker->id) << "Close to patch; attacking: " << target->type << " @ "
-                                       << BWAPI::WalkPosition(target->lastPosition);
+            CherryVis::log(worker->id) << "Just attacked, moving to patch: " << BWAPI::WalkPosition(furthestPatch->getPosition());
 #endif
-            worker->attackUnit(target, workersAndTargets, false);
+            worker->gather(furthestPatch);
             continue;
         }
 
@@ -160,8 +160,37 @@ void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAn
             continue;
         }
 
+        // Check if there is a combat unit attacking our target
+        // If there is, and it isn't close to being in range yet, flee to give it time to get here
+        // Don't do this if we are in the target's attack range
+        if (!worker->isInEnemyWeaponRange(target))
+        {
+            bool combatUnitApproaching = false;
+            for (auto &combatUnitAndTarget : combatUnitsAndTargets)
+            {
+                if (combatUnitAndTarget.second != target) continue;
+
+                if (combatUnitAndTarget.first->isInOurWeaponRange(combatUnitAndTarget.second, 16))
+                {
+                    // There is a unit in range, so clear and break
+                    combatUnitApproaching = false;
+                    break;
+                }
+
+                combatUnitApproaching = true;
+            }
+            if (combatUnitApproaching)
+            {
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(worker->id) << "Wait for combat unit, moving to patch: " << BWAPI::WalkPosition(furthestPatch->getPosition());
+#endif
+                worker->gather(furthestPatch);
+                continue;
+            }
+        }
+
         // When on cooldown, kite if we are too close to our target
-        if ((worker->cooldownUntil - currentFrame) > (BWAPI::Broodwar->getRemainingLatencyFrames() + 3) &&
+        if ((worker->cooldownUntil - currentFrame) > (BWAPI::Broodwar->getRemainingLatencyFrames() + 6) &&
             worker->getDistance(target) < (worker->groundRange() - 2))
         {
 #if DEBUG_UNIT_ORDERS
@@ -173,36 +202,12 @@ void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAn
             continue;
         }
 
-        // Check if there is a combat unit attacking our target
-        // If there is, and it isn't close to being in range yet, flee to give it time to get here
-        bool combatUnitApproaching = false;
-        for (auto &combatUnitAndTarget : combatUnitsAndTargets)
-        {
-            if (combatUnitAndTarget.second != target) continue;
-
-            if (combatUnitAndTarget.first->isInOurWeaponRange(combatUnitAndTarget.second, 16))
-            {
-                // There is a unit in range, so clear and break
-                combatUnitApproaching = false;
-                break;
-            }
-
-            combatUnitApproaching = true;
-        }
-        if (combatUnitApproaching)
-        {
-#if DEBUG_UNIT_ORDERS
-            CherryVis::log(worker->id) << "Wait for combat unit, moving to patch: " << BWAPI::WalkPosition(furthestPatch->getPosition());
-#endif
-            worker->gather(furthestPatch);
-            continue;
-        }
-
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(worker->id) << "Attacking: " << target->type << " @ "
                                    << BWAPI::WalkPosition(target->lastPosition);
 #endif
-        worker->attackUnit(target, workersAndTargets, false);
+        worker->attack(target->bwapiUnit, true);
+        //worker->attackUnit(target, workersAndTargets, false);
     }
 }
 
