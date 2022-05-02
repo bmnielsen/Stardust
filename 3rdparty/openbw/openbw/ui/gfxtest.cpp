@@ -673,8 +673,11 @@ val lookup_unit(int32_t index) {
 	o.set("y", u->position.y);
 	o.set("type", (int)u->unit_type->id);
 	o.set("hp", Dump::to_emscripten(u->hp));
+	o.set("shields", Dump::to_emscripten(u->shield_points));
+	o.set("energy", Dump::to_emscripten(u->energy));
 	o.set("ground_weapon_cooldown", u->ground_weapon_cooldown);
 	o.set("air_weapon_cooldown", u->air_weapon_cooldown);
+	o.set("order_process_timer", u->order_process_timer);
 	return o;
 }
 
