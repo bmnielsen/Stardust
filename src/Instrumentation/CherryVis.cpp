@@ -1,7 +1,6 @@
 #include "CherryVis.h"
 
 #if CHERRYVIS_ENABLED
-
 #include <nlohmann/json.hpp>
 #include <utility>
 #include <zstdstream/zstdstream.hpp>
@@ -15,28 +14,40 @@ namespace CherryVis
     {
 #if CHERRYVIS_ENABLED
 
-        struct PartitionedDataFilePart
+        enum DataFileType {
+            Array,
+            ArrayPerFrame,
+            ObjectPerFrame
+        };
+
+        struct DataFilePart
         {
             int firstFrame;
             std::string filename;
 
-            PartitionedDataFilePart(int firstFrame, std::string filename) : firstFrame(firstFrame), filename(std::move(filename))
+            DataFilePart(int firstFrame, std::string filename) : firstFrame(firstFrame), filename(std::move(filename))
             {}
         };
 
-        struct PartitionedDataFile
+        struct DataFile
         {
-            std::vector<PartitionedDataFilePart> parts;
-
-            PartitionedDataFile(std::string filename, int size) : filename(std::move(filename)), size(size), count(0), stream(nullptr)
-            {}
-
-            void writeFrameData(nlohmann::json &frameData)
+            explicit DataFile(std::string filename, DataFileType type, int partitionedObjectSize = 0)
+            : filename(std::move(filename))
+            , type(type)
+            , lastFrame(-1)
+            , partitionedObjectSize(partitionedObjectSize)
+            , count(0)
+            , stream(nullptr)
             {
-                if (count * size >= 26214400)
+            }
+
+            std::vector<DataFilePart> parts;
+
+            void writeEntry(const nlohmann::json &entry)
+            {
+                if (count * partitionedObjectSize >= 26214400)
                 {
                     close();
-                    count = 0;
                 }
 
                 if (count == 0)
@@ -45,85 +56,29 @@ namespace CherryVis
                 }
                 else
                 {
-                    (*stream) << ",";
+                    switch (type)
+                    {
+                        case Array:
+                            (*stream) << ",";
+                            break;
+                        case ArrayPerFrame:
+                            if (lastFrame == BWAPI::Broodwar->getFrameCount())
+                            {
+                                (*stream) << ",";
+                            }
+                            else
+                            {
+                                (*stream) << "],\"" << BWAPI::Broodwar->getFrameCount() << "\":[";
+                                lastFrame = BWAPI::Broodwar->getFrameCount();
+                            }
+                            break;
+                        case ObjectPerFrame:
+                            (*stream) << ",\"" << BWAPI::Broodwar->getFrameCount() << "\":";
+                            break;
+                    }
                 }
 
                 count++;
-
-                (*stream)
-                        << "\"" << BWAPI::Broodwar->getFrameCount() << "\":"
-                        << frameData.dump(-1, ' ', true);
-            }
-
-            void close()
-            {
-                (*stream) << "}";
-                stream->close();
-                delete stream;
-            }
-
-        private:
-            std::string filename;
-            int size;
-            int count;
-            zstd::ofstream *stream{};
-
-            void createPart()
-            {
-                std::ostringstream filenameBuilder;
-                filenameBuilder << filename << "_" << BWAPI::Broodwar->getFrameCount() << ".json.zstd";
-
-                parts.emplace_back(BWAPI::Broodwar->getFrameCount(), filenameBuilder.str());
-
-                stream = new zstd::ofstream("bwapi-data/write/cvis/" + filenameBuilder.str());
-                (*stream) << "{";
-            }
-        };
-
-        struct DataFile
-        {
-            explicit DataFile(const std::string &filename, bool perFrame = false) : perFrame(perFrame), lastFrame(-1), first(true), stream(nullptr)
-            {
-                path = (std::ostringstream() << filename << ".json.zstd").str();
-                stream = new zstd::ofstream((std::ostringstream() << "bwapi-data/write/cvis/" << path).str());
-                (*stream) << (perFrame ? "{" : "[");
-            }
-
-            std::string path;
-
-            void writeEntry(const nlohmann::json &entry)
-            {
-                if (perFrame)
-                {
-                    if (lastFrame == BWAPI::Broodwar->getFrameCount())
-                    {
-                        (*stream) << ",";
-                    }
-                    else
-                    {
-                        if (first)
-                        {
-                            first = false;
-                        }
-                        else
-                        {
-                            (*stream) << "],";
-                        }
-                        (*stream) << "\"" << BWAPI::Broodwar->getFrameCount() << "\":[";
-                        lastFrame = BWAPI::Broodwar->getFrameCount();
-                    }
-                }
-                else
-                {
-                    if (first)
-                    {
-                        first = false;
-                    }
-                    else
-                    {
-                        (*stream) << ",";
-                    }
-                }
 
                 // For some reason this sometimes throws a resource unavailable exception, so retry if that happens
                 while (true)
@@ -144,30 +99,62 @@ namespace CherryVis
 
             void close()
             {
-                if (perFrame)
+                switch (type)
                 {
-                    if (lastFrame != -1)
-                    {
-                        (*stream) << "]}";
-                    }
-                    else
-                    {
+                    case Array:
+                        (*stream) << "]";
+                        break;
+                    case ArrayPerFrame:
+                        if (lastFrame != -1)
+                        {
+                            (*stream) << "]}";
+                        }
+                        else
+                        {
+                            (*stream) << "}";
+                        }
+                        break;
+                    case ObjectPerFrame:
                         (*stream) << "}";
-                    }
-                }
-                else
-                {
-                    (*stream) << "]";
+                        break;
                 }
                 stream->close();
                 delete stream;
+                count = 0;
             }
 
         private:
-            bool perFrame;
+            std::string filename;
+            DataFileType type;
             int lastFrame;
-            bool first;
+            int partitionedObjectSize;
+            int count;
             zstd::ofstream *stream{};
+
+            void createPart()
+            {
+                std::ostringstream filenameBuilder;
+                filenameBuilder << filename;
+                if (partitionedObjectSize > 0) filenameBuilder << "_" << BWAPI::Broodwar->getFrameCount();
+                filenameBuilder << ".json.zstd";
+
+                parts.emplace_back(BWAPI::Broodwar->getFrameCount(), filenameBuilder.str());
+
+                stream = new zstd::ofstream("bwapi-data/write/cvis/" + filenameBuilder.str());
+
+                switch (type)
+                {
+                    case Array:
+                        (*stream) << "[";
+                        break;
+                    case ArrayPerFrame:
+                        (*stream) << "{\"" << BWAPI::Broodwar->getFrameCount() << "\":[";
+                        break;
+                    case ObjectPerFrame:
+                        (*stream) << "{\"" << BWAPI::Broodwar->getFrameCount() << "\":";
+                        break;
+                }
+            }
         };
 
         nlohmann::json boardUpdates = nlohmann::json::object();
@@ -182,7 +169,7 @@ namespace CherryVis
         std::map<int, DataFile> unitIdToLogFile;
         std::map<int, DataFile> unitIdToDrawCommandsFile;
 
-        std::unordered_map<std::string, PartitionedDataFile> heatmapNameToPartitionedDataFile;
+        std::unordered_map<std::string, DataFile> heatmapNameToDataFile;
 
         bool disabled = false;
 
@@ -194,12 +181,15 @@ namespace CherryVis
                 std::ostringstream filenameBuilder;
                 filenameBuilder << "logs";
                 if (unitId != -1) filenameBuilder << "_" << unitId;
-                logFileIt = unitIdToLogFile.emplace(unitId, filenameBuilder.str()).first;
+                logFileIt = unitIdToLogFile.emplace(
+                        std::piecewise_construct,
+                        std::make_tuple(unitId),
+                        std::make_tuple(filenameBuilder.str(), DataFileType::Array)).first;
             }
 
             logFileIt->second.writeEntry({
                                                  {"message", str},
-                                                 {"frame",   currentFrame}
+                                                 {"frame",   BWAPI::Broodwar->getFrameCount()}
                                          });
         }
 
@@ -214,7 +204,7 @@ namespace CherryVis
                 drawCommandsFileIt = unitIdToDrawCommandsFile.emplace(
                         std::piecewise_construct,
                         std::make_tuple(unitId),
-                        std::make_tuple(filenameBuilder.str(), true)).first;
+                        std::make_tuple(filenameBuilder.str(), DataFileType::ArrayPerFrame)).first;
             }
 
             drawCommandsFileIt->second.writeEntry(drawCommand);
@@ -274,7 +264,7 @@ namespace CherryVis
         unitIdToFrameToUnitUpdate.clear();
         unitIdToLogFile.clear();
         unitIdToDrawCommandsFile.clear();
-        heatmapNameToPartitionedDataFile.clear();
+        heatmapNameToDataFile.clear();
 
         std::filesystem::create_directories("bwapi-data/write/cvis");
 
@@ -385,8 +375,8 @@ namespace CherryVis
 
         std::ostringstream filenameBuilder;
         filenameBuilder << "heatmap_" << key;
-        auto heatmap = heatmapNameToPartitionedDataFile.try_emplace(key, filenameBuilder.str(), sizeX * sizeY);
-        heatmap.first->second.writeFrameData(frameData);
+        auto heatmap = heatmapNameToDataFile.try_emplace(key, filenameBuilder.str(), DataFileType::ObjectPerFrame, sizeX * sizeY);
+        heatmap.first->second.writeEntry(frameData);
 #endif
     }
 
@@ -441,14 +431,14 @@ namespace CherryVis
         if (disabled) return;
 
         std::vector<nlohmann::json> heatmaps;
-        for (auto heatmapNameAndPartitionedDataFile : heatmapNameToPartitionedDataFile)
+        for (auto heatmapNameAndDataFile : heatmapNameToDataFile)
         {
-            heatmapNameAndPartitionedDataFile.second.close();
+            heatmapNameAndDataFile.second.close();
 
-            for (const auto &part : heatmapNameAndPartitionedDataFile.second.parts)
+            for (const auto &part : heatmapNameAndDataFile.second.parts)
             {
                 std::ostringstream name;
-                name << heatmapNameAndPartitionedDataFile.first << "_" << part.firstFrame;
+                name << heatmapNameAndDataFile.first << "_" << part.firstFrame;
 
                 heatmaps.push_back({
                                            {"filename",    part.filename},
@@ -464,8 +454,15 @@ namespace CherryVis
             buildTypesToName[std::to_string(type.getID())] = type.getName();
         }
 
+        std::unordered_map<std::string, std::string> orderTypesToName;
+        for (auto type : BWAPI::Orders::allOrders())
+        {
+            orderTypesToName[std::to_string(type.getID())] = type.getName();
+        }
+
         nlohmann::json trace = {
                 {"types_names",      buildTypesToName},
+                {"orders_names",     orderTypesToName},
                 {"board_updates",    boardUpdates},
                 {"units_first_seen", frameToUnitsFirstSeen},
                 {"units_updates",    unitIdToFrameToUnitUpdate},
@@ -484,11 +481,11 @@ namespace CherryVis
         {
             if (drawCommandsFile.first == -1)
             {
-                trace["draw_commands"] = drawCommandsFile.second.path;
+                trace["draw_commands"] = drawCommandsFile.second.parts[0].filename;
             }
             else
             {
-                unitIdToDrawCommandsFilePath[(std::ostringstream() << drawCommandsFile.first).str()] = drawCommandsFile.second.path;
+                unitIdToDrawCommandsFilePath[(std::ostringstream() << drawCommandsFile.first).str()] = drawCommandsFile.second.parts[0].filename;
             }
             drawCommandsFile.second.close();
         }
@@ -504,11 +501,11 @@ namespace CherryVis
         {
             if (logFile.first == -1)
             {
-                trace["logs"] = logFile.second.path;
+                trace["logs"] = logFile.second.parts[0].filename;
             }
             else
             {
-                unitIdToLogFilePath[(std::ostringstream() << logFile.first).str()] = logFile.second.path;
+                unitIdToLogFilePath[(std::ostringstream() << logFile.first).str()] = logFile.second.parts[0].filename;
             }
             logFile.second.close();
         }
@@ -526,4 +523,9 @@ void CherryVis::disable()
 #if CHERRYVIS_ENABLED
     disabled = true;
 #endif
+}
+
+void CherryVis::writeFrameData(const std::string &label, const std::string &data)
+{
+
 }

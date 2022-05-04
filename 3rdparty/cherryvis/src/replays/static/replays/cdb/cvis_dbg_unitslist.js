@@ -16,6 +16,14 @@ function cvis_dbg_unitslist_init(global_data, cvis_state) {
       return 'UnkType ' + type;
   }
 
+  function ordertype_get_name(type) {
+    var type_name = global_data['orders_names'][type];
+    if (type_name !== undefined)
+      return type_name;
+    else
+      return 'UnkType ' + type;
+  }
+
   function unittype_get_name_short(unit_info) {
     var type_name = global_data['types_names'][unit_info.type];
     if (type_name !== undefined)
@@ -78,28 +86,55 @@ function cvis_dbg_unitslist_init(global_data, cvis_state) {
       unit_info = cvis_state.functions.get_unit_by_cp_id(unit_id);
     }
 
+    function set_position(el, x, y) {
+      const wt_x = parseInt(x / XYPixelsPerWalktile);
+      const wt_y = parseInt(y / XYPixelsPerWalktile);
+      el.attr('data-pos-x-wt', wt_x)
+        .attr('data-pos-y-wt', wt_y)
+        .text('(' + wt_x + ', ' + wt_y + ')');
+    }
+
+    function get_short_type(typeId) {
+      const typeText = unittype_get_name(typeId);
+      const [, ...typeTextWithoutRace] = typeText.split('_');
+      return typeTextWithoutRace.join('_');
+    }
+
     html.find('.unit-cherrypi-id').text('i' + (unit_id >= 0 ? unit_id : '???'));
     if (unit_info && unit_info.found) {
       html.find('.show-when-unit-found').show();
       html.find('.hide-when-unit-found').hide();
+
+      html.find('.unit-type-name').text(get_short_type(unit_info['type']));
+      set_position(html.find('.cur-position'), unit_info.x, unit_info.y);
 
       html.find('.unit-bw-id').text('bw' + (unit_info['bw_id'] ? unit_info['bw_id'] : '???'));
       html.find('.cur-hp').text(unit_info.hp);
       html.find('.cur-shields').text(Math.round(unit_info.shields));
       html.find('.cur-energy').text(Math.round(unit_info.energy));
       html.find('.cur-cooldown').text(Math.max(unit_info.ground_weapon_cooldown, unit_info.air_weapon_cooldown));
+      if (unit_info.top_speed > 0.01) {
+        html.find('.cur-speed').text(Math.round(unit_info.cur_speed * 100.0 / unit_info.top_speed) + '%');
+      } else {
+        html.find('.cur-speed').text('N/A');
+      }
+
+      let orderText = ordertype_get_name(unit_info.order);
+
       html.find('.cur-order-timer').text(unit_info.order_process_timer);
-
-      var x = parseInt(unit_info.x / XYPixelsPerWalktile);
-      var y = parseInt(unit_info.y / XYPixelsPerWalktile);
-      html.find('.unit-position')
-        .attr('data-pos-x-wt', x)
-        .attr('data-pos-y-wt', y)
-        .text('(' + x + ', ' + y + ')');
-
-      var typeText = unittype_get_name(unit_info['type']);
-      const [, ...typeTextWithoutRace] = typeText.split('_');
-      html.find('.unit-type-name').text(typeTextWithoutRace.join('_'));
+      if (unit_info.order_target.unit) {
+        const target = cvis_state.functions.get_unit_by_bw_id(unit_info.order_target.unit);
+        if (target) {
+          orderText += ' ' + get_short_type(target.type);
+          set_position(html.find('.cur-order-target-position'), target.x, target.y);
+        } else {
+          html.find('.cur-order-target-type').text('??')
+        }
+      } else {
+        html.find('.cur-order-target-type').text('N/A')
+        set_position(html.find('.cur-order-target-position'), unit_info.order_target.pos.x, unit_info.order_target.pos.y);
+      }
+      html.find('.cur-order').text(orderText);
     }
     else {
       html.find('.show-when-unit-found').hide();

@@ -677,7 +677,14 @@ val lookup_unit(int32_t index) {
 	o.set("energy", Dump::to_emscripten(u->energy));
 	o.set("ground_weapon_cooldown", u->ground_weapon_cooldown);
 	o.set("air_weapon_cooldown", u->air_weapon_cooldown);
+
+    o.set("cur_speed", Dump::to_emscripten(u->current_speed));
+    o.set("top_speed", Dump::to_emscripten(u->flingy_top_speed));
+
+    if (u->order_type) o.set("order", (int)u->order_type->id);
+    o.set("order_target", Dump::dump_target(&u->order_target));
 	o.set("order_process_timer", u->order_process_timer);
+
 	return o;
 }
 

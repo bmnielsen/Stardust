@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 OPENBW_DIR='../openbw/openbw'
-rm $OPENBW_DIR/ui/test.*
 BWAPI_DIR='../openbw/bwapi'
 BUILD_ARGS="-std=c++14 -I $OPENBW_DIR -I $BWAPI_DIR/bwapi/BWAPI/Source/BW/ -I $BWAPI_DIR/bwapi/Util/Source/ -I include $OPENBW_DIR/ui/dlmalloc.c"
 BUILD_ARGS="$BUILD_ARGS $OPENBW_DIR/ui/unit_matcher.cpp $OPENBW_DIR/ui/sdl2.cpp $OPENBW_DIR/ui/gfxtest.cpp $BWAPI_DIR/bwapi/BWAPI/Source/BW/Bitmap.cpp"

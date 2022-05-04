@@ -406,6 +406,17 @@ a[aria-expanded="true"] {
   padding: 0px;
 }
 
+.cvis-unit-info a {
+  background-color: #a05f5f !important;
+  color: white !important;
+  display: inline !important;
+  padding: 2px !important;
+}
+a.cvis-frame-past a:hover {
+  background-color: #d85c40 !important;
+  color: #424242 !important
+}
+
 a.cvis-link-frame {
   color: white !important;
 }

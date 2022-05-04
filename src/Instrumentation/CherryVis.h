@@ -3,9 +3,6 @@
 #include <BWAPI.h>
 
 #if INSTRUMENTATION_ENABLED
-
-extern int currentFrame;
-
 #define CHERRYVIS_ENABLED true
 #endif
 
@@ -79,4 +76,6 @@ namespace CherryVis
     void gameEnd();
 
     void disable();
+
+    void writeFrameData(const std::string &label, const std::string &data);
 }
