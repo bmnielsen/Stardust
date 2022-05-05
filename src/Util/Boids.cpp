@@ -5,7 +5,7 @@
 #include "NoGoAreas.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
-#define DRAW_BOIDS false  // Draws lines for each boid
+#define DRAW_BOIDS true  // Draws lines for each boid
 #endif
 
 namespace
