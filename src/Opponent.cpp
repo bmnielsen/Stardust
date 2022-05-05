@@ -3,10 +3,9 @@
 #include <fstream>
 #include <filesystem>
 
-#include <nlohmann/json.hpp>
+#include <nlohmann.h>
 
 #include "Map.h"
-#include "General.h"
 #include "Units.h"
 #include "PathFinding.h"
 

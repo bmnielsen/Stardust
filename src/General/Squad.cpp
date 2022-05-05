@@ -266,27 +266,12 @@ void Squad::updateClusters()
     if (currentVanguardCluster) currentVanguardCluster->isVanguardCluster = true;
 
 #if INSTRUMENTATION_ENABLED
-    std::vector<std::string> values;
     for (const auto &cluster : clusters)
     {
-        std::ostringstream os;
-        os << "center: " << BWAPI::WalkPosition(cluster->center)
-           << "\nactivity: " << cluster->getCurrentActivity()
-           << "\nsub-activity: " << cluster->getCurrentSubActivity()
-           << "\ntarget: " << BWAPI::WalkPosition(targetPosition)
-           << "\n%dist: " << std::setprecision(2) << cluster->percentageToEnemyMain;
-        if (cluster == currentVanguardCluster)
-        {
-            os << "\n*Vanguard*";
-        }
-
-        values.push_back(os.str());
-
         CherryVis::drawCircle(cluster->center.x, cluster->center.y, cluster->ballRadius, CherryVis::DrawColor::Teal);
         CherryVis::drawCircle(cluster->center.x, cluster->center.y, cluster->lineRadius, CherryVis::DrawColor::Blue);
         CherryVis::drawCircle(cluster->vanguard->lastPosition.x, cluster->vanguard->lastPosition.y, 32, CherryVis::DrawColor::Grey);
     }
-    CherryVis::setBoardListValue((std::ostringstream() << label << "_clusters").str(), values);
 #endif
 }
 
@@ -439,4 +424,23 @@ void Squad::updateDetectionNeeds(std::set<Unit> &enemyUnits)
             enemiesNeedingDetection.insert(unit);
         }
     }
+}
+
+void Squad::addInstrumentation(nlohmann::json &squadArray) const
+{
+#if INSTRUMENTATION_ENABLED
+    nlohmann::json clusterArray;
+    for (auto &cluster : clusters) cluster->addInstrumentation(clusterArray);
+
+    squadArray.push_back({
+        {"label", label},
+        {"target_position_x", targetPosition.x},
+        {"target_position_y", targetPosition.y},
+        {"count_combatUnits", combatUnitCount()},
+        {"count_cannons", getUnitCountByType()[BWAPI::UnitTypes::Protoss_Photon_Cannon]},
+        {"count_observers", detectors.size()},
+        {"count_arbiters", arbiters.size()},
+        {"clusters", clusterArray}
+    });
+#endif
 }

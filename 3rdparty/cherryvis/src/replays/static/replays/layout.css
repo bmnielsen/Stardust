@@ -406,13 +406,13 @@ a[aria-expanded="true"] {
   padding: 0px;
 }
 
-.cvis-unit-info a {
+.cvis-unit-info a, .squads-view .sidebar-item-container a {
   background-color: #a05f5f !important;
   color: white !important;
   display: inline !important;
   padding: 2px !important;
 }
-a.cvis-frame-past a:hover {
+a.cvis-frame-past a:hover, .squads-view .sidebar-item-container a:hover {
   background-color: #d85c40 !important;
   color: #424242 !important
 }

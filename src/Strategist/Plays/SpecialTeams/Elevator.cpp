@@ -151,7 +151,7 @@ void Elevator::update()
             return;
         }
 
-        squad = std::make_shared<AttackBaseSquad>(enemyMain);
+        squad = std::make_shared<AttackBaseSquad>(enemyMain, "Elevator");
         squad->ignoreCombatSim = !fromOurMain; // Really the squad should be allowed to reposition itself, but for now just have it always attack
         General::addSquad(squad);
     }

@@ -8,7 +8,7 @@
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_TARGETING false  // Writes verbose log info to debug for each unit targeting
-#define DRAW_TARGETING false  // Draws lines between our units and their targets
+#define DRAW_TARGETING true  // Draws lines between our units and their targets
 #endif
 
 namespace

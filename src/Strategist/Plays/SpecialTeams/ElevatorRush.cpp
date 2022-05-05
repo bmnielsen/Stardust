@@ -16,7 +16,7 @@ ElevatorRush::ElevatorRush()
         , complete(false)
         , builder(nullptr)
         , shuttle(nullptr)
-        , squad(std::make_shared<AttackBaseSquad>(Map::getEnemyStartingMain()))
+        , squad(std::make_shared<AttackBaseSquad>(Map::getEnemyStartingMain(), "ElevatorRush"))
         , count(0)
         , pickingUp(true)
 {

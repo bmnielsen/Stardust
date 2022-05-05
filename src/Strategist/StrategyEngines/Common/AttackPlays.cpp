@@ -162,7 +162,7 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
 
         auto it = attackableExpansionsToEnemyUnitValue.find(attackExpansionPlay->base);
 
-        // If we no longer need to defend this base, remove the play
+        // If we no longer need to attack this base, remove the play
         if (it == attackableExpansionsToEnemyUnitValue.end())
         {
             attackExpansionPlay->status.complete = true;

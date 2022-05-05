@@ -98,6 +98,8 @@ public:
 
     void addRegroupSimResult(CombatSimResult &simResult, bool contain);
 
+    void addInstrumentation(nlohmann::json &clusterArray) const;
+
     // This returns the number of consecutive frames the sim has agreed on its current value.
     // It also returns the total number of attack and regroup frames within the window.
     static int consecutiveSimResults(std::deque<std::pair<CombatSimResult, bool>> &simResults,

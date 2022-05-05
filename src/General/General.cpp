@@ -7,6 +7,10 @@
 #include "Map.h"
 #include "Units.h"
 
+#if INSTRUMENTATION_ENABLED
+#include <nlohmann/json.hpp>
+#endif
+
 namespace General
 {
     namespace
@@ -146,5 +150,30 @@ namespace General
         }
 
         return nullptr;
+    }
+
+    void writeInstrumentation()
+    {
+#if INSTRUMENTATION_ENABLED
+        nlohmann::json squadArray;
+
+        std::set<std::string> squadLabels;
+        for (auto &squad : squads)
+        {
+            // Ignore squads with no units
+            if (squad->combatUnitCount() == 0) continue;
+
+            // Check if we have multiple squads with the same label
+            auto result = squadLabels.insert(squad->label);
+            if (!result.second)
+            {
+                Log::Get() << "Instrumentation Error: Duplicate squad label " << squad->label;
+            }
+
+            squad->addInstrumentation(squadArray);
+        }
+
+        CherryVis::writeFrameData("squads", squadArray);
+#endif
     }
 }

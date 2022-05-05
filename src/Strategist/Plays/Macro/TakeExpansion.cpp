@@ -88,7 +88,7 @@ void TakeExpansion::update()
         // Ensure we have the squad
         if (!squad)
         {
-            squad = std::make_shared<AttackBaseSquad>(base);
+            squad = std::make_shared<AttackBaseSquad>(base, "Take Expansion");
             General::addSquad(squad);
         }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <BWAPI.h>
+#include <nlohmann.h>
 
 #if INSTRUMENTATION_ENABLED
 #define CHERRYVIS_ENABLED true
@@ -77,5 +78,5 @@ namespace CherryVis
 
     void disable();
 
-    void writeFrameData(const std::string &label, const std::string &data);
+    void writeFrameData(const std::string &label, const nlohmann::json &entry);
 }

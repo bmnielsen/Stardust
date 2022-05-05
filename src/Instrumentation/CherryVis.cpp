@@ -1,11 +1,9 @@
 #include "CherryVis.h"
 
 #if CHERRYVIS_ENABLED
-#include <nlohmann/json.hpp>
 #include <utility>
 #include <zstdstream/zstdstream.hpp>
 #include <filesystem>
-
 #endif
 
 namespace CherryVis
@@ -168,6 +166,7 @@ namespace CherryVis
 
         std::map<int, DataFile> unitIdToLogFile;
         std::map<int, DataFile> unitIdToDrawCommandsFile;
+        std::map<std::string, DataFile> labelToDataFile;
 
         std::unordered_map<std::string, DataFile> heatmapNameToDataFile;
 
@@ -264,6 +263,7 @@ namespace CherryVis
         unitIdToFrameToUnitUpdate.clear();
         unitIdToLogFile.clear();
         unitIdToDrawCommandsFile.clear();
+        labelToDataFile.clear();
         heatmapNameToDataFile.clear();
 
         std::filesystem::create_directories("bwapi-data/write/cvis");
@@ -511,6 +511,12 @@ namespace CherryVis
         }
         trace["units_logs"] = unitIdToLogFilePath;
 
+        for (auto &labelAndDataFile : labelToDataFile)
+        {
+            trace[labelAndDataFile.first] = labelAndDataFile.second.parts[0].filename;
+            labelAndDataFile.second.close();
+        }
+
         zstd::ofstream traceFile("bwapi-data/write/cvis/trace.json");
         traceFile << trace.dump(-1, ' ', true);
         traceFile.close();
@@ -525,7 +531,16 @@ void CherryVis::disable()
 #endif
 }
 
-void CherryVis::writeFrameData(const std::string &label, const std::string &data)
+void CherryVis::writeFrameData(const std::string &label, const nlohmann::json &entry)
 {
+    auto fileIt = labelToDataFile.find(label);
+    if (fileIt == labelToDataFile.end())
+    {
+        fileIt = labelToDataFile.emplace(
+                std::piecewise_construct,
+                std::make_tuple(label),
+                std::make_tuple(label, DataFileType::ObjectPerFrame)).first;
+    }
 
+    fileIt->second.writeEntry(entry);
 }

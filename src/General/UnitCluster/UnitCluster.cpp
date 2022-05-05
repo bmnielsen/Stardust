@@ -271,3 +271,54 @@ std::string UnitCluster::getCurrentSubActivity() const
 {
     return SubActivityNames[currentSubActivity];
 }
+
+void UnitCluster::addInstrumentation(nlohmann::json &clusterArray) const
+{
+#if INSTRUMENTATION_ENABLED
+    auto simResultToJson = [](const CombatSimResult& simResult, bool decision)
+    {
+        nlohmann::json result({
+                                      {"decision",                decision},
+                                      {"myUnitCount",             simResult.myUnitCount},
+                                      {"enemyUnitCount",          simResult.enemyUnitCount},
+                                      {"initialMine",             simResult.initialMine},
+                                      {"initialEnemy",            simResult.initialEnemy},
+                                      {"finalMine",               simResult.finalMine},
+                                      {"finalEnemy",              simResult.finalEnemy},
+                                      {"enemyHasUndetectedUnits", simResult.enemyHasUndetectedUnits},
+                                      {"distanceFactor",          simResult.distanceFactor},
+                                      {"aggression",              simResult.aggression},
+                                      {"closestReinforcements",   simResult.closestReinforcements},
+                                      {"reinforcementPercentage", simResult.reinforcementPercentage}
+                              });
+        if (simResult.narrowChoke)
+        {
+            result["choke_x"] = simResult.narrowChoke->center.x;
+            result["choke_y"] = simResult.narrowChoke->center.y;
+        }
+        else
+        {
+            result["choke_x"] = nlohmann::json();
+            result["choke_y"] = nlohmann::json();
+        }
+        return result;
+    };
+
+    nlohmann::json simResult;
+    if (!recentSimResults.empty() && recentSimResults.rbegin()->first.frame == currentFrame)
+    {
+        simResult = simResultToJson(recentSimResults.rbegin()->first, recentSimResults.rbegin()->second);
+    }
+
+    clusterArray.push_back({
+                                   {"center_x", center.x},
+                                   {"center_y", center.y},
+                                   {"unit_count", units.size()},
+                                   {"is_vanguard", isVanguardCluster},
+                                   {"percent_distance_to_target", percentageToEnemyMain},
+                                   {"activity", ActivityNames[currentActivity]},
+                                   {"subactivity", SubActivityNames[currentSubActivity]},
+                                   {"sim_result", simResult}
+                           });
+#endif
+}

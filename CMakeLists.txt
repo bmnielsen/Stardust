@@ -29,6 +29,7 @@ ENDIF(MSVC)
 
 add_subdirectory(3rdparty/BWEM)
 add_subdirectory(3rdparty/FAP)
+add_subdirectory(3rdparty/nlohmann)
 
 IF(NOT MSVC OR NOT TOURNAMENT_BUILD)
     add_subdirectory(3rdparty/zstd/build/cmake)

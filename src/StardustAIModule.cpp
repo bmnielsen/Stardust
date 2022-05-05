@@ -252,6 +252,7 @@ void StardustAIModule::onFrame()
 
     // Instrumentation
     NoGoAreas::writeInstrumentation();
+    General::writeInstrumentation();
 
 #if COLLISION_HEATMAP_FREQUENCY_ENEMY
     if (currentFrame % COLLISION_HEATMAP_FREQUENCY_ENEMY == 0)

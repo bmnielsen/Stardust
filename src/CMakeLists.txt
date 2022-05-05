@@ -31,7 +31,7 @@ endif ()
 
 IF (MSVC)
     IF (TOURNAMENT_BUILD)
-        target_link_libraries(Stardust BWAPILIB BWEM FAP)
+        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann)
     ELSE (TOURNAMENT_BUILD)
         target_compile_definitions(Stardust PUBLIC LOGGING_ENABLED=true)
 
@@ -39,14 +39,14 @@ IF (MSVC)
             target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
         endif ()
 
-        target_link_libraries(Stardust BWAPILIB BWEM FAP libzstd_static)
+        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann libzstd_static)
     ENDIF (TOURNAMENT_BUILD)
 
 ELSE (MSVC)
     target_compile_definitions(Stardust PUBLIC LOGGING_ENABLED=true)
     target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
     target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED_VERBOSE=true)
-    target_link_libraries(Stardust -L/usr/local/Cellar/llvm/13.0.0_2/lib BWAPILIB BWEM FAP libzstd_static)
+    target_link_libraries(Stardust -L/usr/local/Cellar/llvm/13.0.0_2/lib BWAPILIB BWEM FAP nlohmann libzstd_static)
 ENDIF (MSVC)
 
 target_include_directories(Stardust PUBLIC ${STARDUST_INCLUDES})

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nlohmann.h>
+
 #include "Common.h"
 #include "UnitCluster.h"
 
@@ -40,6 +42,8 @@ public:
     [[nodiscard]] std::shared_ptr<UnitCluster> vanguardCluster(int *distToTargetPosition = nullptr) const;
 
     [[nodiscard]] bool canReassignFromVanguardCluster(MyUnit &unit) const;
+
+    void addInstrumentation(nlohmann::json &squadArray) const;
 
     explicit Squad(std::string label)
             : label(std::move(label))

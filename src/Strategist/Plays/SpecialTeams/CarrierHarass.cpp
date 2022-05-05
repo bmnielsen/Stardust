@@ -61,7 +61,7 @@ void CarrierHarass::update()
         // Add the new squad
         if (newTargetBase)
         {
-            squad = std::make_shared<AttackBaseSquad>(newTargetBase);
+            squad = std::make_shared<AttackBaseSquad>(newTargetBase, "Carriers");
             General::addSquad(squad);
             for (auto &unit : status.removedUnits)
             {
