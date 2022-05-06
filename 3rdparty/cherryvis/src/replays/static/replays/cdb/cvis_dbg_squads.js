@@ -83,49 +83,54 @@ async function cvis_dbg_squads_update(global_data, cvis_state) {
     }
     active_squad_tab.find('.vanguard-activity').text(activity);
 
-    if (vanguard_cluster.sim_result) {
-        set_position(active_squad_tab.find('.vanguard-sim-choke'), vanguard_cluster.sim_result.choke_x, vanguard_cluster.sim_result.choke_y);
-
-        function valuepair(a, b) {
-            return a + ' / ' + b;
-        }
-        function twodecimals(a) {
-            return Math.round((a + Number.EPSILON) * 100) / 100
-        }
-
-        // These all come directly from the data
-        active_squad_tab.find('.vanguard-sim-decision').text(vanguard_cluster.sim_result.decision ? 'ATTACK' : 'RETREAT');
-        active_squad_tab.find('.vanguard-sim-units')
-            .text(valuepair(vanguard_cluster.sim_result.myUnitCount, vanguard_cluster.sim_result.enemyUnitCount) +
-                (vanguard_cluster.sim_result.enemyHasUndetectedUnits ? '*' : ''));
-        active_squad_tab.find('.vanguard-sim-initial-scores').text(valuepair(vanguard_cluster.sim_result.initialMine, vanguard_cluster.sim_result.initialEnemy));
-        active_squad_tab.find('.vanguard-sim-final-scores').text(valuepair(vanguard_cluster.sim_result.finalMine, vanguard_cluster.sim_result.finalEnemy));
-        active_squad_tab.find('.vanguard-sim-diff-scores')
-            .text(valuepair(vanguard_cluster.sim_result.finalMine-vanguard_cluster.sim_result.initialMine,
-                vanguard_cluster.sim_result.finalEnemy-vanguard_cluster.sim_result.initialEnemy));
-        active_squad_tab.find('.vanguard-sim-distance-factor').text(twodecimals(vanguard_cluster.sim_result.distanceFactor));
-        active_squad_tab.find('.vanguard-sim-aggression').text(twodecimals(vanguard_cluster.sim_result.aggression));
-        active_squad_tab.find('.vanguard-sim-reinforcements')
-            .text(twodecimals(vanguard_cluster.sim_result.reinforcementPercentage) + '@' + twodecimals(vanguard_cluster.sim_result.closestReinforcements));
-
-        // These are computed to match what we do for decision making
-        function percentLoss(initial, final) {
-            if (initial < 0.1) return 0;
-            return Math.round(100.0 * (1.0 - (final / initial)));
-        }
-        active_squad_tab.find('.vanguard-sim-percent-loss').text(
-            valuepair(percentLoss(vanguard_cluster.sim_result.initialMine, vanguard_cluster.sim_result.finalMine),
-                percentLoss(vanguard_cluster.sim_result.initialEnemy, vanguard_cluster.sim_result.finalEnemy)));
-        active_squad_tab.find('.vanguard-sim-gain')
-            .text(vanguard_cluster.sim_result.finalMine - vanguard_cluster.sim_result.initialMine -
-                (vanguard_cluster.sim_result.finalEnemy - vanguard_cluster.sim_result.initialEnemy));
-        active_squad_tab.find('.vanguard-sim-percent-gain')
-            .text(percentLoss(vanguard_cluster.sim_result.initialEnemy, vanguard_cluster.sim_result.finalEnemy) -
-                percentLoss(vanguard_cluster.sim_result.initialMine, vanguard_cluster.sim_result.finalMine));
-
-        active_squad_tab.find('.hide-when-no-vanguard-sim-result').show();
-    } else {
-        active_squad_tab.find('.hide-when-no-vanguard-sim-result').hide();
+    function valuepair(a, b) {
+        return a + ' / ' + b;
     }
+    function twodecimals(a) {
+        return Math.round((a + Number.EPSILON) * 100) / 100
+    }
+    function percentLoss(initial, final) {
+        if (initial < 0.1) return 0;
+        return Math.round(100.0 * (1.0 - (final / initial)));
+    }
+    function simresult(sim_result, label) {
+      if (!sim_result) {
+          active_squad_tab.find(`.hide-when-no-${label}-result`).hide();
+          return;
+      }
+
+      set_position(active_squad_tab.find(`.${label}-choke`), sim_result.choke_x, sim_result.choke_y);
+
+      // These all come directly from the data
+      active_squad_tab.find(`.${label}-decision`).text(sim_result.decision ? 'ATTACK' : 'RETREAT');
+      active_squad_tab.find(`.${label}-units`)
+          .text(valuepair(sim_result.myUnitCount, sim_result.enemyUnitCount) +
+              (sim_result.enemyHasUndetectedUnits ? '*' : ''));
+      active_squad_tab.find(`.${label}-initial-scores`).text(valuepair(sim_result.initialMine, sim_result.initialEnemy));
+      active_squad_tab.find(`.${label}-final-scores`).text(valuepair(sim_result.finalMine, sim_result.finalEnemy));
+      active_squad_tab.find(`.${label}-diff-scores`)
+          .text(valuepair(sim_result.finalMine-sim_result.initialMine,
+              sim_result.finalEnemy-sim_result.initialEnemy));
+      active_squad_tab.find(`.${label}-distance-factor`).text(twodecimals(sim_result.distanceFactor));
+      active_squad_tab.find(`.${label}-aggression`).text(twodecimals(sim_result.aggression));
+      active_squad_tab.find(`.${label}-reinforcements`)
+          .text(twodecimals(sim_result.reinforcementPercentage) + '@' + twodecimals(sim_result.closestReinforcements));
+
+      // These are computed to match what we do for decision making
+      active_squad_tab.find(`.${label}-percent-loss`).text(
+          valuepair(percentLoss(sim_result.initialMine, sim_result.finalMine),
+              percentLoss(sim_result.initialEnemy, sim_result.finalEnemy)));
+      active_squad_tab.find(`.${label}-gain`)
+          .text(sim_result.finalMine - sim_result.initialMine -
+              (sim_result.finalEnemy - sim_result.initialEnemy));
+      active_squad_tab.find(`.${label}-percent-gain`)
+          .text(percentLoss(sim_result.initialEnemy, sim_result.finalEnemy) -
+              percentLoss(sim_result.initialMine, sim_result.finalMine));
+
+      active_squad_tab.find(`.hide-when-no-${label}-result`).show();
+    }
+
+    simresult(vanguard_cluster.sim_result, 'vanguard-sim');
+    simresult(vanguard_cluster.regroup_sim_result, 'vanguard-regroup-sim');
   }
 }
