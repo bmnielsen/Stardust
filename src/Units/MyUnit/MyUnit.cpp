@@ -124,37 +124,55 @@ void MyUnitImpl::attackUnit(const Unit &target,
         return;
     }
 
-    // Determine if we should force the attack command
-    // We do this if there is a high likelihood we are moving backwards because of pathing issues
-    bool forceAttackCommand = false;
-    auto predictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
-    if (!predictedPosition.isValid()) predictedPosition = lastPosition;
-    if (lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames() - 6))
-    {
-        forceAttackCommand = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, target->lastPosition) > dist;
-    }
+    auto myPredictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames());
+    auto targetPredictedPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames());
+    auto predictedDist = Geo::EdgeToEdgeDistance(type, myPredictedPosition, target->type, targetPredictedPosition);
+    auto rangeToTarget = range(target);
 
-    // If the target is already in range, just attack it
-    int myRange = range(target);
-    if (dist <= myRange)
+    // Predicted to be in range or target is stationary: attack
+    if (predictedDist <= rangeToTarget || targetPredictedPosition == target->lastPosition)
     {
-        attack(target->bwapiUnit, forceAttackCommand);
-        return;
-    }
+        // Re-send the attack command when we are coming into range
+        bool forceAttackCommand = false;
+        if (dist > rangeToTarget && predictedDist <= rangeToTarget && cooldownUntil < (currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames())
+            && bwapiUnit->getLastCommand().type == BWAPI::UnitCommandTypes::Attack_Unit)
+        {
+            // If we recently sent the attack command, check our predicted distance when it will kick in
+            // If we still expect to be in range, we don't need to do anything
+            int lastCommandTakesEffect = lastCommandFrame + BWAPI::Broodwar->getLatencyFrames() - currentFrame;
+            if (lastCommandTakesEffect >= 0)
+            {
+                auto distAtAttackFrame =
+                        (lastCommandTakesEffect == 0)
+                            ? dist
+                            : Geo::EdgeToEdgeDistance(type, predictPosition(lastCommandTakesEffect),
+                                                      target->type, target->predictPosition(lastCommandTakesEffect));
+                if (distAtAttackFrame <= rangeToTarget)
+                {
+#if DEBUG_UNIT_ORDERS
+                    CherryVis::log(id) << "Attack: Attack command effective @ " << lastCommandTakesEffect
+                        << "; dist=" << distAtAttackFrame << "; don't touch";
+#endif
+                    return;
+                }
 
-    // If the target is predicted to be in range shortly, attack it
-    auto predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
-    if (!predictedTargetPosition.isValid()) predictedTargetPosition = target->lastPosition;
-    auto predictedDist = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, predictedTargetPosition);
-    if (predictedDist <= myRange)
-    {
-        attack(target->bwapiUnit, forceAttackCommand);
-        return;
-    }
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(id) << "Attack: Attack command effective @ " << lastCommandTakesEffect
+                                   << "; dist=" << distAtAttackFrame << "; resend attack command";
+#endif
+            }
+            else
+            {
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(id) << "Attack: Attack command effective @ " << lastCommandTakesEffect
+                                   << "; resending attack command";
+#endif
+            }
 
-    // If the target is stationary or is close and moving towards us, attack it
-    if (predictedTargetPosition == target->lastPosition || (predictedDist <= dist && predictedDist < std::min(myRange + 64, 128)))
-    {
+            // Otherwise force the attack command
+            forceAttackCommand = true;
+        }
+
         attack(target->bwapiUnit, forceAttackCommand);
         return;
     }
