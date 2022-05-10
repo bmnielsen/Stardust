@@ -89,38 +89,31 @@ namespace BWAPI
   //--------------------------------------------- GET DISTANCE -----------------------------------------------
   int UnitInterface::getDistance(Position target) const
   {
-    // If this unit does not exist or target is invalid
-    if (!exists() || !target)
-      return std::numeric_limits<int>::max();
+      // If this unit does not exist or target is invalid
+      if (!exists() || !target)
+          return std::numeric_limits<int>::max();
 
-    /////// Compute distance
-
-    // retrieve left/top/right/bottom values for calculations
-    int left = target.x - 1;
-    int top = target.y - 1;
-    int right = target.x + 1;
-    int bottom = target.y + 1;
-
-    // compute x distance
-    int xDist = this->getLeft() - right;
-    if (xDist < 0)
-    {
-      xDist = left - this->getRight();
+      /////// Compute distance
+      // compute x distance
+      int xDist = this->getLeft() - target.x;
       if (xDist < 0)
-        xDist = 0;
-    }
+      {
+          xDist = target.x - (this->getRight() + 1);
+          if (xDist < 0)
+              xDist = 0;
+      }
 
-    // compute y distance
-    int yDist = this->getTop() - bottom;
-    if (yDist < 0)
-    {
-      yDist = top - this->getBottom();
+      // compute y distance
+      int yDist = this->getTop() - target.y;
       if (yDist < 0)
-        yDist = 0;
-    }
+      {
+          yDist = target.y - (this->getBottom() + 1);
+          if (yDist < 0)
+              yDist = 0;
+      }
 
-    // compute actual distance
-    return Positions::Origin.getApproxDistance(Position(xDist, yDist));
+      // compute actual distance
+      return Positions::Origin.getApproxDistance(Position(xDist, yDist));
   }
   int UnitInterface::getDistance(Unit target) const
   {
