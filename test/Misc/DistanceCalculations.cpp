@@ -114,3 +114,40 @@ TEST(DistanceCalculations, Mixed)
 
     test.run();
 }
+
+TEST(DistanceCalculations, Positions)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.map = Maps::GetOne("Tau Cross");
+    test.randomSeed = 42;
+    test.frameLimit = 400;
+    test.expectWin = false;
+
+    test.onStartMine = []()
+    {
+        std::vector<BWAPI::Position> positions;
+        for (int x = -40; x <= 40; x++)
+        {
+            for (int y = -40; y <= 40; y++)
+            {
+                positions.emplace_back(x, y);
+            }
+        }
+
+        for (auto first : positions)
+        {
+            for (auto second : positions)
+            {
+                int bwapiDistance = first.getApproxDistance(second);
+                int geoDistance = Geo::ApproximateDistance(first.x, second.x, first.y, second.y);
+                EXPECT_EQ(bwapiDistance, geoDistance) << first << " and " << second;
+            }
+        }
+    };
+
+    test.run();
+}
