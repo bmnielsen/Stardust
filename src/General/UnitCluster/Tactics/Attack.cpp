@@ -122,9 +122,8 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
         else if (myUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first->id) << "No target: stopping";
+            CherryVis::log(unitAndTarget.first->id) << "No target";
 #endif
-            myUnit->stop();
         }
         else
         {

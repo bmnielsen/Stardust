@@ -421,9 +421,8 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         if (!unitAndTarget.second)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first->id) << "No target: stopping";
+            CherryVis::log(unitAndTarget.first->id) << "No target";
 #endif
-            unitAndTarget.first->stop();
         }
         else
         {

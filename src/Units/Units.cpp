@@ -24,6 +24,7 @@
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS false
 #define DEBUG_ARBITER_STATUS false
+#define DEBUG_CANNON_STATUS false
 #define DEBUG_PRODUCINGBUILDING_STATUS false
 #define DEBUG_ENEMY_STATUS false
 #define DEBUG_ENEMY_TIMINGS true
@@ -872,6 +873,9 @@ namespace Units
 #endif
 #if DEBUG_ARBITER_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Arbiter;
+#endif
+#if DEBUG_CANNON_STATUS
+            output = output || unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon;
 #endif
 #if DEBUG_PRODUCINGBUILDING_STATUS
             output = output || (unit->type.isBuilding() && unit->type.canProduce());

@@ -3,6 +3,7 @@
 bool MyCannon::isReady() const
 {
     if (!MyUnitImpl::isReady()) return false;
+    if (issuedOrderThisFrame) return false;
 
     // We aren't ready while on cooldown, adjusted for latency
     if (cooldownUntil > (currentFrame + BWAPI::Broodwar->getLatencyFrames())) return false;
