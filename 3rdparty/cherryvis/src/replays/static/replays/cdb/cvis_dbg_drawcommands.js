@@ -18,10 +18,14 @@ function cvis_dbg_drawcommands_update(global_data, cvis_state) {
 
   var draw_commands_this_frame = draw_commands[cvis_state.current_frame] || [];
 
+  if (draw_commands[0]) {
+    draw_commands_this_frame = draw_commands_this_frame.concat(draw_commands[0])
+  }
+
   // Add unit-specific draw commands
   if (global_data.units_draw) {
     for (let unit_id of cvis_state.selected_units) {
-      if (global_data.units_draw[unit_id] && global_data.units_draw[unit_id][cvis_state.current_frame]) {
+      if (global_data.units_draw[unit_id] && typeof global_data.units_draw[unit_id] !== 'string' && global_data.units_draw[unit_id][cvis_state.current_frame]) {
         draw_commands_this_frame = draw_commands_this_frame.concat(global_data.units_draw[unit_id][cvis_state.current_frame])
       }
     }
