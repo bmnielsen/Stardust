@@ -4,18 +4,36 @@
 #include "Map.h"
 #include "NoGoAreas.h"
 
+#include "DebugFlag_UnitOrders.h"
+
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DRAW_BOIDS true  // Draws lines for each boid
 #endif
 
 namespace
 {
+    void CheckCollision(const BWAPI::Position &pos, BWAPI::Position *collisionStart, BWAPI::Position *collisionVector)
+    {
+        if (!collisionStart || *collisionStart != BWAPI::Positions::Invalid) return;
+
+        auto collisionHere = Map::collisionVector(pos.x >> 5, pos.y >> 5);
+        if (collisionHere.x != 0 || collisionHere.y != 0)
+        {
+            *collisionStart = pos;
+            *collisionVector = collisionHere;
+        }
+    }
+
     BWAPI::Position WalkablePositionAlongVector(
             BWAPI::Position start,
             BWAPI::Position vector,
             int minDist,
-            BWAPI::Position defaultPosition = BWAPI::Positions::Invalid)
+            BWAPI::Position defaultPosition,
+            BWAPI::Position *collisionStart = nullptr,
+            BWAPI::Position *collisionVector = nullptr)
     {
+        CheckCollision(start, collisionStart, collisionVector);
+
         int extent = Geo::ApproximateDistance(0, vector.x, 0, vector.y);
         auto furthestWalkable = defaultPosition;
         for (int dist = 16; dist < extent; dist += 16)
@@ -26,12 +44,19 @@ namespace
                 return furthestWalkable;
             }
 
-            if (dist >= minDist) furthestWalkable = pos;
+            CheckCollision(pos, collisionStart, collisionVector);
+
+            if (dist >= minDist)
+            {
+                furthestWalkable = pos;
+            }
         }
 
         auto pos = start + vector;
         if (pos.isValid() && Map::isWalkable(pos.x >> 5, pos.y >> 5))
         {
+            CheckCollision(pos, collisionStart, collisionVector);
+
             furthestWalkable = pos;
         }
 
@@ -114,6 +139,9 @@ namespace Boids
     {
         // Increase the minimum distance so it is at least the size of the unit
         minDist = std::max(minDist, std::max(unit->type.width(), unit->type.height()));
+
+        // The scale must be at least the min dist
+        if (scale > 0) scale = std::max(scale, minDist);
 
         // Start by combining into a (possibly scaled) vector
         int totalX = 0;
@@ -204,42 +232,117 @@ namespace Boids
             return pos;
         }
 
-        // Get the furthest walkable position along the vector
-        // This returns invalid if the unit cannot move in this direction
-        auto pos = WalkablePositionAlongVector(unit->lastPosition, vector, minDist);
+        BWAPI::Position pos;
 
         // Consider collision if specified
         if (collisionWeight > 0)
         {
-            auto collisionReferencePos = (pos == BWAPI::Positions::Invalid) ? unit->lastPosition : pos;
-
-            auto collisionVector = Map::collisionVector(collisionReferencePos.x >> 5, collisionReferencePos.y >> 5) * collisionWeight;
-            if (collisionVector.x != 0 || collisionVector.y != 0)
+            // Get the furthest walkable position along the vector, tracking the first position with a collision vector
+            // This returns invalid if the unit cannot move in this direction
+            BWAPI::Position collisionStart = BWAPI::Positions::Invalid;
+            BWAPI::Position collisionVector = BWAPI::Positions::Invalid;
+            pos = WalkablePositionAlongVector(unit->lastPosition, vector, minDist, BWAPI::Positions::Invalid, &collisionStart, &collisionVector);
+            if (collisionVector != BWAPI::Positions::Invalid)
             {
+                // Check if the collision vector is in the opposite direction of our desired target vector
+                // If this is the case, move perpendicularly to it instead
+                int desiredAngle = Geo::BWDirection(vector);
+                int collisionAngle = Geo::BWDirection(collisionVector);
+                if (Geo::BWAngleDiff(desiredAngle, collisionAngle) > 100)
+                {
+                    // Generate the perpendicular points
+                    auto perpendicularVector = Geo::PerpendicularVector(
+                            collisionVector, Geo::ApproximateDistance(0, collisionVector.x, 0, collisionVector.y));
+                    auto firstPos = collisionStart + perpendicularVector;
+                    auto secondPos = collisionStart - perpendicularVector;
+
+                    // Pick the point that is in the direction of our current motion
+                    auto futurePos = unit->bwapiUnit->getLastCommand().getTargetPosition();
+                    if (!futurePos.isValid()) futurePos = unit->predictPosition(3);
+                    int firstDist = firstPos.getApproxDistance(futurePos);
+                    int secondDist = secondPos.getApproxDistance(futurePos);
+                    if (firstDist <= secondDist)
+                    {
+                        collisionVector = perpendicularVector;
+                    }
+                    else
+                    {
+                        collisionVector = BWAPI::Position(-perpendicularVector.x, -perpendicularVector.y);
+                    }
+
+                    CherryVis::log(unit->id) << "Perpendicular collision: "
+                                             << "; futurePos pos " << BWAPI::WalkPosition(futurePos)
+                                             << "; first pos: " << firstDist << "@" << BWAPI::WalkPosition(firstPos)
+                                             << "; second pos: " << secondDist << "@" << BWAPI::WalkPosition(secondPos);
+                }
+
+                // If we couldn't find a walkable location along the vector, move towards the collision vector directly
+                if (pos == BWAPI::Positions::Invalid)
+                {
 #if DRAW_BOIDS
-                CherryVis::drawLine(
-                        unit->lastPosition.x,
-                        unit->lastPosition.y,
-                        collisionReferencePos.x + collisionVector.x,
-                        collisionReferencePos.y + collisionVector.y,
-                        CherryVis::DrawColor::Teal,
-                        unit->id);
+                    CherryVis::drawLine(
+                            collisionStart.x,
+                            collisionStart.y,
+                            collisionStart.x + collisionVector.x * collisionWeight,
+                            collisionStart.y + collisionVector.y * collisionWeight,
+                            CherryVis::DrawColor::Teal,
+                            unit->id);
 #endif
 
-                auto totalVector = (collisionReferencePos + collisionVector) - unit->lastPosition;
+                    // Compute the vector from the current position to the result of adding the collision vector to the collision start position
+                    auto totalVector = (collisionStart + collisionVector * collisionWeight) - unit->lastPosition;
 
-                // In the case of collisions, we always make sure to scale to at least 64
-                auto magnitude = Geo::ApproximateDistance(totalVector.x, 0, totalVector.y, 0);
-                if (magnitude < 64)
-                {
-                    totalVector = Geo::ScaleVector(totalVector, 64);
+                    // Scale it and find a walkable position along it
+                    totalVector = Geo::ScaleVector(totalVector, std::min(64, scale));
+                    if (totalVector != BWAPI::Positions::Invalid)
+                    {
+                        pos = WalkablePositionAlongVector(unit->lastPosition, totalVector, minDist, collisionStart + collisionVector);
+                    }
+
+#if DEBUG_UNIT_BOIDS
+                    CherryVis::log(unit->id) << "Collision start: " << BWAPI::WalkPosition(collisionStart)
+                                             << "; collisionVector: " << BWAPI::WalkPosition(collisionStart + collisionVector * collisionWeight)
+                                             << "; updated pos: " << BWAPI::WalkPosition(pos);
+#endif
                 }
-
-                if (totalVector != BWAPI::Positions::Invalid)
+                else
                 {
-                    pos = WalkablePositionAlongVector(unit->lastPosition, totalVector, minDist, pos);
+                    // We could find a walkable position along our vector
+                    // But if the position we found is closer than the desired one, apply a bit of force away from the collision
+                    int posDist = Geo::ApproximateDistance(pos.x, unit->lastPosition.x, pos.y, unit->lastPosition.y);
+                    int vectorLength = Geo::ApproximateDistance(vector.x, 0, vector.y, 0);
+                    float weight = (float)collisionWeight * (1.0f - (float)posDist / (float)vectorLength);
+                    collisionVector = {(int)((float)collisionVector.x * weight), (int)((float)collisionVector.y * weight)};
+
+#if DEBUG_UNIT_BOIDS
+                    CherryVis::log(unit->id) << "Collision start: " << BWAPI::WalkPosition(collisionStart)
+                                             << "; collisionVector: " << BWAPI::WalkPosition(collisionStart + collisionVector)
+                                             << "; weight: " << weight
+                                             << "; updated pos: " << BWAPI::WalkPosition(pos + collisionVector);
+#endif
+
+                    auto updatedPos = pos + collisionVector;
+                    if (updatedPos.isValid() && Map::isWalkable(updatedPos.x >> 5, updatedPos.y >> 5))
+                    {
+#if DRAW_BOIDS
+                        CherryVis::drawLine(
+                                pos.x,
+                                pos.y,
+                                pos.x + collisionVector.x,
+                                pos.y + collisionVector.y,
+                                CherryVis::DrawColor::Teal,
+                                unit->id);
+#endif
+                        pos = updatedPos;
+                    }
                 }
             }
+        }
+        else
+        {
+            // Get the furthest walkable position along the vector
+            // This returns invalid if the unit cannot move in this direction
+            pos = WalkablePositionAlongVector(unit->lastPosition, vector, minDist, BWAPI::Positions::Invalid);
         }
 
 #if DRAW_BOIDS
