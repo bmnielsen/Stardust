@@ -13,6 +13,7 @@
 
 #if INSTRUMENTATION_ENABLED
 #define UNWALKABLE_DIRECTION_HEATMAP_ENABLED false
+#define DRAW_COLLISION_VECTORS true
 #endif
 
 namespace Map
@@ -420,6 +421,40 @@ namespace Map
     void dumpWalkability()
     {
 #if CHERRYVIS_ENABLED
+#if DRAW_COLLISION_VECTORS
+        // Draw tile collision vectors on first frame only, as they are too intensive to draw every frame
+        if (currentFrame == 0)
+        {
+            for (int y = 0; y < mapHeight; y++)
+            {
+                for (int x = 0; x < mapWidth; x++)
+                {
+                    if (tileCollisionVector[x + y * mapWidth].x == 0 && tileCollisionVector[x + y * mapWidth].y == 0) continue;
+
+                    auto color = CherryVis::DrawColor::Green;
+                    if (tileCollisionVector[x + y * mapWidth].x <= 0 && tileCollisionVector[x + y * mapWidth].y <= 0)
+                    {
+                        color = CherryVis::DrawColor::Red;
+                    }
+                    else if (tileCollisionVector[x + y * mapWidth].x < 0 && tileCollisionVector[x + y * mapWidth].y > 0)
+                    {
+                        color = CherryVis::DrawColor::Yellow;
+                    }
+                    if (tileCollisionVector[x + y * mapWidth].x > 0 && tileCollisionVector[x + y * mapWidth].y < 0)
+                    {
+                        color = CherryVis::DrawColor::Cyan;
+                    }
+                    CherryVis::drawLine(
+                            x * 32 + 16,
+                            y * 32 + 16,
+                            x * 32 + 16 + tileCollisionVector[x + y * mapWidth].x,
+                            y * 32 + 16 + tileCollisionVector[x + y * mapWidth].y,
+                            color);
+                }
+            }
+        }
+#endif
+
         if (!tileWalkabilityUpdated) return;
 
         tileWalkabilityUpdated = false;
