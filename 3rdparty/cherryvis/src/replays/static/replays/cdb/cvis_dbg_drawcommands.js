@@ -14,7 +14,7 @@ function cvis_dbg_drawcommands_update(global_data, cvis_state) {
   Module.clear_draw_commands();
   $('.cvis-cmd-draw').remove();
   var draw_commands = global_data['draw_commands'];
-  if (draw_commands === undefined || $.isEmptyObject(draw_commands)) return;
+  if (draw_commands === undefined || $.isEmptyObject(draw_commands) || typeof draw_commands === 'string') return;
 
   var draw_commands_this_frame = draw_commands[cvis_state.current_frame] || [];
 
