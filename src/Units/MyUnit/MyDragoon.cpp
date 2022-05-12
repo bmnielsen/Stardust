@@ -18,7 +18,6 @@ namespace
     const double targetWeight = 64.0;
     const double separationDetectionLimitFactor = 1.5;
     const double separationWeight = 96.0;
-    const int collisionWeight = 3;
 }
 
 MyDragoon::MyDragoon(BWAPI::Unit unit)
@@ -296,7 +295,7 @@ void MyDragoon::attackUnit(const Unit &target,
         }
     }
 
-    auto pos = Boids::ComputePosition(this, {targetX, separationX}, {targetY, separationY}, 0, 16, collisionWeight);
+    auto pos = Boids::ComputePosition(this, {targetX, separationX}, {targetY, separationY}, 0, 16, true);
 
 #if DEBUG_UNIT_BOIDS
     CherryVis::log(id) << "Kiting boids; target=" << BWAPI::WalkPosition(lastPosition + BWAPI::Position(targetX, targetY))

@@ -293,17 +293,7 @@ namespace Geo
 
     BWAPI::Position PerpendicularVector(BWAPI::Position vector, int length)
     {
-        if (vector.y == 0)
-        {
-            if (vector.x == 0)
-            {
-                return BWAPI::Positions::Invalid;
-            }
-
-            return {0, length};
-        }
-
-        return ScaleVector({-1000, (1000 * vector.x) / vector.y}, length);
+        return ScaleVector({-vector.y, vector.x}, length);
     }
 
     int BWDirection(BWAPI::Position vector)
@@ -328,5 +318,13 @@ namespace Geo
         if (diff > 127) diff -= 256;
         if (diff < -128) diff += 256;
         return abs(diff);
+    }
+
+    int BWAngleAdd(int a, int b)
+    {
+        int result = a + b;
+        while (result > 127) result -= 256;
+        while (result < -128) result += 256;
+        return result;
     }
 }

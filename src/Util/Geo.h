@@ -52,6 +52,9 @@ namespace Geo
     // Difference between two angles in BW representation (1/256th of a circle)
     int BWAngleDiff(int a, int b);
 
+    // Adds twho angles in BW representation (1/256th of a circle)
+    int BWAngleAdd(int a, int b);
+
     class Spiral
     {
     public:
