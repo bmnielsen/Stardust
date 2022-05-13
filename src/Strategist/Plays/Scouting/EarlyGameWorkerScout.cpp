@@ -26,6 +26,10 @@ namespace
 
     const int mainPriority = 120;
 
+#if OUTPUT_SCOUTTILE_HEATMAP
+    std::vector<long> lastScoutTilesCvis;
+#endif
+
     // Once we know the enemy main base, this method generates the map of prioritized tiles to scout
     // Top priority are mineral patches, geysers, and the area immediately around the resource depot
     // Next priority is the natural location
@@ -36,9 +40,11 @@ namespace
         auto base = Map::getEnemyStartingMain();
         if (!base) return;
 
+        scoutTiles.clear();
+
         // Determine the priorities to use
         // For Zerg we don't need to scout around the base (as they can only build on creep), but want to scout the natural more often
-        int areaPriority = 480;
+        int areaPriority = 800;
         int naturalPriority = 960;
         if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
         {
@@ -46,10 +52,19 @@ namespace
             naturalPriority = 600;
         }
 
-        // If we suspect a proxy, scout the natural more aggressively in case we missed a fast expand
-        if (Strategist::getStrategyEngine()->isEnemyProxy())
+        // If we suspect a proxy, scout the natural and outskirts more aggressively early on in case we missed something
+        if (Strategist::getStrategyEngine()->isEnemyProxy() && currentFrame < 4000)
         {
             naturalPriority = 480;
+            areaPriority = 600;
+        }
+
+        // If the enemy is rushing, give the main area and natural much lower priority
+        // We mainly want to keep an eye on when they start transitioning out of the rush
+        else if (Strategist::getStrategyEngine()->isEnemyRushing() && BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Zerg)
+        {
+            areaPriority = 1200;
+            naturalPriority = 1200;
         }
 
         auto tileValid = [](BWAPI::TilePosition tile, int neutralElevation)
@@ -130,16 +145,18 @@ namespace
 
 #if OUTPUT_SCOUTTILE_HEATMAP
         std::vector<long> scoutTilesCvis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-        int val = 10;
         for (auto it = scoutTiles.rbegin(); it != scoutTiles.rend(); it++)
         {
             for (auto &tile : it->second)
             {
-                scoutTilesCvis[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = val;
+                scoutTilesCvis[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = it->first;
             }
-            val += 10;
         }
-        CherryVis::addHeatmap("WorkerScoutTiles", scoutTilesCvis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+        if (lastScoutTilesCvis != scoutTilesCvis)
+        {
+            CherryVis::addHeatmap("WorkerScoutTiles", scoutTilesCvis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+        }
+        lastScoutTilesCvis = scoutTilesCvis;
 #endif
     }
 
@@ -378,8 +395,9 @@ void EarlyGameWorkerScout::update()
         if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (currentFrame - 120)) continue;
         if (!UnitUtil::CanAttackGround(unit->type)) continue;
         if (!unit->type.isBuilding() && unit->lastSeen < (currentFrame - 120)) continue;
+        if (!unit->completed) continue;
 
-        int detectionLimit = std::max(128, unit->groundRange() + 64);
+        int detectionLimit = std::max(128, unit->groundRange() + 32);
         int dist = scout->getDistance(unit);
         if (dist >= detectionLimit) continue;
 
@@ -393,13 +411,20 @@ void EarlyGameWorkerScout::update()
             break;
         }
 
-        // Minimum force at detection limit, maximum force at detection limit - 64 (and closer)
-        double distFactor = 1.0 - (double) std::max(0, dist - 64) / (double) (detectionLimit - 64);
+        // Minimum force at detection limit, maximum force at detection limit - 32 (and closer)
+        double distFactor = 1.0 - (double) std::max(0, dist - 32) / (double) (detectionLimit - 32);
         auto vector = BWAPI::Position(scout->lastPosition.x - unit->lastPosition.x, scout->lastPosition.y - unit->lastPosition.y);
         auto scaled = Geo::ScaleVector(vector, (int) (distFactor * threatWeight));
 
         threatX += scaled.x;
         threatY += scaled.y;
+    }
+
+    // If we have scouted the base at least once and the enemy has a ranged unit, complete the play
+    if (hasRangedThreat && Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted)
+    {
+        status.complete = true;
+        return;
     }
 
     // Get the next waypoint
@@ -736,7 +761,7 @@ bool EarlyGameWorkerScout::isScoutBlocked()
 
 BWAPI::TilePosition EarlyGameWorkerScout::getHighestPriorityScoutTile()
 {
-    if (scoutTiles.empty()) generateTileScoutPriorities(scoutTiles, scoutAreas);
+    generateTileScoutPriorities(scoutTiles, scoutAreas);
 
     int highestPriorityFrame = INT_MAX;
     int highestPriorityDist = INT_MAX;
