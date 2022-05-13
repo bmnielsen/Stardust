@@ -9,19 +9,11 @@
 
 function cvis_dbg_unitslist_init(global_data, cvis_state) {
   function unittype_get_name(type) {
-    var type_name = global_data['types_names'][type];
-    if (type_name !== undefined)
-      return type_name;
-    else
-      return 'UnkType ' + type;
+    return (global_data['types_names'] || {})[type] || ('UnkType ' + type);
   }
 
   function ordertype_get_name(type) {
-    var type_name = global_data['orders_names'][type];
-    if (type_name !== undefined)
-      return type_name;
-    else
-      return 'UnkType ' + type;
+    return (global_data['orders_names'] || {})[type] || ('UnkType ' + type);
   }
 
   function unittype_get_name_short(unit_info) {
