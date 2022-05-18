@@ -15,6 +15,20 @@ TEST(Initialization, AllCOGMaps)
     });
 }
 
+TEST(Initialization, AllCOG2022Maps)
+{
+    Maps::RunOnEach(Maps::Get("cog2022"), [](BWTest test)
+    {
+        test.opponentModule = []()
+        {
+            return new DoNothingModule();
+        };
+        test.frameLimit = 10;
+        test.expectWin = false;
+        test.run();
+    });
+}
+
 TEST(Initialization, AllCOGStartLocations)
 {
     Maps::RunOnEachStartLocation(Maps::Get("cog"), [](BWTest test)
