@@ -1,6 +1,8 @@
 #include "BWTest.h"
+
+// McRave includes
 #include "Header.h"
-#include "StardustAIModule.h"
+#include "3rdparty/opponents/McRave/McRave/BuildOrder.h"
 
 TEST(McRave, RunOne)
 {
@@ -16,13 +18,20 @@ TEST(McRave, RunOne)
     };
     test.onStartOpponent = [&]()
     {
-//        std::cout << "Crona strategy: " << bbModule->strategyName << std::endl;
-//        if (test.sharedMemory)
-//        {
-//            strncpy(test.sharedMemory,
-//                    bbModule->strategyName.c_str(),
-//                    std::min(255UL, bbModule->strategyName.size()));
-//        }
+        std::ostringstream os;
+        os << McRave::BuildOrder::getCurrentBuild()
+                << "_" << McRave::BuildOrder::getCurrentOpener()
+                << "_" << McRave::BuildOrder::getCurrentTransition();
+
+        auto build = os.str();
+
+        std::cout << "McRave strategy: " << build << std::endl;
+        if (test.sharedMemory)
+        {
+            strncpy(test.sharedMemory,
+                    build.c_str(),
+                    std::min(255UL, build.size()));
+        }
 
         std::cout.setstate(std::ios_base::failbit);
     };
@@ -34,9 +43,30 @@ TEST(McRave, RunOne)
         {
             replayName << "_LOSS";
         }
-//        if (test.sharedMemory) replayName << "_" << test.sharedMemory;
+        if (test.sharedMemory) replayName << "_" << test.sharedMemory;
         replayName << "_" << test.randomSeed;
         test.replayName = replayName.str();
+    };
+    test.run();
+}
+
+TEST(McRave, PoolHatch_9Pool_2HatchMuta)
+{
+    BWTest test;
+    McRaveModule* mcraveModule;
+    test.opponentName = "McRave";
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.maps = Maps::Get("sscait");
+    test.opponentModule = [&]()
+    {
+        mcraveModule = new McRaveModule();
+        return mcraveModule;
+    };
+    test.onStartOpponent = [&]()
+    {
+        McRave::BuildOrder::setLearnedBuild("PoolHatch", "9Pool", "2HatchMuta");
+
+        std::cout.setstate(std::ios_base::failbit);
     };
     test.run();
 }
