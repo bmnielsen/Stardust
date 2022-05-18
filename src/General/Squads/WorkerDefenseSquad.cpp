@@ -29,6 +29,7 @@ std::vector<std::pair<MyUnit, Unit>> WorkerDefenseSquad::selectTargets(std::set<
         int closestEnemyDist = INT_MAX;
         for (auto &enemy : enemyUnits)
         {
+            if (!worker->canAttack(enemy)) continue;
             if (!worker->isInEnemyWeaponRange(enemy, hasCannonInMineralLine ? 0 : 48)) continue;
 
             int dist = worker->getDistance(enemy);

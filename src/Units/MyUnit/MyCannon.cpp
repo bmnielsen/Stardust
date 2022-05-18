@@ -23,6 +23,9 @@ void MyCannon::attackUnit(const Unit &target,
                            bool clusterAttacking,
                            int enemyAoeRadius)
 {
+    // Abort the attack if the target isn't visible
+    if (!target->exists() || !target->bwapiUnit->isVisible()) return;
+
     // We always force the attack to reset the order process timer (isReady ensures we don't resend too often)
     attack(target->bwapiUnit, true);
 }
