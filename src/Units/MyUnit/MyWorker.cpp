@@ -223,7 +223,7 @@ void MyWorker::attackUnit(const Unit &target,
     int cooldownFrames = std::max(0, cooldownUntil - currentFrame);
 
     // Compute the expected number of frames until we are in range if we start an attack now
-    auto currentHeading = heading();
+    auto currentHeading = BWHeading();
     int angleDiff = Geo::BWAngleDiff(Geo::BWDirection(targetPredictedPosition - myPredictedPosition), currentHeading);
     int framesToRange =
             std::max(0, (int)std::ceil((predictedDist - groundRange()) / type.topSpeed()))
@@ -281,7 +281,7 @@ void MyWorker::attackUnit(const Unit &target,
             nextAttackPredictedAt = currentFrame + BWAPI::Broodwar->getLatencyFrames();
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(id) << "Sending attack command: predicted dist at frame " << nextAttackPredictedAt << " is " << predictedDist
-                << " and predicted angle diff is " << Geo::BWAngleDiff(Geo::BWDirection(targetPredictedPosition - myPredictedPosition), heading());
+                << " and predicted angle diff is " << Geo::BWAngleDiff(Geo::BWDirection(targetPredictedPosition - myPredictedPosition), BWHeading());
 #endif
             attack(target->bwapiUnit, true);
             return;

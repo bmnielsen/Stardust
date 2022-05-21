@@ -70,6 +70,12 @@ public:
     mutable std::vector<BWAPI::Position> predictedPositions;
     mutable bool predictedPositionsUpdated;
 
+    mutable int bwHeading;
+    mutable bool bwHeadingUpdated;
+
+    mutable int bwSpeed;
+    mutable bool bwSpeedUpdated;
+
     int lastHealth;                     // Health when last seen, adjusted for upcoming attacks
     int lastShields;                    // Shields when last seen, adjusted for upcoming attacks
     int health;                         // Estimated health of the unit, adjusted for upcoming attacks
@@ -117,7 +123,9 @@ public:
 
     [[nodiscard]] bool exists() const { return bwapiUnit != nullptr; };
 
-    [[nodiscard]] int heading() const;
+    [[nodiscard]] int BWHeading() const;
+
+    [[nodiscard]] int BWSpeed() const;
 
     [[nodiscard]] virtual bool isBeingManufacturedOrCarried() const { return false; };
 

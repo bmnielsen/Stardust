@@ -64,6 +64,10 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , simPosition(unit->getPosition())
         , simPositionValid(true)
         , predictedPositionsUpdated(false)
+        , bwHeading(0)
+        , bwHeadingUpdated(false)
+        , bwSpeed(0)
+        , bwSpeedUpdated(false)
         , lastHealth(unit->getHitPoints())
         , lastShields(unit->getShields())
         , health(unit->getHitPoints())
@@ -137,6 +141,9 @@ void UnitImpl::update(BWAPI::Unit unit)
 
     std::fill(predictedPositions.begin(), predictedPositions.end(), lastPosition);
     predictedPositionsUpdated = false;
+
+    bwHeadingUpdated = false;
+    bwSpeedUpdated = false;
 
     if (player->getRace() == BWAPI::Races::Terran && unit->isCompleted() && unit->getHitPoints() > lastHealth)
     {
@@ -651,63 +658,33 @@ void UnitImpl::updatePredictedPositions() const
     if (!bwapiUnit || !bwapiUnit->exists() || !bwapiUnit->isVisible()) return;
 
     // Return if the unit isn't moving
-    double x2 = bwapiUnit->getVelocityX() * bwapiUnit->getVelocityX();
-    double y2 = bwapiUnit->getVelocityY() * bwapiUnit->getVelocityY();
-    if (x2 < 0.01 && y2 < 0.01) return;
+    int speed = BWSpeed();
+    if (speed == 0) return;
 
-    // We go frame-by-frame to simulate acceleration
+    // Determine the acceleration to use during the prediction
     double topSpeed = Players::unitTopSpeed(player, type);
-    double initialSpeed = sqrt(x2 + y2);
-    double currentSpeed = initialSpeed;
-
-    // We keep track of whether the speed can still be changing and what the current speed delta is
-    bool accelerating;
-    double speedDelta;
-    double acceleration;
-    if (bwapiUnit->isAccelerating() && initialSpeed > (topSpeed - 0.1))
+    int bwTopSpeed = (int)(topSpeed * 256.0);
+    if (speed > bwTopSpeed) speed = bwTopSpeed;
+    int acceleration;
+    if (!bwapiUnit->isAccelerating() || speed >= bwTopSpeed)
     {
-        accelerating = false;
-        speedDelta = 1.0;
-        // acceleration is not needed
+        acceleration = 0;
     }
     else
     {
-        accelerating = true;
-        // speedDelta will be computed in the loop before its first usage
         acceleration = UnitUtil::Acceleration(type, topSpeed);
     }
 
-    double x = lastPosition.x;
-    double y = lastPosition.y;
+    // Simulate the positions
+    int x = lastPosition.x << 8;
+    int y = lastPosition.y << 8;
+    int heading = BWHeading();
     for (auto& predictedPosition : predictedPositions)
     {
-        if (accelerating)
-        {
-            if (bwapiUnit->isAccelerating())
-            {
-                currentSpeed += acceleration;
-                if (currentSpeed >= topSpeed)
-                {
-                    currentSpeed = topSpeed;
-                    accelerating = false;
-                }
-            }
-            else
-            {
-                currentSpeed -= acceleration;
-                if (currentSpeed <= 0)
-                {
-                    currentSpeed = 0.0;
-                    accelerating = false;
-                }
-            }
-            speedDelta = currentSpeed / initialSpeed;
-        }
+        Geo::BWMovement(x, y, heading, heading, 0, speed, acceleration, bwTopSpeed);
 
-        x += bwapiUnit->getVelocityX() * speedDelta;
-        y += bwapiUnit->getVelocityY() * speedDelta;
-        predictedPosition.x = (int)x;
-        predictedPosition.y = (int)y;
+        predictedPosition.x = x >> 8;
+        predictedPosition.y = y >> 8;
     }
 }
 

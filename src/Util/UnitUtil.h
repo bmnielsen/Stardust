@@ -36,5 +36,6 @@ namespace UnitUtil
 
     int HaltDistance(BWAPI::UnitType type);
 
-    double Acceleration(BWAPI::UnitType type, double currentTopSpeed);
+    // Acceleration, in BW notation (multiples of 1/256)
+    int Acceleration(BWAPI::UnitType type, double currentTopSpeed);
 }

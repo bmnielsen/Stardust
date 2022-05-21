@@ -221,12 +221,13 @@ namespace UnitUtil
         return haltDistances[type.getID()];
     }
 
-    double Acceleration(BWAPI::UnitType type, double currentTopSpeed)
+    int Acceleration(BWAPI::UnitType type, double currentTopSpeed)
     {
+        // Acceleration is doubled when speed is upgraded
         if (currentTopSpeed > type.topSpeed())
         {
-            return (double)type.acceleration() / 128.0;
+            return type.acceleration() << 1;
         }
-        return (double)type.acceleration() / 256.0;
+        return type.acceleration();
     }
 }

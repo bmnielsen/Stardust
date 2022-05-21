@@ -1,9 +1,9 @@
-#include <Players/Players.h>
 #include "MyUnit.h"
 
 #include "UnitUtil.h"
 #include "Units.h"
 #include "Geo.h"
+#include "Players.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -20,7 +20,11 @@ MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         , gridNode(nullptr)
         , lastMoveFrame(0)
         , unstickUntil(-1)
+        , simulatedPositionsUpdated(false)
 {
+    recentCommands.resize(BWAPI::Broodwar->getLatencyFrames() + 1, unit->getLastCommand());
+    simulatedPositions.resize(BWAPI::Broodwar->getLatencyFrames() + 1, unit->getPosition());
+    simulatedHeading.resize(BWAPI::Broodwar->getLatencyFrames() + 1, 0);
 }
 
 std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit)
@@ -32,6 +36,11 @@ std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit)
 void MyUnitImpl::update(BWAPI::Unit unit)
 {
     if (!unit || !unit->exists()) return;
+
+    // Update command positions
+    recentCommands.pop_front();
+    recentCommands.emplace_back(unit->getLastCommand());
+    simulatedPositionsUpdated = false;
 
     if (bwapiUnit->isCompleted()) producer = nullptr;
 
@@ -225,4 +234,61 @@ bool MyUnitImpl::unstick()
     }
 
     return false;
+}
+
+BWAPI::Position MyUnitImpl::simulatePosition(int frames) const
+{
+    if (!simulatedPositionsUpdated) updateSimulatedPositions();
+
+    return simulatedPositions[frames - 1];
+}
+
+int MyUnitImpl::simulateHeading(int frames) const
+{
+    if (!simulatedPositionsUpdated) updateSimulatedPositions();
+
+    return simulatedHeading[frames - 1];
+}
+
+void MyUnitImpl::updateSimulatedPositions() const
+{
+    simulatedPositionsUpdated = true;
+
+    int x = lastPosition.x;
+    int bwX = x << 8;
+    int y = lastPosition.y;
+    int bwY = y << 8;
+
+    int heading = BWHeading();
+
+    int speed = BWSpeed();
+    double topSpeed = Players::unitTopSpeed(player, type);
+    int bwTopSpeed = (int)(topSpeed * 256.0);
+    if (speed > bwTopSpeed) speed = bwTopSpeed;
+    int acceleration = UnitUtil::Acceleration(type, topSpeed);
+
+    for (int i=0; i<recentCommands.size(); i++)
+    {
+        // Compute desired heading to move target at this frame
+        int desiredHeading;
+        auto moveTarget = recentCommands[i].getTargetPosition();
+        if (moveTarget.isValid())
+        {
+            desiredHeading = Geo::BWDirection({moveTarget.x - x, moveTarget.y - y});
+        }
+        else
+        {
+            desiredHeading = heading;
+        }
+
+        // Simulate movement
+        Geo::BWMovement(bwX, bwY, heading, desiredHeading, type.turnRadius(), speed, acceleration, bwTopSpeed);
+
+        // Assign simulated position and heading
+        x = bwX >> 8;
+        y = bwY >> 8;
+        simulatedPositions[i].x = x;
+        simulatedPositions[i].y = y;
+        simulatedHeading[i] = heading;
+    }
 }

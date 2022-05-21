@@ -55,6 +55,10 @@ namespace Geo
     // Adds twho angles in BW representation (1/256th of a circle)
     int BWAngleAdd(int a, int b);
 
+    // Simulate a frame of movement of a unit
+    // All values are in BW representation (positions and speeds are multiples of 1/256, angles are 1/256th of a circle)
+    void BWMovement(int &x, int &y, int &heading, int desiredHeading, int turnRate, int &speed, int acceleration, int topSpeed);
+
     class Spiral
     {
     public:

@@ -17,13 +17,30 @@ BWAPI::TilePosition UnitImpl::getTilePosition() const
     return BWAPI::TilePosition{tilePositionX, tilePositionY};
 }
 
-int UnitImpl::heading() const
+int UnitImpl::BWHeading() const
 {
-    // Do the reverse of what BWAPI does in UnitUpdate to get BW's heading
-    int heading = (int)round((lastAngle * 128.0) / 3.14159265358979323846);
-    heading += 64;
-    if (heading > 127) heading -= 256;
-    return heading;
+    if (!bwHeadingUpdated)
+    {
+        // Do the reverse of what BWAPI does in UnitUpdate to get BW's heading
+        bwHeading = (int)round((lastAngle * 128.0) / 3.14159265358979323846);
+        bwHeading += 64;
+        if (bwHeading > 127) bwHeading -= 256;
+
+        bwHeadingUpdated = true;
+    }
+    return bwHeading;
+}
+
+int UnitImpl::BWSpeed() const
+{
+    if (!bwSpeedUpdated)
+    {
+        double speed = sqrt(bwapiUnit->getVelocityX() * bwapiUnit->getVelocityX() + bwapiUnit->getVelocityY() * bwapiUnit->getVelocityY());
+        bwSpeed = (int)(speed * 256.0);
+        bwSpeedUpdated = true;
+    }
+
+    return bwSpeed;
 }
 
 bool UnitImpl::isAttackable() const
