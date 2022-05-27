@@ -6,6 +6,8 @@
 #include "Workers.h"
 #include "MyWorker.h"
 
+#include "Header.h" // McRave
+
 TEST(MovingShot, ProbeVsSCV)
 {
     BWTest test;
@@ -319,6 +321,58 @@ TEST(MovingShot, ProbeVsZealot)
         {
             std::cout << "Final probe stats: shield=" << probe->lastShields << "; health=" << probe->lastHealth << std::endl;
         }
+    };
+
+    test.run();
+}
+
+TEST(MovingShot, CorsairVsScourge)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new McRaveModule();
+    };
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.map = Maps::GetOne("Heartbreak");
+    test.randomSeed = 42;
+    test.frameLimit = 1000;
+    test.expectWin = false;
+
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Corsair, BWAPI::TilePosition(78, 20)),
+    };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Scourge, BWAPI::TilePosition(72, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Scourge, BWAPI::TilePosition(72, 20)),
+    };
+
+    test.run();
+}
+
+TEST(MovingShot, CorsairVsMutas)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new McRaveModule();
+    };
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.map = Maps::GetOne("Heartbreak");
+    test.randomSeed = 42;
+    test.frameLimit = 1000;
+    test.expectWin = false;
+
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Corsair, BWAPI::TilePosition(73, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Corsair, BWAPI::TilePosition(73, 20)),
+    };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Mutalisk, BWAPI::TilePosition(72, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Mutalisk, BWAPI::TilePosition(72, 20)),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Mutalisk, BWAPI::TilePosition(72, 20)),
     };
 
     test.run();
