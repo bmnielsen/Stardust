@@ -663,7 +663,7 @@ void UnitImpl::updatePredictedPositions() const
 
     // Determine the acceleration to use during the prediction
     double topSpeed = Players::unitTopSpeed(player, type);
-    int bwTopSpeed = (int)(topSpeed * 256.0);
+    int bwTopSpeed = Players::unitBWTopSpeed(player, type);
     if (speed > bwTopSpeed) speed = bwTopSpeed;
     int acceleration;
     if (!bwapiUnit->isAccelerating() || speed >= bwTopSpeed)

@@ -179,6 +179,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\PvZ\PvZStrategySelection.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyCannon.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyCarrier.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyCorsair.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyDragoon.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyUnit.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyUnit_Move.cpp" />

@@ -400,5 +400,6 @@ namespace Geo
         // Update the speed
         speed += acceleration;
         if (speed > topSpeed) speed = topSpeed;
+        if (speed < 0) speed = 0;
     }
 }

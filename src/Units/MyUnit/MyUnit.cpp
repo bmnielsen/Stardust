@@ -40,6 +40,10 @@ void MyUnitImpl::update(BWAPI::Unit unit)
     // Update command positions
     recentCommands.pop_front();
     recentCommands.emplace_back(unit->getLastCommand());
+    if (recentCommands.back().target)
+    {
+        recentCommands.back().assignTarget(recentCommands.back().target->getPosition());
+    }
     simulatedPositionsUpdated = false;
 
     if (bwapiUnit->isCompleted()) producer = nullptr;
@@ -263,18 +267,18 @@ void MyUnitImpl::updateSimulatedPositions() const
 
     int speed = BWSpeed();
     double topSpeed = Players::unitTopSpeed(player, type);
-    int bwTopSpeed = (int)(topSpeed * 256.0);
+    int bwTopSpeed = Players::unitBWTopSpeed(player, type);
     if (speed > bwTopSpeed) speed = bwTopSpeed;
     int acceleration = UnitUtil::Acceleration(type, topSpeed);
+    if (!bwapiUnit->isAccelerating()) acceleration *= -1;
 
     for (int i=0; i<recentCommands.size(); i++)
     {
         // Compute desired heading to move target at this frame
         int desiredHeading;
-        auto moveTarget = recentCommands[i].getTargetPosition();
-        if (moveTarget.isValid())
+        if (recentCommands[i].type == BWAPI::UnitCommandTypes::Move && recentCommands[i].getTargetPosition().isValid())
         {
-            desiredHeading = Geo::BWDirection({moveTarget.x - x, moveTarget.y - y});
+            desiredHeading = Geo::BWDirection({recentCommands[i].getTargetPosition().x - x, recentCommands[i].getTargetPosition().y - y});
         }
         else
         {

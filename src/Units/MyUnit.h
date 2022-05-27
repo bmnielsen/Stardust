@@ -97,6 +97,7 @@ public:
 
 protected:
     bool issuedOrderThisFrame;
+    std::deque<BWAPI::UnitCommand> recentCommands;           // Commands issued in last LF
 
     struct MoveCommand
     {
@@ -151,8 +152,6 @@ protected:
     virtual bool mineralWalk(const Choke *choke) { return false; }
 
 private:
-    std::deque<BWAPI::UnitCommand> recentCommands;           // Commands issued in last LF
-
     mutable std::vector<BWAPI::Position> simulatedPositions; // Simulated position up to LF ahead assuming no collisions
     mutable std::vector<int> simulatedHeading;               // Simulated heading up to LF ahead assuming no collisions
     mutable bool simulatedPositionsUpdated;                  // Whether the simulated positions have been updated this frame

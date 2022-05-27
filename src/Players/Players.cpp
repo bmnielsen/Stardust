@@ -75,6 +75,11 @@ namespace Players
         return getUpgradeTracker(player)->unitTopSpeed(type);
     }
 
+    int unitBWTopSpeed(BWAPI::Player player, BWAPI::UnitType type)
+    {
+        return getUpgradeTracker(player)->unitBWTopSpeed(type);
+    }
+
     int unitArmor(BWAPI::Player player, BWAPI::UnitType type)
     {
         return getUpgradeTracker(player)->unitArmor(type);

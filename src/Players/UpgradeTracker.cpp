@@ -99,6 +99,7 @@ void UpgradeTracker::update(Grid &grid)
         if (current > unitAndTopSpeed.second)
         {
             unitAndTopSpeed.second = current;
+            _unitBWTopSpeed.erase(unitAndTopSpeed.first);
         }
     }
 
@@ -216,6 +217,19 @@ double UpgradeTracker::unitTopSpeed(BWAPI::UnitType type)
 
     double current = player->topSpeed(type);
     _unitTopSpeed[type] = current;
+    return current;
+}
+
+int UpgradeTracker::unitBWTopSpeed(BWAPI::UnitType type)
+{
+    auto unitTopSpeedIt = _unitBWTopSpeed.find(type);
+    if (unitTopSpeedIt != _unitBWTopSpeed.end())
+    {
+        return unitTopSpeedIt->second;
+    }
+
+    int current = (int)(unitTopSpeed(type) * 256.0);
+    _unitBWTopSpeed[type] = current;
     return current;
 }
 

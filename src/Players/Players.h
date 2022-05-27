@@ -20,6 +20,8 @@ namespace Players
 
     double unitTopSpeed(BWAPI::Player player, BWAPI::UnitType type);
 
+    int unitBWTopSpeed(BWAPI::Player player, BWAPI::UnitType type);
+
     int unitArmor(BWAPI::Player player, BWAPI::UnitType type);
 
     int unitSightRange(BWAPI::Player player, BWAPI::UnitType type);
