@@ -55,7 +55,7 @@ namespace Players
         return getUpgradeTracker(player)->weaponRange(wpn);
     }
 
-    int unitCooldown(BWAPI::Player player, BWAPI::UnitType type)
+    int unitGroundCooldown(BWAPI::Player player, BWAPI::UnitType type)
     {
         // Handle weird units that don't have proper cooldowns
         if (type == BWAPI::UnitTypes::Protoss_Scarab || type == BWAPI::UnitTypes::Protoss_Reaver)
@@ -67,7 +67,18 @@ namespace Players
             return 38;
         }
 
-        return getUpgradeTracker(player)->unitCooldown(type);
+        return getUpgradeTracker(player)->unitGroundCooldown(type);
+    }
+
+    int unitAirCooldown(BWAPI::Player player, BWAPI::UnitType type)
+    {
+        // Handle weird units that don't have proper cooldowns
+        if (type == BWAPI::UnitTypes::Protoss_Interceptor || type == BWAPI::UnitTypes::Protoss_Carrier)
+        {
+            return 38;
+        }
+
+        return getUpgradeTracker(player)->unitAirCooldown(type);
     }
 
     double unitTopSpeed(BWAPI::Player player, BWAPI::UnitType type)

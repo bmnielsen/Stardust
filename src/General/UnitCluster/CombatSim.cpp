@@ -10,14 +10,14 @@
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_COMBATSIM_CSV false          // Writes a CSV file for each cluster with detailed sim information
-#define DEBUG_COMBATSIM_CSV_FREQUENCY 100  // Frequency at which to write CSV output
-#define DEBUG_COMBATSIM_CSV_ATTACKER false // Whether to output CSV for attacker or defender
+#define DEBUG_COMBATSIM_CSV_FREQUENCY 1  // Frequency at which to write CSV output
+#define DEBUG_COMBATSIM_CSV_ATTACKER true // Whether to output CSV for attacker or defender
 #endif
 
 #if INSTRUMENTATION_ENABLED
-#define DEBUG_COMBATSIM_DRAW false          // Draws positions for all units
-#define DEBUG_COMBATSIM_DRAW_FREQUENCY 100  // Frame frequency to draw combat sim info
-#define DEBUG_COMBATSIM_DRAW_ATTACKER false // Whether to draw attacker or defender
+#define DEBUG_COMBATSIM_DRAW false           // Draws positions for all units
+#define DEBUG_COMBATSIM_DRAW_FREQUENCY 1    // Frame frequency to draw combat sim info
+#define DEBUG_COMBATSIM_DRAW_ATTACKER true  // Whether to draw attacker or defender
 #endif
 
 namespace
@@ -82,11 +82,11 @@ namespace
                         // For this next section, we have modified FAP to allow taking the upgraded values instead of the upgrade levels
                 .setSpeed(Players::unitTopSpeed(unit->player, unit->type))
                 .setArmor(Players::unitArmor(unit->player, unit->type))
-                .setGroundCooldown(Players::unitCooldown(unit->player, weaponType)
+                .setGroundCooldown(Players::unitGroundCooldown(unit->player, weaponType)
                                    / std::max(weaponType.maxGroundHits(), 1))
                 .setGroundDamage(groundDamage)
                 .setGroundMaxRange(unit->groundRange())
-                .setAirCooldown(Players::unitCooldown(unit->player, weaponType)
+                .setAirCooldown(Players::unitAirCooldown(unit->player, weaponType)
                                 / std::max(weaponType.maxAirHits(), 1))
                 .setAirDamage(airDamage)
                 .setAirMaxRange(unit->airRange())

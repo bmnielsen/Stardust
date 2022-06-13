@@ -16,7 +16,9 @@ namespace Players
 
     int weaponRange(BWAPI::Player player, BWAPI::WeaponType wpn);
 
-    int unitCooldown(BWAPI::Player player, BWAPI::UnitType type);
+    int unitGroundCooldown(BWAPI::Player player, BWAPI::UnitType type);
+
+    int unitAirCooldown(BWAPI::Player player, BWAPI::UnitType type);
 
     double unitTopSpeed(BWAPI::Player player, BWAPI::UnitType type);
 

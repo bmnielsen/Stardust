@@ -84,9 +84,22 @@ void UpgradeTracker::update(Grid &grid)
         }
     }
 
-    for (auto &unitAndCooldown : _unitCooldown)
+    for (auto &unitAndCooldown : _unitGroundCooldown)
     {
-        int current = player->weaponDamageCooldown(unitAndCooldown.first);
+        int current = unitAndCooldown.first.groundWeapon().damageCooldown();
+        if (unitAndCooldown.first == BWAPI::UnitTypes::Zerg_Zergling && upgradeLevel(BWAPI::UpgradeTypes::Adrenal_Glands) > 0)
+        {
+            current = std::min(std::max(current / 2, 5), 250);
+        }
+        if (current > unitAndCooldown.second)
+        {
+            unitAndCooldown.second = current;
+        }
+    }
+
+    for (auto &unitAndCooldown : _unitAirCooldown)
+    {
+        int current = unitAndCooldown.first.airWeapon().damageCooldown();
         if (current > unitAndCooldown.second)
         {
             unitAndCooldown.second = current;
@@ -194,16 +207,33 @@ int UpgradeTracker::weaponRange(BWAPI::WeaponType wpn)
 
 }
 
-int UpgradeTracker::unitCooldown(BWAPI::UnitType type)
+int UpgradeTracker::unitGroundCooldown(BWAPI::UnitType type)
 {
-    auto unitCooldownIt = _unitCooldown.find(type);
-    if (unitCooldownIt != _unitCooldown.end())
+    auto unitCooldownIt = _unitGroundCooldown.find(type);
+    if (unitCooldownIt != _unitGroundCooldown.end())
     {
         return unitCooldownIt->second;
     }
 
-    int current = player->weaponDamageCooldown(type);
-    _unitCooldown[type] = current;
+    int current = type.groundWeapon().damageCooldown();
+    if (type == BWAPI::UnitTypes::Zerg_Zergling && upgradeLevel(BWAPI::UpgradeTypes::Adrenal_Glands) > 0)
+    {
+        current = std::min(std::max(current / 2, 5), 250);
+    }
+    _unitGroundCooldown[type] = current;
+    return current;
+}
+
+int UpgradeTracker::unitAirCooldown(BWAPI::UnitType type)
+{
+    auto unitCooldownIt = _unitAirCooldown.find(type);
+    if (unitCooldownIt != _unitAirCooldown.end())
+    {
+        return unitCooldownIt->second;
+    }
+
+    int current = type.airWeapon().damageCooldown();
+    _unitAirCooldown[type] = current;
     return current;
 }
 
