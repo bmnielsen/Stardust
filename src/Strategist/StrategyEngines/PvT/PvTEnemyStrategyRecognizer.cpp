@@ -288,10 +288,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 // - They have taken gas
                 // - Our scout is dead and we are past frame 5000
                 if (Units::countEnemy(BWAPI::UnitTypes::Terran_Refinery) > 0 ||
-                    (currentFrame >= 6000 &&
-                     (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted ||
-                      Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingFailed ||
-                      Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingBlocked)))
+                    (currentFrame >= 6000 && Strategist::isWorkerScoutComplete()))
                 {
                     strategy = TerranStrategy::Unknown;
                     continue;

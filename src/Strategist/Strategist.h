@@ -40,6 +40,8 @@ namespace Strategist
 
     void setWorkerScoutStatus(WorkerScoutStatus status);
 
+    bool isWorkerScoutComplete();
+
     void setOpening(std::vector<std::shared_ptr<Play>> openingPlays);
 
     void setStrategyEngine(std::unique_ptr<StrategyEngine> strategyEngine);

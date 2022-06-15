@@ -6,13 +6,13 @@
 #include "Players.h"
 #include "Workers.h"
 #include "Opponent.h"
-#include "Builder.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
+#include "Plays/SpecialTeams/Corsairs.h"
 #include "Plays/SpecialTeams/Elevator.h"
 
 namespace
@@ -32,6 +32,7 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
     plays.emplace_back(std::make_shared<EjectEnemyScout>());
+    plays.emplace_back(std::make_shared<Corsairs>());
     plays.emplace_back(std::make_shared<DefendMyMain>());
 }
 
@@ -347,6 +348,18 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                     desiredZealots - zealotCount,
                                     BWAPI::UnitTypes::Protoss_Zealot.buildTime());
             }
+
+            // Build corsairs from one stargate, scaling with our army, to a max of 8
+            // One corsair for every 4 combat units after the first 5 are completed
+            int desiredCorsairs = std::max(8, ((unitCount - 5) / 4) + 1);
+            int corsairCount = completedUnits[BWAPI::UnitTypes::Protoss_Corsair] + incompleteUnits[BWAPI::UnitTypes::Protoss_Corsair];
+            if (corsairCount < desiredCorsairs)
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           BWAPI::UnitTypes::Protoss_Corsair,
+                                                                           1,
+                                                                           1);
+            }
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
@@ -356,7 +369,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1,
                                                                        -1);
 
-            // Only upgrade goon range
+            // Only upgrade goon range and sair damage once we have five
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
             // Build anti-sneak-attack cannons on 4 completed units
@@ -399,6 +412,18 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
+
+            // Build corsairs from one stargate, scaling with our army, to a max of 8
+            // One corsair for every 4 combat units after the first 5 are completed
+            int desiredCorsairs = std::max(8, ((zealotCount + dragoonCount - 5) / 4) + 1);
+            int corsairCount = completedUnits[BWAPI::UnitTypes::Protoss_Corsair] + incompleteUnits[BWAPI::UnitTypes::Protoss_Corsair];
+            if (corsairCount < desiredCorsairs)
+            {
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           BWAPI::UnitTypes::Protoss_Corsair,
+                                                                           1,
+                                                                           1);
+            }
 
             handleUpgrades(prioritizedProductionGoals);
             buildAntiSneakAttackCannons();
@@ -516,7 +541,12 @@ void PvZ::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
 
     defaultGroundUpgrades(prioritizedProductionGoals);
 
-    // TODO: Air upgrades
+    // Upgrade air weapons at 5 corsairs
+    if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Air_Weapons) < 1 &&
+        !Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Air_Weapons))
+    {
+        upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Air_Weapons, BWAPI::UnitTypes::Protoss_Corsair, 5);
+    }
 }
 
 void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)

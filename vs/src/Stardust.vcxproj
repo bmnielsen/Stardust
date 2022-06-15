@@ -95,6 +95,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\General\General.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\Squad.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\AttackBaseSquad.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\Squads\CorsairSquad.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\DefendBaseSquad.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\EarlyGameDefendMainBaseSquad.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\MopUpSquad.cpp" />
@@ -155,6 +156,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\EjectEnemyScout.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Scouting\ScoutEnemyExpos.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\CarrierHarass.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\Corsairs.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\DarkTemplarHarass.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\Elevator.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\ElevatorRush.cpp" />

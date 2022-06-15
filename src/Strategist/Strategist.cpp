@@ -626,6 +626,13 @@ namespace Strategist
         }
     }
 
+    bool isWorkerScoutComplete()
+    {
+        return workerScoutStatus == Strategist::WorkerScoutStatus::ScoutingCompleted ||
+               workerScoutStatus == Strategist::WorkerScoutStatus::ScoutingFailed ||
+               workerScoutStatus == Strategist::WorkerScoutStatus::ScoutingBlocked;
+    }
+
     // Following methods are used by tests to force specific behaviour
 
     void setOpening(std::vector<std::shared_ptr<Play>> openingPlays)

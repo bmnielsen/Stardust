@@ -71,9 +71,9 @@ protected:
 
     void addUnitToBestCluster(const MyUnit &unit);
 
-    virtual std::shared_ptr<UnitCluster> createCluster(MyUnit unit) { return std::make_shared<UnitCluster>(unit); }
+    virtual std::shared_ptr<UnitCluster> createCluster(const MyUnit &unit) { return std::make_shared<UnitCluster>(unit); }
 
-    virtual void execute(UnitCluster &cluster) = 0;
+    virtual void execute(UnitCluster &cluster) {}
 
     void updateDetectionNeeds(std::set<Unit> &enemyUnits);
 
