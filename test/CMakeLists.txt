@@ -34,26 +34,13 @@ include_directories(${STARDUST_TEST_INCLUDES})
 file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR} *.cpp)
 list(FILTER SRC_FILES EXCLUDE REGEX ".*3rdparty.*")
 
-add_executable(tests
-        $<TARGET_OBJECTS:BWAPIObj>
-        $<TARGET_OBJECTS:BWAPICore>
-        ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/OpenBWData/BW/BWData.cpp
-        ${SRC_FILES}
-        )
-
-set_source_files_properties(
-        $<TARGET_OBJECTS:BWAPIObj>
-        $<TARGET_OBJECTS:BWAPICore>
-        ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/OpenBWData/BW/BWData.cpp
-        PROPERTIES
-        COMPILE_FLAGS "-w"
-)
+add_executable(tests ${SRC_FILES})
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(tests PUBLIC DEBUG=1)
 endif()
 
-target_link_libraries(tests gtest gtest_main BWAPILIB Stardust Steamhammer Locutus Iron BananaBrain SAIDA McRave)
+target_link_libraries(tests gtest gtest_main BWAPI BWAPILIB Stardust Steamhammer Locutus Iron BananaBrain SAIDA McRave)
 target_compile_options(tests PRIVATE -Wall -Werror)
 
 file(COPY ${CMAKE_SOURCE_DIR}/test/3rdparty/maps DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
