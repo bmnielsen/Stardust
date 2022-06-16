@@ -23,7 +23,6 @@ IF(MSVC)
     add_subdirectory(3rdparty/BWAPILIB)
 ELSE(MSVC)
     set(OPENBW_DIR ${CMAKE_SOURCE_DIR}/3rdparty/openbw/openbw)
-
     add_subdirectory(3rdparty/openbw/bwapi)
 ENDIF(MSVC)
 
