@@ -319,7 +319,8 @@ void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal
 void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                         BWAPI::UnitType unitType,
                                         int count,
-                                        int &highPriorityCount)
+                                        int &highPriorityCount,
+                                        int producerLimit)
 {
     if (count == -1)
     {
@@ -328,13 +329,13 @@ void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal
             prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                                      unitType,
                                                                                      highPriorityCount,
-                                                                                     -1);
+                                                                                     producerLimit);
             highPriorityCount = 0;
         }
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                    unitType,
                                                                    -1,
-                                                                   -1);
+                                                                   producerLimit);
         return;
     }
 
@@ -345,7 +346,7 @@ void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal
         prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                                  unitType,
                                                                                  produceAtHighPriority,
-                                                                                 -1);
+                                                                                 producerLimit);
 
         highPriorityCount -= produceAtHighPriority;
         count -= produceAtHighPriority;
@@ -356,7 +357,7 @@ void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                    unitType,
                                                                    count,
-                                                                   -1);
+                                                                   producerLimit);
     }
 }
 

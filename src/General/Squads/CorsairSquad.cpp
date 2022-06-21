@@ -325,26 +325,18 @@ void CorsairSquad::execute()
     // Now scan for targets
     auto &grid = Players::grid(BWAPI::Broodwar->enemy());
     std::unordered_map<Base *, std::set<Unit>> threatenedBases;
-    std::set<std::pair<long, Unit>> combatTargets;
+    std::set<Unit> combatTargets;
     std::set<Unit> vulnerableNonCombatTargets;
-    std::set<Unit> vulnerableEggs;
     std::set<std::pair<long, Unit>> nonCombatTargets;
     for (auto &unit : Units::allEnemy())
     {
-        // We track eggs, as they might hatch into something we can attack
-        if (unit->type == BWAPI::UnitTypes::Zerg_Egg)
-        {
-            long threat = grid.airThreat(unit->lastPosition);
-            if (threat == 0)
-            {
-                vulnerableEggs.insert(unit);
-            }
-            continue;
-        }
-
+        if (!unit->lastPositionValid) continue;
         if (!unit->isFlying) continue;
         if (!unit->isAttackable()) continue;
-        if (unit->lastSeen < (currentFrame - 120)) continue;
+
+        // Ignore targets that haven't been seen recently
+        // 1 minute threshold for overlords, 5 seconds for all other targets
+        if (unit->lastSeen < (currentFrame - (unit->type == BWAPI::UnitTypes::Zerg_Overlord ? 1440 : 120))) continue;
 
         // Check if it is threatening one of our bases
         if (unit->canAttackGround())
@@ -362,14 +354,14 @@ void CorsairSquad::execute()
             }
             if (matched) continue;
 
-            combatTargets.insert(std::make_pair(grid.airThreat(unit->lastPosition), unit));
+            combatTargets.insert(unit);
             continue;
         }
 
         // Combat target
         if (unit->canAttackAir())
         {
-            combatTargets.insert(std::make_pair(grid.airThreat(unit->lastPosition), unit));
+            combatTargets.insert(unit);
             continue;
         }
 
@@ -384,6 +376,34 @@ void CorsairSquad::execute()
             nonCombatTargets.insert(std::make_pair(threat, unit));
         }
     }
+
+    // Logic to determine the least-scouted enemy base (evaluated lazily)
+    bool _leastScoutedEnemyBaseComputed = false;
+    Base *_leastScoutedEnemyBase = nullptr;
+    auto leastScoutedEnemyBase = [&_leastScoutedEnemyBaseComputed, &_leastScoutedEnemyBase]()
+    {
+        if (_leastScoutedEnemyBaseComputed) return _leastScoutedEnemyBase;
+
+        _leastScoutedEnemyBaseComputed = true;
+
+        int lastScouted = INT_MAX;
+        auto visit = [&lastScouted, &_leastScoutedEnemyBase](Base *base, int limit = 0)
+        {
+            if (base->lastScouted < lastScouted && base->lastScouted < (currentFrame - limit))
+            {
+                lastScouted = base->lastScouted;
+                _leastScoutedEnemyBase = base;
+            }
+        };
+        for (auto &base : Map::getEnemyBases())
+        {
+            visit(base);
+        }
+        auto &untaken = Map::getUntakenExpansions(BWAPI::Broodwar->enemy());
+        if (!untaken.empty()) visit(*untaken.begin(), 1440);
+
+        return _leastScoutedEnemyBase;
+    };
 
     // Pick the targets
     std::set<Unit> targets;
@@ -411,29 +431,11 @@ void CorsairSquad::execute()
 
     else if (!combatTargets.empty())
     {
-        // Select all targets within a radius of the most vulnerable target
-        Unit first = nullptr;
-        for (auto &scoreAndTarget : combatTargets)
-        {
-            auto &target = scoreAndTarget.second;
-            if (!first)
-            {
-                first = target;
-                targets.insert(target);
-            }
-            else
-            {
-                if (first->getDistance(target) < 400)
-                {
-                    targets.insert(target);
-                }
-            }
-        }
-
-        ensureTargetPosition(first->lastPosition);
+        targets = combatTargets;
+        ensureTargetPosition((Map::getEnemyMain() ? Map::getEnemyMain() : Map::getMyMain())->getPosition());
 
 #if CHERRYVIS_ENABLED
-        CherryVis::setBoardValue("corsairs", (std::ostringstream() << "attack-combat-" << first->getTilePosition()).str());
+        CherryVis::setBoardValue("corsairs", "attack-combat");
 #endif
     }
 
@@ -447,14 +449,19 @@ void CorsairSquad::execute()
 #endif
     }
 
-    else if (!vulnerableEggs.empty())
+    else if (leastScoutedEnemyBase() && leastScoutedEnemyBase()->lastScouted < (currentFrame - 600))
     {
-        targets = vulnerableEggs;
-        ensureTargetPosition((Map::getEnemyMain() ? Map::getEnemyMain() : Map::getMyMain())->getPosition());
+        auto pos = leastScoutedEnemyBase()->getPosition();
+        ensureTargetPosition(pos);
 
 #if CHERRYVIS_ENABLED
-        CherryVis::setBoardValue("corsairs", "attack-vulnerable-eggs");
+        CherryVis::setBoardValue("corsairs", (std::ostringstream() << "scout-" << leastScoutedEnemyBase()->getTilePosition()).str());
 #endif
+
+        for (auto &cluster : remainingClusters)
+        {
+            clusterMove(*cluster, pos);
+        }
     }
 
     else if (!nonCombatTargets.empty())
@@ -471,27 +478,21 @@ void CorsairSquad::execute()
     else
     {
         // Have each cluster move to the least-scouted enemy base
-        int lastScouted = INT_MAX;
-        Base *bestBase = nullptr;
-        for (auto &base : Map::getEnemyBases())
-        {
-            if (base->lastScouted < lastScouted)
-            {
-                lastScouted = base->lastScouted;
-                bestBase = base;
-            }
-        }
-        if (!bestBase) bestBase = Map::getMyMain();
-        ensureTargetPosition(bestBase->getPosition());
+        auto base = leastScoutedEnemyBase();
+        if (!base) base = Map::getMyMain();
+
+        auto pos = base->getPosition();
+        ensureTargetPosition(pos);
 
 #if CHERRYVIS_ENABLED
-        CherryVis::setBoardValue("corsairs", (std::ostringstream() << "scout-" << bestBase->getTilePosition()).str());
+        CherryVis::setBoardValue("corsairs", (std::ostringstream() << "scout-" << base->getTilePosition()).str());
 #endif
 
         for (auto &cluster : remainingClusters)
         {
-            clusterMove(*cluster, bestBase->getPosition());
+            clusterMove(*cluster, pos);
         }
+        return;
     }
 
     for (auto &cluster : remainingClusters)

@@ -188,10 +188,13 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
     int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+    int dtCount = completedUnits[BWAPI::UnitTypes::Protoss_Dark_Templar] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dark_Templar];
+    int corsairCount = completedUnits[BWAPI::UnitTypes::Protoss_Corsair] + incompleteUnits[BWAPI::UnitTypes::Protoss_Corsair];
 
     int inProgressCount = Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot)
                           + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon)
-                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dark_Templar);
+                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dark_Templar)
+                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Corsair);
 
     handleGasStealProduction(prioritizedProductionGoals, zealotCount);
 
@@ -206,6 +209,33 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         // Build three cannons
         buildDefensiveCannons(prioritizedProductionGoals, false, 0, 3);
+    };
+
+    auto buildCorsairs = [&]()
+    {
+        if (corsairCount >= 8) return false;
+
+        // Always build if we have DTs to force enemy to defend its overlords
+        if (dtCount > 0) return true;
+
+        // Always build if the enemy has air units that can threaten our bases
+        if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 0) return true;
+        if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Guardian) > 0) return true;
+
+        // Don't build if the enemy has defended its overlords
+        auto &grid = Players::grid(BWAPI::Broodwar->enemy());
+        int defendedOverlords = 0;
+        int undefendedOverlords = 0;
+        for (auto &overlord : Units::allEnemyOfType(BWAPI::UnitTypes::Zerg_Overlord))
+        {
+            if (!overlord->lastPositionValid) continue;
+
+            long threat = grid.airThreat(overlord->lastPosition);
+            ((threat == 0) ? undefendedOverlords : defendedOverlords)++;
+        }
+        if (defendedOverlords > undefendedOverlords) return false;
+
+        return true;
     };
 
     // Main army production
@@ -349,17 +379,14 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                     BWAPI::UnitTypes::Protoss_Zealot.buildTime());
             }
 
-            // Build corsairs from one stargate, scaling with our army, to a max of 8
-            // One corsair for every 4 combat units after the first 5 are completed
-            int desiredCorsairs = std::max(8, ((unitCount - 5) / 4) + 1);
-            int corsairCount = completedUnits[BWAPI::UnitTypes::Protoss_Corsair] + incompleteUnits[BWAPI::UnitTypes::Protoss_Corsair];
-            if (corsairCount < desiredCorsairs)
+            if (buildCorsairs())
             {
                 prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                            BWAPI::UnitTypes::Protoss_Corsair,
                                                                            1,
                                                                            1);
             }
+
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
@@ -410,20 +437,12 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, requiredZealots, higherPriorityCount);
             }
 
+            if (buildCorsairs())
+            {
+                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Corsair, 1, higherPriorityCount, 1);
+            }
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
-
-            // Build corsairs from one stargate, scaling with our army, to a max of 8
-            // One corsair for every 4 combat units after the first 5 are completed
-            int desiredCorsairs = std::max(8, ((zealotCount + dragoonCount - 5) / 4) + 1);
-            int corsairCount = completedUnits[BWAPI::UnitTypes::Protoss_Corsair] + incompleteUnits[BWAPI::UnitTypes::Protoss_Corsair];
-            if (corsairCount < desiredCorsairs)
-            {
-                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                           BWAPI::UnitTypes::Protoss_Corsair,
-                                                                           1,
-                                                                           1);
-            }
 
             handleUpgrades(prioritizedProductionGoals);
             buildAntiSneakAttackCannons();

@@ -82,7 +82,8 @@ protected:
     static void mainArmyProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                    BWAPI::UnitType unitType,
                                    int count,
-                                   int &highPriorityCount);
+                                   int &highPriorityCount,
+                                   int producerLimit = -1);
 
     static void upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                UpgradeOrTechType upgradeOrTechType,

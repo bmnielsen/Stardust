@@ -79,6 +79,7 @@ void MyCorsair::attackUnit(const Unit &target,
 
     BWAPI::Position moveTarget;
     bool accelerate;
+    bool decelerate;
 
     // Start by determining if we should kite
     // We only kite scourge that might be trying to attack us
@@ -102,6 +103,7 @@ void MyCorsair::attackUnit(const Unit &target,
     {
         moveTarget = lastPosition + (lastPosition - target->lastPosition);
         accelerate = true;
+        decelerate = true;
 
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Moving to kite @ " << BWAPI::WalkPosition(moveTarget);
@@ -122,22 +124,29 @@ void MyCorsair::attackUnit(const Unit &target,
                      target->predictPosition(1).getApproxDistance(lastPosition) > target->lastPosition.getApproxDistance(lastPosition) &&
                      (faster(target->BWSpeed(), BWSpeed(), 250) || dist > 96);
 
+        // We want to decelerate if the enemy is slower than us and we are in range
+        decelerate = faster(BWSpeed(), Players::unitBWTopSpeed(target->player, target->type), -100) && isInOurWeaponRange(target);
+
         CherryVis::log(id) << "Target top speed: " << Players::unitBWTopSpeed(target->player, target->type)
-        << "; my speed: " << BWSpeed()
-        << "; target moving away: " << (target->predictPosition(1).getApproxDistance(lastPosition) > target->lastPosition.getApproxDistance(lastPosition))
-        << "; target speed: " << target->BWSpeed()
-        << "; dist: " << dist
-        << "; accelerate: " << accelerate;
+            << "; my top speed: " << Players::unitBWTopSpeed(player, type)
+            << "; my speed: " << BWSpeed()
+            << "; target moving away: " << (target->predictPosition(1).getApproxDistance(lastPosition) > target->lastPosition.getApproxDistance(lastPosition))
+            << "; target speed: " << target->BWSpeed()
+            << "; dist: " << dist
+            << "; accelerate: " << accelerate
+            << "; decelerate: " << decelerate
+            << "; accelerating: " << bwapiUnit->isAccelerating();
 
         // If this is the frame that our attack animation ended, move if we need to change speed
-        if (accelerate && (lastSeenAttacking + ATTACK_FRAMES) == (currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames()))
+        if ((accelerate || (decelerate && bwapiUnit->isAccelerating()))
+            && (lastSeenAttacking + ATTACK_FRAMES) == (currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames()))
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(id) << "Attack: Moving for one frame before continuing attack";
 #endif
         }
-        else if (cooldownUntil - currentFrame <= BWAPI::Broodwar->getRemainingLatencyFrames() &&
-                 validateAttack(BWAPI::Broodwar->getRemainingLatencyFrames()))
+        else if (decelerate || (cooldownUntil - currentFrame <= BWAPI::Broodwar->getRemainingLatencyFrames() &&
+                 validateAttack(BWAPI::Broodwar->getRemainingLatencyFrames())))
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(id) << "Sending attack command";
@@ -160,6 +169,22 @@ void MyCorsair::attackUnit(const Unit &target,
         if (vector != BWAPI::Positions::Invalid)
         {
             moveTarget = lastPosition + vector;
+        }
+    }
+
+    if (decelerate)
+    {
+        // Scale depending on where we expect to be
+        auto myPos = frameLastMoved == currentFrame ? simulatePosition(BWAPI::Broodwar->getRemainingLatencyFrames()) : lastPosition;
+        auto targetPos = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames());
+        auto vector = Geo::ScaleVector(targetPos - myPos, 8);
+        if (vector != BWAPI::Positions::Invalid)
+        {
+            auto potentialMoveTarget = myPos + vector;
+            if (potentialMoveTarget.isValid())
+            {
+                moveTarget = potentialMoveTarget;
+            }
         }
     }
 
