@@ -377,3 +377,27 @@ TEST(MovingShot, CorsairVsMutas)
 
     test.run();
 }
+
+TEST(MovingShot, CorsairVsOverlord)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new McRaveModule();
+    };
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.map = Maps::GetOne("Heartbreak");
+    test.randomSeed = 42;
+    test.frameLimit = 1000;
+    test.expectWin = false;
+
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Corsair, BWAPI::TilePosition(73, 20)),
+    };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Overlord, BWAPI::TilePosition(55, 30)),
+    };
+
+    test.run();
+}
