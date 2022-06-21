@@ -560,11 +560,15 @@ void PvZ::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
 
     defaultGroundUpgrades(prioritizedProductionGoals);
 
-    // Upgrade air weapons at 5 corsairs
-    if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Air_Weapons) < 1 &&
-        !Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Air_Weapons))
+    // Air weapon upgrades
+    if (!Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Air_Weapons))
     {
-        upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Air_Weapons, BWAPI::UnitTypes::Protoss_Corsair, 5);
+        // Keep one level ahead of enemy armor when we have 5 corsairs
+        if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Air_Weapons) <=
+            BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Zerg_Flyer_Carapace))
+        {
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Air_Weapons, BWAPI::UnitTypes::Protoss_Corsair, 5);
+        }
     }
 }
 

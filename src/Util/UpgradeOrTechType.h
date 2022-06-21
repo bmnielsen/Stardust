@@ -24,6 +24,8 @@ public:
 
     int currentLevel() const;
 
+    int maxLevel() const;
+
     bool operator==(const UpgradeOrTechType &other);
 };
 

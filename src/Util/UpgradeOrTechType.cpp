@@ -50,6 +50,16 @@ int UpgradeOrTechType::currentLevel() const
     return BWAPI::Broodwar->self()->getUpgradeLevel(upgradeType) > 0;
 }
 
+int UpgradeOrTechType::maxLevel() const
+{
+    if (isTechType())
+    {
+        return 1;
+    }
+
+    return upgradeType.maxRepeats();
+}
+
 bool UpgradeOrTechType::operator==(const UpgradeOrTechType &other)
 {
     return upgradeType == other.upgradeType && techType == other.techType;

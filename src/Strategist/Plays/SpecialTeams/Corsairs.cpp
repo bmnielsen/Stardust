@@ -17,12 +17,13 @@ void Corsairs::update()
 
 void Corsairs::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    if (squad->combatUnitCount() >= 5
-        && !BWAPI::Broodwar->self()->hasResearched(BWAPI::TechTypes::Disruption_Web)
-        && !Units::isBeingUpgradedOrResearched(BWAPI::TechTypes::Disruption_Web))
-    {
-        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
-                                                                 BWAPI::TechTypes::Disruption_Web);
-
-    }
+    // Enable when we can use disruption web
+//    if (squad->combatUnitCount() >= 5
+//        && !BWAPI::Broodwar->self()->hasResearched(BWAPI::TechTypes::Disruption_Web)
+//        && !Units::isBeingUpgradedOrResearched(BWAPI::TechTypes::Disruption_Web))
+//    {
+//        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+//                                                                 BWAPI::TechTypes::Disruption_Web);
+//
+//    }
 }

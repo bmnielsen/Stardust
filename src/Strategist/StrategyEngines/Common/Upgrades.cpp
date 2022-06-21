@@ -8,7 +8,7 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
                                     int unitCount)
 {
     // First bail out if the upgrade is already done or queued
-    if (upgradeOrTechType.currentLevel() > 0) return;
+    if (upgradeOrTechType.currentLevel() >= upgradeOrTechType.maxLevel()) return;
     if (Units::isBeingUpgradedOrResearched(upgradeOrTechType)) return;
 
     // Now loop through all of the prioritized production goals, keeping track of how many of the desired unit we have
@@ -112,7 +112,7 @@ void StrategyEngine::upgradeWhenUnitCreated(std::map<int, std::vector<Production
                                             int priority)
 {
     // First bail out if the upgrade is already done or queued
-    if (upgradeOrTechType.currentLevel() > 0) return;
+    if (upgradeOrTechType.currentLevel() >= upgradeOrTechType.maxLevel()) return;
     if (Units::isBeingUpgradedOrResearched(upgradeOrTechType)) return;
 
     // Now check if we have at least one of the unit
