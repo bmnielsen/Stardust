@@ -305,14 +305,14 @@ void UnitCluster::addInstrumentation(nlohmann::json &clusterArray) const
     };
 
     nlohmann::json simResult;
-    nlohmann::json retreatSimResult;
+    nlohmann::json regroupSimResult;
     if (!recentSimResults.empty() && recentSimResults.rbegin()->first.frame == currentFrame)
     {
         simResult = simResultToJson(recentSimResults.rbegin()->first, recentSimResults.rbegin()->second);
     }
     if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->first.frame == currentFrame)
     {
-        simResult = simResultToJson(recentRegroupSimResults.rbegin()->first, recentRegroupSimResults.rbegin()->second);
+        regroupSimResult = simResultToJson(recentRegroupSimResults.rbegin()->first, recentRegroupSimResults.rbegin()->second);
     }
 
     clusterArray.push_back({
@@ -324,7 +324,7 @@ void UnitCluster::addInstrumentation(nlohmann::json &clusterArray) const
                                    {"activity", ActivityNames[currentActivity]},
                                    {"subactivity", SubActivityNames[currentSubActivity]},
                                    {"sim_result", simResult},
-                                   {"regroup_sim_result", simResult}
+                                   {"regroup_sim_result", regroupSimResult}
                            });
 #endif
 }
