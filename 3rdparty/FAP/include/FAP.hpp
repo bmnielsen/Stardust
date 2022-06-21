@@ -136,7 +136,9 @@ namespace FAP {
 
     static bool isCombatUnit(FAPUnit<UnitExtension> &u) {
       return (u.unitType != BWAPI::UnitTypes::Protoss_Interceptor) &
-        (static_cast<bool>(u.airDamage) | static_cast<bool>(u.groundDamage) | static_cast<bool>(u.unitType == BWAPI::UnitTypes::Terran_Medic));
+        (static_cast<bool>(u.airDamage) | static_cast<bool>(u.groundDamage)
+                | static_cast<bool>(u.unitType == BWAPI::UnitTypes::Terran_Medic)
+                | static_cast<bool>(u.unitType == BWAPI::UnitTypes::Zerg_Overlord));
     }
   };
 
