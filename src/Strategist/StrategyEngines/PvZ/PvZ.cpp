@@ -189,7 +189,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
     int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
     int dtCount = completedUnits[BWAPI::UnitTypes::Protoss_Dark_Templar] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dark_Templar];
-    int corsairCount = completedUnits[BWAPI::UnitTypes::Protoss_Corsair] + incompleteUnits[BWAPI::UnitTypes::Protoss_Corsair];
+    int corsairCount = Units::countAll(BWAPI::UnitTypes::Protoss_Corsair);
 
     int inProgressCount = Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot)
                           + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon)

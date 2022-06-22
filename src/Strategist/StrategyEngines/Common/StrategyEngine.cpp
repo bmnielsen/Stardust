@@ -43,6 +43,25 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
                                               int zealotCount,
                                               int zealotsRequired)
 {
+    // Cancel tech buildings we might have started unless we have an army
+    if ((dragoonCount + zealotCount) < 5)
+    {
+        std::vector<BWAPI::TilePosition> toCancel;
+        for (const auto &building : Builder::allPendingBuildings())
+        {
+            if (building->type == BWAPI::UnitTypes::Protoss_Stargate || building->type == BWAPI::UnitTypes::Protoss_Citadel_of_Adun ||
+                building->type == BWAPI::UnitTypes::Protoss_Templar_Archives)
+            {
+                Log::Get() << "Cancelling " << building->type << "@" << building->tile << " because of recognized rush";
+                toCancel.push_back(building->tile);
+            }
+        }
+        for (auto &tile : toCancel)
+        {
+            Builder::cancel(tile);
+        }
+    }
+
     // Get two zealots at highest priority
     if ((dragoonCount + zealotCount) < 2)
     {
