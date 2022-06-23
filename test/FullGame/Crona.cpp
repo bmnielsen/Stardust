@@ -92,3 +92,21 @@ TEST(Crona, RunOne)
     };
     test.run();
 }
+
+TEST(Crona, 2HatchMuta)
+{
+    BWTest test;
+    test.opponentName = "Crona";
+    test.map = Maps::GetOne("Syl");
+    test.randomSeed = 45417;
+    test.frameLimit = 20000;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ZergStrategy::kZvP_2HatchMuta;
+        return bbModule;
+    };
+
+    test.run();
+}
