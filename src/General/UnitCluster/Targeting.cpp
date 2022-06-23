@@ -334,6 +334,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         }
 
         bool isRanged = UnitUtil::IsRangedUnit(unit->type);
+        bool isAntiAir = unit->type == BWAPI::UnitTypes::Protoss_Corsair;
         int distanceToTargetPosition = unit->getDistance(targetPosition);
 
         // Start by doing a pass to gather the types of targets we have and filter those we don't want to consider
@@ -408,7 +409,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             }
 
             // The next checks apply if we are not close to our target position
-            if (distanceToTargetPosition > 500)
+            if (distanceToTargetPosition > 500 && !isAntiAir)
             {
                 // Skip targets that are out of range and moving away from us
                 if (distanceToTargetPosition > 500 && distToRange > 0)
@@ -454,10 +455,11 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
             // If we are targeting an enemy base, ignore outlying buildings (except static defense) unless we have a higher-priority target
             // Rationale: When we have a non-building target, we want to consider buildings since they might be blocking us from attacking them
-            if (target.priority < 7 && (!hasNonBuilding || target.unit->isFlying) && targetIsReachableEnemyBase && distanceToTargetPosition > 200)
+            if (target.priority < 7 && (!hasNonBuilding || target.unit->isFlying) && targetIsReachableEnemyBase && distanceToTargetPosition > 200
+                && !isAntiAir)
             {
 #if DEBUG_TARGETING
-                dbg << "\n Skipping " << *target.unit << " as priority < 7, targetIsReachableEnemyBase, distanceToTargetPosition > 200";
+                dbg << "\n Skipping " << *target.unit << " as priority < 7, targetIsReachableEnemyBase, distanceToTargetPosition > 200, not anti-air";
 #endif
                 continue;
             }

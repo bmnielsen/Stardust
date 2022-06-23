@@ -89,6 +89,20 @@ void MyCorsair::attackUnit(const Unit &target,
         if (target->type != BWAPI::UnitTypes::Zerg_Scourge) return false;
         if (target->predictPosition(1).getApproxDistance(lastPosition) > target->lastPosition.getApproxDistance(lastPosition)) return false;
 
+        // Don't kite if another friendly unit is closer to it
+        bool otherCloser = false;
+        for (auto &otherUnitAndTarget : unitsAndTargets)
+        {
+            if (otherUnitAndTarget.first->id == id) continue;
+            int otherDist = otherUnitAndTarget.first->getDistance(target);
+            if (otherDist < dist)
+            {
+                otherCloser = true;
+                break;
+            }
+        }
+        if (otherCloser) return false;
+
         // Kite if we are too close
         if (dist < 32) return true;
 

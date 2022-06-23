@@ -19,4 +19,6 @@ private:
     void execute() override;
 
     void clusterAttack(UnitCluster &cluster, std::set<Unit> &targets);
+
+    void clusterDefend(UnitCluster &cluster, Base *base, std::set<Unit> &targets);
 };

@@ -8,6 +8,10 @@
 
 #include "DebugFlag_CombatSim.h"
 
+#if INSTRUMENTATION_ENABLED_VERBOSE
+#define DEBUG_CORSAIR_TARGET_SELECTION false
+#endif
+
 namespace
 {
     BWAPI::Position scaledPosition(BWAPI::Position currentPosition, BWAPI::Position vector, int length)
@@ -93,6 +97,51 @@ namespace
         }
     }
 
+    UnitCluster *mainArmyVanguard()
+    {
+        auto mainArmyPlay = Strategist::getMainArmyPlay();
+        if (!mainArmyPlay) return nullptr;
+
+        auto vanguardCluster = mainArmyPlay->getSquad()->vanguardCluster();
+        if (!vanguardCluster) return nullptr;
+
+        return vanguardCluster.get();
+    }
+
+    BWAPI::Position regroupTarget(UnitCluster &cluster, BWAPI::Position defaultPosition)
+    {
+        std::vector<BWAPI::Position> positions;
+
+        // Add the main army's vanguard cluster if it has at least one dragoon
+        auto vanguard = mainArmyVanguard();
+        if (vanguard && vanguard->hasUnitType(BWAPI::UnitTypes::Protoss_Dragoon))
+        {
+            positions.push_back(vanguard->center);
+        }
+
+        // Add powered cannons
+        for (auto &cannon : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon))
+        {
+            if (!cannon->bwapiUnit->isPowered()) continue;
+
+            positions.push_back(cannon->lastPosition);
+        }
+
+        // Return the closest position
+        BWAPI::Position best = defaultPosition;
+        int bestDist = INT_MAX;
+        for (auto &pos : positions)
+        {
+            int dist = cluster.center.getApproxDistance(pos);
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                best = pos;
+            }
+        }
+        return best;
+    }
+
     bool shouldAttack(UnitCluster &cluster, CombatSimResult &simResult, double aggression = 1.0)
     {
         auto attack = [&]()
@@ -167,7 +216,7 @@ namespace
         CombatSimResult previousSimResult = cluster.recentSimResults.rbegin()[1].first;
 
         // If the enemy army strength has increased significantly, abort the attack immediately
-        if (simResult.initialEnemy > (int) ((double) previousSimResult.initialEnemy * 1.2))
+        if (simResult.initialEnemy > (int)((double)previousSimResult.initialEnemy * 1.2))
         {
 #if DEBUG_COMBATSIM
             CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": aborting as there are now more enemy units";
@@ -330,13 +379,37 @@ void CorsairSquad::execute()
     std::set<std::pair<long, Unit>> nonCombatTargets;
     for (auto &unit : Units::allEnemy())
     {
-        if (!unit->lastPositionValid) continue;
-        if (!unit->isFlying) continue;
-        if (!unit->isAttackable()) continue;
+        if (!unit->lastPositionValid)
+        {
+#if DEBUG_CORSAIR_TARGET_SELECTION
+            CherryVis::log(unit->id) << "!LPV";
+#endif
+            continue;
+        }
+        if (!unit->isFlying)
+        {
+#if DEBUG_CORSAIR_TARGET_SELECTION
+            CherryVis::log(unit->id) << "!flying";
+#endif
+            continue;
+        }
+        if (!unit->isAttackable())
+        {
+#if DEBUG_CORSAIR_TARGET_SELECTION
+            CherryVis::log(unit->id) << "!attackable";
+#endif
+            continue;
+        }
 
         // Ignore targets that haven't been seen recently
         // 1 minute threshold for overlords, 5 seconds for all other targets
-        if (unit->lastSeen < (currentFrame - (unit->type == BWAPI::UnitTypes::Zerg_Overlord ? 1440 : 120))) continue;
+        if (unit->lastSeen < (currentFrame - (unit->type == BWAPI::UnitTypes::Zerg_Overlord ? 1440 : 120)))
+        {
+#if DEBUG_CORSAIR_TARGET_SELECTION
+            CherryVis::log(unit->id) << "last seen " << (currentFrame - unit->lastSeen) << " ago";
+#endif
+            continue;
+        }
 
         // Check if it is threatening one of our bases
         if (unit->canAttackGround())
@@ -349,12 +422,20 @@ void CorsairSquad::execute()
                 {
                     threatenedBases[base].insert(unit);
                     matched = true;
+
+#if DEBUG_CORSAIR_TARGET_SELECTION
+                    CherryVis::log(unit->id) << "threatening " << BWAPI::WalkPosition(base->getPosition());
+#endif
                     break;
                 }
             }
             if (matched) continue;
 
             combatTargets.insert(unit);
+
+#if DEBUG_CORSAIR_TARGET_SELECTION
+            CherryVis::log(unit->id) << "combat (ground)";
+#endif
             continue;
         }
 
@@ -362,6 +443,10 @@ void CorsairSquad::execute()
         if (unit->canAttackAir())
         {
             combatTargets.insert(unit);
+
+#if DEBUG_CORSAIR_TARGET_SELECTION
+            CherryVis::log(unit->id) << "combat (air)";
+#endif
             continue;
         }
 
@@ -370,25 +455,34 @@ void CorsairSquad::execute()
         if (threat == 0)
         {
             vulnerableNonCombatTargets.insert(unit);
+#if DEBUG_CORSAIR_TARGET_SELECTION
+            CherryVis::log(unit->id) << "vulnerable non-combat";
+#endif
         }
         else
         {
             nonCombatTargets.insert(std::make_pair(threat, unit));
+#if DEBUG_CORSAIR_TARGET_SELECTION
+            CherryVis::log(unit->id) << "non-combat, defended by " << threat;
+#endif
         }
     }
 
     // Logic to determine the least-scouted enemy base (evaluated lazily)
     bool _leastScoutedEnemyBaseComputed = false;
     Base *_leastScoutedEnemyBase = nullptr;
-    auto leastScoutedEnemyBase = [&_leastScoutedEnemyBaseComputed, &_leastScoutedEnemyBase]()
+    auto leastScoutedEnemyBase = [&_leastScoutedEnemyBaseComputed, &_leastScoutedEnemyBase, &grid]()
     {
         if (_leastScoutedEnemyBaseComputed) return _leastScoutedEnemyBase;
 
         _leastScoutedEnemyBaseComputed = true;
 
         int lastScouted = INT_MAX;
-        auto visit = [&lastScouted, &_leastScoutedEnemyBase](Base *base, int limit = 0)
+        auto visit = [&lastScouted, &_leastScoutedEnemyBase, &grid](Base *base, int limit = 0)
         {
+            // Ignore bases that are covered by anti-air
+            if (grid.airThreat(base->getPosition()) > 0) return;
+
             if (base->lastScouted < lastScouted && base->lastScouted < (currentFrame - limit))
             {
                 lastScouted = base->lastScouted;
@@ -427,6 +521,12 @@ void CorsairSquad::execute()
 #if CHERRYVIS_ENABLED
         CherryVis::setBoardValue("corsairs", (std::ostringstream() << "defend-" << bestBase->getTilePosition()).str());
 #endif
+
+        for (auto &cluster : remainingClusters)
+        {
+            clusterDefend(*cluster, bestBase, targets);
+        }
+        return;
     }
 
     else if (!combatTargets.empty())
@@ -477,15 +577,34 @@ void CorsairSquad::execute()
 
     else
     {
-        // Have each cluster move to the least-scouted enemy base
-        auto base = leastScoutedEnemyBase();
-        if (!base) base = Map::getMyMain();
+        // Move to an appropriate location:
+        // - least-scouted enemy base
+        // - main army vanguard cluster
+        // - our main
+        BWAPI::Position pos;
 
-        auto pos = base->getPosition();
+        auto base = leastScoutedEnemyBase();
+        if (base)
+        {
+            pos = base->getPosition();
+        }
+        else
+        {
+            auto vanguard = mainArmyVanguard();
+            if (vanguard)
+            {
+                pos = vanguard->center;
+            }
+            else
+            {
+                pos = Map::getMyMain()->getPosition();
+            }
+        }
+
         ensureTargetPosition(pos);
 
 #if CHERRYVIS_ENABLED
-        CherryVis::setBoardValue("corsairs", (std::ostringstream() << "scout-" << base->getTilePosition()).str());
+        CherryVis::setBoardValue("corsairs", (std::ostringstream() << "wait-" << BWAPI::WalkPosition(pos)).str());
 #endif
 
         for (auto &cluster : remainingClusters)
@@ -575,8 +694,108 @@ void CorsairSquad::clusterAttack(UnitCluster &cluster, std::set<Unit> &targets)
     // Regroup
     // Corsair move logic takes care of avoiding threats
     cluster.setActivity(UnitCluster::Activity::Regrouping);
+    auto pos = regroupTarget(cluster, targetPosition);
     for (auto &unit : cluster.units)
     {
-        corsairMove(unit, targetPosition);
+        corsairMove(unit, pos);
+    }
+}
+
+void CorsairSquad::clusterDefend(UnitCluster &cluster, Base *base, std::set<Unit> &targets)
+{
+    // If far away from the base, move towards it
+    if (cluster.center.getApproxDistance(base->getPosition()) > 1000)
+    {
+        clusterMove(cluster, base->getPosition());
+        return;
+    }
+
+    // Select targets
+    auto unitsAndTargets = cluster.selectTargets(targets, cluster.center);
+
+    // If none of our units has a target, move to the target position
+    bool hasTarget = false;
+    for (const auto &unitAndTarget : unitsAndTargets)
+    {
+        if (unitAndTarget.second)
+        {
+            hasTarget = true;
+            break;
+        }
+    }
+    if (!hasTarget)
+    {
+        clusterMove(cluster, targetPosition);
+        return;
+    }
+
+    // Determine if we should attack
+    bool attack;
+
+    // If the cluster is covered by static defense, always attack
+    auto &grid = Players::grid(BWAPI::Broodwar->self());
+    if (grid.staticGroundThreat(cluster.center) > 0)
+    {
+        attack = true;
+    }
+    else
+    {
+        // Run combat sim
+        std::set<Unit> enemyUnits = targets;
+        int radius = 640;
+        if (cluster.vanguard) radius += cluster.vanguard->getDistance(cluster.center);
+        Units::enemyInRadius(enemyUnits, cluster.center, radius);
+        auto simResult = cluster.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors);
+
+        // Determine if we should attack
+        switch (cluster.currentActivity)
+        {
+            case UnitCluster::Activity::Moving:
+                attack = shouldStartAttack(cluster, simResult);
+                break;
+            case UnitCluster::Activity::Attacking:
+                attack = shouldContinueAttack(cluster, simResult);
+                break;
+            case UnitCluster::Activity::Regrouping:
+                attack = shouldStopRegrouping(cluster, simResult);
+                break;
+        }
+    }
+
+    if (attack)
+    {
+        cluster.setActivity(UnitCluster::Activity::Attacking);
+
+        for (auto &unitAndTarget : unitsAndTargets)
+        {
+            if (!unitAndTarget.first->isReady()) continue;
+
+            if (unitAndTarget.second)
+            {
+                int dist = unitAndTarget.first->getDistance(unitAndTarget.second);
+                if (dist > 320)
+                {
+                    corsairMove(unitAndTarget.first, unitAndTarget.second->lastPosition);
+                }
+                else
+                {
+                    unitAndTarget.first->attackUnit(unitAndTarget.second, unitsAndTargets);
+                }
+            }
+            else
+            {
+                corsairMove(unitAndTarget.first, targetPosition);
+            }
+        }
+        return;
+    }
+
+    // Regroup
+    // Corsair move logic takes care of avoiding threats
+    cluster.setActivity(UnitCluster::Activity::Regrouping);
+    auto pos = regroupTarget(cluster, targetPosition);
+    for (auto &unit : cluster.units)
+    {
+        corsairMove(unit, pos);
     }
 }

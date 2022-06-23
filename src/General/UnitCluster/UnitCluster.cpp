@@ -109,6 +109,15 @@ std::set<MyUnit>::iterator UnitCluster::removeUnit(std::set<MyUnit>::iterator un
     return newUnitIt;
 }
 
+bool UnitCluster::hasUnitType(BWAPI::UnitType type) const
+{
+    for (auto &unit : units)
+    {
+        if (unit->type == type) return true;
+    }
+    return false;
+}
+
 void UnitCluster::updatePositions(BWAPI::Position targetPosition)
 {
     int sumX = 0;

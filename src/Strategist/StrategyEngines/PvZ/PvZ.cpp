@@ -219,8 +219,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         if (dtCount > 0) return true;
 
         // Always build if the enemy has air units that can threaten our bases
-        if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 0) return true;
-        if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Guardian) > 0) return true;
+        if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Mutalisk)) return true;
 
         // Don't build if the enemy has defended its overlords
         auto &grid = Players::grid(BWAPI::Broodwar->enemy());

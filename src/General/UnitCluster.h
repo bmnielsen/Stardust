@@ -49,6 +49,8 @@ public:
 
     std::set<MyUnit>::iterator removeUnit(std::set<MyUnit>::iterator unitIt, BWAPI::Position targetPosition);
 
+    bool hasUnitType(BWAPI::UnitType type) const;
+
     void updatePositions(BWAPI::Position targetPosition);
 
     void setActivity(Activity newActivity, SubActivity newSubActivity = SubActivity::None);
