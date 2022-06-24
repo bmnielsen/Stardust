@@ -192,10 +192,10 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
         {
             // Determine the priority
             // By default it is equivalent to main army
-            // If it is the main in the early game, give it higher priority
+            // If it is the main or natural in the early game, give it higher priority
             // If it is the last cannon, give it lower priority until the others are completed
             int priority = PRIORITY_MAINARMY;
-            if (base == Map::getMyMain() && currentFrame < 12000)
+            if ((base == Map::getMyMain() || base == Map::getMyNatural()) && currentFrame < 12000)
             {
                 priority = PRIORITY_NORMAL;
             }
