@@ -1,6 +1,9 @@
 #include "BWTest.h"
 #include "DoNothingModule.h"
 
+#include "Map.h"
+#include "Plays/SpecialTeams/Elevator.h"
+
 TEST(Initialization, AllCOGMaps)
 {
     Maps::RunOnEach(Maps::Get("cog"), [](BWTest test)
@@ -247,5 +250,24 @@ TEST(Initialization, Benzene)
     };
     test.frameLimit = 10;
     test.expectWin = false;
+    test.run();
+}
+
+TEST(Initialization, Outsider)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Outsider");
+    test.randomSeed = 40072;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+
+    test.onStartMine = []()
+    {
+        Elevator::selectPositions(Map::getMyMain());
+    };
     test.run();
 }
