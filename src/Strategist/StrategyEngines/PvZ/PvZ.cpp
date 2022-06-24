@@ -213,7 +213,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     auto buildCorsairs = [&]()
     {
-        if (corsairCount >= 8) return false;
+        if (corsairCount >= 1) return false;
 
         // Always build if we have DTs to force enemy to defend its overlords
         if (dtCount > 0) return true;
