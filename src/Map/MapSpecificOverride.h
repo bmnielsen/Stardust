@@ -51,4 +51,7 @@ public:
 
     // Whether the natural base is behind the main base relative to the enemy starting position
     virtual bool hasBackdoorNatural() { return false; }
+
+    // Adds island areas that aren't marked as such by BWEM
+    virtual void addIslandAreas(std::set<const BWEM::Area *> &islandAreas) {}
 };

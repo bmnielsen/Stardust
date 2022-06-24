@@ -3,6 +3,7 @@
 #include "MapSpecificOverrides/Fortress.h"
 #include "MapSpecificOverrides/Plasma.h"
 #include "MapSpecificOverrides/Alchemist.h"
+#include "MapSpecificOverrides/Outsider.h"
 
 #include "Units.h"
 #include "PathFinding.h"
@@ -514,27 +515,8 @@ namespace Map
 #endif
         }
 
-        void computeLeafAreaAndIslandTiles()
+        void computeIslandTiles()
         {
-            // Gather all "leaf" areas, which we define as areas that are only connected by narrow chokes
-            // We also always add our starting main areas as leaf areas
-            std::set<const BWEM::Area *> leafAreas;
-            auto &myStartingMainAreas = startingBaseAreas[getMyMain()];
-            leafAreas.insert(myStartingMainAreas.begin(), myStartingMainAreas.end());
-            for (const auto &area : BWEM::Map::Instance().Areas())
-            {
-                for (const auto &bwemChoke : area.ChokePoints())
-                {
-                    auto choke = Map::choke(bwemChoke);
-                    if (!choke) continue;
-                    if (!choke->isNarrowChoke) goto NextArea;
-                }
-
-                leafAreas.insert(&area);
-
-                NextArea:;
-            }
-
             // Gather all "island" areas, which are areas not ground-connected to our start location
             std::set<const BWEM::Area *> islandAreas;
             for (const auto &area : BWEM::Map::Instance().Areas())
@@ -546,9 +528,72 @@ namespace Map
                     islandAreas.insert(&area);
                 }
             }
+            _mapSpecificOverride->addIslandAreas(islandAreas);
+
+            islandTiles.resize(mapWidth * mapHeight);
+
+            for (int y = 0; y < mapHeight; y++)
+            {
+                for (int x = 0; x < mapWidth; x++)
+                {
+                    BWAPI::TilePosition here(x, y);
+                    auto area = BWEM::Map::Instance().GetArea(here);
+                    if (area)
+                    {
+                        if (islandAreas.find(area) != islandAreas.end())
+                        {
+                            islandTiles[here.x + here.y * mapWidth] = true;
+                        }
+                    }
+                }
+            }
+
+#if CHERRYVIS_ENABLED
+            // Dump to CherryVis
+            std::vector<long> islandTilesCVis(mapWidth * mapHeight);
+            for (int y = 0; y < mapHeight; y++)
+            {
+                for (int x = 0; x < mapWidth; x++)
+                {
+                    islandTilesCVis[x + y * mapWidth] = islandTiles[x + y * mapWidth];
+                }
+            }
+
+            CherryVis::addHeatmap("IslandTiles", islandTilesCVis, mapWidth, mapHeight);
+#endif
+        }
+
+        void computeLeafAreaTiles()
+        {
+            // Gather all "leaf" areas, which we define as areas that are only connected by narrow or blocked chokes
+            // We also always add our starting main areas as leaf areas
+            std::set<const BWEM::Area *> leafAreas;
+            auto &myStartingMainAreas = startingBaseAreas[getMyMain()];
+            leafAreas.insert(myStartingMainAreas.begin(), myStartingMainAreas.end());
+            auto isIslandArea = [](const BWEM::Area *area)
+            {
+                return isOnIsland(BWAPI::TilePosition(area->Top()));
+            };
+            for (const auto &area : BWEM::Map::Instance().Areas())
+            {
+                if (isIslandArea(&area)) continue;
+
+                for (const auto &bwemChoke : area.ChokePoints())
+                {
+                    auto choke = Map::choke(bwemChoke);
+                    if (!choke) continue;
+                    if (!choke->isNarrowChoke && !isIslandArea(bwemChoke->GetAreas().first) && !isIslandArea(bwemChoke->GetAreas().second))
+                    {
+                        goto NextArea;
+                    }
+                }
+
+                leafAreas.insert(&area);
+
+                NextArea:;
+            }
 
             leafAreaTiles.resize(mapWidth * mapHeight);
-            islandTiles.resize(mapWidth * mapHeight);
 
             for (int y = 0; y < mapHeight; y++)
             {
@@ -561,10 +606,6 @@ namespace Map
                         if (leafAreas.find(area) != leafAreas.end())
                         {
                             leafAreaTiles[here.x + here.y * mapWidth] = true;
-                        }
-                        if (islandAreas.find(area) != islandAreas.end())
-                        {
-                            islandTiles[here.x + here.y * mapWidth] = true;
                         }
                     }
                 }
@@ -582,17 +623,6 @@ namespace Map
             }
 
             CherryVis::addHeatmap("LeafAreaTiles", leafAreaTilesCVis, mapWidth, mapHeight);
-
-            std::vector<long> islandTilesCVis(mapWidth * mapHeight);
-            for (int y = 0; y < mapHeight; y++)
-            {
-                for (int x = 0; x < mapWidth; x++)
-                {
-                    islandTilesCVis[x + y * mapWidth] = islandTiles[x + y * mapWidth];
-                }
-            }
-
-            CherryVis::addHeatmap("IslandTiles", islandTilesCVis, mapWidth, mapHeight);
 #endif
         }
 
@@ -842,6 +872,12 @@ namespace Map
             Log::Get() << "Using map-specific override for Alchemist";
             _mapSpecificOverride = new Alchemist();
         }
+        else if (BWAPI::Broodwar->mapHash() == "63a94b3a878c912f2fa5e31700491a60ac3f29d9" ||
+                 BWAPI::Broodwar->mapHash() == "99324782b01af58f6b25aea13e2d62aa83564de0")
+        {
+            Log::Get() << "Using map-specific override for Outsider";
+            _mapSpecificOverride = new Outsider();
+        }
         else
         {
             _mapSpecificOverride = new MapSpecificOverride();
@@ -867,6 +903,8 @@ namespace Map
             if (pair.second->width < _minChokeWidth)
                 _minChokeWidth = pair.second->width;
         }
+
+        computeIslandTiles();
 
         // Initialize bases
         for (const auto &area : BWEM::Map::Instance().Areas())
@@ -912,6 +950,8 @@ namespace Map
 
             for (const auto &area : BWEM::Map::Instance().Areas())
             {
+                if (isOnIsland(BWAPI::TilePosition(area.Top()))) continue;
+
                 bool hasMainChoke = false;
                 for (const auto &choke : PathFinding::GetChokePointPath(
                         BWAPI::Position(area.Top()),
@@ -953,7 +993,7 @@ namespace Map
         }
 
         computeNarrowChokeTiles();
-        computeLeafAreaAndIslandTiles();
+        computeLeafAreaTiles();
         dumpStaticHeatmaps();
 
         update();

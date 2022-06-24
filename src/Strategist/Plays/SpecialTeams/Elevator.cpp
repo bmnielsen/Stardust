@@ -564,8 +564,9 @@ std::pair<BWAPI::TilePosition, BWAPI::TilePosition> Elevator::selectPositions(Ba
             // Must be a walkable tile with some space around it
             if (!validElevatorPosition(here)) continue;
 
-            // Must not be on an island
+            // Must not be on an island or leaf area
             if (Map::isOnIsland(here)) continue;
+            if (Map::isInLeafArea(here)) continue;
 
             // Must be an edge tile
             auto edgeTileArea = edgePositionsToArea.find(here);
