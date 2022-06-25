@@ -110,3 +110,20 @@ TEST(Crona, 2HatchMuta)
 
     test.run();
 }
+
+TEST(Crona, 5Pool)
+{
+    BWTest test;
+    test.opponentName = "Crona";
+    test.map = Maps::GetOne("Outsider");
+    test.frameLimit = 20000;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ZergStrategy::kZvP_5Pool;
+        return bbModule;
+    };
+
+    test.run();
+}
