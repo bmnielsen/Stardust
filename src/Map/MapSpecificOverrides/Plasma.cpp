@@ -337,7 +337,7 @@ bool Plasma::clusterMove(UnitCluster &cluster, BWAPI::Position targetPosition)
     return true;
 }
 
-void Plasma::addMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas)
+void Plasma::modifyMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas)
 {
     // On Plasma there is very little room in the small main base platform, so use the entire accessible area
     if (accessibleAreas.empty())

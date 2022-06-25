@@ -28,3 +28,18 @@ void Outsider::addIslandAreas(std::set<const BWEM::Area *> &islandAreas)
         }
     }
 }
+
+void Outsider::modifyMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas)
+{
+    // On Outsider we have additional areas behind our main base that are initially blocked by mineral fields
+    // We don't want to use them for building placement though
+    auto mainArea = BWEM::Map::Instance().GetArea(BWAPI::Broodwar->self()->getStartLocation());
+    if (!mainArea)
+    {
+        Log::Get() << "ERROR: Start location doesn't have a BWEM area";
+        return;
+    }
+
+    areas.clear();
+    areas.insert(mainArea);
+}

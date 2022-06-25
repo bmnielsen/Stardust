@@ -22,7 +22,7 @@ public:
 
     bool clusterMove(UnitCluster &cluster, BWAPI::Position targetPosition) override;
 
-    void addMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) override;
+    void modifyMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) override;
 
     std::unique_ptr<StrategyEngine> createStrategyEngine() override;
 

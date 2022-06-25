@@ -34,7 +34,7 @@ public:
         return false;
     }
 
-    virtual void addMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) {}
+    virtual void modifyMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) {}
 
     virtual std::unique_ptr<StrategyEngine> createStrategyEngine()
     {

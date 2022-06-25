@@ -135,7 +135,7 @@ namespace BuildingPlacement
 
             // Main base
             neighbourhoodAreas[Neighbourhood::MainBase] = Map::getMyMainAreas();
-            Map::mapSpecificOverride()->addMainBaseBuildingPlacementAreas(neighbourhoodAreas[Neighbourhood::MainBase]);
+            Map::mapSpecificOverride()->modifyMainBaseBuildingPlacementAreas(neighbourhoodAreas[Neighbourhood::MainBase]);
 
             auto mainChoke = Map::getMyMainChoke();
             auto mainExit = mainChoke ? mainChoke->center : Map::getMyMain()->getPosition();

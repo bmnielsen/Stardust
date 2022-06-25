@@ -20,7 +20,7 @@ namespace
 
         // Check if we have directly scouted an enemy building or ground combat unit in one of our main areas
         std::set<const BWEM::Area *> accessibleAreas;
-        Map::mapSpecificOverride()->addMainBaseBuildingPlacementAreas(accessibleAreas);
+        Map::mapSpecificOverride()->modifyMainBaseBuildingPlacementAreas(accessibleAreas);
         for (const auto &enemyUnit : Units::allEnemy())
         {
             if (enemyUnit->isFlying) continue;

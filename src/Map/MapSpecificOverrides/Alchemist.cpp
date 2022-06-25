@@ -100,7 +100,7 @@ void Alchemist::enemyStartingMainDetermined()
     }
 }
 
-void Alchemist::addMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas)
+void Alchemist::modifyMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas)
 {
     // The 3-oclock start position is split into two areas, so we need to handle it specially
     if (BWAPI::Broodwar->self()->getStartLocation() != BWAPI::TilePosition(117, 51)) return;
