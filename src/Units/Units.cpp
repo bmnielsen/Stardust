@@ -597,6 +597,25 @@ namespace Units
             else
             {
                 unit = it->second;
+
+                if (unit->type == BWAPI::UnitTypes::Protoss_Assimilator && !unit->completed && bwapiUnit->isCompleted())
+                {
+                    for (auto &base : Map::getMyBases())
+                    {
+                        if (base->hasGeyserAt(unit->getTilePosition()))
+                        {
+                            if (!base->resourceDepot)
+                            {
+                                Log::Get() << "ERROR: Assimilator @ " << unit->getTilePosition() << " completed without nexus";
+                            }
+                            else if (!base->resourceDepot->completed)
+                            {
+                                Log::Get() << "ERROR: Assimilator @ " << unit->getTilePosition() << " completed before nexus";
+                            }
+                        }
+                    }
+                }
+
                 unit->update(bwapiUnit);
             }
 
