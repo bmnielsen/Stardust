@@ -362,7 +362,7 @@ void StrategyEngine::cancelNaturalExpansion(std::vector<std::shared_ptr<Play>> &
         }
     }
 
-    Builder::cancel(natural->getTilePosition());
+    Builder::cancelBase(natural);
 }
 
 void StrategyEngine::takeExpansionWithShuttle(std::vector<std::shared_ptr<Play>> &plays)

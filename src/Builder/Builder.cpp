@@ -396,6 +396,20 @@ namespace Builder
         return result;
     }
 
+    void cancelBase(Base *base)
+    {
+        cancel(base->getTilePosition());
+
+        // Also cancel assimilator if it is building
+        for (auto &pendingBuilding : pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Assimilator))
+        {
+            if (base->hasGeyserAt(pendingBuilding->tile))
+            {
+                cancel(pendingBuilding->tile);
+            }
+        }
+    }
+
     bool isPendingHere(BWAPI::TilePosition tile)
     {
         for (const auto &building : pendingBuildings)

@@ -5,6 +5,8 @@
 #include "Building.h"
 #include "MyUnit.h"
 
+class Base;
+
 namespace Builder
 {
     void initialize();
@@ -22,6 +24,8 @@ namespace Builder
     std::vector<std::shared_ptr<Building>> &allPendingBuildings();
 
     std::vector<Building *> pendingBuildingsOfType(BWAPI::UnitType type);
+
+    void cancelBase(Base *base);
 
     bool isPendingHere(BWAPI::TilePosition tile);
 

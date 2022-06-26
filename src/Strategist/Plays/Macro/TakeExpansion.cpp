@@ -135,7 +135,7 @@ void TakeExpansion::update()
     if (enemyValue > 0)
     {
         updateAttackSquad();
-        Builder::cancel(depotPosition);
+        Builder::cancelBase(base);
         if (builder)
         {
             Workers::releaseWorker(builder);
@@ -283,7 +283,7 @@ void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
 void TakeExpansion::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
                             const std::function<void(const MyUnit)> &movableUnitCallback)
 {
-    Builder::cancel(depotPosition);
+    Builder::cancelBase(base);
 
     if (builder && !Builder::hasPendingBuilding(builder)) Workers::releaseWorker(builder);
 
