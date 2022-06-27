@@ -799,6 +799,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
 
     // Now sum everything up to get the frame where we need detection
     int frame = expectedCompletionFrame + closestGatewayFrames;
+    if (frame < 0) return;
     if (templarArchiveTimings.empty())
     {
         buildDefensiveCannons(prioritizedProductionGoals, true, frame);

@@ -32,6 +32,8 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
                                            int frameNeeded,
                                            int atBases)
 {
+    if (frameNeeded < 0) return;
+
     auto buildCannonAt = [&](BWAPI::TilePosition pylonTile, BWAPI::TilePosition cannonTile)
     {
         if (!pylonTile.isValid()) return;
