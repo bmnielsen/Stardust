@@ -15,8 +15,8 @@
 #endif
 
 #if INSTRUMENTATION_ENABLED
-#define DEBUG_COMBATSIM_DRAW false           // Draws positions for all units
-#define DEBUG_COMBATSIM_DRAW_FREQUENCY 1    // Frame frequency to draw combat sim info
+#define DEBUG_COMBATSIM_DRAW true           // Draws positions for all units
+#define DEBUG_COMBATSIM_DRAW_FREQUENCY 24    // Frame frequency to draw combat sim info
 #define DEBUG_COMBATSIM_DRAW_ATTACKER true  // Whether to draw attacker or defender
 #endif
 
