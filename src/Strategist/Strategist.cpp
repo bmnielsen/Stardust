@@ -17,7 +17,6 @@
 #include "Strategist.h"
 
 #include "Plays/MainArmy/DefendMyMain.h"
-#include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/MainArmy/MopUp.h"
 
 /*
@@ -436,7 +435,7 @@ namespace Strategist
         if (Opponent::hasRaceJustBeenDetermined())
         {
             // We first need to clear all of our existing plays, as the new strategy engine will add its own
-            auto removeUnit = [&](const MyUnit unit)
+            auto removeUnit = [&](const MyUnit& unit)
             {
                 unitToPlay.erase(unit);
             };
@@ -485,7 +484,7 @@ namespace Strategist
         // Process the changes signalled by the PlayStatus objects
         for (auto it = plays.begin(); it != plays.end();)
         {
-            auto removeUnit = [&](const MyUnit unit)
+            auto removeUnit = [&](const MyUnit& unit)
             {
                 CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
 
@@ -494,16 +493,20 @@ namespace Strategist
             };
 
             // Update our unit map for units released from the play
-            for (const auto &unit : (*it)->status.removedUnits)
+            // We don't do this for the play receiving unassigned units to avoid instability
+            if (!(*it)->receivesUnassignedUnits())
             {
-                removeUnit(unit);
+                for (const auto &unit : (*it)->status.removedUnits)
+                {
+                    removeUnit(unit);
+                }
             }
 
             // Handle play transition
             // This replaces the current play with a new one, moving all units
             if ((*it)->status.transitionTo != nullptr)
             {
-                auto moveUnit = [&](const MyUnit unit)
+                auto moveUnit = [&](const MyUnit& unit)
                 {
                     unitToPlay[unit] = (*it)->status.transitionTo;
                     (*it)->status.transitionTo->addUnit(unit);
