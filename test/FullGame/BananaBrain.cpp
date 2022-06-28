@@ -17,6 +17,7 @@ namespace
     {
         std::vector<std::string> openings = {
                 ProtossStrategy::kPvP_NZCore,
+                ProtossStrategy::kPvP_NZCoreDt,
                 ProtossStrategy::kPvP_ZCore,
                 ProtossStrategy::kPvP_ZZCore,
                 ProtossStrategy::kPvP_ZCoreZ,
@@ -173,6 +174,8 @@ TEST(BananaBrain, 2GateDT)
     BWTest test;
     test.opponentName = "BananaBrain";
     test.opponentRace = BWAPI::Races::Protoss;
+    test.map = Maps::GetOne("Breakers");
+    test.frameLimit = 15000;
     test.opponentModule = []()
     {
         auto bbModule = new BananaBrain();
@@ -245,6 +248,23 @@ TEST(BananaBrain, 4Gate)
     {
         auto bbModule = new BananaBrain();
         bbModule->strategyName = ProtossStrategy::kPvP_4GateGoon;
+        return bbModule;
+    };
+
+    test.run();
+}
+
+TEST(BananaBrain, NZCoreDt)
+{
+    BWTest test;
+    test.opponentName = "BananaBrain";
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.map = Maps::GetOne("Breakers");
+    test.frameLimit = 15000;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ProtossStrategy::kPvP_NZCoreDt;
         return bbModule;
     };
 
