@@ -82,8 +82,6 @@ namespace
 
 void Squad::executeDetectors()
 {
-    std::shared_ptr<UnitCluster> bestCluster = nullptr;
-
     for (auto detector : detectors)
     {
         // Try to find the nearest enemy requiring detection
@@ -102,8 +100,7 @@ void Squad::executeDetectors()
         // If we found one, either move towards it if it isn't in range, or away from it if we're too close
         if (closest)
         {
-            int sightRange = Players::unitSightRange(BWAPI::Broodwar->self(), detector->type);
-            if (closestDist > sightRange - 32)
+            if (closestDist > 64)
             {
                 moveTowards(detector, closest->lastPosition, closest->lastPosition);
             }
@@ -115,26 +112,14 @@ void Squad::executeDetectors()
             continue;
         }
 
-        // There is no enemy unit we need to detect, so try to stay with the frontmost cluster
-        if (!bestCluster)
+        // There is no enemy unit we need to detect, so try to stay with the vanguard cluster
+        if (currentVanguardCluster && currentVanguardCluster->vanguard)
         {
-            closestDist = INT_MAX;
-            for (auto &cluster : clusters)
-            {
-                if (!cluster->vanguard) continue;
-
-                int dist = PathFinding::GetGroundDistance(cluster->vanguard->lastPosition, targetPosition);
-                if (dist == -1) dist = cluster->center.getApproxDistance(targetPosition);
-                if (dist < closestDist)
-                {
-                    closestDist = dist;
-                    bestCluster = cluster;
-                }
-            }
-        }
-        if (bestCluster)
-        {
-            moveTowards(detector, bestCluster->center, bestCluster->vanguard->lastPosition);
+            auto centerToVanguardVector = currentVanguardCluster->vanguard->lastPosition - currentVanguardCluster->center;
+            moveTowards(
+                detector,
+                currentVanguardCluster->vanguard->lastPosition,
+                currentVanguardCluster->center + centerToVanguardVector + centerToVanguardVector);
             continue;
         }
 

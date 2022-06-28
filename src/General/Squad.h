@@ -25,6 +25,8 @@ public:
 
     [[nodiscard]] bool needsDetection() const { return !enemiesNeedingDetection.empty(); }
 
+    [[nodiscard]] bool hasDetection() const;
+
     std::set<MyUnit> &getDetectors() { return detectors; }
 
     std::set<MyUnit> &getArbiters() { return arbiters; }

@@ -273,6 +273,39 @@ void Squad::updateClusters()
 #endif
 }
 
+bool Squad::hasDetection() const
+{
+    if (detectors.empty()) return false;
+
+    // If there are enemies requiring detection, return true if we have detection on any of the enemies requiring it
+    if (!enemiesNeedingDetection.empty())
+    {
+        auto &grid = Players::grid(BWAPI::Broodwar->self());
+        return std::any_of(
+                enemiesNeedingDetection.begin(),
+                enemiesNeedingDetection.end(),
+                [&grid](const Unit &enemyNeedingDetection)
+                {
+                    return grid.detection(enemyNeedingDetection->lastPosition) > 0;
+                });
+    }
+
+    // Otherwise wait until we have a detector near our vanguard unit
+    if (currentVanguardCluster && currentVanguardCluster->vanguard)
+    {
+        return std::any_of(
+                detectors.begin(),
+                detectors.end(),
+                [&](const MyUnit &detector)
+                {
+                    return detector->getDistance(currentVanguardCluster->vanguard) < 120;
+                });
+    }
+
+    // Indicates there are no units, friendly or otherwise
+    return true;
+}
+
 void Squad::execute()
 {
     enemiesNeedingDetection.clear();

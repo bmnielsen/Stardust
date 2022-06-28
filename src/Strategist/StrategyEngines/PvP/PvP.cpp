@@ -99,11 +99,20 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     break;
                 }
 
-                // Always use a defend play if the squad has no units or we have no obs to counter DTs
+                bool currentlyDefending = (typeid(*mainArmyPlay) == typeid(DefendMyMain));
+
+                // Always use a defend play if the squad has no units
                 auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                if (!vanguard
-                    || (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0
-                        && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0))
+                if (!vanguard)
+                {
+                    defendOurMain = true;
+                    break;
+                }
+
+                // Use a defend play if the enemy has dark templar and our observer is not with the army yet
+                if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0 &&
+                    !mainArmyPlay->getSquad()->hasDetection() &&
+                    (currentlyDefending || mainArmyPlay->getSquad()->needsDetection()))
                 {
                     defendOurMain = true;
                     break;
