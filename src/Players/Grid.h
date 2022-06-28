@@ -43,7 +43,9 @@ public:
         void add(BWAPI::UnitType type, int range, BWAPI::Position position, int delta);
     };
 
-    explicit Grid(std::shared_ptr<UpgradeTracker> upgradeTracker) : upgradeTracker(std::move(upgradeTracker)) {}
+    explicit Grid(std::shared_ptr<UpgradeTracker> upgradeTracker, BWAPI::Player player)
+        : upgradeTracker(std::move(upgradeTracker))
+        , rangeBuffer(player == BWAPI::Broodwar->self() ? -16 : 48) {}
 
     void unitCreated(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed, bool immobile);
 
@@ -116,6 +118,7 @@ public:
 
 private:
     std::shared_ptr<UpgradeTracker> upgradeTracker;
+    int rangeBuffer;
 
     GridData _collision;
     GridData _groundThreat;

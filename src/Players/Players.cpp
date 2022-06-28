@@ -41,7 +41,7 @@ namespace Players
         auto it = playerToGrid.find(player);
         if (it != playerToGrid.end()) return it->second;
 
-        auto result = playerToGrid.try_emplace(player, getUpgradeTracker(player));
+        auto result = playerToGrid.try_emplace(player, getUpgradeTracker(player), player);
         return result.first->second;
     }
 
