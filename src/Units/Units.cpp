@@ -12,6 +12,7 @@
 #include "MyWorker.h"
 #include "UnitUtil.h"
 #include "Opponent.h"
+#include "OpponentEconomicModel.h"
 
 #include "DebugFlag_GridUpdates.h"
 
@@ -202,6 +203,8 @@ namespace Units
             enemyUnits.erase(unit);
             unitIdToEnemyUnit.erase(unit->id);
             enemyUnitsByType[unit->type].erase(unit);
+
+            OpponentEconomicModel::opponentUnitDestroyed(unit->type, unit->id);
         }
 
         void trackEnemyUnitTimings(const Unit &unit, bool includeMorphs)
@@ -354,6 +357,8 @@ namespace Units
 
             int startFrame = completionFrame - UnitUtil::BuildTime(unit->type);
             enemyUnitTimings[unit->type].emplace_back(std::make_pair(startFrame, currentFrame));
+
+            OpponentEconomicModel::opponentUnitCreated(unit->type, unit->id, startFrame);
 
             if (enemyUnitTimings[unit->type].size() == 1)
             {

@@ -139,6 +139,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Producer\ProductionGoal.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Producer\ProductionGoals\UpgradeProductionGoal.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\StardustAIModule.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\OpponentEconomicModel.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Play.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Defensive\AntiCannonRush.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Defensive\DefendBase.cpp" />

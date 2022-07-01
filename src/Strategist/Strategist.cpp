@@ -7,6 +7,8 @@
 #include "Map.h"
 #include "UnitUtil.h"
 
+#include "OpponentEconomicModel.h"
+
 #include "StrategyEngine.h"
 #include "StrategyEngines/PvP.h"
 #include "StrategyEngines/PvT.h"
@@ -418,6 +420,8 @@ namespace Strategist
 
     void initialize()
     {
+        OpponentEconomicModel::initialize();
+
         unitToPlay.clear();
         plays.clear();
         productionGoals.clear();
@@ -431,6 +435,8 @@ namespace Strategist
 
     void update()
     {
+        OpponentEconomicModel::update();
+
         // Change the strategy engine when we discover the race of a random opponent
         if (Opponent::hasRaceJustBeenDetermined())
         {

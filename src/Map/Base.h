@@ -33,6 +33,8 @@ public:
 
     [[nodiscard]] size_t mineralPatchCount() const { return bwemBase->Minerals().size(); }
 
+    [[nodiscard]] size_t geyserCount() const { return geyserTiles.size(); }
+
     [[nodiscard]] std::vector<BWAPI::Unit> mineralPatches() const;
 
     [[nodiscard]] std::vector<BWAPI::Unit> geysers() const;
