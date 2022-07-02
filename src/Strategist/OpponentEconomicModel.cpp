@@ -2,6 +2,7 @@
 
 #include "Map.h"
 #include "UnitUtil.h"
+#include "UpgradeOrTechType.h"
 
 #define MODEL_FRAME_LIMIT 20000
 
@@ -42,6 +43,8 @@ namespace
 
     bool isEnabled;
     unsigned int workerLimit;
+
+    std::map<BWAPI::UpgradeType, int> currentUpgradeLevels;
 
     EcoModelUnitSet observedUnits;
     EcoModelUnitSet impliedUnits;
@@ -171,6 +174,8 @@ namespace
 
     int addPrerequiste(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int frame)
     {
+        if (type == BWAPI::UnitTypes::None) return 0;
+
         auto it = aliveUnitsByType.find(type);
         if (it != aliveUnitsByType.end() && !it->second.empty())
         {
@@ -185,6 +190,8 @@ namespace
 
     int getPrerequisites(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int frame)
     {
+        if (type == BWAPI::UnitTypes::None) return 0;
+
         int earliestFrame = 0;
         for (auto typeAndCount : type.requiredUnits())
         {
@@ -254,6 +261,13 @@ namespace OpponentEconomicModel
         minerals.assign(MODEL_FRAME_LIMIT, 0);
         gas.assign(MODEL_FRAME_LIMIT, 0);
         supplyAvailable.assign(MODEL_FRAME_LIMIT, 8);
+
+        currentUpgradeLevels.clear();
+        for (const auto &type : BWAPI::UpgradeTypes::allUpgradeTypes())
+        {
+            if (type.getRace() != BWAPI::Races::Protoss) continue;
+            currentUpgradeLevels[type] = 0;
+        }
     }
 
     void update()
@@ -267,6 +281,20 @@ namespace OpponentEconomicModel
         {
             isEnabled = false;
             return;
+        }
+
+        // Detect upgrades
+        for (auto &[type, currentLevel] : currentUpgradeLevels)
+        {
+            int level = BWAPI::Broodwar->enemy()->getUpgradeLevel(type);
+            if (level > currentLevel)
+            {
+#if INSTRUMENTATION_ENABLED
+                Log::Get() << "Enemy has upgraded " << type << " to " << level;
+#endif
+                currentLevel = level;
+                research.emplace_back(std::make_pair(type, currentFrame - type.upgradeTime(level)));
+            }
         }
 
         // Start by initializing with the opponent's income
@@ -285,17 +313,17 @@ namespace OpponentEconomicModel
             getPrerequisites(prerequisites, researchItem.first.whatUpgradesOrResearches(), researchItem.second);
         }
         removeDuplicates(prerequisites);
-        for (auto &prerequisite : prerequisites)
+        for (auto &[frame, type] : prerequisites)
         {
-            if (prerequisite.second < 0)
+            if (frame < 0)
             {
-                Log::Get() << "ERROR: Prerequisite " << prerequisite.first << " would need to have been built at frame " << prerequisite.second
+                Log::Get() << "ERROR: Prerequisite " << type << " would need to have been built at frame " << frame
                     << "; assuming this is a test and disabling econ model";
                 isEnabled = false;
                 return;
             }
 
-            impliedUnits.emplace(std::make_shared<EcoModelUnit>(prerequisite.first, 0, prerequisite.second));
+            impliedUnits.emplace(std::make_shared<EcoModelUnit>(type, 0, frame));
         }
 
         // Simulate resource spend for all units
@@ -359,7 +387,7 @@ namespace OpponentEconomicModel
         std::ostringstream cvisImplied;
         for (auto &unit : impliedUnits)
         {
-            unitCounts << unit->type << "@" << unit->creationFrame << "\n";
+            cvisImplied << unit->type << "@" << unit->creationFrame << "\n";
         }
         CherryVis::setBoardValue("modelled-implied", cvisImplied.str());
     }
@@ -405,11 +433,11 @@ namespace OpponentEconomicModel
         observedUnits.insert(observedUnit);
     }
 
-    void opponentResearched(UpgradeOrTechType type)
+    void opponentResearched(BWAPI::TechType type)
     {
         if (!isEnabled) return;
 
-        research.emplace_back(std::make_pair(type, currentFrame - type.upgradeOrResearchTime()));
+        research.emplace_back(std::make_pair(type, currentFrame - type.researchTime()));
     }
 
     int worstCaseUnitCount(BWAPI::UnitType type, int frame)
@@ -469,10 +497,10 @@ namespace OpponentEconomicModel
         // Get the total resource cost of the needed buildings
         int totalMineralCost = 0;
         int totalGasCost = 0;
-        for (auto &neededBuilding : prerequisites)
+        for (auto &[frameOffset, prerequisiteType] : prerequisites)
         {
-            totalMineralCost += neededBuilding.second.mineralPrice();
-            totalGasCost += neededBuilding.second.gasPrice();
+            totalMineralCost += prerequisiteType.mineralPrice();
+            totalGasCost += prerequisiteType.gasPrice();
         }
 
         // Compute the frame stops and how much of the resource we need at each one
@@ -488,13 +516,13 @@ namespace OpponentEconomicModel
         // Find the frame where we can meet resource requirements at all frame stops
         for (f = MODEL_FRAME_LIMIT - 1; f >= startFrame; f--)
         {
-            for (auto &frameStopAndResourcesNeeded : frameStopsAndResourcesNeeded)
+            for (auto & [frameOffset, mineralCost, gasCost] : frameStopsAndResourcesNeeded)
             {
-                int frame = f - std::get<0>(frameStopAndResourcesNeeded);
+                int frame = f - frameOffset;
                 if (frame >= MODEL_FRAME_LIMIT) continue;
                 if (frame < 0
-                    || minerals[frame] < std::get<1>(frameStopAndResourcesNeeded)
-                    || gas[frame] < std::get<2>(frameStopAndResourcesNeeded))
+                    || minerals[frame] < mineralCost
+                    || gas[frame] < gasCost)
                 {
                     return f + 1;
                 }

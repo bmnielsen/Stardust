@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Common.h"
-#include "UpgradeOrTechType.h"
 
 // Does simple economic modelling of the opponent to try to figure out what we need to protect against
 // Currently only works for Protoss opponents on one base
@@ -19,7 +18,7 @@ namespace OpponentEconomicModel
 
     void opponentUnitDestroyed(BWAPI::UnitType type, int id);
 
-    void opponentResearched(UpgradeOrTechType type);
+    void opponentResearched(BWAPI::TechType type);
 
     // The worst-case number of the given unit the opponent can have at the given frame
     // If the frame is not specified, uses the current frame

@@ -1,6 +1,7 @@
 #include "Players.h"
 
 #include "UpgradeTracker.h"
+#include "OpponentEconomicModel.h"
 
 namespace Players
 {
@@ -137,7 +138,6 @@ namespace Players
 
     bool hasResearched(BWAPI::Player player, BWAPI::TechType type)
     {
-
         return getUpgradeTracker(player)->hasResearched(type);
     }
 
@@ -150,6 +150,11 @@ namespace Players
         }
 #endif
         getUpgradeTracker(player)->setHasResearched(type);
+
+        if (player == BWAPI::Broodwar->enemy())
+        {
+            OpponentEconomicModel::opponentResearched(type);
+        }
     }
 
     int upgradeLevel(BWAPI::Player player, BWAPI::UpgradeType type)
