@@ -846,6 +846,7 @@ namespace Producer
             }
         }
 
+        // Gets the frame at which a producer is available to build something
         int availableAt(const Type &type, int startFrame, const std::shared_ptr<Producer> &producer)
         {
             int build = buildTime(type);

@@ -40,6 +40,16 @@ BWAPI::UnitType UpgradeOrTechType::whatUpgradesOrResearches() const
     return upgradeType.whatUpgrades();
 }
 
+BWAPI::UnitType UpgradeOrTechType::whatsRequired() const
+{
+    if (isTechType())
+    {
+        return BWAPI::UnitTypes::None;
+    }
+
+    return upgradeType.whatsRequired();
+}
+
 int UpgradeOrTechType::currentLevel() const
 {
     if (isTechType())

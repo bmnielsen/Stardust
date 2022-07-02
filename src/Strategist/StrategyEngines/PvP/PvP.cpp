@@ -7,6 +7,7 @@
 #include "Strategist.h"
 #include "Workers.h"
 #include "Opponent.h"
+#include "OpponentEconomicModel.h"
 
 #include "Plays/Macro/HiddenBase.h"
 #include "Plays/Macro/SaturateBases.h"
@@ -730,6 +731,13 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     {
         CherryVis::setBoardValue("detection", "strategy-exception");
         return;
+    }
+
+    if (OpponentEconomicModel::enabled())
+    {
+        CherryVis::setBoardValue(
+                "modelled-earliest-dt",
+                (std::ostringstream() << OpponentEconomicModel::earliestUnitProductionFrame(BWAPI::UnitTypes::Protoss_Dark_Templar)).str());
     }
 
     // Initialize the expected DT completion frame based on previous game observations
