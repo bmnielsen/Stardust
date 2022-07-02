@@ -240,9 +240,9 @@ TEST(BananaBrain, 4Gate)
 {
     BWTest test;
     test.opponentName = "BananaBrain";
-    test.map = Maps::GetOne("Ride");
+    test.map = Maps::GetOne("Syl");
     test.randomSeed = 45417;
-    test.frameLimit = 20000;
+    test.frameLimit = 15000;
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
