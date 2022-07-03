@@ -86,7 +86,6 @@ TEST(OpponentEconomicModel, DTTiming)
     test.run();
 }
 
-
 TEST(OpponentEconomicModel, ImpliedForge)
 {
     BWTest test;
@@ -120,6 +119,52 @@ TEST(OpponentEconomicModel, ImpliedForge)
         OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Dragoon, 1, 4400);
         OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Dragoon, 1, 5200);
         OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Photon_Cannon, 1, 6950);
+    };
+
+    test.onFrameMine = []()
+    {
+        OpponentEconomicModel::update();
+    };
+
+    test.run();
+}
+
+TEST(OpponentEconomicModel, ImpliedProducers)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.myModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.map = Maps::GetOne("Mancha");
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.writeReplay = false;
+
+    test.onStartMine = []()
+    {
+        Log::initialize();
+        CherryVis::initialize();
+        Map::initialize();
+        Log::SetDebug(true);
+
+        OpponentEconomicModel::initialize();
+
+        OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Gateway, 1, 1784);
+        OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 2, 2759);
+        OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Assimilator, 3, 2945);
+        OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Cybernetics_Core, 4, 3350);
+        OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Dragoon, 5, 4325);
+        OpponentEconomicModel::opponentUpgraded(BWAPI::UpgradeTypes::Singularity_Charge, 1, 4650);
+        OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Dragoon, 5, 5168);
+        OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Dragoon, 6, 5168);
+        OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Dragoon, 7, 5920);
+        OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Dragoon, 8, 5920);
+        OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Dragoon, 9, 6332);
     };
 
     test.onFrameMine = []()
