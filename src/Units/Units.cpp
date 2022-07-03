@@ -358,7 +358,7 @@ namespace Units
             int startFrame = completionFrame - UnitUtil::BuildTime(unit->type);
             enemyUnitTimings[unit->type].emplace_back(std::make_pair(startFrame, currentFrame));
 
-            OpponentEconomicModel::opponentUnitCreated(unit->type, unit->id, startFrame);
+            OpponentEconomicModel::opponentUnitCreated(unit->type, unit->id, startFrame, !unit->completed);
 
             if (enemyUnitTimings[unit->type].size() == 1)
             {

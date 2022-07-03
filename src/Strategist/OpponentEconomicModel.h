@@ -14,11 +14,13 @@ namespace OpponentEconomicModel
 
     void update();
 
-    void opponentUnitCreated(BWAPI::UnitType type, int id, int estimatedCreationFrame);
+    void opponentUnitCreated(BWAPI::UnitType type, int id, int estimatedCreationFrame, bool creationFrameKnown = false);
 
     void opponentUnitDestroyed(BWAPI::UnitType type, int id);
 
-    void opponentResearched(BWAPI::TechType type);
+    void opponentResearched(BWAPI::TechType type, int frameStarted = -1);
+
+    void opponentUpgraded(BWAPI::UpgradeType type, int level, int frameStarted);
 
     // The worst-case number of the given unit the opponent can have at the given frame
     // If the frame is not specified, uses the current frame
