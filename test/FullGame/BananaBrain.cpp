@@ -270,3 +270,37 @@ TEST(BananaBrain, NZCoreDt)
 
     test.run();
 }
+
+TEST(BananaBrain, RunAsBB)
+{
+    BWTest test;
+    test.myRace = BWAPI::Races::Protoss;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.myModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ProtossStrategy::kPvP_NZCore;
+        return bbModule;
+    };
+    test.opponentModule = []()
+    {
+        return new StardustAIModule();
+    };
+    test.onStartOpponent = []()
+    {
+        Log::SetOutputToConsole(true);
+    };
+    test.onEndMine = [&](bool won)
+    {
+        std::ostringstream replayName;
+        replayName << "BananaBrain_" << test.map->shortname();
+        if (won)
+        {
+            replayName << "_LOSS";
+        }
+        replayName << "_" << test.randomSeed;
+        test.replayName = replayName.str();
+    };
+    test.expectWin = false;
+    test.run();
+}
