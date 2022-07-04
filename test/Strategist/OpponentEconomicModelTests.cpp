@@ -4,6 +4,8 @@
 #include "Map.h"
 #include "OpponentEconomicModel.h"
 
+#include "UnitUtil.h"
+
 TEST(OpponentEconomicModel, Initialization)
 {
     BWTest test;
