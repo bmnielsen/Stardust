@@ -12,274 +12,290 @@
 #define OUTPUT_BUILD_ORDER_FREQUENCY 100
 #endif
 
-namespace
+namespace OpponentEconomicModel
 {
-    const double MINERALS_PER_WORKER_FRAME = 0.0465;
-    const double GAS_PER_WORKER_FRAME = 0.071;
-
-    // Assume a builder misses one mining run until frame 5500
-    const int BUILDER_LOSS = 8;
-    const int BUILDER_LOSS_UNTIL = 5500;
-
-    // We simulate the early income using an assumed normal build
-    const int PYLON_STARTED = 1115;
-    const int PYLON_FINISHED = 1625;
-    const int SCOUT_SENT = 1850;
-    const int SCOUT_DIED = 4500;
-
-    // Represents an enemy unit in our economic model
-    struct EcoModelUnit
+    namespace
     {
-        struct cmp
+        const double MINERALS_PER_WORKER_FRAME = 0.0465;
+        const double GAS_PER_WORKER_FRAME = 0.071;
+
+        // Assume a builder misses one mining run until frame 5500
+        const int BUILDER_LOSS = 8;
+        const int BUILDER_LOSS_UNTIL = 5500;
+
+        // We simulate the early income using an assumed normal build
+        const int PYLON_STARTED = 1115;
+        const int PYLON_FINISHED = 1625;
+        const int SCOUT_SENT = 1850;
+        const int SCOUT_DIED = 4500;
+
+        // Represents an enemy unit in our economic model
+        struct EcoModelUnit
         {
-            bool operator()(const std::shared_ptr<EcoModelUnit> &a, const std::shared_ptr<EcoModelUnit> &b) const
+            struct cmp
             {
-                return a->creationFrame < b->creationFrame
-                       || (b->creationFrame >= a->creationFrame && a->completionFrame < b->completionFrame)
-                       || (b->creationFrame >= a->creationFrame && b->completionFrame >= a->completionFrame && a < b);
-            }
+                bool operator()(const std::shared_ptr<EcoModelUnit> &a, const std::shared_ptr<EcoModelUnit> &b) const
+                {
+                    return a->creationFrame < b->creationFrame
+                           || (b->creationFrame >= a->creationFrame && a->completionFrame < b->completionFrame)
+                           || (b->creationFrame >= a->creationFrame && b->completionFrame >= a->completionFrame && a < b);
+                }
+            };
+            struct cmpByEarliestCreationFrame
+            {
+                bool operator()(const std::shared_ptr<EcoModelUnit> &a, const std::shared_ptr<EcoModelUnit> &b) const
+                {
+                    return a->earliestCreationFrame < b->earliestCreationFrame
+                           || (b->earliestCreationFrame >= a->earliestCreationFrame && a->completionFrame < b->completionFrame)
+                           || (b->earliestCreationFrame >= a->earliestCreationFrame && b->completionFrame >= a->completionFrame && a < b);
+                }
+            };
+            struct cmpByShiftedCreationFrame
+            {
+                bool operator()(const std::shared_ptr<EcoModelUnit> &a, const std::shared_ptr<EcoModelUnit> &b) const
+                {
+                    return a->shiftedCreationFrame < b->shiftedCreationFrame
+                           || (b->shiftedCreationFrame >= a->shiftedCreationFrame && a->completionFrame < b->completionFrame)
+                           || (b->shiftedCreationFrame >= a->shiftedCreationFrame && b->completionFrame >= a->completionFrame && a < b);
+                }
+            };
+
+            BWAPI::UnitType type;
+            int id;
+            int creationFrame;
+            int completionFrame;
+            int deathFrame;
+            bool creationFrameKnown; // If true, we know exactly when the unit was created
+
+            int canProduceAt; // Used for simulating production
+            int earliestCreationFrame; // Used for simulating production
+            int shiftedCreationFrame; // Used for simulating production
+
+            EcoModelUnit(BWAPI::UnitType type, int id, int creationFrame, bool creationFrameKnown = false)
+                    : type(type)
+                    , id(id)
+                    , creationFrame(creationFrame)
+                    , completionFrame(creationFrame + UnitUtil::BuildTime(type))
+                    , deathFrame(MODEL_FRAME_LIMIT + 1)
+                    , creationFrameKnown(creationFrameKnown)
+                    , canProduceAt(completionFrame)
+                    , earliestCreationFrame(creationFrame)
+                    , shiftedCreationFrame(creationFrame)
+            {}
         };
-        struct cmpByEarliestCreationFrame
+
+        typedef std::multiset<std::shared_ptr<EcoModelUnit>, EcoModelUnit::cmp> EcoModelUnitSet;
+        typedef std::multiset<std::shared_ptr<EcoModelUnit>, EcoModelUnit::cmpByEarliestCreationFrame> EcoModelUnitSetByEarliestCreationFrame;
+        typedef std::multiset<std::shared_ptr<EcoModelUnit>, EcoModelUnit::cmpByShiftedCreationFrame> EcoModelUnitSetByShiftedCreationFrame;
+
+        bool isEnabled;
+        unsigned int workerLimit;
+
+        std::map<BWAPI::UpgradeType, int> currentUpgradeLevels;
+
+        EcoModelUnitSet observedUnits;
+        EcoModelUnitSet impliedUnits;
+
+        std::unordered_map<int, std::shared_ptr<EcoModelUnit>> observedUnitsById;
+        std::map<BWAPI::UnitType, EcoModelUnitSet> observedUnitsByType;
+        std::map<BWAPI::UnitType, std::vector<std::shared_ptr<EcoModelUnit>>> producersByType;
+
+        std::map<BWAPI::UnitType, int> firstOfTypeCreated;
+
+        std::vector<std::pair<UpgradeOrTechType, int>> research;
+
+        std::array<int, MODEL_FRAME_LIMIT> minerals;
+        std::array<int, MODEL_FRAME_LIMIT> gas;
+        std::array<int, MODEL_FRAME_LIMIT> supplyAvailable;
+
+        bool ignoreUnit(BWAPI::UnitType type)
         {
-            bool operator()(const std::shared_ptr<EcoModelUnit> &a, const std::shared_ptr<EcoModelUnit> &b) const
-            {
-                return a->earliestCreationFrame < b->earliestCreationFrame
-                       || (b->earliestCreationFrame >= a->earliestCreationFrame && a->completionFrame < b->completionFrame)
-                       || (b->earliestCreationFrame >= a->earliestCreationFrame && b->completionFrame >= a->completionFrame && a < b);
-            }
-        };
-
-        BWAPI::UnitType type;
-        int id;
-        int creationFrame;
-        int completionFrame;
-        int deathFrame;
-        bool creationFrameKnown; // If true, we know exactly when the unit was created
-
-        int canProduceAt; // Used for simulating production
-        int earliestCreationFrame; // Used for simulating production
-
-        EcoModelUnit(BWAPI::UnitType type, int id, int creationFrame, bool creationFrameKnown = false)
-                : type(type)
-                , id(id)
-                , creationFrame(creationFrame)
-                , completionFrame(creationFrame + UnitUtil::BuildTime(type))
-                , deathFrame(INT_MAX)
-                , creationFrameKnown(creationFrameKnown)
-                , canProduceAt(completionFrame)
-                , earliestCreationFrame(creationFrame)
-        {}
-    };
-
-    typedef std::multiset<std::shared_ptr<EcoModelUnit>, EcoModelUnit::cmp> EcoModelUnitSet;
-    typedef std::multiset<std::shared_ptr<EcoModelUnit>, EcoModelUnit::cmpByEarliestCreationFrame> EcoModelUnitSetByEarliestCreationFrame;
-
-    bool isEnabled;
-    unsigned int workerLimit;
-
-    std::map<BWAPI::UpgradeType, int> currentUpgradeLevels;
-
-    EcoModelUnitSet observedUnits;
-    EcoModelUnitSet impliedUnits;
-
-    std::unordered_map<int, std::shared_ptr<EcoModelUnit>> observedUnitsById;
-    std::map<BWAPI::UnitType, EcoModelUnitSet> observedUnitsByType;
-    std::map<BWAPI::UnitType, std::vector<std::shared_ptr<EcoModelUnit>>> producersByType;
-
-    std::map<BWAPI::UnitType, int> firstOfTypeCreated;
-
-    std::vector<std::pair<UpgradeOrTechType, int>> research;
-
-    std::vector<int> minerals;
-    std::vector<int> gas;
-    std::vector<int> supplyAvailable;
-
-    bool ignoreUnit(BWAPI::UnitType type)
-    {
-        // We currently ignore workers and supply providers, just assuming they are built as needed
-        return type.isWorker() || type.supplyProvided() > 0;
-    }
-
-    void simulateIncome()
-    {
-        // Assumptions:
-        // - Workers are built constantly
-        // - Pylon is built at 8 to support worker production
-        // - Scout is sent at 10 supply
-        // - Three workers are moved to gas when an assimilator finishes
-        // - Enemy stops building workers once they have saturated their resources
-
-        // This simulation does not take later pylon building into account after the one at 8 supply, so it will initialize
-        // supplyAvailable to negative numbers past a certain point, which will be accounted for later
-
-        // We start mineral collection at frame 25 to account for the initial delay in getting the economy started
-
-        // At frame 0 we have 4 mineral workers, no gas workers, and are building a worker that started after LF
-        int mineralWorkers = 4;
-        int gasWorkers = 0;
-        int remainingWorkerBuildTime = 300 + BWAPI::Broodwar->getLatencyFrames();
-
-        // Find the frames where a refinery finished
-        std::queue<int> refineryFrames;
-        for (const auto &unit : observedUnits)
-        {
-            if (unit->type.isRefinery())
-            {
-                refineryFrames.push(unit->completionFrame);
-            }
+            // We currently ignore workers and supply providers, just assuming they are built as needed
+            return type.isWorker() || type.supplyProvided() > 0;
         }
-        refineryFrames.push(INT_MAX);
 
-        double mineralCounter = 0.0;
-        double gasCounter = 0.0;
-        int supplyCounter = 8;
-        for (int f = 25; f < MODEL_FRAME_LIMIT; f++)
+        void simulateIncome()
         {
-            // If a refinery finished at this frame, move workers from minerals to gas
-            if (f == refineryFrames.front())
-            {
-                mineralWorkers -= 3;
-                gasWorkers += 3;
-                refineryFrames.pop();
-            }
+            // Assumptions:
+            // - Workers are built constantly
+            // - Pylon is built at 8 to support worker production
+            // - Scout is sent at 10 supply
+            // - Three workers are moved to gas when an assimilator finishes
+            // - Enemy stops building workers once they have saturated their resources
 
-            // Completed worker goes to minerals
-            if (remainingWorkerBuildTime == 0)
-            {
-                mineralWorkers++;
-            }
+            // This simulation does not take later pylon building into account after the one at 8 supply, so it will initialize
+            // supplyAvailable to negative numbers past a certain point, which will be accounted for later
 
-            // Build a worker
-            if (remainingWorkerBuildTime <= 0 && mineralCounter >= 50 && (mineralWorkers + gasWorkers) < workerLimit &&
-                (f >= PYLON_FINISHED || supplyCounter >= 2))
-            {
-                mineralCounter -= 50;
-                remainingWorkerBuildTime = 300;
-                supplyCounter -= 2;
-            }
-            remainingWorkerBuildTime--;
+            // We start mineral collection at frame 25 to account for the initial delay in getting the economy started
 
-            // Build a pylon at frame 1115
-            if (f == PYLON_STARTED)
-            {
-                mineralCounter -= (100 + BUILDER_LOSS);
-            }
-            if (f == PYLON_FINISHED)
-            {
-                supplyCounter += 16;
-            }
+            // At frame 0 we have 4 mineral workers, no gas workers, and are building a worker that started after LF
+            int mineralWorkers = 4;
+            int gasWorkers = 0;
+            int remainingWorkerBuildTime = 300 + BWAPI::Broodwar->getLatencyFrames();
 
-            // Send scout at frame 1850
-            if (f == SCOUT_SENT)
+            // Find the frames where a refinery finished
+            std::queue<int> refineryFrames;
+            for (const auto &unit : observedUnits)
             {
-                mineralWorkers--;
+                if (unit->type.isRefinery())
+                {
+                    refineryFrames.push(unit->completionFrame);
+                }
             }
+            refineryFrames.push(MODEL_FRAME_LIMIT + 1);
 
-            // Scout dies at frame 4500
-            if (f == SCOUT_DIED)
+            double mineralCounter = 0.0;
+            double gasCounter = 0.0;
+            int supplyCounter = 8;
+            for (int f = 0; f < MODEL_FRAME_LIMIT; f++)
             {
-                supplyCounter += 2;
-            }
+                // If a refinery finished at this frame, move workers from minerals to gas
+                if (f == refineryFrames.front())
+                {
+                    mineralWorkers -= 3;
+                    gasWorkers += 3;
+                    refineryFrames.pop();
+                }
 
-            // Set the resources at this frame
-            mineralCounter += mineralWorkers * MINERALS_PER_WORKER_FRAME;
-            gasCounter += gasWorkers * GAS_PER_WORKER_FRAME;
-            minerals[f] = (int)mineralCounter;
-            gas[f] = (int)gasCounter;
-            supplyAvailable[f] = supplyCounter;
+                // Completed worker goes to minerals
+                if (remainingWorkerBuildTime == 0)
+                {
+                    mineralWorkers++;
+                }
+
+                // Build a worker
+                if (remainingWorkerBuildTime <= 0 && mineralCounter >= 50 && (mineralWorkers + gasWorkers) < workerLimit &&
+                    (f >= PYLON_FINISHED || supplyCounter >= 2))
+                {
+                    mineralCounter -= 50;
+                    remainingWorkerBuildTime = 300;
+                    supplyCounter -= 2;
+                }
+                remainingWorkerBuildTime--;
+
+                // Build a pylon at frame 1115
+                if (f == PYLON_STARTED)
+                {
+                    mineralCounter -= (100 + BUILDER_LOSS);
+                }
+                if (f == PYLON_FINISHED)
+                {
+                    supplyCounter += 16;
+                }
+
+                // Send scout at frame 1850
+                if (f == SCOUT_SENT)
+                {
+                    mineralWorkers--;
+                }
+
+                // Scout dies at frame 4500
+                if (f == SCOUT_DIED)
+                {
+                    supplyCounter += 2;
+                }
+
+                // Set the resources at this frame
+                // Simulate a short delay to get going at the start
+                if (f > 25)
+                {
+                    mineralCounter += mineralWorkers * MINERALS_PER_WORKER_FRAME;
+                    gasCounter += gasWorkers * GAS_PER_WORKER_FRAME;
+                }
+                minerals[f] = (int)mineralCounter;
+                gas[f] = (int)gasCounter;
+                supplyAvailable[f] = supplyCounter;
 
 #if OUTPUT_BOARD_VALUES
-            if (f == currentFrame)
-            {
-                CherryVis::setBoardValue("modelled-workers", (std::ostringstream() << mineralWorkers << ":" << gasWorkers).str());
-            }
-#endif
-        }
-    }
-
-    void spendResource(std::vector<int> &resource, int amount, int fromFrame)
-    {
-        if (amount == 0) return;
-
-        for (int f = fromFrame; f < MODEL_FRAME_LIMIT; f++)
-        {
-            resource[f] -= amount;
-        }
-    }
-
-    int getPrerequisites(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int frame = 0);
-
-    int addPrerequiste(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int frame)
-    {
-        if (type == BWAPI::UnitTypes::None) return 0;
-
-        auto it = observedUnitsByType.find(type);
-        if (it != observedUnitsByType.end())
-        {
-            for (auto &unit : it->second)
-            {
-                if (frame < 0 || frame < unit->deathFrame)
+                if (f == currentFrame)
                 {
-                    return unit->completionFrame;
+                    CherryVis::setBoardValue("modelled-workers", (std::ostringstream() << mineralWorkers << ":" << gasWorkers).str());
+                }
+#endif
+            }
+        }
+
+        void spendResource(std::array<int, MODEL_FRAME_LIMIT> &resource, int amount, int fromFrame, int toFrame = MODEL_FRAME_LIMIT)
+        {
+            if (amount == 0) return;
+
+            for (int f = fromFrame; f < toFrame; f++)
+            {
+                resource[f] -= amount;
+            }
+        }
+
+        int getPrerequisites(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int frame = 0);
+
+        int addPrerequiste(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int frame)
+        {
+            if (type == BWAPI::UnitTypes::None) return 0;
+
+            auto it = observedUnitsByType.find(type);
+            if (it != observedUnitsByType.end())
+            {
+                for (auto &unit : it->second)
+                {
+                    if (frame < 0 || frame < unit->deathFrame)
+                    {
+                        return unit->completionFrame;
+                    }
+                }
+            }
+
+            int startFrame = frame - UnitUtil::BuildTime(type);
+            prerequisites.emplace_back(std::make_pair(startFrame, type));
+
+            return getPrerequisites(prerequisites, type, startFrame);
+        }
+
+        int getPrerequisites(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int frame)
+        {
+            if (type == BWAPI::UnitTypes::None) return 0;
+
+            int earliestFrame = 0;
+            for (auto typeAndCount : type.requiredUnits())
+            {
+                if (!typeAndCount.first.isBuilding()) continue;
+                if (typeAndCount.first.isResourceDepot()) continue;
+
+                earliestFrame = std::max(earliestFrame, addPrerequiste(prerequisites, typeAndCount.first, frame));
+            }
+
+            // For units, always include what builds them in case it isn't a part of the dependency tree
+            if (!type.isBuilding())
+            {
+                earliestFrame = std::max(earliestFrame, addPrerequiste(prerequisites, type.whatBuilds().first, frame));
+            }
+
+            return earliestFrame;
+        }
+
+        void removeDuplicates(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites)
+        {
+            // If there are needed buildings, remove duplicates
+            if (prerequisites.empty()) return;
+
+            // Start by sorting to get them in the right order
+            std::sort(prerequisites.begin(), prerequisites.end());
+
+            // Now remove duplicates
+            std::set<BWAPI::UnitType> seenTypes;
+            for (auto it = prerequisites.begin(); it != prerequisites.end(); )
+            {
+                if (seenTypes.find(it->second) != seenTypes.end())
+                {
+                    it = prerequisites.erase(it);
+                }
+                else
+                {
+                    seenTypes.insert(it->second);
+                    it++;
                 }
             }
         }
-
-        int startFrame = frame - UnitUtil::BuildTime(type);
-        prerequisites.emplace_back(std::make_pair(startFrame, type));
-
-        return getPrerequisites(prerequisites, type, startFrame);
     }
 
-    int getPrerequisites(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int frame)
-    {
-        if (type == BWAPI::UnitTypes::None) return 0;
-
-        int earliestFrame = 0;
-        for (auto typeAndCount : type.requiredUnits())
-        {
-            if (!typeAndCount.first.isBuilding()) continue;
-            if (typeAndCount.first.isResourceDepot()) continue;
-
-            earliestFrame = std::max(earliestFrame, addPrerequiste(prerequisites, typeAndCount.first, frame));
-        }
-
-        // For units, always include what builds them in case it isn't a part of the dependency tree
-        if (!type.isBuilding())
-        {
-            earliestFrame = std::max(earliestFrame, addPrerequiste(prerequisites, type.whatBuilds().first, frame));
-        }
-
-        return earliestFrame;
-    }
-
-    void removeDuplicates(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites)
-    {
-        // If there are needed buildings, remove duplicates
-        if (prerequisites.empty()) return;
-
-        // Start by sorting to get them in the right order
-        std::sort(prerequisites.begin(), prerequisites.end());
-
-        // Now remove duplicates
-        std::set<BWAPI::UnitType> seenTypes;
-        for (auto it = prerequisites.begin(); it != prerequisites.end(); )
-        {
-            if (seenTypes.find(it->second) != seenTypes.end())
-            {
-                it = prerequisites.erase(it);
-            }
-            else
-            {
-                seenTypes.insert(it->second);
-                it++;
-            }
-        }
-    }
-}
-
-namespace OpponentEconomicModel
-{
     bool enabled(int frame)
     {
         return isEnabled && frame < MODEL_FRAME_LIMIT;
@@ -301,9 +317,6 @@ namespace OpponentEconomicModel
         observedUnitsByType.clear();
         firstOfTypeCreated.clear();
         research.clear();
-        minerals.assign(MODEL_FRAME_LIMIT, 0);
-        gas.assign(MODEL_FRAME_LIMIT, 0);
-        supplyAvailable.assign(MODEL_FRAME_LIMIT, 8);
 
         currentUpgradeLevels.clear();
         for (const auto &type : BWAPI::UpgradeTypes::allUpgradeTypes())
@@ -375,26 +388,23 @@ namespace OpponentEconomicModel
         allUnits.insert(impliedUnits.begin(), impliedUnits.end());
 
         // Simulate resource spend for all units
-        auto spend = [&](const std::shared_ptr<EcoModelUnit> &unit, bool reverse = false)
+        auto spend = [&](const std::shared_ptr<EcoModelUnit> &unit)
         {
-            int factor = 1;
-            if (reverse) factor = -1;
-
             spendResource(
                     minerals,
-                    factor * (unit->type.mineralPrice() + ((unit->type.isBuilding() && unit->creationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0)),
+                    (unit->type.mineralPrice() + ((unit->type.isBuilding() && unit->creationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0)),
                     unit->creationFrame);
-            spendResource(gas, factor * unit->type.gasPrice(), unit->creationFrame);
-            spendResource(supplyAvailable, factor * unit->type.supplyRequired(), unit->creationFrame);
+            spendResource(gas, unit->type.gasPrice(), unit->creationFrame);
+            spendResource(supplyAvailable, unit->type.supplyRequired(), unit->creationFrame);
             if (unit->deathFrame < MODEL_FRAME_LIMIT)
             {
-                spendResource(supplyAvailable, factor * -unit->type.supplyRequired(), unit->deathFrame);
+                spendResource(supplyAvailable, -unit->type.supplyRequired(), unit->deathFrame);
 
                 // Refund cancelled buildings
                 if (unit->type.isBuilding() && unit->completionFrame > unit->deathFrame)
                 {
-                    spendResource(minerals, factor * (unit->type.mineralPrice() * -3) / 4, unit->deathFrame);
-                    spendResource(gas, factor * (unit->type.gasPrice() * -3) / 4, unit->deathFrame);
+                    spendResource(minerals, (unit->type.mineralPrice() * -3) / 4, unit->deathFrame);
+                    spendResource(gas, (unit->type.gasPrice() * -3) / 4, unit->deathFrame);
                 }
             }
         };
@@ -416,7 +426,7 @@ namespace OpponentEconomicModel
         std::vector<int> pylonFrames = {PYLON_STARTED};
         for (int f = PYLON_FINISHED; f < MODEL_FRAME_LIMIT; f++)
         {
-            if (supplyAvailable[f] < -2) // Allow 1 supply buffer
+            if (supplyAvailable[f] < 0)
             {
                 int startFrame = f - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
                 spendResource(minerals, 100 + ((startFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0), startFrame);
@@ -492,12 +502,43 @@ namespace OpponentEconomicModel
             }
         }
 
+        auto isSupplyBlock = []()
+        {
+            for (int f=PYLON_FINISHED; f<MODEL_FRAME_LIMIT; f++)
+            {
+                if (supplyAvailable[f] < 0)
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+        if (isSupplyBlock())
+        {
+            Log::Get() << "Supply blocked before resolving producers";
+        }
+
         // Now search for a solution for each producer type giving the fewest number of producers
         // This is a tricky problem because we usually don't know the exact creation frames of what we have observed
-        // So we are intentionally ignoring a lot of complexity here, like figuring out exactly how far earlier units can be pulled with respect
-        // to resources and supply
         for (auto &[producerType, units] : unitsByProducerType)
         {
+            // Back up our state so we can roll back whenever we need to add a new implied producer
+            auto mineralBackup = minerals;
+            auto gasBackup = gas;
+            auto supplyBackup = supplyAvailable;
+            auto pylonFramesBackup = pylonFrames;
+
+//            auto &mineralRef = minerals;
+//            auto &gasRef = gas;
+//            auto &supplyRef = supplyAvailable;
+//
+//            for (int i=0; i<MODEL_FRAME_LIMIT; i++)
+//            {
+//                assert(mineralRef[i] == mineralBackup[i]);
+//                assert(gasRef[i] == gas[i]);
+//                assert(supplyRef[i] == supplyAvailable[i]);
+//            }
+
             while (true)
             {
                 auto &producers = producersByType[producerType];
@@ -511,8 +552,149 @@ namespace OpponentEconomicModel
 
                 for (auto &unit : units)
                 {
+                    unit->shiftedCreationFrame = unit->creationFrame;
+
+                    auto shiftEarlier = [&unit, &isSupplyBlock](int toFrame)
+                    {
+                        if (toFrame >= unit->shiftedCreationFrame) return;
+
+                        spendResource(minerals, unit->type.mineralPrice(), toFrame, unit->shiftedCreationFrame);
+                        spendResource(gas, unit->type.gasPrice(), toFrame, unit->shiftedCreationFrame);
+                        spendResource(supplyAvailable, unit->type.supplyRequired(), toFrame, unit->shiftedCreationFrame);
+
+                        unit->shiftedCreationFrame = toFrame;
+
+                        if (isSupplyBlock())
+                        {
+                            Log::Get() << "Supply blocked after shift";
+                        }
+                    };
+
+                    // Shift earlier until hitting missing resources or supply
+                    int firstSupplyBlockFrame = 0;
+                    int lastSupplyBlockFrame = 0;
+                    {
+                        int f;
+                        for (f = unit->creationFrame - 1; f >= unit->earliestCreationFrame; f--)
+                        {
+                            if (minerals[f] < unit->type.mineralPrice()) break;
+                            if (gas[f] < unit->type.gasPrice()) break;
+                            if (supplyAvailable[f] < unit->type.supplyRequired())
+                            {
+                                if (firstSupplyBlockFrame == 0) firstSupplyBlockFrame = f;
+                                lastSupplyBlockFrame = f;
+                            }
+                        }
+
+                        // Shift as far as we could
+                        shiftEarlier(std::max(f + 1, firstSupplyBlockFrame + 1));
+                    }
+
+                    // Try to resolve a supply block
+                    if (firstSupplyBlockFrame != 0)
+                    {
+                        // Find the relevant pylon to move earlier
+                        int pylonIndex;
+                        for (pylonIndex = 0; pylonIndex < pylonFrames.size(); pylonIndex++)
+                        {
+                            if (pylonFrames[pylonIndex] >= (firstSupplyBlockFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon) + 1))
+                            {
+                                break;
+                            }
+                        }
+                        if (pylonIndex < pylonFrames.size())
+                        {
+                            // Check how far we can move both the pylon and unit back
+                            int pylonCost = 100 + ((unit->shiftedCreationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0);
+
+                            std::vector<std::tuple<int, int, int>> frameStopsAndResourcesNeeded;
+                            frameStopsAndResourcesNeeded.emplace_back(0, unit->type.mineralPrice(), unit->type.gasPrice());
+                            frameStopsAndResourcesNeeded.emplace_back(UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon), pylonCost, 0);
+
+                            int f;
+                            for (f = unit->shiftedCreationFrame - 1; f >= unit->earliestCreationFrame; f--)
+                            {
+                                for (auto & [frameOffset, mineralCost, gasCost] : frameStopsAndResourcesNeeded)
+                                {
+                                    int frame = f - frameOffset;
+                                    if (frame < 0
+                                        || minerals[frame] < mineralCost
+                                        || gas[frame] < gasCost)
+                                    {
+                                        goto breakSupplyBlockLoop;
+                                    }
+                                }
+
+                                if (f == lastSupplyBlockFrame)
+                                {
+                                    frameStopsAndResourcesNeeded.pop_back();
+                                }
+                            }
+                            breakSupplyBlockLoop:;
+                            f++;
+
+                            // Shift the pylon
+                            if (f < unit->shiftedCreationFrame)
+                            {
+                                int offset = unit->shiftedCreationFrame - std::min(f, lastSupplyBlockFrame);
+                                spendResource(
+                                        minerals,
+                                        pylonCost,
+                                        unit->shiftedCreationFrame - offset - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon),
+                                        unit->shiftedCreationFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon));
+                                spendResource(
+                                        supplyAvailable,
+                                        -16,
+                                        unit->shiftedCreationFrame - offset,
+                                        unit->shiftedCreationFrame);
+                                pylonFrames[pylonIndex] -= offset;
+
+                                if (isSupplyBlock())
+                                {
+                                    Log::Get() << "Supply blocked after shifting pylon";
+                                }
+                            }
+
+                            shiftEarlier(f);
+                        }
+                        else
+                        {
+                            // There wasn't a pylon to shift, so try creating one instead
+                            int mineralCost = 100;
+                            int gasCost = 0;
+                            int earliestPylonFrame = unit->earliestCreationFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
+                            int f;
+                            for (f = MODEL_FRAME_LIMIT - 1; f >= earliestPylonFrame; f--)
+                            {
+                                if (minerals[f] < mineralCost) break;
+                                if (minerals[f] < gasCost) break;
+
+                                if (f == BUILDER_LOSS_UNTIL) mineralCost += BUILDER_LOSS;
+                                if (f == unit->earliestCreationFrame)
+                                {
+                                    mineralCost -= unit->type.mineralPrice();
+                                    gasCost -= unit->type.gasPrice();
+                                }
+                                if (f == unit->shiftedCreationFrame)
+                                {
+                                    mineralCost += unit->type.mineralPrice();
+                                    gasCost += unit->type.gasPrice();
+                                }
+                            }
+                            f++;
+                            if (f < (unit->shiftedCreationFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon)))
+                            {
+                                pylonFrames.push_back(f);
+                                spendResource(minerals, 100 + ((f < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0), f);
+                                spendResource(supplyAvailable, -16, f);
+
+                                shiftEarlier(f + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon));
+                            }
+                        }
+                    }
+
                     std::shared_ptr<EcoModelUnit> earliestProducer = nullptr;
-                    int earliestProducerFrame = INT_MAX;
+                    int earliestProducerFrame = MODEL_FRAME_LIMIT + 1;
                     for (auto &producer : producers)
                     {
                         if (producer->canProduceAt > unit->creationFrame) continue;
@@ -523,17 +705,26 @@ namespace OpponentEconomicModel
                     }
                     if (earliestProducer)
                     {
-                        earliestProducer->canProduceAt =
-                                std::max(earliestProducer->canProduceAt, unit->earliestCreationFrame) + UnitUtil::BuildTime(unit->type);
+                        unit->shiftedCreationFrame = std::max(earliestProducer->canProduceAt, unit->shiftedCreationFrame);
+                        earliestProducer->canProduceAt = unit->shiftedCreationFrame + UnitUtil::BuildTime(unit->type);
                         continue;
                     }
 
                     // We have no producer for this unit
                     // Add a new one as early as possible
+
+                    // Start by restoring our backed-up state
+                    minerals = mineralBackup;
+                    gas = gasBackup;
+                    supplyAvailable = supplyBackup;
+                    pylonFrames = pylonFramesBackup;
+
+                    // Now find the first frame
+                    int mineralPrice = producerType.mineralPrice() + ((unit->creationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0);
                     int f;
                     for (f = unit->creationFrame; f >= prerequisitesAvailableByType[producerType]; f--)
                     {
-                        if (minerals[f] < producerType.mineralPrice()) break;
+                        if (minerals[f] < mineralPrice) break;
                         if (gas[f] < producerType.gasPrice()) break;
                     }
                     f++;
@@ -591,12 +782,16 @@ namespace OpponentEconomicModel
                 return a.second > b.second;
             });
 
+            EcoModelUnitSetByShiftedCreationFrame unitsByShiftedCreation;
+            unitsByShiftedCreation.insert(observedUnits.begin(), observedUnits.end());
+            unitsByShiftedCreation.insert(impliedUnits.begin(), impliedUnits.end());
+
             std::ostringstream buildOrder;
             auto pylon = 0;
             auto researchIndex = 0;
-            for (auto &unit : allUnits)
+            for (auto &unit : unitsByShiftedCreation)
             {
-                if (pylon < pylonFrames.size() && pylonFrames[pylon] < unit->creationFrame)
+                if (pylon < pylonFrames.size() && pylonFrames[pylon] < unit->shiftedCreationFrame)
                 {
                     buildOrder << "\n" << pylonFrames[pylon]
                                << " (" << minerals[pylonFrames[pylon]]
@@ -605,7 +800,7 @@ namespace OpponentEconomicModel
                                << "): " << BWAPI::UnitTypes::Protoss_Pylon;
                     pylon++;
                 }
-                if (researchIndex < research.size() && research[researchIndex].second < unit->creationFrame)
+                if (researchIndex < research.size() && research[researchIndex].second < unit->shiftedCreationFrame)
                 {
                     buildOrder << "\n" << research[researchIndex].second
                                << " (" << minerals[research[researchIndex].second]
@@ -615,11 +810,12 @@ namespace OpponentEconomicModel
                     researchIndex++;
                 }
 
-                buildOrder << "\n" << unit->creationFrame
-                           << " (" << minerals[unit->creationFrame]
-                           << "," << gas[unit->creationFrame]
-                           << "," << supplyAvailable[unit->creationFrame]
-                           << "): " << unit->type;
+                buildOrder << "\n" << unit->shiftedCreationFrame
+                           << " (" << minerals[unit->shiftedCreationFrame]
+                           << "," << gas[unit->shiftedCreationFrame]
+                           << "," << supplyAvailable[unit->shiftedCreationFrame]
+                           << "): " << unit->type
+                           << " (" << unit->creationFrame << ")";
             }
             Log::Get() << buildOrder.str();
         }
