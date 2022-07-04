@@ -16,7 +16,7 @@ namespace OpponentEconomicModel
 
     void opponentUnitCreated(BWAPI::UnitType type, int id, int estimatedCreationFrame, bool creationFrameKnown = false);
 
-    void opponentUnitDestroyed(BWAPI::UnitType type, int id);
+    void opponentUnitDestroyed(BWAPI::UnitType type, int id, int frameDestroyed = -1);
 
     void opponentResearched(BWAPI::TechType type, int frameStarted = -1);
 

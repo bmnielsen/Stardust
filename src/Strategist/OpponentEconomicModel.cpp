@@ -9,7 +9,6 @@
 #if INSTRUMENTATION_ENABLED
 #define OUTPUT_BOARD_VALUES true
 #define OUTPUT_BUILD_ORDER true
-#define OUTPUT_BUILD_ORDER_FREQUENCY 100
 #endif
 
 namespace OpponentEconomicModel
@@ -28,6 +27,10 @@ namespace OpponentEconomicModel
         const int PYLON_FINISHED = 1625;
         const int SCOUT_SENT = 1850;
         const int SCOUT_DIED = 4500;
+
+#if OUTPUT_BUILD_ORDER
+        std::ostringstream observations;
+#endif
 
         // Represents an enemy unit in our economic model
         struct EcoModelUnit
@@ -90,6 +93,8 @@ namespace OpponentEconomicModel
 
         bool isEnabled;
         unsigned int workerLimit;
+
+        bool changedThisFrame;
 
         std::map<BWAPI::UpgradeType, int> currentUpgradeLevels;
 
@@ -310,8 +315,13 @@ namespace OpponentEconomicModel
             return;
         }
 
+#if OUTPUT_BUILD_ORDER
+        observations.clear();
+#endif
+
         isEnabled = true;
         workerLimit = Map::getMyMain()->mineralPatchCount() * 2 + Map::getMyMain()->geyserCount() * 3;
+        changedThisFrame = false;
         observedUnitsById.clear();
         observedUnits.clear();
         observedUnitsByType.clear();
@@ -350,8 +360,17 @@ namespace OpponentEconomicModel
 #endif
                 currentLevel = level;
                 research.emplace_back(std::make_pair(type, currentFrame - type.upgradeTime(level)));
+                changedThisFrame = true;
+
+#if OUTPUT_BUILD_ORDER
+                observations << "\nOpponentEconomicModel::opponentUpgraded(BWAPI::UpgradeTypes::"
+                    << type << ", " << level << ", " << (currentFrame - type.upgradeTime(level)) << ");";
+#endif
             }
         }
+
+        if (!changedThisFrame) return;
+        changedThisFrame = false;
 
         // Start by initializing with the opponent's income
         simulateIncome();
@@ -435,14 +454,6 @@ namespace OpponentEconomicModel
             }
         }
 
-//        std::ostringstream resources;
-//        for (int f=0; f<6000; f+=25)
-//        {
-//            resources << "\n" << f
-//                      << " (" << minerals[f] << "," << gas[f] << "," << supplyAvailable[f] << ")";
-//        }
-//        Log::Get() << resources.str();
-
         // Now simulate production
 
         // Do an initial scan to initialize the data structures we will use for the search
@@ -502,22 +513,6 @@ namespace OpponentEconomicModel
             }
         }
 
-        auto isSupplyBlock = []()
-        {
-            for (int f=PYLON_FINISHED; f<MODEL_FRAME_LIMIT; f++)
-            {
-                if (supplyAvailable[f] < 0)
-                {
-                    return true;
-                }
-            }
-            return false;
-        };
-        if (isSupplyBlock())
-        {
-            Log::Get() << "Supply blocked before resolving producers";
-        }
-
         // Now search for a solution for each producer type giving the fewest number of producers
         // This is a tricky problem because we usually don't know the exact creation frames of what we have observed
         for (auto &[producerType, units] : unitsByProducerType)
@@ -527,17 +522,6 @@ namespace OpponentEconomicModel
             auto gasBackup = gas;
             auto supplyBackup = supplyAvailable;
             auto pylonFramesBackup = pylonFrames;
-
-//            auto &mineralRef = minerals;
-//            auto &gasRef = gas;
-//            auto &supplyRef = supplyAvailable;
-//
-//            for (int i=0; i<MODEL_FRAME_LIMIT; i++)
-//            {
-//                assert(mineralRef[i] == mineralBackup[i]);
-//                assert(gasRef[i] == gas[i]);
-//                assert(supplyRef[i] == supplyAvailable[i]);
-//            }
 
             while (true)
             {
@@ -554,7 +538,7 @@ namespace OpponentEconomicModel
                 {
                     unit->shiftedCreationFrame = unit->creationFrame;
 
-                    auto shiftEarlier = [&unit, &isSupplyBlock](int toFrame)
+                    auto shiftEarlier = [&unit](int toFrame)
                     {
                         if (toFrame >= unit->shiftedCreationFrame) return;
 
@@ -563,11 +547,6 @@ namespace OpponentEconomicModel
                         spendResource(supplyAvailable, unit->type.supplyRequired(), toFrame, unit->shiftedCreationFrame);
 
                         unit->shiftedCreationFrame = toFrame;
-
-                        if (isSupplyBlock())
-                        {
-                            Log::Get() << "Supply blocked after shift";
-                        }
                     };
 
                     // Shift earlier until hitting missing resources or supply
@@ -648,11 +627,6 @@ namespace OpponentEconomicModel
                                         unit->shiftedCreationFrame - offset,
                                         unit->shiftedCreationFrame);
                                 pylonFrames[pylonIndex] -= offset;
-
-                                if (isSupplyBlock())
-                                {
-                                    Log::Get() << "Supply blocked after shifting pylon";
-                                }
                             }
 
                             shiftEarlier(f);
@@ -775,50 +749,50 @@ namespace OpponentEconomicModel
         CherryVis::setBoardValue("modelled-producers", cvisProducerCounts.str());
 #endif
 #if OUTPUT_BUILD_ORDER
-        if (currentFrame % OUTPUT_BUILD_ORDER_FREQUENCY == 0)
+        std::sort(research.begin(), research.end(), [](const auto& a, const auto& b)
         {
-            std::sort(research.begin(), research.end(), [](const auto& a, const auto& b)
+            return a.second > b.second;
+        });
+
+        EcoModelUnitSetByShiftedCreationFrame unitsByShiftedCreation;
+        unitsByShiftedCreation.insert(observedUnits.begin(), observedUnits.end());
+        unitsByShiftedCreation.insert(impliedUnits.begin(), impliedUnits.end());
+
+        std::ostringstream buildOrder;
+        auto pylon = 0;
+        auto researchIndex = 0;
+        for (auto &unit : unitsByShiftedCreation)
+        {
+            if (pylon < pylonFrames.size() && pylonFrames[pylon] < unit->shiftedCreationFrame)
             {
-                return a.second > b.second;
-            });
-
-            EcoModelUnitSetByShiftedCreationFrame unitsByShiftedCreation;
-            unitsByShiftedCreation.insert(observedUnits.begin(), observedUnits.end());
-            unitsByShiftedCreation.insert(impliedUnits.begin(), impliedUnits.end());
-
-            std::ostringstream buildOrder;
-            auto pylon = 0;
-            auto researchIndex = 0;
-            for (auto &unit : unitsByShiftedCreation)
-            {
-                if (pylon < pylonFrames.size() && pylonFrames[pylon] < unit->shiftedCreationFrame)
-                {
-                    buildOrder << "\n" << pylonFrames[pylon]
-                               << " (" << minerals[pylonFrames[pylon]]
-                               << "," << gas[pylonFrames[pylon]]
-                               << "," << supplyAvailable[pylonFrames[pylon]]
-                               << "): " << BWAPI::UnitTypes::Protoss_Pylon;
-                    pylon++;
-                }
-                if (researchIndex < research.size() && research[researchIndex].second < unit->shiftedCreationFrame)
-                {
-                    buildOrder << "\n" << research[researchIndex].second
-                               << " (" << minerals[research[researchIndex].second]
-                               << "," << gas[research[researchIndex].second]
-                               << "," << supplyAvailable[research[researchIndex].second]
-                               << "): " << research[researchIndex].first;
-                    researchIndex++;
-                }
-
-                buildOrder << "\n" << unit->shiftedCreationFrame
-                           << " (" << minerals[unit->shiftedCreationFrame]
-                           << "," << gas[unit->shiftedCreationFrame]
-                           << "," << supplyAvailable[unit->shiftedCreationFrame]
-                           << "): " << unit->type
-                           << " (" << unit->creationFrame << ")";
+                buildOrder << "\n" << pylonFrames[pylon]
+                           << " (" << minerals[pylonFrames[pylon]]
+                           << "," << gas[pylonFrames[pylon]]
+                           << "," << supplyAvailable[pylonFrames[pylon]]
+                           << "): " << BWAPI::UnitTypes::Protoss_Pylon;
+                pylon++;
             }
-            Log::Get() << buildOrder.str();
+            if (researchIndex < research.size() && research[researchIndex].second < unit->shiftedCreationFrame)
+            {
+                buildOrder << "\n" << research[researchIndex].second
+                           << " (" << minerals[research[researchIndex].second]
+                           << "," << gas[research[researchIndex].second]
+                           << "," << supplyAvailable[research[researchIndex].second]
+                           << "): " << research[researchIndex].first;
+                researchIndex++;
+            }
+
+            buildOrder << "\n" << unit->shiftedCreationFrame
+                       << " (" << minerals[unit->shiftedCreationFrame]
+                       << "," << gas[unit->shiftedCreationFrame]
+                       << "," << supplyAvailable[unit->shiftedCreationFrame]
+                       << "): " << unit->type
+                       << " (" << unit->creationFrame << ")";
         }
+
+        Log::Get() << "\n\nObservations:" << observations.str()
+                     << "\n\nBuild order:" << buildOrder.str()
+                     << "\n";
 #endif
     }
 
@@ -826,6 +800,8 @@ namespace OpponentEconomicModel
     {
         if (!isEnabled) return;
         if (ignoreUnit(type)) return;
+
+        changedThisFrame = true;
 
         auto observedUnit = std::make_shared<EcoModelUnit>(type, id, estimatedCreationFrame, creationFrameKnown);
         observedUnitsById[id] = observedUnit;
@@ -839,24 +815,39 @@ namespace OpponentEconomicModel
         {
             firstOfTypeCreated[type] = std::min(firstOfTypeCreated[type], estimatedCreationFrame);
         }
+
+#if OUTPUT_BUILD_ORDER
+        observations << "\nOpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::"
+                     << type << ", " << id << ", " << estimatedCreationFrame << ", " << (creationFrameKnown ? "true" : "false") << ");";
+#endif
     }
 
-    void opponentUnitDestroyed(BWAPI::UnitType type, int id)
+    void opponentUnitDestroyed(BWAPI::UnitType type, int id, int frameDestroyed)
     {
         if (!isEnabled) return;
         if (ignoreUnit(type)) return;
 
+        changedThisFrame = true;
+
+        int frame = frameDestroyed;
+        if (frame == -1) frame = currentFrame;
+
+#if OUTPUT_BUILD_ORDER
+        observations << "\nOpponentEconomicModel::opponentUnitDestroyed(BWAPI::UnitTypes::"
+                     << type << ", " << id << ", " << frame << ");";
+#endif
+
         auto it = observedUnitsById.find(id);
         if (it != observedUnitsById.end())
         {
-            it->second->deathFrame = currentFrame;
+            it->second->deathFrame = frame;
             return;
         }
 
         // We don't expect to see a unit die that hasn't already been observed, but handle it gracefully
         Log::Get() << "Non-observed unit died: " << type << "#" << id;
-        auto observedUnit = std::make_shared<EcoModelUnit>(type, id, currentFrame - UnitUtil::BuildTime(type));
-        observedUnit->deathFrame = currentFrame;
+        auto observedUnit = std::make_shared<EcoModelUnit>(type, id, frame - UnitUtil::BuildTime(type));
+        observedUnit->deathFrame = frame;
         observedUnitsById[id] = observedUnit;
         observedUnits.insert(observedUnit);
     }
@@ -864,6 +855,13 @@ namespace OpponentEconomicModel
     void opponentResearched(BWAPI::TechType type, int frameStarted)
     {
         if (!isEnabled) return;
+
+        changedThisFrame = true;
+
+#if OUTPUT_BUILD_ORDER
+        observations << "\nOpponentEconomicModel::opponentResearched(BWAPI::TechTypes::"
+                     << type << ", " << frameStarted << ");";
+#endif
 
         int startFrame = frameStarted;
         if (startFrame == -1) startFrame = currentFrame - type.researchTime();
@@ -873,6 +871,8 @@ namespace OpponentEconomicModel
     void opponentUpgraded(BWAPI::UpgradeType type, int level, int frameStarted)
     {
         if (!isEnabled) return;
+
+        changedThisFrame = true;
 
         currentUpgradeLevels[type] = level;
         research.emplace_back(std::make_pair(type, frameStarted));
