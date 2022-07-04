@@ -177,3 +177,47 @@ TEST(OpponentEconomicModel, ImpliedProducers)
     test.run();
 }
 
+TEST(OpponentEconomicModel, PylonPulling)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.myModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.map = Maps::GetOne("Mancha");
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.writeReplay = false;
+
+    test.onStartMine = []()
+    {
+        Log::initialize();
+        CherryVis::initialize();
+        Map::initialize();
+        Log::SetDebug(true);
+
+        OpponentEconomicModel::initialize();
+    };
+
+    test.onFrameMine = []()
+    {
+        if (BWAPI::Broodwar->getFrameCount() == 5)
+        {
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Gateway, 151, 1684, true);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Assimilator, 2, 2839, true);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 160, 2732, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Cybernetics_Core, 168, 3332, true);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 171, 3626, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Dragoon, 181, 5932, false);
+        }
+
+        OpponentEconomicModel::update();
+    };
+
+    test.run();
+}
+
