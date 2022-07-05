@@ -44,13 +44,13 @@ namespace OpponentEconomicModel
                            || (b->creationFrame >= a->creationFrame && b->completionFrame >= a->completionFrame && a < b);
                 }
             };
-            struct cmpByEarliestCreationFrame
+            struct cmpByPrerequisitesAvailableFrame
             {
                 bool operator()(const std::shared_ptr<EcoModelUnit> &a, const std::shared_ptr<EcoModelUnit> &b) const
                 {
-                    return a->earliestCreationFrame < b->earliestCreationFrame
-                           || (b->earliestCreationFrame >= a->earliestCreationFrame && a->completionFrame < b->completionFrame)
-                           || (b->earliestCreationFrame >= a->earliestCreationFrame && b->completionFrame >= a->completionFrame && a < b);
+                    return a->prerequisitesAvailableFrame < b->prerequisitesAvailableFrame
+                           || (b->prerequisitesAvailableFrame >= a->prerequisitesAvailableFrame && a->completionFrame < b->completionFrame)
+                           || (b->prerequisitesAvailableFrame >= a->prerequisitesAvailableFrame && b->completionFrame >= a->completionFrame && a < b);
                 }
             };
             struct cmpByShiftedCreationFrame
@@ -63,6 +63,7 @@ namespace OpponentEconomicModel
                 }
             };
 
+            // These fields are from observations
             BWAPI::UnitType type;
             int id;
             int creationFrame;
@@ -70,9 +71,11 @@ namespace OpponentEconomicModel
             int deathFrame;
             bool creationFrameKnown; // If true, we know exactly when the unit was created
 
-            int canProduceAt; // Used for simulating production
-            int earliestCreationFrame; // Used for simulating production
-            int shiftedCreationFrame; // Used for simulating production
+            // These fields are transient and used while simulating production 
+            bool hasProduced;
+            int canProduceAt;
+            int prerequisitesAvailableFrame;
+            int shiftedCreationFrame;
 
             EcoModelUnit(BWAPI::UnitType type, int id, int creationFrame, bool creationFrameKnown = false)
                     : type(type)
@@ -81,14 +84,15 @@ namespace OpponentEconomicModel
                     , completionFrame(creationFrame + UnitUtil::BuildTime(type))
                     , deathFrame(MODEL_FRAME_LIMIT + 1)
                     , creationFrameKnown(creationFrameKnown)
+                    , hasProduced(false)
                     , canProduceAt(completionFrame)
-                    , earliestCreationFrame(creationFrame)
+                    , prerequisitesAvailableFrame(creationFrame)
                     , shiftedCreationFrame(creationFrame)
             {}
         };
 
         typedef std::multiset<std::shared_ptr<EcoModelUnit>, EcoModelUnit::cmp> EcoModelUnitSet;
-        typedef std::multiset<std::shared_ptr<EcoModelUnit>, EcoModelUnit::cmpByEarliestCreationFrame> EcoModelUnitSetByEarliestCreationFrame;
+        typedef std::multiset<std::shared_ptr<EcoModelUnit>, EcoModelUnit::cmpByPrerequisitesAvailableFrame> EcoModelUnitSetByPrerequisitesAvailableFrame;
         typedef std::multiset<std::shared_ptr<EcoModelUnit>, EcoModelUnit::cmpByShiftedCreationFrame> EcoModelUnitSetByShiftedCreationFrame;
 
         bool isEnabled;
@@ -372,6 +376,17 @@ namespace OpponentEconomicModel
         if (!changedThisFrame) return;
         changedThisFrame = false;
 
+#if DEBUG
+        // For some reason the variables in the anonymous namespace don't come through properly in the debugger
+        // But making a reference to them seems to fix the issue
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-variable"
+        auto &rMinerals = minerals;
+        auto &rGas = gas;
+        auto &rSupply = supplyAvailable;
+#pragma clang diagnostic pop
+#endif
+
         // Start by initializing with the opponent's income
         simulateIncome();
 
@@ -464,7 +479,7 @@ namespace OpponentEconomicModel
                 {BWAPI::UnitTypes::Protoss_Zealot, PYLON_FINISHED + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Gateway)}
         };
         producersByType.clear();
-        std::map<BWAPI::UnitType, EcoModelUnitSetByEarliestCreationFrame> unitsByProducerType;
+        std::map<BWAPI::UnitType, EcoModelUnitSet> unitsByProducerType;
 
         for (const auto &unit : allUnits)
         {
@@ -502,7 +517,7 @@ namespace OpponentEconomicModel
             if (unit->type.isBuilding() && !unit->type.canProduce()) continue;
 
             // Add to an appropriate set
-            unit->earliestCreationFrame = prerequisitesAvailableByType[unit->type];
+            unit->prerequisitesAvailableFrame = prerequisitesAvailableByType[unit->type];
             if (unit->type.canProduce())
             {
                 producersByType[unit->type].push_back(unit);
@@ -515,6 +530,10 @@ namespace OpponentEconomicModel
 
         // Now search for a solution for each producer type giving the fewest number of producers
         // This is a tricky problem because we usually don't know the exact creation frames of what we have observed
+        // For now we are assuming that units were created in the order that we observed them
+        // This might cause issues though, as we might see a zealot after a dragoon that was produced before the core was finished
+        // Another option could be to track "holes" in producer production that we can fill with later units
+
         for (auto &[producerType, units] : unitsByProducerType)
         {
             // Back up our state so we can roll back whenever we need to add a new implied producer
@@ -526,16 +545,12 @@ namespace OpponentEconomicModel
             while (true)
             {
                 auto &producers = producersByType[producerType];
-                if (producers.empty()) break; // Shouldn't happen
-
-                // Initialize production time for each producer
-                for (auto &producer : producers)
-                {
-                    producer->canProduceAt = producer->earliestCreationFrame + UnitUtil::BuildTime(producerType);
-                }
+                std::sort(producers.begin(), producers.end(), EcoModelUnit::cmp());
+                if (producers.empty()) break; // Shouldn't happen, since each unit needs its prerequisites
 
                 for (auto &unit : units)
                 {
+                    // Reset shifted creation frame as it might have been changed in a previous iteration
                     unit->shiftedCreationFrame = unit->creationFrame;
 
                     auto shiftEarlier = [&unit](int toFrame)
@@ -554,7 +569,7 @@ namespace OpponentEconomicModel
                     int lastSupplyBlockFrame = 0;
                     {
                         int f;
-                        for (f = unit->creationFrame - 1; f >= unit->earliestCreationFrame; f--)
+                        for (f = unit->creationFrame - 1; f >= unit->prerequisitesAvailableFrame; f--)
                         {
                             if (minerals[f] < unit->type.mineralPrice()) break;
                             if (gas[f] < unit->type.gasPrice()) break;
@@ -572,61 +587,61 @@ namespace OpponentEconomicModel
                     // Try to resolve a supply block
                     if (firstSupplyBlockFrame != 0)
                     {
-                        // Find the relevant pylon to move earlier
+                        int pylonBuildTime = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
+
+                        // Find the earliest pylon that finishes on or after the unit's creation frame
                         int pylonIndex;
                         for (pylonIndex = 0; pylonIndex < pylonFrames.size(); pylonIndex++)
                         {
-                            if (pylonFrames[pylonIndex] >= (firstSupplyBlockFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon) + 1))
+                            if ((pylonFrames[pylonIndex] + pylonBuildTime) >= unit->shiftedCreationFrame)
                             {
                                 break;
                             }
                         }
                         if (pylonIndex < pylonFrames.size())
                         {
-                            // Check how far we can move both the pylon and unit back
-                            int pylonCost = 100 + ((unit->shiftedCreationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0);
+                            // Pull both the unit and the pylon back as far as possible
+                            int earliestPylonFrame = std::max(unit->prerequisitesAvailableFrame, lastSupplyBlockFrame) - pylonBuildTime;
+                            int pylonCost = 100;
+                            if (earliestPylonFrame < BUILDER_LOSS_UNTIL) pylonCost += BUILDER_LOSS;
 
-                            std::vector<std::tuple<int, int, int>> frameStopsAndResourcesNeeded;
-                            frameStopsAndResourcesNeeded.emplace_back(0, unit->type.mineralPrice(), unit->type.gasPrice());
-                            frameStopsAndResourcesNeeded.emplace_back(UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon), pylonCost, 0);
-
+                            int nowMinerals = 0;
+                            int nowGas = 0;
+                            int offsetMinerals = pylonCost;
                             int f;
-                            for (f = unit->shiftedCreationFrame - 1; f >= unit->earliestCreationFrame; f--)
+                            for (f = pylonFrames[pylonIndex] + pylonBuildTime; f >= unit->prerequisitesAvailableFrame; f--)
                             {
-                                for (auto & [frameOffset, mineralCost, gasCost] : frameStopsAndResourcesNeeded)
+                                // When we cross the creation frame (or start there), begin considering the unit itself
+                                if (f == unit->shiftedCreationFrame)
                                 {
-                                    int frame = f - frameOffset;
-                                    if (frame < 0
-                                        || minerals[frame] < mineralCost
-                                        || gas[frame] < gasCost)
-                                    {
-                                        goto breakSupplyBlockLoop;
-                                    }
+                                    nowMinerals = unit->type.mineralPrice() + pylonCost;
+                                    nowGas = unit->type.gasPrice();
                                 }
 
+                                if (minerals[f] < nowMinerals) break;
+                                if (minerals[f] < nowGas) break;
+                                if (minerals[f - pylonBuildTime] < offsetMinerals) break;
+
+                                // When we reach the beginning of the supply block, we no longer need to pull the pylon
                                 if (f == lastSupplyBlockFrame)
                                 {
-                                    frameStopsAndResourcesNeeded.pop_back();
+                                    offsetMinerals = 0;
+                                }
+                                if (f == earliestPylonFrame)
+                                {
+                                    nowMinerals -= pylonCost;
                                 }
                             }
-                            breakSupplyBlockLoop:;
                             f++;
 
                             // Shift the pylon
                             if (f < unit->shiftedCreationFrame)
                             {
-                                int offset = unit->shiftedCreationFrame - std::min(f, lastSupplyBlockFrame);
-                                spendResource(
-                                        minerals,
-                                        pylonCost,
-                                        unit->shiftedCreationFrame - offset - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon),
-                                        unit->shiftedCreationFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon));
-                                spendResource(
-                                        supplyAvailable,
-                                        -16,
-                                        unit->shiftedCreationFrame - offset,
-                                        unit->shiftedCreationFrame);
-                                pylonFrames[pylonIndex] -= offset;
+                                int newStartFrame = std::max(f - pylonBuildTime, earliestPylonFrame);
+                                spendResource(minerals, pylonCost, newStartFrame, pylonFrames[pylonIndex]);
+                                spendResource(supplyAvailable, -16, newStartFrame + pylonBuildTime, pylonFrames[pylonIndex] + pylonBuildTime);
+                                pylonFrames[pylonIndex] = newStartFrame;
+                                std::sort(pylonFrames.begin(), pylonFrames.end());
                             }
 
                             shiftEarlier(f);
@@ -634,17 +649,17 @@ namespace OpponentEconomicModel
                         else
                         {
                             // There wasn't a pylon to shift, so try creating one instead
+                            int earliestPylonFrame = unit->prerequisitesAvailableFrame - pylonBuildTime;
                             int mineralCost = 100;
+                            if (earliestPylonFrame < BUILDER_LOSS_UNTIL) mineralCost += BUILDER_LOSS;
                             int gasCost = 0;
-                            int earliestPylonFrame = unit->earliestCreationFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
                             int f;
-                            for (f = MODEL_FRAME_LIMIT - 1; f >= earliestPylonFrame; f--)
+                            for (f = MODEL_FRAME_LIMIT - 1; f >= (earliestPylonFrame); f--)
                             {
                                 if (minerals[f] < mineralCost) break;
                                 if (minerals[f] < gasCost) break;
 
-                                if (f == BUILDER_LOSS_UNTIL) mineralCost += BUILDER_LOSS;
-                                if (f == unit->earliestCreationFrame)
+                                if (f == unit->prerequisitesAvailableFrame)
                                 {
                                     mineralCost -= unit->type.mineralPrice();
                                     gasCost -= unit->type.gasPrice();
@@ -656,21 +671,44 @@ namespace OpponentEconomicModel
                                 }
                             }
                             f++;
-                            if (f < (unit->shiftedCreationFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon)))
+                            if (f < (unit->shiftedCreationFrame - pylonBuildTime))
                             {
                                 pylonFrames.push_back(f);
+                                std::sort(pylonFrames.begin(), pylonFrames.end());
                                 spendResource(minerals, 100 + ((f < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0), f);
                                 spendResource(supplyAvailable, -16, f);
 
-                                shiftEarlier(f + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon));
+                                shiftEarlier(f + pylonBuildTime);
                             }
                         }
                     }
 
+                    // Find the earliest producer that can produce this unit
+                    // For producers that haven't simulated producing anything yet, check if they can be moved earlier than one that has
                     std::shared_ptr<EcoModelUnit> earliestProducer = nullptr;
                     int earliestProducerFrame = MODEL_FRAME_LIMIT + 1;
+                    bool attemptedProducerShift = false;
                     for (auto &producer : producers)
                     {
+                        // If this producer can be moved earlier, try it
+                        // Only do this for the first one though, as others are redundant
+                        if (!producer->hasProduced && !producer->creationFrameKnown)
+                        {
+                            if (attemptedProducerShift) continue;
+                            attemptedProducerShift = true;
+
+                            // Find an earlier frame with enough resources
+                            int earliestFrame = std::max(unit->shiftedCreationFrame, producer->prerequisitesAvailableFrame);
+                            int mineralPrice = producer->type.mineralPrice() + ((earliestFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0);
+                            int f;
+                            for (f = producer->creationFrame - 1; f >= earliestFrame; f--)
+                            {
+                                if (minerals[f] < mineralPrice) break;
+                                if (gas[f] < producer->type.gasPrice()) break;
+                            }
+                            producer->canProduceAt = f + 1 + UnitUtil::BuildTime(producer->type);
+                        }
+
                         if (producer->canProduceAt > unit->creationFrame) continue;
                         if (producer->canProduceAt > earliestProducerFrame) continue;
 
@@ -679,8 +717,37 @@ namespace OpponentEconomicModel
                     }
                     if (earliestProducer)
                     {
-                        unit->shiftedCreationFrame = std::max(earliestProducer->canProduceAt, unit->shiftedCreationFrame);
-                        earliestProducer->canProduceAt = unit->shiftedCreationFrame + UnitUtil::BuildTime(unit->type);
+                        // Shift the producer earlier if needed
+                        if (!earliestProducer->hasProduced && !earliestProducer->creationFrameKnown
+                            && earliestProducer->canProduceAt < earliestProducer->completionFrame)
+                        {
+                            earliestProducer->shiftedCreationFrame = earliestProducer->canProduceAt - UnitUtil::BuildTime(earliestProducer->type);
+                            int mineralPrice = earliestProducer->type.mineralPrice()
+                                    + ((earliestProducer->shiftedCreationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0);
+                            spendResource(minerals,
+                                          mineralPrice,
+                                          earliestProducer->shiftedCreationFrame,
+                                          earliestProducer->creationFrame);
+                            spendResource(gas,
+                                          earliestProducer->type.gasPrice(),
+                                          earliestProducer->shiftedCreationFrame,
+                                          earliestProducer->creationFrame);
+                        }
+
+                        int productionFrame = std::max(earliestProducer->canProduceAt, unit->shiftedCreationFrame);
+
+                        // Shift the unit later if the producer isn't available early enough
+                        if (productionFrame > unit->shiftedCreationFrame)
+                        {
+                            spendResource(minerals, -unit->type.mineralPrice(), unit->shiftedCreationFrame, productionFrame);
+                            spendResource(gas, -unit->type.gasPrice(), unit->shiftedCreationFrame, productionFrame);
+                            spendResource(supplyAvailable, -unit->type.supplyRequired(), unit->shiftedCreationFrame, productionFrame);
+                            unit->shiftedCreationFrame = productionFrame;
+                        }
+
+                        earliestProducer->canProduceAt = productionFrame + UnitUtil::BuildTime(unit->type);
+                        earliestProducer->hasProduced = true;
+
                         continue;
                     }
 
@@ -700,13 +767,24 @@ namespace OpponentEconomicModel
                     {
                         if (minerals[f] < mineralPrice) break;
                         if (gas[f] < producerType.gasPrice()) break;
+                        if (f == BUILDER_LOSS_UNTIL) mineralPrice += BUILDER_LOSS;
                     }
                     f++;
-                    if (f > unit->creationFrame)
+                    if (f > (unit->creationFrame - UnitUtil::BuildTime(producerType)))
                     {
-                        // Our simulation couldn't figure out how to get enough producers
-                        // So just break and give up now
-                        break;
+                        // The simulation couldn't figure it out, which probably means units were produced at very different frames compared
+                        // to our observations
+                        // We do know that the opponent must have had an additional production facility, so just add it as early as possible
+                        // The resources won't match up, but it will at least give us a lower bound on how many producers the enemy has
+                        f = prerequisitesAvailableByType[producerType];
+                    }
+
+                    // Reset the other producers
+                    for (auto &producer : producers)
+                    {
+                        producer->hasProduced = false;
+                        producer->canProduceAt = producer->completionFrame;
+                        producer->shiftedCreationFrame = producer->creationFrame;
                     }
 
                     auto producer = std::make_shared<EcoModelUnit>(producerType, 0, f);
@@ -790,7 +868,7 @@ namespace OpponentEconomicModel
                        << " (" << unit->creationFrame << ")";
         }
 
-        Log::Get() << "\n\nObservations:" << observations.str()
+        Log::Debug() << "\n\nObservations:" << observations.str()
                      << "\n\nBuild order:" << buildOrder.str()
                      << "\n";
 #endif
