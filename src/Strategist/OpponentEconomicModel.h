@@ -27,7 +27,10 @@ namespace OpponentEconomicModel
     int worstCaseUnitCount(BWAPI::UnitType type, int frame = -1);
 
     // The minimum number of production facilities the enemy currently has of the given type
-    int minimumProducerCount(BWAPI::UnitType producer);
+    int minimumProducerCount(BWAPI::UnitType producerType);
+
+    // Whether the enemy has built at least one of the given type of unit
+    bool hasBuilt(BWAPI::UnitType type);
 
     // The earliest frame the enemy could start building the given unit type
     int earliestUnitProductionFrame(BWAPI::UnitType type);

@@ -969,7 +969,7 @@ namespace OpponentEconomicModel
         return -1;
     }
 
-    int minimumProducerCount(BWAPI::UnitType producer)
+    int minimumProducerCount(BWAPI::UnitType producerType)
     {
         if (!isEnabled)
         {
@@ -977,7 +977,31 @@ namespace OpponentEconomicModel
             return 0;
         }
 
-        return -1;
+        auto it = producersByType.find(producerType);
+        if (it == producersByType.end()) return 0;
+        return it->second.size();
+    }
+
+    bool hasBuilt(BWAPI::UnitType type)
+    {
+        if (!isEnabled)
+        {
+            Log::Get() << "ERROR: Trying to use opponent economic model when it is not enabled";
+            return false;
+        }
+
+        auto it = observedUnitsByType.find(type);
+        if (it != observedUnitsByType.end()) return true;
+
+        for (auto &impliedUnit : impliedUnits)
+        {
+            if (impliedUnit->type == type)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // The earliest frame the enemy could start building the given unit type

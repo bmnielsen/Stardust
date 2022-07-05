@@ -4,6 +4,7 @@
 #include "Map.h"
 #include "Strategist.h"
 #include "UnitUtil.h"
+#include "OpponentEconomicModel.h"
 
 std::map<PvP::ProtossStrategy, std::string> PvP::ProtossStrategyNames = {
         {ProtossStrategy::Unknown,         "Unknown"},
@@ -203,6 +204,16 @@ namespace
         if (currentFrame < 10000 &&
             createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 4, BWAPI::UnitTypes::Protoss_Robotics_Facility, 1) &&
             createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 4, BWAPI::UnitTypes::Protoss_Templar_Archives, 1))
+        {
+            return true;
+        }
+
+        // Check for four gates and no expansion from economic model
+        if (OpponentEconomicModel::enabled() &&
+            !createdBeforeFrame(BWAPI::UnitTypes::Protoss_Nexus, currentFrame, 2) &&
+            OpponentEconomicModel::minimumProducerCount(BWAPI::UnitTypes::Protoss_Gateway) >= 4 &&
+            !OpponentEconomicModel::hasBuilt(BWAPI::UnitTypes::Protoss_Robotics_Facility) &&
+            !OpponentEconomicModel::hasBuilt(BWAPI::UnitTypes::Protoss_Templar_Archives))
         {
             return true;
         }
