@@ -10,6 +10,7 @@
 #include "Boids.h"
 #include "Opponent.h"
 #include "Strategist.h"
+#include "OpponentEconomicModel.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -43,9 +44,10 @@ namespace
         scoutTiles.clear();
 
         // Determine the priorities to use
-        // For Zerg we don't need to scout around the base (as they can only build on creep), but want to scout the natural more often
         int areaPriority = 800;
         int naturalPriority = 960;
+
+        // For Zerg we don't need to scout around the base (as they can only build on creep), but want to scout the natural more often
         if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
         {
             areaPriority = 0;
@@ -65,6 +67,13 @@ namespace
         {
             areaPriority = 1200;
             naturalPriority = 1200;
+        }
+
+        // If the enemy is protoss, don't scout the natural if our economic model tells us they can't have taken an extra nexus yet
+        else if (OpponentEconomicModel::enabled() &&
+            OpponentEconomicModel::earliestUnitProductionFrame(BWAPI::UnitTypes::Protoss_Nexus) > currentFrame)
+        {
+            naturalPriority = 0;
         }
 
         auto tileValid = [](BWAPI::TilePosition tile, int neutralElevation)
@@ -96,7 +105,7 @@ namespace
 
         // Now add tiles close to the natural
         auto natural = Map::getEnemyStartingNatural();
-        if (natural)
+        if (natural && naturalPriority)
         {
             int naturalElevation = BWAPI::Broodwar->getGroundHeight(natural->getTilePosition());
             for (int x = -3; x < 7; x++)

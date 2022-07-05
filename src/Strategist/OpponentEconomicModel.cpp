@@ -373,7 +373,15 @@ namespace OpponentEconomicModel
             }
         }
 
-        if (!changedThisFrame) return;
+        if (!changedThisFrame)
+        {
+#if OUTPUT_BOARD_VALUES
+            CherryVis::setBoardValue("modelled-minerals", (std::ostringstream() << minerals[currentFrame]).str());
+            CherryVis::setBoardValue("modelled-gas", (std::ostringstream() << gas[currentFrame]).str());
+            CherryVis::setBoardValue("modelled-supply", (std::ostringstream() << supplyAvailable[currentFrame]).str());
+#endif
+            return;
+        }
         changedThisFrame = false;
 
 #if DEBUG
