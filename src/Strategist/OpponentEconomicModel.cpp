@@ -16,7 +16,7 @@ namespace OpponentEconomicModel
     namespace
     {
         const double MINERALS_PER_WORKER_FRAME = 0.0465;
-        const double GAS_PER_WORKER_FRAME = 0.071;
+        const double GAS_PER_WORKER_FRAME = 0.07;
 
         // Assume a builder misses one mining run until frame 5500
         const int BUILDER_LOSS = 8;

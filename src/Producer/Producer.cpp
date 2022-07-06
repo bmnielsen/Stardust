@@ -22,7 +22,7 @@ namespace Producer
     {
 #endif
         const double MINERALS_PER_WORKER_FRAME = 0.0465;
-        const double GAS_PER_WORKER_FRAME = 0.071;
+        const double GAS_PER_WORKER_FRAME = 0.07;
         const double MINERALS_PER_GAS_UNIT = 0.655;
 
         int PREDICT_FRAMES;
