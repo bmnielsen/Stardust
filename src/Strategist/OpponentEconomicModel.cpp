@@ -28,6 +28,9 @@ namespace OpponentEconomicModel
         const int SCOUT_SENT = 1850;
         const int SCOUT_DIED = 4500;
 
+        // When guessing at gas timings, use this frame as the earliest frame
+        const int EARLIEST_GAS = 2500;
+
 #if OUTPUT_BUILD_ORDER
         std::ostringstream observations;
 #endif
@@ -113,9 +116,17 @@ namespace OpponentEconomicModel
 
         std::vector<std::pair<UpgradeOrTechType, int>> research;
 
-        std::array<int, MODEL_FRAME_LIMIT> minerals;
-        std::array<int, MODEL_FRAME_LIMIT> gas;
-        std::array<int, MODEL_FRAME_LIMIT> supplyAvailable;
+        typedef std::array<int, MODEL_FRAME_LIMIT> ResourceArray;
+
+        // These are the main arrays representing our observed state
+        ResourceArray _minerals;
+        ResourceArray _gas;
+        ResourceArray _supplyAvailable;
+
+        // These are some transient arrays used when we need to simulate something different while querying the model
+        ResourceArray _transientMinerals;
+        ResourceArray _transientGas;
+        ResourceArray _transientSupplyAvailable;
 
         bool ignoreUnit(BWAPI::UnitType type)
         {
@@ -123,7 +134,7 @@ namespace OpponentEconomicModel
             return type.isWorker() || type.supplyProvided() > 0;
         }
 
-        void simulateIncome()
+        void simulateIncome(ResourceArray &minerals, ResourceArray &gas, ResourceArray &supplyAvailable, int overrideGasTiming = -1)
         {
             // Assumptions:
             // - Workers are built constantly
@@ -144,11 +155,18 @@ namespace OpponentEconomicModel
 
             // Find the frames where a refinery finished
             std::queue<int> refineryFrames;
-            for (const auto &unit : observedUnits)
+            if (overrideGasTiming > 0)
             {
-                if (unit->type.isRefinery())
+                refineryFrames.push(overrideGasTiming + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator));
+            }
+            else
+            {
+                for (const auto &unit : observedUnits)
                 {
-                    refineryFrames.push(unit->completionFrame);
+                    if (unit->type.isRefinery())
+                    {
+                        refineryFrames.push(unit->completionFrame);
+                    }
                 }
             }
             refineryFrames.push(MODEL_FRAME_LIMIT + 1);
@@ -214,17 +232,10 @@ namespace OpponentEconomicModel
                 minerals[f] = (int)mineralCounter;
                 gas[f] = (int)gasCounter;
                 supplyAvailable[f] = supplyCounter;
-
-#if OUTPUT_BOARD_VALUES
-                if (f == currentFrame)
-                {
-                    CherryVis::setBoardValue("modelled-workers", (std::ostringstream() << mineralWorkers << ":" << gasWorkers).str());
-                }
-#endif
             }
         }
 
-        void spendResource(std::array<int, MODEL_FRAME_LIMIT> &resource, int amount, int fromFrame, int toFrame = MODEL_FRAME_LIMIT)
+        void spendResource(ResourceArray &resource, int amount, int fromFrame, int toFrame = MODEL_FRAME_LIMIT)
         {
             if (amount == 0) return;
 
@@ -232,6 +243,31 @@ namespace OpponentEconomicModel
             {
                 resource[f] -= amount;
             }
+        }
+
+        std::tuple<ResourceArray&, ResourceArray&, ResourceArray&> simulateTakingGas(BWAPI::UnitType type)
+        {
+            // Use normal arrays if the type doesn't require gas or we've seen when the enemy took gas
+            auto it = observedUnitsByType.find(BWAPI::UnitTypes::Protoss_Assimilator);
+            if (it != observedUnitsByType.end() || type.gasPrice() < 2)
+            {
+                return std::tie(_minerals, _gas, _supplyAvailable);
+            }
+
+            // Use our scouting information to determine when the opponent could have taken their gas at the earliest
+            int geyserLastScouted = EARLIEST_GAS;
+            auto base = Map::getEnemyStartingMain();
+            if (base)
+            {
+                for (auto &geyserTile : base->geyserLocations())
+                {
+                    geyserLastScouted = std::max(geyserLastScouted, Map::lastSeen(geyserTile));
+                }
+            }
+
+            // Simulate the income with the different gas timing
+            simulateIncome(_transientMinerals, _transientGas, _transientSupplyAvailable, geyserLastScouted);
+            return std::tie(_transientMinerals, _transientGas, _transientSupplyAvailable);
         }
 
         int getPrerequisites(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int frame = 0);
@@ -325,7 +361,7 @@ namespace OpponentEconomicModel
 
         isEnabled = true;
         workerLimit = Map::getMyMain()->mineralPatchCount() * 2 + Map::getMyMain()->geyserCount() * 3;
-        changedThisFrame = false;
+        changedThisFrame = true;
         observedUnitsById.clear();
         observedUnits.clear();
         observedUnitsByType.clear();
@@ -373,6 +409,10 @@ namespace OpponentEconomicModel
             }
         }
 
+        auto &minerals = _minerals;
+        auto &gas = _gas;
+        auto &supplyAvailable = _supplyAvailable;
+
         if (!changedThisFrame)
         {
 #if OUTPUT_BOARD_VALUES
@@ -384,19 +424,8 @@ namespace OpponentEconomicModel
         }
         changedThisFrame = false;
 
-#if DEBUG
-        // For some reason the variables in the anonymous namespace don't come through properly in the debugger
-        // But making a reference to them seems to fix the issue
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-variable"
-        auto &rMinerals = minerals;
-        auto &rGas = gas;
-        auto &rSupply = supplyAvailable;
-#pragma clang diagnostic pop
-#endif
-
         // Start by initializing with the opponent's income
-        simulateIncome();
+        simulateIncome(minerals, gas, supplyAvailable);
 
         // Compute units we haven't seen that are prerequisites to what we have seen
         impliedUnits.clear();
@@ -974,6 +1003,8 @@ namespace OpponentEconomicModel
 
         if (frame == -1) frame = currentFrame;
 
+        //auto &&[minerals, gas, supplyAvailable] = simulateTakingGas(type);
+
         return -1;
     }
 
@@ -1020,6 +1051,8 @@ namespace OpponentEconomicModel
             Log::Get() << "ERROR: Trying to use opponent economic model when it is not enabled";
             return 0;
         }
+
+        auto &&[minerals, gas, supplyAvailable] = simulateTakingGas(type);
 
         // Get a list of the buildings we need at relative frame offset from building the given unit type
         std::vector<std::pair<int, BWAPI::UnitType>> prerequisites;

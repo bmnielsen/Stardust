@@ -35,6 +35,8 @@ public:
 
     [[nodiscard]] size_t geyserCount() const { return geyserTiles.size(); }
 
+    [[nodiscard]] const std::vector<BWAPI::TilePosition> &geyserLocations() const { return geyserTiles; }
+
     [[nodiscard]] std::vector<BWAPI::Unit> mineralPatches() const;
 
     [[nodiscard]] std::vector<BWAPI::Unit> geysers() const;
