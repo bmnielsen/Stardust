@@ -37,6 +37,25 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays)
 
 void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 {
+    if (OpponentEconomicModel::enabled())
+    {
+        CherryVis::setBoardValue(
+                "modelled-earliest-dt",
+                (std::ostringstream() << OpponentEconomicModel::earliestUnitProductionFrame(BWAPI::UnitTypes::Protoss_Dark_Templar)).str());
+        CherryVis::setBoardValue(
+                "modelled-earliest-nexus",
+                (std::ostringstream() << OpponentEconomicModel::earliestUnitProductionFrame(BWAPI::UnitTypes::Protoss_Nexus)).str());
+        auto zealots = OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot);
+        auto dragoons = OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Dragoon);
+
+        CherryVis::setBoardValue(
+                "modelled-zealots-now",
+                (std::ostringstream() << "[" << zealots.first << "," << zealots.second << "]").str());
+        CherryVis::setBoardValue(
+                "modelled-dragoons-now",
+                (std::ostringstream() << "[" << dragoons.first << "," << dragoons.second << "]").str());
+    }
+
     auto newEnemyStrategy = recognizeEnemyStrategy();
     auto newStrategy = chooseOurStrategy(newEnemyStrategy, plays);
 
@@ -731,13 +750,6 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     {
         CherryVis::setBoardValue("detection", "strategy-exception");
         return;
-    }
-
-    if (OpponentEconomicModel::enabled())
-    {
-        CherryVis::setBoardValue(
-                "modelled-earliest-dt",
-                (std::ostringstream() << OpponentEconomicModel::earliestUnitProductionFrame(BWAPI::UnitTypes::Protoss_Dark_Templar)).str());
     }
 
     // Initialize the expected DT completion frame based on previous game observations

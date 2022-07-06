@@ -47,15 +47,6 @@ namespace OpponentEconomicModel
                            || (b->creationFrame >= a->creationFrame && b->completionFrame >= a->completionFrame && a < b);
                 }
             };
-            struct cmpByPrerequisitesAvailableFrame
-            {
-                bool operator()(const std::shared_ptr<EcoModelUnit> &a, const std::shared_ptr<EcoModelUnit> &b) const
-                {
-                    return a->prerequisitesAvailableFrame < b->prerequisitesAvailableFrame
-                           || (b->prerequisitesAvailableFrame >= a->prerequisitesAvailableFrame && a->completionFrame < b->completionFrame)
-                           || (b->prerequisitesAvailableFrame >= a->prerequisitesAvailableFrame && b->completionFrame >= a->completionFrame && a < b);
-                }
-            };
             struct cmpByShiftedCreationFrame
             {
                 bool operator()(const std::shared_ptr<EcoModelUnit> &a, const std::shared_ptr<EcoModelUnit> &b) const
@@ -95,7 +86,6 @@ namespace OpponentEconomicModel
         };
 
         typedef std::multiset<std::shared_ptr<EcoModelUnit>, EcoModelUnit::cmp> EcoModelUnitSet;
-        typedef std::multiset<std::shared_ptr<EcoModelUnit>, EcoModelUnit::cmpByPrerequisitesAvailableFrame> EcoModelUnitSetByPrerequisitesAvailableFrame;
         typedef std::multiset<std::shared_ptr<EcoModelUnit>, EcoModelUnit::cmpByShiftedCreationFrame> EcoModelUnitSetByShiftedCreationFrame;
 
         bool isEnabled;
@@ -107,6 +97,7 @@ namespace OpponentEconomicModel
 
         EcoModelUnitSet observedUnits;
         EcoModelUnitSet impliedUnits;
+        std::vector<int> _pylonFrames;
 
         std::unordered_map<int, std::shared_ptr<EcoModelUnit>> observedUnitsById;
         std::map<BWAPI::UnitType, EcoModelUnitSet> observedUnitsByType;
@@ -123,10 +114,11 @@ namespace OpponentEconomicModel
         ResourceArray _gas;
         ResourceArray _supplyAvailable;
 
-        // These are some transient arrays used when we need to simulate something different while querying the model
-        ResourceArray _transientMinerals;
-        ResourceArray _transientGas;
-        ResourceArray _transientSupplyAvailable;
+        // These are alternate resource arrays for the early game when we haven't seen the enemy take gas yet
+        bool gasTakenSimulated;
+        ResourceArray _mineralsWithTakenGas;
+        ResourceArray _gasWithTakenGas;
+        ResourceArray _supplyAvailableWithTakenGas;
 
         bool ignoreUnit(BWAPI::UnitType type)
         {
@@ -245,7 +237,7 @@ namespace OpponentEconomicModel
             }
         }
 
-        std::tuple<ResourceArray&, ResourceArray&, ResourceArray&> simulateTakingGas(BWAPI::UnitType type)
+        std::tuple<ResourceArray&, ResourceArray&, ResourceArray&> simulateTakingGasIfNeeded(BWAPI::UnitType type)
         {
             // Use normal arrays if the type doesn't require gas or we've seen when the enemy took gas
             auto it = observedUnitsByType.find(BWAPI::UnitTypes::Protoss_Assimilator);
@@ -253,6 +245,13 @@ namespace OpponentEconomicModel
             {
                 return std::tie(_minerals, _gas, _supplyAvailable);
             }
+
+            // If we've already simulated gas being taken, return the current data
+            if (gasTakenSimulated)
+            {
+                return std::tie(_mineralsWithTakenGas, _gasWithTakenGas, _supplyAvailableWithTakenGas);
+            }
+            gasTakenSimulated = true;
 
             // Use our scouting information to determine when the opponent could have taken their gas at the earliest
             int geyserLastScouted = EARLIEST_GAS;
@@ -266,8 +265,8 @@ namespace OpponentEconomicModel
             }
 
             // Simulate the income with the different gas timing
-            simulateIncome(_transientMinerals, _transientGas, _transientSupplyAvailable, geyserLastScouted);
-            return std::tie(_transientMinerals, _transientGas, _transientSupplyAvailable);
+            simulateIncome(_mineralsWithTakenGas, _gasWithTakenGas, _supplyAvailableWithTakenGas, geyserLastScouted);
+            return std::tie(_mineralsWithTakenGas, _gasWithTakenGas, _supplyAvailableWithTakenGas);
         }
 
         int getPrerequisites(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int frame = 0);
@@ -412,17 +411,45 @@ namespace OpponentEconomicModel
         auto &minerals = _minerals;
         auto &gas = _gas;
         auto &supplyAvailable = _supplyAvailable;
+        auto &pylonFrames = _pylonFrames;
+
+#if OUTPUT_BOARD_VALUES
+        auto outputBoardValues = [&]()
+        {
+            CherryVis::setBoardValue("modelled-minerals", (std::ostringstream() << minerals[currentFrame]).str());
+            CherryVis::setBoardValue("modelled-gas", (std::ostringstream() << gas[currentFrame]).str());
+            CherryVis::setBoardValue("modelled-supply", (std::ostringstream() << supplyAvailable[currentFrame]).str());
+            CherryVis::setBoardValue("modelled-pylons", (std::ostringstream() << pylonFrames.size()).str());
+            std::ostringstream unitCounts;
+            for (auto &[type, unitSet] : observedUnitsByType)
+            {
+                unitCounts << unitSet.size() << " " << type << "\n";
+            }
+            CherryVis::setBoardValue("modelled-unitcounts", unitCounts.str());
+            std::ostringstream cvisImplied;
+            for (auto &unit : impliedUnits)
+            {
+                cvisImplied << unit->type << "@" << unit->creationFrame << "\n";
+            }
+            CherryVis::setBoardValue("modelled-implied", cvisImplied.str());
+            std::ostringstream cvisProducerCounts;
+            for (auto &[type, producers] : producersByType)
+            {
+                cvisProducerCounts << producers.size() << " " << type << "\n";
+            }
+            CherryVis::setBoardValue("modelled-producers", cvisProducerCounts.str());
+        };
+#endif
 
         if (!changedThisFrame)
         {
 #if OUTPUT_BOARD_VALUES
-            CherryVis::setBoardValue("modelled-minerals", (std::ostringstream() << minerals[currentFrame]).str());
-            CherryVis::setBoardValue("modelled-gas", (std::ostringstream() << gas[currentFrame]).str());
-            CherryVis::setBoardValue("modelled-supply", (std::ostringstream() << supplyAvailable[currentFrame]).str());
+            outputBoardValues();
 #endif
             return;
         }
         changedThisFrame = false;
+        gasTakenSimulated = false;
 
         // Start by initializing with the opponent's income
         simulateIncome(minerals, gas, supplyAvailable);
@@ -494,7 +521,7 @@ namespace OpponentEconomicModel
 
         // Insert supply wherever needed
         // Keep track of the frames, as we will potentially manipulate this later when simulating production
-        std::vector<int> pylonFrames = {PYLON_STARTED};
+        pylonFrames = {PYLON_STARTED};
         for (int f = PYLON_FINISHED; f < MODEL_FRAME_LIMIT; f++)
         {
             if (supplyAvailable[f] < 0)
@@ -509,7 +536,7 @@ namespace OpponentEconomicModel
         // Now simulate production
 
         // Do an initial scan to initialize the data structures we will use for the search
-        // Since the earliest creation frame is the same for all units of the same type, keep a cache of what we have computed
+        // Since the prerequisite availability frame is the same for all units of the same type, keep a cache of what we have computed
         // Prefill with gateway and zealot since they are given by our assumed early opening
         std::map<BWAPI::UnitType, int> prerequisitesAvailableByType = {
                 {BWAPI::UnitTypes::Protoss_Gateway, PYLON_FINISHED},
@@ -582,6 +609,12 @@ namespace OpponentEconomicModel
             while (true)
             {
                 auto &producers = producersByType[producerType];
+                for (auto &producer : producers)
+                {
+                    producer->hasProduced = false;
+                    producer->canProduceAt = producer->completionFrame;
+                    producer->shiftedCreationFrame = producer->creationFrame;
+                }
                 std::sort(producers.begin(), producers.end(), EcoModelUnit::cmp());
                 if (producers.empty()) break; // Shouldn't happen, since each unit needs its prerequisites
 
@@ -691,7 +724,7 @@ namespace OpponentEconomicModel
                             if (earliestPylonFrame < BUILDER_LOSS_UNTIL) mineralCost += BUILDER_LOSS;
                             int gasCost = 0;
                             int f;
-                            for (f = MODEL_FRAME_LIMIT - 1; f >= (earliestPylonFrame); f--)
+                            for (f = MODEL_FRAME_LIMIT - 1; f >= earliestPylonFrame; f--)
                             {
                                 if (minerals[f] < mineralCost) break;
                                 if (minerals[f] < gasCost) break;
@@ -816,14 +849,6 @@ namespace OpponentEconomicModel
                         f = prerequisitesAvailableByType[producerType];
                     }
 
-                    // Reset the other producers
-                    for (auto &producer : producers)
-                    {
-                        producer->hasProduced = false;
-                        producer->canProduceAt = producer->completionFrame;
-                        producer->shiftedCreationFrame = producer->creationFrame;
-                    }
-
                     auto producer = std::make_shared<EcoModelUnit>(producerType, 0, f);
                     impliedUnits.insert(producer);
                     allUnits.insert(producer);
@@ -840,28 +865,7 @@ namespace OpponentEconomicModel
         }
 
 #if OUTPUT_BOARD_VALUES
-        CherryVis::setBoardValue("modelled-minerals", (std::ostringstream() << minerals[currentFrame]).str());
-        CherryVis::setBoardValue("modelled-gas", (std::ostringstream() << gas[currentFrame]).str());
-        CherryVis::setBoardValue("modelled-supply", (std::ostringstream() << supplyAvailable[currentFrame]).str());
-        CherryVis::setBoardValue("modelled-pylons", (std::ostringstream() << pylonFrames.size()).str());
-        std::ostringstream unitCounts;
-        for (auto &[type, unitSet] : observedUnitsByType)
-        {
-            unitCounts << unitSet.size() << " " << type << "\n";
-        }
-        CherryVis::setBoardValue("modelled-unitcounts", unitCounts.str());
-        std::ostringstream cvisImplied;
-        for (auto &unit : impliedUnits)
-        {
-            cvisImplied << unit->type << "@" << unit->creationFrame << "\n";
-        }
-        CherryVis::setBoardValue("modelled-implied", cvisImplied.str());
-        std::ostringstream cvisProducerCounts;
-        for (auto &[type, producers] : producersByType)
-        {
-            cvisProducerCounts << producers.size() << " " << type << "\n";
-        }
-        CherryVis::setBoardValue("modelled-producers", cvisProducerCounts.str());
+        outputBoardValues();
 #endif
 #if OUTPUT_BUILD_ORDER
         std::sort(research.begin(), research.end(), [](const auto& a, const auto& b)
@@ -993,19 +997,240 @@ namespace OpponentEconomicModel
         research.emplace_back(std::make_pair(type, frameStarted));
     }
 
-    int worstCaseUnitCount(BWAPI::UnitType type, int frame)
+    std::pair<int, int> worstCaseUnitCount(BWAPI::UnitType type, int frame)
     {
         if (!isEnabled)
         {
             Log::Get() << "ERROR: Trying to use opponent economic model when it is not enabled";
-            return 0;
+            return std::make_pair(0, 0);
         }
 
         if (frame == -1) frame = currentFrame;
 
-        //auto &&[minerals, gas, supplyAvailable] = simulateTakingGas(type);
+        // Our simulation has already pulled all observed units as early as possible and simulated producers we know must have been there
+        // So this just needs to first fill in additional production from the producers, then simulate if the enemy could have built
+        // more producers
 
-        return -1;
+        // Start by counting how many of the unit type are alive at the given frame
+        int currentCount = 0;
+        for (auto &unit : observedUnits)
+        {
+            if (unit->type != type) continue;
+            if (unit->shiftedCreationFrame > frame) continue;
+            if (unit->deathFrame > frame) currentCount++;
+        }
+
+        // Use our other method to figure out when the first additional unit of this type could be produced
+        // This takes prerequisites into account
+        // Jump out now if no further units can be produced before the given frame
+        int earliestFrame = earliestUnitProductionFrame(type);
+        if (earliestFrame > frame)
+        {
+            return std::make_pair(currentCount, currentCount);
+        }
+
+        int additionalUnitCount = 0;
+
+        BWAPI::UnitType producerType = type.whatBuilds().first;
+        int buildTime = UnitUtil::BuildTime(type);
+        int producerBuildTime = UnitUtil::BuildTime(producerType);
+
+        // Take a copy of the resource arrays, since we might be changing them
+        auto pylonFrames = _pylonFrames;
+        auto resources = simulateTakingGasIfNeeded(type);
+        ResourceArray minerals = std::get<0>(resources);
+        ResourceArray gas = std::get<1>(resources);
+        ResourceArray supplyAvailable = std::get<2>(resources);
+
+        // Computes when the unit can next be produced at
+        // Shifts pylons earlier if needed
+        auto canProduceUnitAt = [&]()
+        {
+            int firstSupplyBlockFrame = 0;
+            int lastSupplyBlockFrame = 0;
+            int resourcesAvailableFrame;
+            {
+                int f;
+                for (f = MODEL_FRAME_LIMIT - 1; f >= earliestFrame; f--)
+                {
+                    if (minerals[f] < type.mineralPrice()) break;
+                    if (gas[f] < type.gasPrice()) break;
+                    if (supplyAvailable[f] < type.supplyRequired())
+                    {
+                        if (firstSupplyBlockFrame == 0) firstSupplyBlockFrame = f;
+                        lastSupplyBlockFrame = f;
+                    }
+                }
+                resourcesAvailableFrame = f + 1;
+            }
+
+            if (firstSupplyBlockFrame == 0)
+            {
+                return resourcesAvailableFrame;
+            }
+
+            // Try to resolve a supply block
+            int pylonBuildTime = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
+
+            // Find the earliest pylon that finishes after the supply block frame
+            int pylonIndex;
+            for (pylonIndex = 0; pylonIndex < pylonFrames.size(); pylonIndex++)
+            {
+                if ((pylonFrames[pylonIndex] + pylonBuildTime) > firstSupplyBlockFrame)
+                {
+                    break;
+                }
+            }
+            if (pylonIndex < pylonFrames.size())
+            {
+                // Pull the pylon back as far as possible, but ensuring we also have resources for the unit
+                int earliestPylonFrame = std::max(resourcesAvailableFrame, lastSupplyBlockFrame) - pylonBuildTime;
+                int pylonCost = 100;
+                if (earliestPylonFrame < BUILDER_LOSS_UNTIL) pylonCost += BUILDER_LOSS;
+
+                int nowMinerals = 0;
+                int nowGas = 0;
+                int offsetMinerals = pylonCost;
+                int f;
+                for (f = pylonFrames[pylonIndex] + pylonBuildTime; f >= resourcesAvailableFrame; f--)
+                {
+                    // When we cross the supply block frame (or start there), begin considering the unit itself
+                    if (f == firstSupplyBlockFrame)
+                    {
+                        nowMinerals = type.mineralPrice() + pylonCost;
+                        nowGas = type.gasPrice();
+                    }
+
+                    if (minerals[f] < nowMinerals) break;
+                    if (minerals[f] < nowGas) break;
+                    if (minerals[f - pylonBuildTime] < offsetMinerals) break;
+
+                    // When we reach the beginning of the supply block, we no longer need to pull the pylon
+                    if (f == lastSupplyBlockFrame)
+                    {
+                        offsetMinerals = 0;
+                    }
+                    if (f == earliestPylonFrame)
+                    {
+                        nowMinerals -= pylonCost;
+                    }
+                }
+                f++;
+
+                // Shift the pylon
+                if (f < firstSupplyBlockFrame)
+                {
+                    int newStartFrame = std::max(f - pylonBuildTime, earliestPylonFrame);
+                    spendResource(minerals, pylonCost, newStartFrame, pylonFrames[pylonIndex]);
+                    spendResource(supplyAvailable, -16, newStartFrame + pylonBuildTime, pylonFrames[pylonIndex] + pylonBuildTime);
+                    pylonFrames[pylonIndex] = newStartFrame;
+                    std::sort(pylonFrames.begin(), pylonFrames.end());
+                }
+
+                return f;
+            }
+
+            // There wasn't a pylon to shift, so try creating one instead
+            int earliestPylonFrame = resourcesAvailableFrame - pylonBuildTime;
+            int mineralCost = 100 + type.mineralPrice();
+            if (earliestPylonFrame < BUILDER_LOSS_UNTIL) mineralCost += BUILDER_LOSS;
+            int gasCost = type.gasPrice();
+            int f;
+            for (f = MODEL_FRAME_LIMIT - 1; f >= earliestPylonFrame; f--)
+            {
+                if (minerals[f] < mineralCost) break;
+                if (minerals[f] < gasCost) break;
+
+                if (f == resourcesAvailableFrame)
+                {
+                    mineralCost -= type.mineralPrice();
+                    gasCost -= type.gasPrice();
+                }
+            }
+            f++;
+            if (f < (firstSupplyBlockFrame - pylonBuildTime))
+            {
+                pylonFrames.push_back(f);
+                std::sort(pylonFrames.begin(), pylonFrames.end());
+                spendResource(minerals, 100 + ((f < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0), f);
+                spendResource(supplyAvailable, -16, f);
+            }
+            return f + pylonBuildTime;
+        };
+
+        // Frames a producer can produce at
+        std::priority_queue<int, std::vector<int>, std::greater<>> producerFrames;
+        auto it = producersByType.find(producerType);
+        if (it != producersByType.end())
+        {
+            for (const auto &producer : it->second)
+            {
+                if (producer->canProduceAt > frame) continue;
+                producerFrames.push(producer->canProduceAt);
+            }
+        }
+
+        while (true)
+        {
+            earliestFrame = canProduceUnitAt();
+            if (earliestFrame > frame) break;
+
+            // Try to get an existing producer that can produce it
+            if (!producerFrames.empty())
+            {
+                int productionFrame = std::max(earliestFrame, producerFrames.top());
+                producerFrames.pop();
+
+                spendResource(minerals, type.mineralPrice(), productionFrame);
+                spendResource(gas, type.gasPrice(), productionFrame);
+                spendResource(supplyAvailable, type.supplyRequired(), productionFrame);
+
+                additionalUnitCount++;
+
+                productionFrame += buildTime;
+                if (productionFrame < frame) producerFrames.push(productionFrame);
+                continue;
+            }
+
+            // Try to create a new producer that can produce it
+            int mineralCost = type.mineralPrice() + producerType.mineralPrice();
+            int gasCost = type.gasPrice() + producerType.gasPrice();
+            int f;
+            for (f = MODEL_FRAME_LIMIT - 1; f >= earliestFrame - producerBuildTime; f--)
+            {
+                if (f == BUILDER_LOSS_UNTIL)
+                {
+                    mineralCost += BUILDER_LOSS;
+                }
+
+                if (minerals[f] < mineralCost) break;
+                if (gas[f] < gasCost) break;
+
+                if (f == earliestFrame)
+                {
+                    mineralCost -= type.mineralPrice();
+                    gasCost -= type.gasPrice();
+                }
+            }
+            f++;
+
+            int productionFrame = f + producerBuildTime;
+            if (productionFrame > frame) break;
+
+            spendResource(minerals, producerType.mineralPrice(), f);
+            spendResource(gas, producerType.gasPrice(), f);
+
+            spendResource(minerals, type.mineralPrice(), productionFrame);
+            spendResource(gas, type.gasPrice(), productionFrame);
+            spendResource(supplyAvailable, type.supplyRequired(), productionFrame);
+
+            additionalUnitCount++;
+
+            productionFrame += buildTime;
+            if (productionFrame < frame) producerFrames.push(productionFrame);
+        }
+
+        return std::make_pair(currentCount, currentCount + additionalUnitCount);
     }
 
     int minimumProducerCount(BWAPI::UnitType producerType)
@@ -1018,7 +1243,7 @@ namespace OpponentEconomicModel
 
         auto it = producersByType.find(producerType);
         if (it == producersByType.end()) return 0;
-        return it->second.size();
+        return (int)it->second.size();
     }
 
     bool hasBuilt(BWAPI::UnitType type)
@@ -1032,15 +1257,10 @@ namespace OpponentEconomicModel
         auto it = observedUnitsByType.find(type);
         if (it != observedUnitsByType.end()) return true;
 
-        for (auto &impliedUnit : impliedUnits)
-        {
-            if (impliedUnit->type == type)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return std::any_of(
+                impliedUnits.begin(),
+                impliedUnits.end(),
+                [&type](auto &unit) { return unit->type == type; });
     }
 
     // The earliest frame the enemy could start building the given unit type
@@ -1052,7 +1272,7 @@ namespace OpponentEconomicModel
             return 0;
         }
 
-        auto &&[minerals, gas, supplyAvailable] = simulateTakingGas(type);
+        auto &&[minerals, gas, supplyAvailable] = simulateTakingGasIfNeeded(type);
 
         // Get a list of the buildings we need at relative frame offset from building the given unit type
         std::vector<std::pair<int, BWAPI::UnitType>> prerequisites;

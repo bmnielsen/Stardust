@@ -23,8 +23,10 @@ namespace OpponentEconomicModel
     void opponentUpgraded(BWAPI::UpgradeType type, int level, int frameStarted);
 
     // The worst-case number of the given unit the opponent can have at the given frame
+    // First element of pair is the number of units the opponent currently has
+    // Second element of pair is the number of units the opponent could have in total if they spent all resources on that unit type
     // If the frame is not specified, uses the current frame
-    int worstCaseUnitCount(BWAPI::UnitType type, int frame = -1);
+    std::pair<int, int> worstCaseUnitCount(BWAPI::UnitType type, int frame = -1);
 
     // The minimum number of production facilities the enemy currently has of the given type
     int minimumProducerCount(BWAPI::UnitType producerType);
