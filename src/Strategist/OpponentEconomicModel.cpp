@@ -638,6 +638,8 @@ namespace OpponentEconomicModel
             auto supplyBackup = supplyAvailable;
             auto pylonFramesBackup = pylonFrames;
 
+            int producerBuildTime = UnitUtil::BuildTime(producerType);
+
             while (true)
             {
                 auto &producers = producersByType[producerType];
@@ -812,7 +814,7 @@ namespace OpponentEconomicModel
                             attemptedProducerShift = true;
 
                             // Find an earlier frame with enough resources
-                            int earliestFrame = std::max(unit->shiftedCreationFrame, producer->prerequisitesAvailableFrame);
+                            int earliestFrame = std::max(unit->shiftedCreationFrame - producerBuildTime, producer->prerequisitesAvailableFrame);
                             int mineralPrice = producer->type.mineralPrice() + ((earliestFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0);
                             int f;
                             for (f = producer->creationFrame - 1; f >= earliestFrame; f--)
@@ -820,7 +822,7 @@ namespace OpponentEconomicModel
                                 if (minerals[f] < mineralPrice) break;
                                 if (gas[f] < producer->type.gasPrice()) break;
                             }
-                            producer->canProduceAt = f + 1 + UnitUtil::BuildTime(producer->type);
+                            producer->canProduceAt = f + 1 + producerBuildTime;
                         }
 
                         if (producer->canProduceAt > unit->creationFrame) continue;
@@ -835,7 +837,7 @@ namespace OpponentEconomicModel
                         if (!earliestProducer->hasProduced && !earliestProducer->creationFrameKnown
                             && earliestProducer->canProduceAt < earliestProducer->completionFrame)
                         {
-                            earliestProducer->shiftedCreationFrame = earliestProducer->canProduceAt - UnitUtil::BuildTime(earliestProducer->type);
+                            earliestProducer->shiftedCreationFrame = earliestProducer->canProduceAt - producerBuildTime;
                             int mineralPrice = earliestProducer->type.mineralPrice()
                                     + ((earliestProducer->shiftedCreationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0);
                             spendResource(minerals,
@@ -884,14 +886,14 @@ namespace OpponentEconomicModel
                         if (f == BUILDER_LOSS_UNTIL) mineralPrice += BUILDER_LOSS;
                     }
                     f++;
-                    if (f > (unit->creationFrame - UnitUtil::BuildTime(producerType)))
+                    if (f > (unit->creationFrame - producerBuildTime))
                     {
                         // The simulation couldn't figure it out, which probably means units were produced at very different frames compared
                         // to our observations
                         // It may also mean there has been some kind of proxy play that confuses the model
-                        // We do know that the opponent must have had an additional production facility, so just add it as early as possible
-                        // The resources won't match up, but it will at least give us a lower bound on how many producers the enemy has
-                        f = std::min(prerequisitesAvailableByType[producerType], unit->creationFrame - UnitUtil::BuildTime(producerType));
+                        // Let's just bail out now to avoid overestimating the enemy's production facilities
+                        Log::Get() << "WARNING: Couldn't resolve producers of observed units; aborting economic simulation";
+                        break;
                     }
 
                     auto producer = std::make_shared<EcoModelUnit>(producerType, 0, f);
