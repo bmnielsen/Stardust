@@ -40,7 +40,8 @@ private:
         ZealotRush,         // Detected by seeing early gates or early zealots
         EarlyForge,         // Detected by seeing a forge before core or second gate, can indicate forge expand, "fake" forge expand, or cannon rush
         TwoGate,            // Two or more gateways before core
-        OneGateCore,        // One gateway before core
+        NoZealotCore,       // One gateway before core
+        OneZealotCore,      // One gateway and one (or more) zealots before core
         FastExpansion,      // Natural expansion taken early
         BlockScouting,      // The enemy has blocked our scout from getting into their main, suspect shenanigans
         ZealotAllIn,        // Builds that get a lot of zealots before other tech

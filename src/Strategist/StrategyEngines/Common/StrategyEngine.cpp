@@ -297,6 +297,15 @@ void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal
                                         int zealotCount,
                                         int desiredZealots)
 {
+    // If we don't want any zealots and have one less than half complete, cancel it
+    if (desiredZealots == 0 && Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot) > 0)
+    {
+        cancelTrainingUnits(prioritizedProductionGoals,
+                            BWAPI::UnitTypes::Protoss_Zealot,
+                            INT_MAX,
+                            UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Zealot) / 2);
+    }
+
     // If our core is done or we want no zealots just return dragoons
     if (desiredZealots <= zealotCount || Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0)
     {

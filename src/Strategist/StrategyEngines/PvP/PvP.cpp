@@ -198,7 +198,8 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         }
         else if (antiCannonRushPlay && (
                 enemyStrategy == ProtossStrategy::FastExpansion
-                || enemyStrategy == ProtossStrategy::OneGateCore
+                || enemyStrategy == ProtossStrategy::NoZealotCore
+                || enemyStrategy == ProtossStrategy::OneZealotCore
                 || enemyStrategy == ProtossStrategy::ZealotRush
                 || enemyStrategy == ProtossStrategy::TwoGate
                 || zealotProxy))
@@ -225,7 +226,8 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 case ProtossStrategy::TwoGate:
                 case ProtossStrategy::ZealotAllIn:
                 case ProtossStrategy::EarlyForge:
-                case ProtossStrategy::OneGateCore:
+                case ProtossStrategy::NoZealotCore:
+                case ProtossStrategy::OneZealotCore:
                     break;
                 case ProtossStrategy::FastExpansion:
                 case ProtossStrategy::DragoonAllIn:
@@ -307,10 +309,17 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::Normal:
         {
             int desiredZealots = 1;
-            if (enemyStrategy == ProtossStrategy::BlockScouting)
+
+            // Modify desired zealots based on detected enemy strategy
+            if (enemyStrategy == ProtossStrategy::NoZealotCore)
+            {
+                desiredZealots = 0;
+            }
+            else if (enemyStrategy == ProtossStrategy::BlockScouting)
             {
                 desiredZealots = 3;
             }
+            
             oneGateCoreOpening(prioritizedProductionGoals, dragoonCount, zealotCount, desiredZealots);
 
             // Default upgrades

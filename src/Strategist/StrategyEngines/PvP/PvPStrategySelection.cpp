@@ -131,7 +131,8 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     }
                     case ProtossStrategy::FastExpansion:
                     case ProtossStrategy::EarlyForge:
-                    case ProtossStrategy::OneGateCore:
+                    case ProtossStrategy::NoZealotCore:
+                    case ProtossStrategy::OneZealotCore:
                     case ProtossStrategy::BlockScouting:
                     case ProtossStrategy::EarlyRobo:
                     case ProtossStrategy::DarkTemplarRush:

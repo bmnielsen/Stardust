@@ -13,7 +13,8 @@ std::map<PvP::ProtossStrategy, std::string> PvP::ProtossStrategyNames = {
         {ProtossStrategy::ZealotRush,      "ZealotRush"},
         {ProtossStrategy::EarlyForge,      "EarlyForge"},
         {ProtossStrategy::TwoGate,         "TwoGate"},
-        {ProtossStrategy::OneGateCore,     "OneGateCore"},
+        {ProtossStrategy::NoZealotCore,    "NoZealotCore"},
+        {ProtossStrategy::OneZealotCore,   "OneZealotCore"},
         {ProtossStrategy::FastExpansion,   "FastExpansion"},
         {ProtossStrategy::BlockScouting,   "BlockScouting"},
         {ProtossStrategy::ZealotAllIn,     "ZealotAllIn"},
@@ -52,6 +53,12 @@ namespace
 
         auto &secondTimings = Units::getEnemyUnitTimings(second);
         return secondTimings.size() < secondCount || firstTimings[firstCount - 1].first <= secondTimings[secondCount - 1].first;
+    }
+
+    bool justDiscovered(BWAPI::UnitType type)
+    {
+        auto &timings = Units::getEnemyUnitTimings(type);
+        return std::any_of(timings.begin(), timings.end(), [](const auto timing) { return timing.second == currentFrame; });
     }
 
     bool isFastExpansion()
@@ -345,14 +352,21 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 if (createdBeforeUnit(BWAPI::UnitTypes::Protoss_Cybernetics_Core, 1, BWAPI::UnitTypes::Protoss_Gateway, 2) ||
                     createdBeforeUnit(BWAPI::UnitTypes::Protoss_Assimilator, 1, BWAPI::UnitTypes::Protoss_Gateway, 2))
                 {
-                    strategy = ProtossStrategy::OneGateCore;
+                    if (OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot).second == 0)
+                    {
+                        strategy = ProtossStrategy::NoZealotCore;
+                    }
+                    else
+                    {
+                        strategy = ProtossStrategy::OneZealotCore;
+                    }
                     continue;
                 }
 
                 // Default to something reasonable if our scouting completely fails
                 if (currentFrame > 4000)
                 {
-                    strategy = ProtossStrategy::OneGateCore;
+                    strategy = ProtossStrategy::OneZealotCore;
                     continue;
                 }
 
@@ -459,7 +473,8 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 }
 
                 break;
-            case ProtossStrategy::OneGateCore:
+            case ProtossStrategy::NoZealotCore:
+            case ProtossStrategy::OneZealotCore:
             case ProtossStrategy::FastExpansion:
                 if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
                 if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
@@ -481,6 +496,16 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 {
                     strategy = ProtossStrategy::MidGame;
                     continue;
+                }
+
+                // Reconsider detected one-zealot core if we have just discovered an enemy core or assimilator
+                if (enemyStrategy == ProtossStrategy::OneZealotCore && (
+                        justDiscovered(BWAPI::UnitTypes::Protoss_Cybernetics_Core) || justDiscovered(BWAPI::UnitTypes::Protoss_Assimilator)))
+                {
+                    if (OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot).second == 0)
+                    {
+                        strategy = ProtossStrategy::NoZealotCore;
+                    }
                 }
 
                 break;
@@ -567,7 +592,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
             case ProtossStrategy::DarkTemplarRush:
                 if (!isDarkTemplarRush())
                 {
-                    strategy = ProtossStrategy::OneGateCore;
+                    strategy = ProtossStrategy::OneZealotCore;
                     continue;
                 }
 
