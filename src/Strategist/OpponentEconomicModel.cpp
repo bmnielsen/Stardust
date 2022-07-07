@@ -121,6 +121,10 @@ namespace OpponentEconomicModel
         ResourceArray _gasWithTakenGas;
         ResourceArray _supplyAvailableWithTakenGas;
 
+        // Caches for the expensive lookup methods
+        std::map<std::pair<BWAPI::UnitType, int>, std::pair<int, int>> worstCaseUnitCountCache;
+        std::map<BWAPI::UnitType, int> earliestUnitProductionFrameCache;
+
         bool ignoreUnit(BWAPI::UnitType type)
         {
             // We currently ignore workers and supply providers, just assuming they are built as needed
@@ -476,6 +480,8 @@ namespace OpponentEconomicModel
         }
         changedThisFrame = false;
         gasTakenSimulated = false;
+        worstCaseUnitCountCache.clear();
+        earliestUnitProductionFrameCache.clear();
 
         // Start by initializing with the opponent's income
         simulateIncome(minerals, gas, supplyAvailable);
@@ -1044,6 +1050,12 @@ namespace OpponentEconomicModel
             return std::make_pair(0, 0);
         }
 
+        auto cacheIt = worstCaseUnitCountCache.find(std::make_pair(type, frame));
+        if (cacheIt != worstCaseUnitCountCache.end())
+        {
+            return cacheIt->second;
+        }
+
         if (frame == -1) frame = currentFrame;
 
         // Our simulation has already pulled all observed units as early as possible and simulated producers we know must have been there
@@ -1059,13 +1071,20 @@ namespace OpponentEconomicModel
             if (unit->deathFrame > frame) currentCount++;
         }
 
+        auto createResult = [&](int additionalUnitCount)
+        {
+            auto result = std::make_pair(currentCount, currentCount + additionalUnitCount);
+            worstCaseUnitCountCache[std::make_pair(type, frame)] = result;
+            return result;
+        };
+
         // Use our other method to figure out when the first additional unit of this type could be produced
         // This takes prerequisites into account
         // Jump out now if no further units can be produced before the given frame
         int earliestFrame = earliestUnitProductionFrame(type);
         if (earliestFrame > frame)
         {
-            return std::make_pair(currentCount, currentCount);
+            return createResult(0);
         }
 
         int additionalUnitCount = 0;
@@ -1216,7 +1235,7 @@ namespace OpponentEconomicModel
             {
                 Log::Get() << "ERROR: Endless loop in worstCaseUnitCount; disabling economic model";
                 isEnabled = false;
-                return std::make_pair(0, 0);
+                return std::make_pair(currentCount, currentCount);
             }
 
             earliestFrame = canProduceUnitAt();
@@ -1277,7 +1296,7 @@ namespace OpponentEconomicModel
             if (productionFrame < frame) producerFrames.push(productionFrame);
         }
 
-        return std::make_pair(currentCount, currentCount + additionalUnitCount);
+        return createResult(additionalUnitCount);
     }
 
     int minimumProducerCount(BWAPI::UnitType producerType)
@@ -1319,6 +1338,17 @@ namespace OpponentEconomicModel
             return 0;
         }
 
+        auto cacheIt = earliestUnitProductionFrameCache.find(type);
+        if (cacheIt != earliestUnitProductionFrameCache.end())
+        {
+            return cacheIt->second;
+        }
+        auto createResult = [&](int frame)
+        {
+            earliestUnitProductionFrameCache[type] = frame;
+            return frame;
+        };
+
         auto &&[minerals, gas, supplyAvailable] = simulateTakingGasIfNeeded(type);
 
         // Get a list of the buildings we need at relative frame offset from building the given unit type
@@ -1339,7 +1369,7 @@ namespace OpponentEconomicModel
                 if (gas[f] < type.gasPrice()) break;
             }
 
-            return f + 1;
+            return createResult(f + 1);
         }
 
         // Get the total resource cost of the needed buildings
@@ -1372,10 +1402,10 @@ namespace OpponentEconomicModel
                     || minerals[frame] < mineralCost
                     || gas[frame] < gasCost)
                 {
-                    return f + 1;
+                    return createResult(f + 1);
                 }
             }
         }
-        return f + 1;
+        return createResult(f + 1);
     }
 }
