@@ -350,9 +350,12 @@ namespace OpponentEconomicModel
         if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran ||
             BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
         {
+            Log::Get() << "Disabling opponent economic model, as opponent is not Protoss";
             isEnabled = false;
             return;
         }
+
+        Log::Get() << "Initializing opponent economic model";
 
 #if OUTPUT_BUILD_ORDER
         observations.clear();
@@ -379,11 +382,22 @@ namespace OpponentEconomicModel
     {
         if (!isEnabled) return;
 
-        if (currentFrame >= 15000 ||
-            BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran ||
-            BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg ||
-            Map::getEnemyBases().size() > 1)
+        if (currentFrame >= (MODEL_FRAME_LIMIT - 5000))
         {
+            Log::Get() << "Disabling opponent economic model, reached frame limit";
+            isEnabled = false;
+            return;
+        }
+        if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran ||
+            BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
+        {
+            Log::Get() << "Disabling opponent economic model, as opponent is not Protoss";
+            isEnabled = false;
+            return;
+        }
+        if (Map::getEnemyBases().size() > 1)
+        {
+            Log::Get() << "Disabling opponent economic model, as opponent has expanded";
             isEnabled = false;
             return;
         }
