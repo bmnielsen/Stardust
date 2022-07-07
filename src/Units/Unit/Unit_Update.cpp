@@ -21,15 +21,41 @@ namespace
         return (unit->isBurrowed() || unit->isCloaked() || unit->getType().hasPermanentCloak()) && !unit->isDetected();
     }
 
-    int estimateCompletionFrame(BWAPI::Unit unit)
+    void updateEstimatedCompletionFrame(BWAPI::Unit unit, int &estimatedCompletionFrame)
     {
-        if (!unit->getType().isBuilding() || unit->isCompleted()) return -1;
+        if (!unit->getType().isBuilding() || unit->isCompleted())
+        {
+            estimatedCompletionFrame = -1;
+            return;
+        }
 
-        if (unit->getPlayer() == BWAPI::Broodwar->self()) return unit->getRemainingBuildTime();
+        // Don't need to update more than once
+        if (estimatedCompletionFrame != -1) return;
 
-        int remainingHitPoints = unit->getType().maxHitPoints() - unit->getHitPoints();
-        double hitPointsPerFrame = (unit->getType().maxHitPoints() * 0.9) / unit->getType().buildTime();
-        return currentFrame + (int) (remainingHitPoints / hitPointsPerFrame);
+        // For our own units, this is called on the frame the building started, so we can just use the build time directly
+        if (unit->getPlayer() == BWAPI::Broodwar->self())
+        {
+            estimatedCompletionFrame = currentFrame + UnitUtil::BuildTime(unit->getType());
+            return;
+        }
+
+        // For enemy units we need to estimate the start frame based on the current health
+        // We assume that the building hasn't taken damage
+        // Buildings start at 10% health and then linearly grow to 100% health
+        // Then the animation plays (e.g. warp-in for protoss)
+
+        // If the building is already at max HP, it is in its animation so we can't determine exactly when it will complete
+        if (unit->getHitPoints() == unit->getType().maxHitPoints())
+        {
+            estimatedCompletionFrame = currentFrame;
+            return;
+        }
+
+        // Estimate how far into the build the unit is
+        int initialHitPoints = unit->getType().maxHitPoints() / 10;
+        double progress = (double)(unit->getHitPoints() - initialHitPoints) / (double)(unit->getType().maxHitPoints() - initialHitPoints);
+        int progressFrame = (int)(progress * (double)unit->getType().buildTime());
+        estimatedCompletionFrame = currentFrame - progressFrame + UnitUtil::BuildTime(unit->getType());
     }
 
     BWAPI::TilePosition computeBuildTile(BWAPI::Unit unit)
@@ -179,7 +205,7 @@ void UnitImpl::update(BWAPI::Unit unit)
     lastBurrowing = unit->getOrder() == BWAPI::Orders::Burrowing ? currentFrame : 0;
 
     completed = unit->isCompleted();
-    estimatedCompletionFrame = estimateCompletionFrame(unit);
+    updateEstimatedCompletionFrame(unit, estimatedCompletionFrame);
 
     // TODO: Track lifted buildings
     isFlying = unit->isFlying();
