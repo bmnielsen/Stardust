@@ -13,6 +13,7 @@
 #include "UnitUtil.h"
 #include "Opponent.h"
 #include "OpponentEconomicModel.h"
+#include "Strategist.h"
 
 #include "DebugFlag_GridUpdates.h"
 
@@ -299,60 +300,65 @@ namespace Units
                 };
 
                 // Try to guess how many frames the unit has moved since it was built
-                int framesMoved = 0;
-                if (unit->type.topSpeed() > 0.001)
+                auto getFramesMoved = [&]()
                 {
-                    // First see if we know of anything that can produce the unit
+                    if (unit->type.topSpeed() < 0.001) return 0;
+
+                    // Assume proxied units need to travel about 5 seconds
+                    if (Strategist::getStrategyEngine()->isEnemyProxy() && currentFrame < 8000)
+                    {
+                        return 120;
+                    }
+
                     auto closestProducer = getClosestProducer();
                     if (closestProducer)
                     {
-                        framesMoved = PathFinding::ExpectedTravelTime(unit->lastPosition,
+                        int framesMoved = PathFinding::ExpectedTravelTime(unit->lastPosition,
                                                                       closestProducer->lastPosition,
                                                                       unit->type,
                                                                       PathFinding::PathFindingOptions::UseNearestBWEMArea);
 
                         // Give it a bit of leeway to account for the spawn position being outside the producer
-                        framesMoved = std::max(0, framesMoved - 48);
+                        return std::max(0, framesMoved - 48);
+                    }
+
+                    // We don't know the producer, so assume it came from the closest possible enemy main
+                    int framesMoved;
+                    auto enemyMain = Map::getEnemyMain();
+                    if (!enemyMain) enemyMain = Map::getEnemyStartingMain();
+                    if (enemyMain)
+                    {
+                        framesMoved = PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                                      enemyMain->getPosition(),
+                                                                      unit->type,
+                                                                      PathFinding::PathFindingOptions::UseNearestBWEMArea);
                     }
                     else
                     {
-                        // We don't know the producer, so assume it came from the closest possible enemy main
-                        auto enemyMain = Map::getEnemyMain();
-                        if (!enemyMain) enemyMain = Map::getEnemyStartingMain();
-                        if (enemyMain)
+                        // Default to the closest unscouted starting position
+                        framesMoved = INT_MAX;
+                        for (auto base : Map::unscoutedStartingLocations())
                         {
-                            framesMoved = PathFinding::ExpectedTravelTime(unit->lastPosition,
-                                                                          enemyMain->getPosition(),
-                                                                          unit->type,
-                                                                          PathFinding::PathFindingOptions::UseNearestBWEMArea);
-                        }
-                        else
-                        {
-                            // Default to the closest unscouted starting position
-                            framesMoved = INT_MAX;
-                            for (auto base : Map::unscoutedStartingLocations())
+                            int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                                         base->getPosition(),
+                                                                         unit->type,
+                                                                         PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                            if (frames < framesMoved)
                             {
-                                int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
-                                                                             base->getPosition(),
-                                                                             unit->type,
-                                                                             PathFinding::PathFindingOptions::UseNearestBWEMArea);
-                                if (frames < framesMoved)
-                                {
-                                    framesMoved = frames;
-                                }
+                                framesMoved = frames;
                             }
-
-                            // Guard against bugs in scouting
-                            if (framesMoved == INT_MAX) framesMoved = 0;
                         }
 
-                        // Give some leeway since the unit might have been produced away from the depot
-                        // For Zerg we give less leeway since they have less building room
-                        framesMoved = std::max(0, framesMoved - (unit->player->getRace() == BWAPI::Races::Zerg ? 75 : 200));
+                        // Guard against bugs in scouting
+                        if (framesMoved == INT_MAX) framesMoved = 0;
                     }
-                }
 
-                completionFrame = currentFrame - framesMoved;
+                    // Give some leeway since the unit might have been produced away from the depot
+                    // For Zerg we give less leeway since they have less building room
+                    return std::max(0, framesMoved - (unit->player->getRace() == BWAPI::Races::Zerg ? 75 : 200));
+                };
+
+                completionFrame = currentFrame - getFramesMoved();
             }
 
             int startFrame = completionFrame - UnitUtil::BuildTime(unit->type);

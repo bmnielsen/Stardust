@@ -368,7 +368,7 @@ namespace OpponentEconomicModel
         Log::Get() << "Initializing opponent economic model";
 
 #if OUTPUT_BUILD_ORDER
-        observations.clear();
+        observations = std::ostringstream();
 #endif
 
         isEnabled = true;
@@ -633,6 +633,18 @@ namespace OpponentEconomicModel
             while (true)
             {
                 auto &producers = producersByType[producerType];
+
+                // Guard against an endless loop
+                if (producers.size() > 30)
+                {
+                    Log::Get() << "ERROR: Endless loop in opponent economic model; disabling economic model";
+#if OUTPUT_BUILD_ORDER
+                    Log::Get() << "Observations:" << observations.str();
+#endif
+                    isEnabled = false;
+                    return;
+                }
+
                 for (auto &producer : producers)
                 {
                     producer->hasProduced = false;
@@ -868,9 +880,10 @@ namespace OpponentEconomicModel
                     {
                         // The simulation couldn't figure it out, which probably means units were produced at very different frames compared
                         // to our observations
+                        // It may also mean there has been some kind of proxy play that confuses the model
                         // We do know that the opponent must have had an additional production facility, so just add it as early as possible
                         // The resources won't match up, but it will at least give us a lower bound on how many producers the enemy has
-                        f = prerequisitesAvailableByType[producerType];
+                        f = std::min(prerequisitesAvailableByType[producerType], unit->creationFrame - UnitUtil::BuildTime(producerType));
                     }
 
                     auto producer = std::make_shared<EcoModelUnit>(producerType, 0, f);
@@ -1196,6 +1209,14 @@ namespace OpponentEconomicModel
 
         while (true)
         {
+            // Guard against an endless loop
+            if (additionalUnitCount > 100)
+            {
+                Log::Get() << "ERROR: Endless loop in worstCaseUnitCount; disabling economic model";
+                isEnabled = false;
+                return std::make_pair(0, 0);
+            }
+
             earliestFrame = canProduceUnitAt();
             if (earliestFrame > frame) break;
 
