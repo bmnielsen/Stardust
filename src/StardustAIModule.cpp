@@ -21,10 +21,10 @@ int currentFrame;
 
 // While instrumenting we have a lower global frame limit to ensure we get data if the game locks up
 #if INSTRUMENTATION_ENABLED_VERBOSE
-#define FRAME_LIMIT 30000
+#define FRAME_LIMIT 25000
 #else
 #if INSTRUMENTATION_ENABLED
-#define FRAME_LIMIT 25000
+#define FRAME_LIMIT 20000
 #endif
 #endif
 
