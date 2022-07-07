@@ -637,7 +637,7 @@ namespace OpponentEconomicModel
                     // Reset shifted creation frame as it might have been changed in a previous iteration
                     unit->shiftedCreationFrame = unit->creationFrame;
 
-                    auto shiftEarlier = [&unit](int toFrame)
+                    auto shiftEarlier = [&](int toFrame)
                     {
                         if (toFrame >= unit->shiftedCreationFrame) return;
 
