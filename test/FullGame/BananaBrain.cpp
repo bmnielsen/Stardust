@@ -58,7 +58,7 @@ TEST(BananaBrain, RunThirty)
         BWTest test;
         test.opponentName = "BananaBrain";
         BananaBrain* bbModule;
-        test.maps = Maps::Get("cog");
+        test.maps = Maps::Get("cog2022");
         test.opponentRace = BWAPI::Races::Protoss;
         test.opponentModule = [&]()
         {

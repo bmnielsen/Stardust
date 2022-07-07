@@ -357,3 +357,46 @@ TEST(OpponentEconomicModel, ProxyGates)
     test.run();
 }
 
+TEST(OpponentEconomicModel, IncorrectFourGate)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.myModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.map = Maps::GetOne("Mancha");
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.writeReplay = false;
+
+    test.onStartMine = []()
+    {
+        Log::initialize();
+        CherryVis::initialize();
+        Map::initialize();
+        Log::SetDebug(true);
+
+        OpponentEconomicModel::initialize();
+    };
+
+    test.onFrameMine = []()
+    {
+        if (BWAPI::Broodwar->getFrameCount() == 5)
+        {
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Gateway, 168, 2601, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Gateway, 172, 2618, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Assimilator, 36, 3581, true);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 207, 3084, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 242, 3541, false);
+        }
+
+        OpponentEconomicModel::update();
+    };
+
+    test.run();
+}
+
