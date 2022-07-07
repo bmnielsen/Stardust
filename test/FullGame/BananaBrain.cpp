@@ -218,6 +218,24 @@ TEST(BananaBrain, ProxyGates)
     test.run();
 }
 
+TEST(BananaBrain, 99Gate)
+{
+    BWTest test;
+    test.opponentName = "BananaBrain";
+    test.map = Maps::GetOne("FightingSpirit");
+    test.randomSeed = 79647;
+    test.frameLimit = 15000;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ProtossStrategy::kPvP_99ProxyGate;
+        return bbModule;
+    };
+
+    test.run();
+}
+
 TEST(BananaBrain, Robo)
 {
     BWTest test;

@@ -49,6 +49,7 @@ namespace
             if (BWAPI::Broodwar->getFrameCount() > 15000)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "test",
                                                                          BWAPI::UnitTypes::Protoss_Scout,
                                                                          -1,
                                                                          -1);
@@ -56,6 +57,7 @@ namespace
             else if (BWAPI::Broodwar->getFrameCount() > 10000)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "test",
                                                                          BWAPI::UnitTypes::Protoss_Dark_Templar,
                                                                          -1,
                                                                          -1);
@@ -63,6 +65,7 @@ namespace
             else
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "test",
                                                                          BWAPI::UnitTypes::Protoss_Zealot,
                                                                          -1,
                                                                          -1);

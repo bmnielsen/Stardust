@@ -18,6 +18,7 @@ namespace
                               std::vector<std::pair<int, int>> &mineralReservations) override
         {
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "test",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        1);
@@ -33,7 +34,8 @@ namespace
 
             auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(pylonLocation), 0, 0, 0);
             prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Pylon,
+                                                                     "test",
+                                                                     BWAPI::UnitTypes::Protoss_Pylon,
                                                                        buildLocation);
         }
 

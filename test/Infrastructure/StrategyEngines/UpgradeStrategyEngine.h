@@ -23,6 +23,6 @@ protected:
         if (upgradeOrTechType.currentLevel() > 0) return;
         if (Units::isBeingUpgradedOrResearched(upgradeOrTechType)) return;
 
-        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(UpgradeProductionGoal(upgradeOrTechType));
+        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(UpgradeProductionGoal("test", upgradeOrTechType));
     }
 };

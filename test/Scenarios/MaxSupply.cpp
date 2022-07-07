@@ -19,6 +19,7 @@ namespace
                               std::vector<std::pair<int, int>> &mineralReservations) override
         {
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "test",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1);

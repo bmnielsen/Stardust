@@ -21,12 +21,14 @@ namespace
             if (BWAPI::Broodwar->getFrameCount() > 2000 && Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) == 0)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "test",
                                                                          BWAPI::UnitTypes::Protoss_Dark_Templar,
                                                                          1,
                                                                          1);
             }
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "test",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1);
