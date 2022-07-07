@@ -3,6 +3,7 @@
 #include "Map.h"
 #include "UnitUtil.h"
 #include "UpgradeOrTechType.h"
+#include "Units.h"
 
 #define MODEL_FRAME_LIMIT 20000
 
@@ -405,9 +406,10 @@ namespace OpponentEconomicModel
             isEnabled = false;
             return;
         }
-        if (Map::getEnemyBases().size() > 1)
+        auto &enemyNexuses = Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Nexus);
+        if (std::count_if(enemyNexuses.begin(), enemyNexuses.end(), [](const Unit &nexus) { return nexus->completed; }) > 1)
         {
-            Log::Get() << "Disabling opponent economic model, as opponent has expanded";
+            Log::Get() << "Disabling opponent economic model, as opponent has a completed natural nexus";
             isEnabled = false;
             return;
         }
