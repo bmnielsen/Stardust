@@ -16,7 +16,7 @@ namespace OpponentEconomicModel
     namespace
     {
         const double MINERALS_PER_WORKER_FRAME = 0.0465;
-        const double GAS_PER_WORKER_FRAME = 0.07;
+        const double GAS_PER_WORKER_FRAME = 0.071;
 
         // Assume a builder misses one mining run until frame 5500
         const int BUILDER_LOSS = 8;
@@ -163,17 +163,26 @@ namespace OpponentEconomicModel
             }
             refineryFrames.push(MODEL_FRAME_LIMIT + 1);
 
+            std::priority_queue<int, std::vector<int>, std::greater<>> moveToGasFrames;
+            moveToGasFrames.push(MODEL_FRAME_LIMIT + 1);
+
             double mineralCounter = 0.0;
             double gasCounter = 0.0;
             int supplyCounter = 8;
             for (int f = 0; f < MODEL_FRAME_LIMIT; f++)
             {
                 // If a refinery finished at this frame, move workers from minerals to gas
+                // They take 24 frames to switch
                 if (f == refineryFrames.front())
                 {
                     mineralWorkers -= 3;
-                    gasWorkers += 3;
+                    moveToGasFrames.push(f + 24);
                     refineryFrames.pop();
+                }
+                if (f == moveToGasFrames.top())
+                {
+                    gasWorkers += 3;
+                    moveToGasFrames.pop();
                 }
 
                 // Completed worker goes to minerals
@@ -183,8 +192,9 @@ namespace OpponentEconomicModel
                 }
 
                 // Build a worker
-                if (remainingWorkerBuildTime <= 0 && mineralCounter >= 50 && (mineralWorkers + gasWorkers) < workerLimit &&
-                    (f >= PYLON_FINISHED || supplyCounter >= 2))
+                if (remainingWorkerBuildTime <= 0 && mineralCounter >= 50
+                    && (mineralWorkers + gasWorkers + (moveToGasFrames.size() - 1) * 3) < workerLimit
+                    && (f >= PYLON_FINISHED || supplyCounter >= 2))
                 {
                     mineralCounter -= 50;
                     remainingWorkerBuildTime = 300;
