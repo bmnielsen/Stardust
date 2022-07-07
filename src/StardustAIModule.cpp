@@ -24,7 +24,7 @@ int currentFrame;
 #define FRAME_LIMIT 30000
 #else
 #if INSTRUMENTATION_ENABLED
-#define FRAME_LIMIT 40000
+#define FRAME_LIMIT 25000
 #endif
 #endif
 
