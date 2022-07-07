@@ -22,6 +22,7 @@ void PvU::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 {
     // Always start with two-gate zealots until we know what race the opponent is
     prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                               "SE",
                                                                BWAPI::UnitTypes::Protoss_Zealot,
                                                                -1,
                                                                2);

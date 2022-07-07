@@ -27,6 +27,7 @@ void MainArmyPlay::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
     {
         if (unitRequirement.count < 1) continue;
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 label,
                                                                  unitRequirement.type,
                                                                  unitRequirement.count,
                                                                  (unitRequirement.count + 1) / 2);

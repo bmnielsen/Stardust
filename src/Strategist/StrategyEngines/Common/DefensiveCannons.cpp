@@ -68,6 +68,7 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
                             ? PRIORITY_EMERGENCY
                             : PRIORITY_NORMAL;
             prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                              "SE",
                                                               type,
                                                               buildLocation);
         };

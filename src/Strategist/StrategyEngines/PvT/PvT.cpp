@@ -253,6 +253,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
                             auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
                             prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                        "SE-antirush",
                                                                                         type,
                                                                                         buildLocation);
                         };
@@ -322,6 +323,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 !Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Science_Facility))
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "SE-nodetect",
                                                                          BWAPI::UnitTypes::Protoss_Dark_Templar,
                                                                          1,
                                                                          1);
@@ -336,6 +338,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) < 10)
             {
                 prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                               "SE",
                                                                                BWAPI::UnitTypes::Protoss_Shuttle,
                                                                                1,
                                                                                1);
@@ -346,6 +349,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             if (arbiterCount < 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "SE",
                                                                          BWAPI::UnitTypes::Protoss_Arbiter,
                                                                          1,
                                                                          1);
@@ -363,6 +367,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // Produce unlimited carriers off of two stargates, at slightly higher priority than main army
             prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     "SE",
                                                                      BWAPI::UnitTypes::Protoss_Carrier,
                                                                      -1,
                                                                      2);
@@ -374,6 +379,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             if (weaponLevel < 3)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+                                                                         "SE",
                                                                          BWAPI::UpgradeTypes::Protoss_Air_Weapons,
                                                                          weaponLevel + 1,
                                                                          1);
@@ -494,6 +500,7 @@ void PvT::handleDetection(std::vector<std::shared_ptr<Play>> &plays, std::map<in
     auto buildObserver = [&](int priority = PRIORITY_NORMAL)
     {
         prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                          "SE-detection",
                                                           BWAPI::UnitTypes::Protoss_Observer,
                                                           1,
                                                           1);

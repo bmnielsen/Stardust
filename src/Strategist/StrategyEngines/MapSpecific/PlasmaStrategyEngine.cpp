@@ -84,12 +84,14 @@ void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &
             if (zealotCount < 2)
             {
                 prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           "SE",
                                                                            BWAPI::UnitTypes::Protoss_Zealot,
                                                                            2 - zealotCount,
                                                                            2);
             }
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1);
@@ -112,6 +114,7 @@ void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &
             if (zealotCount < 2)
             {
                 prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                            "SE-antirush",
                                                                             BWAPI::UnitTypes::Protoss_Zealot,
                                                                             2 - zealotCount,
                                                                             2);
@@ -121,6 +124,7 @@ void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &
             if (zealotsRequired > 0)
             {
                 prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                              "SE-antirush",
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
                                                                               zealotsRequired,
                                                                               -1);
@@ -128,11 +132,13 @@ void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &
 
             // If the dragoon transition is just beginning, only order one so we keep producing zealots
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        dragoonCount == 0 ? 1 : -1,
                                                                        -1);
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        -1);
@@ -140,10 +146,12 @@ void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &
         }
         case EnemyStrategy::Normal:
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1);
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        -1);
@@ -167,6 +175,7 @@ void PlasmaStrategyEngine::updateProduction(std::vector<std::shared_ptr<Play>> &
         Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observer) == 0)
     {
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 "SE-2+gas",
                                                                  BWAPI::UnitTypes::Protoss_Observer,
                                                                  1,
                                                                  1);
@@ -190,5 +199,5 @@ void PlasmaStrategyEngine::handleNaturalExpansion(std::vector<std::shared_ptr<Pl
                                                                                            natural->getTilePosition(),
                                                                                            BWAPI::UnitTypes::Protoss_Nexus),
                                                           0, 0);
-    prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Nexus, buildLocation);
+    prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>, "SE-natural", BWAPI::UnitTypes::Protoss_Nexus, buildLocation);
 }

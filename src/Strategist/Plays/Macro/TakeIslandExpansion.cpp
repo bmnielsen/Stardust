@@ -300,6 +300,7 @@ void TakeIslandExpansion::addPrioritizedProductionGoals(std::map<int, std::vecto
         if (Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) > 0) continue;
 
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 label,
                                                                  unitRequirement.type,
                                                                  unitRequirement.count,
                                                                  1);

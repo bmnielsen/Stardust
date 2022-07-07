@@ -126,6 +126,7 @@ void CarrierHarass::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
         if (unitRequirement.count < 1) continue;
 
         prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       label,
                                                                        unitRequirement.type,
                                                                        unitRequirement.count,
                                                                        unitRequirement.type == BWAPI::UnitTypes::Protoss_Carrier ? 2 : 1);
@@ -135,6 +136,7 @@ void CarrierHarass::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
     if (weaponLevel < 3 && !Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Air_Weapons))
     {
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+                                                                 label,
                                                                  BWAPI::UpgradeTypes::Protoss_Air_Weapons,
                                                                  weaponLevel + 1,
                                                                  1);

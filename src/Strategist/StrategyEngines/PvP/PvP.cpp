@@ -336,6 +336,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory))
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "SE-nodetect",
                                                                          BWAPI::UnitTypes::Protoss_Dark_Templar,
                                                                          2 - dtCount,
                                                                          2);
@@ -349,6 +350,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             // Build zealots at lowest priority
             prioritizedProductionGoals[PRIORITY_LOWEST].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     "SE",
                                                                      BWAPI::UnitTypes::Protoss_Zealot,
                                                                      -1,
                                                                      -1);
@@ -366,6 +368,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             if (dtCount < 2)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "SE",
                                                                          BWAPI::UnitTypes::Protoss_Dark_Templar,
                                                                          2 - dtCount,
                                                                          2,
@@ -375,6 +378,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1,
@@ -487,6 +491,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             {
                 // TODO: When producer can handle requesting a building, request the observatory instead
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "SE-safeexpand",
                                                                          BWAPI::UnitTypes::Protoss_Observer,
                                                                          1,
                                                                          1);
@@ -589,6 +594,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(hiddenBasePlay->base->getTilePosition()),
                                                                   0, 0, 0);
             prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     "SE-hiddenbase",
                                                                      BWAPI::UnitTypes::Protoss_Nexus,
                                                                      buildLocation);
 
@@ -603,9 +609,10 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         if (idleWorkers < 10)
         {
             prioritizedProductionGoals[PRIORITY_LOWEST].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       BWAPI::UnitTypes::Protoss_Probe,
-                                                                       10 - idleWorkers,
-                                                                       1);
+                                                                     "SE",
+                                                                     BWAPI::UnitTypes::Protoss_Probe,
+                                                                     10 - idleWorkers,
+                                                                     1);
         }
     }
 }
@@ -687,6 +694,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
                         ? PRIORITY_EMERGENCY
                         : PRIORITY_NORMAL;
         prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                          "SE-detection",
                                                           BWAPI::UnitTypes::Protoss_Observer,
                                                           1,
                                                           1);

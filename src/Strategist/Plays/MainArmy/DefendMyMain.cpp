@@ -184,7 +184,7 @@ void DefendMyMain::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
     // If we have an emergency production type, produce an infinite number of them off two gateways
     if (emergencyProduction != BWAPI::UnitTypes::None)
     {
-        prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>, emergencyProduction, -1, 2);
+        prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>, label, emergencyProduction, -1, 2);
         return;
     }
 
@@ -193,6 +193,7 @@ void DefendMyMain::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
     {
         if (unitRequirement.count < 1) continue;
         prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                      label,
                                                                       unitRequirement.type,
                                                                       unitRequirement.count,
                                                                       (unitRequirement.count + 1) / 2);

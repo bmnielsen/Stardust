@@ -246,6 +246,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // We start with two-gate zealots until we have more scouting information
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        2);
@@ -299,6 +300,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             // Build pure zealots
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE-anticontain",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        -1);
@@ -315,6 +317,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             if (Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) < 1)
             {
                 prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                               "SE",
                                                                                BWAPI::UnitTypes::Protoss_Shuttle,
                                                                                1,
                                                                                1);
@@ -336,6 +339,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 if (unitCount < 2)
                 {
                     prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                  "SE-fe",
                                                                                   BWAPI::UnitTypes::Protoss_Zealot,
                                                                                   2 - unitCount,
                                                                                   2);
@@ -343,10 +347,12 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE-fe",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1);
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE-fe",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        -1);
@@ -370,6 +376,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             if (zealotCount < desiredZealots)
             {
                 prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                              "SE",
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
                                                                               desiredZealots - zealotCount,
                                                                               2);
@@ -383,16 +390,19 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             if (buildCorsairs())
             {
                 prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           "SE",
                                                                            BWAPI::UnitTypes::Protoss_Corsair,
                                                                            1,
                                                                            1);
             }
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1);
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        -1);
@@ -599,6 +609,7 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Lurker_Aspect))
     {
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 "SE",
                                                                  BWAPI::UnitTypes::Protoss_Observer,
                                                                  1,
                                                                  1);

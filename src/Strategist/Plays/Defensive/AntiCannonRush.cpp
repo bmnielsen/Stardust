@@ -299,6 +299,7 @@ void AntiCannonRush::addPrioritizedProductionGoals(std::map<int, std::vector<Pro
     if (!cannonsAndAttackers.empty())
     {
         prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                    label,
                                                                     BWAPI::UnitTypes::Protoss_Zealot,
                                                                     -1,
                                                                     2);

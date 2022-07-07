@@ -9,25 +9,31 @@ class UnitProductionGoal
 {
 public:
     // Constructor for normal units or buildings
-    explicit UnitProductionGoal(BWAPI::UnitType type,
+    explicit UnitProductionGoal(std::string requester,
+                                BWAPI::UnitType type,
                                 int count = -1,
                                 int producerLimit = -1,
                                 ProductionLocation location = std::monostate())
-            : type(type)
+            : requester(std::move(requester))
+            , type(type)
             , count(count)
             , producerLimit(producerLimit)
             , location(std::move(location))
             , reservedBuilder(nullptr) {}
 
     // Constructor for buildings at a specific build location
-    UnitProductionGoal(BWAPI::UnitType type,
+    UnitProductionGoal(std::string requester,
+                       BWAPI::UnitType type,
                        BuildingPlacement::BuildLocation location,
                        MyUnit reservedBuilder = nullptr)
-            : type(type)
+            : requester(std::move(requester))
+            , type(type)
             , count(1)
             , producerLimit(1)
             , location(location)
             , reservedBuilder(std::move(reservedBuilder)) {}
+
+    std::string requester;
 
     // The unit type
     [[nodiscard]] BWAPI::UnitType unitType() const { return type; }
@@ -50,7 +56,7 @@ public:
 
     friend std::ostream &operator<<(std::ostream &os, const UnitProductionGoal &goal)
     {
-        os << goal.count << "x" << goal.type;
+        os << goal.count << "x" << goal.type << " (" << goal.requester << ")";
         return os;
     }
 

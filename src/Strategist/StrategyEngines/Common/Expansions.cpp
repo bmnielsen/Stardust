@@ -343,6 +343,7 @@ void StrategyEngine::takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &pl
                                                                                            BWAPI::UnitTypes::Protoss_Nexus),
                                                           0, 0);
     prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                             "SE-natural",
                                                              BWAPI::UnitTypes::Protoss_Nexus,
                                                              buildLocation);
 }

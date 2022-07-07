@@ -180,6 +180,7 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
     {
         auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(pylonLocation), 0, 0, 0);
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   label,
                                                                    BWAPI::UnitTypes::Protoss_Pylon,
                                                                    buildLocation);
     }
@@ -222,6 +223,7 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
             {
                 auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(cannonLocations[i]), 0, 0, 0);
                 prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                  label,
                                                                   BWAPI::UnitTypes::Protoss_Photon_Cannon,
                                                                   buildLocation);
             }
@@ -235,6 +237,7 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
         if (unitRequirement.count < 1) continue;
 
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 label,
                                                                  unitRequirement.type,
                                                                  unitRequirement.count,
                                                                  1);

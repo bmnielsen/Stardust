@@ -37,7 +37,7 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
             // If we already have enough units, insert the upgrade now
             if (units >= unitCount)
             {
-                priorityAndProductionGoals.second.emplace(it, UpgradeProductionGoal(upgradeOrTechType));
+                priorityAndProductionGoals.second.emplace(it, std::in_place_type<UpgradeProductionGoal>, "SE", upgradeOrTechType);
                 return;
             }
 
@@ -47,14 +47,18 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
                 auto producerLimit = unitProductionGoal->getProducerLimit();
                 auto location = unitProductionGoal->getLocation();
 
+                // Copy the requester since we are about to manipulate the vector
+                auto requester = unitProductionGoal->requester;
+
                 // Insert the upgrade here
-                it = priorityAndProductionGoals.second.emplace(it, UpgradeProductionGoal(upgradeOrTechType));
+                it = priorityAndProductionGoals.second.emplace(it, std::in_place_type<UpgradeProductionGoal>, "SE", upgradeOrTechType);
 
                 // Insert remaining units beforehand
                 if (units < unitCount)
                 {
                     priorityAndProductionGoals.second.emplace(it,
                                                               std::in_place_type<UnitProductionGoal>,
+                                                              requester,
                                                               unitType,
                                                               unitCount - units,
                                                               producerLimit,
@@ -70,6 +74,9 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
                 auto producerLimit = unitProductionGoal->getProducerLimit();
                 auto location = unitProductionGoal->getLocation();
 
+                // Copy the requester since we are about to manipulate the vector
+                auto requester = unitProductionGoal->requester;
+
                 // Remove the current item
                 it = priorityAndProductionGoals.second.erase(it);
 
@@ -78,6 +85,7 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
                 {
                     it = priorityAndProductionGoals.second.emplace(it,
                                                                    std::in_place_type<UnitProductionGoal>,
+                                                                   requester,
                                                                    unitType,
                                                                    (units + unitProductionGoal->countToProduce()) - unitCount,
                                                                    producerLimit,
@@ -85,11 +93,12 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
                 }
 
                 // Add the upgrade
-                it = priorityAndProductionGoals.second.emplace(it, UpgradeProductionGoal(upgradeOrTechType));
+                it = priorityAndProductionGoals.second.emplace(it, std::in_place_type<UpgradeProductionGoal>, "SE", upgradeOrTechType);
 
                 // Add the count before the upgrade
                 priorityAndProductionGoals.second.emplace(it,
                                                           std::in_place_type<UnitProductionGoal>,
+                                                          requester,
                                                           unitType,
                                                           unitCount - units,
                                                           producerLimit,
@@ -126,7 +135,7 @@ void StrategyEngine::upgradeWhenUnitCreated(std::map<int, std::vector<Production
         return;
     }
 
-    prioritizedProductionGoals[priority].emplace_back(UpgradeProductionGoal(upgradeOrTechType));
+    prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UpgradeProductionGoal>, "SE", upgradeOrTechType);
 }
 
 void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
@@ -159,24 +168,27 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
             !Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
         {
             prioritizedProductionGoals[PRIORITY_HIGHPRIORITYUPGRADES].emplace_back(std::in_place_type<UpgradeProductionGoal>,
-                                                                     BWAPI::UpgradeTypes::Protoss_Ground_Weapons,
-                                                                     weaponLevel + 1,
-                                                                     forgeCount);
+                                                                                   "SE",
+                                                                                   BWAPI::UpgradeTypes::Protoss_Ground_Weapons,
+                                                                                   weaponLevel + 1,
+                                                                                   forgeCount);
         }
         if (!Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Armor) && armorLevel < maxLevel)
         {
             prioritizedProductionGoals[PRIORITY_HIGHPRIORITYUPGRADES].emplace_back(std::in_place_type<UpgradeProductionGoal>,
-                                                                     BWAPI::UpgradeTypes::Protoss_Ground_Armor,
-                                                                     armorLevel + 1,
-                                                                     forgeCount);
+                                                                                   "SE",
+                                                                                   BWAPI::UpgradeTypes::Protoss_Ground_Armor,
+                                                                                   armorLevel + 1,
+                                                                                   forgeCount);
         }
         if (weaponLevel > 0 && armorLevel == 0 && weaponLevel < maxLevel &&
             !Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Weapons))
         {
             prioritizedProductionGoals[PRIORITY_HIGHPRIORITYUPGRADES].emplace_back(std::in_place_type<UpgradeProductionGoal>,
-                                                                     BWAPI::UpgradeTypes::Protoss_Ground_Weapons,
-                                                                     weaponLevel + 1,
-                                                                     forgeCount);
+                                                                                   "SE",
+                                                                                   BWAPI::UpgradeTypes::Protoss_Ground_Weapons,
+                                                                                   weaponLevel + 1,
+                                                                                   forgeCount);
         }
 
         // Upgrade shields when we are maxed
@@ -187,6 +199,7 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
             if (weaponLevel < 3 && armorLevel < 3) forgeCount = 3;
             prioritizedProductionGoals[PRIORITY_NORMAL]
                     .emplace_back(std::in_place_type<UpgradeProductionGoal>,
+                                  "SE",
                                   BWAPI::UpgradeTypes::Protoss_Plasma_Shields,
                                   BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Plasma_Shields) + 1,
                                   forgeCount);
@@ -204,5 +217,5 @@ void StrategyEngine::upgrade(std::map<int, std::vector<ProductionGoal>> &priorit
     if (Units::isBeingUpgradedOrResearched(upgradeOrTechType)) return;
 
     // Queue the upgrade
-    prioritizedProductionGoals[priority].emplace_back(UpgradeProductionGoal(upgradeOrTechType, level));
+    prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UpgradeProductionGoal>, "SE", upgradeOrTechType, level);
 }

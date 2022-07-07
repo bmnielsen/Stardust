@@ -314,6 +314,7 @@ void ElevatorRush::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
         if (unitRequirement.type != BWAPI::UnitTypes::Protoss_Shuttle) continue;
 
         prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       label,
                                                                        unitRequirement.type,
                                                                        unitRequirement.count,
                                                                        1);

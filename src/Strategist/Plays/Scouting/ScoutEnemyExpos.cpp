@@ -213,7 +213,11 @@ void ScoutEnemyExpos::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             continue;
         }
 
-        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Observer, 1, 1);
+        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 label,
+                                                                 BWAPI::UnitTypes::Protoss_Observer,
+                                                                 1,
+                                                                 1);
     }
 }
 

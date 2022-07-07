@@ -253,6 +253,7 @@ void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
                 {
                     auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(baseStaticDefenseLocations.first), 0, 0, 0);
                     prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                             label,
                                                                              BWAPI::UnitTypes::Protoss_Pylon,
                                                                              buildLocation,
                                                                              builder);
@@ -261,6 +262,7 @@ void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
 
             auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(*baseStaticDefenseLocations.second.begin()), 0, framesToPylon, 0);
             prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     label,
                                                                      BWAPI::UnitTypes::Protoss_Photon_Cannon,
                                                                      buildLocation,
                                                                      builder);
@@ -274,6 +276,7 @@ void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
         if (unitRequirement.count < 1) continue;
 
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 label,
                                                                  unitRequirement.type,
                                                                  unitRequirement.count,
                                                                  1);

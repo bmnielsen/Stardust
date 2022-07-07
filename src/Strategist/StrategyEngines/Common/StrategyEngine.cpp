@@ -32,6 +32,7 @@ void StrategyEngine::handleGasStealProduction(std::map<int, std::vector<Producti
 
     // Ensure we have a zealot
     prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                "SE-gassteal",
                                                                 BWAPI::UnitTypes::Protoss_Zealot,
                                                                 1,
                                                                 1);
@@ -66,6 +67,7 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
     if ((dragoonCount + zealotCount) < 2)
     {
         prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                    "SE-antirush",
                                                                     BWAPI::UnitTypes::Protoss_Zealot,
                                                                     -1,
                                                                     2);
@@ -114,6 +116,7 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
         else if (percentZealotsRequired < 0.2 && dragoonCount == 0)
         {
             prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                          "SE-antirush",
                                                                           BWAPI::UnitTypes::Protoss_Dragoon,
                                                                           1,
                                                                           1);
@@ -128,6 +131,7 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
         }
 
         prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                      "SE-antirush",
                                                                       BWAPI::UnitTypes::Protoss_Zealot,
                                                                       zealotsRequired > 1 ? -1 : 1,
                                                                       -1);
@@ -135,6 +139,7 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
 
     // End with dragoons
     prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                               "SE-antirush",
                                                                BWAPI::UnitTypes::Protoss_Dragoon,
                                                                -1,
                                                                -1);
@@ -201,6 +206,7 @@ bool StrategyEngine::handleIslandExpansionProduction(std::vector<std::shared_ptr
     if (weaponLevel < 3)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+                                                                                 "SE-islandexpo",
                                                                                  BWAPI::UpgradeTypes::Protoss_Air_Weapons,
                                                                                  weaponLevel + 1,
                                                                                  1);
@@ -208,6 +214,7 @@ bool StrategyEngine::handleIslandExpansionProduction(std::vector<std::shared_ptr
     if (requiredCarriers > 0)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                 "SE-islandexpo",
                                                                                  BWAPI::UnitTypes::Protoss_Carrier,
                                                                                  requiredCarriers,
                                                                                  4);
@@ -310,6 +317,7 @@ void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal
     if (desiredZealots <= zealotCount || Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   "SE-1gc",
                                                                    BWAPI::UnitTypes::Protoss_Dragoon,
                                                                    -1,
                                                                    -1);
@@ -319,12 +327,14 @@ void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal
     if (dragoonCount == 0)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   "SE-1gc",
                                                                    BWAPI::UnitTypes::Protoss_Zealot,
                                                                    1,
                                                                    1);
         desiredZealots--;
 
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   "SE-1gc",
                                                                    BWAPI::UnitTypes::Protoss_Dragoon,
                                                                    1,
                                                                    1);
@@ -333,12 +343,14 @@ void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal
     if (zealotCount < desiredZealots)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   "SE-1gc",
                                                                    BWAPI::UnitTypes::Protoss_Zealot,
                                                                    desiredZealots - zealotCount,
                                                                    1);
     }
 
     prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                               "SE-1gc",
                                                                BWAPI::UnitTypes::Protoss_Dragoon,
                                                                -1,
                                                                -1);
@@ -355,12 +367,14 @@ void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal
         if (highPriorityCount > 0)
         {
             prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                     "SE-ma-base",
                                                                                      unitType,
                                                                                      highPriorityCount,
                                                                                      producerLimit);
             highPriorityCount = 0;
         }
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   "SE-ma",
                                                                    unitType,
                                                                    -1,
                                                                    producerLimit);
@@ -372,6 +386,7 @@ void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal
         int produceAtHighPriority = std::min(highPriorityCount, count);
 
         prioritizedProductionGoals[PRIORITY_MAINARMYBASEPRODUCTION].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                 "SE-ma-base",
                                                                                  unitType,
                                                                                  produceAtHighPriority,
                                                                                  producerLimit);
@@ -383,6 +398,7 @@ void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal
     if (count > 0)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   "SE-ma",
                                                                    unitType,
                                                                    count,
                                                                    producerLimit);
