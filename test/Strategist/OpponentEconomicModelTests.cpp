@@ -308,3 +308,52 @@ TEST(OpponentEconomicModel, LateObservedGateway)
     test.run();
 }
 
+TEST(OpponentEconomicModel, ProxyGates)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.myModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.map = Maps::GetOne("Mancha");
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.writeReplay = false;
+
+    test.onStartMine = []()
+    {
+        Log::initialize();
+        CherryVis::initialize();
+        Map::initialize();
+        Log::SetDebug(true);
+
+        OpponentEconomicModel::initialize();
+    };
+
+    test.onFrameMine = []()
+    {
+        if (BWAPI::Broodwar->getFrameCount() == 5)
+        {
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Assimilator, 95, 4233, true);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 156, 2428, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 151, 2416, false);
+        }
+
+        OpponentEconomicModel::update();
+
+        if (BWAPI::Broodwar->getFrameCount() == 8)
+        {
+            auto zealots = OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot, 15000);
+            auto dragoons = OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Dragoon, 15000);
+            std::cout << "Zealots: [" << zealots.first << "," << zealots.second << "]" << std::endl;
+            std::cout << "Dragoons: [" << dragoons.first << "," << dragoons.second << "]" << std::endl;
+        }
+    };
+
+    test.run();
+}
+
