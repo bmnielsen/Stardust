@@ -400,3 +400,67 @@ TEST(OpponentEconomicModel, IncorrectFourGate)
     test.run();
 }
 
+TEST(OpponentEconomicModel, ImpliedGas)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.myModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.map = Maps::GetOne("Mancha");
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.writeReplay = false;
+
+    test.onStartMine = []()
+    {
+        Log::initialize();
+        CherryVis::initialize();
+        Map::initialize();
+        Log::SetDebug(true);
+
+        OpponentEconomicModel::initialize();
+    };
+
+    test.onFrameMine = []()
+    {
+        if (BWAPI::Broodwar->getFrameCount() == 5)
+        {
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Gateway, 147, 1848, true);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Gateway, 152, 2467, true);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 157, 2932, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 165, 3595, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 164, 3625, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 183, 7283, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 174, 7303, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 181, 7309, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 188, 7322, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 198, 7326, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 204, 7339, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 192, 7358, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 201, 7361, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 175, 7370, false);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 206, 7403, false);
+            OpponentEconomicModel::opponentUnitDestroyed(BWAPI::UnitTypes::Protoss_Zealot, 164, 8040);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 208, 7473, false);
+            OpponentEconomicModel::opponentUnitDestroyed(BWAPI::UnitTypes::Protoss_Zealot, 165, 8590);
+            OpponentEconomicModel::opponentUnitDestroyed(BWAPI::UnitTypes::Protoss_Zealot, 157, 8613);
+            OpponentEconomicModel::opponentUnitDestroyed(BWAPI::UnitTypes::Protoss_Zealot, 174, 8677);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 212, 7611, false);
+            OpponentEconomicModel::opponentUnitDestroyed(BWAPI::UnitTypes::Protoss_Zealot, 181, 8736);
+            OpponentEconomicModel::opponentUnitDestroyed(BWAPI::UnitTypes::Protoss_Zealot, 201, 8744);
+            OpponentEconomicModel::opponentUnitDestroyed(BWAPI::UnitTypes::Protoss_Zealot, 198, 8796);
+            OpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::Protoss_Zealot, 214, 7754, false);
+            OpponentEconomicModel::opponentUnitDestroyed(BWAPI::UnitTypes::Protoss_Zealot, 206, 8960);
+            OpponentEconomicModel::opponentUpgraded(BWAPI::UpgradeTypes::Leg_Enhancements, 1, 6963);
+        }
+
+        OpponentEconomicModel::update();
+    };
+
+    test.run();
+}
