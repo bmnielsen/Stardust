@@ -354,7 +354,8 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 // It might think one-zealot until the assimilator is scouted, but that is corrected later
                 if (createdBeforeUnit(BWAPI::UnitTypes::Protoss_Cybernetics_Core, 1, BWAPI::UnitTypes::Protoss_Gateway, 2))
                 {
-                    if (OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot).second == 0)
+                    if (OpponentEconomicModel::enabled() &&
+                        OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot).second == 0)
                     {
                         strategy = ProtossStrategy::NoZealotCore;
                     }
@@ -512,7 +513,8 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 if (enemyStrategy == ProtossStrategy::OneZealotCore && (
                         justDiscovered(BWAPI::UnitTypes::Protoss_Cybernetics_Core) || justDiscovered(BWAPI::UnitTypes::Protoss_Assimilator)))
                 {
-                    if (OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot).second == 0)
+                    if (OpponentEconomicModel::enabled() &&
+                        OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot).second == 0)
                     {
                         strategy = ProtossStrategy::NoZealotCore;
                     }
