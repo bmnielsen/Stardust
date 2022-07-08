@@ -59,9 +59,7 @@ public:
     int frameLastMoved;                 // Last frame on which the unit changed position
 
     // For units in the fog, the offset to our vanguard unit they had when they disappeared
-    // The first part of the pair is the distance to our vanguard unit
-    // The second is the angle offset from our vanguard unit's path to the enemy base
-    std::pair<int, double> offsetToVanguardUnit;
+    int offsetToVanguardUnit;
 
     BWAPI::Position simPosition;        // The position to use for this unit in combat simulation / targeting / etc.
     bool simPositionValid;              // Whether the simulation position is valid

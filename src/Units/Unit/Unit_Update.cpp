@@ -11,8 +11,8 @@
 
 #if INSTRUMENTATION_ENABLED
 #define UPCOMING_ATTACKS_DEBUG false
-#define PREDICTED_POSITIONS_DEBUG true
-#define PREDICTED_POSITIONS_DRAW true
+#define SIMULATED_POSITIONS_DEBUG true
+#define SIMULATED_POSITIONS_DRAW true
 #endif
 
 namespace
@@ -161,7 +161,7 @@ void UnitImpl::update(BWAPI::Unit unit)
     tilePositionY = unit->getPosition().y >> 5U;
     lastPosition = simPosition = unit->getPosition();
     lastAngle = unit->getAngle();
-    offsetToVanguardUnit = {};
+    offsetToVanguardUnit = 0;
     lastPositionValid = simPositionValid = true;
     lastPositionVisible = true;
     beingManufacturedOrCarried = isBeingManufacturedOrCarried();
@@ -721,7 +721,7 @@ void UnitImpl::updatePredictedPositions() const
 bool UnitImpl::updateSimPosition()
 {
     MyUnit vanguard = nullptr;
-    double vanguardDirection = 0.0;
+    BWAPI::Position targetPosition;
     auto getAttackEnemyMainVanguard = [&]()
     {
         auto squad = General::getAttackBaseSquad(Map::getEnemyStartingNatural());
@@ -734,14 +734,7 @@ bool UnitImpl::updateSimPosition()
         vanguard = vanguardCluster->vanguard;
         if (!vanguard) return false;
 
-        auto waypoint = PathFinding::NextGridOrChokeWaypoint(vanguard->lastPosition,
-                                                             squad->getTargetPosition(),
-                                                             PathFinding::getNavigationGrid(BWAPI::TilePosition(squad->getTargetPosition())),
-                                                             3);
-        if (waypoint == BWAPI::Positions::Invalid) waypoint = squad->getTargetPosition();
-
-        vanguardDirection = atan2(vanguard->lastPosition.y - waypoint.y, vanguard->lastPosition.x - waypoint.x);
-
+        targetPosition = squad->getTargetPosition();
         return true;
     };
 
@@ -763,39 +756,61 @@ bool UnitImpl::updateSimPosition()
         if (!getAttackEnemyMainVanguard()) return false;
 
         // Skip units too far away
-        auto vanguardDist = vanguard->lastPosition.getDistance(lastPosition);
+        auto vanguardDist = vanguard->lastPosition.getApproxDistance(lastPosition);
         if (vanguardDist > 640) return false;
 
-        // Set the distance and angle
-        auto angle = atan2(vanguard->lastPosition.y - lastPosition.y, vanguard->lastPosition.x - lastPosition.x);
-        offsetToVanguardUnit = std::make_pair(vanguardDist, vanguardDirection - angle);
-
-#if PREDICTED_POSITIONS_DEBUG
-        CherryVis::log(id) << "Offset to vanguard @ " << BWAPI::WalkPosition(vanguard->lastPosition)
-                           << std::setprecision(3)
-                           << ": vanguardDirection=" << (vanguardDirection * 57.2958)
-                           << ": angle=" << (angle * 57.2958)
-                           << "; dist=" << offsetToVanguardUnit.first
-                           << "; diff=" << (offsetToVanguardUnit.second * 57.2958);
-#endif
-
+        // Set the distance
+        offsetToVanguardUnit = vanguardDist;
         return true;
     }
 
     // If we have an offset and a vanguard unit, predict the position
-    if (offsetToVanguardUnit.first == 0) return false;
+    if (offsetToVanguardUnit == 0) return false;
     if (!getAttackEnemyMainVanguard()) return false;
 
-    auto a = vanguardDirection - offsetToVanguardUnit.second;
-    simPosition = BWAPI::Position(
-            vanguard->lastPosition.x - (int) std::round((double) offsetToVanguardUnit.first * std::cos(a)),
-            vanguard->lastPosition.y - (int) std::round((double) offsetToVanguardUnit.first * std::sin(a)));
+    // Criteria for target position:
+    // - Must not be visible
+    // - Must have a navigation grid
+    NavigationGrid *grid;
+    auto validatePosition = [&grid, &targetPosition](BWAPI::Position pos)
+    {
+        if (BWAPI::Broodwar->isVisible(BWAPI::TilePosition(pos))) return false;
+
+        grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(pos));
+        if (!grid) return false;
+
+        targetPosition = pos;
+        return true;
+    };
+    if (!validatePosition(targetPosition))
+    {
+        auto base = Map::getEnemyMain();
+        if (!base || !validatePosition(base->getPosition()))
+        {
+            return false;
+        }
+    }
+
+    // Find the node where the path enters the fog
+    auto node = &(*grid)[vanguard->lastPosition];
+    while (node->nextNode && BWAPI::Broodwar->isVisible(node->x, node->y))
+    {
+        node = node->nextNode;
+    }
+
+    // Scale the position towards this node
+    BWAPI::Position vector(BWAPI::TilePosition(node->x - vanguard->tilePositionX, node->y - vanguard->tilePositionY));
+    int magnitude = std::max(Geo::ApproximateDistance(vector.x, 0, vector.y, 0), offsetToVanguardUnit);
+    auto scaledVector = Geo::ScaleVector(vector, magnitude);
+    if (scaledVector == BWAPI::Positions::Invalid) return false;
+
+    simPosition = vanguard->lastPosition + scaledVector;
     simPositionValid = simPosition.isValid();
 
-#if PREDICTED_POSITIONS_DEBUG
+#if SIMULATED_POSITIONS_DEBUG
     CherryVis::log(id) << "Simulated position: " << BWAPI::WalkPosition(simPosition);
 #endif
-#if PREDICTED_POSITIONS_DRAW
+#if SIMULATED_POSITIONS_DRAW
     CherryVis::drawLine(lastPosition.x,
                         lastPosition.y,
                         simPosition.x,
