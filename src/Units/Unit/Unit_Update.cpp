@@ -12,6 +12,7 @@
 #if INSTRUMENTATION_ENABLED
 #define UPCOMING_ATTACKS_DEBUG false
 #define PREDICTED_POSITIONS_DEBUG true
+#define PREDICTED_POSITIONS_DRAW true
 #endif
 
 namespace
@@ -793,6 +794,14 @@ bool UnitImpl::updateSimPosition()
 
 #if PREDICTED_POSITIONS_DEBUG
     CherryVis::log(id) << "Simulated position: " << BWAPI::WalkPosition(simPosition);
+#endif
+#if PREDICTED_POSITIONS_DRAW
+    CherryVis::drawLine(lastPosition.x,
+                        lastPosition.y,
+                        simPosition.x,
+                        simPosition.y,
+                        CherryVis::DrawColor::White,
+                        id);
 #endif
 
     return simPositionValid;

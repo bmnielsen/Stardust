@@ -618,7 +618,8 @@ namespace FAP {
         if (!isInRange(fu, *closestEnemy, (closestEnemy->flying ? 0 : fu.groundMinRange), (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange)) ||
           closestEnemy->unitType == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) {
           moveTowards(fu, closestEnemy->x, closestEnemy->y, closestEnemy->cell);
-        } else if (fu.attackCooldownRemaining > 1) {
+        } else if (fu.attackCooldownRemaining > 1 &&
+          (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange) > ((fu.flying ? closestEnemy->airMaxRange : closestEnemy->groundMaxRange))) {
           auto const dx = fu.x - closestEnemy->x;
           auto const dy = fu.y - closestEnemy->y;
           updatePositionTowards(fu, dx, dy);
