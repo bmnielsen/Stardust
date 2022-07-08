@@ -349,8 +349,10 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                     strategy = ProtossStrategy::TwoGate;
                     continue;
                 }
-                if (createdBeforeUnit(BWAPI::UnitTypes::Protoss_Cybernetics_Core, 1, BWAPI::UnitTypes::Protoss_Gateway, 2) ||
-                    createdBeforeUnit(BWAPI::UnitTypes::Protoss_Assimilator, 1, BWAPI::UnitTypes::Protoss_Gateway, 2))
+
+                // Check economic model if we scout the core first
+                // It might think one-zealot until the assimilator is scouted, but that is corrected later
+                if (createdBeforeUnit(BWAPI::UnitTypes::Protoss_Cybernetics_Core, 1, BWAPI::UnitTypes::Protoss_Gateway, 2))
                 {
                     if (OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot).second == 0)
                     {
@@ -360,6 +362,14 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                     {
                         strategy = ProtossStrategy::OneZealotCore;
                     }
+                    continue;
+                }
+
+                // Assume one-zealot if we scout the assimilator first
+                // Will be reconsidered when the core is scouted
+                if (createdBeforeUnit(BWAPI::UnitTypes::Protoss_Assimilator, 1, BWAPI::UnitTypes::Protoss_Gateway, 2))
+                {
+                    strategy = ProtossStrategy::OneZealotCore;
                     continue;
                 }
 
