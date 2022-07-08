@@ -13,6 +13,7 @@
 
 #if INSTRUMENTATION_ENABLED
 #define DEBUG_WRITE_SUBGOALS false
+#define OUTPUT_BUILD_QUEUE false
 #endif
 
 namespace Producer
@@ -1984,7 +1985,9 @@ namespace Producer
             }
         }
 
+#if OUTPUT_BUILD_QUEUE
         write(committedItems, "producer");
+#endif
 
         // Issue build commands
         bool firstUnbuiltItem = true;
