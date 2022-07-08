@@ -529,6 +529,7 @@ namespace OpponentEconomicModel
             {
                 if (upgradeOrTechType.gasPrice() > 5) gasFrames.emplace_back(std::make_pair(frame, upgradeOrTechType.gasPrice()));
             }
+            std::sort(gasFrames.begin(), gasFrames.end());
 
             int cumulativeGasNeeded = 0;
             for (const auto &[frame, gasSpent] : gasFrames)
