@@ -45,7 +45,7 @@ int currentFrame;
 #define AIR_THREAT_HEATMAP_FREQUENCY_MINE 0
 #define DETECTION_HEATMAP_FREQUENCY_MINE 0
 
-#define VISIBILITY_HEATMAP_FREQUENCY 0 // Only tracked for self
+#define POWER_HEATMAP_FREQUENCY 0 // Only tracked for self
 #endif
 
 namespace
@@ -320,10 +320,10 @@ void StardustAIModule::onFrame()
         Players::grid(BWAPI::Broodwar->enemy()).dumpStasisRangeHeatmapIfChanged("StasisRange");
     }
 #endif
-#if VISIBILITY_HEATMAP_FREQUENCY
-    if (currentFrame % VISIBILITY_HEATMAP_FREQUENCY == 0)
+#if POWER_HEATMAP_FREQUENCY
+    if (currentFrame % POWER_HEATMAP_FREQUENCY == 0)
     {
-        Map::dumpVisibilityHeatmap();
+        Map::dumpPowerHeatmap();
     }
 #endif
     CherryVis::frameEnd(currentFrame);

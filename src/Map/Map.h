@@ -93,7 +93,7 @@ namespace Map
 
     std::map<BWAPI::TilePosition, const BWEM::Area *> &getEdgePositionsToArea();
 
-    void dumpVisibilityHeatmap();
+    void dumpPowerHeatmap();
 
     void dumpWalkability();
 

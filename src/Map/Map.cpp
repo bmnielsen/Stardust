@@ -39,7 +39,6 @@ namespace Map
         std::vector<int> tileLastSeen;
 
 #if CHERRYVIS_ENABLED
-        std::vector<long> visibility;
         std::vector<long> power;
 #endif
 
@@ -841,7 +840,6 @@ namespace Map
         NoGoAreas::initialize();
 
 #if CHERRYVIS_ENABLED
-        visibility.clear();
         power.clear();
 #endif
         playerToPlayerBases.clear();
@@ -1320,25 +1318,9 @@ namespace Map
         return edgePositionsToArea;
     }
 
-    void dumpVisibilityHeatmap()
+    void dumpPowerHeatmap()
     {
 #if CHERRYVIS_ENABLED
-        std::vector<long> newVisibility(mapWidth * mapHeight, 0);
-        for (int y = 0; y < mapHeight; y++)
-        {
-            for (int x = 0; x < mapWidth; x++)
-            {
-                if (BWAPI::Broodwar->isVisible(x, y))
-                    newVisibility[x + y * mapWidth] = 1;
-            }
-        }
-
-        if (newVisibility != visibility)
-        {
-            CherryVis::addHeatmap("FogOfWar", newVisibility, mapWidth, mapHeight);
-            visibility = newVisibility;
-        }
-
         std::vector<long> newPower(mapWidth * mapHeight, 0);
         for (int y = 0; y < mapHeight; y++)
         {
