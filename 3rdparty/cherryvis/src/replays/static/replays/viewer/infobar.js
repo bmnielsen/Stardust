@@ -122,6 +122,7 @@ jQuery(document).ready( function($) {
      case 32: // space
      case 80: // p
        toggle_pause();
+       e.preventDefault();
        break;
      case 65: // a
      case 85: // u
