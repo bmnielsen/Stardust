@@ -258,8 +258,8 @@ TEST(BananaBrain, 4Gate)
 {
     BWTest test;
     test.opponentName = "BananaBrain";
-    test.map = Maps::GetOne("Syl");
-    test.randomSeed = 45417;
+    test.map = Maps::GetOne("Polypoid");
+    test.randomSeed = 1878;
     test.frameLimit = 15000;
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
@@ -294,6 +294,42 @@ TEST(BananaBrain, RunAsBB)
     BWTest test;
     test.myRace = BWAPI::Races::Protoss;
     test.opponentRace = BWAPI::Races::Protoss;
+    test.myModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ProtossStrategy::kPvP_NZCore;
+        return bbModule;
+    };
+    test.opponentModule = []()
+    {
+        return new StardustAIModule();
+    };
+    test.onStartOpponent = []()
+    {
+        Log::SetOutputToConsole(true);
+    };
+    test.onEndMine = [&](bool won)
+    {
+        std::ostringstream replayName;
+        replayName << "BananaBrain_" << test.map->shortname();
+        if (won)
+        {
+            replayName << "_LOSS";
+        }
+        replayName << "_" << test.randomSeed;
+        test.replayName = replayName.str();
+    };
+    test.expectWin = false;
+    test.run();
+}
+
+TEST(BananaBrain, ZCoreZ)
+{
+    BWTest test;
+    test.myRace = BWAPI::Races::Protoss;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.map = Maps::GetOne("MatchPoint");
+    test.randomSeed = 91244;
     test.myModule = []()
     {
         auto bbModule = new BananaBrain();
