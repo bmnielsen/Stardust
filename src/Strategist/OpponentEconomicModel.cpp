@@ -925,9 +925,8 @@ namespace OpponentEconomicModel
                     f++;
                     if (f > (unit->creationFrame - producerBuildTime))
                     {
-                        // The simulation couldn't figure it out, which probably means units were produced at very different frames compared
-                        // to our observations
-                        // It may also mean there has been some kind of proxy play that confuses the model
+                        // The simulation couldn't figure it out, which can mean that we've guessed wrong about creation frames (because of a proxy,
+                        // for example), or the build is just really weird
                         // Let's just bail out now to avoid overestimating the enemy's production facilities
                         Log::Get() << "WARNING: Couldn't resolve producers of observed units; aborting economic simulation";
                         break;

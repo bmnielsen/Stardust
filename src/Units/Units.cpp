@@ -313,13 +313,11 @@ namespace Units
                     auto closestProducer = getClosestProducer();
                     if (closestProducer)
                     {
-                        int framesMoved = PathFinding::ExpectedTravelTime(unit->lastPosition,
-                                                                      closestProducer->lastPosition,
-                                                                      unit->type,
-                                                                      PathFinding::PathFindingOptions::UseNearestBWEMArea);
-
-                        // Give it a bit of leeway to account for the spawn position being outside the producer
-                        return std::max(0, framesMoved - 48);
+                        return PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                               closestProducer->lastPosition,
+                                                               unit->type,
+                                                               PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                               1.1);
                     }
 
                     // We don't know the producer, so assume it came from the closest possible enemy main
@@ -331,7 +329,8 @@ namespace Units
                         framesMoved = PathFinding::ExpectedTravelTime(unit->lastPosition,
                                                                       enemyMain->getPosition(),
                                                                       unit->type,
-                                                                      PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                                                                      PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                                      1.1);
                     }
                     else
                     {
@@ -342,7 +341,8 @@ namespace Units
                             int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
                                                                          base->getPosition(),
                                                                          unit->type,
-                                                                         PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                                                                         PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                                         1.1);
                             if (frames < framesMoved)
                             {
                                 framesMoved = frames;
@@ -353,9 +353,7 @@ namespace Units
                         if (framesMoved == INT_MAX) framesMoved = 0;
                     }
 
-                    // Give some leeway since the unit might have been produced away from the depot
-                    // For Zerg we give less leeway since they have less building room
-                    return std::max(0, framesMoved - (unit->player->getRace() == BWAPI::Races::Zerg ? 75 : 200));
+                    return framesMoved;
                 };
 
                 completionFrame = currentFrame - getFramesMoved();
@@ -389,6 +387,7 @@ namespace Units
                                                                       mainChoke->center,
                                                                       BWAPI::UnitTypes::Zerg_Lurker,
                                                                       PathFinding::PathFindingOptions::UseNeighbouringBWEMArea,
+                                                                      1.1,
                                                                       1000);
                         Opponent::setGameValue("firstLurkerAtOurMain", completionFrame + frames);
                     }
