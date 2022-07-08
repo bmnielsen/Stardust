@@ -32,6 +32,9 @@ namespace OpponentEconomicModel
         // When guessing at gas timings, use this frame as the earliest frame
         const int EARLIEST_GAS = 2500;
 
+        // The number of frames we simulate it takes a worker to transfer from minerals to gas
+        const int TRANSFER_TO_GAS_FRAMES = 24;
+
 #if OUTPUT_BUILD_ORDER
         std::ostringstream observations;
 #endif
@@ -177,11 +180,10 @@ namespace OpponentEconomicModel
             for (int f = 0; f < MODEL_FRAME_LIMIT; f++)
             {
                 // If a refinery finished at this frame, move workers from minerals to gas
-                // They take 24 frames to switch
                 if (f == refineryFrames.front())
                 {
                     mineralWorkers -= 3;
-                    moveToGasFrames.push(f + 24);
+                    moveToGasFrames.push(f + TRANSFER_TO_GAS_FRAMES);
                     refineryFrames.pop();
                 }
                 if (f == moveToGasFrames.top())
@@ -198,7 +200,7 @@ namespace OpponentEconomicModel
 
                 // Build a worker
                 if (remainingWorkerBuildTime <= 0 && mineralCounter >= 50
-                    && (mineralWorkers + gasWorkers + (moveToGasFrames.size() - 1) * 3) < workerLimit
+                    && (mineralWorkers + gasWorkers + (moveToGasFrames.size() - 1) * 3 + (refineryFrames.size() - 1) * 3) < workerLimit
                     && (f >= PYLON_FINISHED || supplyCounter >= 2))
                 {
                     mineralCounter -= 50;
@@ -483,9 +485,6 @@ namespace OpponentEconomicModel
         worstCaseUnitCountCache.clear();
         earliestUnitProductionFrameCache.clear();
 
-        // Start by initializing with the opponent's income
-        simulateIncome(minerals, gas, supplyAvailable);
-
         // Compute units we haven't seen that are prerequisites to what we have seen
         impliedUnits.clear();
         std::vector<std::pair<int, BWAPI::UnitType>> prerequisites;
@@ -495,8 +494,8 @@ namespace OpponentEconomicModel
         }
         for (const auto &[upgradeOrTechType, frame] : research)
         {
-            getPrerequisites(prerequisites, upgradeOrTechType.whatsRequired(), frame);
-            getPrerequisites(prerequisites, upgradeOrTechType.whatUpgradesOrResearches(), frame);
+            addPrerequiste(prerequisites, upgradeOrTechType.whatsRequired(), frame);
+            addPrerequiste(prerequisites, upgradeOrTechType.whatUpgradesOrResearches(), frame);
         }
         removeDuplicates(prerequisites);
         for (auto &[frame, type] : prerequisites)
@@ -504,7 +503,7 @@ namespace OpponentEconomicModel
             if (frame < 0)
             {
                 Log::Get() << "ERROR: Prerequisite " << type << " would need to have been built at frame " << frame
-                    << "; assuming this is a test and disabling econ model";
+                           << "; assuming this is a test and disabling econ model";
                 isEnabled = false;
                 return;
             }
@@ -516,6 +515,43 @@ namespace OpponentEconomicModel
         EcoModelUnitSet allUnits;
         allUnits.insert(observedUnits.begin(), observedUnits.end());
         allUnits.insert(impliedUnits.begin(), impliedUnits.end());
+
+        // If we haven't seen an assimilator, check if we know when the enemy must have gotten it at the latest
+        int overrideGasTiming = -1;
+        if (observedUnitsByType.find(BWAPI::UnitTypes::Protoss_Assimilator) == observedUnitsByType.end())
+        {
+            std::vector<std::pair<int, int>> gasFrames;
+            for (const auto &unit : allUnits)
+            {
+                if (unit->type.gasPrice() > 5) gasFrames.emplace_back(std::make_pair(unit->creationFrame, unit->type.gasPrice()));
+            }
+            for (const auto &[upgradeOrTechType, frame] : research)
+            {
+                if (upgradeOrTechType.gasPrice() > 5) gasFrames.emplace_back(std::make_pair(frame, upgradeOrTechType.gasPrice()));
+            }
+
+            int cumulativeGasNeeded = 0;
+            for (const auto &[frame, gasSpent] : gasFrames)
+            {
+                cumulativeGasNeeded += gasSpent;
+                int f = frame - (int)((double)cumulativeGasNeeded / (GAS_PER_WORKER_FRAME * 3));
+                if (overrideGasTiming == -1 || f < overrideGasTiming)
+                {
+                    overrideGasTiming = f;
+                }
+            }
+
+            if (overrideGasTiming != -1)
+            {
+                overrideGasTiming -= UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator) - TRANSFER_TO_GAS_FRAMES;
+
+                auto producer = std::make_shared<EcoModelUnit>(BWAPI::UnitTypes::Protoss_Assimilator, 0, overrideGasTiming);
+                impliedUnits.insert(producer);
+                allUnits.insert(producer);
+            }
+        }
+
+        simulateIncome(minerals, gas, supplyAvailable, overrideGasTiming);
 
         // Simulate resource spend for all units
         auto spend = [&](const std::shared_ptr<EcoModelUnit> &unit)
