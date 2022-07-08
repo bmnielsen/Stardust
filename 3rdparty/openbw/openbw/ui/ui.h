@@ -603,6 +603,7 @@ struct ui_functions: ui_util_functions {
 	bool window_closed = false;
 
 	xy screen_pos;
+    uint32_t vision = 0;
 
 	size_t screen_width;
 	size_t screen_height;
@@ -1009,8 +1010,63 @@ struct ui_functions: ui_util_functions {
 		y -= screen_pos.y;
 	}
 
+    void draw_fow(uint8_t *data, size_t data_pitch)
+    {
+        auto screen_tile = screen_tile_bounds();
 
-	void draw_tiles(uint8_t* data, size_t data_pitch) {
+        size_t tile_index = screen_tile.from.y * game_st.map_tile_width + screen_tile.from.x;
+        auto *megatile_index = &st.tiles_mega_tile_index[tile_index];
+        auto *tile = &st.tiles[tile_index];
+        size_t width = screen_tile.to.x - screen_tile.from.x;
+        uint8_t *dark = &tileset_img.dark_pcx.data[256 * 18];
+
+        for (size_t tile_y = screen_tile.from.y; tile_y != screen_tile.to.y; ++tile_y)
+        {
+            for (size_t tile_x = screen_tile.from.x; tile_x != screen_tile.to.x; ++tile_x)
+            {
+                if (vision && (~tile->visible & vision) == 0)
+                {
+                    int screen_x = tile_x * 32 - screen_pos.x;
+                    int screen_y = tile_y * 32 - screen_pos.y;
+
+                    size_t offset_x = 0;
+                    size_t offset_y = 0;
+                    if (screen_x < 0)
+                    {
+                        offset_x = -screen_x;
+                    }
+                    if (screen_y < 0)
+                    {
+                        offset_y = -screen_y;
+                    }
+
+                    uint8_t *dst = data + (screen_y + offset_y) * data_pitch + screen_x;
+
+                    size_t width = 32;
+                    size_t height = 32;
+
+                    width = std::min(width, screen_width - screen_x);
+                    height = std::min(height, screen_height - screen_y);
+                    for (size_t y = height - offset_y; y > 0; y--)
+                    {
+                        dst += offset_x;
+                        for (size_t x = width - offset_x; x > 0; x--)
+                        {
+                            *dst = dark[*dst];
+                            dst++;
+                        }
+                        dst -= width;
+                        dst += data_pitch;
+                    }
+                }
+                ++tile;
+            }
+            tile -= width;
+            tile += game_st.map_tile_width;
+        }
+    }
+
+    void draw_tiles(uint8_t* data, size_t data_pitch) {
 
 		auto screen_tile = screen_tile_bounds();
 
@@ -1630,19 +1686,22 @@ struct ui_functions: ui_util_functions {
 		line_rectangle(data, data_pitch, {area.from - xy(1, 1), area.to + xy(1, 1)}, 0);
 
 		uint8_t* p = data + data_pitch * (size_t)area.from.y + (size_t)area.from.x;
+        uint8_t *dark = &tileset_img.dark_pcx.data[256 * 18];
 
 		size_t pitch = data_pitch - game_st.map_tile_width;
 		for (size_t y = 0; y != game_st.map_tile_height; ++y) {
 			for (size_t x = 0; x != game_st.map_tile_width; ++x) {
 				size_t index;
-				if (~st.tiles[y * game_st.map_tile_width + x].flags & tile_t::flag_has_creep) index = st.tiles_mega_tile_index[y * game_st.map_tile_width + x];
+                tile_t &tile = st.tiles[y * game_st.map_tile_width + x];
+                if (~tile.flags & tile_t::flag_has_creep)
+                    index = st.tiles_mega_tile_index[y * game_st.map_tile_width + x];
 				else index = game_st.cv5.at(1).mega_tile_index[creep_random_tile_indices[y * game_st.map_tile_width + x]];
 				auto* images = &tileset_img.vx4.at(index).images[0];
 				auto* bitmap = &tileset_img.vr4.at(*images / 2).bitmap[0];
 				auto val = bitmap[55 / sizeof(vr4_entry::bitmap_t)];
 				size_t shift = 8 * (55 % sizeof(vr4_entry::bitmap_t));
 				val >>= shift;
-				*p++ = (uint8_t)val;
+                *p++ = (vision && (~tile.visible & vision) == 0) ? dark[(uint8_t)val] : (uint8_t)val;
 			}
 			p += pitch;
 		}
@@ -2231,7 +2290,8 @@ struct ui_functions: ui_util_functions {
 		uint8_t* data = (uint8_t*)indexed_surface->lock();
 		draw_tiles(data, indexed_surface->pitch);
 		draw_sprites(data, indexed_surface->pitch);
-		draw_commands(data, indexed_surface->pitch);
+        draw_fow(data, indexed_surface->pitch);
+        draw_commands(data, indexed_surface->pitch);
 		draw_callback(data, indexed_surface->pitch);
 
 		if (draw_ui_elements) {

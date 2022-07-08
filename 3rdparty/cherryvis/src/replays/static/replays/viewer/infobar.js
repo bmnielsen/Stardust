@@ -158,6 +158,21 @@ jQuery(document).ready( function($) {
      case 53: // 5
        toggle_graphs(1);
        break;
+     case 81: // q
+       Module.set_vision(0);
+       break;
+     case 87: // w
+       Module.set_vision(1);
+       break;
+     case 69: // e
+       Module.set_vision(2);
+       break;
+     case 82: // r
+       Module.set_vision(4);
+       break;
+     case 84: // t
+       Module.set_vision(248); // All other players
+       break;
      }
   });
 

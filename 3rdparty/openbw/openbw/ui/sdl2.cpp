@@ -60,7 +60,7 @@ struct window_impl {
 		if (window) fatal_error("window already created");
 		Uint32 flags = 0;
 		flags |= SDL_WINDOW_RESIZABLE;
-		window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, flags);
+		window = SDL_CreateWindow(title, 0, 0, width, height, flags);
 		if (!window) log("SDL_CreateWindow failed: %s\n", SDL_GetError());
 		#ifdef EMSCRIPTEN
 		SDL_EventState(SDL_MOUSEBUTTONDOWN, SDL_ENABLE);

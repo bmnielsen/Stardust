@@ -719,6 +719,11 @@ void set_screen_center_position(int32_t x, int32_t y) {
 	ui.screen_pos.y = y - ui.view_height / 2;
 }
 
+void set_vision(int32_t vision) {
+    ui_functions& ui = m->ui;
+    ui.vision = vision;
+}
+
 void clear_selection() {
 	m->ui.current_selection.clear();
 }
@@ -854,6 +859,7 @@ EMSCRIPTEN_BINDINGS(openbw) {
 	function("get_selected_units", &get_selected_units);
 	function("select_unit_by_bw_id", &select_unit_by_bw_id);
 	function("set_screen_center_position", &set_screen_center_position);
+	function("set_vision", &set_vision);
 	function("clear_selection", &clear_selection);
 	function("enable_main_update_loop", &enable_main_update_loop);
 	function("lookup_unit", &lookup_unit);
