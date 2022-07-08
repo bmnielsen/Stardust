@@ -8,7 +8,7 @@
 #define MODEL_FRAME_LIMIT 20000
 
 #if INSTRUMENTATION_ENABLED
-#define OUTPUT_BOARD_VALUES true
+#define OUTPUT_BOARD_VALUES false
 #define OUTPUT_BUILD_ORDER true
 #endif
 
