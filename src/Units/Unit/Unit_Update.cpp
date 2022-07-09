@@ -712,6 +712,7 @@ void UnitImpl::updatePredictedPositions() const
 
         predictedPosition.x = x >> 8;
         predictedPosition.y = y >> 8;
+        Map::makePositionValid(predictedPosition.x, predictedPosition.y);
     }
 }
 
@@ -798,14 +799,24 @@ bool UnitImpl::updateSimPosition()
         node = node->nextNode;
     }
 
-    // Scale the position towards this node
-    BWAPI::Position vector(BWAPI::TilePosition(node->x - vanguard->tilePositionX, node->y - vanguard->tilePositionY));
-    int magnitude = std::max(Geo::ApproximateDistance(vector.x, 0, vector.y, 0), offsetToVanguardUnit);
-    auto scaledVector = Geo::ScaleVector(vector, magnitude);
-    if (scaledVector == BWAPI::Positions::Invalid) return false;
+    // Detect if the search failed
+    if (!node->nextNode) return false;
 
-    simPosition = vanguard->lastPosition + scaledVector;
-    simPositionValid = simPosition.isValid();
+    // Set the position here to start with
+    simPosition = node->center();
+    simPositionValid = true;
+
+    // Try to scale the position further away where appropriate
+    BWAPI::Position vector(BWAPI::TilePosition(node->x - vanguard->tilePositionX, node->y - vanguard->tilePositionY));
+    if (Geo::ApproximateDistance(vector.x, 0, vector.y, 0) < offsetToVanguardUnit)
+    {
+        auto scaledVector = Geo::ScaleVector(vector, offsetToVanguardUnit);
+        if (scaledVector != BWAPI::Positions::Invalid)
+        {
+            auto pos = vanguard->lastPosition + scaledVector;
+            if (Map::isWalkable(BWAPI::TilePosition(pos))) simPosition = pos;
+        }
+    }
 
 #if SIMULATED_POSITIONS_DEBUG
     CherryVis::log(id) << "Simulated position: " << BWAPI::WalkPosition(simPosition);

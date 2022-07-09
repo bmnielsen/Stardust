@@ -213,11 +213,7 @@ void MyWorker::attackUnit(const Unit &target,
     }
 
     auto myPredictedPosition = predictPosition(BWAPI::Broodwar->getLatencyFrames());
-    if (!myPredictedPosition.isValid()) myPredictedPosition = lastPosition;
-
     auto targetPredictedPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames());
-    if (!targetPredictedPosition.isValid()) targetPredictedPosition = target->lastPosition;
-
     auto predictedDist = Geo::EdgeToEdgeDistance(type, myPredictedPosition, target->type, targetPredictedPosition);
 
     int cooldownFrames = std::max(0, cooldownUntil - currentFrame);

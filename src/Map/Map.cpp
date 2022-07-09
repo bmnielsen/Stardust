@@ -17,7 +17,9 @@ namespace Map
     {
         int mapWidth;
         int mapHeight;
-        
+        int mapWidthPixels;
+        int mapHeightPixels;
+
         MapSpecificOverride *_mapSpecificOverride;
         std::vector<Base *> bases;
         std::vector<Base *> startingLocationBases;
@@ -810,7 +812,9 @@ namespace Map
     {
         mapWidth = BWAPI::Broodwar->mapWidth();
         mapHeight = BWAPI::Broodwar->mapHeight();
-        
+        mapWidthPixels = mapWidth * 32;
+        mapHeightPixels = mapHeight * 32;
+
         if (_mapSpecificOverride)
         {
             delete _mapSpecificOverride;
@@ -1372,5 +1376,11 @@ namespace Map
     int lastSeen(int x, int y)
     {
         return tileLastSeen[x + y * mapWidth];
+    }
+
+    void makePositionValid(int &x, int &y)
+    {
+        x = std::clamp(x, 0, mapWidthPixels);
+        y = std::clamp(y, 0, mapHeightPixels);
     }
 }

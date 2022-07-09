@@ -464,13 +464,10 @@ namespace Units
                         if (!base->owner) continue;
 
                         auto predictedPosition = unit->predictPosition(1);
-                        if (predictedPosition.isValid())
+                        if (predictedPosition.getApproxDistance(base->getPosition()) >
+                            unit->lastPosition.getApproxDistance(base->getPosition()))
                         {
-                            if (predictedPosition.getApproxDistance(base->getPosition()) >
-                                unit->lastPosition.getApproxDistance(base->getPosition()))
-                            {
-                                continue;
-                            }
+                            continue;
                         }
                     }
 

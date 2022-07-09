@@ -123,4 +123,6 @@ namespace Map
     int lastSeen(BWAPI::TilePosition tile);
 
     int lastSeen(int x, int y);
+
+    void makePositionValid(int &x, int &y);
 }
