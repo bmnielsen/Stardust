@@ -469,33 +469,37 @@ namespace FAP {
       return;
     }
 
-    // If the unit already has a target, find it
-    auto closestEnemy = enemyUnits.end();
-    int closestDistSquared;
+    // Target selection
+
+    // Start by fetching our current target, if we have one
+    auto currentTarget = enemyUnits.end();
+    int currentTargetDist = INT_MAX;
     if (fu.target) {
       for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
         if (enemyIt->health > 0 && enemyIt->id == fu.target) {
-          closestEnemy = enemyIt;
-          closestDistSquared = distSquared(fu, *enemyIt);
+          currentTarget = enemyIt;
+          currentTargetDist = distSquared(fu, *enemyIt);
           break;
         }
       }
 
       // Clear the target if it wasn't found or if it is within the unit's minimum range
-      if (closestEnemy == enemyUnits.end() || closestDistSquared < fu.groundMinRangeSquared) {
+      if (currentTarget == enemyUnits.end() || currentTargetDist < fu.groundMinRangeSquared) {
         fu.target = 0;
       }
     }
 
-    // Otherwise select the target
-    if (closestEnemy == enemyUnits.end()) {
+    // Potentially replace our current target with another one if we are off cooldown and it isn't in range
+    auto closestEnemy = currentTarget;
+    int closestDistSquared = currentTargetDist;
+    if (closestEnemy == enemyUnits.end() ||
+                        (closestDistSquared > (closestEnemy->flying ? fu.airMaxRangeSquared : fu.groundMaxRangeSquared) && !kite)) {
       for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
-        if (enemyIt->health < 1 || enemyIt->undetected) continue;
+        if (enemyIt->health < 1 || enemyIt->undetected || enemyIt == currentTarget) continue;
         if (enemyIt->flying) {
           if (fu.airDamage) {
             auto const d = distSquared<choke>(fu, *enemyIt);
-            if ((closestEnemy == enemyUnits.end() || d < closestDistSquared) &&
-              d >= fu.airMinRangeSquared) {
+            if (d < closestDistSquared && d >= fu.airMinRangeSquared) {
               closestDistSquared = d;
               closestEnemy = enemyIt;
             }
@@ -504,8 +508,7 @@ namespace FAP {
         else {
           if (fu.groundDamage) {
             auto const d = distSquared<choke>(fu, *enemyIt);
-            if ((closestEnemy == enemyUnits.end() || d < closestDistSquared) &&
-              d >= fu.groundMinRangeSquared) {
+            if (d < closestDistSquared && d >= fu.groundMinRangeSquared) {
               closestDistSquared = d;
               closestEnemy = enemyIt;
             }
@@ -513,7 +516,13 @@ namespace FAP {
         }
       }
 
-      if (closestEnemy != enemyUnits.end()) fu.target = closestEnemy->id;
+      // Keep the current target if the closest alternative isn't in range either
+      if (currentTarget != enemyUnits.end() && closestDistSquared > (closestEnemy->flying ? fu.airMaxRangeSquared : fu.groundMaxRangeSquared)) {
+        closestEnemy = currentTarget;
+        closestDistSquared = currentTargetDist;
+      } else if (closestEnemy != enemyUnits.end()) {
+        fu.target = closestEnemy->id;
+      }
     }
 
     auto updatePositionTowards = [this](FAPUnit<UnitExtension> &fu, int dx, int dy) {
