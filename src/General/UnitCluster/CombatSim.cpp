@@ -69,7 +69,7 @@ namespace
         // In a choke, collision values depend on unit size
         // We allow no collision between full-size units and a stack of two smaller-size units
         int collisionValueChoke = unit->isFlying ? 0 : 6;
-        if (unit->type.width() >= 32 || unit->type.height() >= 32) collisionValue = 12;
+        if (unit->type.width() >= 32 || unit->type.height() >= 32) collisionValueChoke = 12;
 
         return FAP::makeUnit<>()
                 .setUnitType(unit->type)
