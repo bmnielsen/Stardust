@@ -30,8 +30,11 @@
 #define DEBUG_CANNON_STATUS false
 #define DEBUG_PRODUCINGBUILDING_STATUS false
 #define DEBUG_ENEMY_STATUS false
-#define DEBUG_ENEMY_TIMINGS true
 #define DEBUG_PREDICTED_POSITIONS false
+#endif
+
+#if INSTRUMENTATION_ENABLED
+#define DEBUG_ENEMY_TIMINGS true
 #endif
 
 namespace Units
