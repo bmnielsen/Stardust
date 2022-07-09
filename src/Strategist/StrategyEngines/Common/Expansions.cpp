@@ -143,24 +143,57 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Determines if we consider it safe to expand to a normal expansion
+#if INSTRUMENTATION_ENABLED
+    std::string reasonUnsafe;
+#endif
     auto safeToExpand = [&]()
     {
         // Only expand when our army is on the offensive
         auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-        if (!mainArmyPlay) return false;
+        if (!mainArmyPlay)
+        {
+#if INSTRUMENTATION_ENABLED
+            reasonUnsafe = "No main army play";
+#endif
+            return false;
+        }
         if (typeid(*mainArmyPlay) == typeid(MopUp)) return true;
-        if (typeid(*mainArmyPlay) != typeid(AttackEnemyBase)) return false;
+        if (typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
+        {
+#if INSTRUMENTATION_ENABLED
+            reasonUnsafe = "Main army play is defensive";
+#endif
+            return false;
+        }
 
         // Sanity check that the play has a squad
         auto squad = mainArmyPlay->getSquad();
-        if (!squad) return false;
+        if (!squad)
+        {
+#if INSTRUMENTATION_ENABLED
+            reasonUnsafe = "Main army play has no squad";
+#endif
+            return false;
+        }
 
         // Get the vanguard cluster
         auto vanguardCluster = squad->vanguardCluster();
-        if (!vanguardCluster) return false;
+        if (!vanguardCluster)
+        {
+#if INSTRUMENTATION_ENABLED
+            reasonUnsafe = "Main army play squad has no units";
+#endif
+            return false;
+        }
 
         // Don't expand if the cluster has fewer than five units
-        if (vanguardCluster->units.size() < 5) return false;
+        if (vanguardCluster->units.size() < 5)
+        {
+#if INSTRUMENTATION_ENABLED
+            reasonUnsafe = "Main army play vanguard cluster has fewer than 5 units";
+#endif
+            return false;
+        }
 
         // Expand if we are gas blocked - we have the resources for the nexus anyway
         if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100) return true;
@@ -171,6 +204,9 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
             || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
                 && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
         {
+#if INSTRUMENTATION_ENABLED
+            reasonUnsafe = "Main army play vanguard cluster is moving or fleeing";
+#endif
             return false;
         }
 
@@ -199,12 +235,31 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         {
             if (takeExpansionPlay->cancellable())
             {
-                if (excessMineralAssignments > 1 || !safe ||
-                    takeExpansionPlay->enemyValue > 4 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
+                if (excessMineralAssignments > 1)
                 {
                     takeExpansionPlay->status.complete = true;
+#if INSTRUMENTATION_ENABLED
+                    Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition
+                               << ": excess mineral assignments is now " << excessMineralAssignments;
+#endif
+                }
+                if (!safe)
+                {
+                    takeExpansionPlay->status.complete = true;
+#if INSTRUMENTATION_ENABLED
 
-                    Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition;
+                    Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition
+                               << ": no longer safe: " << reasonUnsafe;
+#endif
+                }
+                if (takeExpansionPlay->enemyValue > 4 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
+                {
+                    takeExpansionPlay->status.complete = true;
+#if INSTRUMENTATION_ENABLED
+
+                    Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition
+                               << ": enemy combat value at expansion exceeds 4 dragoon equivalent";
+#endif
                 }
             }
         }
