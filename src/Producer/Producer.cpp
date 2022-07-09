@@ -174,9 +174,9 @@ namespace Producer
 
         ProductionItemSet committedItems;
 
+#if OUTPUT_BUILD_QUEUE
         void write(ProductionItemSet &items, const std::string &label)
         {
-#if CHERRYVIS_ENABLED
             auto itemLabel = [](const std::shared_ptr<ProductionItem> &item)
             {
                 std::ostringstream labelstream;
@@ -198,7 +198,6 @@ namespace Producer
             }
 
             CherryVis::setBoardListValue(label, values);
-#endif
 
             /*
             Log::LogWrapper csv = Log::Csv(label);
@@ -223,6 +222,7 @@ namespace Producer
             }
              */
         }
+#endif
 
         int getRemainingBuildTime(const MyUnit &producer)
         {
