@@ -41,24 +41,45 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
         return;
     }
 
-    // Get the current main army target base
-    // To avoid indecision, we only allow the army to switch target bases in the following situations:
-    // - it is attacking an expansion and has been on the attack in the past five seconds
-    // - it is attacking the enemy main or natural and is still on the attack
-    Base *mainArmyTarget = nullptr;
+    auto enemyStartingMain = Map::getEnemyStartingMain();
+    auto enemyStartingNatural = Map::getEnemyStartingNatural();
     auto attackEnemyBasePlay = dynamic_cast<AttackEnemyBase *>(mainArmyPlay);
-    if (attackEnemyBasePlay && attackEnemyBasePlay->base->owner == BWAPI::Broodwar->enemy())
-    {
-        bool isMainOrNatural = attackEnemyBasePlay->base == Map::getEnemyStartingMain() ||
-                               attackEnemyBasePlay->base == Map::getEnemyStartingNatural();
 
+    // Get the current main army target base, if it is locked-in to avoid indecision
+    auto getCurrentMainArmyTarget = [&]() -> Base*
+    {
+        // Must be an attack base play against an enemy base
+        if (!attackEnemyBasePlay) return nullptr;
+        if (attackEnemyBasePlay->base->owner != BWAPI::Broodwar->enemy()) return nullptr;
+
+        // Must have a vanguard cluster
         auto vanguard = attackEnemyBasePlay->getSquad()->vanguardCluster();
-        if (vanguard && (vanguard->currentActivity != UnitCluster::Activity::Regrouping
-                         || (!isMainOrNatural && vanguard->lastActivityChange > (currentFrame - 120))))
+        if (!vanguard) return nullptr;
+
+        // If the army is attacking the enemy main but has just discovered the enemy natural, switch to it
+        if (attackEnemyBasePlay->base == enemyStartingMain && enemyStartingNatural && enemyStartingNatural->owner == BWAPI::Broodwar->enemy())
         {
-            mainArmyTarget = attackEnemyBasePlay->base;
+            // Verify the cluster is closer to the natural than the main
+            if (vanguard->center.getApproxDistance(enemyStartingNatural->getPosition())
+                < vanguard->center.getApproxDistance(enemyStartingMain->getPosition()))
+            {
+                return enemyStartingNatural;
+            }
         }
-    }
+
+        // Stay locked in to the current base if the army is on the offensive
+        if (vanguard->currentActivity != UnitCluster::Activity::Regrouping) return attackEnemyBasePlay->base;
+
+        // Stay locked in to the current base if it is an expansion and we haven't been consistently regrouping for the past 5 seconds
+        if (attackEnemyBasePlay->base != enemyStartingMain && attackEnemyBasePlay->base != enemyStartingNatural
+            && vanguard->lastActivityChange > (currentFrame - 120))
+        {
+            return attackEnemyBasePlay->base;
+        }
+
+        return nullptr;
+    };
+    Base *mainArmyTarget = getCurrentMainArmyTarget();
 
     // Now analyze all of the enemy bases to determine how we want to attack them
     // Main army target is either a fortified expansion, the enemy natural, or the enemy main
@@ -69,7 +90,7 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
     for (auto &base : Map::getEnemyBases())
     {
         // Main and natural are default targets for our main army, so don't need to be analyzed
-        if (base == Map::getEnemyMain() || base == Map::getEnemyStartingNatural()) continue;
+        if (base == Map::getEnemyMain() || base == enemyStartingNatural) continue;
 
         // Skip if the main army is already attacking this base
         if (base == mainArmyTarget) continue;
@@ -84,10 +105,9 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
         // If we haven't seen the depot and the base is in the starting area of the main, don't attack it
         // This is to handle maps like Andromeda where the enemy will often build buildings close to the min-only that are actually
         // logically part of their main
-        auto enemyMain = Map::getEnemyStartingMain();
-        if (enemyMain && enemyMain->owner == BWAPI::Broodwar->enemy() && !base->resourceDepot)
+        if (enemyStartingMain && enemyStartingMain->owner == BWAPI::Broodwar->enemy() && !base->resourceDepot)
         {
-            auto enemyMainAreas = Map::getStartingBaseAreas(enemyMain);
+            auto enemyMainAreas = Map::getStartingBaseAreas(enemyStartingMain);
             if (enemyMainAreas.find(base->getArea()) != enemyMainAreas.end())
             {
                 continue;
@@ -122,8 +142,8 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
     if (!mainArmyTarget) mainArmyTarget = lowestEnemyValueBase;
     if (!mainArmyTarget)
     {
-        mainArmyTarget = Map::getEnemyStartingNatural() && Map::getEnemyStartingNatural()->owner == BWAPI::Broodwar->enemy()
-                         ? Map::getEnemyStartingNatural()
+        mainArmyTarget = enemyStartingNatural && enemyStartingNatural->owner == BWAPI::Broodwar->enemy()
+                         ? enemyStartingNatural
                          : Map::getEnemyMain();
     }
 
