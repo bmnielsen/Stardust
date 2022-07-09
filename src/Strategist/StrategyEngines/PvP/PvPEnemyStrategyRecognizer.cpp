@@ -101,7 +101,7 @@ namespace
         if (currentFrame >= 6000) return false;
 
         // We expect a zealot rush if we see an early zealot, early second zealot or early second gateway
-        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 2800) ||
+        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 2900) ||
                createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 3300, 2) ||
                createdBeforeFrame(BWAPI::UnitTypes::Protoss_Gateway, 2300, 2);
     }
