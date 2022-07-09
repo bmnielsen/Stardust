@@ -78,5 +78,5 @@ namespace CherryVis
 
     void disable();
 
-    void writeFrameData(const std::string &label, const nlohmann::json &entry);
+    void writeFrameData(const std::string &label, const nlohmann::json &entry, int framesPerPartition = 0);
 }

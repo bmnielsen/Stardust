@@ -29,11 +29,13 @@ namespace CherryVis
 
         struct DataFile
         {
-            explicit DataFile(std::string filename, DataFileType type, int partitionedObjectSize = 0)
+            explicit DataFile(std::string filename, DataFileType type, int partitionedObjectSize = 0, int framesPerPartition = 0)
             : filename(std::move(filename))
             , type(type)
             , lastFrame(-1)
             , partitionedObjectSize(partitionedObjectSize)
+            , framesPerPartition(framesPerPartition)
+            , currentPartition(0)
             , count(0)
             , stream(nullptr)
             {
@@ -41,11 +43,27 @@ namespace CherryVis
 
             std::vector<DataFilePart> parts;
 
+            bool isPartitioned() const
+            {
+                return partitionedObjectSize > 0 || framesPerPartition > 0;
+            }
+
             void writeEntry(const nlohmann::json &entry)
             {
                 if (count * partitionedObjectSize >= 26214400)
                 {
                     close();
+                }
+
+                if (framesPerPartition > 0)
+                {
+                    int partition = (BWAPI::Broodwar->getFrameCount() / framesPerPartition) * framesPerPartition;
+                    if (partition != currentPartition)
+                    {
+                        close();
+                    }
+
+                    currentPartition = partition;
                 }
 
                 if (count == 0)
@@ -97,6 +115,8 @@ namespace CherryVis
 
             void close()
             {
+                if (count == 0) return;
+
                 switch (type)
                 {
                     case Array:
@@ -126,17 +146,25 @@ namespace CherryVis
             DataFileType type;
             int lastFrame;
             int partitionedObjectSize;
+            int framesPerPartition;
+            int currentPartition;
             int count;
             zstd::ofstream *stream{};
 
             void createPart()
             {
+                int startFrame = BWAPI::Broodwar->getFrameCount();
                 std::ostringstream filenameBuilder;
                 filenameBuilder << filename;
                 if (partitionedObjectSize > 0) filenameBuilder << "_" << BWAPI::Broodwar->getFrameCount();
+                if (framesPerPartition > 0)
+                {
+                    startFrame = (BWAPI::Broodwar->getFrameCount() / framesPerPartition) * framesPerPartition;
+                    filenameBuilder << "_" << startFrame;
+                }
                 filenameBuilder << ".json.zstd";
 
-                parts.emplace_back(BWAPI::Broodwar->getFrameCount(), filenameBuilder.str());
+                parts.emplace_back(startFrame, filenameBuilder.str());
 
                 stream = new zstd::ofstream("bwapi-data/write/cvis/" + filenameBuilder.str());
 
@@ -511,10 +539,23 @@ namespace CherryVis
         }
         trace["units_logs"] = unitIdToLogFilePath;
 
-        for (auto &labelAndDataFile : labelToDataFile)
+        for (auto &[label, dataFile] : labelToDataFile)
         {
-            trace[labelAndDataFile.first] = labelAndDataFile.second.parts[0].filename;
-            labelAndDataFile.second.close();
+            if (dataFile.isPartitioned())
+            {
+                std::unordered_map<std::string, std::string> index;
+                for (const auto &part : dataFile.parts)
+                {
+                    index[std::to_string(part.firstFrame)] = part.filename;
+                }
+                trace[label] = index;
+            }
+            else
+            {
+                trace[label] = dataFile.parts[0].filename;
+            }
+
+            dataFile.close();
         }
 
         zstd::ofstream traceFile("bwapi-data/write/cvis/trace.json");
@@ -531,7 +572,7 @@ void CherryVis::disable()
 #endif
 }
 
-void CherryVis::writeFrameData(const std::string &label, const nlohmann::json &entry)
+void CherryVis::writeFrameData(const std::string &label, const nlohmann::json &entry, int framesPerPartition)
 {
     auto fileIt = labelToDataFile.find(label);
     if (fileIt == labelToDataFile.end())
@@ -539,7 +580,7 @@ void CherryVis::writeFrameData(const std::string &label, const nlohmann::json &e
         fileIt = labelToDataFile.emplace(
                 std::piecewise_construct,
                 std::make_tuple(label),
-                std::make_tuple(label, DataFileType::ObjectPerFrame)).first;
+                std::make_tuple(label, DataFileType::ObjectPerFrame, 0, framesPerPartition)).first;
     }
 
     fileIt->second.writeEntry(entry);

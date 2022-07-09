@@ -173,7 +173,7 @@ namespace General
             squad->addInstrumentation(squadArray);
         }
 
-        CherryVis::writeFrameData("squads", squadArray);
+        CherryVis::writeFrameData("squads", squadArray, 250);
 #endif
     }
 }
