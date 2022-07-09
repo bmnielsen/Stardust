@@ -5,13 +5,26 @@ async function cvis_dbg_squads_update(global_data, cvis_state) {
   if (!global_data.squads) return;
   if (!$('.squads-view').hasClass('show')) return;
 
-  // Load the data the first time we expand the tab
+  // Load legacy data if we have it in that format
   if (typeof global_data.squads === 'string') {
-    global_data.squads = await cvis_state.functions.load_cvis_json_file_async(cvis_state.cvis_path, global_data.squads);
+    global_data.squads_legacy = await cvis_state.functions.load_cvis_json_file_async(cvis_state.cvis_path, global_data.squads);
   }
 
   // Get the squads for the current frame
-  const frame_squads = global_data.squads[cvis_state.current_frame] || [];
+  let frame_squads;
+  if (global_data.squads_legacy) {
+    frame_squads = global_data.squads[cvis_state.current_frame] || [];
+  } else {
+    const partition = Math.floor(cvis_state.current_frame / 250) * 250;
+    if (typeof global_data.squads[partition] === 'string') {
+      global_data.squads[partition] = await cvis_state.functions.load_cvis_json_file_async(cvis_state.cvis_path, global_data.squads[partition]);
+    }
+    if (global_data.squads[partition]) {
+      frame_squads = global_data.squads[partition][cvis_state.current_frame] || [];
+    }
+  }
+
+  // Generate a DOM id for each squad
   for (let frame_squad of frame_squads) {
     frame_squad.id = frame_squad.label.toLowerCase().replace(/[^a-z0-9]/g, "-");
   }
@@ -126,6 +139,35 @@ async function cvis_dbg_squads_update(global_data, cvis_state) {
       active_squad_tab.find(`.${label}-percent-gain`)
           .text(percentLoss(sim_result.initialEnemy, sim_result.finalEnemy) -
               percentLoss(sim_result.initialMine, sim_result.finalMine));
+
+      if (sim_result.unitLog) {
+          if (active_squad_tab.find(`.${label}-draw`).is(':checked')) {
+              if (!sim_result.unitLogState) {
+                  let endFrame = 0;
+                  for (const log of Object.values(sim_result.unitLog)) endFrame = Math.max(endFrame, (log.length / 4) - 1);
+                  sim_result.unitLogState = {
+                      currentFrame: 0,
+                      endFrame: endFrame
+                  };
+                  active_squad_tab.find(`.${label}-draw-frame-slider`).attr('max', ''+endFrame);
+              } else {
+                  sim_result.unitLogState.currentFrame = parseInt(active_squad_tab.find(`.${label}-draw-frame-slider`).val());
+              }
+              active_squad_tab.find(`.${label}-draw-frame`).text(sim_result.unitLogState.currentFrame);
+
+              global_data.combatsim_draw = {
+                  frame: sim_result.unitLogState.currentFrame,
+                  data: sim_result.unitLog
+              };
+
+              active_squad_tab.find(`.hide-when-no-${label}-draw`).show();
+              active_squad_tab.find(`.hide-when-no-${label}-unitlogs`).show();
+          } else {
+              active_squad_tab.find(`.hide-when-no-${label}-draw`).hide();
+          }
+      } else {
+          active_squad_tab.find(`.hide-when-no-${label}-unitlogs`).hide();
+      }
 
       active_squad_tab.find(`.hide-when-no-${label}-result`).show();
     }
