@@ -140,7 +140,7 @@ namespace
             return true;
         }
 
-        CombatSimResult previousSimResult = cluster.recentSimResults.rbegin()[1].first;
+        CombatSimResult &previousSimResult = cluster.recentSimResults.rbegin()[1].first;
 
         // If the number of enemy units has increased, abort the attack: the enemy has reinforced or we have discovered previously-unseen enemy units
         if (simResult.enemyUnitCount > previousSimResult.enemyUnitCount)

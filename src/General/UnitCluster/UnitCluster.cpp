@@ -310,6 +310,12 @@ void UnitCluster::addInstrumentation(nlohmann::json &clusterArray) const
             result["choke_x"] = nlohmann::json();
             result["choke_y"] = nlohmann::json();
         }
+#if DEBUG_COMBATSIM_CVIS
+        if (!simResult.unitLog.empty())
+        {
+            result["unitLog"] = simResult.unitLog;
+        }
+#endif
         return result;
     };
 

@@ -213,7 +213,7 @@ namespace
             return false;
         }
 
-        CombatSimResult previousSimResult = cluster.recentSimResults.rbegin()[1].first;
+        CombatSimResult &previousSimResult = cluster.recentSimResults.rbegin()[1].first;
 
         // If the enemy army strength has increased significantly, abort the attack immediately
         if (simResult.initialEnemy > (int)((double)previousSimResult.initialEnemy * 1.2))

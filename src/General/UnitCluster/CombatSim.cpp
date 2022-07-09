@@ -258,6 +258,23 @@ namespace
             }
         }
 #endif
+#if DEBUG_COMBATSIM_CVIS
+        // Unit ID to: x, y, target, cooldown
+        std::unordered_map<std::string, std::vector<int>> unitLog;
+        auto updateUnitLog = [&unitLog](auto &units)
+        {
+            for (auto &unit : units)
+            {
+                auto id = std::to_string(unit.id);
+                unitLog[id].push_back(unit.x);
+                unitLog[id].push_back(unit.y);
+                unitLog[id].push_back(unit.target);
+                unitLog[id].push_back(unit.attackCooldownRemaining);
+            }
+        };
+        updateUnitLog(*sim.getState().first);
+        updateUnitLog(*sim.getState().second);
+#endif
 
         int initialMine = score(attacking ? sim.getState().first : sim.getState().second);
         int initialEnemy = score(attacking ? sim.getState().second : sim.getState().first);
@@ -265,6 +282,7 @@ namespace
         for (int i = 0; i < ((allTierOne && !attacking) ? 60 : 144); i++)
         {
 #if DEBUG_COMBATSIM_DRAW
+            // Start by recording the current location and cooldown of each unit
             std::map<int, std::tuple<int, int, int>> player1DrawData;
             std::map<int, std::tuple<int, int, int>> player2DrawData;
 
@@ -296,6 +314,7 @@ namespace
                         auto it = localData.find(unit.id);
                         if (it != localData.end() && unit.attackCooldownRemaining > std::get<2>(it->second))
                         {
+                            // Attacked
                             color = CherryVis::DrawColor::Orange;
                         }
                         if (it != localData.end())
@@ -306,6 +325,7 @@ namespace
                         CherryVis::drawCircle(unit.x, unit.y, 1, color, unit.id);
                     }
 
+                    // Everything left here has died
                     for (auto &unit : localData)
                     {
                         CherryVis::drawCircle(std::get<0>(unit.second), std::get<1>(unit.second), 1, CherryVis::DrawColor::Red, unit.first);
@@ -314,6 +334,11 @@ namespace
                 draw(*sim.getState().first, player1DrawData, CherryVis::DrawColor::Yellow);
                 draw(*sim.getState().second, player2DrawData, CherryVis::DrawColor::Cyan);
             }
+#endif
+
+#if DEBUG_COMBATSIM_CVIS
+            updateUnitLog(*sim.getState().first);
+            updateUnitLog(*sim.getState().second);
 #endif
 
 #if DEBUG_COMBATSIM_CSV
@@ -350,7 +375,11 @@ namespace
         CherryVis::log() << debug.str();
 #endif
 
-        return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, enemyHasUndetectedUnits, narrowChoke);
+#if DEBUG_COMBATSIM_CVIS
+        return {myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, enemyHasUndetectedUnits, narrowChoke, std::move(unitLog)};
+#else
+        return {myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, enemyHasUndetectedUnits, narrowChoke};
+#endif
     }
 }
 
