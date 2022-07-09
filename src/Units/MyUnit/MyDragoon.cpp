@@ -109,13 +109,8 @@ bool MyDragoon::isReady() const
         // Otherwise only allow switching targets if the current one is expected to be too far away to attack
         BWAPI::Position myPredictedPosition = predictPosition(framesToNextAttack);
         BWAPI::Position targetPredictedPosition = targetUnit->predictPosition(framesToNextAttack);
-        if (myPredictedPosition.isValid() && targetPredictedPosition.isValid())
-        {
-            int predictedDistance = Geo::EdgeToEdgeDistance(type, myPredictedPosition, targetUnit->type, targetPredictedPosition);
-            return predictedDistance > range(targetUnit);
-        }
-
-        return false;
+        int predictedDistance = Geo::EdgeToEdgeDistance(type, myPredictedPosition, targetUnit->type, targetPredictedPosition);
+        return predictedDistance > range(targetUnit);
     }
 
     return true;
@@ -150,7 +145,7 @@ void MyDragoon::attackUnit(const Unit &target,
         return;
     }
 
-    int currentDistanceToTarget = getDistance(target);
+    int currentDistanceToTarget = getDistance(target, target->simPosition);
 
     // Handle ranging a bunker and not on cooldown
     if (rangingBunker && cooldown <= BWAPI::Broodwar->getRemainingLatencyFrames() + 2)
@@ -158,7 +153,7 @@ void MyDragoon::attackUnit(const Unit &target,
         // What we do depends on where we are and where we're going
 
         auto myPredictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames());
-        int predictedDistanceToTarget = Geo::EdgeToEdgeDistance(type, myPredictedPosition, target->type, target->lastPosition);
+        int predictedDistanceToTarget = Geo::EdgeToEdgeDistance(type, myPredictedPosition, target->type, target->simPosition);
 
         // Well out of range: attack
         if (predictedDistanceToTarget > myRange)
@@ -186,16 +181,7 @@ void MyDragoon::attackUnit(const Unit &target,
     }
 
     BWAPI::Position predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
-    int predictedDistanceToTarget;
-    if (predictedTargetPosition.isValid())
-    {
-        predictedDistanceToTarget = getDistance(target, predictedTargetPosition);
-    }
-    else
-    {
-        predictedTargetPosition = target->lastPosition;
-        predictedDistanceToTarget = currentDistanceToTarget;
-    }
+    int predictedDistanceToTarget = getDistance(target, predictedTargetPosition);
 
     // Compute our preferred distance to the target
     int desiredDistance;
@@ -215,7 +201,7 @@ void MyDragoon::attackUnit(const Unit &target,
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Skipping kiting and moving towards " << target->type;
 #endif
-        moveTo(target->lastPosition, true);
+        moveTo(target->simPosition, true);
         return;
     }
 

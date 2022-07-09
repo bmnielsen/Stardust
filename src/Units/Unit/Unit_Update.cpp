@@ -315,16 +315,12 @@ void UnitImpl::updateUnitInFog()
         burrowed = true;
     }
 
-    // For predicted positions, units in the fog stay put
-    // So just reset the vector on the first frame it is in the fog
-    if (lastSeen == currentFrame - 1)
-    {
-        std::fill(predictedPositions.begin(), predictedPositions.end(), lastPosition);
-        predictedPositionsUpdated = true;
-    }
-
     // Update position simulation
     auto simPositionSucceeded = updateSimPosition();
+
+    // Units in fog do not have movement predicted beyond the sim position
+    std::fill(predictedPositions.begin(), predictedPositions.end(), simPosition);
+    predictedPositionsUpdated = true;
 
     // If we've already detected that this unit has moved from its last known location, skip it
     if (!lastPositionValid) return;

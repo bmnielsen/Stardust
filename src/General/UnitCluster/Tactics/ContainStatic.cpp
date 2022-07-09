@@ -80,7 +80,7 @@ void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
                 // Don't worry about units with a lower range
                 if (enemyRange <= myRange) continue;
 
-                int dist = myUnit->getDistance(unit);
+                int dist = myUnit->getDistance(unit, unit->simPosition);
 
                 // Don't worry about units that are further away from what we have already found
                 if (dist >= closestDist) continue;

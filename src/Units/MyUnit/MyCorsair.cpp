@@ -32,9 +32,9 @@ void MyCorsair::attackUnit(const Unit &target,
     if (dist > 320 || !target->bwapiUnit->isVisible())
     {
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(id) << "Attack: Moving to target @ " << BWAPI::WalkPosition(target->lastPosition);
+        CherryVis::log(id) << "Attack: Moving to target @ " << BWAPI::WalkPosition(target->simPosition);
 #endif
-        moveTo(target->lastPosition);
+        moveTo(target->simPosition);
         return;
     }
 
@@ -94,7 +94,7 @@ void MyCorsair::attackUnit(const Unit &target,
         for (auto &otherUnitAndTarget : unitsAndTargets)
         {
             if (otherUnitAndTarget.first->id == id) continue;
-            int otherDist = otherUnitAndTarget.first->getDistance(target);
+            int otherDist = otherUnitAndTarget.first->getDistance(target, target->simPosition);
             if (otherDist < dist)
             {
                 otherCloser = true;

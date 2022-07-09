@@ -91,8 +91,7 @@ namespace
                 .setAirDamage(airDamage)
                 .setAirMaxRange(unit->airRange())
 
-                        // Uses lastPosition since we don't know if simPosition is walkable
-                .setElevation(BWAPI::Broodwar->getGroundHeight(unit->lastPosition.x >> 5, unit->lastPosition.y >> 5))
+                .setElevation(BWAPI::Broodwar->getGroundHeight(unit->simPosition.x >> 5, unit->simPosition.y >> 5))
 
                 .setAttackerCount(unit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
                 .setAttackCooldownRemaining(std::max(0, unit->cooldownUntil - currentFrame))

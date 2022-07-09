@@ -258,7 +258,7 @@ void UnitCluster::holdChoke(Choke *choke,
             {
                 // Unit is in its target's attack range
                 targetPos = unitAndTarget.second->lastPosition;
-                distDiff = myUnit->getDistance(unitAndTarget.second)
+                distDiff = myUnit->getDistance(unitAndTarget.second, unitAndTarget.second->simPosition)
                            - unitAndTarget.second->groundRange()
                            - 48;
             }

@@ -131,9 +131,9 @@ void MyUnitImpl::attackUnit(const Unit &target,
     if (dist > 320 || !target->bwapiUnit->isVisible())
     {
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(id) << "Attack: Moving to target @ " << BWAPI::WalkPosition(target->lastPosition);
+        CherryVis::log(id) << "Attack: Moving to target @ " << BWAPI::WalkPosition(target->simPosition);
 #endif
-        moveTo(target->lastPosition);
+        moveTo(target->simPosition);
         return;
     }
 
@@ -143,7 +143,7 @@ void MyUnitImpl::attackUnit(const Unit &target,
     auto rangeToTarget = range(target);
 
     // Predicted to be in range or target is stationary: attack
-    if (predictedDist <= rangeToTarget || targetPredictedPosition == target->lastPosition)
+    if (predictedDist <= rangeToTarget || targetPredictedPosition == target->simPosition)
     {
         // Re-send the attack command when we are coming into range
         bool forceAttackCommand = false;

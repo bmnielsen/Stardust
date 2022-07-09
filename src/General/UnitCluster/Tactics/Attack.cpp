@@ -65,8 +65,8 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
 
     if (canFormArc)
     {
-        auto pivot = vanguard->lastPosition + Geo::ScaleVector(vanguardTarget->lastPosition - vanguard->lastPosition,
-                                                               vanguard->lastPosition.getApproxDistance(vanguardTarget->lastPosition) + 64);
+        auto pivot = vanguard->lastPosition + Geo::ScaleVector(vanguardTarget->simPosition - vanguard->lastPosition,
+                                                               vanguard->lastPosition.getApproxDistance(vanguardTarget->simPosition) + 64);
 
         // Determine the desired distance to the pivot
         // If our units are on average within one tile of where we want them, shorten the distance by one tile
@@ -115,7 +115,7 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
-                                                    << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
+                                                    << BWAPI::WalkPosition(unitAndTarget.second->simPosition);
 #endif
             myUnit->attackUnit(unitAndTarget.second, unitsAndTargets, true, enemyAoeRadius);
         }

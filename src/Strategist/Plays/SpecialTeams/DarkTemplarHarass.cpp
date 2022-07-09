@@ -111,7 +111,7 @@ namespace
                 if (!allowRetreating)
                 {
                     auto predictedEnemyPosition = enemy->predictPosition(1);
-                    if (predictedEnemyPosition.isValid() && myUnit->getDistance(enemy, predictedEnemyPosition) > dist)
+                    if (myUnit->getDistance(enemy, predictedEnemyPosition) > dist)
                     {
                         continue;
                     }

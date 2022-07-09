@@ -125,7 +125,7 @@ void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAn
             if (dist < 10) continue;
             if (dist < furthestPatchDist) continue;
 
-            int targetDistToPatch = Geo::EdgeToEdgeDistance(target->type, target->lastPosition, patch->getType(), patch->getPosition());
+            int targetDistToPatch = Geo::EdgeToEdgeDistance(target->type, target->simPosition, patch->getType(), patch->getPosition());
             if (targetDistToPatch < dist) continue;
 
             furthestPatch = patch;
@@ -135,7 +135,7 @@ void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAn
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(worker->id) << "No flee patch; attacking: " << target->type << " @ "
-                                       << BWAPI::WalkPosition(target->lastPosition);
+                                       << BWAPI::WalkPosition(target->simPosition);
 #endif
             worker->attack(target->bwapiUnit, true);
             continue;
@@ -195,7 +195,7 @@ void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAn
             worker->getDistance(target) < (worker->groundRange() - 2))
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(worker->id) << "Kiting from target @ " << BWAPI::WalkPosition(target->lastPosition)
+            CherryVis::log(worker->id) << "Kiting from target @ " << BWAPI::WalkPosition(target->simPosition)
                                        << "; d=" << worker->getDistance(target)
                                        << "; moving to patch: " << BWAPI::WalkPosition(furthestPatch->getPosition());
 #endif
@@ -205,7 +205,7 @@ void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAn
 
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(worker->id) << "Attacking: " << target->type << " @ "
-                                   << BWAPI::WalkPosition(target->lastPosition);
+                                   << BWAPI::WalkPosition(target->simPosition);
 #endif
         worker->attack(target->bwapiUnit, true);
         //worker->attackUnit(target, workersAndTargets, false);
