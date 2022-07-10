@@ -810,6 +810,7 @@ bool UnitImpl::updateSimPosition()
         if (scaledVector != BWAPI::Positions::Invalid)
         {
             auto pos = vanguard->lastPosition + scaledVector;
+            Map::makePositionValid(pos.x, pos.y);
             if (Map::isWalkable(BWAPI::TilePosition(pos))) simPosition = pos;
         }
     }
