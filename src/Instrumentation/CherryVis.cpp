@@ -43,7 +43,7 @@ namespace CherryVis
 
             std::vector<DataFilePart> parts;
 
-            bool isPartitioned() const
+            [[nodiscard]] bool isPartitioned() const
             {
                 return partitionedObjectSize > 0 || framesPerPartition > 0;
             }
@@ -183,7 +183,7 @@ namespace CherryVis
             }
         };
 
-        nlohmann::json boardUpdates = nlohmann::json::object();
+        std::unique_ptr<DataFile> boardUpdatesFile;
         nlohmann::json frameBoardUpdates = nlohmann::json::object();
         bool frameHasBoardUpdates = false;
         std::unordered_map<std::string, std::string> boardKeyToLastValue;
@@ -282,7 +282,7 @@ namespace CherryVis
     void initialize()
     {
 #if CHERRYVIS_ENABLED
-        boardUpdates = nlohmann::json::object();
+        boardUpdatesFile = std::make_unique<DataFile>("board_updates", DataFileType::ObjectPerFrame);
         frameBoardUpdates = nlohmann::json::object();
         frameHasBoardUpdates = false;
         boardKeyToLastValue.clear();
@@ -446,7 +446,7 @@ namespace CherryVis
 #if CHERRYVIS_ENABLED
         if (frameHasBoardUpdates)
         {
-            boardUpdates[std::to_string(frame)] = std::move(frameBoardUpdates);
+            boardUpdatesFile->writeEntry(frameBoardUpdates);
             frameBoardUpdates = nlohmann::json::object();
             frameHasBoardUpdates = false;
         }
@@ -491,13 +491,15 @@ namespace CherryVis
         nlohmann::json trace = {
                 {"types_names",      buildTypesToName},
                 {"orders_names",     orderTypesToName},
-                {"board_updates",    boardUpdates},
+                {"board_updates",    boardUpdatesFile->parts[0].filename},
                 {"units_first_seen", frameToUnitsFirstSeen},
                 {"units_updates",    unitIdToFrameToUnitUpdate},
                 {"units_logs",       nlohmann::json::object()},
                 {"units_draw",       nlohmann::json::object()},
                 {"heatmaps",         heatmaps}
         };
+
+        boardUpdatesFile->close();
 
         if (unitIdToDrawCommandsFile.find(-1) == unitIdToDrawCommandsFile.end())
         {
