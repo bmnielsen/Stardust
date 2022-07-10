@@ -454,7 +454,7 @@ namespace FAP {
     if (fu.attackCooldownRemaining) {
       if (fu.unitType == BWAPI::UnitTypes::Terran_Vulture ||
           (fu.unitType == BWAPI::UnitTypes::Protoss_Dragoon &&
-          fu.attackCooldownRemaining <= BWAPI::UnitTypes::Protoss_Dragoon.groundWeapon().damageCooldown() - 6))
+          fu.attackCooldownRemaining <= BWAPI::UnitTypes::Protoss_Dragoon.groundWeapon().damageCooldown() - 10))
       {
         kite = true;
       }
