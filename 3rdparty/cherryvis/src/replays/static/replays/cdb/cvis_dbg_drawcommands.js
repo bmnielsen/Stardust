@@ -43,7 +43,6 @@ function cvis_dbg_drawcommands_update(global_data, cvis_state) {
           code: 20,
           str: '.'
         });
-        if (draw_commands_this_frame[draw_commands_this_frame.length - 1].args[2] === undefined) debugger;
       }
 
       // Unit dies this frame - draw a red circle
@@ -64,29 +63,23 @@ function cvis_dbg_drawcommands_update(global_data, cvis_state) {
         str: ''+unitData[idx_this_frame + 3]
       });
 
-      // Unit fired this frame - draw a circle and line to where it fired
-      if (unitData[idx_next_frame + 3] > unitData[idx_this_frame + 3]) {
-        // Draw a green circle and line to the target
-        const targetData = global_data.combatsim_draw.data[unitData[idx_this_frame + 2]];
-        if (targetData && targetData.length > idx_this_frame) {
-          draw_commands_this_frame.push({
-            args: [unitData[idx_this_frame], unitData[idx_this_frame + 1], targetData[idx_this_frame], targetData[idx_this_frame + 1], 117],
-            code: 20,
-            str: '.'
-          });
-          if (draw_commands_this_frame[draw_commands_this_frame.length - 1].args[2] === undefined) debugger;
-        }
+      const firedThisFrame = unitData[idx_next_frame + 3] > unitData[idx_this_frame + 3];
+
+      // Draw a line towards the target
+      const targetData = global_data.combatsim_draw.data[unitData[idx_this_frame + 2]];
+      if (targetData && targetData.length > idx_this_frame) {
+        const color = firedThisFrame ? 117 : 135;
         draw_commands_this_frame.push({
-          args: [unitData[idx_this_frame], unitData[idx_this_frame + 1], 5, 117],
-          code: 23,
+          args: [unitData[idx_this_frame], unitData[idx_this_frame + 1], targetData[idx_this_frame], targetData[idx_this_frame + 1], color],
+          code: 20,
           str: '.'
         });
-        continue;
       }
 
-      // Current location
+      // Draw a circle around the current position, green if we fired, white if not
+      const color = firedThisFrame ? 117 : 255;
       draw_commands_this_frame.push({
-        args: [unitData[idx_this_frame], unitData[idx_this_frame + 1], 5, 255],
+        args: [unitData[idx_this_frame], unitData[idx_this_frame + 1], 5, color],
         code: 23,
         str: '.'
       });
