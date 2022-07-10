@@ -156,7 +156,7 @@ function create_worker(file, initial_data) {
     'last_result': null,
     'post': w.postMessage,
   };
-  w.postMessage({'init_data': initial_data});
+  if (initial_data) w.postMessage({'init_data': initial_data});
   w.onmessage = function(m) {
     s['last_result'] = m.data;
   };
@@ -209,7 +209,7 @@ function cvis_init_with_data(path, init_data, config) {
       'total_count': 0,
       'entries': [],
     }),
-    'board': create_worker('workerboard.js', global_data['board_updates'], {
+    'board': create_worker('workerboard.js', {
       'total_count': 0,
       'entries': [],
     }),
@@ -243,6 +243,12 @@ function cvis_init_with_data(path, init_data, config) {
         return;
       }
       cvis_dbg_lib_init(global_data, cvis_state);
+
+      if (typeof global_data['board_updates'] === 'string') {
+        global_data.board_updates = await cvis_state.functions.load_cvis_json_file_async(cvis_state.cvis_path, global_data.board_updates);
+      }
+      cvis_state.workers.board.worker.postMessage({'init_data': global_data.board_updates});
+
       cvis_dbg_unitslist_init(global_data, cvis_state);
       cvis_dbg_logs_init(global_data, cvis_state);
       cvis_dbg_logs_attachments_init(global_data, cvis_state);
