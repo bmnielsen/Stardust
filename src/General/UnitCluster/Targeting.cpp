@@ -544,6 +544,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         int bestScore = -999999;
         int bestAttackerCount = 0;
         int bestDist = INT_MAX;
+        bool bestVisible = false;
 
         bool isRanged = UnitUtil::IsRangedUnit(unit->type);
         int cooldownMoveFrames = std::max(0,
@@ -559,6 +560,9 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 #endif
                 continue;
             }
+
+            // If we have a visible target, ignore non-visible
+            if (bestVisible && !potentialTarget->unit->bwapiUnit->isVisible()) continue;
 
             // Initialize the score as a formula of the target priority and how far outside our attack range it is
             // Each priority step is equivalent to 2 tiles
@@ -702,6 +706,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 bestAttackerCount = potentialTarget->attackerCount;
                 bestDist = targetDist;
                 bestTarget = potentialTarget;
+                bestVisible = potentialTarget->unit->bwapiUnit->isVisible();
 
 #if DEBUG_TARGETING
                 dbg << " (best)";
