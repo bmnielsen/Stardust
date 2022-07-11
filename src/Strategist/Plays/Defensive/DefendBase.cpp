@@ -340,11 +340,12 @@ int DefendBase::desiredCannons()
         if (enemyAirUnits > 6) return 4;
         if (enemyAirThreat) return 3;
 
-        auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
-        if (sneakAttack < 10000 && currentFrame > (sneakAttack - cannonBuildTime))
-        {
-            return 3;
-        }
+        // Disabled as we handle it in PvZ and it isn't tweaked for other races
+//        auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
+//        if (sneakAttack < 10000 && currentFrame > (sneakAttack - cannonBuildTime))
+//        {
+//            return 3;
+//        }
 
         if (enemyDropThreat && currentFrame > 8000) return 1;
         return 0;
