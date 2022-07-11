@@ -258,6 +258,17 @@ namespace
             // Scale based on length: 0 pixels long gives no reduction, 128 or higher gives 0.35 reduction
             aggression -= std::max(0.0, 0.35 * std::min(1.0, ((double) simResult.narrowChoke->length) / 128.0));
         }
+        else if (cluster.currentSubActivity == UnitCluster::SubActivity::ContainChoke)
+        {
+            // Special case if we were previously containing the choke and now the battle is not across it any more
+            // This indicates the enemy has moved across the choke, so consider this to be attacking instead
+            aggression = 1.2;
+        }
+        else if (cluster.currentSubActivity == UnitCluster::SubActivity::StandGround)
+        {
+            // This is considered a somewhat neutral case
+            aggression = 1.0;
+        }
 
         // Adjust the aggression for reinforcements
         aggression *= reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage);
