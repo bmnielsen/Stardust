@@ -37,7 +37,9 @@ namespace FAP {
 
   template<typename UnitExtension = std::tuple<>>
   struct FastAPproximation {
-    FastAPproximation(std::vector<unsigned char> &collision) : collision(collision) {}
+    FastAPproximation(std::vector<unsigned char> &collisionPlayer1, std::vector<unsigned char> &collisionPlayer2)
+        : collisionPlayer1(collisionPlayer1)
+        , collisionPlayer2(collisionPlayer2) {}
 
     /**
      * \brief Adds the unit to the simulator for player 1, only if it is a combat unit
@@ -85,15 +87,19 @@ namespace FAP {
 
     std::unique_ptr<ChokeGeometry> chokeGeometry;
 
-    // Current approach to collisions: allow two units to share the same grid cell, using half-tile resolution
+    // Current approach to collisions:
+    // - Units are given a collision value based on their size
+    // - Units in chokes may have a higher collision value
+    // - Sim only allows a certain value to enter a cell
     // This seems to strike a reasonable balance between improving how large melee armies are simmed and avoiding
     // expensive collision-based pathing calculations
-    std::vector<unsigned char> &collision;
+    std::vector<unsigned char> &collisionPlayer1;
+    std::vector<unsigned char> &collisionPlayer2;
 
     template<bool choke>
-    void initializeCollision(FAPUnit<UnitExtension> &fu);
+    void initializeCollision(FAPUnit<UnitExtension> &fu, std::vector<unsigned char> &collision);
     template<bool choke = false>
-    void updatePosition(FAPUnit<UnitExtension> &fu, int x, int y);
+    void updatePosition(FAPUnit<UnitExtension> &fu, int x, int y, std::vector<unsigned char> &collision);
 
     bool didSomething = false;
     static void dealDamage(FAPUnit<UnitExtension> &fu, int damage, BWAPI::DamageType damageType, FAPUnit<UnitExtension> &attacker);
@@ -108,7 +114,8 @@ namespace FAP {
     void unitsim(
             FAPUnit<UnitExtension> &fu,
             std::vector<FAPUnit<UnitExtension>> &friendlyUnits,
-            std::vector<FAPUnit<UnitExtension>> &enemyUnits);
+            std::vector<FAPUnit<UnitExtension>> &enemyUnits,
+            std::vector<unsigned char> &collision);
 
     void medicsim(FAPUnit<UnitExtension> &fu, std::vector<FAPUnit<UnitExtension>> &friendlyUnits);
     bool suicideSim(
@@ -191,7 +198,7 @@ namespace FAP {
   bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu) {
     if (isCombatUnit(fu.unit)) {
       static_assert(AssertValidUnit<uv>());
-      initializeCollision<choke>(fu.unit);
+      initializeCollision<choke>(fu.unit, collisionPlayer1);
       fu.unit.player = 1;
       player1.emplace_back(fu.unit);
       return true;
@@ -204,7 +211,7 @@ namespace FAP {
   bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu) {
     if (isCombatUnit(fu.unit)) {
       static_assert(AssertValidUnit<uv>());
-      initializeCollision<choke>(fu.unit);
+      initializeCollision<choke>(fu.unit, collisionPlayer2);
       fu.unit.player = 2;
       player2.emplace_back(fu.unit);
       return true;
@@ -236,7 +243,8 @@ namespace FAP {
   template<typename UnitExtension>
   void FastAPproximation<UnitExtension>::clear() {
     player1.clear(), player2.clear();
-    std::fill(collision.begin(), collision.end(), 0);
+    std::fill(collisionPlayer1.begin(), collisionPlayer1.end(), 0);
+    std::fill(collisionPlayer2.begin(), collisionPlayer2.end(), 0);
   }
 
   template<typename UnitExtension>
@@ -393,7 +401,7 @@ namespace FAP {
 
   template<typename UnitExtension>
   template<bool choke>
-  void FastAPproximation<UnitExtension>::initializeCollision(FAPUnit<UnitExtension> &fu) {
+  void FastAPproximation<UnitExtension>::initializeCollision(FAPUnit<UnitExtension> &fu, std::vector<unsigned char> &collision) {
     fu.cell = (fu.x >> 4) + ((fu.y >> 4) * BWAPI::Broodwar->mapWidth() * 2);
     if constexpr (choke) {
       collision[fu.cell] += (chokeGeometry->tileSide[fu.cell] == 0) ? fu.collisionValueChoke : fu.collisionValue;
@@ -405,7 +413,7 @@ namespace FAP {
 
   template<typename UnitExtension>
   template<bool choke>
-  void FastAPproximation<UnitExtension>::updatePosition(FAPUnit<UnitExtension> &fu, int x, int y) {
+  void FastAPproximation<UnitExtension>::updatePosition(FAPUnit<UnitExtension> &fu, int x, int y, std::vector<unsigned char> &collision) {
     if (fu.flying) {
       fu.x = x;
       fu.y = y;
@@ -449,7 +457,8 @@ namespace FAP {
   void FastAPproximation<UnitExtension>::unitsim(
           FAPUnit<UnitExtension> &fu,
           std::vector<FAPUnit<UnitExtension>> &friendlyUnits,
-          std::vector<FAPUnit<UnitExtension>> &enemyUnits) {
+          std::vector<FAPUnit<UnitExtension>> &enemyUnits,
+          std::vector<unsigned char> &collision) {
     bool kite = false;
     if (fu.attackCooldownRemaining) {
       if (fu.unitType == BWAPI::UnitTypes::Terran_Vulture ||
@@ -525,13 +534,14 @@ namespace FAP {
       }
     }
 
-    auto updatePositionTowards = [this](FAPUnit<UnitExtension> &fu, int dx, int dy) {
+    auto updatePositionTowards = [this, &collision](FAPUnit<UnitExtension> &fu, int dx, int dy) {
       auto ds = dx * dx + dy * dy;
       if (ds > 0) {
         auto r = fu.speed / sqrt(ds);
         updatePosition(fu,
                        fu.x + static_cast<int>(dx * r),
-                       fu.y + static_cast<int>(dy * r));
+                       fu.y + static_cast<int>(dy * r),
+                       collision);
       }
     };
 
@@ -639,7 +649,7 @@ namespace FAP {
 
     if (closestEnemy != enemyUnits.end() && closestDistSquared <= fu.speedSquared &&
       !(fu.x == closestEnemy->x && fu.y == closestEnemy->y)) {
-      updatePosition(fu, closestEnemy->x, closestEnemy->y);
+      updatePosition(fu, closestEnemy->x, closestEnemy->y, collision);
       closestDistSquared = 0;
 
       didSomething = true;
@@ -838,7 +848,7 @@ namespace FAP {
   template<typename UnitExtension>
   template<bool tankSplash, bool choke>
   void FastAPproximation<UnitExtension>::isimulate() {
-    const auto simUnit = [this](auto &unit, auto &friendly, auto &enemy) {
+    const auto simUnit = [this](auto &unit, auto &friendly, auto &enemy, std::vector<unsigned char> &collision) {
       if (unit->health < 1) {
         ++unit;
         return;
@@ -856,17 +866,17 @@ namespace FAP {
         if (unit->unitType == BWAPI::UnitTypes::Terran_Medic)
           medicsim(*unit, friendly);
         else
-          unitsim<tankSplash, choke>(*unit, friendly, enemy);
+          unitsim<tankSplash, choke>(*unit, friendly, enemy, collision);
         ++unit;
       }
     };
 
     for (auto fu = player1.begin(); fu != player1.end();) {
-      simUnit(fu, player1, player2);
+      simUnit(fu, player1, player2, collisionPlayer1);
     }
 
     for (auto fu = player2.begin(); fu != player2.end();) {
-      simUnit(fu, player2, player1);
+      simUnit(fu, player2, player1, collisionPlayer2);
     }
 
     const auto updateUnit = [](auto &it, auto &friendly, auto &killed) {

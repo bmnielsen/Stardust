@@ -22,9 +22,10 @@
 
 namespace
 {
-    // FAP collision vector
+    // FAP collision vectors
     // Allocated here at initialization to avoid re-allocations
-    std::vector<unsigned char> collision;
+    std::vector<unsigned char> collisionPlayer1;
+    std::vector<unsigned char> collisionPlayer2;
 
     // Cache of unit scores
     int baseScore[BWAPI::UnitTypes::Enum::MAX];
@@ -64,7 +65,7 @@ namespace
 
         // In open terrain, collision values scale based on the unit range
         // Rationale: melee units have a smaller area to maneuver in, so they interfere with each other more
-        int collisionValue = unit->isFlying ? 0 : std::max(0, 6 - (unit->groundRange() / 32));
+        int collisionValue = unit->isFlying ? 0 : std::max(0, 6 - (unit->groundRange() / 64));
 
         // In a choke, collision values depend on unit size
         // We allow no collision between full-size units and a stack of two smaller-size units
@@ -136,8 +137,9 @@ namespace
         int minUnitId = INT_MAX;
 #endif
 
-        std::fill(collision.begin(), collision.end(), 0);
-        FAP::FastAPproximation sim(collision);
+        std::fill(collisionPlayer1.begin(), collisionPlayer1.end(), 0);
+        std::fill(collisionPlayer2.begin(), collisionPlayer2.end(), 0);
+        FAP::FastAPproximation sim(collisionPlayer1, collisionPlayer2);
         if (narrowChoke)
         {
             sim.setChokeGeometry(narrowChoke->tileSide,
@@ -386,7 +388,8 @@ namespace CombatSim
 {
     void initialize()
     {
-        collision.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
+        collisionPlayer1.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
+        collisionPlayer2.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
 
         for (auto type : BWAPI::UnitTypes::allUnitTypes())
         {
