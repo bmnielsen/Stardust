@@ -32,7 +32,7 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
     plays.emplace_back(std::make_shared<EjectEnemyScout>());
     plays.emplace_back(std::make_shared<DefendMyMain>());
-    //plays.emplace_back(std::make_shared<HiddenBase>());
+    plays.emplace_back(std::make_shared<HiddenBase>());
 }
 
 void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
@@ -91,6 +91,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         {
             case OurStrategy::EarlyGameDefense:
             case OurStrategy::AntiZealotRush:
+            case OurStrategy::AntiDarkTemplarRush:
             case OurStrategy::Defensive:
                 defendOurMain = true;
                 break;
@@ -295,6 +296,31 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             break;
         }
 
+        case OurStrategy::AntiDarkTemplarRush:
+        {
+            // handleDetection takes care of ordering cannons and obs
+
+            // Expand to our hidden base
+            auto hiddenBasePlay = getPlay<HiddenBase>(plays);
+            if (hiddenBasePlay && hiddenBasePlay->base->ownedSince == -1)
+            {
+                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(hiddenBasePlay->base->getTilePosition()),
+                                                                      0, 0, 0);
+                prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "SE-antidt",
+                                                                         BWAPI::UnitTypes::Protoss_Nexus,
+                                                                         buildLocation);
+            }
+
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+
+            break;
+        }
+
         case OurStrategy::FastExpansion:
         {
             oneGateCoreOpening(prioritizedProductionGoals, dragoonCount, zealotCount, 0);
@@ -327,6 +353,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             break;
         }
+
         case OurStrategy::MidGame:
         {
             // Have a couple of DTs on hand if we have a templar archives and the enemy hasn't built mobile detection
@@ -399,7 +426,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 {
     // Hop out if the natural has already been taken
     auto natural = Map::getMyNatural();
-    if (!natural || natural->ownedSince != -1)
+    if (!natural || natural->ownedSince != -1 || Map::getMyBases().size() > 1)
     {
         CherryVis::setBoardValue("natural", "complete");
         return;
@@ -426,6 +453,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     {
         case OurStrategy::EarlyGameDefense:
         case OurStrategy::AntiZealotRush:
+        case OurStrategy::AntiDarkTemplarRush:
         case OurStrategy::Defensive:
             // Don't take our natural if the enemy could be rushing or doing an all-in
             CherryVis::setBoardValue("natural", "wait-defensive");

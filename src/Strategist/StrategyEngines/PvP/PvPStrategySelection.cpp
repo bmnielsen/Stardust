@@ -5,14 +5,15 @@
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Units.h"
 
-std::map <PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
-        {OurStrategy::EarlyGameDefense, "EarlyGameDefense"},
-        {OurStrategy::AntiZealotRush,   "AntiZealotRush"},
-        {OurStrategy::FastExpansion,    "FastExpansion"},
-        {OurStrategy::Defensive,        "Defensive"},
-        {OurStrategy::Normal,           "Normal"},
-        {OurStrategy::DTExpand,         "DTExpand"},
-        {OurStrategy::MidGame,          "MidGame"}
+std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
+        {OurStrategy::EarlyGameDefense,    "EarlyGameDefense"},
+        {OurStrategy::AntiZealotRush,      "AntiZealotRush"},
+        {OurStrategy::AntiDarkTemplarRush, "AntiDarkTemplarRush"},
+        {OurStrategy::FastExpansion,       "FastExpansion"},
+        {OurStrategy::Defensive,           "Defensive"},
+        {OurStrategy::Normal,              "Normal"},
+        {OurStrategy::DTExpand,            "DTExpand"},
+        {OurStrategy::MidGame,             "MidGame"}
 };
 
 namespace
@@ -77,8 +78,18 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
         return unitCount >= 10;
     };
 
+    auto canTransitionFromAntiDarkTemplarRush = [&]()
+    {
+        auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+        if (!mainArmyPlay) return false;
+
+        return mainArmyPlay->getSquad()->hasDetection();
+    };
+
     auto isDTExpandFeasible = [&]()
     {
+        if (enemyStrategy == ProtossStrategy::DarkTemplarRush) return false;
+
         auto frameCutoff = getPlay<HiddenBase>(plays) == nullptr ? 9000 : 10500;
         if (ourStrategy != OurStrategy::DTExpand && currentFrame > frameCutoff) return false;
 
@@ -129,13 +140,17 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                         strategy = OurStrategy::FastExpansion;
                         continue;
                     }
+                    case ProtossStrategy::DarkTemplarRush:
+                    {
+                        strategy = OurStrategy::AntiDarkTemplarRush;
+                        continue;
+                    }
                     case ProtossStrategy::FastExpansion:
                     case ProtossStrategy::EarlyForge:
                     case ProtossStrategy::NoZealotCore:
                     case ProtossStrategy::OneZealotCore:
                     case ProtossStrategy::BlockScouting:
                     case ProtossStrategy::EarlyRobo:
-                    case ProtossStrategy::DarkTemplarRush:
                     {
                         strategy = OurStrategy::Normal;
                         continue;
@@ -166,6 +181,19 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
                 break;
             }
+
+            case PvP::OurStrategy::AntiDarkTemplarRush:
+            {
+                // Transition to normal when we consider it safe to do so
+                if (canTransitionFromAntiDarkTemplarRush())
+                {
+                    strategy = OurStrategy::Normal;
+                    continue;
+                }
+
+                break;
+            }
+
             case PvP::OurStrategy::FastExpansion:
             {
                 // Transition to normal when the expansion is taken
@@ -178,6 +206,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
                 break;
             }
+
             case PvP::OurStrategy::Defensive:
             {
                 if (newEnemyStrategy == ProtossStrategy::WorkerRush ||
@@ -186,6 +215,12 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     newEnemyStrategy == ProtossStrategy::ZealotAllIn)
                 {
                     strategy = OurStrategy::AntiZealotRush;
+                    continue;
+                }
+
+                if (newEnemyStrategy == ProtossStrategy::DarkTemplarRush)
+                {
+                    strategy = OurStrategy::AntiDarkTemplarRush;
                     continue;
                 }
 
@@ -227,6 +262,13 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
+                if (newEnemyStrategy == ProtossStrategy::DarkTemplarRush &&
+                    !canTransitionFromAntiDarkTemplarRush())
+                {
+                    strategy = OurStrategy::AntiDarkTemplarRush;
+                    continue;
+                }
+
                 if (newEnemyStrategy == ProtossStrategy::DragoonAllIn && isDTExpandFeasible())
                 {
                     strategy = OurStrategy::DTExpand;
@@ -263,6 +305,13 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                 break;
             }
             case PvP::OurStrategy::MidGame:
+                if (newEnemyStrategy == ProtossStrategy::DarkTemplarRush &&
+                    !canTransitionFromAntiDarkTemplarRush())
+                {
+                    strategy = OurStrategy::AntiDarkTemplarRush;
+                    continue;
+                }
+
                 break;
         }
 
