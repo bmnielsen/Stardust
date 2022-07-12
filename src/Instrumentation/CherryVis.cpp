@@ -1,6 +1,8 @@
 #include "CherryVis.h"
 
 #if CHERRYVIS_ENABLED
+#include "Log.h"
+
 #include <utility>
 #include <zstdstream/zstdstream.hpp>
 #include <filesystem>
@@ -50,66 +52,73 @@ namespace CherryVis
 
             void writeEntry(const nlohmann::json &entry)
             {
-                if (count * partitionedObjectSize >= 26214400)
+                try
                 {
-                    close();
-                }
-
-                if (framesPerPartition > 0)
-                {
-                    int partition = (BWAPI::Broodwar->getFrameCount() / framesPerPartition) * framesPerPartition;
-                    if (partition != currentPartition)
+                    if (count * partitionedObjectSize >= 26214400)
                     {
                         close();
                     }
 
-                    currentPartition = partition;
-                }
-
-                if (count == 0)
-                {
-                    createPart();
-                }
-                else
-                {
-                    switch (type)
+                    if (framesPerPartition > 0)
                     {
-                        case Array:
-                            (*stream) << ",";
-                            break;
-                        case ArrayPerFrame:
-                            if (lastFrame == BWAPI::Broodwar->getFrameCount())
-                            {
+                        int partition = (BWAPI::Broodwar->getFrameCount() / framesPerPartition) * framesPerPartition;
+                        if (partition != currentPartition)
+                        {
+                            close();
+                        }
+
+                        currentPartition = partition;
+                    }
+
+                    if (count == 0)
+                    {
+                        createPart();
+                    }
+                    else
+                    {
+                        switch (type)
+                        {
+                            case Array:
                                 (*stream) << ",";
-                            }
-                            else
-                            {
-                                (*stream) << "],\"" << BWAPI::Broodwar->getFrameCount() << "\":[";
-                                lastFrame = BWAPI::Broodwar->getFrameCount();
-                            }
+                                break;
+                            case ArrayPerFrame:
+                                if (lastFrame == BWAPI::Broodwar->getFrameCount())
+                                {
+                                    (*stream) << ",";
+                                }
+                                else
+                                {
+                                    (*stream) << "],\"" << BWAPI::Broodwar->getFrameCount() << "\":[";
+                                    lastFrame = BWAPI::Broodwar->getFrameCount();
+                                }
+                                break;
+                            case ObjectPerFrame:
+                                (*stream) << ",\"" << BWAPI::Broodwar->getFrameCount() << "\":";
+                                break;
+                        }
+                    }
+
+                    count++;
+
+                    // For some reason this sometimes throws a resource unavailable exception, so retry if that happens
+                    while (true)
+                    {
+                        try
+                        {
+                            errno = 0;
+                            (*stream) << entry;
                             break;
-                        case ObjectPerFrame:
-                            (*stream) << ",\"" << BWAPI::Broodwar->getFrameCount() << "\":";
-                            break;
+                        }
+                        catch (...)
+                        {
+                            if (errno == 0x23) continue;
+                            throw;
+                        }
                     }
                 }
-
-                count++;
-
-                // For some reason this sometimes throws a resource unavailable exception, so retry if that happens
-                while (true)
+                catch (std::exception &ex)
                 {
-                    try
-                    {
-                        errno = 0;
-                        (*stream) << entry;
-                        break;
-                    }
-                    catch (...)
-                    {
-                        if (errno == 0x23) continue;
-                        throw;
-                    }
+                    Log::Get() << "Exception caught in DataFile::writeEntry: " << ex.what();
                 }
             }
 
@@ -117,28 +126,35 @@ namespace CherryVis
             {
                 if (count == 0) return;
 
-                switch (type)
+                try
                 {
-                    case Array:
-                        (*stream) << "]";
-                        break;
-                    case ArrayPerFrame:
-                        if (lastFrame != -1)
-                        {
-                            (*stream) << "]}";
-                        }
-                        else
-                        {
+                    switch (type)
+                    {
+                        case Array:
+                            (*stream) << "]";
+                            break;
+                        case ArrayPerFrame:
+                            if (lastFrame != -1)
+                            {
+                                (*stream) << "]}";
+                            }
+                            else
+                            {
+                                (*stream) << "}";
+                            }
+                            break;
+                        case ObjectPerFrame:
                             (*stream) << "}";
-                        }
-                        break;
-                    case ObjectPerFrame:
-                        (*stream) << "}";
-                        break;
+                            break;
+                    }
+                    stream->close();
+                    delete stream;
+                    count = 0;
                 }
-                stream->close();
-                delete stream;
-                count = 0;
+                catch (std::exception &ex)
+                {
+                    Log::Get() << "Exception caught in DataFile::close: " << ex.what();
+                }
             }
 
         private:
@@ -153,32 +169,39 @@ namespace CherryVis
 
             void createPart()
             {
-                int startFrame = BWAPI::Broodwar->getFrameCount();
-                std::ostringstream filenameBuilder;
-                filenameBuilder << filename;
-                if (partitionedObjectSize > 0) filenameBuilder << "_" << BWAPI::Broodwar->getFrameCount();
-                if (framesPerPartition > 0)
+                try
                 {
-                    startFrame = (BWAPI::Broodwar->getFrameCount() / framesPerPartition) * framesPerPartition;
-                    filenameBuilder << "_" << startFrame;
+                    int startFrame = BWAPI::Broodwar->getFrameCount();
+                    std::ostringstream filenameBuilder;
+                    filenameBuilder << filename;
+                    if (partitionedObjectSize > 0) filenameBuilder << "_" << BWAPI::Broodwar->getFrameCount();
+                    if (framesPerPartition > 0)
+                    {
+                        startFrame = (BWAPI::Broodwar->getFrameCount() / framesPerPartition) * framesPerPartition;
+                        filenameBuilder << "_" << startFrame;
+                    }
+                    filenameBuilder << ".json.zstd";
+
+                    parts.emplace_back(startFrame, filenameBuilder.str());
+
+                    stream = new zstd::ofstream("bwapi-data/write/cvis/" + filenameBuilder.str());
+
+                    switch (type)
+                    {
+                        case Array:
+                            (*stream) << "[";
+                            break;
+                        case ArrayPerFrame:
+                            (*stream) << "{\"" << BWAPI::Broodwar->getFrameCount() << "\":[";
+                            break;
+                        case ObjectPerFrame:
+                            (*stream) << "{\"" << BWAPI::Broodwar->getFrameCount() << "\":";
+                            break;
+                    }
                 }
-                filenameBuilder << ".json.zstd";
-
-                parts.emplace_back(startFrame, filenameBuilder.str());
-
-                stream = new zstd::ofstream("bwapi-data/write/cvis/" + filenameBuilder.str());
-
-                switch (type)
+                catch (std::exception &ex)
                 {
-                    case Array:
-                        (*stream) << "[";
-                        break;
-                    case ArrayPerFrame:
-                        (*stream) << "{\"" << BWAPI::Broodwar->getFrameCount() << "\":[";
-                        break;
-                    case ObjectPerFrame:
-                        (*stream) << "{\"" << BWAPI::Broodwar->getFrameCount() << "\":";
-                        break;
+                    Log::Get() << "Exception caught in DataFile::createPart: " << ex.what();
                 }
             }
         };
@@ -560,9 +583,16 @@ namespace CherryVis
             dataFile.close();
         }
 
-        zstd::ofstream traceFile("bwapi-data/write/cvis/trace.json");
-        traceFile << trace.dump(-1, ' ', true);
-        traceFile.close();
+        try
+        {
+            zstd::ofstream traceFile("bwapi-data/write/cvis/trace.json");
+            traceFile << trace.dump(-1, ' ', true);
+            traceFile.close();
+        }
+        catch (std::exception &ex)
+        {
+            Log::Get() << "Exception caught writing trace file: " << ex.what();
+        }
 #endif
     }
 }
