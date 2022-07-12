@@ -6,7 +6,11 @@
 #include "UnitUtil.h"
 #include "General.h"
 
+#include <chrono>
+
 #include "DebugFlag_CombatSim.h"
+
+#define LIMIT_MICROSECONDS 5000
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_COMBATSIM_CSV false          // Writes a CSV file for each cluster with detailed sim information
@@ -280,7 +284,12 @@ namespace
         int initialMine = score(attacking ? sim.getState().first : sim.getState().second);
         int initialEnemy = score(attacking ? sim.getState().second : sim.getState().first);
 
-        for (int i = 0; i < ((allTierOne && !attacking) ? 60 : 144); i++)
+        int iterations = 288;
+        if (allTierOne && !attacking) iterations = 60;
+
+        auto startTime = std::chrono::high_resolution_clock::now();
+        int i = 0;
+        while (true)
         {
 #if DEBUG_COMBATSIM_DRAW
             // Start by recording the current location and cooldown of each unit
@@ -355,6 +364,17 @@ namespace
                 }
             }
 #endif
+
+            i++;
+
+            if (i >= iterations) break;
+
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count();
+            if (duration > LIMIT_MICROSECONDS)
+            {
+                if (iterations < 144) CherryVis::log() << "Sim aborted after " << i << "iterations";
+                break;
+            }
         }
 
         int finalMine = score(attacking ? sim.getState().first : sim.getState().second);
