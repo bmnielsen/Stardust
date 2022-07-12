@@ -86,6 +86,18 @@ namespace PathFinding
             double penaltyFactor = 1.4,
             int defaultIfInaccessible = 0);
 
+    // Gets the expected time it will take the given unit type to move from the given start position
+    // to the given end position.
+    // If there is no valid path, the result is undefined.
+    // If you want to use the nearest BWEM areas, pass the UseNearestBWEMArea flag.
+    // Make sure neither of the ends is over a lake, this will make it very slow!
+    int ExpectedTravelTime(
+            BWAPI::Position start,
+            BWAPI::Position end,
+            BWAPI::UnitType unitType,
+            PathFindingOptions options,
+            int defaultIfInaccessible);
+
     // Initializes the path finding search
     void initializeSearch();
 

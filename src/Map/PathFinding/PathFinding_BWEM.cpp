@@ -278,4 +278,14 @@ namespace PathFinding
         if (dist == -1) return defaultIfInaccessible;
         return (int) ((double) dist * penaltyFactor / unitType.topSpeed());
     }
+
+    int ExpectedTravelTime(
+            BWAPI::Position start,
+            BWAPI::Position end,
+            BWAPI::UnitType unitType,
+            PathFindingOptions options,
+            int defaultIfInaccessible)
+    {
+        return ExpectedTravelTime(start, end, unitType, options, 1.4, defaultIfInaccessible);
+    }
 }
