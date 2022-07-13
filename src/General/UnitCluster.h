@@ -85,7 +85,7 @@ public:
 
     void flee(std::set<Unit> &enemyUnits);
 
-    bool moveAsBall(BWAPI::Position targetPosition);
+    bool moveAsBall(BWAPI::Position targetPosition, std::set<MyUnit> &ballUnits) const;
 
     bool formArc(BWAPI::Position pivot, int desiredDistance);
 

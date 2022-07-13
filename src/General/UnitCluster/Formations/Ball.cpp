@@ -32,7 +32,7 @@ namespace
     const double defaultSeparationWeight = 96.0;
 }
 
-bool UnitCluster::moveAsBall(BWAPI::Position targetPosition)
+bool UnitCluster::moveAsBall(BWAPI::Position targetPosition, std::set<MyUnit> &ballUnits) const
 {
     // We require a grid
     auto grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
@@ -50,26 +50,8 @@ bool UnitCluster::moveAsBall(BWAPI::Position targetPosition)
         separationWeight = 160;
     }
 
-    for (const auto &unit : units)
+    for (const auto &unit : ballUnits)
     {
-        if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
-
-        // If the unit is stuck, unstick it
-        if (unit->unstick()) continue;
-
-        // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
-        if (!unit->isReady()) continue;
-
-        // Flying units just move for now
-        if (unit->isFlying)
-        {
-#if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit->id) << "Move to target: Moving to " << BWAPI::WalkPosition(targetPosition);
-#endif
-            unit->moveTo(targetPosition);
-            continue;
-        }
-
         // Get the waypoint to move towards
         // We attempt to move towards the third node ahead of us
         auto waypoint = PathFinding::NextGridOrChokeWaypoint(unit->lastPosition, targetPosition, grid, 3, true);
@@ -134,7 +116,7 @@ bool UnitCluster::moveAsBall(BWAPI::Position targetPosition)
         // Separation
         int separationX = 0;
         int separationY = 0;
-        for (const auto &other : units)
+        for (const auto &other : ballUnits)
         {
             if (other == unit) continue;
             if (other->isFlying) continue;
