@@ -67,14 +67,42 @@ namespace
             groundDamage = airDamage = 0;
         }
 
-        // In open terrain, collision values scale based on the unit range
-        // Rationale: melee units have a smaller area to maneuver in, so they interfere with each other more
-        int collisionValue = unit->isFlying ? 0 : std::max(0, 6 - (unit->groundRange() / 64));
+        int collisionValue;
+        int collisionValueChoke;
+        if (unit->isFlying)
+        {
+            collisionValue = 0;
+            collisionValueChoke = 0;
+        }
+        else
+        {
+            // In open terrain, collision values scale based on the unit range
+            // Rationale: melee units have a smaller area to maneuver in, so they interfere with each other more
+            int range = unit->groundRange();
+            if (range > 128)
+            {
+                collisionValue = 3;
+            }
+            else if (range > 32)
+            {
+                collisionValue = 4;
+            }
+            else
+            {
+                collisionValue = 6;
+            }
 
-        // In a choke, collision values depend on unit size
-        // We allow no collision between full-size units and a stack of two smaller-size units
-        int collisionValueChoke = unit->isFlying ? 0 : 6;
-        if (unit->type.width() >= 32 || unit->type.height() >= 32) collisionValueChoke = 12;
+            // In a choke, collision values depend on unit size
+            // We allow no collision between full-size units and a stack of two smaller-size units
+            if (unit->type.width() >= 32 || unit->type.height() >= 32)
+            {
+                collisionValueChoke = 12;
+            }
+            else
+            {
+                collisionValueChoke = 6;
+            }
+        }
 
         return FAP::makeUnit<>()
                 .setUnitType(unit->type)
