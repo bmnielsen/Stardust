@@ -14,6 +14,8 @@ namespace CherryVis
     {
 #if CHERRYVIS_ENABLED
 
+        bool disabled;
+
         enum DataFileType {
             Array,
             ArrayPerFrame,
@@ -119,6 +121,7 @@ namespace CherryVis
                 catch (std::exception &ex)
                 {
                     Log::Get() << "Exception caught in DataFile::writeEntry: " << ex.what();
+                    disabled = true;
                 }
             }
 
@@ -154,6 +157,7 @@ namespace CherryVis
                 catch (std::exception &ex)
                 {
                     Log::Get() << "Exception caught in DataFile::close: " << ex.what();
+                    disabled = true;
                 }
             }
 
@@ -202,6 +206,7 @@ namespace CherryVis
                 catch (std::exception &ex)
                 {
                     Log::Get() << "Exception caught in DataFile::createPart: " << ex.what();
+                    disabled = true;
                 }
             }
         };
@@ -221,10 +226,10 @@ namespace CherryVis
 
         std::unordered_map<std::string, DataFile> heatmapNameToDataFile;
 
-        bool disabled = false;
-
         void log(const std::string &str, int unitId)
         {
+            if (disabled) return;
+
             auto logFileIt = unitIdToLogFile.find(unitId);
             if (logFileIt == unitIdToLogFile.end())
             {
@@ -305,6 +310,7 @@ namespace CherryVis
     void initialize()
     {
 #if CHERRYVIS_ENABLED
+        disabled = false;
         boardUpdatesFile = std::make_unique<DataFile>("board_updates", DataFileType::ObjectPerFrame);
         frameBoardUpdates = nlohmann::json::object();
         frameHasBoardUpdates = false;
@@ -330,6 +336,8 @@ namespace CherryVis
     void setBoardValue(const std::string &key, const std::string &value)
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         if (boardKeyToLastValue.find(key) == boardKeyToLastValue.end() ||
             boardKeyToLastValue[key] != value)
         {
@@ -343,6 +351,8 @@ namespace CherryVis
     void setBoardListValue(const std::string &key, std::vector<std::string> &values)
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         size_t limit = std::max(boardListToLastCount[key], values.size());
         for (size_t i = 1; i <= limit; i++)
         {
@@ -359,6 +369,8 @@ namespace CherryVis
     void unitFirstSeen(BWAPI::Unit unit)
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         int frame = BWAPI::Broodwar->getFrameCount();
         if (frame == 0) frame = 1;
 
@@ -383,6 +395,8 @@ namespace CherryVis
     void addHeatmap(const std::string &key, const std::vector<long> &data, int sizeX, int sizeY)
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         long max = 0;
         long min = LONG_MAX;
         long long sum = 0;
@@ -434,6 +448,8 @@ namespace CherryVis
     void drawLine(int x1, int y1, int x2, int y2, DrawColor color, int unitId)
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         draw({
                  {"code", 20},
                  {"args", nlohmann::json::array({x1, y1, x2, y2, (int)color})},
@@ -445,6 +461,8 @@ namespace CherryVis
     void drawCircle(int x, int y, int radius, DrawColor color, int unitId)
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         draw({
                  {"code", 23},
                  {"args", nlohmann::json::array({x, y, radius, (int)color})},
@@ -456,6 +474,8 @@ namespace CherryVis
     void drawText(int x, int y, const std::string &text, int unitId)
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         draw({
                  {"code", 25},
                  {"args", nlohmann::json::array({x, y})},
@@ -467,6 +487,8 @@ namespace CherryVis
     void frameEnd(int frame)
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         if (frameHasBoardUpdates)
         {
             boardUpdatesFile->writeEntry(frameBoardUpdates);
