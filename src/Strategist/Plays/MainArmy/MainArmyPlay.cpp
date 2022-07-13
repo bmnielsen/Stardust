@@ -6,16 +6,12 @@ void MainArmyPlay::update()
 {
     // Update detection - release observers when no longer needed, request observers when needed
     auto squad = getSquad();
-    if (squad)
+    if (squad && squad->needsDetection())
     {
         auto &detectors = squad->getDetectors();
-        if (!squad->needsDetection() && !detectors.empty())
+        if (detectors.size() < 2)
         {
-            status.removedUnits.insert(status.removedUnits.end(), detectors.begin(), detectors.end());
-        }
-        else if (squad->needsDetection() && detectors.empty())
-        {
-            status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Observer, squad->getTargetPosition());
+            status.unitRequirements.emplace_back(2 - detectors.size(), BWAPI::UnitTypes::Protoss_Observer, squad->getTargetPosition());
         }
     }
 }

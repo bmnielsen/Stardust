@@ -128,9 +128,9 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     break;
                 }
 
-                // Use a defend play if the enemy has dark templar and our observer is not with the army yet
+                // Use a defend play if the enemy has dark templar and our army has no observers
                 if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0 &&
-                    !mainArmyPlay->getSquad()->hasDetection())
+                    mainArmyPlay->getSquad()->getDetectors().empty())
                 {
                     defendOurMain = true;
                     break;
@@ -655,8 +655,8 @@ void PvP::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
 
-    // Upgrade observer speed on two gas
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 2)
+    // Upgrade observer speed on three gas
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 3)
     {
         upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
     }
