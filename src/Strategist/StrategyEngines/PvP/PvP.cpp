@@ -515,18 +515,18 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             // Get an observatory before expanding
-            if (Units::countAll(BWAPI::UnitTypes::Protoss_Observatory) < 1)
-            {
-                // TODO: When producer can handle requesting a building, request the observatory instead
-                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                         "SE-safeexpand",
-                                                                         BWAPI::UnitTypes::Protoss_Observer,
-                                                                         1,
-                                                                         1);
-
-                CherryVis::setBoardValue("natural", "wait-for-obs");
-                break;
-            }
+//            if (Units::countAll(BWAPI::UnitTypes::Protoss_Observatory) < 1)
+//            {
+//                // TODO: When producer can handle requesting a building, request the observatory instead
+//                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+//                                                                         "SE-safeexpand",
+//                                                                         BWAPI::UnitTypes::Protoss_Observer,
+//                                                                         1,
+//                                                                         1);
+//
+//                CherryVis::setBoardValue("natural", "wait-for-obs");
+//                break;
+//            }
 
             // Always expand in this situation if we are gas blocked
             if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100)
