@@ -489,7 +489,8 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             // We expect to want to take our natural soon, so build probes
-            buildProbes = true;
+            // Disabled as we may want to take the hidden base instead
+//            buildProbes = true;
 
             auto squad = mainArmyPlay->getSquad();
             if (!squad || squad->getUnits().size() < 5)
@@ -614,14 +615,15 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     if (cancel) cancelNaturalExpansion(plays, prioritizedProductionGoals);
 
     // Take our hidden base expansion in cases where we have been prevented from taking our natural
-    if (currentFrame > 14000)
+    // It is queued at lowest priority so it will only be taken if we have an excess of minerals
+    if (currentFrame > 12000)
     {
         auto hiddenBasePlay = getPlay<HiddenBase>(plays);
         if (hiddenBasePlay && hiddenBasePlay->base->ownedSince == -1)
         {
             auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(hiddenBasePlay->base->getTilePosition()),
                                                                   0, 0, 0);
-            prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+            prioritizedProductionGoals[PRIORITY_LOWEST].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                      "SE-hiddenbase",
                                                                      BWAPI::UnitTypes::Protoss_Nexus,
                                                                      buildLocation);
