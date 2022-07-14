@@ -8,6 +8,7 @@
 #include "WorkerOrderTimer.h"
 #include "Geo.h"
 #include "Boids.h"
+#include "Strategist.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -161,7 +162,6 @@ namespace Workers
         Base *assignBaseAndJob(const MyUnit &unit, Job preferredJob)
         {
             // TODO: Prioritize empty bases over nearly-full bases
-            // TODO: Consider whether or not there is a safe path to the base
 
             int bestFrames = INT_MAX;
             Base *bestBase = nullptr;
@@ -192,6 +192,21 @@ namespace Workers
                                                              PathFinding::PathFindingOptions::UseNearestBWEMArea,
                                                              -1);
                 if (frames == -1) continue;
+
+                // Don't transfer to a threatened base
+                if (!Units::enemyAtBase(base).empty()) continue;
+
+                // If the base is far away, require that our army is on the map
+                if (frames > 500)
+                {
+                    auto mainArmyPlay = Strategist::getMainArmyPlay();
+                    if (!mainArmyPlay) continue;
+
+                    auto vanguardCluster = mainArmyPlay->getSquad()->vanguardCluster();
+                    if (!vanguardCluster) continue;
+
+                    if (vanguardCluster->percentageToEnemyMain < 0.6) continue;
+                }
 
                 if (!base->resourceDepot->completed)
                     frames = std::max(frames, base->resourceDepot->bwapiUnit->getRemainingBuildTime());
