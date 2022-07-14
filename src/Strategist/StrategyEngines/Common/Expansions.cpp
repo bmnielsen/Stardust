@@ -40,7 +40,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
 {
     // This logic does not handle the first decision to take our natural expansion, so if this hasn't been done, bail out now
     auto natural = Map::getMyNatural();
-    if (natural && natural->ownedSince == -1) return;
+    if (natural && natural->ownedSince == -1 && Map::getMyBases().size() == 1) return;
 
     // If the natural is "owned" by our opponent, it's probably because of some kind of proxy play
     // In this case, delay doing any expansions until mid-game
