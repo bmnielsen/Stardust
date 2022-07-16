@@ -46,6 +46,20 @@ TEST(Initialization, AllCOGStartLocations)
     });
 }
 
+TEST(Initialization, AllCOG2022StartLocations)
+{
+    Maps::RunOnEachStartLocation(Maps::Get("cog2022"), [](BWTest test)
+    {
+        test.opponentModule = []()
+        {
+            return new DoNothingModule();
+        };
+        test.frameLimit = 10;
+        test.expectWin = false;
+        test.run();
+    });
+}
+
 TEST(Initialization, AllAIIDEStartLocations)
 {
     Maps::RunOnEachStartLocation(Maps::Get("aiide"), [](BWTest test)
@@ -58,6 +72,48 @@ TEST(Initialization, AllAIIDEStartLocations)
         test.expectWin = false;
         test.run();
     });
+}
+
+TEST(Initialization, AllTauCrossStartLocations)
+{
+    Maps::RunOnEachStartLocation(Maps::Get("Tau"), [](BWTest test)
+    {
+        test.opponentModule = []()
+        {
+            return new DoNothingModule();
+        };
+        test.frameLimit = 10;
+        test.expectWin = false;
+        test.run();
+    });
+}
+
+TEST(Initialization, AllOutsiderStartLocations)
+{
+    Maps::RunOnEachStartLocation(Maps::Get("Outsider"), [](BWTest test)
+    {
+        test.opponentModule = []()
+        {
+            return new DoNothingModule();
+        };
+        test.frameLimit = 10;
+        test.expectWin = false;
+        test.run();
+    });
+}
+
+TEST(Initialization, Outsider6Oclock)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Outsider");
+    test.randomSeed = 83721;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.run();
 }
 
 TEST(Initialization, AllAIIDEMaps)
