@@ -17,6 +17,8 @@
 #include "Blocks/StartCompactRightVertical.h"
 #include "Blocks/StartBottomLeftHorizontal.h"
 #include "Blocks/StartTopLeftHorizontal.h"
+#include "Blocks/StartBottomHorizontal.h"
+#include "Blocks/StartAboveAndBelowLeft.h"
 
 #include "Blocks/18x6.h"
 #include "Blocks/16x8.h"
@@ -243,6 +245,8 @@ namespace BuildingPlacement
                     std::make_shared<StartCompactRightVertical>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
                     std::make_shared<StartBottomLeftHorizontal>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
                     std::make_shared<StartTopLeftHorizontal>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<StartBottomHorizontal>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<StartAboveAndBelowLeft>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
             };
 
             for (const auto &blockType : startBlocks)
