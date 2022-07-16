@@ -124,6 +124,22 @@ namespace BuildingPlacement
                         }
                     }
                 }
+
+                // If the geyser is on the left, mark the top row and the row above it towards the nexus unbuildable
+                // Building something here will interfere with gas collection
+                for (auto &geyserTile : base->geyserLocations())
+                {
+                    if (geyserTile.x >= (base->getTilePosition().x - 2)) continue;
+                    if (geyserTile.y < base->getTilePosition().y) continue;
+                    if (geyserTile.y > (base->getTilePosition().y + 3)) continue;
+
+                    tileAvailability[geyserTile.x + 4 + geyserTile.y * BWAPI::Broodwar->mapWidth()] = 1;
+                    tileAvailability[geyserTile.x + 5 + geyserTile.y * BWAPI::Broodwar->mapWidth()] = 1;
+                    tileAvailability[geyserTile.x + 6 + geyserTile.y * BWAPI::Broodwar->mapWidth()] = 1;
+                    tileAvailability[geyserTile.x + 4 + (geyserTile.y - 1) * BWAPI::Broodwar->mapWidth()] = 1;
+                    tileAvailability[geyserTile.x + 5 + (geyserTile.y - 1) * BWAPI::Broodwar->mapWidth()] = 1;
+                    tileAvailability[geyserTile.x + 6 + (geyserTile.y - 1) * BWAPI::Broodwar->mapWidth()] = 1;
+                }
             }
         }
 
