@@ -299,9 +299,17 @@ namespace CherryVis
 
 #else
 
-    LogWrapper::LogWrapper(int unitId) {}
+    LogWrapper::LogWrapper(int unitId)
+            : os(nullptr)
+            , refCount(nullptr)
+            , unitId(unitId)
+    {}
 
-    LogWrapper::LogWrapper(const LogWrapper &other) {}
+    LogWrapper::LogWrapper(const LogWrapper &other)
+            : os(nullptr)
+            , refCount(nullptr)
+            , unitId(0)
+    {}
 
     LogWrapper::~LogWrapper() {}
 
@@ -628,6 +636,7 @@ void CherryVis::disable()
 
 void CherryVis::writeFrameData(const std::string &label, const nlohmann::json &entry, int framesPerPartition)
 {
+#if CHERRYVIS_ENABLED
     auto fileIt = labelToDataFile.find(label);
     if (fileIt == labelToDataFile.end())
     {
@@ -638,4 +647,5 @@ void CherryVis::writeFrameData(const std::string &label, const nlohmann::json &e
     }
 
     fileIt->second.writeEntry(entry);
+#endif
 }
