@@ -299,17 +299,9 @@ namespace CherryVis
 
 #else
 
-    LogWrapper::LogWrapper(int unitId)
-            : os(nullptr)
-            , refCount(nullptr)
-            , unitId(unitId)
-    {}
+    LogWrapper::LogWrapper(int unitId) {}
 
-    LogWrapper::LogWrapper(const LogWrapper &other)
-            : os(nullptr)
-            , refCount(nullptr)
-            , unitId(0)
-    {}
+    LogWrapper::LogWrapper(const LogWrapper &other) {}
 
     LogWrapper::~LogWrapper() {}
 
