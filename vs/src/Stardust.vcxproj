@@ -41,7 +41,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty;$(SolutionDir)\..\src;$(SolutionDir)\..\src\Builder;$(SolutionDir)\..\src\General;$(SolutionDir)\..\src\Instrumentation;$(SolutionDir)\..\src\Map;$(SolutionDir)\..\src\Map\PathFinding;$(SolutionDir)\..\src\Players;$(SolutionDir)\..\src\Producer;$(SolutionDir)\..\src\Strategist;$(SolutionDir)\..\src\Units;$(SolutionDir)\..\src\Util;$(SolutionDir)\..\src\Workers;$(SolutionDir)\..\3rdparty\BWAPILIB\include;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty\nlohmann;$(SolutionDir)\..\3rdparty\BWAPILIB;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;$(SolutionDir)\..\src;$(SolutionDir)\..\src\Builder;$(SolutionDir)\..\src\General;$(SolutionDir)\..\src\Instrumentation;$(SolutionDir)\..\src\Map;$(SolutionDir)\..\src\Map\PathFinding;$(SolutionDir)\..\src\Players;$(SolutionDir)\..\src\Producer;$(SolutionDir)\..\src\Strategist;$(SolutionDir)\..\src\Units;$(SolutionDir)\..\src\Util;$(SolutionDir)\..\src\Workers;$(SolutionDir)\..\3rdparty\BWAPILIB\include;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <CompileAs>CompileAsCpp</CompileAs>
       <ExceptionHandling>Sync</ExceptionHandling>

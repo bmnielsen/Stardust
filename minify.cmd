@@ -1,6 +1,7 @@
 @echo off
 
 rmdir .git /s /q
+rmdir 3rdparty\cherryvis /s /q
 rmdir 3rdparty\openbw /s /q
 rmdir 3rdparty\zstd /s /q
 rmdir 3rdparty\zstdstream /s /q
