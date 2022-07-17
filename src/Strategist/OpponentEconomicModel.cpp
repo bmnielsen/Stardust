@@ -9,7 +9,7 @@
 
 #if INSTRUMENTATION_ENABLED
 #define OUTPUT_BOARD_VALUES false
-#define OUTPUT_BUILD_ORDER true
+#define OUTPUT_BUILD_ORDER false
 #endif
 
 namespace OpponentEconomicModel
