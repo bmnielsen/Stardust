@@ -250,6 +250,28 @@ void StardustAIModule::onFrame()
     Units::issueOrders();
     Timer::checkpoint("Units::issueOrders");
 
+    auto enemyNatural = Map::getEnemyStartingNatural();
+    if (enemyNatural && enemyNatural->resourceDepot && enemyNatural->resourceDepot->exists() && enemyNatural->resourceDepot->bwapiUnit->isVisible())
+    {
+        // Check for other visible enemy units
+        std::set<Unit> enemyUnits;
+        Units::enemyInRadius(enemyUnits, enemyNatural->getPosition(), 640, [](const Unit &unit){ return !unit->type.isBuilding() && unit->bwapiUnit->isVisible();});
+        if (enemyUnits.empty())
+        {
+            int dragoons = 0;
+            for (auto &unit : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Dragoon))
+            {
+                if (unit->cooldownUntil > currentFrame) continue;
+                if (unit->isInOurWeaponRange(enemyNatural->resourceDepot)) dragoons++;
+            }
+
+            if (dragoons > 3)
+            {
+                Log::Get() << "ERROR: Multiple dragoons aren't attacking lone enemy natural!";
+            }
+        }
+    }
+
     // Instrumentation
     NoGoAreas::writeInstrumentation();
     General::writeInstrumentation();

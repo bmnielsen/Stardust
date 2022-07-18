@@ -7,7 +7,7 @@
 #include "Players.h"
 
 #if INSTRUMENTATION_ENABLED
-#define DEBUG_TARGETING false  // Writes verbose log info to debug for each unit targeting
+#define DEBUG_TARGETING true  // Writes verbose log info to debug for each unit targeting
 #define DRAW_TARGETING true  // Draws lines between our units and their targets
 #endif
 
