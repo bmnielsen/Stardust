@@ -116,6 +116,20 @@ TEST(Initialization, Outsider6Oclock)
     test.run();
 }
 
+TEST(Initialization, Sylphid)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Sylphid");
+    test.randomSeed = 83721;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.run();
+}
+
 TEST(Initialization, AllAIIDEMaps)
 {
     Maps::RunOnEach(Maps::Get("aiide"), [](BWTest test)
