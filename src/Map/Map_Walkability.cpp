@@ -411,7 +411,14 @@ namespace Map
             if (neutral->getType().isCritter()) continue;
             if (neutral->isFlying()) continue;
 
-            updateTileWalkability(neutral->getInitialTilePosition(), neutral->getType().tileSize(), false);
+            // Eggs might not be aligned to tiles, so add any tiles they overlap
+            if (neutral->getType() == BWAPI::UnitTypes::Zerg_Lurker_Egg)
+            {
+                BWAPI::Position bottomRight(neutral->getInitialPosition() + BWAPI::Position(neutral->getType().width(), neutral->getType().height()));
+                updateTileWalkability(neutral->getInitialTilePosition(), BWAPI::TilePosition(bottomRight) - neutral->getInitialTilePosition(), false);
+            } else {
+                updateTileWalkability(neutral->getInitialTilePosition(), neutral->getType().tileSize(), false);
+            }
         }
 
         dumpWalkability();
