@@ -447,6 +447,8 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         }
     }
 
+    auto hiddenBasePlay = getPlay<HiddenBase>(plays);
+
     bool cancel = true;
     bool buildProbes = false;
     switch (ourStrategy)
@@ -489,8 +491,8 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             // We expect to want to take our natural soon, so build probes
-            // Disabled as we may want to take the hidden base instead
-//            buildProbes = true;
+            // Exception if we might want to take our hidden base
+            buildProbes = (hiddenBasePlay == nullptr);
 
             auto squad = mainArmyPlay->getSquad();
             if (!squad || squad->getUnits().size() < 5)
@@ -618,7 +620,6 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     // It is queued at lowest priority so it will only be taken if we have an excess of minerals
     if (currentFrame > 12000)
     {
-        auto hiddenBasePlay = getPlay<HiddenBase>(plays);
         if (hiddenBasePlay && hiddenBasePlay->base->ownedSince == -1)
         {
             auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(hiddenBasePlay->base->getTilePosition()),
