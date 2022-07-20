@@ -7,14 +7,17 @@
 
 "use strict";
 
-function cvis_dbg_drawcommands_update(global_data, cvis_state) {
+async function cvis_dbg_drawcommands_update(global_data, cvis_state) {
   const COMMAND_DRAW_TEXT = 25;
   const COMMAND_DRAW_TEXT_SCREEN = 26;
 
   Module.clear_draw_commands();
   $('.cvis-cmd-draw').remove();
-  var draw_commands = global_data['draw_commands'];
-  if (draw_commands === undefined || $.isEmptyObject(draw_commands) || typeof draw_commands === 'string') return;
+  if (global_data['draw_commands'] === undefined || $.isEmptyObject(global_data['draw_commands'])) return;
+
+  if (typeof global_data['draw_commands'] === 'string') {
+    global_data.draw_commands_legacy = await cvis_state.functions.load_cvis_json_file_async(cvis_state.cvis_path, global_data['draw_commands']);
+  }
 
   var draw_commands_this_frame;
 
@@ -86,10 +89,18 @@ function cvis_dbg_drawcommands_update(global_data, cvis_state) {
     }
     delete global_data.combatsim_draw;
   } else {
-    draw_commands_this_frame = draw_commands[cvis_state.current_frame] || [];
+    if (global_data.draw_commands_legacy) {
+      draw_commands_this_frame = global_data.draw_commands_legacy[cvis_state.current_frame] || [];
 
-    if (draw_commands[0]) {
-      draw_commands_this_frame = draw_commands_this_frame.concat(draw_commands[0])
+      if (global_data.draw_commands_legacy[0]) {
+        draw_commands_this_frame = draw_commands_this_frame.concat(global_data.draw_commands_legacy[0])
+      }
+    } else {
+      draw_commands_this_frame =
+          await cvis_state.functions.load_cvis_partitioned_json_file_async(cvis_state.cvis_path, global_data, 'draw_commands', cvis_state.current_frame, 5000);
+
+      draw_commands_this_frame = draw_commands_this_frame.concat(
+          await cvis_state.functions.load_cvis_partitioned_json_file_async(cvis_state.cvis_path, global_data, 'draw_commands', 0, 5000));
     }
 
     // Add unit-specific draw commands

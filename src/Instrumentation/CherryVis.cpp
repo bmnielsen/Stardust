@@ -52,6 +52,16 @@ namespace CherryVis
                 return partitionedObjectSize > 0 || framesPerPartition > 0;
             }
 
+            std::unordered_map<std::string, std::string> index() const
+            {
+                std::unordered_map<std::string, std::string> result;
+                for (const auto &part : parts)
+                {
+                    result[std::to_string(part.firstFrame)] = part.filename;
+                }
+                return result;
+            }
+
             void writeEntry(const nlohmann::json &entry)
             {
                 try
@@ -255,11 +265,18 @@ namespace CherryVis
             {
                 std::ostringstream filenameBuilder;
                 filenameBuilder << "drawCommands";
-                if (unitId != -1) filenameBuilder << "_" << unitId;
+                if (unitId == -1)
+                {
+                    filenameBuilder << "_all";
+                }
+                else
+                {
+                    filenameBuilder << "_" << unitId;
+                }
                 drawCommandsFileIt = unitIdToDrawCommandsFile.emplace(
                         std::piecewise_construct,
                         std::make_tuple(unitId),
-                        std::make_tuple(filenameBuilder.str(), DataFileType::ArrayPerFrame)).first;
+                        std::make_tuple(filenameBuilder.str(), DataFileType::ArrayPerFrame, 0, (unitId != -1) ? 0 : 5000)).first;
             }
 
             drawCommandsFileIt->second.writeEntry(drawCommand);
@@ -556,7 +573,7 @@ namespace CherryVis
         {
             if (drawCommandsFile.first == -1)
             {
-                trace["draw_commands"] = drawCommandsFile.second.parts[0].filename;
+                trace["draw_commands"] = drawCommandsFile.second.index();
             }
             else
             {
@@ -590,12 +607,7 @@ namespace CherryVis
         {
             if (dataFile.isPartitioned())
             {
-                std::unordered_map<std::string, std::string> index;
-                for (const auto &part : dataFile.parts)
-                {
-                    index[std::to_string(part.firstFrame)] = part.filename;
-                }
-                trace[label] = index;
+                trace[label] = dataFile.index();
             }
             else
             {

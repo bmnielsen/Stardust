@@ -305,7 +305,7 @@ function cvis_init_with_data(path, init_data, config) {
     cvis_dbg_tasks_update(global_data, cvis_state);
     cvis_dbg_logs_update(global_data, cvis_state);
     cvis_dbg_blackboard_update(global_data, cvis_state);
-    cvis_dbg_drawcommands_update(global_data, cvis_state);
+    await cvis_dbg_drawcommands_update(global_data, cvis_state);
     cvis_dbg_trees_update(global_data, cvis_state);
     await cvis_dbg_squads_update(global_data, cvis_state);
     cvis_dbg_heatmaps_update(global_data, cvis_state);

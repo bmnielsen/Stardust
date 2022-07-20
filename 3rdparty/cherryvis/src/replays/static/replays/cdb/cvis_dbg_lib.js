@@ -211,6 +211,17 @@ function cvis_dbg_lib_init(global_data, cvis_state) {
     return await response.json();
   }
 
+  async function load_cvis_partitioned_json_file_async(cvis, global_data, global_data_key, frame, frames_per_partition) {
+    const partition = Math.floor(frame / frames_per_partition) * frames_per_partition;
+    if (typeof global_data[global_data_key][partition] === 'string') {
+      global_data[global_data_key][partition] = await load_cvis_json_file_async(cvis, global_data[global_data_key][partition]);
+    }
+    if (global_data[global_data_key][partition]) {
+      return global_data[global_data_key][partition][frame] || [];
+    }
+    return [];
+  }
+
   /**
     Given a list of frames, and a goal frame, returns the nearest frame (closest),
       along with the previous and next frames.
@@ -282,6 +293,7 @@ function cvis_dbg_lib_init(global_data, cvis_state) {
   cvis_state.functions.parse_cvis_links = parse_cvis_links;
   cvis_state.functions.load_cvis_json_file = load_cvis_json_file;
   cvis_state.functions.load_cvis_json_file_async = load_cvis_json_file_async;
+  cvis_state.functions.load_cvis_partitioned_json_file_async = load_cvis_partitioned_json_file_async;
   cvis_state.functions.get_matching_frames = get_matching_frames;
   cvis_state.functions.update_highlights = update_highlights;
   cvis_state.functions.openbw_set_current_frame = openbw_set_current_frame;

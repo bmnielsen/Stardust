@@ -15,13 +15,7 @@ async function cvis_dbg_squads_update(global_data, cvis_state) {
   if (global_data.squads_legacy) {
     frame_squads = global_data.squads[cvis_state.current_frame] || [];
   } else {
-    const partition = Math.floor(cvis_state.current_frame / 250) * 250;
-    if (typeof global_data.squads[partition] === 'string') {
-      global_data.squads[partition] = await cvis_state.functions.load_cvis_json_file_async(cvis_state.cvis_path, global_data.squads[partition]);
-    }
-    if (global_data.squads[partition]) {
-      frame_squads = global_data.squads[partition][cvis_state.current_frame] || [];
-    }
+    frame_squads = await cvis_state.functions.load_cvis_partitioned_json_file_async(cvis_state.cvis_path, global_data, 'squads', cvis_state.current_frame, 250);
   }
 
   // Generate a DOM id for each squad
