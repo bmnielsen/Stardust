@@ -690,7 +690,8 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 #if DEBUG_TARGETING
             dbg << "\n Target " << *potentialTarget->unit << " scored: score=" << score
                 << ", attackerCount=" << potentialTarget->attackerCount
-                << ", dist=" << targetDist;
+                << ", dist=" << targetDist
+                << ", visible=" << potentialTarget->unit->bwapiUnit->isVisible();
 #endif
 
             // See if this is the best target
@@ -698,7 +699,9 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             // - Score is higher
             // - Attackers is higher
             // - Distance is lower
-            if (score > bestScore ||
+            auto visible = potentialTarget->unit->bwapiUnit->isVisible();
+            if ((!bestVisible && visible) ||
+                score > bestScore ||
                 (score == bestScore && potentialTarget->attackerCount > bestAttackerCount) ||
                 (score == bestScore && potentialTarget->attackerCount == bestAttackerCount && targetDist < bestDist))
             {
@@ -706,7 +709,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 bestAttackerCount = potentialTarget->attackerCount;
                 bestDist = targetDist;
                 bestTarget = potentialTarget;
-                bestVisible = potentialTarget->unit->bwapiUnit->isVisible();
+                bestVisible = visible;
 
 #if DEBUG_TARGETING
                 dbg << " (best)";
