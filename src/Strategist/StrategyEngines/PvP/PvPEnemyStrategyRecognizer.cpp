@@ -274,8 +274,8 @@ namespace
 
     bool isDarkTemplarRush()
     {
-        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Templar_Archives, 8000) ||
-               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dark_Templar, 10000);
+        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Templar_Archives, 10000) ||
+               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dark_Templar, 12000);
     }
 
     bool isTurtle()
