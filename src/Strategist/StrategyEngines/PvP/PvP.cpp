@@ -424,12 +424,35 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                  std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    // Hop out if the natural has already been taken
+    // Hop out if the natural has already been taken and the nexus is completed
     auto natural = Map::getMyNatural();
-    if (!natural || natural->ownedSince != -1 || Map::getMyBases().size() > 1)
+    if (!natural)
     {
-        CherryVis::setBoardValue("natural", "complete");
+        CherryVis::setBoardValue("natural", "no-natural-base");
         return;
+    }
+
+    bool underConstruction = false;
+    if (natural->ownedSince != -1)
+    {
+        if (natural->resourceDepot && !natural->resourceDepot->completed)
+        {
+            underConstruction = true;
+        }
+        else
+        {
+            CherryVis::setBoardValue("natural", "complete");
+            return;
+        }
+    }
+    else
+    {
+        // Hop out if we have taken a different base
+        if (Map::getMyBases().size() > 1)
+        {
+            CherryVis::setBoardValue("natural", "complete-taken-other");
+            return;
+        }
     }
 
     // If we have a backdoor natural, expand if we are gas blocked
@@ -471,6 +494,14 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         {
             // In this case we want to expand when we consider it safe to do so: we have an attacking or containing army
             // that is close to the enemy base
+
+            // We never cancel an already-constructing nexus
+            if (underConstruction)
+            {
+                CherryVis::setBoardValue("natural", "take");
+                takeNaturalExpansion(plays, prioritizedProductionGoals);
+                return;
+            }
 
             // We never expand before frame 10000 (12000 if the enemy is doing a dragoon all-in) unless the enemy has done so
             // or is doing an opening that will not give immediate pressure
@@ -567,6 +598,14 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::DTExpand:
         {
+            // We never cancel an already-constructing nexus
+            if (underConstruction)
+            {
+                CherryVis::setBoardValue("natural", "take");
+                takeNaturalExpansion(plays, prioritizedProductionGoals);
+                return;
+            }
+
             buildProbes = true;
 
             // Take our natural as soon as the army has moved beyond it
