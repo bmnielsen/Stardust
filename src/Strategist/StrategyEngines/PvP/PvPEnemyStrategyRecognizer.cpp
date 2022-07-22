@@ -288,8 +288,8 @@ namespace
 
     bool isMidGame()
     {
-        // We consider ourselves to be in the mid-game after frame 10000 if the enemy has taken their natural or teched to something beyond goons
-        if (currentFrame < 10000) return false;
+        // We consider ourselves to be in the mid-game after frame 14000 if the enemy has taken their natural or teched to something beyond goons
+        if (currentFrame < 14000) return false;
 
         return countAtLeast(BWAPI::UnitTypes::Protoss_Nexus, 2) ||
                countAtLeast(BWAPI::UnitTypes::Protoss_Templar_Archives, 1) ||

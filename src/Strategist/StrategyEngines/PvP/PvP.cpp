@@ -495,7 +495,15 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // In this case we want to expand when we consider it safe to do so: we have an attacking or containing army
             // that is close to the enemy base
 
-            // We never cancel an already-constructing nexus
+            // Check for an attack play first - if we don't have one, we will cancel a constructing natural nexus
+            auto mainArmyPlay = getPlay<AttackEnemyBase>(plays);
+            if (!mainArmyPlay)
+            {
+                CherryVis::setBoardValue("natural", "no-attack-play");
+                break;
+            }
+
+            // From here we never cancel an already-constructing nexus
             if (underConstruction)
             {
                 CherryVis::setBoardValue("natural", "take");
@@ -511,13 +519,6 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 enemyStrategy != ProtossStrategy::Turtle)
             {
                 CherryVis::setBoardValue("natural", "too-early");
-                break;
-            }
-
-            auto mainArmyPlay = getPlay<AttackEnemyBase>(plays);
-            if (!mainArmyPlay)
-            {
-                CherryVis::setBoardValue("natural", "no-attack-play");
                 break;
             }
 
