@@ -4,6 +4,8 @@
 #include "Workers.h"
 #include "Builder.h"
 #include "Units.h"
+#include "Strategist.h"
+#include "Plays/MainArmy/DefendMyMain.h"
 
 void HiddenBase::update()
 {
@@ -48,10 +50,15 @@ void HiddenBase::update()
 
     // Reserve a builder and send it to the base when:
     // - Our main is saturated
+    // - Our main army is on the attack
     // - The path to the hidden base is safe
     if (!builder)
     {
         if (Workers::availableMineralAssignments(Map::getMyMain()) > 0) return;
+
+        auto mainArmyPlay = Strategist::getMainArmyPlay();
+        if (!mainArmyPlay) return;
+        if (typeid(*mainArmyPlay) == typeid(DefendMyMain)) return;
 
         // TODO: Check path
 
