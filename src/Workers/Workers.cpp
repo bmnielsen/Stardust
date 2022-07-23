@@ -166,8 +166,11 @@ namespace Workers
             int bestFrames = INT_MAX;
             Base *bestBase = nullptr;
             bool bestHasPreferredJob = false;
-            for (auto &base : Map::allBases())
+            bool bestHasNonPreferredJob = false;
+            for (auto &base : Map::getMyBases())
             {
+                if (!base->resourceDepot || !base->resourceDepot->exists()) continue;
+
                 bool hasPreferred, hasNonPreferred;
                 if (preferredJob == Job::Minerals)
                 {
@@ -183,8 +186,6 @@ namespace Workers
 
                     hasNonPreferred = availableMineralAssignmentsAtBase(base) > 0;
                 }
-
-                if (!hasPreferred && !hasNonPreferred) continue;
 
                 int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
                                                              base->getPosition(),
@@ -211,37 +212,46 @@ namespace Workers
                 if (!base->resourceDepot->completed)
                     frames = std::max(frames, base->resourceDepot->bwapiUnit->getRemainingBuildTime());
 
-                if (frames < bestFrames || (hasPreferred && !bestHasPreferredJob))
+                if (frames < bestFrames || (hasPreferred && !bestHasPreferredJob) || (hasNonPreferred && !bestHasNonPreferredJob))
                 {
                     bestFrames = frames;
                     bestBase = base;
                     bestHasPreferredJob = hasPreferred;
+                    bestHasNonPreferredJob = hasNonPreferred;
                 }
             }
 
+            Job job = Job::None;
             if (bestBase)
             {
                 workerBase[unit] = bestBase;
                 baseWorkers[bestBase].insert(unit);
 
-                auto job = bestHasPreferredJob ? preferredJob : (preferredJob == Job::Minerals ? Job::Gas : Job::Minerals);
+                if (bestHasPreferredJob)
+                {
+                    job = preferredJob;
+                }
+                else if (bestHasNonPreferredJob)
+                {
+                    job = (preferredJob == Job::Minerals ? Job::Gas : Job::Minerals);
+                }
+            }
 
 #if CHERRYVIS_ENABLED
-                if (workerJob[unit] != job)
+            if (workerJob[unit] != job)
+            {
+                if (job == Job::Minerals)
                 {
-                    if (job == Job::Minerals)
-                    {
-                        CherryVis::log(unit->id) << "Assigned to Minerals";
-                    }
-                    else
-                    {
-                        CherryVis::log(unit->id) << "Assigned to Gas";
-                    }
+                    CherryVis::log(unit->id) << "Assigned to Minerals";
                 }
+                else
+                {
+                    CherryVis::log(unit->id) << "Assigned to Gas";
+                }
+            }
 #endif
 
-                workerJob[unit] = job;
-            }
+            workerJob[unit] = job;
 
             return bestBase;
         }
@@ -487,11 +497,7 @@ namespace Workers
                 base = assignBaseAndJob(worker, (workerJob[worker] == Job::Gas) ? Job::Gas : Job::Minerals);
 
                 // Maybe we have none
-                if (!base)
-                {
-                    workerJob[worker] = Job::None;
-                    continue;
-                }
+                if (!base) continue;
             }
 
             // Assign a resource when the worker is close enough to the base
@@ -747,6 +753,21 @@ namespace Workers
 #endif
                     worker->moveTo(base->getPosition());
                     break;
+                }
+                case Job::None:
+                {
+                    // Move towards the base if we aren't near it
+                    auto base = workerBase[worker];
+                    if (!base || !base->resourceDepot || !base->resourceDepot->exists())
+                    {
+                        continue;
+                    }
+
+                    int dist = worker->getDistance(base->getPosition());
+                    if (dist > 200)
+                    {
+                        worker->moveTo(base->getPosition());
+                    }
                 }
                 default:
                 {
