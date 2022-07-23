@@ -408,7 +408,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         }
         else if (enemiesNeedingDetection.empty() && !enemyInOurBase && choke && choke->isNarrowChoke)
         {
-            if (enemyUnits.empty() && blockedFriendlyUnit(choke, unitToCluster))
+            if (enemyUnits.empty() && Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Dark_Templar).empty() && blockedFriendlyUnit(choke, unitToCluster))
             {
                 cluster.attack(unitsAndTargets, Map::getMyMain()->mineralLineCenter);
             }
