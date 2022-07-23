@@ -8,10 +8,20 @@ void MainArmyPlay::update()
     auto squad = getSquad();
     if (squad && squad->needsDetection())
     {
-        auto &detectors = squad->getDetectors();
-        if (detectors.size() < 2)
+        int desiredDetectors = 0;
+        if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Dark_Templar))
         {
-            status.unitRequirements.emplace_back(2 - detectors.size(), BWAPI::UnitTypes::Protoss_Observer, squad->getTargetPosition());
+            desiredDetectors = 1;
+        }
+        if (squad->needsDetection())
+        {
+            desiredDetectors = 2;
+        }
+
+        auto &detectors = squad->getDetectors();
+        if (detectors.size() < desiredDetectors)
+        {
+            status.unitRequirements.emplace_back(desiredDetectors - detectors.size(), BWAPI::UnitTypes::Protoss_Observer, squad->getTargetPosition());
         }
     }
 }
