@@ -297,10 +297,11 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::NormalOpening:
         {
             // If any zealots are in production, and we don't have an emergency production goal, cancel them
-            if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot) > 0)
-            {
-                cancelTrainingUnits(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot);
-            }
+            // Disabled for COG as this can cause crashes in BWAPI
+//            if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot) > 0)
+//            {
+//                cancelTrainingUnits(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot);
+//            }
 
             // Try to keep at least two army units in production while taking our natural
             int higherPriorityCount = 2 - inProgressCount;
