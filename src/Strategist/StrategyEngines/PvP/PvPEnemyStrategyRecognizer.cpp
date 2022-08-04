@@ -225,45 +225,6 @@ namespace
             return true;
         }
 
-        // Assume the enemy has done a dragoon all-in if it has successfully set up a contain on us before frame 10000
-        if (currentFrame < 10000
-            && createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 10)
-            && Strategist::areWeContained())
-        {
-            return true;
-        }
-
-        // Otherwise work off of goon timings
-        if (currentFrame < 7000)
-        {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 7);
-        }
-        if (currentFrame < 8000)
-        {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 7) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7600, 10);
-        }
-        if (currentFrame < 9000)
-        {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7600, 10) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8700, 14);
-        }
-        if (currentFrame < 10000)
-        {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8700, 14) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9800, 18);
-        }
-        if (currentFrame < 11000)
-        {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9800, 18) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10900, 22);
-        }
-        if (currentFrame < 12000)
-        {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10900, 22) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 12000, 26);
-        }
-
         return false;
     }
 
