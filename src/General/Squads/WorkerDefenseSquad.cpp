@@ -112,6 +112,8 @@ void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAn
         auto &worker = workerAndTarget.first;
         auto &target = workerAndTarget.second;
 
+        if (!worker->exists()) continue;
+
         // Select a mineral patch to use
         // We pick the patch that is furthest away, but closer to us than the enemy
         BWAPI::Unit furthestPatch = nullptr;
