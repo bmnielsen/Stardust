@@ -60,8 +60,11 @@ namespace BuildingPlacement
 
         std::shared_ptr<Block> startBlock;
         std::vector<std::shared_ptr<Block>> blocks;
-        std::map<Base *, std::pair<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>>> baseStaticDefenses;
-        auto emptyBaseStaticDefenses = std::make_pair(BWAPI::TilePositions::Invalid, std::vector<BWAPI::TilePosition>{});
+        std::map<Base *, BaseStaticDefenseLocations> baseStaticDefenses;
+        BaseStaticDefenseLocations emptyBaseStaticDefenses = {
+                BWAPI::TilePositions::Invalid,
+                std::vector<BWAPI::TilePosition>{},
+                BWAPI::TilePositions::Invalid};
 
         std::shared_ptr<Block> chokeCannonBlock;
         BWAPI::TilePosition chokeCannonPlacement;
@@ -203,9 +206,12 @@ namespace BuildingPlacement
             }
         }
 
-        void addBaseStaticDefense(Base *base, BWAPI::TilePosition pylon, std::vector<BWAPI::TilePosition> cannons)
+        void addBaseStaticDefense(Base *base,
+                                  BWAPI::TilePosition powerPylon,
+                                  std::vector<BWAPI::TilePosition> workerDefenseCannons,
+                                  BWAPI::TilePosition startBlockCannon = BWAPI::TilePositions::Invalid)
         {
-            auto markLocation = [](BWAPI::TilePosition tile)
+            auto markLocation = [](const BWAPI::TilePosition &tile)
             {
                 for (int tileX = tile.x - 1; tileX <= tile.x + 2; tileX++)
                 {
@@ -225,13 +231,13 @@ namespace BuildingPlacement
                 }
             };
 
-            markLocation(pylon);
-            for (auto cannon : cannons)
+            markLocation(powerPylon);
+            for (auto &cannon : workerDefenseCannons)
             {
                 markLocation(cannon);
             }
 
-            baseStaticDefenses[base] = std::make_pair(pylon, std::move(cannons));
+            baseStaticDefenses.emplace(base, BaseStaticDefenseLocations{powerPylon, std::move(workerDefenseCannons), startBlockCannon});
         }
 
         void findStartBlock()
@@ -256,7 +262,17 @@ namespace BuildingPlacement
                 {
                     startBlock = block;
                     blocks.push_back(block);
-                    addBaseStaticDefense(Map::getMyMain(), block->powerPylon, block->cannons);
+
+                    // Check if this start block has a location for a defensive cannon
+                    BWAPI::TilePosition cannon = BWAPI::TilePositions::Invalid;
+                    for (auto &location : block->small)
+                    {
+                        if (location.tile == startBlock->powerPylon) continue;
+                        cannon = location.tile;
+                        break;
+                    }
+
+                    addBaseStaticDefense(Map::getMyMain(), block->powerPylon, block->cannons, cannon);
                     return;
                 }
             }
@@ -277,7 +293,7 @@ namespace BuildingPlacement
                     auto mainChoke = Map::getMyMainChoke();
                     auto chokeToMineralLineDist = mainChoke ? mainChoke->center.getApproxDistance(base->mineralLineCenter) : 0;
                     std::vector<std::pair<int, BWAPI::TilePosition>> tilesAndScore;
-                    for (auto &tile : mainDefenses.second)
+                    for (auto &tile : mainDefenses.workerDefenseCannons)
                     {
                         auto pos = BWAPI::Position(tile) + BWAPI::Position(16, 16);
                         int score = pos.getApproxDistance(base->mineralLineCenter) * 4;
@@ -300,7 +316,7 @@ namespace BuildingPlacement
                             : 0;
                     BWAPI::TilePosition bestStartBlockTile = BWAPI::TilePositions::Invalid;
                     int bestScore = INT_MAX;
-                    for (auto &tile : mainDefenses.second)
+                    for (auto &tile : mainDefenses.workerDefenseCannons)
                     {
                         auto pos = BWAPI::Position(tile) + BWAPI::Position(16, 16);
                         int score = pos.getApproxDistance(startBlockPylonPos);
@@ -317,18 +333,18 @@ namespace BuildingPlacement
 
                     // Now assign the locations
                     // We use the scores for how well they defend the mineral line, but put the cannon that best defends the start block second
-                    mainDefenses.second.clear();
+                    mainDefenses.workerDefenseCannons.clear();
                     auto firstTile = tilesAndScore.begin()->second;
-                    mainDefenses.second.push_back(firstTile);
+                    mainDefenses.workerDefenseCannons.push_back(firstTile);
                     if (bestStartBlockTile != BWAPI::TilePositions::Invalid && bestStartBlockTile != firstTile)
                     {
-                        mainDefenses.second.push_back(bestStartBlockTile);
+                        mainDefenses.workerDefenseCannons.push_back(bestStartBlockTile);
                     }
                     for (auto &tileAndScore : tilesAndScore)
                     {
                         if (tileAndScore.second == firstTile) continue;
                         if (tileAndScore.second == bestStartBlockTile) continue;
-                        mainDefenses.second.push_back(tileAndScore.second);
+                        mainDefenses.workerDefenseCannons.push_back(tileAndScore.second);
                     }
 
                     continue;
@@ -1029,11 +1045,11 @@ namespace BuildingPlacement
                 }
             }
 
-            for (const auto &baseAndStaticDefenses : baseStaticDefenses)
+            for (const auto &[base, staticDefenses] : baseStaticDefenses)
             {
-                addLocation(baseAndStaticDefenses.second.first, 2, 2, 4);
+                addLocation(staticDefenses.powerPylon, 2, 2, 4);
                 bool first = true;
-                for (const auto &cannon : baseAndStaticDefenses.second.second)
+                for (const auto &cannon : staticDefenses.workerDefenseCannons)
                 {
                     addLocation(cannon, 2, 2, first ? 8 : 5);
                     first = false;
@@ -1221,10 +1237,24 @@ namespace BuildingPlacement
                 PathFinding::PathFindingOptions::UseNearestBWEMArea);
     }
 
-    std::pair<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>> &baseStaticDefenseLocations(Base *base)
+    BaseStaticDefenseLocations &baseStaticDefenseLocations(Base *base)
     {
         auto it = baseStaticDefenses.find(base);
         return it == baseStaticDefenses.end() ? emptyBaseStaticDefenses : it->second;
+    }
+
+    BWAPI::TilePosition mainBlockStaticDefenseLocation()
+    {
+        if (!startBlock) return BWAPI::TilePositions::Invalid;
+
+        for (auto &location : startBlock->small)
+        {
+            if (location.tile == startBlock->powerPylon) continue;
+
+            return location.tile;
+        }
+
+        return BWAPI::TilePositions::Invalid;
     }
 
     std::pair<BWAPI::TilePosition, BWAPI::TilePosition> mainChokeCannonLocations()

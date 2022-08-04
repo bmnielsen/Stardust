@@ -23,13 +23,12 @@ DefendBase::DefendBase(Base *base, int enemyValue)
 
     // Get the static defense locations for this base
     auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-    if (baseStaticDefenseLocations.first != BWAPI::TilePositions::Invalid)
+    if (baseStaticDefenseLocations.isValid())
     {
-        pylonLocation = baseStaticDefenseLocations.first;
-        cannonLocations.assign(baseStaticDefenseLocations.second.begin(), baseStaticDefenseLocations.second.end());
+        cannonLocations.assign(baseStaticDefenseLocations.workerDefenseCannons.begin(), baseStaticDefenseLocations.workerDefenseCannons.end());
 
         // Get any existing units - maybe we have had a defend base squad for this base before
-        pylon = Units::myBuildingAt(pylonLocation);
+        pylon = Units::myBuildingAt(baseStaticDefenseLocations.powerPylon);
         for (auto it = cannonLocations.begin(); it != cannonLocations.end();)
         {
             auto cannon = Units::myBuildingAt(*it);

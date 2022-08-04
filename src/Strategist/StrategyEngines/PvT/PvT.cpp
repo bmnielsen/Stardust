@@ -225,19 +225,25 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             auto buildCannons = [&prioritizedProductionGoals](int desiredCount)
             {
                 auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(Map::getMyMain());
-                if (!baseStaticDefenseLocations.first.isValid()) return 0;
+                if (!baseStaticDefenseLocations.isValid()) return 0;
+
+                std::vector<BWAPI::TilePosition> locations = baseStaticDefenseLocations.workerDefenseCannons;
+                if (baseStaticDefenseLocations.startBlockCannon != BWAPI::TilePositions::Invalid)
+                {
+                    locations.insert(locations.begin() + 1, baseStaticDefenseLocations.startBlockCannon);
+                }
 
                 int completedCannons = 0;
-                for (const auto &location : baseStaticDefenseLocations.second)
+                for (const auto &location : locations)
                 {
                     if (!location.isValid()) continue;
 
                     auto cannon = Units::myBuildingAt(location);
-                    if (cannon)
+                    if (cannon && cannon->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
                     {
                         desiredCount--;
 
-                        if (cannon->completed)
+                        if (cannon->completed || cannon->estimatedCompletionFrame < (currentFrame + 200))
                         {
                             completedCannons++;
                         }
@@ -258,7 +264,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                                         buildLocation);
                         };
 
-                        auto pylon = Units::myBuildingAt(baseStaticDefenseLocations.first);
+                        auto pylon = Units::myBuildingAt(baseStaticDefenseLocations.powerPylon);
                         if (pylon)
                         {
                             if (pylon->completed)
@@ -269,7 +275,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                         }
                         else if (!pylon)
                         {
-                            buildAtTile(baseStaticDefenseLocations.first, BWAPI::UnitTypes::Protoss_Pylon);
+                            buildAtTile(baseStaticDefenseLocations.powerPylon, BWAPI::UnitTypes::Protoss_Pylon);
                             return completedCannons;
                         }
                     }
@@ -279,15 +285,17 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             };
 
             // Build cannons if the strategy has been stable for 5 seconds
-            int completedCannons =
-                    enemyStrategyChanged < (currentFrame - 120)
-                    ? buildCannons(2)
-                    : 0;
+            int desiredCannons = 0;
+            if (enemyStrategyChanged < (currentFrame - 120))
+            {
+                desiredCannons = 2;
+            }
+            int completedCannons = buildCannons(desiredCannons);
 
             // Determine how many zealots we want
             // Zealots are relatively useless against groups of kiting marines, so we want to transition to dragoons as quickly as possible
-            int zealotsRequired = std::max(0, (dragoonCount < 3 ? 3 : 2) - (completedCannons * 2));
-            handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired);
+            int zealotsRequired = std::max(0, (dragoonCount < 3 ? 3 : 2) - (completedCannons * 2) - zealotCount);
+            handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired, 1);
 
             break;
         }

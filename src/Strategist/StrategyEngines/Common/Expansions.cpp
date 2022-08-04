@@ -338,7 +338,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         if (expansion->blockedByEnemy)
         {
             auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(expansion);
-            if (baseStaticDefenseLocations.first == BWAPI::TilePositions::Invalid || baseStaticDefenseLocations.second.empty())
+            if (!baseStaticDefenseLocations.isValid())
             {
                 continue;
             }

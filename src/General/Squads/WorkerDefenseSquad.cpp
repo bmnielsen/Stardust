@@ -14,9 +14,9 @@ std::vector<std::pair<MyUnit, Unit>> WorkerDefenseSquad::selectTargets(std::set<
 
     bool hasCannonInMineralLine = false;
     auto &defenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-    if (defenseLocations.first.isValid() && !defenseLocations.second.empty())
+    if (defenseLocations.isValid())
     {
-        auto cannon = Units::myBuildingAt(*defenseLocations.second.begin());
+        auto cannon = Units::myBuildingAt(*defenseLocations.workerDefenseCannons.begin());
         if (cannon && cannon->completed && cannon->bwapiUnit->isPowered())
         {
             hasCannonInMineralLine = true;

@@ -61,6 +61,15 @@ namespace BuildingPlacement
         HiddenBase
     }; // TODO: Add proxy, etc.
 
+    struct BaseStaticDefenseLocations
+    {
+        BWAPI::TilePosition powerPylon;
+        std::vector<BWAPI::TilePosition> workerDefenseCannons;
+        BWAPI::TilePosition startBlockCannon;
+
+        [[nodiscard]] bool isValid() const { return powerPylon != BWAPI::TilePositions::Invalid && !workerDefenseCannons.empty(); }
+    };
+
     void initialize();
 
     void onBuildingQueued(const Building *building);
@@ -81,7 +90,7 @@ namespace BuildingPlacement
 
     int builderFrames(BWAPI::Position origin, BWAPI::TilePosition tile, BWAPI::UnitType type);
 
-    std::pair<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>> &baseStaticDefenseLocations(Base *base);
+    BaseStaticDefenseLocations &baseStaticDefenseLocations(Base *base);
 
     std::pair<BWAPI::TilePosition, BWAPI::TilePosition> mainChokeCannonLocations();
 

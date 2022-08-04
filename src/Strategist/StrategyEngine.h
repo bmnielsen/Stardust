@@ -64,7 +64,8 @@ protected:
     static void handleAntiRushProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                          int dragoonCount,
                                          int zealotCount,
-                                         int zealotsRequired);
+                                         int zealotsRequired,
+                                         int zealotProducerLimit = 2);
 
     static bool handleIslandExpansionProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                 std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
