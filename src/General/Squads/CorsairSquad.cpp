@@ -483,7 +483,7 @@ void CorsairSquad::execute()
             // Ignore bases that are covered by anti-air
             if (grid.airThreat(base->getPosition()) > 0) return;
 
-            if (base->lastScouted < lastScouted && base->lastScouted < (currentFrame - limit))
+            if (base->lastScouted < lastScouted && base->lastScouted <= (currentFrame - limit))
             {
                 lastScouted = base->lastScouted;
                 _leastScoutedEnemyBase = base;
@@ -549,7 +549,7 @@ void CorsairSquad::execute()
 #endif
     }
 
-    else if (leastScoutedEnemyBase() && leastScoutedEnemyBase()->lastScouted < (currentFrame - 600))
+    else if (leastScoutedEnemyBase())
     {
         auto pos = leastScoutedEnemyBase()->getPosition();
         ensureTargetPosition(pos);
