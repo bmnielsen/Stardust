@@ -27,6 +27,7 @@ namespace BWAPI
   {
     public:
       virtual int           getID() const override;
+      virtual int           getBWID() const override;
       virtual bool          exists() const override;
       virtual int           getReplayID() const override;
       virtual Player        getPlayer() const override;
