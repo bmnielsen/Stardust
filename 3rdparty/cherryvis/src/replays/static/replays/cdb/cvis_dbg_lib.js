@@ -58,6 +58,10 @@ function cvis_dbg_lib_init(global_data, cvis_state) {
   }
 
   function get_unit_by_cp_id(unit_cp_id) {
+    if (unit_cp_id < 0)
+    {
+      return get_unit_by_bw_id(-unit_cp_id);
+    }
     return get_unit_by_bw_id(cvis_state.id2bw[unit_cp_id]);
   }
 
