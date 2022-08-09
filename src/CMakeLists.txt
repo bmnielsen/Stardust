@@ -43,6 +43,7 @@ IF (MSVC)
     ENDIF (TOURNAMENT_BUILD)
 
 ELSE (MSVC)
+    target_compile_definitions(Stardust PUBLIC IS_OPENBW=true)
     target_compile_definitions(Stardust PUBLIC LOGGING_ENABLED=true)
     target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
     target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED_VERBOSE=true)
