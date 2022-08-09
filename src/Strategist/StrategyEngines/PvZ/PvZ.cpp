@@ -25,6 +25,12 @@ namespace
         if (typeid(*current) == typeid(T)) return;
         current->status.transitionTo = std::make_shared<T>(std::forward<Args>(args)...);
     }
+
+    bool enemyHasOurNatural()
+    {
+        auto natural = Map::getMyNatural();
+        return natural && natural->owner == BWAPI::Broodwar->enemy();
+    }
 }
 
 void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays)
@@ -92,6 +98,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
             // If the enemy has done a sneak attack recently, don't leave our base until we have built defensive cannons
             if (currentFrame > 10000) return true; // only relevant in early game
+            if (enemyHasOurNatural()) return true; // exception if the enemy has our natural
             auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
             return sneakAttack > 10000 || Units::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon) >= 2;
         };
@@ -411,7 +418,12 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
             // Build anti-sneak-attack cannons on 4 completed units
-            if ((zealotCount + dragoonCount - inProgressCount) >= 4)
+            // Exception is if the enemy has taken our natural, in which case we skip this
+            if (enemyHasOurNatural())
+            {
+                CherryVis::setBoardValue("anti-sneak-attack", "enemy-has-our-natural");
+            }
+            else if ((zealotCount + dragoonCount - inProgressCount) >= 4)
             {
                 CherryVis::setBoardValue("anti-sneak-attack", "enough-units");
                 buildAntiSneakAttackCannons();
