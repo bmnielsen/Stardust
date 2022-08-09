@@ -126,12 +126,6 @@ namespace
         if (!natural) return false;
         if (natural->owner != BWAPI::Broodwar->enemy()) return false;
 
-        auto inOurNatural = [&natural](const Unit &unit)
-        {
-            auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition));
-            return area && area == natural->getArea();
-        };
-
         // Gather enemy combat value at the base
         int enemyValue = 0;
         for (const auto &unit : Units::enemyAtBase(natural))
