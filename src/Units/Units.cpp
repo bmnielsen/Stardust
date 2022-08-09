@@ -195,9 +195,9 @@ namespace Units
             unitIdToMyUnit.erase(unit->id);
         }
 
-        void enemyUnitDestroyed(const Unit &unit)
+        void enemyUnitDestroyed(const Unit &unit, bool morphed = false)
         {
-            if (unit->type.isBuilding())
+            if (unit->type.isBuilding() && !morphed)
             {
                 Log::Get() << "Enemy destroyed: " << *unit;
             }
