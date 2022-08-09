@@ -52,7 +52,7 @@ namespace CherryVis
                 return partitionedObjectSize > 0 || framesPerPartition > 0;
             }
 
-            std::unordered_map<std::string, std::string> index() const
+            [[nodiscard]] std::unordered_map<std::string, std::string> index() const
             {
                 std::unordered_map<std::string, std::string> result;
                 for (const auto &part : parts)
@@ -538,21 +538,7 @@ namespace CherryVis
             }
         }
 
-        std::unordered_map<std::string, std::string> buildTypesToName;
-        for (auto type : BWAPI::UnitTypes::allUnitTypes())
-        {
-            buildTypesToName[std::to_string(type.getID())] = type.getName();
-        }
-
-        std::unordered_map<std::string, std::string> orderTypesToName;
-        for (auto type : BWAPI::Orders::allOrders())
-        {
-            orderTypesToName[std::to_string(type.getID())] = type.getName();
-        }
-
         nlohmann::json trace = {
-                {"types_names",      buildTypesToName},
-                {"orders_names",     orderTypesToName},
                 {"board_updates",    boardUpdatesFile->parts[0].filename},
                 {"units_first_seen", frameToUnitsFirstSeen},
                 {"units_updates",    unitIdToFrameToUnitUpdate},
