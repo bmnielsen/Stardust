@@ -25,10 +25,11 @@ DefendBase::DefendBase(Base *base, int enemyValue)
     auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
     if (baseStaticDefenseLocations.isValid())
     {
+        pylonLocation = baseStaticDefenseLocations.powerPylon;
         cannonLocations.assign(baseStaticDefenseLocations.workerDefenseCannons.begin(), baseStaticDefenseLocations.workerDefenseCannons.end());
 
         // Get any existing units - maybe we have had a defend base squad for this base before
-        pylon = Units::myBuildingAt(baseStaticDefenseLocations.powerPylon);
+        pylon = Units::myBuildingAt(pylonLocation);
         for (auto it = cannonLocations.begin(); it != cannonLocations.end();)
         {
             auto cannon = Units::myBuildingAt(*it);
