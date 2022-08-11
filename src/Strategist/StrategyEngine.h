@@ -89,7 +89,8 @@ protected:
     static void upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                UpgradeOrTechType upgradeOrTechType,
                                BWAPI::UnitType unitType,
-                               int unitCount);
+                               int unitCount,
+                               int level = 1);
 
     static void upgradeWhenUnitCreated(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                        UpgradeOrTechType upgradeOrTechType,

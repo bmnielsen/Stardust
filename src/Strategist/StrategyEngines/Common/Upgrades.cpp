@@ -5,10 +5,11 @@
 void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                     UpgradeOrTechType upgradeOrTechType,
                                     BWAPI::UnitType unitType,
-                                    int unitCount)
+                                    int unitCount,
+                                    int level)
 {
     // First bail out if the upgrade is already done or queued
-    if (upgradeOrTechType.currentLevel() >= upgradeOrTechType.maxLevel()) return;
+    if (upgradeOrTechType.currentLevel() >= level) return;
     if (Units::isBeingUpgradedOrResearched(upgradeOrTechType)) return;
 
     // Now loop through all of the prioritized production goals, keeping track of how many of the desired unit we have

@@ -414,8 +414,18 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1,
                                                                        -1);
 
-            // Only upgrade goon range and sair damage once we have five
+            // Upgrade goon range at 2 dragoons
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+
+            // Upgrade zealots at varying cutoffs depending on whether we already have a forge
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Forge) > 0)
+            {
+                upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 4);
+            }
+            else
+            {
+                upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 6);
+            }
 
             // Build anti-sneak-attack cannons on 4 completed units
             // Exception is if the enemy has taken our natural, in which case we skip this
@@ -446,18 +456,20 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             int requiredZealots = 0;
             if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 6)
             {
-                requiredZealots = std::min(10, Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 2) - zealotCount;
+                int maxZealots = 10;
+                if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) == 0) maxZealots = 20;
+                requiredZealots = std::min(maxZealots, Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 2);
             }
 
             // Keep zealots in the mix in the later game
             if (dragoonCount > 12)
             {
-                requiredZealots = std::max(requiredZealots, ((dragoonCount - 12) / 2) - zealotCount);
+                requiredZealots = std::max(requiredZealots, (dragoonCount - 12) / 2);
             }
 
-            if (requiredZealots > 0)
+            if (requiredZealots > zealotCount)
             {
-                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, requiredZealots, higherPriorityCount);
+                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, requiredZealots - zealotCount, higherPriorityCount);
             }
 
             if (buildCorsairs())
