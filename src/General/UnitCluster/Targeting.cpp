@@ -525,7 +525,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
         // Third priority: lowest number of targets
         if (a.targets.size() < b.targets.size()) return true;
-        if (a.targets.size() > b.targets.size()) return true;
+        if (a.targets.size() > b.targets.size()) return false;
 
         // Default: unit ID (guaranteed to be inequal)
         return a.unit->id < b.unit->id;
