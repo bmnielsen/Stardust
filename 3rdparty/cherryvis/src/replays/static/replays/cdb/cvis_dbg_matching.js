@@ -28,13 +28,13 @@ function cvis_dbg_match_units(global_data, cvis_state) {
   $('.cvis-dbg-show-when-matching-units').show();
   var pbar = $('.cvis-matching-units-progress-bar');
   if (cvis_state.units_matching.start == null) {
-    cvis_state.id2bw = {};
-    cvis_state.bw2id = {};
     cvis_state.units_matching.start = new Date();
     cvis_state.units_first_seen_frame = {};
     var matcher = Module.get_units_matcher();
     var all_units_to_match = get_all_units_to_match();
     if (global_data.unit_ids) {
+      cvis_state.id2bw = {};
+      cvis_state.bw2id = {};
       // Our openbw-based infrastructure writes the unit ID pairs directly
       for (let unit_id_pair of global_data.unit_ids) {
         cvis_state.id2bw[unit_id_pair[0]] = unit_id_pair[1];
@@ -57,6 +57,8 @@ function cvis_dbg_match_units(global_data, cvis_state) {
     }
   }
   if (cvis_state.units_matching.skipped) {
+    cvis_state.id2bw = cvis_state.id2bw || {};
+    cvis_state.bw2id = cvis_state.bw2id || {};
     Module.enable_main_update_loop();
     $('.cvis-dbg-show-when-matching-units').hide();
     $('.cvis-dbg-show-when-loading').hide();
