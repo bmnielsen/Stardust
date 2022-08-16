@@ -452,32 +452,46 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             // Baseline production is one combat unit for every 6 workers (approximately 3 units per mining base)
             int higherPriorityCount = (Workers::mineralWorkers() / 6) - inProgressCount;
 
-            // Keep some zealots in the mix if the opponent has a lot of lings
-            int requiredZealots = 0;
-            if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 6)
+            // Compute enemy unit mix
+            int enemyLings = Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling);
+            int enemyHydras = Units::countEnemy(BWAPI::UnitTypes::Zerg_Hydralisk);
+            int enemyMutas = Units::countEnemy(BWAPI::UnitTypes::Zerg_Lurker_Egg)
+                    + Units::countEnemy(BWAPI::UnitTypes::Zerg_Lurker)
+                    + Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk);
+
+            // Simulate future units if we've seen tech
+            if (enemyHydras == 0 && Units::countEnemy(BWAPI::UnitTypes::Zerg_Hydralisk_Den) > 0) enemyHydras = 3;
+            if (enemyMutas == 0 && Units::countEnemy(BWAPI::UnitTypes::Zerg_Spire) > 0) enemyMutas = 3;
+
+            // Compute the enemy ling percentage, weighted to count mutas a bit higher
+            double enemyLingPercentage = 1.0;
+            if ((enemyLings + enemyHydras + enemyMutas) > 0)
             {
-                int maxZealots = 10;
-                if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) == 0) maxZealots = 20;
-                requiredZealots = std::min(maxZealots, Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 2);
+                enemyLingPercentage = (double)enemyLings / (double)(enemyLings + enemyHydras + enemyMutas * 2);
             }
 
-            // Keep zealots in the mix in the later game
-            if (dragoonCount > 12)
-            {
-                requiredZealots = std::max(requiredZealots, (dragoonCount - 12) / 2);
-            }
+            // Now use this to determine our unit mix
+            // We prefer zealots more and more as the enemy ling percentage goes up, but still build some goons
+            double desiredZealotRatio = enemyLingPercentage * 0.8;
 
-            if (requiredZealots > zealotCount)
+            double actualZealotRatio = 0.0;
+            if ((zealotCount + dragoonCount) > 0)
             {
-                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, requiredZealots - zealotCount, higherPriorityCount);
+                actualZealotRatio = (double)zealotCount / (double)(zealotCount + dragoonCount);
             }
 
             if (buildCorsairs())
             {
                 mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Corsair, 1, higherPriorityCount, 1);
             }
-            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
+            if (actualZealotRatio > desiredZealotRatio)
+            {
+                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
+            }
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
+
+            // Make sure we get weapons upgrade for zealots
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 4);
 
             handleUpgrades(prioritizedProductionGoals);
             buildAntiSneakAttackCannons();
