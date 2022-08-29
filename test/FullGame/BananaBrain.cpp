@@ -289,6 +289,24 @@ TEST(BananaBrain, NZCoreDt)
     test.run();
 }
 
+TEST(BananaBrain, NZCore)
+{
+    BWTest test;
+    test.opponentName = "BananaBrain";
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.map = Maps::GetOne("Breakers");
+    test.randomSeed = 39960;
+    test.frameLimit = 15000;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ProtossStrategy::kPvP_NZCore;
+        return bbModule;
+    };
+
+    test.run();
+}
+
 TEST(BananaBrain, RunAsBB)
 {
     BWTest test;
