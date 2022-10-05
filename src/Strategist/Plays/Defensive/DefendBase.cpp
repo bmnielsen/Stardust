@@ -191,20 +191,39 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
         int neededCannons = desiredCannons() - cannons.size();
         for (int i = 0; i < neededCannons && i < cannonLocations.size(); i++)
         {
-            // Determine the priority
-            // By default it is equivalent to main army
-            // If it is the main or natural in the early game, give it higher priority
-            // If it is the last cannon, give it lower priority until the others are completed
-            int priority = PRIORITY_MAINARMY;
+            // Determine the "normal" and "low" priority levels
+            // By default we use "main army" and "lowest", but bump them up if:
+            // - it is the main or natural in the early game
+            // - the enemy has a lot of mutalisks
+            int normalPriority = PRIORITY_MAINARMY;
+            int lowPriority = PRIORITY_LOWEST;
+            bool mutaThreat = Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 4;
             if ((base == Map::getMyMain() || base == Map::getMyNatural()) && currentFrame < 12000)
             {
-                priority = PRIORITY_NORMAL;
+                if (mutaThreat)
+                {
+                    normalPriority = PRIORITY_BASEDEFENSE;
+                    lowPriority = PRIORITY_MAINARMYBASEPRODUCTION;
+                }
+                else
+                {
+                    normalPriority = PRIORITY_MAINARMYBASEPRODUCTION;
+                    lowPriority = PRIORITY_NORMAL;
+                }
             }
-            else if (i == (neededCannons - 1))
+            else if (mutaThreat)
+            {
+                normalPriority = PRIORITY_MAINARMYBASEPRODUCTION;
+                lowPriority = PRIORITY_NORMAL;
+            }
+
+            // Use the low priority for the last cannon until the others are completed
+            int priority = normalPriority;
+            if (i == (neededCannons - 1))
             {
                 if (i > 0)
                 {
-                    priority = PRIORITY_LOWEST;
+                    priority = lowPriority;
                 }
                 else
                 {
@@ -212,7 +231,7 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
                     {
                         if (!cannon->completed)
                         {
-                            priority = PRIORITY_LOWEST;
+                            priority = lowPriority;
                             break;
                         }
                     }
