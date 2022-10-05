@@ -95,8 +95,8 @@ namespace
 
         if (currentFrame < 6000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 4000, 8) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 5000, 12);
+            return createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 4000, 9) ||
+                   createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 5000, 13);
         }
 
         if (currentFrame < 8000)
