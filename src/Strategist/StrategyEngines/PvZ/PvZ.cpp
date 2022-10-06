@@ -218,17 +218,18 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         buildDefensiveCannons(prioritizedProductionGoals, false, 0, 3);
     };
 
-    auto buildCorsairs = [&]()
+    auto desiredCorsairs = [&]()
     {
         // Limit to 5 + 2 for each enemy mutalisk
         int limit = 5 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) / 2);
-        if (corsairCount >= limit) return false;
+        int desired = limit - corsairCount;
+        if (desired <= 0) return 0;
 
         // Always build if we have DTs to force enemy to defend its overlords
-        if (dtCount > 0) return true;
+        if (dtCount > 0) return desired;
 
         // Always build if the enemy has air units that can threaten our bases
-        if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Mutalisk)) return true;
+        if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Mutalisk)) return desired;
 
         // Don't build if the enemy has defended its overlords
         auto &grid = Players::grid(BWAPI::Broodwar->enemy());
@@ -241,9 +242,9 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             long threat = grid.airThreat(overlord->lastPosition);
             ((threat == 0) ? undefendedOverlords : defendedOverlords)++;
         }
-        if (defendedOverlords > undefendedOverlords) return false;
+        if (defendedOverlords > undefendedOverlords) return 0;
 
-        return true;
+        return desired;
     };
 
     // Main army production
@@ -394,7 +395,8 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                     BWAPI::UnitTypes::Protoss_Zealot.buildTime());
             }
 
-            if (buildCorsairs())
+            int corsairs = desiredCorsairs();
+            if (corsairs > 0)
             {
                 prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                            "SE",
@@ -480,9 +482,17 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 actualZealotRatio = (double)zealotCount / (double)(zealotCount + dragoonCount);
             }
 
-            if (buildCorsairs())
+            int corsairs = desiredCorsairs();
+            if (corsairs > 0)
             {
-                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Corsair, 1, higherPriorityCount, 1);
+                if (corsairs > 4 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
+                {
+                    mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Corsair, 2, higherPriorityCount, 2);
+                }
+                else
+                {
+                    mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Corsair, 1, higherPriorityCount, 1);
+                }
             }
             if (actualZealotRatio > desiredZealotRatio)
             {
@@ -553,8 +563,10 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 break;
             }
 
+            auto corsairCount = Units::countCompleted(BWAPI::UnitTypes::Protoss_Corsair);
             auto squad = mainArmyPlay->getSquad();
-            if (!squad || squad->getUnits().size() < 5)
+            auto squadUnitCount = squad ? squad->getUnits().size() : 0;
+            if (squadUnitCount < 5 || (corsairCount == 0 && squadUnitCount < 8))
             {
                 CherryVis::setBoardValue("natural", "attack-play-too-small");
                 break;
