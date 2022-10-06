@@ -483,6 +483,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             int corsairs = desiredCorsairs();
+            CherryVis::log() << "Desired: " << corsairs;
             if (corsairs > 0)
             {
                 if (corsairs > 4 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
