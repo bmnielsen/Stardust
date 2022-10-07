@@ -227,8 +227,10 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         return result;
     };
 
+    bool excessIdleWorkers = (Workers::idleWorkerCount() >= 10);
+
     // Check if we want to cancel an active TakeExpansionPlay
-    if (!takeExpansionPlays.empty())
+    if (!takeExpansionPlays.empty() && !excessIdleWorkers)
     {
         auto safe = safeToExpand();
         for (auto &takeExpansionPlay : takeExpansionPlays)
@@ -299,7 +301,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Break out if we don't want to expand to a normal base
-    if (excessMineralAssignments > 0 || (!safeToExpand() && Workers::idleWorkerCount() < 10)) return;
+    if (excessMineralAssignments > 0 || (!safeToExpand() && !excessIdleWorkers)) return;
 
     // Determine if we want to consider a mineral-only base
     auto shouldTakeMineralOnly = [&gasStarved]()
