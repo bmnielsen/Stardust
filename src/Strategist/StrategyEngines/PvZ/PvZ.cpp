@@ -220,8 +220,8 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     auto desiredCorsairs = [&]()
     {
-        // Limit to 5 + 2 for each enemy mutalisk
-        int limit = 5 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) / 2);
+        // Limit to 7 + 1 for every 2 enemy mutalisks
+        int limit = 7 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) / 2);
         int desired = limit - corsairCount;
         if (desired <= 0) return 0;
 
@@ -483,17 +483,23 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             int corsairs = desiredCorsairs();
-            CherryVis::log() << "Desired: " << corsairs;
             if (corsairs > 0)
             {
-                if (corsairs > 4 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
+                int toBuild = 1;
+                int stargates = 1;
+
+                // Boost the count to build at a time if the enemy has mutas
+                if (corsairs > 2 && Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 4)
                 {
-                    mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Corsair, 2, higherPriorityCount, 2);
+                    toBuild = 2;
+                    stargates = 2;
+                    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
+                    {
+                        toBuild = 3;
+                    }
                 }
-                else
-                {
-                    mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Corsair, 1, higherPriorityCount, 1);
-                }
+
+                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Corsair, toBuild, higherPriorityCount, stargates);
             }
             if (actualZealotRatio > desiredZealotRatio)
             {
