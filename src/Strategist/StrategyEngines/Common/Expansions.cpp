@@ -230,8 +230,10 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     bool excessIdleWorkers = (Workers::idleWorkerCount() >= 10);
 
     // Check if we want to cancel an active TakeExpansionPlay
-    if (!takeExpansionPlays.empty() && !excessIdleWorkers)
+    if (!takeExpansionPlays.empty())
     {
+        if (excessIdleWorkers) return;
+
         auto safe = safeToExpand();
         for (auto &takeExpansionPlay : takeExpansionPlays)
         {
