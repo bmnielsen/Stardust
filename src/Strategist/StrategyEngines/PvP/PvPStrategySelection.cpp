@@ -88,9 +88,6 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
     auto isDTExpandFeasible = [&]()
     {
-        // Disabled, as sometimes we misdetect a 3 gate robo opening as a dragoon all-in, and it's suicide to try to do a DT expand
-        return false;
-
         if (enemyStrategy == ProtossStrategy::DarkTemplarRush) return false;
 
         auto frameCutoff = getPlay<HiddenBase>(plays) == nullptr ? 9000 : 10500;

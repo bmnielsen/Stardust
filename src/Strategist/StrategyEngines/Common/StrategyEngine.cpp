@@ -42,7 +42,8 @@ void StrategyEngine::handleGasStealProduction(std::map<int, std::vector<Producti
 void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                               int dragoonCount,
                                               int zealotCount,
-                                              int zealotsRequired)
+                                              int zealotsRequired,
+                                              int zealotProducerLimit)
 {
     // Cancel tech buildings we might have started unless we have an army
     if ((dragoonCount + zealotCount) < 5)
@@ -64,13 +65,13 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
     }
 
     // Get two zealots at highest priority
-    if ((dragoonCount + zealotCount) < 2)
+    if (zealotsRequired > 0 && (dragoonCount + zealotCount) < 2)
     {
         prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                     "SE-antirush",
                                                                     BWAPI::UnitTypes::Protoss_Zealot,
                                                                     -1,
-                                                                    2);
+                                                                    zealotProducerLimit);
 
         // Cancel a building nexus (we don't want to fast expand)
         for (const auto &nexus : Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Nexus))
@@ -135,6 +136,15 @@ void StrategyEngine::handleAntiRushProduction(std::map<int, std::vector<Producti
                                                                       BWAPI::UnitTypes::Protoss_Zealot,
                                                                       zealotsRequired > 1 ? -1 : 1,
                                                                       -1);
+    }
+    else if (dragoonCount < 2)
+    {
+        prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                      "SE-antirush",
+                                                                      BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                      2,
+                                                                      2);
+        return;
     }
 
     // End with dragoons

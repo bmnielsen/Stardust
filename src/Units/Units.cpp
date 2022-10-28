@@ -195,9 +195,11 @@ namespace Units
             unitIdToMyUnit.erase(unit->id);
         }
 
-        void enemyUnitDestroyed(const Unit &unit)
+        // Pass-by-value is required here as we are cleaning up our data structures storing the unit, which may result in the data in the shared
+        // pointer getting freed before we are finished working with it
+        void enemyUnitDestroyed(Unit unit, bool morphed = false) // NOLINT(performance-unnecessary-value-param)
         {
-            if (unit->type.isBuilding())
+            if (unit->type.isBuilding() && !morphed)
             {
                 Log::Get() << "Enemy destroyed: " << *unit;
             }
@@ -682,6 +684,7 @@ namespace Units
 
             // Create or update
             auto it = unitIdToEnemyUnit.find(bwapiUnit->getID());
+            bool morphed = false;
             if (it != unitIdToEnemyUnit.end())
             {
                 // If the type is still the same, update and continue
@@ -692,6 +695,7 @@ namespace Units
                 }
 
                 // The unit has morphed - for simplicity consider the old one as destroyed and the new one created
+                morphed = true;
                 enemyUnitDestroyed(it->second);
             }
 
@@ -703,7 +707,7 @@ namespace Units
             unitCreated(unit);
 
             enemyUnitsByType[unit->type].insert(unit);
-            trackEnemyUnitTimings(unit, it == unitIdToEnemyUnit.end());
+            trackEnemyUnitTimings(unit, !morphed);
         }
 
         // Update enemy units in the fog

@@ -43,9 +43,10 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
 
     auto enemyStartingMain = Map::getEnemyStartingMain();
     auto enemyStartingNatural = Map::getEnemyStartingNatural();
+    auto myNatural = Map::getMyNatural();
     auto attackEnemyBasePlay = dynamic_cast<AttackEnemyBase *>(mainArmyPlay);
 
-    // Get the current main army target base, if it is locked-in to avoid indecision
+    // Get the current main army target base, if it is locked-in, to avoid indecision
     auto getCurrentMainArmyTarget = [&]() -> Base*
     {
         // Must be an attack base play against an enemy base
@@ -83,6 +84,7 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
 
     // Now analyze all of the enemy bases to determine how we want to attack them
     // Main army target is either a fortified expansion, the enemy natural, or the enemy main
+    // Exception is if the enemy took our natural early as a proxy
     int lowestEnemyValue = INT_MAX;
     Base *lowestEnemyValueBase = nullptr;
     std::map<Base *, int> attackableExpansionsToEnemyUnitValue;
@@ -118,13 +120,15 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
         int enemyValue = 0;
         for (const auto &unit : Units::enemyAtBase(base))
         {
+            if (!UnitUtil::IsCombatUnit(unit->type)) continue;
             enemyValue += CombatSim::unitValue(unit);
         }
 
         // Attack with a separate play if the unit value corresponds to three dragoons or less
         // Give up attacking an expansion in this way if it hasn't succeeded in 3000 frames (a bit over 2 minutes)
         if (enemyValue <= 3 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon) &&
-            base->ownedSince > (currentFrame - 3000))
+            base->ownedSince > (currentFrame - 3000) &&
+            base != myNatural)
         {
             attackableExpansionsToEnemyUnitValue[base] = enemyValue;
             continue;

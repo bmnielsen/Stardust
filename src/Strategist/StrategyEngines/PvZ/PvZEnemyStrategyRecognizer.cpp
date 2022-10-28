@@ -4,6 +4,7 @@
 #include "Map.h"
 #include "Strategist.h"
 #include "UnitUtil.h"
+#include "General.h"
 
 std::map<PvZ::ZergStrategy, std::string> PvZ::ZergStrategyNames = {
         {ZergStrategy::Unknown,            "Unknown"},
@@ -94,8 +95,8 @@ namespace
 
         if (currentFrame < 6000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 4000, 8) ||
-                   createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 5000, 12);
+            return createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 4000, 9) ||
+                   createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 5000, 13);
         }
 
         if (currentFrame < 8000)
@@ -120,26 +121,48 @@ namespace
     {
         if (!currentlySunkenContain && currentFrame > 8000) return false;
 
-        // Sunken contain if the enemy owns our natural or if they have a sunken in it
+        // Sunken contain if the enemy owns our natural and has us outnumbered
         auto natural = Map::getMyNatural();
         if (!natural) return false;
-        if (natural->owner == BWAPI::Broodwar->enemy()) return true;
+        if (natural->owner != BWAPI::Broodwar->enemy()) return false;
 
-        auto inOurNatural = [&natural](const Unit &unit)
+        // Gather enemy combat value at the base
+        int enemyValue = 0;
+        for (const auto &unit : Units::enemyAtBase(natural))
         {
-            auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition));
-            return area && area == natural->getArea();
-        };
-        for (auto &creepColony : Units::allEnemyOfType(BWAPI::UnitTypes::Zerg_Creep_Colony))
-        {
-            if (inOurNatural(creepColony)) return true;
-        }
-        for (auto &sunkenColony : Units::allEnemyOfType(BWAPI::UnitTypes::Zerg_Sunken_Colony))
-        {
-            if (inOurNatural(sunkenColony)) return true;
+            auto type = unit->type;
+            bool complete = unit->completed;
+
+            if (unit->type == BWAPI::UnitTypes::Zerg_Creep_Colony)
+            {
+                type = BWAPI::UnitTypes::Zerg_Sunken_Colony;
+                complete = false;
+            }
+
+            if (!UnitUtil::IsCombatUnit(type)) continue;
+
+            if (complete)
+            {
+                enemyValue += CombatSim::unitValue(type);
+            }
+            else
+            {
+                enemyValue += CombatSim::unitValue(type) / 2;
+            }
         }
 
-        return false;
+        // Gather our combat value
+        int ourValue = 0;
+        for (const auto &unit : Units::allMine())
+        {
+            if (!unit->completed) continue;
+            if (!UnitUtil::IsCombatUnit(unit->type)) continue;
+            if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+
+            ourValue += CombatSim::unitValue(unit);
+        }
+
+        return enemyValue > ourValue;
     }
 
     bool hasLairTech()

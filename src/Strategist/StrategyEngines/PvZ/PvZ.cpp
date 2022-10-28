@@ -25,6 +25,12 @@ namespace
         if (typeid(*current) == typeid(T)) return;
         current->status.transitionTo = std::make_shared<T>(std::forward<Args>(args)...);
     }
+
+    bool enemyHasOurNatural()
+    {
+        auto natural = Map::getMyNatural();
+        return natural && natural->owner == BWAPI::Broodwar->enemy();
+    }
 }
 
 void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays)
@@ -92,6 +98,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
             // If the enemy has done a sneak attack recently, don't leave our base until we have built defensive cannons
             if (currentFrame > 10000) return true; // only relevant in early game
+            if (enemyHasOurNatural()) return true; // exception if the enemy has our natural
             auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
             return sneakAttack > 10000 || Units::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon) >= 2;
         };
@@ -211,17 +218,18 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         buildDefensiveCannons(prioritizedProductionGoals, false, 0, 3);
     };
 
-    auto buildCorsairs = [&]()
+    auto desiredCorsairs = [&]()
     {
-        // Limit to 5 + 2 for each enemy mutalisk
-        int limit = 5 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) / 2);
-        if (corsairCount >= limit) return false;
+        // Limit to 7 + 1 for every 2 enemy mutalisks
+        int limit = 7 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) / 2);
+        int desired = limit - corsairCount;
+        if (desired <= 0) return 0;
 
         // Always build if we have DTs to force enemy to defend its overlords
-        if (dtCount > 0) return true;
+        if (dtCount > 0) return desired;
 
         // Always build if the enemy has air units that can threaten our bases
-        if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Mutalisk)) return true;
+        if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Mutalisk)) return desired;
 
         // Don't build if the enemy has defended its overlords
         auto &grid = Players::grid(BWAPI::Broodwar->enemy());
@@ -234,9 +242,9 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             long threat = grid.airThreat(overlord->lastPosition);
             ((threat == 0) ? undefendedOverlords : defendedOverlords)++;
         }
-        if (defendedOverlords > undefendedOverlords) return false;
+        if (defendedOverlords > undefendedOverlords) return 0;
 
-        return true;
+        return desired;
     };
 
     // Main army production
@@ -387,7 +395,8 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                     BWAPI::UnitTypes::Protoss_Zealot.buildTime());
             }
 
-            if (buildCorsairs())
+            int corsairs = desiredCorsairs();
+            if (corsairs > 0)
             {
                 prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                            "SE",
@@ -407,11 +416,26 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1,
                                                                        -1);
 
-            // Only upgrade goon range and sair damage once we have five
+            // Upgrade goon range at 2 dragoons
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
+            // Upgrade zealots at varying cutoffs depending on whether we already have a forge
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Forge) > 0)
+            {
+                upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 4);
+            }
+            else
+            {
+                upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 6);
+            }
+
             // Build anti-sneak-attack cannons on 4 completed units
-            if ((zealotCount + dragoonCount - inProgressCount) >= 4)
+            // Exception is if the enemy has taken our natural, in which case we skip this
+            if (enemyHasOurNatural())
+            {
+                CherryVis::setBoardValue("anti-sneak-attack", "enemy-has-our-natural");
+            }
+            else if ((zealotCount + dragoonCount - inProgressCount) >= 4)
             {
                 CherryVis::setBoardValue("anti-sneak-attack", "enough-units");
                 buildAntiSneakAttackCannons();
@@ -430,30 +454,61 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             // Baseline production is one combat unit for every 6 workers (approximately 3 units per mining base)
             int higherPriorityCount = (Workers::mineralWorkers() / 6) - inProgressCount;
 
-            // Keep some zealots in the mix if the opponent has a lot of lings
-            int requiredZealots = 0;
-            if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 6)
+            // Compute enemy unit mix
+            int enemyLings = Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling);
+            int enemyHydras = Units::countEnemy(BWAPI::UnitTypes::Zerg_Hydralisk);
+            int enemyMutas = Units::countEnemy(BWAPI::UnitTypes::Zerg_Lurker_Egg)
+                    + Units::countEnemy(BWAPI::UnitTypes::Zerg_Lurker)
+                    + Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk);
+
+            // Simulate future units if we've seen tech
+            if (enemyHydras == 0 && Units::countEnemy(BWAPI::UnitTypes::Zerg_Hydralisk_Den) > 0) enemyHydras = 3;
+            if (enemyMutas == 0 && Units::countEnemy(BWAPI::UnitTypes::Zerg_Spire) > 0) enemyMutas = 3;
+
+            // Compute the enemy ling percentage, weighted to count mutas a bit higher
+            double enemyLingPercentage = 1.0;
+            if ((enemyLings + enemyHydras + enemyMutas) > 0)
             {
-                requiredZealots = std::min(10, Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 2) - zealotCount;
+                enemyLingPercentage = (double)enemyLings / (double)(enemyLings + enemyHydras + enemyMutas * 2);
             }
 
-            // Keep zealots in the mix in the later game
-            if (dragoonCount > 12)
+            // Now use this to determine our unit mix
+            // We prefer zealots more and more as the enemy ling percentage goes up, but still build some goons
+            double desiredZealotRatio = enemyLingPercentage * 0.8;
+
+            double actualZealotRatio = 0.0;
+            if ((zealotCount + dragoonCount) > 0)
             {
-                requiredZealots = std::max(requiredZealots, ((dragoonCount - 12) / 2) - zealotCount);
+                actualZealotRatio = (double)zealotCount / (double)(zealotCount + dragoonCount);
             }
 
-            if (requiredZealots > 0)
+            int corsairs = desiredCorsairs();
+            if (corsairs > 0)
             {
-                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, requiredZealots, higherPriorityCount);
-            }
+                int toBuild = 1;
+                int stargates = 1;
 
-            if (buildCorsairs())
-            {
-                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Corsair, 1, higherPriorityCount, 1);
+                // Boost the count to build at a time if the enemy has mutas
+                if (corsairs > 2 && Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 4)
+                {
+                    toBuild = 2;
+                    stargates = 2;
+                    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
+                    {
+                        toBuild = 3;
+                    }
+                }
+
+                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Corsair, toBuild, higherPriorityCount, stargates);
             }
-            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
+            if (actualZealotRatio > desiredZealotRatio)
+            {
+                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
+            }
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
+
+            // Make sure we get weapons upgrade for zealots
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 4);
 
             handleUpgrades(prioritizedProductionGoals);
             buildAntiSneakAttackCannons();
@@ -515,8 +570,10 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 break;
             }
 
+            auto corsairCount = Units::countCompleted(BWAPI::UnitTypes::Protoss_Corsair);
             auto squad = mainArmyPlay->getSquad();
-            if (!squad || squad->getUnits().size() < 5)
+            auto squadUnitCount = squad ? squad->getUnits().size() : 0;
+            if (squadUnitCount < 5 || (corsairCount == 0 && squadUnitCount < 8))
             {
                 CherryVis::setBoardValue("natural", "attack-play-too-small");
                 break;

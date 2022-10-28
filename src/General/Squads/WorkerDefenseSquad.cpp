@@ -14,9 +14,9 @@ std::vector<std::pair<MyUnit, Unit>> WorkerDefenseSquad::selectTargets(std::set<
 
     bool hasCannonInMineralLine = false;
     auto &defenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-    if (defenseLocations.first.isValid() && !defenseLocations.second.empty())
+    if (defenseLocations.isValid())
     {
-        auto cannon = Units::myBuildingAt(*defenseLocations.second.begin());
+        auto cannon = Units::myBuildingAt(*defenseLocations.workerDefenseCannons.begin());
         if (cannon && cannon->completed && cannon->bwapiUnit->isPowered())
         {
             hasCannonInMineralLine = true;
@@ -111,6 +111,8 @@ void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAn
     {
         auto &worker = workerAndTarget.first;
         auto &target = workerAndTarget.second;
+
+        if (!worker->exists()) continue;
 
         // Select a mineral patch to use
         // We pick the patch that is furthest away, but closer to us than the enemy

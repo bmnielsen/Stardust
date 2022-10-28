@@ -6,7 +6,7 @@ bool MyCannon::isReady() const
     if (issuedOrderThisFrame) return false;
 
     // We aren't ready while on cooldown, adjusted for latency
-    if (cooldownUntil > (currentFrame + BWAPI::Broodwar->getLatencyFrames())) return false;
+    if (cooldownUntil > (currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames() + 1)) return false;
 
     // We aren't ready if we have just sent the attack command
     if (bwapiUnit->getLastCommand().type == BWAPI::UnitCommandTypes::Attack_Unit &&

@@ -68,7 +68,7 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
                             ? PRIORITY_EMERGENCY
                             : PRIORITY_NORMAL;
             prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                              "SE",
+                                                              "SE-defcan",
                                                               type,
                                                               buildLocation);
         };
@@ -110,9 +110,9 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
             if (!base || base->owner != BWAPI::Broodwar->self()) return;
 
             auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-            if (baseStaticDefenseLocations.first != BWAPI::TilePositions::Invalid)
+            if (baseStaticDefenseLocations.isValid())
             {
-                for (const auto &location: baseStaticDefenseLocations.second)
+                for (const auto &location: baseStaticDefenseLocations.workerDefenseCannons)
                 {
                     if (count < 1) break;
                     count--;
@@ -122,7 +122,7 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
                         continue;
                     }
 
-                    buildCannonAt(baseStaticDefenseLocations.first, location);
+                    buildCannonAt(baseStaticDefenseLocations.powerPylon, location);
                 }
             }
         };

@@ -5,10 +5,11 @@
 void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                     UpgradeOrTechType upgradeOrTechType,
                                     BWAPI::UnitType unitType,
-                                    int unitCount)
+                                    int unitCount,
+                                    int level)
 {
     // First bail out if the upgrade is already done or queued
-    if (upgradeOrTechType.currentLevel() >= upgradeOrTechType.maxLevel()) return;
+    if (upgradeOrTechType.currentLevel() >= level) return;
     if (Units::isBeingUpgradedOrResearched(upgradeOrTechType)) return;
 
     // Now loop through all of the prioritized production goals, keeping track of how many of the desired unit we have
@@ -73,6 +74,7 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
             {
                 auto producerLimit = unitProductionGoal->getProducerLimit();
                 auto location = unitProductionGoal->getLocation();
+                auto remainingCount = (units + unitProductionGoal->countToProduce()) - unitCount;
 
                 // Copy the requester since we are about to manipulate the vector
                 auto requester = unitProductionGoal->requester;
@@ -81,13 +83,13 @@ void StrategyEngine::upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &
                 it = priorityAndProductionGoals.second.erase(it);
 
                 // Add the remainder after the upgrade
-                if ((units + unitProductionGoal->countToProduce()) > unitCount)
+                if (remainingCount > 0)
                 {
                     it = priorityAndProductionGoals.second.emplace(it,
                                                                    std::in_place_type<UnitProductionGoal>,
                                                                    requester,
                                                                    unitType,
-                                                                   (units + unitProductionGoal->countToProduce()) - unitCount,
+                                                                   remainingCount,
                                                                    producerLimit,
                                                                    location);
                 }

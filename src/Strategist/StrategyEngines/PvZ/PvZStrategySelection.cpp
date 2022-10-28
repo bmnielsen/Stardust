@@ -26,20 +26,26 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
 
     auto canTransitionFromAntiAllIn = [&]()
     {
-        // Count total combat units
+        bool strategyIsAllIn = newEnemyStrategy == ZergStrategy::WorkerRush
+                               || newEnemyStrategy == ZergStrategy::ZerglingRush
+                               || newEnemyStrategy == ZergStrategy::ZerglingAllIn;
+
+        // Count our total combat units
         auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
         auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
         auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
         int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
                         completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
 
-        int requiredUnits = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0) ? 20 : 15;
-        if (enemyStrategyStableFor > 480
-            && newEnemyStrategy != ZergStrategy::WorkerRush
-            && newEnemyStrategy != ZergStrategy::ZerglingRush
-            && newEnemyStrategy != ZergStrategy::ZerglingAllIn)
+        // Estimate how many combat units we need
+        int requiredUnits;
+        if (enemyStrategyStableFor < 240 || strategyIsAllIn)
         {
-            requiredUnits -= 5;
+            requiredUnits = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0) ? 20 : 15;
+        }
+        else
+        {
+            requiredUnits = 2 + Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 3;
         }
 
         return unitCount >= requiredUnits;

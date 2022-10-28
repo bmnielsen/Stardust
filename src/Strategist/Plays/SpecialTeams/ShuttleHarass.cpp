@@ -328,7 +328,8 @@ void ShuttleHarass::update()
         }
 
         // If we are in the drop phase, drop loaded cargo on the target
-        if (!cargo.empty() && cargoAndTargets.find(*cargo.begin()) != cargoAndTargets.end())
+        auto firstTargetIt = cargoAndTargets.find(*cargo.begin());
+        if (!cargo.empty() && firstTargetIt != cargoAndTargets.end() && firstTargetIt->second->exists())
         {
             // If all of our cargo is dropped, clear it and fall through to get new cargo
             if (std::all_of(cargo.begin(), cargo.end(), [](const MyUnit& unit){ return !unit->bwapiUnit->isLoaded(); }))
@@ -340,7 +341,7 @@ void ShuttleHarass::update()
             }
             else
             {
-                auto target = cargoAndTargets[*cargo.begin()];
+                auto target = firstTargetIt->second;
 
                 // Drop loaded units on the target
                 auto distToTarget = shuttle->getDistance(target);
