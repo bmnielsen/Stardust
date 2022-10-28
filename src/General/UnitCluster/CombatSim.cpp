@@ -6,25 +6,30 @@
 #include "UnitUtil.h"
 #include "General.h"
 
+#include <chrono>
+
 #include "DebugFlag_CombatSim.h"
+
+#define LIMIT_MICROSECONDS 5000
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_COMBATSIM_CSV false          // Writes a CSV file for each cluster with detailed sim information
-#define DEBUG_COMBATSIM_CSV_FREQUENCY 100  // Frequency at which to write CSV output
-#define DEBUG_COMBATSIM_CSV_ATTACKER false // Whether to output CSV for attacker or defender
+#define DEBUG_COMBATSIM_CSV_FREQUENCY 1  // Frequency at which to write CSV output
+#define DEBUG_COMBATSIM_CSV_ATTACKER true // Whether to output CSV for attacker or defender
 #endif
 
 #if INSTRUMENTATION_ENABLED
-#define DEBUG_COMBATSIM_DRAW false          // Draws positions for all units
-#define DEBUG_COMBATSIM_DRAW_FREQUENCY 100  // Frame frequency to draw combat sim info
-#define DEBUG_COMBATSIM_DRAW_ATTACKER false // Whether to draw attacker or defender
+#define DEBUG_COMBATSIM_DRAW false           // Draws positions for all units
+#define DEBUG_COMBATSIM_DRAW_FREQUENCY 24   // Frame frequency to draw combat sim info
+#define DEBUG_COMBATSIM_DRAW_ATTACKER false  // Whether to draw attacker or defender
 #endif
 
 namespace
 {
-    // FAP collision vector
+    // FAP collision vectors
     // Allocated here at initialization to avoid re-allocations
-    std::vector<unsigned char> collision;
+    std::vector<unsigned char> collisionPlayer1;
+    std::vector<unsigned char> collisionPlayer2;
 
     // Cache of unit scores
     int baseScore[BWAPI::UnitTypes::Enum::MAX];
@@ -62,14 +67,42 @@ namespace
             groundDamage = airDamage = 0;
         }
 
-        // In open terrain, collision values scale based on the unit range
-        // Rationale: melee units have a smaller area to maneuver in, so they interfere with each other more
-        int collisionValue = unit->isFlying ? 0 : std::max(0, 6 - (unit->groundRange() / 32));
+        int collisionValue;
+        int collisionValueChoke;
+        if (unit->isFlying)
+        {
+            collisionValue = 0;
+            collisionValueChoke = 0;
+        }
+        else
+        {
+            // In open terrain, collision values scale based on the unit range
+            // Rationale: melee units have a smaller area to maneuver in, so they interfere with each other more
+            int range = unit->groundRange();
+            if (range > 128)
+            {
+                collisionValue = 3;
+            }
+            else if (range > 32)
+            {
+                collisionValue = 4;
+            }
+            else
+            {
+                collisionValue = 6;
+            }
 
-        // In a choke, collision values depend on unit size
-        // We allow no collision between full-size units and a stack of two smaller-size units
-        int collisionValueChoke = unit->isFlying ? 0 : 6;
-        if (unit->type.width() >= 32 || unit->type.height() >= 32) collisionValue = 12;
+            // In a choke, collision values depend on unit size
+            // We allow no collision between full-size units and a stack of two smaller-size units
+            if (unit->type.width() >= 32 || unit->type.height() >= 32)
+            {
+                collisionValueChoke = 12;
+            }
+            else
+            {
+                collisionValueChoke = 6;
+            }
+        }
 
         return FAP::makeUnit<>()
                 .setUnitType(unit->type)
@@ -82,26 +115,25 @@ namespace
                         // For this next section, we have modified FAP to allow taking the upgraded values instead of the upgrade levels
                 .setSpeed(Players::unitTopSpeed(unit->player, unit->type))
                 .setArmor(Players::unitArmor(unit->player, unit->type))
-                .setGroundCooldown(Players::unitCooldown(unit->player, weaponType)
-                                   / std::max(weaponType.maxGroundHits() * weaponType.groundWeapon().damageFactor(), 1))
+                .setGroundCooldown(Players::unitGroundCooldown(unit->player, weaponType)
+                                   / std::max(weaponType.maxGroundHits(), 1))
                 .setGroundDamage(groundDamage)
                 .setGroundMaxRange(unit->groundRange())
-                .setAirCooldown(Players::unitCooldown(unit->player, weaponType)
-                                / std::max(weaponType.maxAirHits() * weaponType.airWeapon().damageFactor(), 1))
+                .setAirCooldown(Players::unitAirCooldown(unit->player, weaponType)
+                                / std::max(weaponType.maxAirHits(), 1))
                 .setAirDamage(airDamage)
                 .setAirMaxRange(unit->airRange())
 
-                        // Uses lastPosition since we don't know if simPosition is walkable
-                .setElevation(BWAPI::Broodwar->getGroundHeight(unit->lastPosition.x >> 5, unit->lastPosition.y >> 5))
+                .setElevation(BWAPI::Broodwar->getGroundHeight(unit->simPosition.x >> 5, unit->simPosition.y >> 5))
 
                 .setAttackerCount(unit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
-                .setAttackCooldownRemaining(std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount()))
+                .setAttackCooldownRemaining(std::max(0, unit->cooldownUntil - currentFrame))
 
                 .setSpeedUpgrade(false) // Squares the speed
                 .setRangeUpgrade(false) // Squares the ranges
                 .setShieldUpgrades(0)
 
-                .setStimmed(unit->stimmedUntil > BWAPI::Broodwar->getFrameCount())
+                .setStimmed(unit->stimmedUntil > currentFrame)
                 .setUndetected(unit->isCliffedTank(vanguard) || (unit->undetected && !mobileDetection))
 
                 .setID(unit->id)
@@ -137,8 +169,9 @@ namespace
         int minUnitId = INT_MAX;
 #endif
 
-        std::fill(collision.begin(), collision.end(), 0);
-        FAP::FastAPproximation sim(collision);
+        std::fill(collisionPlayer1.begin(), collisionPlayer1.end(), 0);
+        std::fill(collisionPlayer2.begin(), collisionPlayer2.end(), 0);
+        FAP::FastAPproximation sim(collisionPlayer1, collisionPlayer2);
         if (narrowChoke)
         {
             sim.setChokeGeometry(narrowChoke->tileSide,
@@ -194,7 +227,7 @@ namespace
 
             // Only include workers if they have been seen attacking recently
             // TODO: Handle worker rushes
-            if (!unit->type.isWorker() || (BWAPI::Broodwar->getFrameCount() - unit->lastSeenAttacking) < 120)
+            if (!unit->type.isWorker() || (currentFrame - unit->lastSeenAttacking) < 120)
             {
                 bool added = attacking
                              ? sim.addIfCombatUnitPlayer2<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection))
@@ -219,9 +252,9 @@ namespace
         auto writeSimCsvLine = [&simCsvLabel](const auto &unit, int simFrame)
         {
             auto csv = Log::Csv(simCsvLabel);
-            csv << BWAPI::Broodwar->getFrameCount();
+            csv << currentFrame;
             csv << simFrame;
-            csv << BWAPI::Broodwar->getFrameCount() + simFrame;
+            csv << currentFrame + simFrame;
             csv << unit.unitType;
             csv << unit.id;
             csv << unit.x;
@@ -234,19 +267,19 @@ namespace
         auto writeActualCsvLine = [&actualCsvLabel](const Unit &unit)
         {
             auto csv = Log::Csv(actualCsvLabel);
-            csv << BWAPI::Broodwar->getFrameCount();
+            csv << currentFrame;
             csv << "-";
-            csv << BWAPI::Broodwar->getFrameCount();
+            csv << currentFrame;
             csv << unit->type;
             csv << unit->id;
             csv << unit->lastPosition.x;
             csv << unit->lastPosition.y;
             csv << unit->lastHealth;
             csv << unit->lastShields;
-            csv << std::max(0, unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
+            csv << std::max(0, unit->cooldownUntil - currentFrame);
         };
 
-        if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
+        if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && currentFrame % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
         {
             for (auto &unitAndTarget : unitsAndTargets)
             {
@@ -258,18 +291,41 @@ namespace
             }
         }
 #endif
+#if DEBUG_COMBATSIM_CVIS
+        // Unit ID to: x, y, target, cooldown
+        std::unordered_map<std::string, std::vector<int>> unitLog;
+        auto updateUnitLog = [&unitLog](auto &units)
+        {
+            for (auto &unit : units)
+            {
+                auto id = std::to_string(unit.id);
+                unitLog[id].push_back(unit.x);
+                unitLog[id].push_back(unit.y);
+                unitLog[id].push_back(unit.target);
+                unitLog[id].push_back(unit.attackCooldownRemaining);
+            }
+        };
+        updateUnitLog(*sim.getState().first);
+        updateUnitLog(*sim.getState().second);
+#endif
 
         int initialMine = score(attacking ? sim.getState().first : sim.getState().second);
         int initialEnemy = score(attacking ? sim.getState().second : sim.getState().first);
 
-        for (int i = 0; i < ((allTierOne && !attacking) ? 60 : 144); i++)
+        int iterations = 288;
+        if (allTierOne && !attacking) iterations = 60;
+
+        auto startTime = std::chrono::high_resolution_clock::now();
+        int i = 0;
+        while (true)
         {
 #if DEBUG_COMBATSIM_DRAW
+            // Start by recording the current location and cooldown of each unit
             std::map<int, std::tuple<int, int, int>> player1DrawData;
             std::map<int, std::tuple<int, int, int>> player2DrawData;
 
             if (attacking == DEBUG_COMBATSIM_DRAW_ATTACKER
-                && ((unitsAndTargets.size() + targets.size()) < 10 || BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
+                && ((unitsAndTargets.size() + targets.size()) < 10 || currentFrame % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
             {
                 auto setDrawData = [](auto &simData, auto &localData)
                 {
@@ -287,7 +343,7 @@ namespace
 
 #if DEBUG_COMBATSIM_DRAW
             if (attacking == DEBUG_COMBATSIM_DRAW_ATTACKER
-                && ((unitsAndTargets.size() + targets.size()) < 10 || BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
+                && ((unitsAndTargets.size() + targets.size()) < 10 || currentFrame % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
             {
                 auto draw = [](auto &simData, auto &localData, auto color)
                 {
@@ -296,6 +352,7 @@ namespace
                         auto it = localData.find(unit.id);
                         if (it != localData.end() && unit.attackCooldownRemaining > std::get<2>(it->second))
                         {
+                            // Attacked
                             color = CherryVis::DrawColor::Orange;
                         }
                         if (it != localData.end())
@@ -303,12 +360,13 @@ namespace
                             localData.erase(it);
                         }
 
-                        CherryVis::drawCircle(unit.x, unit.y, 1, color);
+                        CherryVis::drawCircle(unit.x, unit.y, 1, color, unit.id);
                     }
 
+                    // Everything left here has died
                     for (auto &unit : localData)
                     {
-                        CherryVis::drawCircle(std::get<0>(unit.second), std::get<1>(unit.second), 1, CherryVis::DrawColor::Red);
+                        CherryVis::drawCircle(std::get<0>(unit.second), std::get<1>(unit.second), 1, CherryVis::DrawColor::Red, unit.first);
                     }
                 };
                 draw(*sim.getState().first, player1DrawData, CherryVis::DrawColor::Yellow);
@@ -316,8 +374,13 @@ namespace
             }
 #endif
 
+#if DEBUG_COMBATSIM_CVIS
+            updateUnitLog(*sim.getState().first);
+            updateUnitLog(*sim.getState().second);
+#endif
+
 #if DEBUG_COMBATSIM_CSV
-            if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && BWAPI::Broodwar->getFrameCount() % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
+            if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && currentFrame % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
             {
                 for (auto unit : *sim.getState().first)
                 {
@@ -329,6 +392,17 @@ namespace
                 }
             }
 #endif
+
+            i++;
+
+            if (i >= iterations) break;
+
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count();
+            if (duration > LIMIT_MICROSECONDS)
+            {
+                if (iterations < 144) CherryVis::log() << "Sim aborted after " << i << "iterations";
+                break;
+            }
         }
 
         int finalMine = score(attacking ? sim.getState().first : sim.getState().second);
@@ -350,7 +424,11 @@ namespace
         CherryVis::log() << debug.str();
 #endif
 
-        return CombatSimResult(myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, enemyHasUndetectedUnits, narrowChoke);
+#if DEBUG_COMBATSIM_CVIS
+        return {myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, enemyHasUndetectedUnits, narrowChoke, std::move(unitLog)};
+#else
+        return {myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, enemyHasUndetectedUnits, narrowChoke};
+#endif
     }
 }
 
@@ -358,7 +436,8 @@ namespace CombatSim
 {
     void initialize()
     {
-        collision.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
+        collisionPlayer1.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
+        collisionPlayer2.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight() * 4, 0);
 
         for (auto type : BWAPI::UnitTypes::allUnitTypes())
         {
@@ -502,7 +581,7 @@ CombatSimResult UnitCluster::runCombatSim(BWAPI::Position targetPosition,
 void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
 {
     // Reset recent sim results if it hasn't been run on the last frame
-    if (!recentSimResults.empty() && recentSimResults.rbegin()->first.frame != BWAPI::Broodwar->getFrameCount() - 1)
+    if (!recentSimResults.empty() && recentSimResults.rbegin()->first.frame != currentFrame - 1)
     {
         recentSimResults.clear();
     }
@@ -513,7 +592,7 @@ void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
 void UnitCluster::addRegroupSimResult(CombatSimResult &simResult, bool contain)
 {
     // Reset recent sim results if it hasn't been run on the last frame
-    if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->first.frame != BWAPI::Broodwar->getFrameCount() - 1)
+    if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->first.frame != currentFrame - 1)
     {
         recentRegroupSimResults.clear();
     }

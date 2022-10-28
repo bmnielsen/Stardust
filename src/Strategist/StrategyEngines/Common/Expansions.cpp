@@ -12,16 +12,39 @@
 #include "Plays/Macro/TakeIslandExpansion.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/MainArmy/MopUp.h"
+#include "Plays/SpecialTeams/Elevator.h"
+
+namespace
+{
+    auto addIslandExpansionPlay(std::vector<std::shared_ptr<Play>> &plays, Base *base, bool canCancel = true, bool transferWorkers = true)
+    {
+        auto play = std::make_shared<TakeIslandExpansion>(base, canCancel, transferWorkers);
+
+        // Taking an island base is always lower priority than an elevator
+        auto it = StrategyEngine::beforePlayIt<Elevator>(plays);
+        if (it == plays.end())
+        {
+            it = plays.begin();
+        }
+        else
+        {
+            it++;
+        }
+        plays.emplace(it, play);
+
+        return play;
+    }
+}
 
 void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays)
 {
     // This logic does not handle the first decision to take our natural expansion, so if this hasn't been done, bail out now
     auto natural = Map::getMyNatural();
-    if (natural && natural->ownedSince == -1) return;
+    if (natural && natural->ownedSince == -1 && Map::getMyBases().size() == 1) return;
 
     // If the natural is "owned" by our opponent, it's probably because of some kind of proxy play
     // In this case, delay doing any expansions until mid-game
-    if (natural && natural->owner != BWAPI::Broodwar->self() && BWAPI::Broodwar->getFrameCount() < 12000) return;
+    if (natural && natural->owner != BWAPI::Broodwar->self() && currentFrame < 12000) return;
 
     // Collect any existing TakeExpansion plays
     std::vector<std::shared_ptr<TakeExpansion>> takeExpansionPlays;
@@ -120,24 +143,57 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Determines if we consider it safe to expand to a normal expansion
+#if INSTRUMENTATION_ENABLED
+    std::string reasonUnsafe;
+#endif
     auto safeToExpand = [&]()
     {
         // Only expand when our army is on the offensive
         auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-        if (!mainArmyPlay) return false;
+        if (!mainArmyPlay)
+        {
+#if INSTRUMENTATION_ENABLED
+            reasonUnsafe = "No main army play";
+#endif
+            return false;
+        }
         if (typeid(*mainArmyPlay) == typeid(MopUp)) return true;
-        if (typeid(*mainArmyPlay) != typeid(AttackEnemyBase)) return false;
+        if (typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
+        {
+#if INSTRUMENTATION_ENABLED
+            reasonUnsafe = "Main army play is defensive";
+#endif
+            return false;
+        }
 
         // Sanity check that the play has a squad
         auto squad = mainArmyPlay->getSquad();
-        if (!squad) return false;
+        if (!squad)
+        {
+#if INSTRUMENTATION_ENABLED
+            reasonUnsafe = "Main army play has no squad";
+#endif
+            return false;
+        }
 
         // Get the vanguard cluster
         auto vanguardCluster = squad->vanguardCluster();
-        if (!vanguardCluster) return false;
+        if (!vanguardCluster)
+        {
+#if INSTRUMENTATION_ENABLED
+            reasonUnsafe = "Main army play squad has no units";
+#endif
+            return false;
+        }
 
         // Don't expand if the cluster has fewer than five units
-        if (vanguardCluster->units.size() < 5) return false;
+        if (vanguardCluster->units.size() < 5)
+        {
+#if INSTRUMENTATION_ENABLED
+            reasonUnsafe = "Main army play vanguard cluster has fewer than 5 units";
+#endif
+            return false;
+        }
 
         // Expand if we are gas blocked - we have the resources for the nexus anyway
         if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100) return true;
@@ -148,6 +204,9 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
             || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
                 && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
         {
+#if INSTRUMENTATION_ENABLED
+            reasonUnsafe = "Main army play vanguard cluster is moving or fleeing";
+#endif
             return false;
         }
 
@@ -176,12 +235,31 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         {
             if (takeExpansionPlay->cancellable())
             {
-                if (excessMineralAssignments > 1 || !safe ||
-                    takeExpansionPlay->enemyValue > 4 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
+                if (excessMineralAssignments > 1)
                 {
                     takeExpansionPlay->status.complete = true;
+#if INSTRUMENTATION_ENABLED
+                    Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition
+                               << ": excess mineral assignments is now " << excessMineralAssignments;
+#endif
+                }
+                if (!safe)
+                {
+                    takeExpansionPlay->status.complete = true;
+#if INSTRUMENTATION_ENABLED
 
-                    Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition;
+                    Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition
+                               << ": no longer safe: " << reasonUnsafe;
+#endif
+                }
+                if (takeExpansionPlay->enemyValue > 4 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
+                {
+                    takeExpansionPlay->status.complete = true;
+#if INSTRUMENTATION_ENABLED
+
+                    Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition
+                               << ": enemy combat value at expansion exceeds 4 dragoon equivalent";
+#endif
                 }
             }
         }
@@ -190,11 +268,14 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Take an island expansion in the following cases:
-    // - We are on three bases and already have a robo facility
+    // - We are on three bases and already have a robo facility - DISABLED
     // - We are contained on one base and it is after frame 16000
-    if (takeIslandExpansionPlays.empty() && excessMineralAssignments == 0 &&
-        ((Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Robotics_Facility) > 0)
-         || (BWAPI::Broodwar->getFrameCount() > 16000 && Units::countAll(BWAPI::UnitTypes::Protoss_Nexus) == 1 && Strategist::areWeContained())))
+    if (takeIslandExpansionPlays.empty() && excessMineralAssignments == 0 && (
+//        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2 &&
+//         Units::countCompleted(BWAPI::UnitTypes::Protoss_Robotics_Facility) > 0) ||
+        (currentFrame > 16000 &&
+         Units::countAll(BWAPI::UnitTypes::Protoss_Nexus) == 1 &&
+         Strategist::areWeContained())))
     {
         Base *closestIslandBase = nullptr;
         int closestIslandBaseDist = INT_MAX;
@@ -210,9 +291,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
 
         if (closestIslandBase && closestIslandBaseDist < 2500 && safeToIslandExpand())
         {
-            auto play = std::make_shared<TakeIslandExpansion>(closestIslandBase);
-            plays.emplace(plays.begin(), play);
-
+            auto play = addIslandExpansionPlay(plays, closestIslandBase);
             Log::Get() << "Queued island expansion to " << play->depotPosition;
             CherryVis::log() << "Added TakeIslandExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
             return;
@@ -220,7 +299,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Break out if we don't want to expand to a normal base
-    if (excessMineralAssignments > 0 || !safeToExpand()) return;
+    if (excessMineralAssignments > 0 || (!safeToExpand() && Workers::idleWorkerCount() < 10)) return;
 
     // Determine if we want to consider a mineral-only base
     auto shouldTakeMineralOnly = [&gasStarved]()
@@ -319,6 +398,7 @@ void StrategyEngine::takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &pl
                                                                                            BWAPI::UnitTypes::Protoss_Nexus),
                                                           0, 0);
     prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                             "SE-natural",
                                                              BWAPI::UnitTypes::Protoss_Nexus,
                                                              buildLocation);
 }
@@ -338,5 +418,58 @@ void StrategyEngine::cancelNaturalExpansion(std::vector<std::shared_ptr<Play>> &
         }
     }
 
-    Builder::cancel(natural->getTilePosition());
+    Builder::cancelBase(natural);
+}
+
+void StrategyEngine::takeExpansionWithShuttle(std::vector<std::shared_ptr<Play>> &plays)
+{
+    // This is used when the enemy has us contained, so we want to take an expansion as if it were an island expansion
+    // Collect any existing TakeExpansion plays
+
+    // First abort if we have already queued an expansion
+    for (auto &play : plays)
+    {
+        if (auto takeIslandExpansionPlay = std::dynamic_pointer_cast<TakeIslandExpansion>(play))
+        {
+            return;
+        }
+    }
+
+    // Now figure out which expansion to take
+    Base *baseToTake = nullptr;
+    bool transferWorkers = false;
+
+    // If the map has an island expansion, take it
+    {
+        Base *closestIslandBase = nullptr;
+        int closestIslandBaseDist = INT_MAX;
+        for (auto &islandBase : Map::getUntakenIslandExpansions())
+        {
+            int dist = Map::getMyMain()->getPosition().getApproxDistance(islandBase->getPosition());
+            if (dist < closestIslandBaseDist)
+            {
+                closestIslandBase = islandBase;
+                closestIslandBaseDist = dist;
+            }
+        }
+
+        if (closestIslandBase)
+        {
+            baseToTake = closestIslandBase;
+            transferWorkers = true;
+        }
+    }
+
+    // Otherwise use the hidden base
+    if (!baseToTake)
+    {
+        baseToTake = Map::getHiddenBase();
+    }
+
+    if (!baseToTake) return;
+
+    // Queue the play
+    auto play = addIslandExpansionPlay(plays, baseToTake, false, transferWorkers);
+    Log::Get() << "Queued island expansion to " << play->depotPosition;
+    CherryVis::log() << "Added TakeIslandExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
 }

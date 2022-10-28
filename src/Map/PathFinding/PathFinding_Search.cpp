@@ -47,7 +47,8 @@ namespace PathFinding
     std::vector<BWAPI::TilePosition> Search(BWAPI::TilePosition start,
                                             BWAPI::TilePosition end,
                                             const std::function<bool(const BWAPI::TilePosition &)> &tileValidator,
-                                            const std::function<bool(const BWAPI::TilePosition &)> &closeEnoughToEnd)
+                                            const std::function<bool(const BWAPI::TilePosition &)> &closeEnoughToEnd,
+                                            int maxBacktracking)
     {
 #if OUTPUT_SEARCH_TIMING
         auto startTime = std::chrono::high_resolution_clock::now();
@@ -77,6 +78,9 @@ namespace PathFinding
         std::priority_queue<PathNode, std::vector<PathNode>, PathNodeComparator> nodeQueue;
         std::fill(parents.begin(), parents.end(), BWAPI::TilePositions::None);
 
+        auto startDist = distToEnd(start);
+        auto distCutoff = startDist + maxBacktracking * 10;
+
         auto visit = [&](PathNode &node, BWAPI::TilePosition direction, bool diagonal = false)
         {
             auto tile = node.tile + direction;
@@ -90,13 +94,16 @@ namespace PathFinding
                 return;
             }
 
+            auto dist = distToEnd(tile);
+            if (dist > distCutoff) return;
+
             int newDist = node.dist + (diagonal ? 14 : 10);
-            nodeQueue.emplace(tile, newDist, newDist + distToEnd(tile));
+            nodeQueue.emplace(tile, newDist, newDist + dist);
             parents[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = node.tile;
         };
 
         nextID = 0;
-        nodeQueue.emplace(start, 0, distToEnd(start));
+        nodeQueue.emplace(start, 0, startDist);
         parents[start.x + start.y * BWAPI::Broodwar->mapWidth()] = BWAPI::TilePositions::Invalid;
         while (!nodeQueue.empty())
         {

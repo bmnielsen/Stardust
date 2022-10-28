@@ -9,5 +9,5 @@ public:
 
     bool hasBackdoorNatural() override { return true; }
 
-    void addMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) override;
+    void modifyMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) override;
 };

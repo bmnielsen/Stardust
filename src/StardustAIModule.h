@@ -5,8 +5,13 @@
 class StardustAIModule : public BWAPI::AIModule
 {
 public:
-    int frameSkip = 0;
     bool gameFinished = false;
+
+    // Used in our test infrastructure
+    int frameSkip = 0;
+    std::function<void()> testOnStart = nullptr;
+    std::function<void()> testOnFrame = nullptr;
+    std::function<void(bool)> testOnEnd = nullptr;
 
     void onStart() override;
 

@@ -4,6 +4,7 @@
 #include "PathFinding.h"
 #include "Map.h"
 #include "Geo.h"
+#include "UnitUtil.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -16,6 +17,8 @@
 
 namespace
 {
+    const int HALT_DISTANCE = UnitUtil::HaltDistance(BWAPI::UnitTypes::Protoss_Observer) + 16;
+
     BWAPI::Position scaledPosition(BWAPI::Position currentPosition, BWAPI::Position vector, int length)
     {
         auto scaledVector = Geo::ScaleVector(vector, length);
@@ -26,8 +29,8 @@ namespace
 
     void moveAwayFrom(MyUnit &detector, BWAPI::Position target)
     {
-        // Move towards two tiles in the opposite direction
-        auto behind = scaledPosition(detector->lastPosition, detector->lastPosition - target, 64);
+        // Move in the opposite direction
+        auto behind = scaledPosition(detector->lastPosition, detector->lastPosition - target, HALT_DISTANCE);
         if (behind.isValid())
         {
 #if DEBUG_UNIT_ORDERS
@@ -69,14 +72,16 @@ namespace
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(detector->id) << "Moving towards target @ " << BWAPI::WalkPosition(target);
 #endif
-        detector->moveTo(target);
+        // Scale to our halt distance
+        auto scaledVector = Geo::ScaleVector(target - detector->lastPosition, HALT_DISTANCE);
+        auto scaledTarget = (scaledVector == BWAPI::Positions::Invalid) ? target : detector->lastPosition + scaledVector;
+        if (!scaledTarget.isValid()) scaledTarget = target;
+        detector->moveTo(scaledTarget);
     }
 }
 
 void Squad::executeDetectors()
 {
-    std::shared_ptr<UnitCluster> bestCluster = nullptr;
-
     for (auto detector : detectors)
     {
         // Try to find the nearest enemy requiring detection
@@ -95,8 +100,7 @@ void Squad::executeDetectors()
         // If we found one, either move towards it if it isn't in range, or away from it if we're too close
         if (closest)
         {
-            int sightRange = Players::unitSightRange(BWAPI::Broodwar->self(), detector->type);
-            if (closestDist > sightRange - 32)
+            if (closestDist > 64)
             {
                 moveTowards(detector, closest->lastPosition, closest->lastPosition);
             }
@@ -108,26 +112,14 @@ void Squad::executeDetectors()
             continue;
         }
 
-        // There is no enemy unit we need to detect, so try to stay with the frontmost cluster
-        if (!bestCluster)
+        // There is no enemy unit we need to detect, so try to stay with the vanguard cluster
+        if (currentVanguardCluster && currentVanguardCluster->vanguard)
         {
-            closestDist = INT_MAX;
-            for (auto &cluster : clusters)
-            {
-                if (!cluster->vanguard) continue;
-
-                int dist = PathFinding::GetGroundDistance(cluster->vanguard->lastPosition, targetPosition);
-                if (dist == -1) dist = cluster->center.getApproxDistance(targetPosition);
-                if (dist < closestDist)
-                {
-                    closestDist = dist;
-                    bestCluster = cluster;
-                }
-            }
-        }
-        if (bestCluster)
-        {
-            moveTowards(detector, bestCluster->center, bestCluster->vanguard->lastPosition);
+            auto centerToVanguardVector = currentVanguardCluster->vanguard->lastPosition - currentVanguardCluster->center;
+            moveTowards(
+                detector,
+                currentVanguardCluster->vanguard->lastPosition,
+                currentVanguardCluster->center + centerToVanguardVector + centerToVanguardVector);
             continue;
         }
 

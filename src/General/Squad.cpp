@@ -1,8 +1,6 @@
 #include "Squad.h"
 #include "Players.h"
 
-#include "DebugFlag_CombatSim.h"
-
 #include <iomanip>
 
 #if INSTRUMENTATION_ENABLED
@@ -25,7 +23,7 @@ void Squad::addUnit(const MyUnit &unit)
 {
     CherryVis::log(unit->id) << "Added to squad: " << label;
 
-    if (unit->type.isDetector())
+    if (unit->type.isDetector() && !unit->type.isBuilding())
     {
         detectors.insert(unit);
     }
@@ -266,28 +264,40 @@ void Squad::updateClusters()
     if (currentVanguardCluster) currentVanguardCluster->isVanguardCluster = true;
 
 #if INSTRUMENTATION_ENABLED
-    std::vector<std::string> values;
     for (const auto &cluster : clusters)
     {
-        std::ostringstream os;
-        os << "center: " << BWAPI::WalkPosition(cluster->center)
-           << "\nactivity: " << cluster->getCurrentActivity()
-           << "\nsub-activity: " << cluster->getCurrentSubActivity()
-           << "\ntarget: " << BWAPI::WalkPosition(targetPosition)
-           << "\n%dist: " << std::setprecision(2) << cluster->percentageToEnemyMain;
-        if (cluster == currentVanguardCluster)
-        {
-            os << "\n*Vanguard*";
-        }
-
-        values.push_back(os.str());
-
         CherryVis::drawCircle(cluster->center.x, cluster->center.y, cluster->ballRadius, CherryVis::DrawColor::Teal);
         CherryVis::drawCircle(cluster->center.x, cluster->center.y, cluster->lineRadius, CherryVis::DrawColor::Blue);
         CherryVis::drawCircle(cluster->vanguard->lastPosition.x, cluster->vanguard->lastPosition.y, 32, CherryVis::DrawColor::Grey);
     }
-    CherryVis::setBoardListValue((std::ostringstream() << label << "_clusters").str(), values);
 #endif
+}
+
+bool Squad::hasDetection() const
+{
+    if (detectors.empty()) return false;
+
+    // We consider the squad to have detection if an observer is near the vanguard unit
+    if (currentVanguardCluster && currentVanguardCluster->vanguard && std::any_of(
+                detectors.begin(),
+                detectors.end(),
+                [&](const MyUnit &detector)
+                {
+                    return detector->getDistance(currentVanguardCluster->vanguard) < 120;
+                }))
+    {
+        return true;
+    }
+
+    // Otherwise we consider the squad to have detection if one of the enemies needing detection has been detected
+    auto &grid = Players::grid(BWAPI::Broodwar->self());
+    return std::any_of(
+            enemiesNeedingDetection.begin(),
+            enemiesNeedingDetection.end(),
+            [&grid](const Unit &enemyNeedingDetection)
+            {
+                return grid.detection(enemyNeedingDetection->lastPosition) > 0;
+            });
 }
 
 void Squad::execute()
@@ -297,51 +307,6 @@ void Squad::execute()
     for (const auto &cluster : clusters)
     {
         execute(*cluster);
-
-#if DEBUG_COMBATSIM
-        std::ostringstream dbg;
-
-        dbg << label;
-
-        dbg << "\n" << cluster->getCurrentActivity();
-        if (cluster->currentSubActivity != UnitCluster::SubActivity::None) dbg << "-" << cluster->getCurrentSubActivity();
-
-        auto addSimResult = [&dbg](const std::pair<CombatSimResult, bool> &simResult)
-        {
-            if (simResult.first.frame != BWAPI::Broodwar->getFrameCount()) return;
-
-            dbg << "\n"
-                << simResult.first.initialMine << "," << simResult.first.initialEnemy
-                << "-" << simResult.first.finalMine << "," << simResult.first.finalEnemy
-                << std::setprecision(2);
-            if (simResult.first.distanceFactor > -0.1)
-            {
-                dbg << "; d=" << simResult.first.distanceFactor;
-            }
-            if (simResult.first.aggression > -0.1)
-            {
-                dbg << "; a=" << simResult.first.aggression;
-            }
-            if (simResult.first.closestReinforcements > -0.1)
-            {
-                dbg << "; cr=" << simResult.first.closestReinforcements;
-            }
-            if (simResult.first.reinforcementPercentage > -0.1)
-            {
-                dbg << "; r%=" << simResult.first.reinforcementPercentage;
-            }
-            dbg << "; %l=" << simResult.first.myPercentLost()
-                << "; vg=" << simResult.first.valueGain()
-                << "; %g=" << simResult.first.percentGain()
-                << "; %t=" << simResult.first.myPercentageOfTotal();
-            if (simResult.second) dbg << "; ATCK";
-        };
-
-        if (!cluster->recentSimResults.empty()) addSimResult(*cluster->recentSimResults.rbegin());
-        if (!cluster->recentRegroupSimResults.empty()) addSimResult(*cluster->recentRegroupSimResults.rbegin());
-
-        CherryVis::drawText(cluster->center.x, cluster->center.y - 24, dbg.str());
-#endif
     }
 
     executeDetectors();
@@ -439,4 +404,23 @@ void Squad::updateDetectionNeeds(std::set<Unit> &enemyUnits)
             enemiesNeedingDetection.insert(unit);
         }
     }
+}
+
+void Squad::addInstrumentation(nlohmann::json &squadArray) const
+{
+#if INSTRUMENTATION_ENABLED
+    nlohmann::json clusterArray;
+    for (auto &cluster : clusters) cluster->addInstrumentation(clusterArray);
+
+    squadArray.push_back({
+        {"label", label},
+        {"target_position_x", targetPosition.x},
+        {"target_position_y", targetPosition.y},
+        {"count_combatUnits", combatUnitCount()},
+        {"count_cannons", getUnitCountByType()[BWAPI::UnitTypes::Protoss_Photon_Cannon]},
+        {"count_observers", detectors.size()},
+        {"count_arbiters", arbiters.size()},
+        {"clusters", clusterArray}
+    });
+#endif
 }

@@ -10,6 +10,7 @@ class DefendBaseSquad : public Squad
 public:
     explicit DefendBaseSquad(Base *base)
             : Squad((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
+            , base(base)
             , workerDefenseSquad(std::make_unique<WorkerDefenseSquad>(base))
     {
         targetPosition = base->getPosition();
@@ -17,6 +18,7 @@ public:
 
     virtual ~DefendBaseSquad() = default;
 
+    Base* base;
     std::set<Unit> enemyUnits;
 
     void execute() override;

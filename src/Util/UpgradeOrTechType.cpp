@@ -40,6 +40,16 @@ BWAPI::UnitType UpgradeOrTechType::whatUpgradesOrResearches() const
     return upgradeType.whatUpgrades();
 }
 
+BWAPI::UnitType UpgradeOrTechType::whatsRequired() const
+{
+    if (isTechType())
+    {
+        return BWAPI::UnitTypes::None;
+    }
+
+    return upgradeType.whatsRequired();
+}
+
 int UpgradeOrTechType::currentLevel() const
 {
     if (isTechType())
@@ -48,6 +58,16 @@ int UpgradeOrTechType::currentLevel() const
     }
 
     return BWAPI::Broodwar->self()->getUpgradeLevel(upgradeType) > 0;
+}
+
+int UpgradeOrTechType::maxLevel() const
+{
+    if (isTechType())
+    {
+        return 1;
+    }
+
+    return upgradeType.maxRepeats();
 }
 
 bool UpgradeOrTechType::operator==(const UpgradeOrTechType &other)

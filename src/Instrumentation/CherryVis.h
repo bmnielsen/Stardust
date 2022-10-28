@@ -1,6 +1,7 @@
 #pragma once
 
 #include <BWAPI.h>
+#include <nlohmann.h>
 
 #if INSTRUMENTATION_ENABLED
 #define CHERRYVIS_ENABLED true
@@ -65,15 +66,17 @@ namespace CherryVis
 
     void addHeatmap(const std::string &key, const std::vector<long> &data, int sizeX, int sizeY);
 
-    void drawLine(int x1, int y1, int x2, int y2, DrawColor color);
+    void drawLine(int x1, int y1, int x2, int y2, DrawColor color, int unitId = -1);
 
-    void drawCircle(int x, int y, int radius, DrawColor color);
+    void drawCircle(int x, int y, int radius, DrawColor color, int unitId = -1);
 
-    void drawText(int x, int y, const std::string &text);
+    void drawText(int x, int y, const std::string &text, int unitId = -1);
 
     void frameEnd(int frame);
 
     void gameEnd();
 
     void disable();
+
+    void writeFrameData(const std::string &label, const nlohmann::json &entry, int framesPerPartition = 0);
 }

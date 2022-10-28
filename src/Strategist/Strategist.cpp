@@ -7,6 +7,8 @@
 #include "Map.h"
 #include "UnitUtil.h"
 
+#include "OpponentEconomicModel.h"
+
 #include "StrategyEngine.h"
 #include "StrategyEngines/PvP.h"
 #include "StrategyEngines/PvT.h"
@@ -17,7 +19,6 @@
 #include "Strategist.h"
 
 #include "Plays/MainArmy/DefendMyMain.h"
-#include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/MainArmy/MopUp.h"
 
 /*
@@ -96,7 +97,7 @@ namespace Strategist
                 {
                     typeToReassignableUnits[unit->type].emplace_back(unit);
                 }
-                else
+                else if (playIt->second->canReassignUnit(unit))
                 {
                     typeToReassignableUnits[unit->type].emplace_back(unit, playIt->second);
                 }
@@ -196,10 +197,7 @@ namespace Strategist
                     auto incompleteUnits = typeToIncompleteUnits.find(unitRequirement.type);
                     while (incompleteUnits != typeToIncompleteUnits.end() && !incompleteUnits->second.empty() && unitRequirement.count > 0)
                     {
-                        if ((*incompleteUnits->second.begin())->producer)
-                        {
-                            (*incompleteUnits->second.begin())->producer->setRallyPoint(unitRequirement.position);
-                        }
+                        (*incompleteUnits->second.begin())->setProducerRallyPosition(unitRequirement.position);
 
                         unitRequirement.count--;
                         incompleteUnits->second.erase(incompleteUnits->second.begin());
@@ -246,11 +244,8 @@ namespace Strategist
 
                     for (const auto &incompleteUnit : typeAndIncompleteUnits.second)
                     {
-                        if (incompleteUnit->producer)
-                        {
-                            incompleteUnit->producer->setRallyPoint(playPosition);
-                        }
-                        
+                        incompleteUnit->setProducerRallyPosition(playPosition);
+
                         playReceivingUnassignedUnits->assignedIncompleteUnits[typeAndIncompleteUnits.first]++;
                     }
                 }
@@ -260,7 +255,7 @@ namespace Strategist
         bool enemyIsContained()
         {
             // Only change our minds after at least 5 seconds
-            if (BWAPI::Broodwar->getFrameCount() - enemyContainedChanged < 120) return enemyContained;
+            if (currentFrame - enemyContainedChanged < 120) return enemyContained;
 
             // We consider the enemy to be contained if the following is true:
             // - The enemy has a known main base
@@ -341,7 +336,7 @@ namespace Strategist
                 if (unit->isFlying && !unit->type.isBuilding()) return false;
 
                 if (!unit->lastPositionValid) continue;
-                if (unit->type.isWorker() && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) continue;
+                if (unit->type.isWorker() && unit->lastSeenAttacking < (currentFrame - 120)) continue;
                 if (!(unit->type.isBuilding() && unit->type.canProduce()) && !UnitUtil::CanAttackGround(unit->type)) continue;
 
                 auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition));
@@ -425,6 +420,8 @@ namespace Strategist
 
     void initialize()
     {
+        OpponentEconomicModel::initialize();
+
         unitToPlay.clear();
         plays.clear();
         productionGoals.clear();
@@ -438,11 +435,13 @@ namespace Strategist
 
     void update()
     {
+        OpponentEconomicModel::update();
+
         // Change the strategy engine when we discover the race of a random opponent
         if (Opponent::hasRaceJustBeenDetermined())
         {
             // We first need to clear all of our existing plays, as the new strategy engine will add its own
-            auto removeUnit = [&](const MyUnit unit)
+            auto removeUnit = [&](const MyUnit& unit)
             {
                 unitToPlay.erase(unit);
             };
@@ -458,7 +457,7 @@ namespace Strategist
         {
             Log::Get() << "Enemy is " << (enemyContained ? "no longer " : "") << "contained";
             enemyContained = !enemyContained;
-            enemyContainedChanged = BWAPI::Broodwar->getFrameCount();
+            enemyContainedChanged = currentFrame;
         }
 
         // Remove all dead or renegaded units from plays
@@ -491,7 +490,7 @@ namespace Strategist
         // Process the changes signalled by the PlayStatus objects
         for (auto it = plays.begin(); it != plays.end();)
         {
-            auto removeUnit = [&](const MyUnit unit)
+            auto removeUnit = [&](const MyUnit& unit)
             {
                 CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
 
@@ -500,16 +499,20 @@ namespace Strategist
             };
 
             // Update our unit map for units released from the play
-            for (const auto &unit : (*it)->status.removedUnits)
+            // We don't do this for the play receiving unassigned units to avoid instability
+            if (!(*it)->receivesUnassignedUnits())
             {
-                removeUnit(unit);
+                for (const auto &unit : (*it)->status.removedUnits)
+                {
+                    removeUnit(unit);
+                }
             }
 
             // Handle play transition
             // This replaces the current play with a new one, moving all units
             if ((*it)->status.transitionTo != nullptr)
             {
-                auto moveUnit = [&](const MyUnit unit)
+                auto moveUnit = [&](const MyUnit& unit)
                 {
                     unitToPlay[unit] = (*it)->status.transitionTo;
                     (*it)->status.transitionTo->addUnit(unit);
@@ -632,6 +635,13 @@ namespace Strategist
         }
     }
 
+    bool isWorkerScoutComplete()
+    {
+        return workerScoutStatus == Strategist::WorkerScoutStatus::ScoutingCompleted ||
+               workerScoutStatus == Strategist::WorkerScoutStatus::ScoutingFailed ||
+               workerScoutStatus == Strategist::WorkerScoutStatus::ScoutingBlocked;
+    }
+
     // Following methods are used by tests to force specific behaviour
 
     void setOpening(std::vector<std::shared_ptr<Play>> openingPlays)
@@ -647,5 +657,10 @@ namespace Strategist
     StrategyEngine *getStrategyEngine()
     {
         return engine.get();
+    }
+
+    MainArmyPlay *getMainArmyPlay()
+    {
+        return StrategyEngine::getPlay<MainArmyPlay>(plays);
     }
 }

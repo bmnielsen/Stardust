@@ -144,7 +144,7 @@ void AntiCannonRush::update()
                 Log::Get() << "Found enemy pylon in our base";
                 builtPylon = true;
 
-                int startFrame = (unit->completed ? BWAPI::Broodwar->getFrameCount() : unit->estimatedCompletionFrame)
+                int startFrame = (unit->completed ? currentFrame : unit->estimatedCompletionFrame)
                         - UnitUtil::BuildTime(unit->type);
                 Opponent::setGameValue("pylonInOurMain", startFrame);
             }
@@ -161,7 +161,7 @@ void AntiCannonRush::update()
                 if (!builtPylon)
                 {
                     builtPylon = true;
-                    int startFrame = (unit->completed ? BWAPI::Broodwar->getFrameCount() : unit->estimatedCompletionFrame)
+                    int startFrame = (unit->completed ? currentFrame : unit->estimatedCompletionFrame)
                                      - UnitUtil::BuildTime(unit->type)
                                      - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
                     Opponent::setGameValue("pylonInOurMain", startFrame);
@@ -171,8 +171,8 @@ void AntiCannonRush::update()
     }
 
     // Disband when we are fairly certain the cannon rush is not happening or is over
-    if (((BWAPI::Broodwar->getFrameCount() >= 4000 || safeEnemyStrategyDetermined) && !builtPylon) ||
-        (BWAPI::Broodwar->getFrameCount() >= 7000 && pylons.empty() && cannonsAndAttackers.empty()))
+    if (((currentFrame >= 4000 || safeEnemyStrategyDetermined) && !builtPylon) ||
+        (currentFrame >= 7000 && pylons.empty() && cannonsAndAttackers.empty()))
     {
         status.complete = true;
         return;
@@ -184,8 +184,8 @@ void AntiCannonRush::update()
     if (Opponent::winLossRatio(0.0, 200) < 0.99)
     {
         int worstCasePylonFrame =
-                Opponent::minValueInPreviousGames("pylonInOurMain", 0, 15, 10);
-        if (!builtPylon && worstCasePylonFrame > (BWAPI::Broodwar->getFrameCount() + 500))
+                Opponent::minValueInPreviousGames("pylonInOurMain", INT_MAX, 15);
+        if (!builtPylon && worstCasePylonFrame > (currentFrame + 500))
         {
             return;
         }
@@ -226,7 +226,7 @@ void AntiCannonRush::update()
     }
 
     // Reserve attackers for enemy cannons
-    auto completionCutoff = BWAPI::Broodwar->getFrameCount() + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon) - 100;
+    auto completionCutoff = currentFrame + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon) - 100;
     for (auto &cannonAndAttackers : cannonsAndAttackers)
     {
         auto &cannon = cannonAndAttackers.first;
@@ -299,6 +299,7 @@ void AntiCannonRush::addPrioritizedProductionGoals(std::map<int, std::vector<Pro
     if (!cannonsAndAttackers.empty())
     {
         prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                    label,
                                                                     BWAPI::UnitTypes::Protoss_Zealot,
                                                                     -1,
                                                                     2);

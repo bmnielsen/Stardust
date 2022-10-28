@@ -122,7 +122,7 @@ void DefendBase::update()
     }
 
     // Handle early-game defense of the main or natural a bit differently
-    if ((base == Map::getMyMain() || base == Map::getMyNatural()) && BWAPI::Broodwar->getFrameCount() < 10000)
+    if ((base == Map::getMyMain() || base == Map::getMyNatural()) && currentFrame < 10000)
     {
         // Take all units that are very close to the base
         auto gridNodePredicate = [](const NavigationGrid::GridNode &gridNode)
@@ -180,6 +180,7 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
     {
         auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(pylonLocation), 0, 0, 0);
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   label,
                                                                    BWAPI::UnitTypes::Protoss_Pylon,
                                                                    buildLocation);
     }
@@ -192,10 +193,10 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
         {
             // Determine the priority
             // By default it is equivalent to main army
-            // If it is the main in the early game, give it higher priority
+            // If it is the main or natural in the early game, give it higher priority
             // If it is the last cannon, give it lower priority until the others are completed
             int priority = PRIORITY_MAINARMY;
-            if (base == Map::getMyMain() && BWAPI::Broodwar->getFrameCount() < 12000)
+            if ((base == Map::getMyMain() || base == Map::getMyNatural()) && currentFrame < 12000)
             {
                 priority = PRIORITY_NORMAL;
             }
@@ -222,6 +223,7 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
             {
                 auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(cannonLocations[i]), 0, 0, 0);
                 prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                  label,
                                                                   BWAPI::UnitTypes::Protoss_Photon_Cannon,
                                                                   buildLocation);
             }
@@ -235,6 +237,7 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
         if (unitRequirement.count < 1) continue;
 
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 label,
                                                                  unitRequirement.type,
                                                                  unitRequirement.count,
                                                                  1);
@@ -310,6 +313,9 @@ int DefendBase::desiredCannons()
         return 0;
     }
 
+    int cannonBuildTime = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Forge) < 1) cannonBuildTime += UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Forge);
+
     // Next, if the enemy is Zerg, guard against mutas we haven't scouted
     // TODO: Do economic modelling to determine if the enemy could have mutas
     auto enemyMain = Map::getEnemyStartingMain();
@@ -325,18 +331,23 @@ int DefendBase::desiredCannons()
 
         int flightTime = PathFinding::ExpectedTravelTime(base->getPosition(), enemyMain->getPosition(), BWAPI::UnitTypes::Zerg_Mutalisk) - 50;
 
-        int cannonBuildTime = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
-        if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Forge) < 1) cannonBuildTime += UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Forge);
-
-        if (BWAPI::Broodwar->getFrameCount() > (expectedMutaliskCompletionFrame + flightTime - cannonBuildTime)) enemyAirThreat = true;
+        if (currentFrame > (expectedMutaliskCompletionFrame + flightTime - cannonBuildTime)) enemyAirThreat = true;
     }
 
-    // Main and natural are special cases, we only get cannons there to defend against air threats
+    // Main and natural are special cases, we only get cannons there to defend against air threats or sneak attacks
     if (base == Map::getMyMain() || base == Map::getMyNatural())
     {
         if (enemyAirUnits > 6) return 4;
         if (enemyAirThreat) return 3;
-        if (enemyDropThreat && BWAPI::Broodwar->getFrameCount() > 8000) return 1;
+
+        // Disabled as we handle it in PvZ and it isn't tweaked for other races
+//        auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
+//        if (sneakAttack < 10000 && currentFrame > (sneakAttack - cannonBuildTime))
+//        {
+//            return 3;
+//        }
+
+        if (enemyDropThreat && currentFrame > 8000) return 1;
         return 0;
     }
 

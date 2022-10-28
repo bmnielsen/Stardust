@@ -85,7 +85,15 @@ namespace Map
 
     std::set<const BWEM::Area *> &getMyMainAreas();
 
-    void dumpVisibilityHeatmap();
+    std::set<const BWEM::Area *> &getStartingBaseAreas(Base *base);
+
+    Base *getStartingBaseNatural(Base *base);
+
+    std::map<const BWEM::Area *, std::set<BWAPI::TilePosition>> &getAreasToEdgePositions();
+
+    std::map<BWAPI::TilePosition, const BWEM::Area *> &getEdgePositionsToArea();
+
+    void dumpPowerHeatmap();
 
     void dumpWalkability();
 
@@ -110,7 +118,11 @@ namespace Map
 
     bool isInLeafArea(BWAPI::TilePosition pos);
 
+    bool isOnIsland(BWAPI::TilePosition pos);
+
     int lastSeen(BWAPI::TilePosition tile);
 
     int lastSeen(int x, int y);
+
+    void makePositionValid(int &x, int &y);
 }

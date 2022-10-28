@@ -1,11 +1,10 @@
 #include "UnitCluster.h"
 
-#include "Units.h"
-#include "Map.h"
 #include "Geo.h"
 #include "Players.h"
 
 #include "DebugFlag_CombatSim.h"
+#include "DebugFlag_UnitOrders.h"
 
 #include <iomanip>
 
@@ -237,13 +236,15 @@ namespace
 
     bool shouldStandGround(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, const CombatSimResult &initialSimResult, bool hasValidTarget)
     {
-        // If none of our units has a target, and none of our units are in danger, stand ground
+        // If none of our mobile units has a target, and none of our mobile units are in danger, stand ground
         if (!hasValidTarget)
         {
             auto &grid = Players::grid(BWAPI::Broodwar->enemy());
             bool anyThreat = false;
             for (auto &unitAndTarget : unitsAndTargets)
             {
+                if (unitAndTarget.first->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+
                 if (unitAndTarget.first->isFlying)
                 {
                     if (grid.airThreat(unitAndTarget.first->lastPosition) > 0)
@@ -409,6 +410,27 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             flee(enemyUnits);
 
             break;
+        }
+    }
+
+    // Cannons can't retreat, so just have them attack their target
+    for (auto &unitAndTarget : unitsAndTargets)
+    {
+        if (unitAndTarget.first->type != BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+
+        if (!unitAndTarget.second)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(unitAndTarget.first->id) << "No target";
+#endif
+        }
+        else
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
+                                                    << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
+#endif
+            unitAndTarget.first->attackUnit(unitAndTarget.second, unitsAndTargets, false, enemyAoeRadius);
         }
     }
 }

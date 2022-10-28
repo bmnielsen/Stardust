@@ -85,12 +85,12 @@ void MopUpSquad::execute(UnitCluster &cluster)
 
     // We don't know of any enemy buildings, so try to find one
     // TODO: Somehow handle terran floated buildings
-    int bestBaseScoutedAt = BWAPI::Broodwar->getFrameCount();
+    int bestBaseScoutedAt = currentFrame;
     Base *bestBase = nullptr;
     for (auto &base : Map::getUntakenExpansions(BWAPI::Broodwar->enemy()))
     {
         // If the base has been scouted in the past few minutes, skip it
-        if (base->lastScouted > (BWAPI::Broodwar->getFrameCount() - 5000)) continue;
+        if (base->lastScouted > (currentFrame - 5000)) continue;
 
         if (base->lastScouted < bestBaseScoutedAt)
         {

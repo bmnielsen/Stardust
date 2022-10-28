@@ -51,7 +51,7 @@ void EjectEnemyScout::update()
     if (!scout) scout = newScout;
 
     // End the play if there is no scout after frame 10000
-    if (!scout && BWAPI::Broodwar->getFrameCount() > 10000)
+    if (!scout && currentFrame > 10000)
     {
         status.complete = true;
     }
@@ -72,7 +72,6 @@ void EjectEnemyScout::update()
     // If we have a dragoon and a scout, attack!
     if (scout && dragoon && !dragoon->unstick() && dragoon->isReady())
     {
-        std::vector<std::pair<MyUnit, Unit>> dummyUnitsAndTargets;
-        dragoon->attackUnit(scout, dummyUnitsAndTargets);
+        dragoon->attackUnit(scout);
     }
 }

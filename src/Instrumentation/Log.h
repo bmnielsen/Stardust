@@ -3,6 +3,9 @@
 #include <BWAPI.h>
 
 #if LOGGING_ENABLED
+
+extern int currentFrame;
+
 #if INSTRUMENTATION_ENABLED
 #define DEBUG_LOGGING_ENABLED true
 #endif

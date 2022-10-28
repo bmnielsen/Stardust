@@ -13,6 +13,7 @@
 
 #if INSTRUMENTATION_ENABLED
 #define DEBUG_WRITE_SUBGOALS false
+#define OUTPUT_BUILD_QUEUE false
 #endif
 
 namespace Producer
@@ -173,9 +174,9 @@ namespace Producer
 
         ProductionItemSet committedItems;
 
+#if OUTPUT_BUILD_QUEUE
         void write(ProductionItemSet &items, const std::string &label)
         {
-#if CHERRYVIS_ENABLED
             auto itemLabel = [](const std::shared_ptr<ProductionItem> &item)
             {
                 std::ostringstream labelstream;
@@ -197,20 +198,19 @@ namespace Producer
             }
 
             CherryVis::setBoardListValue(label, values);
-#endif
 
             /*
             Log::LogWrapper csv = Log::Csv(label);
 
-            int seconds = BWAPI::Broodwar->getFrameCount() / 24;
-            csv << BWAPI::Broodwar->getFrameCount();
+            int seconds = currentFrame / 24;
+            csv << currentFrame;
             csv << (seconds / 60);
             csv << (seconds % 60);
             csv << BWAPI::Broodwar->self()->minerals();
             csv << BWAPI::Broodwar->self()->gas();
             csv << (BWAPI::Broodwar->self()->supplyTotal() - BWAPI::Broodwar->self()->supplyUsed());
 
-            if (BWAPI::Broodwar->getFrameCount() < 2) Log::Debug() << label << ":";
+            if (currentFrame < 2) Log::Debug() << label << ":";
 
             for (auto &item : items)
             {
@@ -218,15 +218,16 @@ namespace Producer
                 csv << itemLabel(item) << item->startFrame << item->completionFrame;
                 csv << minerals[item->startFrame] << gas[item->startFrame] << supply[item->startFrame];
 
-                if (BWAPI::Broodwar->getFrameCount() < 2) Log::Debug() << itemLabel(item) << ": " << item->startFrame << ";" << item->completionFrame;
+                if (currentFrame < 2) Log::Debug() << itemLabel(item) << ": " << item->startFrame << ";" << item->completionFrame;
             }
              */
         }
+#endif
 
         int getRemainingBuildTime(const MyUnit &producer)
         {
             if (producer->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
-                (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+                (currentFrame - producer->lastCommandFrame - 1) <= BWAPI::Broodwar->getLatencyFrames())
             {
                 return buildTime(producer->bwapiUnit->getLastCommand().getUnitType());
             }
@@ -239,7 +240,7 @@ namespace Producer
         int getRemainingUpgradeTime(const MyUnit &producer)
         {
             if (producer->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Upgrade &&
-                (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+                (currentFrame - producer->lastCommandFrame - 1) <= BWAPI::Broodwar->getLatencyFrames())
             {
                 return buildTime(producer->bwapiUnit->getLastCommand().getUpgradeType());
             }
@@ -252,7 +253,7 @@ namespace Producer
         int getRemainingResearchTime(const MyUnit &producer)
         {
             if (producer->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Research &&
-                (BWAPI::Broodwar->getFrameCount() - producer->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+                (currentFrame - producer->lastCommandFrame - 1) <= BWAPI::Broodwar->getLatencyFrames())
             {
                 return buildTime(producer->bwapiUnit->getLastCommand().getTechType());
             }
@@ -351,7 +352,7 @@ namespace Producer
         {
             // Decide on the length of the prediction window
             // In the early game we use a 4500-frame window, which shrinks to 2000 later on
-            PREDICT_FRAMES = std::max(2000, std::min(4500, 12000 - BWAPI::Broodwar->getFrameCount()));
+            PREDICT_FRAMES = std::max(2000, std::min(4500, 12000 - currentFrame));
 
             // Fill mineral and gas with current rates
             minerals.assign(PREDICT_FRAMES, BWAPI::Broodwar->self()->minerals());
@@ -846,6 +847,7 @@ namespace Producer
             }
         }
 
+        // Gets the frame at which a producer is available to build something
         int availableAt(const Type &type, int startFrame, const std::shared_ptr<Producer> &producer)
         {
             int build = buildTime(type);
@@ -1678,7 +1680,7 @@ namespace Producer
             }
 
             // Completed producers
-            for (auto unit : Units::allMine())
+            for (const auto &unit : Units::allMine())
             {
                 if (!unit->exists() || !unit->completed) continue;
                 if (unit->type != producerType) continue;
@@ -1688,7 +1690,7 @@ namespace Producer
                 // This is not perfect, as it will reduce the count of all production goals targeting this unit type, but it's probably
                 // rare that we have multiple goals with limited numbers of the same unit type anyway.
                 if (unitType && toProduce != -1 && unit->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
-                    (BWAPI::Broodwar->getFrameCount() - unit->bwapiUnit->getLastCommandFrame() - 1) < BWAPI::Broodwar->getLatencyFrames() &&
+                    (currentFrame - unit->lastCommandFrame - 1) < BWAPI::Broodwar->getLatencyFrames() &&
                     unit->bwapiUnit->getLastCommand().getUnitType() == *unitType)
                 {
                     toProduce--;
@@ -1944,7 +1946,48 @@ namespace Producer
         // can be delayed. So pull pylons a bit earlier whenever we have the resources for it.
         pullPylons();
 
+        // When we are maxed, ensure we have enough gateways to quickly replace losses
+        if (totalSupply[0] >= 400 && supply[0] <= 4)
+        {
+            // Count the gateways we already have
+            int gateways = Units::countCompleted(BWAPI::UnitTypes::Protoss_Gateway) +
+                           Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Gateway).size();
+
+            // Build up to 25 gateways, but keep 2 build locations reserved for other types of buildings
+            // We might have a need to build air units or tech later on in the game
+            unsigned long desiredGateways =
+                    std::min(25 - gateways,
+                             (int)buildLocations[BuildingPlacement::Neighbourhood::AllMyBases][BWAPI::UnitTypes::Protoss_Gateway.tileWidth()].size()
+                             - 2);
+
+            // Scale up to 25 gateways as our bank allows
+            for (int gateway = gateways + 1; gateway <= gateways + desiredGateways; gateway++)
+            {
+                int requiredMinerals = gateway * BWAPI::UnitTypes::Protoss_Dragoon.mineralPrice() + BWAPI::UnitTypes::Protoss_Gateway.mineralPrice();
+                int requiredGas = gateway * BWAPI::UnitTypes::Protoss_Dragoon.gasPrice() + BWAPI::UnitTypes::Protoss_Gateway.gasPrice();
+
+                // Find the frame where it makes sense to build this gateway
+                int startFrame;
+                for (startFrame = PREDICT_FRAMES - 1; startFrame >= 0; startFrame--)
+                {
+                    if (minerals[startFrame] < requiredMinerals) break;
+                    if (minerals[startFrame] < requiredGas) break;
+                }
+                startFrame++;
+                if (startFrame >= PREDICT_FRAMES) break;
+
+                // Commit the item, if we have a build location
+                auto item = std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Gateway, startFrame, BuildingPlacement::Neighbourhood::AllMyBases);
+                auto itemInSet = ProductionItemSet{item};
+                reserveBuildPositions(itemInSet);
+                if (!item->buildLocation.location.tile.isValid()) break;
+                committedItems.insert(item);
+            }
+        }
+
+#if OUTPUT_BUILD_QUEUE
         write(committedItems, "producer");
+#endif
 
         // Issue build commands
         bool firstUnbuiltItem = true;
@@ -1995,7 +2038,7 @@ namespace Producer
                                    : Builder::getBuilderUnit(item->buildLocation.location.tile, *unitType, &arrivalFrame);
                     if (builder && arrivalFrame >= item->startFrame)
                     {
-                        Builder::build(*unitType, item->buildLocation.location.tile, builder, BWAPI::Broodwar->getFrameCount() + item->startFrame);
+                        Builder::build(*unitType, item->buildLocation.location.tile, builder, currentFrame + item->startFrame);
                     }
                 }
 

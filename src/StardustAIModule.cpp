@@ -17,9 +17,11 @@
 #include "Players.h"
 #include "Geo.h"
 
+int currentFrame;
+
 // While instrumenting we have a lower global frame limit to ensure we get data if the game locks up
 #if INSTRUMENTATION_ENABLED_VERBOSE
-#define FRAME_LIMIT 30000
+#define FRAME_LIMIT 25000
 #else
 #if INSTRUMENTATION_ENABLED
 #define FRAME_LIMIT 40000
@@ -43,7 +45,7 @@
 #define AIR_THREAT_HEATMAP_FREQUENCY_MINE 0
 #define DETECTION_HEATMAP_FREQUENCY_MINE 0
 
-#define VISIBILITY_HEATMAP_FREQUENCY 0 // Only tracked for self
+#define POWER_HEATMAP_FREQUENCY 0 // Only tracked for self
 #endif
 
 namespace
@@ -63,6 +65,8 @@ namespace
 
 void StardustAIModule::onStart()
 {
+    currentFrame = 0;
+
     // Initialize globals that just need to make sure their global data is reset
     Log::initialize();
     Builder::initialize();
@@ -120,11 +124,14 @@ void StardustAIModule::onStart()
     {
         Log::Get() << "No main choke available";
     }
-    //Log::Debug() << "Seed: " << BWAPI::Broodwar->getRandomSeed();
+
+    if (testOnStart) testOnStart();
 }
 
 void StardustAIModule::onEnd(bool isWinner)
 {
+    if (testOnEnd) testOnEnd(isWinner);
+
     Opponent::gameEnd(isWinner);
     WorkerOrderTimer::write();
     CherryVis::gameEnd();
@@ -132,17 +139,17 @@ void StardustAIModule::onEnd(bool isWinner)
 
 void StardustAIModule::onFrame()
 {
-    if (BWAPI::BroodwarPtr->getFrameCount() < frameSkip) return;
+    if (BWAPI::Broodwar->getFrameCount() < frameSkip)
+    {
+        currentFrame++;
+        return;
+    }
     if (gameFinished) return;
-#ifdef VS_HUMAN
     if (BWAPI::Broodwar->isPaused()) return;
     if (BWAPI::Broodwar->isReplay()) return;
-#else
-    if (BWAPI::Broodwar->isPaused()) BWAPI::Broodwar->resumeGame();
-#endif
 
 #ifdef FRAME_LIMIT
-    if (BWAPI::Broodwar->getFrameCount() > FRAME_LIMIT)
+    if (currentFrame > FRAME_LIMIT)
     {
         BWAPI::Broodwar->leaveGame();
         return;
@@ -155,7 +162,7 @@ void StardustAIModule::onFrame()
     for (auto &event : BWAPI::Broodwar->getEvents())
     {
         if (event.getType() == BWAPI::EventType::PlayerLeft && event.getPlayer() == BWAPI::Broodwar->enemy()
-            && BWAPI::Broodwar->getFrameCount() > 100)
+            && currentFrame > 100)
         {
             Log::Get() << "Opponent has left the game";
             BWAPI::Broodwar->sendText("gg");
@@ -194,6 +201,9 @@ void StardustAIModule::onFrame()
     Timer::checkpoint("Events");
 
     // Update general information things
+    Opponent::update();
+    Timer::checkpoint("Players::update");
+
     Players::update();
     Timer::checkpoint("Players::update");
 
@@ -219,6 +229,9 @@ void StardustAIModule::onFrame()
     Strategist::update();
     Timer::checkpoint("Strategist::update");
 
+    // Hook our test infrastructure in here in case we want to have our units do different stuff
+    if (testOnFrame) testOnFrame();
+
     // Update stuff that issues orders
     General::issueOrders();
     Timer::checkpoint("General::issueOrders");
@@ -237,85 +250,110 @@ void StardustAIModule::onFrame()
     Units::issueOrders();
     Timer::checkpoint("Units::issueOrders");
 
+    auto enemyNatural = Map::getEnemyStartingNatural();
+    if (enemyNatural && enemyNatural->resourceDepot && enemyNatural->resourceDepot->exists() && enemyNatural->resourceDepot->bwapiUnit->isVisible())
+    {
+        // Check for other visible enemy units
+        std::set<Unit> enemyUnits;
+        Units::enemyInRadius(enemyUnits, enemyNatural->getPosition(), 640, [](const Unit &unit){ return !unit->type.isBuilding() && unit->bwapiUnit->isVisible();});
+        if (enemyUnits.empty())
+        {
+            int dragoons = 0;
+            for (auto &unit : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Dragoon))
+            {
+                if (unit->cooldownUntil > currentFrame) continue;
+                if (unit->isInOurWeaponRange(enemyNatural->resourceDepot)) dragoons++;
+            }
+
+            if (dragoons > 3)
+            {
+                Log::Get() << "ERROR: Multiple dragoons aren't attacking lone enemy natural!";
+            }
+        }
+    }
+
     // Instrumentation
     NoGoAreas::writeInstrumentation();
+    General::writeInstrumentation();
 
 #if COLLISION_HEATMAP_FREQUENCY_ENEMY
-    if (BWAPI::Broodwar->getFrameCount() % COLLISION_HEATMAP_FREQUENCY_ENEMY == 0)
+    if (currentFrame % COLLISION_HEATMAP_FREQUENCY_ENEMY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpCollisionHeatmapIfChanged("CollisionEnemy");
     }
 #endif
 #if COLLISION_HEATMAP_FREQUENCY_MINE
-    if (BWAPI::Broodwar->getFrameCount() % COLLISION_HEATMAP_FREQUENCY_MINE == 0)
+    if (currentFrame % COLLISION_HEATMAP_FREQUENCY_MINE == 0)
     {
         Players::grid(BWAPI::Broodwar->self()).dumpCollisionHeatmapIfChanged("CollisionMine");
     }
 #endif
 #if GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY
-    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY == 0)
+    if (currentFrame % GROUND_THREAT_HEATMAP_FREQUENCY_ENEMY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpGroundThreatHeatmapIfChanged("GroundThreatEnemy");
     }
 #endif
 #if GROUND_THREAT_HEATMAP_FREQUENCY_MINE
-    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_HEATMAP_FREQUENCY_MINE == 0)
+    if (currentFrame % GROUND_THREAT_HEATMAP_FREQUENCY_MINE == 0)
     {
         Players::grid(BWAPI::Broodwar->self()).dumpGroundThreatHeatmapIfChanged("GroundThreatMine");
     }
 #endif
 #if GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_ENEMY
-    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_ENEMY == 0)
+    if (currentFrame % GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_ENEMY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpStaticGroundThreatHeatmapIfChanged("GroundThreatStaticEnemy");
     }
 #endif
 #if GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_MINE
-    if (BWAPI::Broodwar->getFrameCount() % GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_MINE == 0)
+    if (currentFrame % GROUND_THREAT_STATIC_HEATMAP_FREQUENCY_MINE == 0)
     {
         Players::grid(BWAPI::Broodwar->self()).dumpStaticGroundThreatHeatmapIfChanged("GroundThreatStaticMine");
     }
 #endif
 #if AIR_THREAT_HEATMAP_FREQUENCY_ENEMY
-    if (BWAPI::Broodwar->getFrameCount() % AIR_THREAT_HEATMAP_FREQUENCY_ENEMY == 0)
+    if (currentFrame % AIR_THREAT_HEATMAP_FREQUENCY_ENEMY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpAirThreatHeatmapIfChanged("AirThreatEnemy");
     }
 #endif
 #if AIR_THREAT_HEATMAP_FREQUENCY_MINE
-    if (BWAPI::Broodwar->getFrameCount() % AIR_THREAT_HEATMAP_FREQUENCY_MINE == 0)
+    if (currentFrame % AIR_THREAT_HEATMAP_FREQUENCY_MINE == 0)
     {
         Players::grid(BWAPI::Broodwar->self()).dumpAirThreatHeatmapIfChanged("AirThreatMine");
     }
 #endif
 #if DETECTION_HEATMAP_FREQUENCY_ENEMY
-    if (BWAPI::Broodwar->getFrameCount() % DETECTION_HEATMAP_FREQUENCY_ENEMY == 0)
+    if (currentFrame % DETECTION_HEATMAP_FREQUENCY_ENEMY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpDetectionHeatmapIfChanged("DetectionEnemy");
     }
 #endif
 #if DETECTION_HEATMAP_FREQUENCY_MINE
-    if (BWAPI::Broodwar->getFrameCount() % DETECTION_HEATMAP_FREQUENCY_MINE == 0)
+    if (currentFrame % DETECTION_HEATMAP_FREQUENCY_MINE == 0)
     {
         Players::grid(BWAPI::Broodwar->self()).dumpDetectionHeatmapIfChanged("DetectionMine");
     }
 #endif
 #if STASIS_RANGE_HEATMAP_FREQUENCY_ENEMY
-    if (BWAPI::Broodwar->getFrameCount() % STASIS_RANGE_HEATMAP_FREQUENCY_ENEMY == 0)
+    if (currentFrame % STASIS_RANGE_HEATMAP_FREQUENCY_ENEMY == 0)
     {
         Players::grid(BWAPI::Broodwar->enemy()).dumpStasisRangeHeatmapIfChanged("StasisRange");
     }
 #endif
-#if VISIBILITY_HEATMAP_FREQUENCY
-    if (BWAPI::Broodwar->getFrameCount() % VISIBILITY_HEATMAP_FREQUENCY == 0)
+#if POWER_HEATMAP_FREQUENCY
+    if (currentFrame % POWER_HEATMAP_FREQUENCY == 0)
     {
-        Map::dumpVisibilityHeatmap();
+        Map::dumpPowerHeatmap();
     }
 #endif
-    CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
+    CherryVis::frameEnd(currentFrame);
     Timer::checkpoint("Instrumentation");
 
     Timer::stop();
+
+    currentFrame++;
 }
 
 void StardustAIModule::onSendText(std::string)

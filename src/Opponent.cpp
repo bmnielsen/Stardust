@@ -3,7 +3,11 @@
 #include <fstream>
 #include <filesystem>
 
-#include <nlohmann/json.hpp>
+#include <nlohmann.h>
+
+#include "Map.h"
+#include "Units.h"
+#include "PathFinding.h"
 
 namespace Opponent
 {
@@ -13,6 +17,7 @@ namespace Opponent
         bool raceUnknown;
         std::vector<nlohmann::json> previousGames;
         nlohmann::json currentGame;
+        std::set<std::string> setKeys;
 
         std::vector<std::string> dataLoadPaths = {
                 "bwapi-data/read/",
@@ -60,6 +65,8 @@ namespace Opponent
 
     void initialize()
     {
+        setKeys.clear();
+
         name = BWAPI::Broodwar->enemy()->getName();
         std::transform(name.begin(), name.end(), name.begin(), ::tolower);
         name.erase(std::remove_if(name.begin(), name.end(), ::isspace), name.end());
@@ -94,6 +101,52 @@ namespace Opponent
         currentGame["pylonInOurMain"] = INT_MAX;
         currentGame["firstDarkTemplarCompleted"] = INT_MAX;
         currentGame["firstMutaliskCompleted"] = INT_MAX;
+        currentGame["firstLurkerAtOurMain"] = INT_MAX;
+        currentGame["sneakAttack"] = INT_MAX;
+        currentGame["elevatoredUnits"] = 0;
+    }
+
+    void update()
+    {
+        // Detect sneak attacks
+        // A sneak attack is when the enemy has at least 4 units in our main base in the early game while our army is out on the map
+        // This might happen because of a runaround or a drop
+        if (currentFrame < 12000 && !isGameValueSet("sneakAttack"))
+        {
+            auto mainBase = Map::getMyMain();
+            auto enemyMain = Map::getEnemyStartingMain();
+            if (mainBase && enemyMain && Units::enemyAtBase(mainBase).size() >= 4)
+            {
+                // Verify we have at least four combat units closer to the enemy's main than ours
+                int combatUnitsOnMap = 0;
+                auto countType = [&](BWAPI::UnitType type)
+                {
+                    for (auto &unit: Units::allMineCompletedOfType(type))
+                    {
+                        if (!unit->exists()) continue;
+                        if (!unit->completed) continue;
+                        int distOurs = PathFinding::GetGroundDistance(unit->lastPosition,
+                                                                      mainBase->getPosition(),
+                                                                      unit->type,
+                                                                      PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+                        int distTheirs = PathFinding::GetGroundDistance(unit->lastPosition,
+                                                                        enemyMain->getPosition(),
+                                                                        unit->type,
+                                                                        PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+                        if (distTheirs <= distOurs)
+                        {
+                            combatUnitsOnMap++;
+                        }
+                    }
+                };
+                countType(BWAPI::UnitTypes::Protoss_Zealot);
+                countType(BWAPI::UnitTypes::Protoss_Dragoon);
+                if (combatUnitsOnMap >= 4)
+                {
+                    setGameValue("sneakAttack", currentFrame);
+                }
+            }
+        }
     }
 
     void gameEnd(bool isWinner)
@@ -156,7 +209,44 @@ namespace Opponent
 
     void setGameValue(const std::string &key, int value)
     {
+#if CHERRYVIS_ENABLED
+        if (currentGame[key] != value)
+        {
+            CherryVis::log() << "Set game value " << key << " to " << value;
+        }
+#endif
+#if LOGGING_ENABLED
+        if (currentGame[key] != value)
+        {
+            Log::Get() << "Set game value " << key << " to " << value;
+        }
+#endif
         currentGame[key] = value;
+        setKeys.insert(key);
+    }
+
+    void incrementGameValue(const std::string &key, int delta)
+    {
+        int currentValue = 0;
+        if (isGameValueSet(key))
+        {
+            currentValue = currentGame[key];
+        }
+
+        currentGame[key] = currentValue + delta;
+
+#if CHERRYVIS_ENABLED
+        CherryVis::log() << "Incremented game value " << key << " from " << currentValue << " to " << currentGame[key];
+#endif
+#if LOGGING_ENABLED
+        Log::Get() << "Incremented game value " << key << " from " << currentValue << " to " << currentGame[key];
+#endif
+        setKeys.insert(key);
+    }
+
+    bool isGameValueSet(const std::string &key)
+    {
+        return setKeys.find(key) != setKeys.end();
     }
 
     int minValueInPreviousGames(const std::string &key, int defaultNoData, int maxCount, int minCount)

@@ -44,16 +44,32 @@ namespace Geo
 
     BWAPI::Position ScaleVector(BWAPI::Position vector, int length);
 
+    BWAPI::Position PerpendicularVector(BWAPI::Position vector, int length);
+
+    // The direction along a vector in BW representation (1/256th of a circle)
+    int BWDirection(BWAPI::Position vector);
+
+    // Difference between two angles in BW representation (1/256th of a circle)
+    int BWAngleDiff(int a, int b);
+
+    // Adds twho angles in BW representation (1/256th of a circle)
+    int BWAngleAdd(int a, int b);
+
+    // Simulate a frame of movement of a unit
+    // All values are in BW representation (positions and speeds are multiples of 1/256, angles are 1/256th of a circle)
+    void BWMovement(int &x, int &y, int &heading, int desiredHeading, int turnRate, int &speed, int acceleration, int topSpeed);
+
     class Spiral
     {
     public:
         int x;
         int y;
+        int radius;
 
         Spiral()
                 : x(0)
                 , y(0)
-                , iteration(1)
+                , radius(1)
                 , direction(0) {}
 
         void Next()
@@ -62,29 +78,28 @@ namespace Geo
             {
                 case 0:
                     ++x;
-                    if (x == iteration) ++direction;
+                    if (x == radius) ++direction;
                     break;
                 case 1:
                     ++y;
-                    if (y == iteration) ++direction;
+                    if (y == radius) ++direction;
                     break;
                 case 2:
                     --x;
-                    if (-x == iteration) ++direction;
+                    if (-x == radius) ++direction;
                     break;
                 case 3:
                     --y;
-                    if (-y == iteration)
+                    if (-y == radius)
                     {
                         direction = 0;
-                        ++iteration;
+                        ++radius;
                     }
                     break;
             }
         }
 
     private:
-        unsigned int iteration;
         unsigned int direction;
     };
 }

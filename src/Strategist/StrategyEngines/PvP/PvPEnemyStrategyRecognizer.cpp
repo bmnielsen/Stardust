@@ -4,6 +4,7 @@
 #include "Map.h"
 #include "Strategist.h"
 #include "UnitUtil.h"
+#include "OpponentEconomicModel.h"
 
 std::map<PvP::ProtossStrategy, std::string> PvP::ProtossStrategyNames = {
         {ProtossStrategy::Unknown,         "Unknown"},
@@ -12,7 +13,8 @@ std::map<PvP::ProtossStrategy, std::string> PvP::ProtossStrategyNames = {
         {ProtossStrategy::ZealotRush,      "ZealotRush"},
         {ProtossStrategy::EarlyForge,      "EarlyForge"},
         {ProtossStrategy::TwoGate,         "TwoGate"},
-        {ProtossStrategy::OneGateCore,     "OneGateCore"},
+        {ProtossStrategy::NoZealotCore,    "NoZealotCore"},
+        {ProtossStrategy::OneZealotCore,   "OneZealotCore"},
         {ProtossStrategy::FastExpansion,   "FastExpansion"},
         {ProtossStrategy::BlockScouting,   "BlockScouting"},
         {ProtossStrategy::ZealotAllIn,     "ZealotAllIn"},
@@ -53,6 +55,12 @@ namespace
         return secondTimings.size() < secondCount || firstTimings[firstCount - 1].first <= secondTimings[secondCount - 1].first;
     }
 
+    bool justDiscovered(BWAPI::UnitType type)
+    {
+        auto &timings = Units::getEnemyUnitTimings(type);
+        return std::any_of(timings.begin(), timings.end(), [](const auto timing) { return timing.second == currentFrame; });
+    }
+
     bool isFastExpansion()
     {
         return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Nexus, 6000, 2);
@@ -60,7 +68,7 @@ namespace
 
     bool isWorkerRush()
     {
-        if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
+        if (currentFrame >= 6000) return false;
 
         int workers = 0;
         for (const Unit &unit : Units::allEnemy())
@@ -90,10 +98,10 @@ namespace
 
     bool isZealotRush()
     {
-        if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
+        if (currentFrame >= 6000) return false;
 
         // We expect a zealot rush if we see an early zealot, early second zealot or early second gateway
-        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 2800) ||
+        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 2700) ||
                createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 3300, 2) ||
                createdBeforeFrame(BWAPI::UnitTypes::Protoss_Gateway, 2300, 2);
     }
@@ -101,7 +109,7 @@ namespace
     bool isProxy()
     {
         if (isFastExpansion()) return false;
-        if (BWAPI::Broodwar->getFrameCount() >= 5000) return false;
+        if (currentFrame >= 5000) return false;
         if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Assimilator) > 0) return false;
 
         // Check if we have directly scouted an enemy building in a proxy location
@@ -148,11 +156,11 @@ namespace
             Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
         {
             // Expect first pylon by frame 1300
-            if (BWAPI::Broodwar->getFrameCount() > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
+            if (currentFrame > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
 
             // Expect first gateway or forge by frame 2200
             // This will sometimes fail if the enemy does a fast expansion we don't see
-            if (BWAPI::Broodwar->getFrameCount() > 2200
+            if (currentFrame > 2200
                 && !countAtLeast(BWAPI::UnitTypes::Protoss_Gateway, 1)
                 && !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1))
             {
@@ -160,7 +168,7 @@ namespace
             }
 
             // If the enemy hasn't built a forge, expect a second pylon by frame 4000 if we still have a live scout
-            if (BWAPI::Broodwar->getFrameCount() > 4000 &&
+            if (currentFrame > 4000 &&
                 Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted &&
                 !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1) &&
                 !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 2))
@@ -178,7 +186,7 @@ namespace
     {
         // In the early game, we consider the enemy to be doing a zealot all-in if we either see a lot of zealots or see two gateways with
         // no core or gas
-        if (BWAPI::Broodwar->getFrameCount() < 6000)
+        if (currentFrame < 6000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 5000, 4) ||
                    (noneCreated(BWAPI::UnitTypes::Protoss_Assimilator) &&
@@ -187,7 +195,7 @@ namespace
         }
 
         // Later on, we consider it to be a zealot all-in purely based on the counts
-        if (BWAPI::Broodwar->getFrameCount() < 8000)
+        if (currentFrame < 8000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 7000, 8) &&
                    Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) > 4;
@@ -200,48 +208,57 @@ namespace
     bool isDragoonAllIn()
     {
         // It's unlikely our worker scout survives long enough, but detect this if the enemy gets four gates before robo / citadel
-        if (BWAPI::Broodwar->getFrameCount() < 10000 &&
+        if (currentFrame < 10000 &&
             createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 4, BWAPI::UnitTypes::Protoss_Robotics_Facility, 1) &&
             createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 4, BWAPI::UnitTypes::Protoss_Templar_Archives, 1))
         {
             return true;
         }
 
+        // Check for four gates and no expansion from economic model
+        if (OpponentEconomicModel::enabled() &&
+            !createdBeforeFrame(BWAPI::UnitTypes::Protoss_Nexus, currentFrame, 2) &&
+            OpponentEconomicModel::minimumProducerCount(BWAPI::UnitTypes::Protoss_Gateway) >= 4 &&
+            !OpponentEconomicModel::hasBuilt(BWAPI::UnitTypes::Protoss_Robotics_Facility) &&
+            !OpponentEconomicModel::hasBuilt(BWAPI::UnitTypes::Protoss_Templar_Archives))
+        {
+            return true;
+        }
+
         // Assume the enemy has done a dragoon all-in if it has successfully set up a contain on us before frame 10000
-        if (BWAPI::Broodwar->getFrameCount() < 10000
+        if (currentFrame < 10000
             && createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9000, 10)
             && Strategist::areWeContained())
         {
-            Log::Get() << "CONTAINED";
             return true;
         }
 
         // Otherwise work off of goon timings
-        if (BWAPI::Broodwar->getFrameCount() < 7000)
+        if (currentFrame < 7000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 7);
         }
-        if (BWAPI::Broodwar->getFrameCount() < 8000)
+        if (currentFrame < 8000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7000, 7) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7600, 10);
         }
-        if (BWAPI::Broodwar->getFrameCount() < 9000)
+        if (currentFrame < 9000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 7600, 10) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8700, 14);
         }
-        if (BWAPI::Broodwar->getFrameCount() < 10000)
+        if (currentFrame < 10000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 8700, 14) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9800, 18);
         }
-        if (BWAPI::Broodwar->getFrameCount() < 11000)
+        if (currentFrame < 11000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 9800, 18) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10900, 22);
         }
-        if (BWAPI::Broodwar->getFrameCount() < 12000)
+        if (currentFrame < 12000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 10900, 22) ||
                    createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dragoon, 12000, 26);
@@ -257,8 +274,8 @@ namespace
 
     bool isDarkTemplarRush()
     {
-        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Templar_Archives, 8000) ||
-               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dark_Templar, 10000);
+        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Templar_Archives, 10000) ||
+               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dark_Templar, 12000);
     }
 
     bool isTurtle()
@@ -271,8 +288,8 @@ namespace
 
     bool isMidGame()
     {
-        // We consider ourselves to be in the mid-game after frame 10000 if the enemy has taken their natural or teched to something beyond goons
-        if (BWAPI::Broodwar->getFrameCount() < 10000) return false;
+        // We consider ourselves to be in the mid-game after frame 14000 if the enemy has taken their natural or teched to something beyond goons
+        if (currentFrame < 14000) return false;
 
         return countAtLeast(BWAPI::UnitTypes::Protoss_Nexus, 2) ||
                countAtLeast(BWAPI::UnitTypes::Protoss_Templar_Archives, 1) ||
@@ -332,17 +349,35 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                     strategy = ProtossStrategy::TwoGate;
                     continue;
                 }
-                if (createdBeforeUnit(BWAPI::UnitTypes::Protoss_Cybernetics_Core, 1, BWAPI::UnitTypes::Protoss_Gateway, 2) ||
-                    createdBeforeUnit(BWAPI::UnitTypes::Protoss_Assimilator, 1, BWAPI::UnitTypes::Protoss_Gateway, 2))
+
+                // Check economic model if we scout the core first
+                // It might think one-zealot until the assimilator is scouted, but that is corrected later
+                if (createdBeforeUnit(BWAPI::UnitTypes::Protoss_Cybernetics_Core, 1, BWAPI::UnitTypes::Protoss_Gateway, 2))
                 {
-                    strategy = ProtossStrategy::OneGateCore;
+                    if (OpponentEconomicModel::enabled() &&
+                        OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot).second == 0)
+                    {
+                        strategy = ProtossStrategy::NoZealotCore;
+                    }
+                    else
+                    {
+                        strategy = ProtossStrategy::OneZealotCore;
+                    }
+                    continue;
+                }
+
+                // Assume one-zealot if we scout the assimilator first
+                // Will be reconsidered when the core is scouted
+                if (createdBeforeUnit(BWAPI::UnitTypes::Protoss_Assimilator, 1, BWAPI::UnitTypes::Protoss_Gateway, 2))
+                {
+                    strategy = ProtossStrategy::OneZealotCore;
                     continue;
                 }
 
                 // Default to something reasonable if our scouting completely fails
-                if (BWAPI::Broodwar->getFrameCount() > 4000)
+                if (currentFrame > 4000)
                 {
-                    strategy = ProtossStrategy::OneGateCore;
+                    strategy = ProtossStrategy::OneZealotCore;
                     continue;
                 }
 
@@ -359,7 +394,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 if (isWorkerRush()) return ProtossStrategy::WorkerRush;
 
                 // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their nexus
-                if (BWAPI::Broodwar->getFrameCount() < 5000 && !isProxy())
+                if (currentFrame < 5000 && !isProxy())
                 {
                     strategy = ProtossStrategy::Unknown;
                     continue;
@@ -369,10 +404,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 // - They have taken gas
                 // - Our scout is dead and we are past frame 5000
                 if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Assimilator) > 0 ||
-                    (BWAPI::Broodwar->getFrameCount() >= 5000 &&
-                     (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted ||
-                      Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingFailed ||
-                      Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingBlocked)))
+                    (currentFrame >= 5000 && Strategist::isWorkerScoutComplete()))
                 {
                     strategy = ProtossStrategy::TwoGate;
                     continue;
@@ -384,7 +416,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
 
                 // Consider the rush to be over after 6000 frames
                 // From there the TwoGate handler will potentially transition into ZealotAllIn
-                if (BWAPI::Broodwar->getFrameCount() >= 6000)
+                if (currentFrame >= 6000)
                 {
                     strategy = ProtossStrategy::TwoGate;
                     continue;
@@ -452,7 +484,8 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 }
 
                 break;
-            case ProtossStrategy::OneGateCore:
+            case ProtossStrategy::NoZealotCore:
+            case ProtossStrategy::OneZealotCore:
             case ProtossStrategy::FastExpansion:
                 if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
                 if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
@@ -474,6 +507,17 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
                 {
                     strategy = ProtossStrategy::MidGame;
                     continue;
+                }
+
+                // Reconsider detected one-zealot core if we have just discovered an enemy core or assimilator
+                if (enemyStrategy == ProtossStrategy::OneZealotCore && (
+                        justDiscovered(BWAPI::UnitTypes::Protoss_Cybernetics_Core) || justDiscovered(BWAPI::UnitTypes::Protoss_Assimilator)))
+                {
+                    if (OpponentEconomicModel::enabled() &&
+                        OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot).second == 0)
+                    {
+                        strategy = ProtossStrategy::NoZealotCore;
+                    }
                 }
 
                 break;
@@ -560,7 +604,7 @@ PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
             case ProtossStrategy::DarkTemplarRush:
                 if (!isDarkTemplarRush())
                 {
-                    strategy = ProtossStrategy::OneGateCore;
+                    strategy = ProtossStrategy::OneZealotCore;
                     continue;
                 }
 

@@ -47,7 +47,7 @@ namespace
 
     bool isWorkerRush()
     {
-        if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
+        if (currentFrame >= 6000) return false;
 
         int workers = 0;
         for (const Unit &unit : Units::allEnemy())
@@ -79,7 +79,7 @@ namespace
     {
         // In the early game, we consider the enemy to be doing a marine rush or all-in if we either see a lot of marines
         // or see two barracks with no factory or gas
-        if (BWAPI::Broodwar->getFrameCount() < 6000)
+        if (currentFrame < 6000)
         {
             // Early rushes
             if (createdBeforeFrame(BWAPI::UnitTypes::Terran_Marine, 3500, 2) ||
@@ -96,7 +96,7 @@ namespace
         }
 
         // Later on, we consider it to be a marine all-in purely based on the counts
-        if (BWAPI::Broodwar->getFrameCount() < 8000)
+        if (currentFrame < 8000)
         {
             return createdBeforeFrame(BWAPI::UnitTypes::Terran_Marine, 7000, 8) &&
                    Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) > 4;
@@ -108,7 +108,7 @@ namespace
 
     bool isProxy()
     {
-        if (BWAPI::Broodwar->getFrameCount() >= 6000) return false;
+        if (currentFrame >= 6000) return false;
         if (Units::countEnemy(BWAPI::UnitTypes::Terran_Refinery) > 0) return false;
 
         // Otherwise check if we have directly scouted an enemy building in a proxy location
@@ -155,7 +155,7 @@ namespace
             Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
         {
             // Expect first barracks, refinery or command center by frame 2400
-            if (BWAPI::Broodwar->getFrameCount() > 2400
+            if (currentFrame > 2400
                 && !countAtLeast(BWAPI::UnitTypes::Terran_Barracks, 1)
                 && !countAtLeast(BWAPI::UnitTypes::Terran_Refinery, 1)
                 && !countAtLeast(BWAPI::UnitTypes::Terran_Command_Center, 2))
@@ -177,7 +177,7 @@ namespace
         // TODO: This is too strict - the scout might get into the base before the wall-in is finished
 
         if (Strategist::getWorkerScoutStatus() != Strategist::WorkerScoutStatus::ScoutingBlocked) return false;
-        if (BWAPI::Broodwar->getFrameCount() > 6000) return false;
+        if (currentFrame > 6000) return false;
 
         auto enemyMain = Map::getEnemyStartingMain();
         auto mainChoke = Map::getMyMainChoke();
@@ -192,25 +192,39 @@ namespace
 
     bool isMidGame()
     {
-        // TODO: Extend this
-        return BWAPI::Broodwar->getFrameCount() > 10000 &&
-               (countAtLeast(BWAPI::UnitTypes::Terran_Command_Center, 2) ||
-                (Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
-                 Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode)) > 4);
+        // Never in the mid-game before frame 8000
+        if (currentFrame < 8000) return false;
+
+        // We consider ourselves to be in the mid-game if the enemy has expanded
+
+        // Scouted expansion
+        if (countAtLeast(BWAPI::UnitTypes::Terran_Command_Center, 2)) return true;
+
+        // Inferred taken natural, usually by seeing a bunker
+        auto enemyNatural = Map::getEnemyStartingNatural();
+        if (enemyNatural && enemyNatural->owner == BWAPI::Broodwar->enemy()) return true;
+
+        // We consider ourselves to be in the mid-game if the enemy has siege tech and a number of siege tanks
+        return Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) &&
+               (Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
+                Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode)) > (currentFrame > 10000 ? 2 : 4);
     }
 
     bool isMidGameMech()
     {
-        // For now we consider it mech if the sum of their mech units is higher than the sum of their bio units divided by two
         int mech = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
                    Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) +
                    Units::countEnemy(BWAPI::UnitTypes::Terran_Vulture) +
                    Units::countEnemy(BWAPI::UnitTypes::Terran_Goliath);
-        int bio = (Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) +
-                   Units::countEnemy(BWAPI::UnitTypes::Terran_Medic) +
-                   Units::countEnemy(BWAPI::UnitTypes::Terran_Firebat)) / 2;
+        int bio = Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) +
+                  Units::countEnemy(BWAPI::UnitTypes::Terran_Medic) +
+                  Units::countEnemy(BWAPI::UnitTypes::Terran_Firebat);
 
-        return mech >= bio;
+        // Mech if they don't have many bio units
+        if (bio < 10) return true;
+
+        // Mech if they have less than twice as many bio units compared to mech
+        return mech >= (bio / 2);
     }
 }
 
@@ -243,7 +257,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 }
 
                 // Default to something reasonable if we don't detect anything else
-                if (BWAPI::Broodwar->getFrameCount() > 4000 ||
+                if (currentFrame > 4000 ||
                     Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
                     Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
                 {
@@ -264,7 +278,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;
 
                 // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their depot
-                if (BWAPI::Broodwar->getFrameCount() < 6000 && !isProxy())
+                if (currentFrame < 6000 && !isProxy())
                 {
                     strategy = TerranStrategy::Unknown;
                     continue;
@@ -274,17 +288,14 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 // - They have taken gas
                 // - Our scout is dead and we are past frame 5000
                 if (Units::countEnemy(BWAPI::UnitTypes::Terran_Refinery) > 0 ||
-                    (BWAPI::Broodwar->getFrameCount() >= 6000 &&
-                     (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted ||
-                      Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingFailed ||
-                      Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingBlocked)))
+                    (currentFrame >= 6000 && Strategist::isWorkerScoutComplete()))
                 {
                     strategy = TerranStrategy::Unknown;
                     continue;
                 }
 
                 // Also bail out of thinking it is a proxy rush if we have more dragoons than the enemy has marines
-                if (BWAPI::Broodwar->getFrameCount() >= 6000 &&
+                if (currentFrame >= 6000 &&
                     Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) < Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon))
                 {
                     strategy = TerranStrategy::Unknown;
@@ -297,7 +308,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
 
                 // Consider the rush to be over after 6000 frames
                 // From there the Normal handler will potentially transition into MarineAllIn
-                if (BWAPI::Broodwar->getFrameCount() >= 6000)
+                if (currentFrame >= 6000)
                 {
                     strategy = TerranStrategy::NormalOpening;
                     continue;
@@ -323,7 +334,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 if (isFastExpansion()) return TerranStrategy::FastExpansion;
 
                 // If we haven't had any evidence of a rush for about 3 1/2 minutes, assume the enemy is opening normally
-                if (BWAPI::Broodwar->getFrameCount() > 5000)
+                if (currentFrame > 5000)
                 {
                     strategy = TerranStrategy::NormalOpening;
                     continue;

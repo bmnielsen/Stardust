@@ -27,6 +27,10 @@ public:
 
     [[nodiscard]] bool isBeingManufacturedOrCarried() const override;
 
+    [[nodiscard]] BWAPI::Position simulatePosition(int frames) const;
+
+    [[nodiscard]] int simulateHeading(int frames) const;
+
     void moveTo(BWAPI::Position position, bool direct = false);
 
     BWAPI::Position movingTo() { return targetPosition; };
@@ -35,8 +39,21 @@ public:
 
     virtual void attackUnit(const Unit &target,
                             std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
-                            bool clusterAttacking = true,
-                            int enemyAoeRadius = 0);
+                            bool clusterAttacking,
+                            int enemyAoeRadius);
+
+    void attackUnit(const Unit &target)
+    {
+        static std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
+        attackUnit(target, emptyUnitsAndTargets, true, 0);
+    }
+
+    void attackUnit(const Unit &target,
+                    std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                    bool clusterAttacking = true)
+    {
+        attackUnit(target, unitsAndTargets, clusterAttacking, 0);
+    }
 
     [[nodiscard]] virtual bool isReady() const;
 
@@ -74,8 +91,13 @@ public:
 
     void unloadAll(BWAPI::Position pos);
 
+    void unload(BWAPI::Unit cargo);
+
+    void setProducerRallyPosition(BWAPI::Position pos) const;
+
 protected:
     bool issuedOrderThisFrame;
+    std::deque<BWAPI::UnitCommand> recentCommands;           // Commands issued in last LF
 
     struct MoveCommand
     {
@@ -128,6 +150,13 @@ protected:
     void updateChokePath(const BWEM::Area *unitArea);
 
     virtual bool mineralWalk(const Choke *choke) { return false; }
+
+private:
+    mutable std::vector<BWAPI::Position> simulatedPositions; // Simulated position up to LF ahead assuming no collisions
+    mutable std::vector<int> simulatedHeading;               // Simulated heading up to LF ahead assuming no collisions
+    mutable bool simulatedPositionsUpdated;                  // Whether the simulated positions have been updated this frame
+
+    void updateSimulatedPositions() const;
 };
 
 std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit);

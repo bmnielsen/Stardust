@@ -30,6 +30,8 @@ bool UnitCluster::formArc(BWAPI::Position pivot, int desiredDistance)
     // Now micro the units
     for (auto &myUnit : units)
     {
+        if (myUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+
         // If the unit is stuck, unstick it
         if (myUnit->unstick()) continue;
 
@@ -58,6 +60,7 @@ bool UnitCluster::formArc(BWAPI::Position pivot, int desiredDistance)
         {
             if (other == myUnit) continue;
             if (other->isFlying) continue;
+            if (other->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
             Boids::AddSeparation(myUnit.get(),
                                  other,

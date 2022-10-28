@@ -1,6 +1,7 @@
 #include "Players.h"
 
 #include "UpgradeTracker.h"
+#include "OpponentEconomicModel.h"
 
 namespace Players
 {
@@ -41,7 +42,7 @@ namespace Players
         auto it = playerToGrid.find(player);
         if (it != playerToGrid.end()) return it->second;
 
-        auto result = playerToGrid.try_emplace(player, getUpgradeTracker(player));
+        auto result = playerToGrid.try_emplace(player, getUpgradeTracker(player), player);
         return result.first->second;
     }
 
@@ -55,7 +56,7 @@ namespace Players
         return getUpgradeTracker(player)->weaponRange(wpn);
     }
 
-    int unitCooldown(BWAPI::Player player, BWAPI::UnitType type)
+    int unitGroundCooldown(BWAPI::Player player, BWAPI::UnitType type)
     {
         // Handle weird units that don't have proper cooldowns
         if (type == BWAPI::UnitTypes::Protoss_Scarab || type == BWAPI::UnitTypes::Protoss_Reaver)
@@ -67,12 +68,28 @@ namespace Players
             return 38;
         }
 
-        return getUpgradeTracker(player)->unitCooldown(type);
+        return getUpgradeTracker(player)->unitGroundCooldown(type);
+    }
+
+    int unitAirCooldown(BWAPI::Player player, BWAPI::UnitType type)
+    {
+        // Handle weird units that don't have proper cooldowns
+        if (type == BWAPI::UnitTypes::Protoss_Interceptor || type == BWAPI::UnitTypes::Protoss_Carrier)
+        {
+            return 38;
+        }
+
+        return getUpgradeTracker(player)->unitAirCooldown(type);
     }
 
     double unitTopSpeed(BWAPI::Player player, BWAPI::UnitType type)
     {
         return getUpgradeTracker(player)->unitTopSpeed(type);
+    }
+
+    int unitBWTopSpeed(BWAPI::Player player, BWAPI::UnitType type)
+    {
+        return getUpgradeTracker(player)->unitBWTopSpeed(type);
     }
 
     int unitArmor(BWAPI::Player player, BWAPI::UnitType type)
@@ -91,8 +108,7 @@ namespace Players
         if (weapon == BWAPI::WeaponTypes::None) return 0;
 
         int damage = (weaponDamage(attackingPlayer, weapon) - unitArmor(targetPlayer, targetUnit))
-                     * (targetUnit.isFlyer() ? attackingUnit.maxAirHits() : attackingUnit.maxGroundHits())
-                     * weapon.damageFactor();
+                     * (targetUnit.isFlyer() ? attackingUnit.maxAirHits() : attackingUnit.maxGroundHits());
 
         if (weapon.damageType() == BWAPI::DamageTypes::Concussive)
         {
@@ -123,6 +139,22 @@ namespace Players
     bool hasResearched(BWAPI::Player player, BWAPI::TechType type)
     {
         return getUpgradeTracker(player)->hasResearched(type);
+    }
+
+    void setHasResearched(BWAPI::Player player, BWAPI::TechType type)
+    {
+#if INSTRUMENTATION_ENABLED
+        if (player == BWAPI::Broodwar->enemy() && !getUpgradeTracker(player)->hasResearched(type))
+        {
+            Log::Get() << "Enemy has researched " << type;
+        }
+#endif
+        getUpgradeTracker(player)->setHasResearched(type);
+
+        if (player == BWAPI::Broodwar->enemy())
+        {
+            OpponentEconomicModel::opponentResearched(type);
+        }
     }
 
     int upgradeLevel(BWAPI::Player player, BWAPI::UpgradeType type)

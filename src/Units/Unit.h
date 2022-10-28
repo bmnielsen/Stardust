@@ -27,7 +27,7 @@ struct UpcomingAttack
             : attacker(std::move(attacker))
             , bullet(nullptr)
             , bulletId(-1)
-            , expiryFrame(BWAPI::Broodwar->getFrameCount() + frames)
+            , expiryFrame(currentFrame + frames)
             , damage(damage) {}
 };
 
@@ -43,6 +43,8 @@ public:
 
     int distToTargetPosition;           // Transient field used in targeting / combat sim / combat micro
 
+    int lastCommandFrame;               // Frame of the last command to this unit
+
     int lastSeen;                       // Frame the unit was last updated
     int lastSeenAttacking;              // Frame when the unit was last seen making an attack
 
@@ -52,18 +54,25 @@ public:
     BWAPI::Position lastPosition;       // Position of the unit when last seen
     bool lastPositionValid;             // Whether this position is still valid, i.e. we haven't seen the position empty later
     bool lastPositionVisible;           // Whether the last position was visible on the previous frame
+    double lastAngle;                   // Angle of the unit when last seen
     bool beingManufacturedOrCarried;    // Whether the unit is currently being manufactured or carried
     int frameLastMoved;                 // Last frame on which the unit changed position
 
     // For units in the fog, the offset to our vanguard unit they had when they disappeared
-    // The first part of the pair is the distance to our vanguard unit
-    // The second is the angle offset from our vanguard unit's path to the enemy base
-    std::pair<int, double> offsetToVanguardUnit;
-
-    BWAPI::Position predictedPosition;  // For units in the fog, the predicted position based on the above offset
+    int offsetToVanguardUnit;
 
     BWAPI::Position simPosition;        // The position to use for this unit in combat simulation / targeting / etc.
     bool simPositionValid;              // Whether the simulation position is valid
+
+    // Predicted positions for the next latency + 2 frames, assuming the unit continues moving in its current direction
+    mutable std::vector<BWAPI::Position> predictedPositions;
+    mutable bool predictedPositionsUpdated;
+
+    mutable int bwHeading;
+    mutable bool bwHeadingUpdated;
+
+    mutable int bwSpeed;
+    mutable bool bwSpeedUpdated;
 
     int lastHealth;                     // Health when last seen, adjusted for upcoming attacks
     int lastShields;                    // Shields when last seen, adjusted for upcoming attacks
@@ -71,6 +80,7 @@ public:
     int shields;                        // Estimated shields of the unit, adjusted for upcoming attacks
 
     int lastHealFrame;                  // Last frame the unit was healed or repaired
+    int lastAttackedFrame;              // Last frame the unit was attacked
 
     bool completed;                     // Whether the unit was completed
     int estimatedCompletionFrame;       // If not completed, the frame when we expect the unit to complete
@@ -87,6 +97,9 @@ public:
 
     std::vector<UpcomingAttack>
             upcomingAttacks;            // List of attacks of this unit that are expected soon
+
+    int orderProcessTimer;              // The expected current value of the unit's order process timer, or -1 if we don't know
+    Unit lastTarget;                    // The last target of this unit
 
     explicit UnitImpl(BWAPI::Unit unit);
 
@@ -108,9 +121,15 @@ public:
 
     [[nodiscard]] bool exists() const { return bwapiUnit != nullptr; };
 
+    [[nodiscard]] int BWHeading() const;
+
+    [[nodiscard]] int BWSpeed() const;
+
     [[nodiscard]] virtual bool isBeingManufacturedOrCarried() const { return false; };
 
-    [[nodiscard]] bool isBeingHealed() const { return BWAPI::Broodwar->getFrameCount() < (lastHealFrame + 24); };
+    [[nodiscard]] bool isBeingHealed() const { return currentFrame < (lastHealFrame + 24); };
+
+    [[nodiscard]] bool isBeingAttacked() const { return !upcomingAttacks.empty() || currentFrame < (lastAttackedFrame + 48); };
 
     [[nodiscard]] bool isAttackable() const;
 
@@ -171,7 +190,9 @@ public:
 private:
     void updateGrid(BWAPI::Unit unit);
 
-    void updatePredictedPosition();
+    void updatePredictedPositions() const;
+
+    bool updateSimPosition();
 };
 
 std::ostream &operator<<(std::ostream &os, const UnitImpl &unit);

@@ -16,7 +16,7 @@ ElevatorRush::ElevatorRush()
         , complete(false)
         , builder(nullptr)
         , shuttle(nullptr)
-        , squad(std::make_shared<AttackBaseSquad>(Map::getEnemyStartingMain()))
+        , squad(std::make_shared<AttackBaseSquad>(Map::getEnemyStartingMain(), "ElevatorRush"))
         , count(0)
         , pickingUp(true)
 {
@@ -314,6 +314,7 @@ void ElevatorRush::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
         if (unitRequirement.type != BWAPI::UnitTypes::Protoss_Shuttle) continue;
 
         prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       label,
                                                                        unitRequirement.type,
                                                                        unitRequirement.count,
                                                                        1);

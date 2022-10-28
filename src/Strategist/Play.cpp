@@ -22,12 +22,19 @@ void Play::removeUnit(const MyUnit &unit)
 void Play::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
                    const std::function<void(const MyUnit)> &movableUnitCallback)
 {
-    // By default. all units in the squad are considered movable
+    // By default, all units in the squad except cannons are considered movable
     if (getSquad() != nullptr)
     {
         for (const auto &unit : getSquad()->getUnits())
         {
-            movableUnitCallback(unit);
+            if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+            {
+                removedUnitCallback(unit);
+            }
+            else
+            {
+                movableUnitCallback(unit);
+            }
         }
 
         General::removeSquad(getSquad());

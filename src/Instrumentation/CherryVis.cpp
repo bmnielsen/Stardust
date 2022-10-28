@@ -1,12 +1,11 @@
 #include "CherryVis.h"
 
 #if CHERRYVIS_ENABLED
+#include "Log.h"
 
-#include <nlohmann/json.hpp>
 #include <utility>
 #include <zstdstream/zstdstream.hpp>
 #include <filesystem>
-
 #endif
 
 namespace CherryVis
@@ -15,101 +14,272 @@ namespace CherryVis
     {
 #if CHERRYVIS_ENABLED
 
-        struct HeatmapFilePart
+        bool disabled;
+
+        enum DataFileType {
+            Array,
+            ArrayPerFrame,
+            ObjectPerFrame
+        };
+
+        struct DataFilePart
         {
             int firstFrame;
             std::string filename;
 
-            HeatmapFilePart(int firstFrame, std::string filename) : firstFrame(firstFrame), filename(std::move(filename)) {}
+            DataFilePart(int firstFrame, std::string filename) : firstFrame(firstFrame), filename(std::move(filename))
+            {}
         };
 
-        struct HeatmapFile
+        struct DataFile
         {
-            std::vector<HeatmapFilePart> parts;
-
-            HeatmapFile(std::string heatmapName, int size) : heatmapName(std::move(heatmapName)), size(size), count(0), stream(nullptr) {}
-
-            void writeFrameData(nlohmann::json &frameData)
+            explicit DataFile(std::string filename, DataFileType type, int partitionedObjectSize = 0, int framesPerPartition = 0)
+            : filename(std::move(filename))
+            , type(type)
+            , lastFrame(-1)
+            , partitionedObjectSize(partitionedObjectSize)
+            , framesPerPartition(framesPerPartition)
+            , currentPartition(0)
+            , count(0)
+            , stream(nullptr)
             {
-                if (count * size >= 26214400)
-                {
-                    close();
-                    count = 0;
-                }
+            }
 
-                if (count == 0)
-                {
-                    createPart();
-                }
-                else
-                {
-                    (*stream) << ",";
-                }
+            std::vector<DataFilePart> parts;
 
-                count++;
+            [[nodiscard]] bool isPartitioned() const
+            {
+                return partitionedObjectSize > 0 || framesPerPartition > 0;
+            }
 
-                (*stream)
-                        << "\"" << BWAPI::Broodwar->getFrameCount() << "\":"
-                        << frameData.dump(-1, ' ', true);
+            std::unordered_map<std::string, std::string> index() const
+            {
+                std::unordered_map<std::string, std::string> result;
+                for (const auto &part : parts)
+                {
+                    result[std::to_string(part.firstFrame)] = part.filename;
+                }
+                return result;
+            }
+
+            void writeEntry(const nlohmann::json &entry)
+            {
+                try
+                {
+                    if (count * partitionedObjectSize >= 26214400)
+                    {
+                        close();
+                    }
+
+                    if (framesPerPartition > 0)
+                    {
+                        int partition = (BWAPI::Broodwar->getFrameCount() / framesPerPartition) * framesPerPartition;
+                        if (partition != currentPartition)
+                        {
+                            close();
+                        }
+
+                        currentPartition = partition;
+                    }
+
+                    if (count == 0)
+                    {
+                        createPart();
+                    }
+                    else
+                    {
+                        switch (type)
+                        {
+                            case Array:
+                                (*stream) << ",";
+                                break;
+                            case ArrayPerFrame:
+                                if (lastFrame == BWAPI::Broodwar->getFrameCount())
+                                {
+                                    (*stream) << ",";
+                                }
+                                else
+                                {
+                                    (*stream) << "],\"" << BWAPI::Broodwar->getFrameCount() << "\":[";
+                                    lastFrame = BWAPI::Broodwar->getFrameCount();
+                                }
+                                break;
+                            case ObjectPerFrame:
+                                (*stream) << ",\"" << BWAPI::Broodwar->getFrameCount() << "\":";
+                                break;
+                        }
+                    }
+
+                    count++;
+
+                    // For some reason this sometimes throws a resource unavailable exception, so retry if that happens
+                    while (true)
+                    {
+                        try
+                        {
+                            errno = 0;
+                            (*stream) << entry;
+                            break;
+                        }
+                        catch (...)
+                        {
+                            if (errno == 0x23) continue;
+                            throw;
+                        }
+                    }
+                }
+                catch (std::exception &ex)
+                {
+                    Log::Get() << "Exception caught in DataFile::writeEntry: " << ex.what();
+                    disabled = true;
+                }
             }
 
             void close()
             {
-                (*stream) << "}";
-                stream->close();
-                delete stream;
+                if (count == 0) return;
+
+                try
+                {
+                    switch (type)
+                    {
+                        case Array:
+                            (*stream) << "]";
+                            break;
+                        case ArrayPerFrame:
+                            if (lastFrame != -1)
+                            {
+                                (*stream) << "]}";
+                            }
+                            else
+                            {
+                                (*stream) << "}";
+                            }
+                            break;
+                        case ObjectPerFrame:
+                            (*stream) << "}";
+                            break;
+                    }
+                    stream->close();
+                    delete stream;
+                    count = 0;
+                }
+                catch (std::exception &ex)
+                {
+                    Log::Get() << "Exception caught in DataFile::close: " << ex.what();
+                    disabled = true;
+                }
             }
 
         private:
-            std::string heatmapName;
-            int size;
+            std::string filename;
+            DataFileType type;
+            int lastFrame;
+            int partitionedObjectSize;
+            int framesPerPartition;
+            int currentPartition;
             int count;
             zstd::ofstream *stream{};
 
             void createPart()
             {
-                std::ostringstream filenameBuilder;
-                filenameBuilder << "heatmap_" << heatmapName << "_" << BWAPI::Broodwar->getFrameCount() << ".json.zstd";
+                try
+                {
+                    int startFrame = BWAPI::Broodwar->getFrameCount();
+                    std::ostringstream filenameBuilder;
+                    filenameBuilder << filename;
+                    if (partitionedObjectSize > 0) filenameBuilder << "_" << BWAPI::Broodwar->getFrameCount();
+                    if (framesPerPartition > 0)
+                    {
+                        startFrame = (BWAPI::Broodwar->getFrameCount() / framesPerPartition) * framesPerPartition;
+                        filenameBuilder << "_" << startFrame;
+                    }
+                    filenameBuilder << ".json.zstd";
 
-                parts.emplace_back(BWAPI::Broodwar->getFrameCount(), filenameBuilder.str());
+                    parts.emplace_back(startFrame, filenameBuilder.str());
 
-                stream = new zstd::ofstream("bwapi-data/write/cvis/" + filenameBuilder.str());
-                (*stream) << "{";
+                    stream = new zstd::ofstream("bwapi-data/write/cvis/" + filenameBuilder.str());
+
+                    switch (type)
+                    {
+                        case Array:
+                            (*stream) << "[";
+                            break;
+                        case ArrayPerFrame:
+                            (*stream) << "{\"" << BWAPI::Broodwar->getFrameCount() << "\":[";
+                            break;
+                        case ObjectPerFrame:
+                            (*stream) << "{\"" << BWAPI::Broodwar->getFrameCount() << "\":";
+                            break;
+                    }
+                }
+                catch (std::exception &ex)
+                {
+                    Log::Get() << "Exception caught in DataFile::createPart: " << ex.what();
+                    disabled = true;
+                }
             }
         };
 
-        nlohmann::json boardUpdates = nlohmann::json::object();
+        std::unique_ptr<DataFile> boardUpdatesFile;
         nlohmann::json frameBoardUpdates = nlohmann::json::object();
         bool frameHasBoardUpdates = false;
         std::unordered_map<std::string, std::string> boardKeyToLastValue;
         std::unordered_map<std::string, size_t> boardListToLastCount;
 
-        nlohmann::json drawCommands = nlohmann::json::object();
-        nlohmann::json frameDrawCommands = nlohmann::json::object();
-
         std::unordered_map<std::string, std::vector<nlohmann::json>> frameToUnitsFirstSeen;
         std::unordered_map<std::string, std::unordered_map<std::string, nlohmann::json>> unitIdToFrameToUnitUpdate;
 
-        std::vector<nlohmann::json> logEntries;
-        std::vector<std::string> frameLogMessages;
+        std::map<int, DataFile> unitIdToLogFile;
+        std::map<int, DataFile> unitIdToDrawCommandsFile;
+        std::map<std::string, DataFile> labelToDataFile;
 
-        std::unordered_map<std::string, std::vector<nlohmann::json>> unitIdToLogEntries;
-        std::vector<std::pair<int, std::string>> frameUnitLogMessages;
-
-        std::unordered_map<std::string, HeatmapFile> heatmapNameToHeatmapFile;
-
-        bool disabled = false;
+        std::unordered_map<std::string, DataFile> heatmapNameToDataFile;
 
         void log(const std::string &str, int unitId)
         {
-            if (unitId == -1)
+            if (disabled) return;
+
+            auto logFileIt = unitIdToLogFile.find(unitId);
+            if (logFileIt == unitIdToLogFile.end())
             {
-                frameLogMessages.push_back(str);
+                std::ostringstream filenameBuilder;
+                filenameBuilder << "logs";
+                if (unitId != -1) filenameBuilder << "_" << unitId;
+                logFileIt = unitIdToLogFile.emplace(
+                        std::piecewise_construct,
+                        std::make_tuple(unitId),
+                        std::make_tuple(filenameBuilder.str(), DataFileType::Array)).first;
             }
-            else
+
+            logFileIt->second.writeEntry({
+                                                 {"message", str},
+                                                 {"frame",   BWAPI::Broodwar->getFrameCount()}
+                                         });
+        }
+
+        void draw(const nlohmann::json &drawCommand, int unitId)
+        {
+            auto drawCommandsFileIt = unitIdToDrawCommandsFile.find(unitId);
+            if (drawCommandsFileIt == unitIdToDrawCommandsFile.end())
             {
-                frameUnitLogMessages.emplace_back(unitId, str);
+                std::ostringstream filenameBuilder;
+                filenameBuilder << "drawCommands";
+                if (unitId == -1)
+                {
+                    filenameBuilder << "_all";
+                }
+                else
+                {
+                    filenameBuilder << "_" << unitId;
+                }
+                drawCommandsFileIt = unitIdToDrawCommandsFile.emplace(
+                        std::piecewise_construct,
+                        std::make_tuple(unitId),
+                        std::make_tuple(filenameBuilder.str(), DataFileType::ArrayPerFrame, 0, (unitId != -1) ? 0 : 5000)).first;
             }
+
+            drawCommandsFileIt->second.writeEntry(drawCommand);
         }
 
 #endif
@@ -157,20 +327,18 @@ namespace CherryVis
     void initialize()
     {
 #if CHERRYVIS_ENABLED
-        boardUpdates = nlohmann::json::object();
+        disabled = false;
+        boardUpdatesFile = std::make_unique<DataFile>("board_updates", DataFileType::ObjectPerFrame);
         frameBoardUpdates = nlohmann::json::object();
         frameHasBoardUpdates = false;
         boardKeyToLastValue.clear();
         boardListToLastCount.clear();
-        drawCommands = nlohmann::json::object();
-        frameDrawCommands = nlohmann::json::array();
         frameToUnitsFirstSeen.clear();
         unitIdToFrameToUnitUpdate.clear();
-        logEntries.clear();
-        frameLogMessages.clear();
-        unitIdToLogEntries.clear();
-        frameUnitLogMessages.clear();
-        heatmapNameToHeatmapFile.clear();
+        unitIdToLogFile.clear();
+        unitIdToDrawCommandsFile.clear();
+        labelToDataFile.clear();
+        heatmapNameToDataFile.clear();
 
         std::filesystem::create_directories("bwapi-data/write/cvis");
 
@@ -185,6 +353,8 @@ namespace CherryVis
     void setBoardValue(const std::string &key, const std::string &value)
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         if (boardKeyToLastValue.find(key) == boardKeyToLastValue.end() ||
             boardKeyToLastValue[key] != value)
         {
@@ -198,6 +368,8 @@ namespace CherryVis
     void setBoardListValue(const std::string &key, std::vector<std::string> &values)
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         size_t limit = std::max(boardListToLastCount[key], values.size());
         for (size_t i = 1; i <= limit; i++)
         {
@@ -214,6 +386,8 @@ namespace CherryVis
     void unitFirstSeen(BWAPI::Unit unit)
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         int frame = BWAPI::Broodwar->getFrameCount();
         if (frame == 0) frame = 1;
 
@@ -238,6 +412,8 @@ namespace CherryVis
     void addHeatmap(const std::string &key, const std::vector<long> &data, int sizeX, int sizeY)
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         long max = 0;
         long min = LONG_MAX;
         long long sum = 0;
@@ -248,7 +424,7 @@ namespace CherryVis
             sum += val;
         }
 
-        double mean = (double) sum / data.size();
+        double mean = (double)sum / data.size();
         double variance = 0.0;
         for (long val : data)
         {
@@ -279,81 +455,62 @@ namespace CherryVis
                                    }}
         };
 
-        auto heatmap = heatmapNameToHeatmapFile.try_emplace(key, key, sizeX * sizeY);
-        heatmap.first->second.writeFrameData(frameData);
+        std::ostringstream filenameBuilder;
+        filenameBuilder << "heatmap_" << key;
+        auto heatmap = heatmapNameToDataFile.try_emplace(key, filenameBuilder.str(), DataFileType::ObjectPerFrame, sizeX * sizeY);
+        heatmap.first->second.writeEntry(frameData);
 #endif
     }
 
-    void drawLine(int x1, int y1, int x2, int y2, DrawColor color)
+    void drawLine(int x1, int y1, int x2, int y2, DrawColor color, int unitId)
     {
 #if CHERRYVIS_ENABLED
-        frameDrawCommands.push_back({
-                                            {"code", 20},
-                                            {"args", nlohmann::json::array({x1, y1, x2, y2, (int) color})},
-                                            {"str",  "."}
-                                    });
+        if (disabled) return;
+
+        draw({
+                 {"code", 20},
+                 {"args", nlohmann::json::array({x1, y1, x2, y2, (int)color})},
+                 {"str",  "."}
+             }, unitId);
 #endif
     }
 
-    void drawCircle(int x, int y, int radius, DrawColor color)
+    void drawCircle(int x, int y, int radius, DrawColor color, int unitId)
     {
 #if CHERRYVIS_ENABLED
-        frameDrawCommands.push_back({
-                                            {"code", 23},
-                                            {"args", nlohmann::json::array({x, y, radius, (int) color})},
-                                            {"str",  "."}
-                                    });
+        if (disabled) return;
+
+        draw({
+                 {"code", 23},
+                 {"args", nlohmann::json::array({x, y, radius, (int)color})},
+                 {"str",  "."}
+             }, unitId);
 #endif
     }
 
-    void drawText(int x, int y, const std::string &text)
+    void drawText(int x, int y, const std::string &text, int unitId)
     {
 #if CHERRYVIS_ENABLED
-        frameDrawCommands.push_back({
-                                            {"code", 25},
-                                            {"args", nlohmann::json::array({x, y})},
-                                            {"str",  text}
-                                    });
+        if (disabled) return;
+
+        draw({
+                 {"code", 25},
+                 {"args", nlohmann::json::array({x, y})},
+                 {"str",  text}
+             }, unitId);
 #endif
     }
 
     void frameEnd(int frame)
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         if (frameHasBoardUpdates)
         {
-            boardUpdates[std::to_string(frame)] = std::move(frameBoardUpdates);
+            boardUpdatesFile->writeEntry(frameBoardUpdates);
             frameBoardUpdates = nlohmann::json::object();
             frameHasBoardUpdates = false;
-        }
-
-        drawCommands[std::to_string(frame)] = std::move(frameDrawCommands);
-        frameDrawCommands = nlohmann::json::array();
-
-        if (!frameLogMessages.empty())
-        {
-            for (const auto &msg : frameLogMessages)
-            {
-                logEntries.push_back({
-                                             {"message", msg},
-                                             {"frame",   frame}
-                                     });
-            }
-
-            frameLogMessages.clear();
-        }
-
-        if (!frameUnitLogMessages.empty())
-        {
-            for (const auto &unitIdAndMsg : frameUnitLogMessages)
-            {
-                unitIdToLogEntries[std::to_string(unitIdAndMsg.first)].push_back({
-                                                                                         {"message", unitIdAndMsg.second},
-                                                                                         {"frame",   frame}
-                                                                                 });
-            }
-
-            frameUnitLogMessages.clear();
         }
 #endif
     }
@@ -364,14 +521,14 @@ namespace CherryVis
         if (disabled) return;
 
         std::vector<nlohmann::json> heatmaps;
-        for (auto heatmapNameAndHeatmapFile : heatmapNameToHeatmapFile)
+        for (auto heatmapNameAndDataFile : heatmapNameToDataFile)
         {
-            heatmapNameAndHeatmapFile.second.close();
+            heatmapNameAndDataFile.second.close();
 
-            for (const auto &part : heatmapNameAndHeatmapFile.second.parts)
+            for (const auto &part : heatmapNameAndDataFile.second.parts)
             {
                 std::ostringstream name;
-                name << heatmapNameAndHeatmapFile.first << "_" << part.firstFrame;
+                name << heatmapNameAndDataFile.first << "_" << part.firstFrame;
 
                 heatmaps.push_back({
                                            {"filename",    part.filename},
@@ -387,20 +544,89 @@ namespace CherryVis
             buildTypesToName[std::to_string(type.getID())] = type.getName();
         }
 
+        std::unordered_map<std::string, std::string> orderTypesToName;
+        for (auto type : BWAPI::Orders::allOrders())
+        {
+            orderTypesToName[std::to_string(type.getID())] = type.getName();
+        }
+
         nlohmann::json trace = {
                 {"types_names",      buildTypesToName},
-                {"board_updates",    boardUpdates},
-                {"draw_commands",    drawCommands},
+                {"orders_names",     orderTypesToName},
+                {"board_updates",    boardUpdatesFile->parts[0].filename},
                 {"units_first_seen", frameToUnitsFirstSeen},
                 {"units_updates",    unitIdToFrameToUnitUpdate},
-                {"logs",             logEntries},
-                {"units_logs",       unitIdToLogEntries},
+                {"units_logs",       nlohmann::json::object()},
+                {"units_draw",       nlohmann::json::object()},
                 {"heatmaps",         heatmaps}
         };
 
-        zstd::ofstream traceFile("bwapi-data/write/cvis/trace.json");
-        traceFile << trace.dump(-1, ' ', true);
-        traceFile.close();
+        boardUpdatesFile->close();
+
+        if (unitIdToDrawCommandsFile.find(-1) == unitIdToDrawCommandsFile.end())
+        {
+            trace["draw_commands"] = nlohmann::json::array();
+        }
+
+        std::unordered_map<std::string, std::string> unitIdToDrawCommandsFilePath;
+        for (auto &drawCommandsFile : unitIdToDrawCommandsFile)
+        {
+            if (drawCommandsFile.first == -1)
+            {
+                trace["draw_commands"] = drawCommandsFile.second.index();
+            }
+            else
+            {
+                unitIdToDrawCommandsFilePath[(std::ostringstream() << drawCommandsFile.first).str()] = drawCommandsFile.second.parts[0].filename;
+            }
+            drawCommandsFile.second.close();
+        }
+        trace["units_draw"] = unitIdToDrawCommandsFilePath;
+
+        if (unitIdToLogFile.find(-1) == unitIdToLogFile.end())
+        {
+            trace["logs"] = nlohmann::json::array();
+        }
+
+        std::unordered_map<std::string, std::string> unitIdToLogFilePath;
+        for (auto &logFile : unitIdToLogFile)
+        {
+            if (logFile.first == -1)
+            {
+                trace["logs"] = logFile.second.parts[0].filename;
+            }
+            else
+            {
+                unitIdToLogFilePath[(std::ostringstream() << logFile.first).str()] = logFile.second.parts[0].filename;
+            }
+            logFile.second.close();
+        }
+        trace["units_logs"] = unitIdToLogFilePath;
+
+        for (auto &[label, dataFile] : labelToDataFile)
+        {
+            if (dataFile.isPartitioned())
+            {
+                trace[label] = dataFile.index();
+            }
+            else
+            {
+                trace[label] = dataFile.parts[0].filename;
+            }
+
+            dataFile.close();
+        }
+
+        try
+        {
+            zstd::ofstream traceFile("bwapi-data/write/cvis/trace.json");
+            traceFile << trace.dump(-1, ' ', true);
+            traceFile.close();
+        }
+        catch (std::exception &ex)
+        {
+            Log::Get() << "Exception caught writing trace file: " << ex.what();
+        }
 #endif
     }
 }
@@ -409,5 +635,21 @@ void CherryVis::disable()
 {
 #if CHERRYVIS_ENABLED
     disabled = true;
+#endif
+}
+
+void CherryVis::writeFrameData(const std::string &label, const nlohmann::json &entry, int framesPerPartition)
+{
+#if CHERRYVIS_ENABLED
+    auto fileIt = labelToDataFile.find(label);
+    if (fileIt == labelToDataFile.end())
+    {
+        fileIt = labelToDataFile.emplace(
+                std::piecewise_construct,
+                std::make_tuple(label),
+                std::make_tuple(label, DataFileType::ObjectPerFrame, 0, framesPerPartition)).first;
+    }
+
+    fileIt->second.writeEntry(entry);
 #endif
 }

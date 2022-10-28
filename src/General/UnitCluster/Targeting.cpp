@@ -6,9 +6,9 @@
 #include "Map.h"
 #include "Players.h"
 
-#if INSTRUMENTATION_ENABLED_VERBOSE
+#if INSTRUMENTATION_ENABLED
 #define DEBUG_TARGETING false  // Writes verbose log info to debug for each unit targeting
-#define DRAW_TARGETING false  // Draws lines between our units and their targets
+#define DRAW_TARGETING true  // Draws lines between our units and their targets
 #endif
 
 namespace
@@ -95,7 +95,7 @@ namespace
             }
 
             // Workers that have attacked in the last four seconds
-            if ((BWAPI::Broodwar->getFrameCount() - target->lastSeenAttacking) < 96)
+            if ((currentFrame - target->lastSeenAttacking) < 96)
             {
                 return 11;
             }
@@ -227,7 +227,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             if (!unit->isFlying)
             {
                 unit->distToTargetPosition = PathFinding::GetGroundDistance(
-                        unit->lastPosition,
+                        unit->simPosition,
                         targetPosition,
                         unit->type,
                         PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
@@ -307,7 +307,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             // If the unit isn't on its cooldown yet, simulate the attack on the target for use in later targeting
             // If the unit is on its cooldown, there will be an upcomingAttack already registered on the target
             // This ensures consistency between our targeting and combat sim (avoiding double-counting of damage)
-            if (target && (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount()) <= (BWAPI::Broodwar->getLatencyFrames() + 2))
+            if (target && (unit->cooldownUntil - currentFrame) <= (BWAPI::Broodwar->getLatencyFrames() + 2))
             {
                 target->dealDamage(unit);
             }
@@ -322,9 +322,10 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             {
                 CherryVis::drawLine(unit->lastPosition.x,
                                     unit->lastPosition.y,
-                                    target->unit->lastPosition.x,
-                                    target->unit->lastPosition.y,
-                                    CherryVis::DrawColor::White);
+                                    target->unit->simPosition.x,
+                                    target->unit->simPosition.y,
+                                    CherryVis::DrawColor::White,
+                                    unit->id);
             }
 #endif
 
@@ -333,6 +334,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         }
 
         bool isRanged = UnitUtil::IsRangedUnit(unit->type);
+        bool isAntiAir = unit->type == BWAPI::UnitTypes::Protoss_Corsair;
         int distanceToTargetPosition = unit->getDistance(targetPosition);
 
         // Start by doing a pass to gather the types of targets we have and filter those we don't want to consider
@@ -342,8 +344,8 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         {
             if (target.unit->type == BWAPI::UnitTypes::Zerg_Larva ||
                 target.unit->type == BWAPI::UnitTypes::Zerg_Egg ||
-                unit->undetected ||
-                unit->health <= 0 ||
+                target.unit->undetected ||
+                target.unit->health <= 0 ||
                 !unit->canAttack(target.unit))
             {
 #if DEBUG_TARGETING
@@ -372,7 +374,28 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 continue;
             }
 
-            const int range = unit->getDistance(target.unit);
+            // Cannons can only attack what they can see and are in range of
+            if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+            {
+                if (!target.unit->bwapiUnit->isVisible())
+                {
+#if DEBUG_TARGETING
+                    dbg << "\n Skipping " << *target.unit << " as it is not visible";
+#endif
+                    continue;
+                }
+
+                auto predictedRange = unit->getDistance(target.unit, target.unit->predictPosition(BWAPI::Broodwar->getLatencyFrames()));
+                if (predictedRange > (target.unit->isFlying ? unit->airRange() : unit->groundRange()))
+                {
+#if DEBUG_TARGETING
+                    dbg << "\n Skipping " << *target.unit << " as it is not in range";
+#endif
+                    continue;
+                }
+            }
+
+            const int range = unit->getDistance(target.unit, target.unit->simPosition);
             int distToRange = std::max(0, range - (target.unit->isFlying ? unit->airRange() : unit->groundRange()));
 
             // In static position mode, units only attack what they are in range of
@@ -394,11 +417,19 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             }
 
             // The next checks apply if we are not close to our target position
-            if (distanceToTargetPosition > 500)
+            if (distanceToTargetPosition > 500 && !isAntiAir)
             {
                 // Skip targets that are out of range and moving away from us
                 if (distanceToTargetPosition > 500 && distToRange > 0)
                 {
+                    if (!target.unit->bwapiUnit->isVisible())
+                    {
+#if DEBUG_TARGETING
+                        dbg << "\n Skipping " << *target.unit << " as it is not visible";
+#endif
+                        continue;
+                    }
+
                     auto predictedTargetPosition = target.unit->predictPosition(1);
                     if (predictedTargetPosition.isValid() && unit->getDistance(target.unit, predictedTargetPosition) > range)
                     {
@@ -415,7 +446,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 if (unit->isFlying == target.unit->isFlying && unit->distToTargetPosition != -1 && target.unit->distToTargetPosition != -1
                     && unit->distToTargetPosition < target.unit->distToTargetPosition
                     && (distToRange > 0
-                        || (unit->cooldownUntil > BWAPI::Broodwar->getFrameCount() && !unit->isInEnemyWeaponRange(target.unit))))
+                        || (unit->cooldownUntil > currentFrame && !unit->isInEnemyWeaponRange(target.unit))))
                 {
 #if DEBUG_TARGETING
                     dbg << "\n Skipping " << *target.unit << " as it is further away from the target position";
@@ -440,10 +471,11 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
             // If we are targeting an enemy base, ignore outlying buildings (except static defense) unless we have a higher-priority target
             // Rationale: When we have a non-building target, we want to consider buildings since they might be blocking us from attacking them
-            if (target.priority < 7 && (!hasNonBuilding || target.unit->isFlying) && targetIsReachableEnemyBase && distanceToTargetPosition > 200)
+            if (target.priority < 7 && (!hasNonBuilding || target.unit->isFlying) && targetIsReachableEnemyBase && distanceToTargetPosition > 200
+                && !isAntiAir)
             {
 #if DEBUG_TARGETING
-                dbg << "\n Skipping " << *target.unit << " as priority < 7, targetIsReachableEnemyBase, distanceToTargetPosition > 200";
+                dbg << "\n Skipping " << *target.unit << " as priority < 7, targetIsReachableEnemyBase, distanceToTargetPosition > 200, not anti-air";
 #endif
                 continue;
             }
@@ -453,9 +485,13 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 #endif
             attacker.targets.emplace_back(&target);
 
-            int framesToAttack = std::max(unit->cooldownUntil - BWAPI::Broodwar->getFrameCount(),
-                                          (int) ((double) targetAndDistToRange.second / unit->type.topSpeed())
-                                          + BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+            int framesToAttack = unit->cooldownUntil - currentFrame;
+            if (unit->type != BWAPI::UnitTypes::Protoss_Photon_Cannon)
+            {
+                framesToAttack = std::max(
+                        framesToAttack,
+                        (int) ((double) targetAndDistToRange.second / unit->type.topSpeed()) + BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+            }
 
             if (framesToAttack < attacker.framesToAttack)
             {
@@ -508,10 +544,11 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         int bestScore = -999999;
         int bestAttackerCount = 0;
         int bestDist = INT_MAX;
+        bool bestVisible = false;
 
         bool isRanged = UnitUtil::IsRangedUnit(unit->type);
         int cooldownMoveFrames = std::max(0,
-                                          unit->cooldownUntil - BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getRemainingLatencyFrames() - 2);
+                                          unit->cooldownUntil - currentFrame - BWAPI::Broodwar->getRemainingLatencyFrames() - 2);
 
         int distanceToTargetPosition = unit->getDistance(targetPosition);
         for (auto &potentialTarget : attacker.targets)
@@ -524,10 +561,13 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 continue;
             }
 
+            // If we have a visible target, ignore non-visible
+            if (bestVisible && !potentialTarget->unit->bwapiUnit->isVisible()) continue;
+
             // Initialize the score as a formula of the target priority and how far outside our attack range it is
             // Each priority step is equivalent to 2 tiles
             // If the unit is on cooldown, we assume it can move towards the target before attacking
-            const int targetDist = unit->getDistance(potentialTarget->unit);
+            const int targetDist = unit->getDistance(potentialTarget->unit, potentialTarget->unit->simPosition);
             const int range = potentialTarget->unit->isFlying ? unit->airRange() : unit->groundRange();
             int score = 2 * 32 * potentialTarget->priority
                         - std::max(0, targetDist - (int) ((double) cooldownMoveFrames * unit->type.topSpeed()) - range);
@@ -638,7 +678,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             if (potentialTarget->unit->bwapiUnit->isRepairing() &&
                 potentialTarget->unit->bwapiUnit->getOrderTarget() &&
                 potentialTarget->unit->bwapiUnit->getOrderTarget()->getType() == BWAPI::UnitTypes::Terran_Bunker &&
-                unit->getDistance(potentialTarget->unit) <= range)
+                unit->getDistance(potentialTarget->unit, potentialTarget->unit->simPosition) <= range)
             {
                 auto bunker = Units::get(potentialTarget->unit->bwapiUnit->getOrderTarget());
                 if (bunker && !unit->isInEnemyWeaponRange(bunker))
@@ -650,7 +690,8 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 #if DEBUG_TARGETING
             dbg << "\n Target " << *potentialTarget->unit << " scored: score=" << score
                 << ", attackerCount=" << potentialTarget->attackerCount
-                << ", dist=" << targetDist;
+                << ", dist=" << targetDist
+                << ", visible=" << potentialTarget->unit->bwapiUnit->isVisible();
 #endif
 
             // See if this is the best target
@@ -658,7 +699,9 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             // - Score is higher
             // - Attackers is higher
             // - Distance is lower
-            if (score > bestScore ||
+            auto visible = potentialTarget->unit->bwapiUnit->isVisible();
+            if ((!bestVisible && visible) ||
+                score > bestScore ||
                 (score == bestScore && potentialTarget->attackerCount > bestAttackerCount) ||
                 (score == bestScore && potentialTarget->attackerCount == bestAttackerCount && targetDist < bestDist))
             {
@@ -666,6 +709,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 bestAttackerCount = potentialTarget->attackerCount;
                 bestDist = targetDist;
                 bestTarget = potentialTarget;
+                bestVisible = visible;
 
 #if DEBUG_TARGETING
                 dbg << " (best)";
@@ -678,7 +722,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         {
             auto currentTarget = getCurrentTarget(unit);
             if (currentTarget && unit->getDistance(currentTarget->unit) < 11 * 32 &&
-                unit->bwapiUnit->getLastCommandFrame() > (BWAPI::Broodwar->getFrameCount() - 96))
+                unit->lastCommandFrame > (currentFrame - 96))
             {
                 bestTarget = currentTarget;
 
@@ -705,9 +749,10 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 #if DRAW_TARGETING
             CherryVis::drawLine(attacker.unit->lastPosition.x,
                                 attacker.unit->lastPosition.y,
-                                bestTarget->unit->lastPosition.x,
-                                bestTarget->unit->lastPosition.y,
-                                CherryVis::DrawColor::White);
+                                bestTarget->unit->simPosition.x,
+                                bestTarget->unit->simPosition.y,
+                                CherryVis::DrawColor::White,
+                                attacker.unit->id);
 #endif
         }
         else

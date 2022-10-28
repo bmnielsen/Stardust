@@ -164,7 +164,7 @@ namespace WorkerOrderTimer
         {
             // The worker is at the resource, so if we have enough position history recorded,
             // record the optimal position
-            int frame = BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 11;
+            int frame = currentFrame - BWAPI::Broodwar->getLatencyFrames() - 11;
             auto positionIt = positionHistory.find(frame);
             if (positionIt != positionHistory.end())
             {
@@ -192,12 +192,12 @@ namespace WorkerOrderTimer
             optimalOrderPositions.find(currentPositionAndVelocity) != optimalOrderPositions.end())
         {
             worker->gather(resource);
-            positionHistory.emplace(std::make_pair(BWAPI::Broodwar->getFrameCount(), currentPositionAndVelocity));
+            positionHistory.emplace(std::make_pair(currentFrame, currentPositionAndVelocity));
             return true;
         }
 
         // Record the worker's position
-        positionHistory.emplace(std::make_pair(BWAPI::Broodwar->getFrameCount(), currentPositionAndVelocity));
+        positionHistory.emplace(std::make_pair(currentFrame, currentPositionAndVelocity));
         return false;
     }
 }

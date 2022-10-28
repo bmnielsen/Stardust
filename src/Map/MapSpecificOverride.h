@@ -34,7 +34,7 @@ public:
         return false;
     }
 
-    virtual void addMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) {}
+    virtual void modifyMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) {}
 
     virtual std::unique_ptr<StrategyEngine> createStrategyEngine()
     {
@@ -51,4 +51,7 @@ public:
 
     // Whether the natural base is behind the main base relative to the enemy starting position
     virtual bool hasBackdoorNatural() { return false; }
+
+    // Adds island areas that aren't marked as such by BWEM
+    virtual void addIslandAreas(std::set<const BWEM::Area *> &islandAreas) {}
 };

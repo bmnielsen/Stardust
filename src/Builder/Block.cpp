@@ -132,10 +132,13 @@ bool Block::placeStartBlock(std::vector<BWAPI::TilePosition> &usedTiles,
     {
         if (tile.x >= BWAPI::Broodwar->mapWidth()) return false;
         if (tile.y >= BWAPI::Broodwar->mapHeight()) return false;
-        if (ignoreAvailability.find(tile) == ignoreAvailability.end()
-            && tileAvailability[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] > 0)
+        if (ignoreAvailability.find(tile) == ignoreAvailability.end())
         {
-            return false;
+            if (tileAvailability[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] > 0) return false;
+        }
+        else
+        {
+            if (tileAvailability[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] == 1) return false;
         }
         if (tile.x == 0 && !allowLeftEdge()) return false;
         if (tile.x == (BWAPI::Broodwar->mapWidth() - 1) && !allowRightEdge()) return false;

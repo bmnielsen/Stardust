@@ -37,7 +37,9 @@ namespace FAP {
 
   template<typename UnitExtension = std::tuple<>>
   struct FastAPproximation {
-    FastAPproximation(std::vector<unsigned char> &collision) : collision(collision) {}
+    FastAPproximation(std::vector<unsigned char> &collisionPlayer1, std::vector<unsigned char> &collisionPlayer2)
+        : collisionPlayer1(collisionPlayer1)
+        , collisionPlayer2(collisionPlayer2) {}
 
     /**
      * \brief Adds the unit to the simulator for player 1, only if it is a combat unit
@@ -85,15 +87,19 @@ namespace FAP {
 
     std::unique_ptr<ChokeGeometry> chokeGeometry;
 
-    // Current approach to collisions: allow two units to share the same grid cell, using half-tile resolution
+    // Current approach to collisions:
+    // - Units are given a collision value based on their size
+    // - Units in chokes may have a higher collision value
+    // - Sim only allows a certain value to enter a cell
     // This seems to strike a reasonable balance between improving how large melee armies are simmed and avoiding
     // expensive collision-based pathing calculations
-    std::vector<unsigned char> &collision;
+    std::vector<unsigned char> &collisionPlayer1;
+    std::vector<unsigned char> &collisionPlayer2;
 
     template<bool choke>
-    void initializeCollision(FAPUnit<UnitExtension> &fu);
+    void initializeCollision(FAPUnit<UnitExtension> &fu, std::vector<unsigned char> &collision);
     template<bool choke = false>
-    void updatePosition(FAPUnit<UnitExtension> &fu, int x, int y);
+    void updatePosition(FAPUnit<UnitExtension> &fu, int x, int y, std::vector<unsigned char> &collision);
 
     bool didSomething = false;
     static void dealDamage(FAPUnit<UnitExtension> &fu, int damage, BWAPI::DamageType damageType, FAPUnit<UnitExtension> &attacker);
@@ -108,7 +114,8 @@ namespace FAP {
     void unitsim(
             FAPUnit<UnitExtension> &fu,
             std::vector<FAPUnit<UnitExtension>> &friendlyUnits,
-            std::vector<FAPUnit<UnitExtension>> &enemyUnits);
+            std::vector<FAPUnit<UnitExtension>> &enemyUnits,
+            std::vector<unsigned char> &collision);
 
     void medicsim(FAPUnit<UnitExtension> &fu, std::vector<FAPUnit<UnitExtension>> &friendlyUnits);
     bool suicideSim(
@@ -136,7 +143,9 @@ namespace FAP {
 
     static bool isCombatUnit(FAPUnit<UnitExtension> &u) {
       return (u.unitType != BWAPI::UnitTypes::Protoss_Interceptor) &
-        (static_cast<bool>(u.airDamage) | static_cast<bool>(u.groundDamage) | static_cast<bool>(u.unitType == BWAPI::UnitTypes::Terran_Medic));
+        (static_cast<bool>(u.airDamage) | static_cast<bool>(u.groundDamage)
+                | static_cast<bool>(u.unitType == BWAPI::UnitTypes::Terran_Medic)
+                | static_cast<bool>(u.unitType == BWAPI::UnitTypes::Zerg_Overlord));
     }
   };
 
@@ -189,7 +198,7 @@ namespace FAP {
   bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu) {
     if (isCombatUnit(fu.unit)) {
       static_assert(AssertValidUnit<uv>());
-      initializeCollision<choke>(fu.unit);
+      initializeCollision<choke>(fu.unit, collisionPlayer1);
       fu.unit.player = 1;
       player1.emplace_back(fu.unit);
       return true;
@@ -202,7 +211,7 @@ namespace FAP {
   bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu) {
     if (isCombatUnit(fu.unit)) {
       static_assert(AssertValidUnit<uv>());
-      initializeCollision<choke>(fu.unit);
+      initializeCollision<choke>(fu.unit, collisionPlayer2);
       fu.unit.player = 2;
       player2.emplace_back(fu.unit);
       return true;
@@ -234,7 +243,8 @@ namespace FAP {
   template<typename UnitExtension>
   void FastAPproximation<UnitExtension>::clear() {
     player1.clear(), player2.clear();
-    std::fill(collision.begin(), collision.end(), 0);
+    std::fill(collisionPlayer1.begin(), collisionPlayer1.end(), 0);
+    std::fill(collisionPlayer2.begin(), collisionPlayer2.end(), 0);
   }
 
   template<typename UnitExtension>
@@ -391,7 +401,7 @@ namespace FAP {
 
   template<typename UnitExtension>
   template<bool choke>
-  void FastAPproximation<UnitExtension>::initializeCollision(FAPUnit<UnitExtension> &fu) {
+  void FastAPproximation<UnitExtension>::initializeCollision(FAPUnit<UnitExtension> &fu, std::vector<unsigned char> &collision) {
     fu.cell = (fu.x >> 4) + ((fu.y >> 4) * BWAPI::Broodwar->mapWidth() * 2);
     if constexpr (choke) {
       collision[fu.cell] += (chokeGeometry->tileSide[fu.cell] == 0) ? fu.collisionValueChoke : fu.collisionValue;
@@ -403,7 +413,7 @@ namespace FAP {
 
   template<typename UnitExtension>
   template<bool choke>
-  void FastAPproximation<UnitExtension>::updatePosition(FAPUnit<UnitExtension> &fu, int x, int y) {
+  void FastAPproximation<UnitExtension>::updatePosition(FAPUnit<UnitExtension> &fu, int x, int y, std::vector<unsigned char> &collision) {
     if (fu.flying) {
       fu.x = x;
       fu.y = y;
@@ -447,12 +457,13 @@ namespace FAP {
   void FastAPproximation<UnitExtension>::unitsim(
           FAPUnit<UnitExtension> &fu,
           std::vector<FAPUnit<UnitExtension>> &friendlyUnits,
-          std::vector<FAPUnit<UnitExtension>> &enemyUnits) {
+          std::vector<FAPUnit<UnitExtension>> &enemyUnits,
+          std::vector<unsigned char> &collision) {
     bool kite = false;
     if (fu.attackCooldownRemaining) {
       if (fu.unitType == BWAPI::UnitTypes::Terran_Vulture ||
           (fu.unitType == BWAPI::UnitTypes::Protoss_Dragoon &&
-          fu.attackCooldownRemaining <= BWAPI::UnitTypes::Protoss_Dragoon.groundWeapon().damageCooldown() - 6))
+          fu.attackCooldownRemaining <= BWAPI::UnitTypes::Protoss_Dragoon.groundWeapon().damageCooldown() - 10))
       {
         kite = true;
       }
@@ -467,33 +478,37 @@ namespace FAP {
       return;
     }
 
-    // If the unit already has a target, find it
-    auto closestEnemy = enemyUnits.end();
-    int closestDistSquared;
+    // Target selection
+
+    // Start by fetching our current target, if we have one
+    auto currentTarget = enemyUnits.end();
+    int currentTargetDist = INT_MAX;
     if (fu.target) {
       for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
         if (enemyIt->health > 0 && enemyIt->id == fu.target) {
-          closestEnemy = enemyIt;
-          closestDistSquared = distSquared(fu, *enemyIt);
+          currentTarget = enemyIt;
+          currentTargetDist = distSquared(fu, *enemyIt);
           break;
         }
       }
 
       // Clear the target if it wasn't found or if it is within the unit's minimum range
-      if (closestEnemy == enemyUnits.end() || closestDistSquared < fu.groundMinRangeSquared) {
+      if (currentTarget == enemyUnits.end() || currentTargetDist < fu.groundMinRangeSquared) {
         fu.target = 0;
       }
     }
 
-    // Otherwise select the target
-    if (closestEnemy == enemyUnits.end()) {
+    // Potentially replace our current target with another one if we are off cooldown and it isn't in range
+    auto closestEnemy = currentTarget;
+    int closestDistSquared = currentTargetDist;
+    if (closestEnemy == enemyUnits.end() ||
+                        (closestDistSquared > (closestEnemy->flying ? fu.airMaxRangeSquared : fu.groundMaxRangeSquared) && !kite)) {
       for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt) {
-        if (enemyIt->health < 1 || enemyIt->undetected) continue;
+        if (enemyIt->health < 1 || enemyIt->undetected || enemyIt == currentTarget) continue;
         if (enemyIt->flying) {
           if (fu.airDamage) {
             auto const d = distSquared<choke>(fu, *enemyIt);
-            if ((closestEnemy == enemyUnits.end() || d < closestDistSquared) &&
-              d >= fu.airMinRangeSquared) {
+            if (d < closestDistSquared && d >= fu.airMinRangeSquared) {
               closestDistSquared = d;
               closestEnemy = enemyIt;
             }
@@ -502,8 +517,7 @@ namespace FAP {
         else {
           if (fu.groundDamage) {
             auto const d = distSquared<choke>(fu, *enemyIt);
-            if ((closestEnemy == enemyUnits.end() || d < closestDistSquared) &&
-              d >= fu.groundMinRangeSquared) {
+            if (d < closestDistSquared && d >= fu.groundMinRangeSquared) {
               closestDistSquared = d;
               closestEnemy = enemyIt;
             }
@@ -511,16 +525,23 @@ namespace FAP {
         }
       }
 
-      if (closestEnemy != enemyUnits.end()) fu.target = closestEnemy->id;
+      // Keep the current target if the closest alternative isn't in range either
+      if (currentTarget != enemyUnits.end() && closestDistSquared > (closestEnemy->flying ? fu.airMaxRangeSquared : fu.groundMaxRangeSquared)) {
+        closestEnemy = currentTarget;
+        closestDistSquared = currentTargetDist;
+      } else if (closestEnemy != enemyUnits.end()) {
+        fu.target = closestEnemy->id;
+      }
     }
 
-    auto updatePositionTowards = [this](FAPUnit<UnitExtension> &fu, int dx, int dy) {
+    auto updatePositionTowards = [this, &collision](FAPUnit<UnitExtension> &fu, int dx, int dy) {
       auto ds = dx * dx + dy * dy;
       if (ds > 0) {
         auto r = fu.speed / sqrt(ds);
         updatePosition(fu,
                        fu.x + static_cast<int>(dx * r),
-                       fu.y + static_cast<int>(dy * r));
+                       fu.y + static_cast<int>(dy * r),
+                       collision);
       }
     };
 
@@ -616,7 +637,8 @@ namespace FAP {
         if (!isInRange(fu, *closestEnemy, (closestEnemy->flying ? 0 : fu.groundMinRange), (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange)) ||
           closestEnemy->unitType == BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) {
           moveTowards(fu, closestEnemy->x, closestEnemy->y, closestEnemy->cell);
-        } else if (fu.attackCooldownRemaining > 1) {
+        } else if (fu.attackCooldownRemaining > 1 &&
+          (closestEnemy->flying ? fu.airMaxRange : fu.groundMaxRange) > ((fu.flying ? closestEnemy->airMaxRange : closestEnemy->groundMaxRange))) {
           auto const dx = fu.x - closestEnemy->x;
           auto const dy = fu.y - closestEnemy->y;
           updatePositionTowards(fu, dx, dy);
@@ -627,7 +649,7 @@ namespace FAP {
 
     if (closestEnemy != enemyUnits.end() && closestDistSquared <= fu.speedSquared &&
       !(fu.x == closestEnemy->x && fu.y == closestEnemy->y)) {
-      updatePosition(fu, closestEnemy->x, closestEnemy->y);
+      updatePosition(fu, closestEnemy->x, closestEnemy->y, collision);
       closestDistSquared = 0;
 
       didSomething = true;
@@ -826,7 +848,7 @@ namespace FAP {
   template<typename UnitExtension>
   template<bool tankSplash, bool choke>
   void FastAPproximation<UnitExtension>::isimulate() {
-    const auto simUnit = [this](auto &unit, auto &friendly, auto &enemy) {
+    const auto simUnit = [this](auto &unit, auto &friendly, auto &enemy, std::vector<unsigned char> &collision) {
       if (unit->health < 1) {
         ++unit;
         return;
@@ -844,17 +866,17 @@ namespace FAP {
         if (unit->unitType == BWAPI::UnitTypes::Terran_Medic)
           medicsim(*unit, friendly);
         else
-          unitsim<tankSplash, choke>(*unit, friendly, enemy);
+          unitsim<tankSplash, choke>(*unit, friendly, enemy, collision);
         ++unit;
       }
     };
 
     for (auto fu = player1.begin(); fu != player1.end();) {
-      simUnit(fu, player1, player2);
+      simUnit(fu, player1, player2, collisionPlayer1);
     }
 
     for (auto fu = player2.begin(); fu != player2.end();) {
-      simUnit(fu, player2, player1);
+      simUnit(fu, player2, player1, collisionPlayer2);
     }
 
     const auto updateUnit = [](auto &it, auto &friendly, auto &killed) {

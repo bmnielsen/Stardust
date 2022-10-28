@@ -109,6 +109,15 @@ std::set<MyUnit>::iterator UnitCluster::removeUnit(std::set<MyUnit>::iterator un
     return newUnitIt;
 }
 
+bool UnitCluster::hasUnitType(BWAPI::UnitType type) const
+{
+    for (auto &unit : units)
+    {
+        if (unit->type == type) return true;
+    }
+    return false;
+}
+
 void UnitCluster::updatePositions(BWAPI::Position targetPosition)
 {
     int sumX = 0;
@@ -169,6 +178,7 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     int minCenterDist = INT_MAX;
     for (auto &unit : units)
     {
+        if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
         if (unit->distToTargetPosition == -1) continue;
         if (unit->isFlying != (minGroundDistance == INT_MAX)) continue;
         if (unit->distToTargetPosition - (unit->isFlying ? minAirDistance : minGroundDistance) > 32) continue;
@@ -188,6 +198,7 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
         minAirDistance = INT_MAX;
         for (auto &unit : units)
         {
+            if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
             unit->distToTargetPosition = unit->lastPosition.getApproxDistance(targetPosition);
             if (unit->distToTargetPosition < minAirDistance)
             {
@@ -195,6 +206,11 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
                 vanguard = unit;
             }
         }
+    }
+
+    if (!vanguard)
+    {
+        vanguard = *units.begin();
     }
 
     vanguardDistToTarget = vanguard->distToTargetPosition;
@@ -240,7 +256,7 @@ void UnitCluster::setActivity(UnitCluster::Activity newActivity, SubActivity new
 
     currentActivity = newActivity;
     currentSubActivity = newSubActivity;
-    lastActivityChange = BWAPI::Broodwar->getFrameCount();
+    lastActivityChange = currentFrame;
 }
 
 void UnitCluster::setSubActivity(SubActivity newSubActivity)
@@ -263,4 +279,67 @@ std::string UnitCluster::getCurrentActivity() const
 std::string UnitCluster::getCurrentSubActivity() const
 {
     return SubActivityNames[currentSubActivity];
+}
+
+void UnitCluster::addInstrumentation(nlohmann::json &clusterArray) const
+{
+#if INSTRUMENTATION_ENABLED
+    auto simResultToJson = [](const CombatSimResult& simResult, bool decision)
+    {
+        nlohmann::json result({
+                                      {"decision",                decision},
+                                      {"myUnitCount",             simResult.myUnitCount},
+                                      {"enemyUnitCount",          simResult.enemyUnitCount},
+                                      {"initialMine",             simResult.initialMine},
+                                      {"initialEnemy",            simResult.initialEnemy},
+                                      {"finalMine",               simResult.finalMine},
+                                      {"finalEnemy",              simResult.finalEnemy},
+                                      {"enemyHasUndetectedUnits", simResult.enemyHasUndetectedUnits},
+                                      {"distanceFactor",          simResult.distanceFactor},
+                                      {"aggression",              simResult.aggression},
+                                      {"closestReinforcements",   simResult.closestReinforcements},
+                                      {"reinforcementPercentage", simResult.reinforcementPercentage}
+                              });
+        if (simResult.narrowChoke)
+        {
+            result["choke_x"] = simResult.narrowChoke->center.x;
+            result["choke_y"] = simResult.narrowChoke->center.y;
+        }
+        else
+        {
+            result["choke_x"] = nlohmann::json();
+            result["choke_y"] = nlohmann::json();
+        }
+#if DEBUG_COMBATSIM_CVIS
+        if (!simResult.unitLog.empty())
+        {
+            result["unitLog"] = simResult.unitLog;
+        }
+#endif
+        return result;
+    };
+
+    nlohmann::json simResult;
+    nlohmann::json regroupSimResult;
+    if (!recentSimResults.empty() && recentSimResults.rbegin()->first.frame == currentFrame)
+    {
+        simResult = simResultToJson(recentSimResults.rbegin()->first, recentSimResults.rbegin()->second);
+    }
+    if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->first.frame == currentFrame)
+    {
+        regroupSimResult = simResultToJson(recentRegroupSimResults.rbegin()->first, recentRegroupSimResults.rbegin()->second);
+    }
+
+    clusterArray.push_back({
+                                   {"center_x", center.x},
+                                   {"center_y", center.y},
+                                   {"unit_count", units.size()},
+                                   {"is_vanguard", isVanguardCluster},
+                                   {"percent_distance_to_target", percentageToEnemyMain},
+                                   {"activity", ActivityNames[currentActivity]},
+                                   {"subactivity", SubActivityNames[currentSubActivity]},
+                                   {"sim_result", simResult},
+                                   {"regroup_sim_result", regroupSimResult}
+                           });
+#endif
 }

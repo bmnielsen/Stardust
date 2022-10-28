@@ -29,4 +29,13 @@ namespace UnitUtil
     int MineralCost(BWAPI::UnitType type);
 
     int GasCost(BWAPI::UnitType type);
+
+    int GroundWeaponAngle(BWAPI::UnitType type);
+
+    int AirWeaponAngle(BWAPI::UnitType type);
+
+    int HaltDistance(BWAPI::UnitType type);
+
+    // Acceleration, in BW notation (multiples of 1/256)
+    int Acceleration(BWAPI::UnitType type, double currentTopSpeed);
 }

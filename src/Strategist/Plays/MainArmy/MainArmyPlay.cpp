@@ -6,16 +6,22 @@ void MainArmyPlay::update()
 {
     // Update detection - release observers when no longer needed, request observers when needed
     auto squad = getSquad();
-    if (squad)
+    if (squad && squad->needsDetection())
     {
-        auto &detectors = squad->getDetectors();
-        if (!squad->needsDetection() && !detectors.empty())
+        int desiredDetectors = 0;
+        if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Dark_Templar))
         {
-            status.removedUnits.insert(status.removedUnits.end(), detectors.begin(), detectors.end());
+            desiredDetectors = 1;
         }
-        else if (squad->needsDetection() && detectors.empty())
+        if (squad->needsDetection())
         {
-            status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Observer, squad->getTargetPosition());
+            desiredDetectors = 2;
+        }
+
+        auto &detectors = squad->getDetectors();
+        if (detectors.size() < desiredDetectors)
+        {
+            status.unitRequirements.emplace_back(desiredDetectors - detectors.size(), BWAPI::UnitTypes::Protoss_Observer, squad->getTargetPosition());
         }
     }
 }
@@ -27,6 +33,7 @@ void MainArmyPlay::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
     {
         if (unitRequirement.count < 1) continue;
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 label,
                                                                  unitRequirement.type,
                                                                  unitRequirement.count,
                                                                  (unitRequirement.count + 1) / 2);

@@ -5,14 +5,15 @@
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Units.h"
 
-std::map <PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
-        {OurStrategy::EarlyGameDefense, "EarlyGameDefense"},
-        {OurStrategy::AntiZealotRush,   "AntiZealotRush"},
-        {OurStrategy::FastExpansion,    "FastExpansion"},
-        {OurStrategy::Defensive,        "Defensive"},
-        {OurStrategy::Normal,           "Normal"},
-        {OurStrategy::DTExpand,         "DTExpand"},
-        {OurStrategy::MidGame,          "MidGame"}
+std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
+        {OurStrategy::EarlyGameDefense,    "EarlyGameDefense"},
+        {OurStrategy::AntiZealotRush,      "AntiZealotRush"},
+        {OurStrategy::AntiDarkTemplarRush, "AntiDarkTemplarRush"},
+        {OurStrategy::FastExpansion,       "FastExpansion"},
+        {OurStrategy::Defensive,           "Defensive"},
+        {OurStrategy::Normal,              "Normal"},
+        {OurStrategy::DTExpand,            "DTExpand"},
+        {OurStrategy::MidGame,             "MidGame"}
 };
 
 namespace
@@ -42,7 +43,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
         }
 
         // Transition immediately if we're past frame 4500 and haven't seen an enemy zealot yet
-        if (BWAPI::Broodwar->getFrameCount() > 4500 && !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Zealot))
+        if (currentFrame > 4500 && !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Zealot))
         {
             return true;
         }
@@ -77,10 +78,23 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
         return unitCount >= 10;
     };
 
+    auto canTransitionFromAntiDarkTemplarRush = [&]()
+    {
+        auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+        if (!mainArmyPlay) return false;
+
+        return mainArmyPlay->getSquad()->hasDetection();
+    };
+
     auto isDTExpandFeasible = [&]()
     {
+        // Disabled, as sometimes we misdetect a 3 gate robo opening as a dragoon all-in, and it's suicide to try to do a DT expand
+        return false;
+
+        if (enemyStrategy == ProtossStrategy::DarkTemplarRush) return false;
+
         auto frameCutoff = getPlay<HiddenBase>(plays) == nullptr ? 9000 : 10500;
-        if (ourStrategy != OurStrategy::DTExpand && BWAPI::Broodwar->getFrameCount() > frameCutoff) return false;
+        if (ourStrategy != OurStrategy::DTExpand && currentFrame > frameCutoff) return false;
 
         // Make sure our main choke is easily defensible
         auto choke = Map::getMyMainChoke();
@@ -129,12 +143,17 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                         strategy = OurStrategy::FastExpansion;
                         continue;
                     }
+                    case ProtossStrategy::DarkTemplarRush:
+                    {
+                        strategy = OurStrategy::AntiDarkTemplarRush;
+                        continue;
+                    }
                     case ProtossStrategy::FastExpansion:
                     case ProtossStrategy::EarlyForge:
-                    case ProtossStrategy::OneGateCore:
+                    case ProtossStrategy::NoZealotCore:
+                    case ProtossStrategy::OneZealotCore:
                     case ProtossStrategy::BlockScouting:
                     case ProtossStrategy::EarlyRobo:
-                    case ProtossStrategy::DarkTemplarRush:
                     {
                         strategy = OurStrategy::Normal;
                         continue;
@@ -165,6 +184,19 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
                 break;
             }
+
+            case PvP::OurStrategy::AntiDarkTemplarRush:
+            {
+                // Transition to normal when we consider it safe to do so
+                if (canTransitionFromAntiDarkTemplarRush())
+                {
+                    strategy = OurStrategy::Normal;
+                    continue;
+                }
+
+                break;
+            }
+
             case PvP::OurStrategy::FastExpansion:
             {
                 // Transition to normal when the expansion is taken
@@ -177,6 +209,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
                 break;
             }
+
             case PvP::OurStrategy::Defensive:
             {
                 if (newEnemyStrategy == ProtossStrategy::WorkerRush ||
@@ -185,6 +218,12 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     newEnemyStrategy == ProtossStrategy::ZealotAllIn)
                 {
                     strategy = OurStrategy::AntiZealotRush;
+                    continue;
+                }
+
+                if (newEnemyStrategy == ProtossStrategy::DarkTemplarRush)
+                {
+                    strategy = OurStrategy::AntiDarkTemplarRush;
                     continue;
                 }
 
@@ -226,6 +265,13 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
+                if (newEnemyStrategy == ProtossStrategy::DarkTemplarRush &&
+                    !canTransitionFromAntiDarkTemplarRush())
+                {
+                    strategy = OurStrategy::AntiDarkTemplarRush;
+                    continue;
+                }
+
                 if (newEnemyStrategy == ProtossStrategy::DragoonAllIn && isDTExpandFeasible())
                 {
                     strategy = OurStrategy::DTExpand;
@@ -262,6 +308,13 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                 break;
             }
             case PvP::OurStrategy::MidGame:
+                if (newEnemyStrategy == ProtossStrategy::DarkTemplarRush &&
+                    !canTransitionFromAntiDarkTemplarRush())
+                {
+                    strategy = OurStrategy::AntiDarkTemplarRush;
+                    continue;
+                }
+
                 break;
         }
 

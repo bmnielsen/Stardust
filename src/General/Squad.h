@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nlohmann.h>
+
 #include "Common.h"
 #include "UnitCluster.h"
 
@@ -23,6 +25,8 @@ public:
 
     [[nodiscard]] bool needsDetection() const { return !enemiesNeedingDetection.empty(); }
 
+    [[nodiscard]] bool hasDetection() const;
+
     std::set<MyUnit> &getDetectors() { return detectors; }
 
     std::set<MyUnit> &getArbiters() { return arbiters; }
@@ -41,6 +45,8 @@ public:
 
     [[nodiscard]] bool canReassignFromVanguardCluster(MyUnit &unit) const;
 
+    void addInstrumentation(nlohmann::json &squadArray) const;
+
     explicit Squad(std::string label)
             : label(std::move(label))
             , targetPosition(BWAPI::Positions::Invalid)
@@ -56,7 +62,7 @@ protected:
     int vanguardClusterDistToTargetPosition;
 
     std::set<Unit> enemiesNeedingDetection;
-    std::set<MyUnit> detectors;
+    std::set<MyUnit> detectors; // only mobile detectors
     std::set<MyUnit> arbiters;
 
     [[nodiscard]] virtual bool canAddUnitToCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster, int dist) const;
@@ -67,9 +73,9 @@ protected:
 
     void addUnitToBestCluster(const MyUnit &unit);
 
-    virtual std::shared_ptr<UnitCluster> createCluster(MyUnit unit) { return std::make_shared<UnitCluster>(unit); }
+    virtual std::shared_ptr<UnitCluster> createCluster(const MyUnit &unit) { return std::make_shared<UnitCluster>(unit); }
 
-    virtual void execute(UnitCluster &cluster) = 0;
+    virtual void execute(UnitCluster &cluster) {}
 
     void updateDetectionNeeds(std::set<Unit> &enemyUnits);
 

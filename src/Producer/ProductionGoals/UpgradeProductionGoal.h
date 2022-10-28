@@ -6,10 +6,13 @@
 class UpgradeProductionGoal
 {
 public:
-    explicit UpgradeProductionGoal(UpgradeOrTechType type, int level = 1, int producerLimit = 1)
-            : type(type)
+    explicit UpgradeProductionGoal(std::string requester, UpgradeOrTechType type, int level = 1, int producerLimit = 1)
+            : requester(std::move(requester))
+            , type(type)
             , level(level)
             , producerLimit(producerLimit) {}
+
+    std::string requester;
 
     // The upgrade type
     [[nodiscard]] UpgradeOrTechType upgradeType() const { return type; }
@@ -23,7 +26,7 @@ public:
 
     friend std::ostream &operator<<(std::ostream &os, const UpgradeProductionGoal &goal)
     {
-        os << goal.type << "@" << goal.level;
+        os << goal.type << "@" << goal.level << " (" << goal.requester << ")";
         return os;
     }
 

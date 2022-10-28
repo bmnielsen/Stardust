@@ -264,6 +264,7 @@ namespace PathFinding
                            BWAPI::Position end,
                            BWAPI::UnitType unitType,
                            PathFindingOptions options,
+                           double penaltyFactor,
                            int defaultIfInaccessible)
     {
         if (unitType.topSpeed() < 0.0001) return 0;
@@ -275,6 +276,16 @@ namespace PathFinding
 
         int dist = GetGroundDistance(start, end, unitType, options);
         if (dist == -1) return defaultIfInaccessible;
-        return (int) ((double) dist * 1.4 / unitType.topSpeed());
+        return (int) ((double) dist * penaltyFactor / unitType.topSpeed());
+    }
+
+    int ExpectedTravelTime(
+            BWAPI::Position start,
+            BWAPI::Position end,
+            BWAPI::UnitType unitType,
+            PathFindingOptions options,
+            int defaultIfInaccessible)
+    {
+        return ExpectedTravelTime(start, end, unitType, options, 1.4, defaultIfInaccessible);
     }
 }

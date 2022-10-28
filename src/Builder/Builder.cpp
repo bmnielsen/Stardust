@@ -6,6 +6,7 @@
 #include "BuildingPlacement.h"
 #include "Map.h"
 #include "NoGoAreas.h"
+#include "Players.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -28,7 +29,7 @@ namespace Builder
 
             // If we are close to the build position and want to build now, issue the build command
             int dist = Geo::EdgeToEdgeDistance(building.builder->type, building.builder->lastPosition, building.type, building.getPosition());
-            if (dist <= 64 && building.desiredStartFrame - BWAPI::Broodwar->getFrameCount() <= BWAPI::Broodwar->getRemainingLatencyFrames())
+            if (dist <= 64 && building.desiredStartFrame - currentFrame <= BWAPI::Broodwar->getRemainingLatencyFrames())
             {
                 // Return immediately if issuing the build command succeeded
                 if (building.builder->build(building.type, building.tile))
@@ -287,11 +288,14 @@ namespace Builder
         BWAPI::Position buildPosition = BWAPI::Position(tile) + BWAPI::Position(type.tileWidth() * 16, type.tileHeight() * 16);
 
         // First get the closest worker currently available for reassignment
-        int bestTravelTime = INT_MAX;
-        MyUnit bestWorker = Workers::getClosestReassignableWorker(buildPosition, !type.isResourceDepot(), &bestTravelTime);
+        int bestMineralWorkerTravelTime = INT_MAX;
+        MyUnit bestMineralWorker = Workers::getClosestReassignableWorker(buildPosition,
+                                                                         !type.isResourceDepot(),
+                                                                         &bestMineralWorkerTravelTime);
 
-        // Next see if any existing builder will be finished in time to reach the desired position faster
-        int bestReservedTravelTime = INT_MAX;
+        // Next get the best existing builder
+        MyUnit bestBuilder = nullptr;
+        int bestBuilderTravelTime = INT_MAX;
         for (auto &builderAndQueue : builderQueues)
         {
             if (!builderAndQueue.first->exists()) continue;
@@ -321,15 +325,16 @@ namespace Builder
             totalTravelTime += expectedTravelTime;
 
             // Give a bonus to already-building workers, as we don't want to take a lot of workers off minerals
-            if ((totalTravelTime / 2) < bestTravelTime && totalTravelTime < bestReservedTravelTime)
+            if (totalTravelTime < bestBuilderTravelTime)
             {
-                bestReservedTravelTime = totalTravelTime;
-                bestTravelTime = totalTravelTime;
-                bestWorker = builderAndQueue.first;
+                bestBuilderTravelTime = totalTravelTime;
+                bestBuilder = builderAndQueue.first;
             }
         }
 
-        // Finally check if there is a reserved builder we can use
+        // Finally get the best reserved builder
+        MyUnit bestReserved = nullptr;
+        int bestReservedTravelTime = INT_MAX;
         for (auto &reservedBuilder : reservedBuilders)
         {
             // Don't consider this again if it already has a queue
@@ -343,17 +348,36 @@ namespace Builder
             if (expectedTravelTime == -1) continue; // Reserved builder might be on an island
 
             // Give a bonus to reserved builders (similar to above)
-            if ((expectedTravelTime / 2) < bestTravelTime && expectedTravelTime < bestReservedTravelTime)
+            if (expectedTravelTime < bestReservedTravelTime)
             {
                 bestReservedTravelTime = expectedTravelTime;
-                bestTravelTime = expectedTravelTime;
-                bestWorker = reservedBuilder;
+                bestReserved = reservedBuilder;
             }
         }
 
+        // Pick the best worker, giving existing builders a 6-second bonus
+        if (bestReservedTravelTime < bestBuilderTravelTime)
+        {
+            bestBuilder = bestReserved;
+            bestBuilderTravelTime = bestReservedTravelTime;
+        }
+
+        MyUnit builder;
+        int travelTime;
+        if (bestMineralWorkerTravelTime < (bestBuilderTravelTime - 144))
+        {
+            builder = bestMineralWorker;
+            travelTime = bestMineralWorkerTravelTime;
+        }
+        else
+        {
+            builder = bestBuilder;
+            travelTime = bestBuilderTravelTime;
+        }
+
         if (expectedArrivalFrame)
-            *expectedArrivalFrame = bestWorker ? BWAPI::Broodwar->getFrameCount() + bestTravelTime : -1;
-        return bestWorker;
+            *expectedArrivalFrame = builder ? currentFrame + travelTime : -1;
+        return builder;
     }
 
     std::vector<std::shared_ptr<Building>> &allPendingBuildings()
@@ -370,6 +394,20 @@ namespace Builder
         }
 
         return result;
+    }
+
+    void cancelBase(Base *base)
+    {
+        cancel(base->getTilePosition());
+
+        // Also cancel assimilator if it is building
+        for (auto &pendingBuilding : pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Assimilator))
+        {
+            if (base->hasGeyserAt(pendingBuilding->tile))
+            {
+                cancel(pendingBuilding->tile);
+            }
+        }
     }
 
     bool isPendingHere(BWAPI::TilePosition tile)
@@ -408,5 +446,17 @@ namespace Builder
     void releaseReservedBuilder(const MyUnit &builder)
     {
         reservedBuilders.erase(builder);
+    }
+
+    bool isInEnemyStaticThreatRange(BWAPI::TilePosition tile, BWAPI::UnitType type)
+    {
+        auto &grid = Players::grid(BWAPI::Broodwar->enemy());
+
+        if (grid.staticGroundThreat(BWAPI::WalkPosition(tile)) > 0) return true;
+        if (grid.staticGroundThreat(BWAPI::WalkPosition(tile + BWAPI::TilePosition(type.tileWidth(), 0))) > 0) return true;
+        if (grid.staticGroundThreat(BWAPI::WalkPosition(tile + BWAPI::TilePosition(type.tileWidth(), type.tileHeight()))) > 0) return true;
+        if (grid.staticGroundThreat(BWAPI::WalkPosition(tile + BWAPI::TilePosition(0, type.tileHeight()))) > 0) return true;
+
+        return false;
     }
 }

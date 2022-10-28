@@ -3,6 +3,8 @@
 #include "Units.h"
 #include "Grid.h"
 
+#include "DebugFlag_GridUpdates.h"
+
 void UpgradeTracker::update(Grid &grid)
 {
     for (auto &weaponAndDamage : _weaponDamage)
@@ -82,9 +84,22 @@ void UpgradeTracker::update(Grid &grid)
         }
     }
 
-    for (auto &unitAndCooldown : _unitCooldown)
+    for (auto &unitAndCooldown : _unitGroundCooldown)
     {
-        int current = player->weaponDamageCooldown(unitAndCooldown.first);
+        int current = unitAndCooldown.first.groundWeapon().damageCooldown();
+        if (unitAndCooldown.first == BWAPI::UnitTypes::Zerg_Zergling && upgradeLevel(BWAPI::UpgradeTypes::Adrenal_Glands) > 0)
+        {
+            current = std::min(std::max(current / 2, 5), 250);
+        }
+        if (current > unitAndCooldown.second)
+        {
+            unitAndCooldown.second = current;
+        }
+    }
+
+    for (auto &unitAndCooldown : _unitAirCooldown)
+    {
+        int current = unitAndCooldown.first.airWeapon().damageCooldown();
         if (current > unitAndCooldown.second)
         {
             unitAndCooldown.second = current;
@@ -97,6 +112,7 @@ void UpgradeTracker::update(Grid &grid)
         if (current > unitAndTopSpeed.second)
         {
             unitAndTopSpeed.second = current;
+            _unitBWTopSpeed.erase(unitAndTopSpeed.first);
         }
     }
 
@@ -191,16 +207,33 @@ int UpgradeTracker::weaponRange(BWAPI::WeaponType wpn)
 
 }
 
-int UpgradeTracker::unitCooldown(BWAPI::UnitType type)
+int UpgradeTracker::unitGroundCooldown(BWAPI::UnitType type)
 {
-    auto unitCooldownIt = _unitCooldown.find(type);
-    if (unitCooldownIt != _unitCooldown.end())
+    auto unitCooldownIt = _unitGroundCooldown.find(type);
+    if (unitCooldownIt != _unitGroundCooldown.end())
     {
         return unitCooldownIt->second;
     }
 
-    int current = player->weaponDamageCooldown(type);
-    _unitCooldown[type] = current;
+    int current = type.groundWeapon().damageCooldown();
+    if (type == BWAPI::UnitTypes::Zerg_Zergling && upgradeLevel(BWAPI::UpgradeTypes::Adrenal_Glands) > 0)
+    {
+        current = std::min(std::max(current / 2, 5), 250);
+    }
+    _unitGroundCooldown[type] = current;
+    return current;
+}
+
+int UpgradeTracker::unitAirCooldown(BWAPI::UnitType type)
+{
+    auto unitCooldownIt = _unitAirCooldown.find(type);
+    if (unitCooldownIt != _unitAirCooldown.end())
+    {
+        return unitCooldownIt->second;
+    }
+
+    int current = type.airWeapon().damageCooldown();
+    _unitAirCooldown[type] = current;
     return current;
 }
 
@@ -214,6 +247,19 @@ double UpgradeTracker::unitTopSpeed(BWAPI::UnitType type)
 
     double current = player->topSpeed(type);
     _unitTopSpeed[type] = current;
+    return current;
+}
+
+int UpgradeTracker::unitBWTopSpeed(BWAPI::UnitType type)
+{
+    auto unitTopSpeedIt = _unitBWTopSpeed.find(type);
+    if (unitTopSpeedIt != _unitBWTopSpeed.end())
+    {
+        return unitTopSpeedIt->second;
+    }
+
+    int current = (int)(unitTopSpeed(type) * 256.0);
+    _unitBWTopSpeed[type] = current;
     return current;
 }
 
@@ -256,6 +302,11 @@ bool UpgradeTracker::hasResearched(BWAPI::TechType type)
     return current;
 }
 
+void UpgradeTracker::setHasResearched(BWAPI::TechType type)
+{
+    _hasResearched[type] = true;
+}
+
 int UpgradeTracker::upgradeLevel(BWAPI::UpgradeType type)
 {
     auto upgradeLevelIt = _upgradeLevel.find(type);
@@ -294,8 +345,8 @@ void UpgradeTracker::setWeaponRange(BWAPI::WeaponType wpn, int range, Grid &grid
             grid.unitWeaponRangeUpgraded(unit->type, unit->lastPosition, wpn, current, range);
 
 #if DEBUG_GRID_UPDATES
-            CherryVis::log(unit->id) << "Grid::weaponRangeUpgraded from " << weaponAndRange.second << " to " << current;
-                    Log::Debug() << *unit << ": Grid::weaponRangeUpgraded from " << weaponAndRange.second << " to " << current;
+            CherryVis::log(unit->id) << "Grid::weaponRangeUpgraded from " << current << " to " << range;
+                    Log::Debug() << *unit << ": Grid::weaponRangeUpgraded from " << current << " to " << range;
 #endif
         }
     };

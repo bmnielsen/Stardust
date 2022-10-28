@@ -88,7 +88,7 @@ void TakeExpansion::update()
         // Ensure we have the squad
         if (!squad)
         {
-            squad = std::make_shared<AttackBaseSquad>(base);
+            squad = std::make_shared<AttackBaseSquad>(base, "Take Expansion");
             General::addSquad(squad);
         }
 
@@ -135,7 +135,7 @@ void TakeExpansion::update()
     if (enemyValue > 0)
     {
         updateAttackSquad();
-        Builder::cancel(depotPosition);
+        Builder::cancelBase(base);
         if (builder)
         {
             Workers::releaseWorker(builder);
@@ -178,8 +178,7 @@ void TakeExpansion::update()
         {
             if (!Builder::hasPendingBuilding(builder) && !blocker->undetected)
             {
-                std::vector<std::pair<MyUnit, Unit>> dummyUnitsAndTargets;
-                builder->attackUnit(blocker, dummyUnitsAndTargets);
+                builder->attackUnit(blocker);
             }
 
             return;
@@ -241,7 +240,7 @@ void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
             auto pylonUnit = Units::myBuildingAt(baseStaticDefenseLocations.first);
             if (pylonUnit)
             {
-                framesToPylon = pylonUnit->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount();
+                framesToPylon = pylonUnit->estimatedCompletionFrame - currentFrame;
             }
             else
             {
@@ -254,6 +253,7 @@ void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
                 {
                     auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(baseStaticDefenseLocations.first), 0, 0, 0);
                     prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                             label,
                                                                              BWAPI::UnitTypes::Protoss_Pylon,
                                                                              buildLocation,
                                                                              builder);
@@ -262,6 +262,7 @@ void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
 
             auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(*baseStaticDefenseLocations.second.begin()), 0, framesToPylon, 0);
             prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     label,
                                                                      BWAPI::UnitTypes::Protoss_Photon_Cannon,
                                                                      buildLocation,
                                                                      builder);
@@ -275,6 +276,7 @@ void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
         if (unitRequirement.count < 1) continue;
 
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 label,
                                                                  unitRequirement.type,
                                                                  unitRequirement.count,
                                                                  1);
@@ -284,7 +286,7 @@ void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
 void TakeExpansion::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
                             const std::function<void(const MyUnit)> &movableUnitCallback)
 {
-    Builder::cancel(depotPosition);
+    Builder::cancelBase(base);
 
     if (builder && !Builder::hasPendingBuilding(builder)) Workers::releaseWorker(builder);
 

@@ -1,9 +1,9 @@
-#include <Players/Players.h>
 #include "MyUnit.h"
 
 #include "UnitUtil.h"
 #include "Units.h"
 #include "Geo.h"
+#include "Players.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -20,7 +20,11 @@ MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         , gridNode(nullptr)
         , lastMoveFrame(0)
         , unstickUntil(-1)
+        , simulatedPositionsUpdated(false)
 {
+    recentCommands.resize(BWAPI::Broodwar->getLatencyFrames() + 1, unit->getLastCommand());
+    simulatedPositions.resize(BWAPI::Broodwar->getLatencyFrames() + 1, unit->getPosition());
+    simulatedHeading.resize(BWAPI::Broodwar->getLatencyFrames() + 1, 0);
 }
 
 std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit)
@@ -33,11 +37,20 @@ void MyUnitImpl::update(BWAPI::Unit unit)
 {
     if (!unit || !unit->exists()) return;
 
+    // Update command positions
+    recentCommands.pop_front();
+    recentCommands.emplace_back(unit->getLastCommand());
+    if (recentCommands.back().target)
+    {
+        recentCommands.back().assignTarget(recentCommands.back().target->getPosition());
+    }
+    simulatedPositionsUpdated = false;
+
     if (bwapiUnit->isCompleted()) producer = nullptr;
 
     if (energy - unit->getEnergy() > 45)
     {
-        lastCastFrame = BWAPI::Broodwar->getFrameCount();
+        lastCastFrame = currentFrame;
         Log::Get() << "Unit cast spell: " << *this;
     }
     energy = unit->getEnergy();
@@ -47,7 +60,7 @@ void MyUnitImpl::update(BWAPI::Unit unit)
         bwapiUnit->getOrder() == BWAPI::Orders::AttackUnit)
     {
         auto cooldown = std::max(unit->getGroundWeaponCooldown(), unit->getAirWeaponCooldown());
-        if (cooldown > 0 && cooldown > (cooldownUntil - BWAPI::Broodwar->getFrameCount() + 1))
+        if (cooldown > 0 && cooldown > (cooldownUntil - currentFrame + 1))
         {
             auto target = Units::get(
                     (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit)
@@ -70,7 +83,7 @@ void MyUnitImpl::update(BWAPI::Unit unit)
         unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Cancel_Train &&
         unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Cancel_Train_Slot &&
         unit->getTrainingQueue().size() > 1 &&
-        unit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))
+        lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
     {
         Log::Get() << "WARNING: Training queue for " << unit->getType() << " @ " << unit->getTilePosition()
                    << " is too deep! Cancelling later units.";
@@ -118,51 +131,68 @@ void MyUnitImpl::attackUnit(const Unit &target,
     if (dist > 320 || !target->bwapiUnit->isVisible())
     {
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(id) << "Attack: Moving to target @ " << BWAPI::WalkPosition(target->lastPosition);
+        CherryVis::log(id) << "Attack: Moving to target @ " << BWAPI::WalkPosition(target->simPosition);
 #endif
-        moveTo(target->lastPosition);
+        moveTo(target->simPosition);
         return;
     }
 
-    // Determine if we should force the attack command
-    // We do this if there is a high likelihood we are moving backwards because of pathing issues
-    bool forceAttackCommand = false;
-    auto predictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
-    if (!predictedPosition.isValid()) predictedPosition = lastPosition;
-    if (bwapiUnit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 6))
-    {
-        forceAttackCommand = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, target->lastPosition) > dist;
-    }
+    auto myPredictedPosition = predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames());
+    auto targetPredictedPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames());
+    auto predictedDist = Geo::EdgeToEdgeDistance(type, myPredictedPosition, target->type, targetPredictedPosition);
+    auto rangeToTarget = range(target);
 
-    // If the target is already in range, just attack it
-    int myRange = range(target);
-    if (dist <= myRange)
+    // Predicted to be in range or target is stationary: attack
+    if (predictedDist <= rangeToTarget || targetPredictedPosition == target->simPosition)
     {
-        attack(target->bwapiUnit, forceAttackCommand);
-        return;
-    }
+        // Re-send the attack command when we are coming into range
+        bool forceAttackCommand = false;
+        if (dist > rangeToTarget && predictedDist <= rangeToTarget && cooldownUntil < (currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames())
+            && bwapiUnit->getLastCommand().type == BWAPI::UnitCommandTypes::Attack_Unit)
+        {
+            // If we recently sent the attack command, check our predicted distance when it will kick in
+            // If we still expect to be in range, we don't need to do anything
+            int lastCommandTakesEffect = lastCommandFrame + BWAPI::Broodwar->getLatencyFrames() - currentFrame;
+            if (lastCommandTakesEffect >= 0)
+            {
+                auto distAtAttackFrame =
+                        (lastCommandTakesEffect == 0)
+                            ? dist
+                            : Geo::EdgeToEdgeDistance(type, predictPosition(lastCommandTakesEffect),
+                                                      target->type, target->predictPosition(lastCommandTakesEffect));
+                if (distAtAttackFrame <= rangeToTarget)
+                {
+#if DEBUG_UNIT_ORDERS
+                    CherryVis::log(id) << "Attack: Attack command effective @ " << lastCommandTakesEffect
+                        << "; dist=" << distAtAttackFrame << "; don't touch";
+#endif
+                    return;
+                }
 
-    // If the target is predicted to be in range shortly, attack it
-    auto predictedTargetPosition = target->predictPosition(BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
-    if (!predictedTargetPosition.isValid()) predictedTargetPosition = target->lastPosition;
-    auto predictedDist = Geo::EdgeToEdgeDistance(type, predictedPosition, target->type, predictedTargetPosition);
-    if (predictedDist <= myRange)
-    {
-        attack(target->bwapiUnit, forceAttackCommand);
-        return;
-    }
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(id) << "Attack: Attack command effective @ " << lastCommandTakesEffect
+                                   << "; dist=" << distAtAttackFrame << "; resend attack command";
+#endif
+            }
+            else
+            {
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(id) << "Attack: Attack command effective @ " << lastCommandTakesEffect
+                                   << "; resending attack command";
+#endif
+            }
 
-    // If the target is stationary or is close and moving towards us, attack it
-    if (predictedTargetPosition == target->lastPosition || (predictedDist <= dist && predictedDist < std::min(myRange + 64, 128)))
-    {
+            // Otherwise force the attack command
+            forceAttackCommand = true;
+        }
+
         attack(target->bwapiUnit, forceAttackCommand);
         return;
     }
 
     // Plot an intercept course
     auto interceptPosition = intercept(target);
-    if (!interceptPosition.isValid()) interceptPosition = target->predictPosition(5);
-    if (!interceptPosition.isValid()) interceptPosition = target->lastPosition;
+    if (!interceptPosition.isValid()) interceptPosition = target->predictPosition(BWAPI::Broodwar->getLatencyFrames() + 2);
 
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(id) << "Attack: Moving to intercept @ " << BWAPI::WalkPosition(interceptPosition);
@@ -174,7 +204,7 @@ bool MyUnitImpl::isReady() const
 {
     // When we have a large army, only micro units every other frame to avoid having commands dropped
     if (BWAPI::Broodwar->self()->supplyUsed() > 250 &&
-        (BWAPI::Broodwar->getFrameCount() % 2) != (id % 2))
+        (currentFrame % 2) != (id % 2))
     {
         return false;
     }
@@ -185,7 +215,7 @@ bool MyUnitImpl::isReady() const
 bool MyUnitImpl::unstick()
 {
     // If we recently sent a command meant to unstick the unit, give it a bit of time to kick in
-    if (unstickUntil > BWAPI::Broodwar->getFrameCount())
+    if (unstickUntil > currentFrame)
     {
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Unstick pending until " << unstickUntil;
@@ -195,16 +225,73 @@ bool MyUnitImpl::unstick()
     }
 
     // If the unit is listed as stuck, send a stop command unless we have done so recently
-    if (bwapiUnit->isStuck() && unstickUntil < (BWAPI::Broodwar->getFrameCount() - 10))
+    if (bwapiUnit->isStuck() && unstickUntil < (currentFrame - 10))
     {
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(id) << "Sending stop command to unstick";
 #endif
 
         stop();
-        unstickUntil = BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames();
+        unstickUntil = currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames();
         return true;
     }
 
     return false;
+}
+
+BWAPI::Position MyUnitImpl::simulatePosition(int frames) const
+{
+    if (!simulatedPositionsUpdated) updateSimulatedPositions();
+
+    return simulatedPositions[frames - 1];
+}
+
+int MyUnitImpl::simulateHeading(int frames) const
+{
+    if (!simulatedPositionsUpdated) updateSimulatedPositions();
+
+    return simulatedHeading[frames - 1];
+}
+
+void MyUnitImpl::updateSimulatedPositions() const
+{
+    simulatedPositionsUpdated = true;
+
+    int x = lastPosition.x;
+    int bwX = x << 8;
+    int y = lastPosition.y;
+    int bwY = y << 8;
+
+    int heading = BWHeading();
+
+    int speed = BWSpeed();
+    double topSpeed = Players::unitTopSpeed(player, type);
+    int bwTopSpeed = Players::unitBWTopSpeed(player, type);
+    if (speed > bwTopSpeed) speed = bwTopSpeed;
+    int acceleration = UnitUtil::Acceleration(type, topSpeed);
+    if (!bwapiUnit->isAccelerating()) acceleration *= -1;
+
+    for (int i=0; i<recentCommands.size(); i++)
+    {
+        // Compute desired heading to move target at this frame
+        int desiredHeading;
+        if (recentCommands[i].type == BWAPI::UnitCommandTypes::Move && recentCommands[i].getTargetPosition().isValid())
+        {
+            desiredHeading = Geo::BWDirection({recentCommands[i].getTargetPosition().x - x, recentCommands[i].getTargetPosition().y - y});
+        }
+        else
+        {
+            desiredHeading = heading;
+        }
+
+        // Simulate movement
+        Geo::BWMovement(bwX, bwY, heading, desiredHeading, type.turnRadius(), speed, acceleration, bwTopSpeed);
+
+        // Assign simulated position and heading
+        x = bwX >> 8;
+        y = bwY >> 8;
+        simulatedPositions[i].x = x;
+        simulatedPositions[i].y = y;
+        simulatedHeading[i] = heading;
+    }
 }

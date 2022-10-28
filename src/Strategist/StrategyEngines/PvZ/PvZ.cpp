@@ -5,12 +5,15 @@
 #include "Strategist.h"
 #include "Players.h"
 #include "Workers.h"
+#include "Opponent.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
+#include "Plays/SpecialTeams/Corsairs.h"
+#include "Plays/SpecialTeams/Elevator.h"
 
 namespace
 {
@@ -29,6 +32,7 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
     plays.emplace_back(std::make_shared<EjectEnemyScout>());
+    plays.emplace_back(std::make_shared<Corsairs>());
     plays.emplace_back(std::make_shared<DefendMyMain>());
 }
 
@@ -45,7 +49,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 #endif
 
         enemyStrategy = newEnemyStrategy;
-        enemyStrategyChanged = BWAPI::Broodwar->getFrameCount();
+        enemyStrategyChanged = currentFrame;
     }
 
     if (ourStrategy != newStrategy)
@@ -84,15 +88,40 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 }
             }
 
-            return (count >= requiredUnitCount && (!requireDragoon || hasDragoon));
+            if (count < requiredUnitCount || (requireDragoon && !hasDragoon)) return false;
+
+            // If the enemy has done a sneak attack recently, don't leave our base until we have built defensive cannons
+            if (currentFrame > 10000) return true; // only relevant in early game
+            auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
+            return sneakAttack > 10000 || Units::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon) >= 2;
         };
 
         switch (ourStrategy)
         {
             case OurStrategy::EarlyGameDefense:
             case OurStrategy::AntiAllIn:
+            {
                 defendOurMain = true;
                 break;
+            }
+            case OurStrategy::AntiSunkenContain:
+            {
+                // Attack when we have +1 and speed
+                defendOurMain = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) == 0 ||
+                                 BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Leg_Enhancements) == 0);
+
+                // Elevator some units out of our main to attack the enemy main
+                {
+                    auto elevatorPlay = getPlay<Elevator>(plays);
+                    if (!elevatorPlay)
+                    {
+                        plays.emplace(beforePlayIt<MainArmyPlay>(plays),
+                                      std::make_shared<Elevator>(true, BWAPI::UnitTypes::Protoss_Zealot));
+                    }
+                }
+
+                break;
+            }
             default:
             {
                 if (!mainArmyPlay)
@@ -138,6 +167,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     updateDefendBasePlays(plays);
+    updateSpecialTeamsPlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 10000);
 }
@@ -158,12 +188,56 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
     int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+    int dtCount = completedUnits[BWAPI::UnitTypes::Protoss_Dark_Templar] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dark_Templar];
+    int corsairCount = Units::countAll(BWAPI::UnitTypes::Protoss_Corsair);
 
     int inProgressCount = Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot)
                           + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon)
-                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dark_Templar);
+                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dark_Templar)
+                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Corsair);
 
     handleGasStealProduction(prioritizedProductionGoals, zealotCount);
+
+    auto buildAntiSneakAttackCannons = [&]()
+    {
+        // Only relevant in early game
+        if (currentFrame > 10000) return;
+
+        // Check if the enemy has done a sneak attack recently
+        auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
+        if (sneakAttack > 10000) return;
+
+        // Build three cannons
+        buildDefensiveCannons(prioritizedProductionGoals, false, 0, 3);
+    };
+
+    auto buildCorsairs = [&]()
+    {
+        // Limit to 5 + 2 for each enemy mutalisk
+        int limit = 5 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) / 2);
+        if (corsairCount >= limit) return false;
+
+        // Always build if we have DTs to force enemy to defend its overlords
+        if (dtCount > 0) return true;
+
+        // Always build if the enemy has air units that can threaten our bases
+        if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Mutalisk)) return true;
+
+        // Don't build if the enemy has defended its overlords
+        auto &grid = Players::grid(BWAPI::Broodwar->enemy());
+        int defendedOverlords = 0;
+        int undefendedOverlords = 0;
+        for (auto &overlord : Units::allEnemyOfType(BWAPI::UnitTypes::Zerg_Overlord))
+        {
+            if (!overlord->lastPositionValid) continue;
+
+            long threat = grid.airThreat(overlord->lastPosition);
+            ((threat == 0) ? undefendedOverlords : defendedOverlords)++;
+        }
+        if (defendedOverlords > undefendedOverlords) return false;
+
+        return true;
+    };
 
     // Main army production
     switch (ourStrategy)
@@ -172,6 +246,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // We start with two-gate zealots until we have more scouting information
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        2);
@@ -194,6 +269,63 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired);
 
+            // We can build anti-sneak-attack cannons when we have started goon range
+            if (Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
+            {
+                CherryVis::setBoardValue("anti-sneak-attack", "started-goon-range");
+                buildAntiSneakAttackCannons();
+            }
+            else
+            {
+                CherryVis::setBoardValue("anti-sneak-attack", "not-started-goon-range");
+            }
+
+            break;
+        }
+
+        case OurStrategy::AntiSunkenContain:
+        {
+            // Cancel goons, goon range
+            cancelTrainingUnits(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon);
+            if (Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
+            {
+                for (const auto &core : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
+                {
+                    if (core->bwapiUnit->isUpgrading())
+                    {
+                        core->bwapiUnit->cancelUpgrade();
+                    }
+                }
+            }
+
+            // Build pure zealots
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE-anticontain",
+                                                                       BWAPI::UnitTypes::Protoss_Zealot,
+                                                                       -1,
+                                                                       -1);
+
+            // Get +1 weapons, then zealot speed
+            upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons);
+            if (Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) ||
+                BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) > 0)
+            {
+                upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements);
+            }
+
+            // Get a shuttle
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) < 1)
+            {
+                prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                               "SE",
+                                                                               BWAPI::UnitTypes::Protoss_Shuttle,
+                                                                               1,
+                                                                               1);
+            }
+
+            // Take one expansion using a shuttle
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Nexus) < 2) takeExpansionWithShuttle(plays);
+
             break;
         }
 
@@ -207,6 +339,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 if (unitCount < 2)
                 {
                     prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                  "SE-fe",
                                                                                   BWAPI::UnitTypes::Protoss_Zealot,
                                                                                   2 - unitCount,
                                                                                   2);
@@ -214,16 +347,21 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE-fe",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1);
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE-fe",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        -1);
 
             // Default upgrades
             handleUpgrades(prioritizedProductionGoals);
+
+            // Build anti-sneak-attack cannons immediately
+            buildAntiSneakAttackCannons();
 
             break;
         }
@@ -238,6 +376,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             if (zealotCount < desiredZealots)
             {
                 prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                              "SE",
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
                                                                               desiredZealots - zealotCount,
                                                                               2);
@@ -247,17 +386,40 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                     desiredZealots - zealotCount,
                                     BWAPI::UnitTypes::Protoss_Zealot.buildTime());
             }
+
+            if (buildCorsairs())
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           "SE",
+                                                                           BWAPI::UnitTypes::Protoss_Corsair,
+                                                                           1,
+                                                                           1);
+            }
+
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1);
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        -1);
 
-            // Only upgrade goon range
+            // Only upgrade goon range and sair damage once we have five
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+
+            // Build anti-sneak-attack cannons on 4 completed units
+            if ((zealotCount + dragoonCount - inProgressCount) >= 4)
+            {
+                CherryVis::setBoardValue("anti-sneak-attack", "enough-units");
+                buildAntiSneakAttackCannons();
+            }
+            else
+            {
+                CherryVis::setBoardValue("anti-sneak-attack", "not-enough-units");
+            }
 
             break;
         }
@@ -286,10 +448,15 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, requiredZealots, higherPriorityCount);
             }
 
+            if (buildCorsairs())
+            {
+                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Corsair, 1, higherPriorityCount, 1);
+            }
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
 
             handleUpgrades(prioritizedProductionGoals);
+            buildAntiSneakAttackCannons();
 
             break;
         }
@@ -324,6 +491,7 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     {
         case OurStrategy::EarlyGameDefense:
         case OurStrategy::AntiAllIn:
+        case OurStrategy::AntiSunkenContain:
         case OurStrategy::Defensive:
             // Don't take our natural if the enemy could be rushing or doing an all-in
             CherryVis::setBoardValue("natural", "wait-defensive");
@@ -397,13 +565,27 @@ void PvZ::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
     upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
     // Cases where we want the upgrade as soon as we start building one of the units
-    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
 
+    // Upgrade observer speed on three gas
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 3)
+    {
+        upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
+    }
+
     defaultGroundUpgrades(prioritizedProductionGoals);
 
-    // TODO: Air upgrades
+    // Air weapon upgrades
+    if (!Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Air_Weapons))
+    {
+        // Keep one level ahead of enemy armor when we have 5 corsairs
+        if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Air_Weapons) <=
+            BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Zerg_Flyer_Carapace))
+        {
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Air_Weapons, BWAPI::UnitTypes::Protoss_Corsair, 5);
+        }
+    }
 }
 
 void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
@@ -417,14 +599,22 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
+    // If the opponent has done a lurker rush recently, build a cannon at the choke to protect our main
+    auto lurkerInMain = Opponent::minValueInPreviousGames("firstLurkerAtOurMain", INT_MAX, 20, 0);
+    if (lurkerInMain < 12000)
+    {
+        buildDefensiveCannons(prioritizedProductionGoals, true, lurkerInMain - 500, 2);
+    }
+
     // Build an observer when we are on two gas or the enemy has lurker tech
     if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
-        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && BWAPI::Broodwar->getFrameCount() > 10000) ||
+        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && currentFrame > 10000) ||
         Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker_Egg) ||
         Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker) ||
         Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Lurker_Aspect))
     {
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 "SE",
                                                                  BWAPI::UnitTypes::Protoss_Observer,
                                                                  1,
                                                                  1);

@@ -13,6 +13,7 @@
 
 #if INSTRUMENTATION_ENABLED
 #define UNWALKABLE_DIRECTION_HEATMAP_ENABLED false
+#define DRAW_COLLISION_VECTORS false
 #endif
 
 namespace Map
@@ -410,7 +411,14 @@ namespace Map
             if (neutral->getType().isCritter()) continue;
             if (neutral->isFlying()) continue;
 
-            updateTileWalkability(neutral->getInitialTilePosition(), neutral->getType().tileSize(), false);
+            // Eggs might not be aligned to tiles, so add any tiles they overlap
+            if (neutral->getType() == BWAPI::UnitTypes::Zerg_Lurker_Egg)
+            {
+                BWAPI::Position bottomRight(neutral->getInitialPosition() + BWAPI::Position(neutral->getType().width(), neutral->getType().height()));
+                updateTileWalkability(neutral->getInitialTilePosition(), BWAPI::TilePosition(bottomRight) - neutral->getInitialTilePosition(), false);
+            } else {
+                updateTileWalkability(neutral->getInitialTilePosition(), neutral->getType().tileSize(), false);
+            }
         }
 
         dumpWalkability();
@@ -420,6 +428,40 @@ namespace Map
     void dumpWalkability()
     {
 #if CHERRYVIS_ENABLED
+#if DRAW_COLLISION_VECTORS
+        // Draw tile collision vectors on first frame only, as they are too intensive to draw every frame
+        if (currentFrame == 0)
+        {
+            for (int y = 0; y < mapHeight; y++)
+            {
+                for (int x = 0; x < mapWidth; x++)
+                {
+                    if (tileCollisionVector[x + y * mapWidth].x == 0 && tileCollisionVector[x + y * mapWidth].y == 0) continue;
+
+                    auto color = CherryVis::DrawColor::Green;
+                    if (tileCollisionVector[x + y * mapWidth].x <= 0 && tileCollisionVector[x + y * mapWidth].y <= 0)
+                    {
+                        color = CherryVis::DrawColor::Red;
+                    }
+                    else if (tileCollisionVector[x + y * mapWidth].x < 0 && tileCollisionVector[x + y * mapWidth].y > 0)
+                    {
+                        color = CherryVis::DrawColor::Yellow;
+                    }
+                    if (tileCollisionVector[x + y * mapWidth].x > 0 && tileCollisionVector[x + y * mapWidth].y < 0)
+                    {
+                        color = CherryVis::DrawColor::Cyan;
+                    }
+                    CherryVis::drawLine(
+                            x * 32 + 16,
+                            y * 32 + 16,
+                            x * 32 + 16 + tileCollisionVector[x + y * mapWidth].x,
+                            y * 32 + 16 + tileCollisionVector[x + y * mapWidth].y,
+                            color);
+                }
+            }
+        }
+#endif
+
         if (!tileWalkabilityUpdated) return;
 
         tileWalkabilityUpdated = false;
@@ -539,7 +581,7 @@ namespace Map
         // Units that affect tile walkability
         // Skip on frame 0, since we handle static neutrals and our base explicitly
         // Skip refineries, since creation of a refinery does not affect tile walkability (there was already a geyser)
-        if (BWAPI::Broodwar->getFrameCount() > 0 && unit->type.isBuilding() && !unit->isFlying && !unit->type.isRefinery())
+        if (currentFrame > 0 && unit->type.isBuilding() && !unit->isFlying && !unit->type.isRefinery())
         {
             if (updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), false))
             {
@@ -555,7 +597,7 @@ namespace Map
     {
         // Update tile walkability for discovered mineral fields
         // TODO: Is this even needed?
-        if (BWAPI::Broodwar->getFrameCount() > 0 && unit->getType().isMineralField())
+        if (currentFrame > 0 && unit->getType().isMineralField())
         {
             if (updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), false))
             {

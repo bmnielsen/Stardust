@@ -14,7 +14,7 @@ namespace
         if (resourceDepot->bwapiUnit->isTraining()) return true;
 
         if (resourceDepot->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
-            (BWAPI::Broodwar->getFrameCount() - resourceDepot->bwapiUnit->getLastCommandFrame() - 1) <= BWAPI::Broodwar->getLatencyFrames())
+            (currentFrame - resourceDepot->lastCommandFrame - 1) <= BWAPI::Broodwar->getLatencyFrames())
         {
             return true;
         }
@@ -98,6 +98,7 @@ void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
             if (!base->resourceDepot->completed) continue;
 
             prioritizedProductionGoals[PRIORITY_WORKERS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                      label,
                                                                       BWAPI::UnitTypes::Protoss_Probe,
                                                                       count,
                                                                       1,

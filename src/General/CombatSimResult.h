@@ -2,6 +2,8 @@
 
 #include "Choke.h"
 
+#include "DebugFlag_CombatSim.h"
+
 class CombatSimResult
 {
 public:
@@ -22,6 +24,10 @@ public:
     double closestReinforcements;
     double reinforcementPercentage;
 
+#if DEBUG_COMBATSIM_CVIS
+    std::unordered_map<std::string, std::vector<int>> unitLog;
+#endif
+
     CombatSimResult(int myUnitCount,
                     int enemyUnitCount,
                     int initialMine,
@@ -29,8 +35,12 @@ public:
                     int finalMine,
                     int finalEnemy,
                     bool enemyHasUndetectedUnits,
-                    Choke *narrowChoke)
-            : frame(BWAPI::Broodwar->getFrameCount())
+                    Choke *narrowChoke
+#if DEBUG_COMBATSIM_CVIS
+            , std::unordered_map<std::string, std::vector<int>> unitLog
+#endif
+)
+            : frame(currentFrame)
             , myUnitCount(myUnitCount)
             , enemyUnitCount(enemyUnitCount)
             , initialMine(initialMine)
@@ -42,9 +52,17 @@ public:
             , distanceFactor(-1.0)
             , aggression(-1.0)
             , closestReinforcements(-1.0)
-            , reinforcementPercentage(-1.0) {}
+            , reinforcementPercentage(-1.0)
+#if DEBUG_COMBATSIM_CVIS
+            , unitLog(std::move(unitLog))
+#endif
+            {}
 
+#if DEBUG_COMBATSIM_CVIS
+    CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0, false, nullptr, std::unordered_map<std::string, std::vector<int>>()) {};
+#else
     CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0, false, nullptr) {};
+#endif
 
     // What percentage of my army value was lost during the sim
     [[nodiscard]] double myPercentLost() const;

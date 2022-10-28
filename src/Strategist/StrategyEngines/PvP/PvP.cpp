@@ -7,6 +7,7 @@
 #include "Strategist.h"
 #include "Workers.h"
 #include "Opponent.h"
+#include "OpponentEconomicModel.h"
 
 #include "Plays/Macro/HiddenBase.h"
 #include "Plays/Macro/SaturateBases.h"
@@ -15,7 +16,6 @@
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
 #include "Plays/Defensive/AntiCannonRush.h"
-#include "Plays/SpecialTeams/DarkTemplarHarass.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define OUTPUT_DETECTION_DEBUG false
@@ -32,11 +32,30 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
     plays.emplace_back(std::make_shared<EjectEnemyScout>());
     plays.emplace_back(std::make_shared<DefendMyMain>());
-    //plays.emplace_back(std::make_shared<HiddenBase>());
+    plays.emplace_back(std::make_shared<HiddenBase>());
 }
 
 void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 {
+    if (OpponentEconomicModel::enabled())
+    {
+        CherryVis::setBoardValue(
+                "modelled-earliest-dt",
+                (std::ostringstream() << OpponentEconomicModel::earliestUnitProductionFrame(BWAPI::UnitTypes::Protoss_Dark_Templar)).str());
+        CherryVis::setBoardValue(
+                "modelled-earliest-nexus",
+                (std::ostringstream() << OpponentEconomicModel::earliestUnitProductionFrame(BWAPI::UnitTypes::Protoss_Nexus)).str());
+        auto zealots = OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot);
+        auto dragoons = OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Dragoon);
+
+        CherryVis::setBoardValue(
+                "modelled-zealots-now",
+                (std::ostringstream() << "[" << zealots.first << "," << zealots.second << "]").str());
+        CherryVis::setBoardValue(
+                "modelled-dragoons-now",
+                (std::ostringstream() << "[" << dragoons.first << "," << dragoons.second << "]").str());
+    }
+
     auto newEnemyStrategy = recognizeEnemyStrategy();
     auto newStrategy = chooseOurStrategy(newEnemyStrategy, plays);
 
@@ -48,7 +67,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 #endif
 
         enemyStrategy = newEnemyStrategy;
-        enemyStrategyChanged = BWAPI::Broodwar->getFrameCount();
+        enemyStrategyChanged = currentFrame;
     }
 
     if (ourStrategy != newStrategy)
@@ -72,6 +91,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         {
             case OurStrategy::EarlyGameDefense:
             case OurStrategy::AntiZealotRush:
+            case OurStrategy::AntiDarkTemplarRush:
             case OurStrategy::Defensive:
                 defendOurMain = true;
                 break;
@@ -100,11 +120,17 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     break;
                 }
 
-                // Always use a defend play if the squad has no units or we have no obs to counter DTs
+                // Always use a defend play if the squad has no units
                 auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                if (!vanguard
-                    || (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0
-                        && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0))
+                if (!vanguard)
+                {
+                    defendOurMain = true;
+                    break;
+                }
+
+                // Use a defend play if the enemy has dark templar and our army has no observers
+                if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0 &&
+                    mainArmyPlay->getSquad()->getDetectors().empty())
                 {
                     defendOurMain = true;
                     break;
@@ -153,7 +179,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     updateAttackPlays(plays, defendOurMain);
 
     // Ensure we have an anti cannon rush play if the enemy strategy warrants it
-    if (BWAPI::Broodwar->getFrameCount() < 4000)
+    if (currentFrame < 4000)
     {
         // If we've detected a proxy, keep track of whether we have identified it as a zealot rush
         // Once we've either seen the proxied gateway or a zealot, we assume the enemy isn't doing a "proxy" cannon rush
@@ -164,7 +190,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         if (enemyStrategy == ProtossStrategy::EarlyForge ||
             (enemyStrategy == ProtossStrategy::ProxyRush && !zealotProxy) ||
             enemyStrategy == ProtossStrategy::BlockScouting ||
-            (enemyStrategy == ProtossStrategy::Unknown && BWAPI::Broodwar->getFrameCount() > 2000))
+            (enemyStrategy == ProtossStrategy::Unknown && currentFrame > 2000))
         {
             if (!antiCannonRushPlay)
             {
@@ -173,26 +199,13 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         }
         else if (antiCannonRushPlay && (
                 enemyStrategy == ProtossStrategy::FastExpansion
-                || enemyStrategy == ProtossStrategy::OneGateCore
+                || enemyStrategy == ProtossStrategy::NoZealotCore
+                || enemyStrategy == ProtossStrategy::OneZealotCore
                 || enemyStrategy == ProtossStrategy::ZealotRush
                 || enemyStrategy == ProtossStrategy::TwoGate
                 || zealotProxy))
         {
             antiCannonRushPlay->safeEnemyStrategyDetermined = true;
-        }
-    }
-
-    // Ensure we have a DarkTemplarHarass play if we have any DTs
-    {
-        auto darkTemplarHarassPlay = getPlay<DarkTemplarHarass>(plays);
-        bool haveDarkTemplar = Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0;
-        if (darkTemplarHarassPlay && !haveDarkTemplar)
-        {
-            darkTemplarHarassPlay->status.complete = true;
-        }
-        else if (haveDarkTemplar && !darkTemplarHarassPlay)
-        {
-            plays.emplace_back(std::make_shared<DarkTemplarHarass>());
         }
     }
 
@@ -210,14 +223,13 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 case ProtossStrategy::WorkerRush:
                 case ProtossStrategy::ProxyRush:
                 case ProtossStrategy::BlockScouting:
-                    break;
                 case ProtossStrategy::ZealotRush:
                 case ProtossStrategy::TwoGate:
                 case ProtossStrategy::ZealotAllIn:
-                    play->monitorEnemyChoke();
-                    break;
                 case ProtossStrategy::EarlyForge:
-                case ProtossStrategy::OneGateCore:
+                case ProtossStrategy::NoZealotCore:
+                case ProtossStrategy::OneZealotCore:
+                    break;
                 case ProtossStrategy::FastExpansion:
                 case ProtossStrategy::DragoonAllIn:
                 case ProtossStrategy::DarkTemplarRush:
@@ -231,6 +243,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     updateDefendBasePlays(plays);
+    updateSpecialTeamsPlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 15000);
 }
@@ -283,6 +296,31 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             break;
         }
 
+        case OurStrategy::AntiDarkTemplarRush:
+        {
+            // handleDetection takes care of ordering cannons and obs
+
+            // Expand to our hidden base
+            auto hiddenBasePlay = getPlay<HiddenBase>(plays);
+            if (hiddenBasePlay && hiddenBasePlay->base->ownedSince == -1)
+            {
+                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(hiddenBasePlay->base->getTilePosition()),
+                                                                      0, 0, 0);
+                prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "SE-antidt",
+                                                                         BWAPI::UnitTypes::Protoss_Nexus,
+                                                                         buildLocation);
+            }
+
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+
+            break;
+        }
+
         case OurStrategy::FastExpansion:
         {
             oneGateCoreOpening(prioritizedProductionGoals, dragoonCount, zealotCount, 0);
@@ -297,10 +335,17 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::Normal:
         {
             int desiredZealots = 1;
-            if (enemyStrategy == ProtossStrategy::BlockScouting)
+
+            // Modify desired zealots based on detected enemy strategy
+            if (enemyStrategy == ProtossStrategy::NoZealotCore)
+            {
+                desiredZealots = 0;
+            }
+            else if (enemyStrategy == ProtossStrategy::BlockScouting)
             {
                 desiredZealots = 3;
             }
+            
             oneGateCoreOpening(prioritizedProductionGoals, dragoonCount, zealotCount, desiredZealots);
 
             // Default upgrades
@@ -308,6 +353,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             break;
         }
+
         case OurStrategy::MidGame:
         {
             // Have a couple of DTs on hand if we have a templar archives and the enemy hasn't built mobile detection
@@ -317,6 +363,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory))
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "SE-nodetect",
                                                                          BWAPI::UnitTypes::Protoss_Dark_Templar,
                                                                          2 - dtCount,
                                                                          2);
@@ -325,8 +372,15 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             // Baseline production is one combat unit for every 6 workers (approximately 3 units per mining base)
             int higherPriorityCount = (Workers::mineralWorkers() / 6) - inProgressCount;
 
+            // Prefer goons
             mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
-            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
+
+            // Build zealots at lowest priority
+            prioritizedProductionGoals[PRIORITY_LOWEST].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     "SE",
+                                                                     BWAPI::UnitTypes::Protoss_Zealot,
+                                                                     -1,
+                                                                     -1);
 
             // Default upgrades
             handleUpgrades(prioritizedProductionGoals);
@@ -341,6 +395,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             if (dtCount < 2)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "SE",
                                                                          BWAPI::UnitTypes::Protoss_Dark_Templar,
                                                                          2 - dtCount,
                                                                          2,
@@ -350,6 +405,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1,
@@ -368,12 +424,35 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                  std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    // Hop out if the natural has already been taken
+    // Hop out if the natural has already been taken and the nexus is completed
     auto natural = Map::getMyNatural();
-    if (!natural || natural->ownedSince != -1)
+    if (!natural)
     {
-        CherryVis::setBoardValue("natural", "complete");
+        CherryVis::setBoardValue("natural", "no-natural-base");
         return;
+    }
+
+    bool underConstruction = false;
+    if (natural->ownedSince != -1)
+    {
+        if (natural->resourceDepot && !natural->resourceDepot->completed)
+        {
+            underConstruction = true;
+        }
+        else
+        {
+            CherryVis::setBoardValue("natural", "complete");
+            return;
+        }
+    }
+    else
+    {
+        // Hop out if we have taken a different base
+        if (Map::getMyBases().size() > 1)
+        {
+            CherryVis::setBoardValue("natural", "complete-taken-other");
+            return;
+        }
     }
 
     // If we have a backdoor natural, expand if we are gas blocked
@@ -391,10 +470,15 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         }
     }
 
+    auto hiddenBasePlay = getPlay<HiddenBase>(plays);
+
+    bool cancel = true;
+    bool buildProbes = false;
     switch (ourStrategy)
     {
         case OurStrategy::EarlyGameDefense:
         case OurStrategy::AntiZealotRush:
+        case OurStrategy::AntiDarkTemplarRush:
         case OurStrategy::Defensive:
             // Don't take our natural if the enemy could be rushing or doing an all-in
             CherryVis::setBoardValue("natural", "wait-defensive");
@@ -411,9 +495,25 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // In this case we want to expand when we consider it safe to do so: we have an attacking or containing army
             // that is close to the enemy base
 
+            // Check for an attack play first - if we don't have one, we will cancel a constructing natural nexus
+            auto mainArmyPlay = getPlay<AttackEnemyBase>(plays);
+            if (!mainArmyPlay)
+            {
+                CherryVis::setBoardValue("natural", "no-attack-play");
+                break;
+            }
+
+            // From here we never cancel an already-constructing nexus
+            if (underConstruction)
+            {
+                CherryVis::setBoardValue("natural", "take");
+                takeNaturalExpansion(plays, prioritizedProductionGoals);
+                return;
+            }
+
             // We never expand before frame 10000 (12000 if the enemy is doing a dragoon all-in) unless the enemy has done so
             // or is doing an opening that will not give immediate pressure
-            if (BWAPI::Broodwar->getFrameCount() < (enemyStrategy == ProtossStrategy::DragoonAllIn ? 12000 : 10000) &&
+            if (currentFrame < (enemyStrategy == ProtossStrategy::DragoonAllIn ? 12000 : 10000) &&
                 Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) < 2 &&
                 enemyStrategy != ProtossStrategy::EarlyRobo &&
                 enemyStrategy != ProtossStrategy::Turtle)
@@ -422,12 +522,9 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 break;
             }
 
-            auto mainArmyPlay = getPlay<AttackEnemyBase>(plays);
-            if (!mainArmyPlay)
-            {
-                CherryVis::setBoardValue("natural", "no-attack-play");
-                break;
-            }
+            // We expect to want to take our natural soon, so build probes
+            // Exception if we might want to take our hidden base
+            buildProbes = (hiddenBasePlay == nullptr);
 
             auto squad = mainArmyPlay->getSquad();
             if (!squad || squad->getUnits().size() < 5)
@@ -452,6 +549,20 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 break;
             }
 
+            // Get an observatory before expanding
+//            if (Units::countAll(BWAPI::UnitTypes::Protoss_Observatory) < 1)
+//            {
+//                // TODO: When producer can handle requesting a building, request the observatory instead
+//                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+//                                                                         "SE-safeexpand",
+//                                                                         BWAPI::UnitTypes::Protoss_Observer,
+//                                                                         1,
+//                                                                         1);
+//
+//                CherryVis::setBoardValue("natural", "wait-for-obs");
+//                break;
+//            }
+
             // Always expand in this situation if we are gas blocked
             if (BWAPI::Broodwar->self()->minerals() > 500 && BWAPI::Broodwar->self()->gas() < 100)
             {
@@ -468,12 +579,13 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                         || vanguardCluster->currentSubActivity == UnitCluster::SubActivity::StandGround)))
             {
                 // We don't cancel a queued expansion in this case
+                cancel = false;
                 CherryVis::setBoardValue("natural", "vanguard-cluster-not-attacking");
-                return;
+                break;
             }
 
             // If the cluster is attacking, it should be significantly closer to the enemy main, unless we are past frame 12500
-            if (BWAPI::Broodwar->getFrameCount() < 12500 &&
+            if (currentFrame < 12500 &&
                 vanguardCluster->currentActivity == UnitCluster::Activity::Attacking &&
                 vanguardCluster->percentageToEnemyMain < 0.7)
             {
@@ -487,6 +599,16 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::DTExpand:
         {
+            // We never cancel an already-constructing nexus
+            if (underConstruction)
+            {
+                CherryVis::setBoardValue("natural", "take");
+                takeNaturalExpansion(plays, prioritizedProductionGoals);
+                return;
+            }
+
+            buildProbes = true;
+
             // Take our natural as soon as the army has moved beyond it
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
@@ -523,7 +645,6 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee)
             {
                 CherryVis::setBoardValue("natural", "vanguard-fleeing");
-
                 break;
             }
 
@@ -533,20 +654,36 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         }
     }
 
-    cancelNaturalExpansion(plays, prioritizedProductionGoals);
+    if (cancel) cancelNaturalExpansion(plays, prioritizedProductionGoals);
 
     // Take our hidden base expansion in cases where we have been prevented from taking our natural
-    if (BWAPI::Broodwar->getFrameCount() > 14000)
+    // It is queued at lowest priority so it will only be taken if we have an excess of minerals
+    if (currentFrame > 12000)
     {
-        auto hiddenBasePlay = getPlay<HiddenBase>(plays);
         if (hiddenBasePlay && hiddenBasePlay->base->ownedSince == -1)
         {
             auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(hiddenBasePlay->base->getTilePosition()),
                                                                   0, 0, 0);
-            prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+            prioritizedProductionGoals[PRIORITY_LOWEST].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     "SE-hiddenbase",
                                                                      BWAPI::UnitTypes::Protoss_Nexus,
                                                                      buildLocation);
 
+        }
+    }
+
+    // If requested, build up to 10 probes for our natural
+    // They are queued at lowest priority, so will not interfere with army production
+    if (buildProbes)
+    {
+        auto idleWorkers = Workers::idleWorkerCount();
+        if (idleWorkers < 10)
+        {
+            prioritizedProductionGoals[PRIORITY_LOWEST].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     "SE",
+                                                                     BWAPI::UnitTypes::Protoss_Probe,
+                                                                     10 - idleWorkers,
+                                                                     1);
         }
     }
 }
@@ -561,8 +698,8 @@ void PvP::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
 
-    // Upgrade observer speed on two gas
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 2)
+    // Upgrade observer speed on three gas
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 3)
     {
         upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
     }
@@ -600,7 +737,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
             return UnitUtil::BuildTime(buildingType);
         }
 
-        return earliestCompletion - BWAPI::Broodwar->getFrameCount();
+        return earliestCompletion - currentFrame;
     };
 
     auto buildObserver = [&](int frameNeeded = 0)
@@ -621,128 +758,24 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
             }
 
             // TODO: When the Producer understands to build something at a specific frame, use that
-            if ((BWAPI::Broodwar->getFrameCount() + 500) < frameStarted) return;
+            if ((currentFrame + 500) < frameStarted) return;
         }
 
         auto priority = Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0
                         ? PRIORITY_EMERGENCY
                         : PRIORITY_NORMAL;
         prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                          "SE-detection",
                                                           BWAPI::UnitTypes::Protoss_Observer,
                                                           1,
                                                           1);
-    };
-
-    auto buildCannon = [&](int frameNeeded = 0, bool alsoAtBases = false)
-    {
-        auto buildCannonAt = [&](BWAPI::TilePosition pylonTile, BWAPI::TilePosition cannonTile)
-        {
-            if (!pylonTile.isValid()) return;
-            if (!cannonTile.isValid()) return;
-
-            // If we know what frame the cannon is needed, check if we need to start building it now
-            if (frameNeeded > 0)
-            {
-                int frameStarted = frameNeeded - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
-                if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Forge) == 0)
-                {
-                    frameStarted -= framesNeededFor(BWAPI::UnitTypes::Protoss_Forge);
-                }
-                else if (!Units::myBuildingAt(pylonTile))
-                {
-                    frameStarted -= UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
-                }
-
-                // TODO: When the Producer understands to build something at a specific frame, use that
-                if ((BWAPI::Broodwar->getFrameCount() + 500) < frameStarted) return;
-            }
-
-            auto buildAtTile = [&prioritizedProductionGoals](BWAPI::TilePosition tile, BWAPI::UnitType type)
-            {
-                if (Units::myBuildingAt(tile) != nullptr) return;
-                if (Builder::isPendingHere(tile)) return;
-
-                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
-                auto priority = Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0
-                                ? PRIORITY_EMERGENCY
-                                : PRIORITY_NORMAL;
-                prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                  type,
-                                                                  buildLocation);
-            };
-
-            auto pylon = Units::myBuildingAt(pylonTile);
-            if (pylon && pylon->completed)
-            {
-                buildAtTile(cannonTile, BWAPI::UnitTypes::Protoss_Photon_Cannon);
-            }
-            else
-            {
-                buildAtTile(pylonTile, BWAPI::UnitTypes::Protoss_Pylon);
-            }
-        };
-
-        // Get the cannon location
-        auto cannonLocations = BuildingPlacement::mainChokeCannonLocations();
-        MyUnit chokeCannon = nullptr;
-        if (cannonLocations.first != BWAPI::TilePositions::Invalid)
-        {
-            chokeCannon = Units::myBuildingAt(cannonLocations.second);
-            if (!chokeCannon)
-            {
-                buildCannonAt(cannonLocations.first, cannonLocations.second);
-            }
-        }
-        else
-        {
-            alsoAtBases = true;
-        }
-
-        if (alsoAtBases)
-        {
-            auto buildAtBase = [&buildCannonAt](Base *base, int count = 1)
-            {
-                if (!base || base->owner != BWAPI::Broodwar->self()) return;
-
-                auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-                if (baseStaticDefenseLocations.first != BWAPI::TilePositions::Invalid)
-                {
-                    for (const auto &location : baseStaticDefenseLocations.second)
-                    {
-                        if (count < 1) break;
-
-                        if (Units::myBuildingAt(location))
-                        {
-                            count--;
-                            continue;
-                        }
-
-                        buildCannonAt(baseStaticDefenseLocations.first, location);
-                        return;
-                    }
-                }
-            };
-
-            if (!chokeCannon || !chokeCannon->completed)
-            {
-                buildAtBase(Map::getMyMain());
-            }
-            if (!Map::mapSpecificOverride()->hasBackdoorNatural())
-            {
-                buildAtBase(Map::getMyNatural(), 2);
-            }
-            if (chokeCannon && chokeCannon->completed)
-            {
-                buildAtBase(Map::getMyMain());
-            }
-        }
     };
 
     // If the enemy is known to have produced a DT, get a cannon and observer
     if (enemyStrategy == ProtossStrategy::DarkTemplarRush ||
         Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Dark_Templar))
     {
-        buildCannon(0, true);
+        buildDefensiveCannons(prioritizedProductionGoals, true, 0, 1);
         buildObserver();
         CherryVis::setBoardValue("detection", "emergency-build-cannon-and-observer");
         return;
@@ -750,7 +783,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
 
     // Get an observer when we have a second gas
     if ((Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
-        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && BWAPI::Broodwar->getFrameCount() > 10000))
+        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && currentFrame > 10000))
         && Strategist::pressure() < 0.4)
     {
         CherryVis::setBoardValue("detection", "macro-build-observer");
@@ -778,9 +811,9 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         }
 
         // Add some frame stops to ensure we don't build a cannon while the enemy is still producing zealots
-        if ((BWAPI::Broodwar->getFrameCount() < 7000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 8) ||
-            (BWAPI::Broodwar->getFrameCount() < 8000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 10) ||
-            (BWAPI::Broodwar->getFrameCount() < 9000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 12))
+        if ((currentFrame < 7000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 8) ||
+            (currentFrame < 8000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 10) ||
+            (currentFrame < 9000 && Units::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Zealot).size() >= 12))
         {
             CherryVis::setBoardValue("detection", "anti-zealot-rush");
             return;
@@ -792,13 +825,13 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
                           enemyStrategy == ProtossStrategy::ZealotRush ||
                           enemyStrategy == ProtossStrategy::ZealotAllIn
                           || (enemyStrategy == ProtossStrategy::TwoGate && Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) > 5);
-    if ((enemyStrategy == ProtossStrategy::EarlyForge && BWAPI::Broodwar->getFrameCount() < 6000)
-        || (zealotStrategy && BWAPI::Broodwar->getFrameCount() < 6500)
-        || (zealotStrategy && Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) > 1 && BWAPI::Broodwar->getFrameCount() < 9000)
-        || (enemyStrategy == ProtossStrategy::DragoonAllIn && BWAPI::Broodwar->getFrameCount() < 8000)
-        || (enemyStrategy == ProtossStrategy::EarlyRobo && BWAPI::Broodwar->getFrameCount() < 8000)
-        || (enemyStrategy == ProtossStrategy::FastExpansion && BWAPI::Broodwar->getFrameCount() < 7000)
-        || (enemyStrategy == ProtossStrategy::Turtle && BWAPI::Broodwar->getFrameCount() < 8000))
+    if ((enemyStrategy == ProtossStrategy::EarlyForge && currentFrame < 6000)
+        || (zealotStrategy && currentFrame < 6500)
+        || (zealotStrategy && Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) > 1 && currentFrame < 9000)
+        || (enemyStrategy == ProtossStrategy::DragoonAllIn && currentFrame < 8000)
+        || (enemyStrategy == ProtossStrategy::EarlyRobo && currentFrame < 8000)
+        || (enemyStrategy == ProtossStrategy::FastExpansion && currentFrame < 7000)
+        || (enemyStrategy == ProtossStrategy::Turtle && currentFrame < 8000))
     {
         CherryVis::setBoardValue("detection", "strategy-exception");
         return;
@@ -808,16 +841,21 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     // We assume worst case until we have at least 10 games played against the opponent
     // If we have never lost to the opponent, we continue playing conservatively even if we have never seen a DT
     int expectedCompletionFrame = 7300;
+    if (OpponentEconomicModel::enabled())
+    {
+        expectedCompletionFrame = OpponentEconomicModel::earliestUnitProductionFrame(BWAPI::UnitTypes::Protoss_Dark_Templar)
+                + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar);
+    }
     if (Opponent::winLossRatio(0.0, 200) < 0.99)
     {
-        expectedCompletionFrame = Opponent::minValueInPreviousGames("firstDarkTemplarCompleted", 7300, 15, 10);
+        expectedCompletionFrame = Opponent::minValueInPreviousGames("firstDarkTemplarCompleted", expectedCompletionFrame, 15, 10);
     }
 
     // If we haven't found the enemy main, be conservative and assume we might see DTs 500 frames after earliest completion
     auto enemyMain = Map::getEnemyMain();
     if (!enemyMain)
     {
-        buildCannon(expectedCompletionFrame + 500);
+        buildDefensiveCannons(prioritizedProductionGoals, true, expectedCompletionFrame + 500);
         CherryVis::setBoardValue("detection", "cannon-at-worst-case");
         return;
     }
@@ -856,7 +894,8 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     int closestGatewayFrames = PathFinding::ExpectedTravelTime(enemyMain->getPosition(),
                                                                myPosition,
                                                                BWAPI::UnitTypes::Protoss_Dark_Templar,
-                                                               PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                                                               PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                               1.1);
     for (const auto &unit : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Gateway))
     {
         if (!unit->completed) continue;
@@ -865,6 +904,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
                                                      myPosition,
                                                      BWAPI::UnitTypes::Protoss_Dark_Templar,
                                                      PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                     1.1,
                                                      -1);
         if (frames != -1 && frames < closestGatewayFrames)
         {
@@ -880,15 +920,16 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
 
     // Now sum everything up to get the frame where we need detection
     int frame = expectedCompletionFrame + closestGatewayFrames;
+    if (frame < 0) return;
     if (templarArchiveTimings.empty())
     {
-        buildCannon(frame);
+        buildDefensiveCannons(prioritizedProductionGoals, true, frame);
         CherryVis::setBoardValue("detection", (std::ostringstream() << "cannon-at-" << frame).str());
     }
     else
     {
         buildObserver(frame);
-        buildCannon(frame, true);
+        buildDefensiveCannons(prioritizedProductionGoals, true,frame, 1);
         CherryVis::setBoardValue("detection", (std::ostringstream() << "cannon-and-observer-at-" << frame).str());
     }
 }

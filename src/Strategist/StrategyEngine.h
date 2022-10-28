@@ -30,7 +30,7 @@ public:
     template<class T>
     static T *getPlay(std::vector<std::shared_ptr<Play>> &plays)
     {
-        for (auto &play : plays)
+        for (auto &play: plays)
         {
             if (auto match = std::dynamic_pointer_cast<T>(play))
             {
@@ -40,6 +40,20 @@ public:
 
         return nullptr;
     }
+
+    template<class T>
+    static auto beforePlayIt(std::vector<std::shared_ptr<Play>> &plays)
+    {
+        auto it = plays.begin();
+        for (; it != plays.end(); it++)
+        {
+            if (std::dynamic_pointer_cast<T>(*it) != nullptr)
+            {
+                break;
+            }
+        }
+        return it;
+    };
 
 protected:
     static bool hasEnemyStolenOurGas();
@@ -68,7 +82,8 @@ protected:
     static void mainArmyProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                    BWAPI::UnitType unitType,
                                    int count,
-                                   int &highPriorityCount);
+                                   int &highPriorityCount,
+                                   int producerLimit = -1);
 
     static void upgradeAtCount(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                UpgradeOrTechType upgradeOrTechType,
@@ -84,6 +99,11 @@ protected:
 
     static void defaultGroundUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
+    static void upgrade(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                        UpgradeOrTechType upgradeOrTechType,
+                        int level = 1,
+                        int priority = PRIORITY_NORMAL);
+
     static void defaultExpansions(std::vector<std::shared_ptr<Play>> &plays);
 
     static void takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
@@ -92,11 +112,20 @@ protected:
     static void cancelNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                        std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
+    static void takeExpansionWithShuttle(std::vector<std::shared_ptr<Play>> &plays);
+
     static void scoutExpos(std::vector<std::shared_ptr<Play>> &plays, int startingFrame);
 
     static void updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &plays);
 
     static void updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays, bool defendOurMain);
 
+    static void updateSpecialTeamsPlays(std::vector<std::shared_ptr<Play>> &plays);
+
     static void reserveMineralsForExpansion(std::vector<std::pair<int, int>> &mineralReservations);
+
+    static void buildDefensiveCannons(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                      bool atChoke = true,
+                                      int frameNeeded = 0,
+                                      int atBases = 0);
 };

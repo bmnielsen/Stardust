@@ -49,6 +49,8 @@ public:
 
     std::set<MyUnit>::iterator removeUnit(std::set<MyUnit>::iterator unitIt, BWAPI::Position targetPosition);
 
+    bool hasUnitType(BWAPI::UnitType type) const;
+
     void updatePositions(BWAPI::Position targetPosition);
 
     void setActivity(Activity newActivity, SubActivity newSubActivity = SubActivity::None);
@@ -83,7 +85,7 @@ public:
 
     void flee(std::set<Unit> &enemyUnits);
 
-    bool moveAsBall(BWAPI::Position targetPosition);
+    bool moveAsBall(BWAPI::Position targetPosition, std::set<MyUnit> &ballUnits) const;
 
     bool formArc(BWAPI::Position pivot, int desiredDistance);
 
@@ -97,6 +99,8 @@ public:
     void addSimResult(CombatSimResult &simResult, bool attack);
 
     void addRegroupSimResult(CombatSimResult &simResult, bool contain);
+
+    void addInstrumentation(nlohmann::json &clusterArray) const;
 
     // This returns the number of consecutive frames the sim has agreed on its current value.
     // It also returns the total number of attack and regroup frames within the window.

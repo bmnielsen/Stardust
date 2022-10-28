@@ -5,6 +5,22 @@
 #include "Units.h"
 #include "Players.h"
 #include "Geo.h"
+#include "UnitUtil.h"
+
+namespace
+{
+    // Moves the scout, respecting its halt distance. Probably doesn't work well for non-flying units currently.
+    void scoutMove(const MyUnit &scout, BWAPI::Position pos)
+    {
+        // Always move towards a position at least halt distance away
+        auto scaledVector = Geo::ScaleVector(pos - scout->lastPosition, UnitUtil::HaltDistance(scout->type) + 16);
+
+        // Move to the scaled position if it is valid, otherwise use the position directly
+        auto scaledPos = (scaledVector == BWAPI::Positions::Invalid) ? pos : scout->lastPosition + scaledVector;
+        if (!scaledPos.isValid()) scaledPos = pos;
+        scout->moveTo(scaledPos);
+    }
+}
 
 void ScoutEnemyExpos::update()
 {
@@ -12,7 +28,7 @@ void ScoutEnemyExpos::update()
     if (scout && !scout->exists()) scout = nullptr;
 
     // Clear the target base if it has been scouted
-    if (targetBase && (targetBase->owner != nullptr || (BWAPI::Broodwar->getFrameCount() - targetBase->lastScouted) < 1000))
+    if (targetBase && (targetBase->owner != nullptr || (currentFrame - targetBase->lastScouted) < 1000))
     {
         targetBase = nullptr;
     }
@@ -31,7 +47,7 @@ void ScoutEnemyExpos::update()
         int scoreFactor = 0;
         auto handleBase = [&](Base *base)
         {
-            int framesSinceScouted = BWAPI::Broodwar->getFrameCount() - base->lastScouted;
+            int framesSinceScouted = currentFrame - base->lastScouted;
             scoreFactor++;
 
             double score = (double) framesSinceScouted / (double) scoreFactor;
@@ -104,7 +120,7 @@ void ScoutEnemyExpos::update()
     // This is a quick hack to prevent us from searching for non-existant paths every frame and timing out
     if (!usingSearchPath)
     {
-        scout->moveTo(targetBase->getPosition());
+        scoutMove(scout, targetBase->getPosition());
 
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(scout->id) << "Scout: target directly to scout tile " << BWAPI::WalkPosition(targetPos);
@@ -141,7 +157,7 @@ void ScoutEnemyExpos::update()
 
         if (nearestThreat)
         {
-            auto scaledVector = Geo::ScaleVector(scout->lastPosition - nearestThreat->lastPosition, 96);
+            auto scaledVector = Geo::ScaleVector(scout->lastPosition - nearestThreat->lastPosition, UnitUtil::HaltDistance(scout->type) + 16);
             if (scaledVector.isValid())
             {
                 scout->moveTo(scout->lastPosition + scaledVector);
@@ -163,10 +179,10 @@ void ScoutEnemyExpos::update()
 
     auto path = PathFinding::Search(scout->getTilePosition(), tile, avoidThreatTiles);
 
-    if (path.size() < 5)
+    if (path.size() < 3)
     {
         usingSearchPath = false;
-        scout->moveTo(targetBase->getPosition());
+        scoutMove(scout, targetBase->getPosition());
 
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(scout->id) << "Scout: target directly to scout tile " << BWAPI::WalkPosition(targetPos);
@@ -174,7 +190,7 @@ void ScoutEnemyExpos::update()
     }
     else
     {
-        scout->moveTo(BWAPI::Position(path[4]) + BWAPI::Position(16, 16));
+        scoutMove(scout, BWAPI::Position(path[2]) + BWAPI::Position(16, 16));
 
 #if DEBUG_UNIT_ORDERS
         CherryVis::log(scout->id) << "Scout: target next path waypoint "
@@ -197,7 +213,11 @@ void ScoutEnemyExpos::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             continue;
         }
 
-        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>, BWAPI::UnitTypes::Protoss_Observer, 1, 1);
+        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 label,
+                                                                 BWAPI::UnitTypes::Protoss_Observer,
+                                                                 1,
+                                                                 1);
     }
 }
 

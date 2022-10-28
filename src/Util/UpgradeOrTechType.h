@@ -22,7 +22,11 @@ public:
 
     BWAPI::UnitType whatUpgradesOrResearches() const;
 
+    BWAPI::UnitType whatsRequired() const;
+
     int currentLevel() const;
+
+    int maxLevel() const;
 
     bool operator==(const UpgradeOrTechType &other);
 };

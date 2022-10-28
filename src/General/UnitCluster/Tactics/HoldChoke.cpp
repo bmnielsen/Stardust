@@ -49,6 +49,7 @@ void UnitCluster::holdChoke(Choke *choke,
         if (!target) continue;
 
         auto &myUnit = unitAndTarget.first;
+        if (myUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
         // TODO: Check if the unit is in position
 
@@ -145,7 +146,7 @@ void UnitCluster::holdChoke(Choke *choke,
         {
             // If on cooldown, attack to activate kiting logic if in the target's range and on the same side
             // Otherwise fall through to choke boids
-            if (myUnit->cooldownUntil > (BWAPI::Broodwar->getFrameCount() + BWAPI::Broodwar->getRemainingLatencyFrames() + 2))
+            if (myUnit->cooldownUntil > (currentFrame + BWAPI::Broodwar->getRemainingLatencyFrames() + 2))
             {
                 return myUnit->isInEnemyWeaponRange(target, 64) && inSameSide(myUnit, target);
             }
@@ -162,6 +163,7 @@ void UnitCluster::holdChoke(Choke *choke,
     for (const auto &unitAndTarget : unitsAndTargets)
     {
         auto &myUnit = unitAndTarget.first;
+        if (myUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
         // If the unit is stuck, unstick it
         if (myUnit->unstick()) continue;
@@ -256,7 +258,7 @@ void UnitCluster::holdChoke(Choke *choke,
             {
                 // Unit is in its target's attack range
                 targetPos = unitAndTarget.second->lastPosition;
-                distDiff = myUnit->getDistance(unitAndTarget.second)
+                distDiff = myUnit->getDistance(unitAndTarget.second, unitAndTarget.second->simPosition)
                            - unitAndTarget.second->groundRange()
                            - 48;
             }

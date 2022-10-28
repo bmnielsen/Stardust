@@ -5,11 +5,17 @@
 #include "Map.h"
 #include "NoGoAreas.h"
 #include "BuildingPlacement.h"
+#include "MyCannon.h"
 #include "MyCarrier.h"
+#include "MyCorsair.h"
 #include "MyDragoon.h"
 #include "MyWorker.h"
 #include "UnitUtil.h"
 #include "Opponent.h"
+#include "OpponentEconomicModel.h"
+#include "Strategist.h"
+
+#include "DebugFlag_GridUpdates.h"
 
 // These defines configure a per-frame summary of various unit type's orders, commands, etc.
 #if INSTRUMENTATION_ENABLED_VERBOSE
@@ -21,8 +27,13 @@
 #define DEBUG_SHUTTLE_STATUS false
 #define DEBUG_OBSERVER_STATUS false
 #define DEBUG_ARBITER_STATUS false
+#define DEBUG_CANNON_STATUS false
 #define DEBUG_PRODUCINGBUILDING_STATUS false
 #define DEBUG_ENEMY_STATUS false
+#define DEBUG_PREDICTED_POSITIONS false
+#endif
+
+#if INSTRUMENTATION_ENABLED
 #define DEBUG_ENEMY_TIMINGS true
 #endif
 
@@ -48,6 +59,94 @@ namespace Units
         std::set<BWAPI::UpgradeType> upgradesInProgress;
         std::set<BWAPI::TechType> researchInProgress;
 
+        void trackResearch(const BWAPI::Unit bwapiUnit)
+        {
+            if (bwapiUnit->getPlayer() == BWAPI::Broodwar->self())
+            {
+                // Terran
+                if (bwapiUnit->isLockedDown()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Lockdown);
+                if (bwapiUnit->isIrradiated()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Irradiate);
+                if (bwapiUnit->isBlind()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Optical_Flare);
+
+                // Zerg
+                if (bwapiUnit->isUnderDarkSwarm()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Dark_Swarm);
+                if (bwapiUnit->isPlagued()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Plague);
+                if (bwapiUnit->isEnsnared()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Ensnare);
+                if (bwapiUnit->isParasited()) Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Parasite);
+
+                return;
+            }
+
+            // Terran
+            if (bwapiUnit->isStimmed())
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Stim_Packs);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Spider_Mines);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Spell_Scanner_Sweep)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Scanner_Sweep);
+            }
+            if (bwapiUnit->isSieged())
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Tank_Siege_Mode);
+            }
+            if (bwapiUnit->isDefenseMatrixed())
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Defensive_Matrix);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Terran_Wraith && bwapiUnit->isCloaked())
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Cloaking_Field);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Terran_Ghost && bwapiUnit->isCloaked())
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Personnel_Cloaking);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Terran_Nuclear_Silo ||
+                bwapiUnit->getType() == BWAPI::UnitTypes::Terran_Nuclear_Missile)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Nuclear_Strike);
+            }
+
+            // Zerg
+            if (bwapiUnit->getType() != BWAPI::UnitTypes::Zerg_Lurker &&
+                (bwapiUnit->isBurrowed() || bwapiUnit->getOrder() == BWAPI::Orders::Burrowing || bwapiUnit->getOrder() == BWAPI::Orders::Unburrowing))
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Burrowing);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Zerg_Broodling)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Spawn_Broodlings);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Spell_Dark_Swarm)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Dark_Swarm);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Zerg_Lurker_Egg ||
+                bwapiUnit->getType() == BWAPI::UnitTypes::Zerg_Lurker)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Lurker_Aspect);
+            }
+
+            // Protoss
+            if (bwapiUnit->getOrder() == BWAPI::Orders::CastRecall)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Recall);
+            }
+            if (bwapiUnit->getOrder() == BWAPI::Orders::CastStasisField)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Stasis_Field);
+            }
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Spell_Disruption_Web)
+            {
+                Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Disruption_Web);
+            }
+        }
+
         void unitCreated(const Unit &unit)
         {
             Map::onUnitCreated(unit);
@@ -67,7 +166,7 @@ namespace Units
 
         void unitDestroyed(const Unit &unit)
         {
-            if (unit->lastPositionValid && !unit->beingManufacturedOrCarried)
+            if (unit->lastPositionValid && !unit->beingManufacturedOrCarried && (!unit->type.isBuilding() || !unit->isFlying))
             {
                 Players::grid(unit->player).unitDestroyed(unit->type, unit->lastPosition, unit->completed, unit->burrowed, unit->immobile);
 #if DEBUG_GRID_UPDATES
@@ -108,6 +207,8 @@ namespace Units
             enemyUnits.erase(unit);
             unitIdToEnemyUnit.erase(unit->id);
             enemyUnitsByType[unit->type].erase(unit);
+
+            OpponentEconomicModel::opponentUnitDestroyed(unit->type, unit->id);
         }
 
         void trackEnemyUnitTimings(const Unit &unit, bool includeMorphs)
@@ -126,7 +227,7 @@ namespace Units
             if (unit->type.isResourceDepot() && !enemyUnitTimings[unit->type].empty() && Map::getEnemyStartingMain()
                 && unit->getTilePosition() == Map::getEnemyStartingMain()->getTilePosition())
             {
-                enemyUnitTimings[unit->type].begin()->second = BWAPI::Broodwar->getFrameCount();
+                enemyUnitTimings[unit->type].begin()->second = currentFrame;
                 return;
             }
 
@@ -136,7 +237,7 @@ namespace Units
             int completionFrame;
             if (unit->type.isBuilding())
             {
-                completionFrame = unit->completed ? BWAPI::Broodwar->getFrameCount() : unit->estimatedCompletionFrame;
+                completionFrame = unit->completed ? currentFrame : unit->estimatedCompletionFrame;
             }
             else
             {
@@ -202,64 +303,69 @@ namespace Units
                 };
 
                 // Try to guess how many frames the unit has moved since it was built
-                int framesMoved = 0;
-                if (unit->type.topSpeed() > 0.001)
+                auto getFramesMoved = [&]()
                 {
-                    // First see if we know of anything that can produce the unit
+                    if (unit->type.topSpeed() < 0.001) return 0;
+
+                    // Assume proxied units need to travel about 5 seconds
+                    if (Strategist::getStrategyEngine()->isEnemyProxy() && currentFrame < 8000)
+                    {
+                        return 120;
+                    }
+
                     auto closestProducer = getClosestProducer();
                     if (closestProducer)
                     {
-                        framesMoved = PathFinding::ExpectedTravelTime(unit->lastPosition,
-                                                                      closestProducer->lastPosition,
-                                                                      unit->type,
-                                                                      PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                        return PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                               closestProducer->lastPosition,
+                                                               unit->type,
+                                                               PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                               1.1);
+                    }
 
-                        // Give it a bit of leeway to account for the spawn position being outside the producer
-                        framesMoved = std::max(0, framesMoved - 48);
+                    // We don't know the producer, so assume it came from the closest possible enemy main
+                    int framesMoved;
+                    auto enemyMain = Map::getEnemyMain();
+                    if (!enemyMain) enemyMain = Map::getEnemyStartingMain();
+                    if (enemyMain)
+                    {
+                        framesMoved = PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                                      enemyMain->getPosition(),
+                                                                      unit->type,
+                                                                      PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                                      1.1);
                     }
                     else
                     {
-                        // We don't know the producer, so assume it came from the closest possible enemy main
-                        auto enemyMain = Map::getEnemyMain();
-                        if (!enemyMain) enemyMain = Map::getEnemyStartingMain();
-                        if (enemyMain)
+                        // Default to the closest unscouted starting position
+                        framesMoved = INT_MAX;
+                        for (auto base : Map::unscoutedStartingLocations())
                         {
-                            framesMoved = PathFinding::ExpectedTravelTime(unit->lastPosition,
-                                                                          enemyMain->getPosition(),
-                                                                          unit->type,
-                                                                          PathFinding::PathFindingOptions::UseNearestBWEMArea);
-                        }
-                        else
-                        {
-                            // Default to the closest unscouted starting position
-                            framesMoved = INT_MAX;
-                            for (auto base : Map::unscoutedStartingLocations())
+                            int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                                         base->getPosition(),
+                                                                         unit->type,
+                                                                         PathFinding::PathFindingOptions::UseNearestBWEMArea,
+                                                                         1.1);
+                            if (frames < framesMoved)
                             {
-                                int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
-                                                                             base->getPosition(),
-                                                                             unit->type,
-                                                                             PathFinding::PathFindingOptions::UseNearestBWEMArea);
-                                if (frames < framesMoved)
-                                {
-                                    framesMoved = frames;
-                                }
+                                framesMoved = frames;
                             }
-
-                            // Guard against bugs in scouting
-                            if (framesMoved == INT_MAX) framesMoved = 0;
                         }
 
-                        // Give some leeway since the unit might have been produced away from the depot
-                        // For Zerg we give less leeway since they have less building room
-                        framesMoved = std::max(0, framesMoved - (unit->player->getRace() == BWAPI::Races::Zerg ? 75 : 200));
+                        // Guard against bugs in scouting
+                        if (framesMoved == INT_MAX) framesMoved = 0;
                     }
-                }
 
-                completionFrame = BWAPI::Broodwar->getFrameCount() - framesMoved;
+                    return framesMoved;
+                };
+
+                completionFrame = currentFrame - getFramesMoved();
             }
 
             int startFrame = completionFrame - UnitUtil::BuildTime(unit->type);
-            enemyUnitTimings[unit->type].emplace_back(std::make_pair(startFrame, BWAPI::Broodwar->getFrameCount()));
+            enemyUnitTimings[unit->type].emplace_back(std::make_pair(startFrame, currentFrame));
+
+            OpponentEconomicModel::opponentUnitCreated(unit->type, unit->id, startFrame, !unit->completed);
 
             if (enemyUnitTimings[unit->type].size() == 1)
             {
@@ -274,6 +380,21 @@ namespace Units
                 {
                     Opponent::setGameValue("firstMutaliskCompleted", completionFrame);
                 }
+                else if (unit->type == BWAPI::UnitTypes::Zerg_Lurker)
+                {
+                    // Get frames it would take this lurker to get to our main choke
+                    auto mainChoke = Map::getMyMainChoke();
+                    if (mainChoke)
+                    {
+                        auto frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
+                                                                      mainChoke->center,
+                                                                      BWAPI::UnitTypes::Zerg_Lurker,
+                                                                      PathFinding::PathFindingOptions::UseNeighbouringBWEMArea,
+                                                                      1.1,
+                                                                      1000);
+                        Opponent::setGameValue("firstLurkerAtOurMain", completionFrame + frames);
+                    }
+                }
             }
 
             if (unit->type.isBuilding() && includeMorphs)
@@ -283,7 +404,7 @@ namespace Units
                     morphsFrom.first != BWAPI::UnitTypes::Zerg_Drone)
                 {
                     enemyUnitTimings[morphsFrom.first].emplace_back(std::make_pair(startFrame - UnitUtil::BuildTime(morphsFrom.first),
-                                                                                   BWAPI::Broodwar->getFrameCount()));
+                                                                                   currentFrame));
                 }
             }
         }
@@ -309,7 +430,7 @@ namespace Units
                 if (!unit->lastPositionValid) return nullptr;
 
                 auto combatUnit =
-                        (UnitUtil::IsCombatUnit(unit->type) || unit->lastSeenAttacking >= (BWAPI::Broodwar->getFrameCount() - 120))
+                        (UnitUtil::IsCombatUnit(unit->type) || unit->lastSeenAttacking >= (currentFrame - 120))
                         && (unit->isTransport() || UnitUtil::CanAttackGround(unit->type));
 
                 Base *closest = nullptr;
@@ -327,7 +448,7 @@ namespace Units
                     // For our bases, ignore units we haven't seen for a while
                     if (base->owner == BWAPI::Broodwar->self() &&
                         !unit->type.isBuilding() &&
-                        unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 240))
+                        unit->lastSeen < (currentFrame - 240))
                     {
                         continue;
                     }
@@ -342,14 +463,11 @@ namespace Units
                     {
                         if (!base->owner) continue;
 
-                        auto predictedPosition = unit->predictPosition(5);
-                        if (predictedPosition.isValid())
+                        auto predictedPosition = unit->predictPosition(1);
+                        if (predictedPosition.getApproxDistance(base->getPosition()) >
+                            unit->lastPosition.getApproxDistance(base->getPosition()))
                         {
-                            if (predictedPosition.getApproxDistance(base->getPosition()) >
-                                unit->lastPosition.getApproxDistance(base->getPosition()))
-                            {
-                                continue;
-                            }
+                            continue;
                         }
                     }
 
@@ -427,13 +545,16 @@ namespace Units
         auto ignoreUnit = [](BWAPI::Unit bwapiUnit)
         {
             return bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Interceptor ||
-                   bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Scarab;
+                   bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Scarab ||
+                   bwapiUnit->getType().isSpell();
         };
 
         // Update our units
         // We always have vision of our own units, so we don't have to handle units in fog
         for (auto bwapiUnit : BWAPI::Broodwar->self()->getUnits())
         {
+            trackResearch(bwapiUnit);
+
             if (ignoreUnit(bwapiUnit)) continue;
 
             // If we just mind controlled an enemy unit, consider the enemy unit destroyed
@@ -463,6 +584,16 @@ namespace Units
                     unit = std::make_shared<MyCarrier>(bwapiUnit);
                     unit->created();
                 }
+                else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Corsair)
+                {
+                    unit = std::make_shared<MyCorsair>(bwapiUnit);
+                    unit->created();
+                }
+                else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+                {
+                    unit = std::make_shared<MyCannon>(bwapiUnit);
+                    unit->created();
+                }
                 else
                 {
                     unit = std::make_shared<MyUnitImpl>(bwapiUnit);
@@ -476,6 +607,25 @@ namespace Units
             else
             {
                 unit = it->second;
+
+                if (unit->type == BWAPI::UnitTypes::Protoss_Assimilator && !unit->completed && bwapiUnit->isCompleted())
+                {
+                    for (auto &base : Map::getMyBases())
+                    {
+                        if (base->hasGeyserAt(unit->getTilePosition()))
+                        {
+                            if (!base->resourceDepot)
+                            {
+                                Log::Get() << "ERROR: Assimilator @ " << unit->getTilePosition() << " completed without nexus";
+                            }
+                            else if (!base->resourceDepot->completed)
+                            {
+                                Log::Get() << "ERROR: Assimilator @ " << unit->getTilePosition() << " completed before nexus";
+                            }
+                        }
+                    }
+                }
+
                 unit->update(bwapiUnit);
             }
 
@@ -509,6 +659,8 @@ namespace Units
         // Update visible enemy units
         for (auto bwapiUnit : BWAPI::Broodwar->enemy()->getUnits())
         {
+            trackResearch(bwapiUnit);
+
             if (ignoreUnit(bwapiUnit)) continue;
             if (!bwapiUnit->isVisible()) continue;
 
@@ -558,7 +710,7 @@ namespace Units
         std::vector<Unit> destroyedEnemyUnits;
         for (auto &unit : enemyUnits)
         {
-            if (unit->lastSeen == BWAPI::Broodwar->getFrameCount()) continue;
+            if (unit->lastSeen == currentFrame) continue;
 
             unit->updateUnitInFog();
 
@@ -576,6 +728,29 @@ namespace Units
         for (auto &unit : destroyedEnemyUnits)
         {
             enemyUnitDestroyed(unit);
+        }
+
+        // Update the order timers
+        if ((BWAPI::Broodwar->getFrameCount() - 8) % 150 == 0)
+        {
+            for (auto &unit : myUnits) unit->orderProcessTimer = -1;
+            for (auto &unit : enemyUnits) unit->orderProcessTimer = -1;
+        }
+        else
+        {
+            auto updateOrderProcessTimer = [](auto &unit)
+            {
+                if (unit->orderProcessTimer > 0)
+                {
+                    unit->orderProcessTimer--;
+                }
+                else if (unit->orderProcessTimer == 0)
+                {
+                    unit->orderProcessTimer = 8;
+                }
+            };
+            for (auto &unit : myUnits) updateOrderProcessTimer(unit);
+            for (auto &unit : enemyUnits) updateOrderProcessTimer(unit);
         }
 
         // Update visible neutral units to detect addons that have gone neutral or refineries that have become geysers
@@ -626,7 +801,7 @@ namespace Units
         assignEnemyUnitsToBases();
 
         // Occasionally check for any inconsistencies in the enemy unit collections
-        if (BWAPI::Broodwar->getFrameCount() % 48 == 0)
+        if (currentFrame % 48 == 0)
         {
             for (auto it = enemyUnits.begin(); it != enemyUnits.end();)
             {
@@ -734,6 +909,9 @@ namespace Units
 #if DEBUG_ARBITER_STATUS
             output = output || unit->type == BWAPI::UnitTypes::Protoss_Arbiter;
 #endif
+#if DEBUG_CANNON_STATUS
+            output = output || unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon;
+#endif
 #if DEBUG_PRODUCINGBUILDING_STATUS
             output = output || (unit->type.isBuilding() && unit->type.canProduce());
 #endif
@@ -744,7 +922,7 @@ namespace Units
 
             // First line is command
             debug << "cmd=" << unit->bwapiUnit->getLastCommand().getType() << ";f="
-                  << (BWAPI::Broodwar->getFrameCount() - unit->bwapiUnit->getLastCommandFrame());
+                  << (currentFrame - unit->lastCommandFrame);
             if (unit->bwapiUnit->getLastCommand().getTarget())
             {
                 debug << ";tgt=" << unit->bwapiUnit->getLastCommand().getTarget()->getType()
@@ -780,19 +958,12 @@ namespace Units
                 debug << "spd=" << ((int) (100.0 * speed / unit->type.topSpeed()))
                       << ";mvng=" << unit->bwapiUnit->isMoving() << ";rdy=" << unit->isReady()
                       << ";stk=" << unit->bwapiUnit->isStuck()
-                      << ";lstmv=" << (unit->getLastMoveFrame() - BWAPI::Broodwar->getFrameCount());
+                      << ";lstmv=" << (unit->getLastMoveFrame() - currentFrame);
             }
 
-            if (unit->energy > 0)
+            if (unit->getUnstickUntil() >= currentFrame)
             {
-                debug << ";nrg=" << unit->energy;
-            }
-
-            debug << ";cdn=" << (unit->cooldownUntil - BWAPI::Broodwar->getFrameCount());
-
-            if (unit->getUnstickUntil() >= BWAPI::Broodwar->getFrameCount())
-            {
-                debug << ";unstck=" << (unit->getUnstickUntil() - BWAPI::Broodwar->getFrameCount());
+                debug << ";unstck=" << (unit->getUnstickUntil() - currentFrame);
             }
 
             if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon)
@@ -826,6 +997,21 @@ namespace Units
 
             CherryVis::log(unit->id) << debug.str();
         }
+
+#if DEBUG_PREDICTED_POSITIONS
+        auto outputPredictedPositions = [](const Unit& unit)
+        {
+            std::ostringstream buf;
+            buf << "0: " << unit->lastPosition;
+            for (int i=1; i <= BWAPI::Broodwar->getLatencyFrames() + 2; i++)
+            {
+                buf << "\n" << i << ": " << unit->predictPosition(i);
+            }
+            CherryVis::log(unit->id) << buf.str();
+        };
+        for (auto &unit : myUnits) outputPredictedPositions(unit);
+        for (auto &unit : enemyUnits) outputPredictedPositions(unit);
+#endif
 
 #if DEBUG_ENEMY_TIMINGS
         std::vector<std::string> values;
@@ -882,6 +1068,12 @@ namespace Units
     {
         if (!bullet->getSource() || !bullet->getTarget()) return;
 
+        auto source = get(bullet->getSource());
+        auto target = get(bullet->getTarget());
+        if (!source || !target) return;
+
+        source->lastTarget = target;
+
         // If this bullet is a ranged bullet that deals damage after a delay, track it on the unit it is moving towards
         if (bullet->getType() == BWAPI::BulletTypes::Gemini_Missiles ||         // Wraith
             bullet->getType() == BWAPI::BulletTypes::Fragmentation_Grenade ||   // Vulture
@@ -898,8 +1090,6 @@ namespace Units
             bullet->getType() == BWAPI::BulletTypes::Halo_Rockets ||            // Valkyrie
             bullet->getType() == BWAPI::BulletTypes::Subterranean_Spines)       // Lurker
         {
-            auto source = get(bullet->getSource());
-            auto target = get(bullet->getTarget());
             if (source && target)
             {
                 target->addUpcomingAttack(source, bullet);

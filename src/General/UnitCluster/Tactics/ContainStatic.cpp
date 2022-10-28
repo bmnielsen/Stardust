@@ -37,6 +37,7 @@ void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
     for (const auto &unitAndTarget : unitsAndTargets)
     {
         auto &myUnit = unitAndTarget.first;
+        if (myUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
         // If the unit is stuck, unstick it
         if (myUnit->unstick()) continue;
@@ -79,7 +80,7 @@ void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
                 // Don't worry about units with a lower range
                 if (enemyRange <= myRange) continue;
 
-                int dist = myUnit->getDistance(unit);
+                int dist = myUnit->getDistance(unit, unit->simPosition);
 
                 // Don't worry about units that are further away from what we have already found
                 if (dist >= closestDist) continue;

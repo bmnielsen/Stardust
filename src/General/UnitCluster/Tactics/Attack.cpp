@@ -65,8 +65,8 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
 
     if (canFormArc)
     {
-        auto pivot = vanguard->lastPosition + Geo::ScaleVector(vanguardTarget->lastPosition - vanguard->lastPosition,
-                                                               vanguard->lastPosition.getApproxDistance(vanguardTarget->lastPosition) + 64);
+        auto pivot = vanguard->lastPosition + Geo::ScaleVector(vanguardTarget->simPosition - vanguard->lastPosition,
+                                                               vanguard->lastPosition.getApproxDistance(vanguardTarget->simPosition) + 64);
 
         // Determine the desired distance to the pivot
         // If our units are on average within one tile of where we want them, shorten the distance by one tile
@@ -84,6 +84,7 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
         int countWithinLimit = 0;
         for (auto &unitAndTarget : unitsAndTargets)
         {
+            if (unitAndTarget.first->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
             if (unitAndTarget.first->isFlying) continue;
 
             int dist = effectiveDist(unitAndTarget.first);
@@ -114,9 +115,15 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
-                                                    << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
+                                                    << BWAPI::WalkPosition(unitAndTarget.second->simPosition);
 #endif
             myUnit->attackUnit(unitAndTarget.second, unitsAndTargets, true, enemyAoeRadius);
+        }
+        else if (myUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+        {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(unitAndTarget.first->id) << "No target";
+#endif
         }
         else
         {

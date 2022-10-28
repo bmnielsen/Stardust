@@ -72,7 +72,10 @@ namespace BaseFinder
         // first 24 entries should be unused. formula sqrt(900/(x*x+y*y)), 3,0 gives val 10
         const int sqrtarr[64] = { 0, 300, 150, 100, 75, 60, 50, 42, 300, 212, 134, 94, 72, 58, 49, 42, 150, 134, 106, 83, 67, 55, 47, 41,
                                   100, 94, 83, 70, 60, 51, 44, 39, 75, 72, 67, 60, 53, 46, 41, 37, 60, 58, 55, 51, 46, 42, 38, 34, 50, 49, 47, 44, 41, 38, 35, 32, 42, 42, 41, 39, 37, 34, 32, 30 };
-        int coff = TILEOFF(p.x + tw - 1, p.y + th - 1);
+
+        // This for some reason causes crashes on debug, so inline it manually
+        //int coff = TILEOFF(p.x + tw - 1, p.y + th - 1);
+        int coff = p.x + tw + (p.y + th)*(mapx + 2);
 
         bool c = false; for (int i = th; i<th + 6; i++) if (walkgrid[coff - i * scanw]) { c = true; break; }
         if (!c) for (int s = 3; s < 7; s++) if (!MarkRow(coff - (s + 2 + th)*scanw, sqrtarr + s * 8, tw + 3, s, +1, valmod)) break;		// top

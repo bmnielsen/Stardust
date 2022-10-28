@@ -3,6 +3,7 @@
 #include "UnitUtil.h"
 #include "Geo.h"
 #include "Boids.h"
+#include "Map.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -25,12 +26,13 @@ namespace
 
     // TODO: These parameters need to be tuned
     const double goalWeight = 128.0;
+    const int collisionWeight = 64;
     const double cohesionWeight = 64.0;
     const double defaultSeparationDetectionLimitFactor = 2.0;
     const double defaultSeparationWeight = 96.0;
 }
 
-bool UnitCluster::moveAsBall(BWAPI::Position targetPosition)
+bool UnitCluster::moveAsBall(BWAPI::Position targetPosition, std::set<MyUnit> &ballUnits) const
 {
     // We require a grid
     auto grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
@@ -48,24 +50,8 @@ bool UnitCluster::moveAsBall(BWAPI::Position targetPosition)
         separationWeight = 160;
     }
 
-    for (const auto &unit : units)
+    for (const auto &unit : ballUnits)
     {
-        // If the unit is stuck, unstick it
-        if (unit->unstick()) continue;
-
-        // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
-        if (!unit->isReady()) continue;
-
-        // Flying units just move for now
-        if (unit->isFlying)
-        {
-#if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit->id) << "Move to target: Moving to " << BWAPI::WalkPosition(targetPosition);
-#endif
-            unit->moveTo(targetPosition);
-            continue;
-        }
-
         // Get the waypoint to move towards
         // We attempt to move towards the third node ahead of us
         auto waypoint = PathFinding::NextGridOrChokeWaypoint(unit->lastPosition, targetPosition, grid, 3, true);
@@ -96,6 +82,22 @@ bool UnitCluster::moveAsBall(BWAPI::Position targetPosition)
             goalY = (int) ((double) goalY * goalScale);
         }
 
+        // Collision
+        int collisionX = 0;
+        int collisionY = 0;
+
+        auto collisionVector = Map::collisionVector(waypoint.x >> 5, waypoint.y >> 5);
+        collisionVector = Geo::ScaleVector(collisionVector, collisionWeight);
+        if (collisionVector != BWAPI::Positions::Invalid)
+        {
+            auto collisionTarget = waypoint + collisionVector;
+            if (Map::collisionVector(collisionTarget.x >> 5, collisionTarget.y >> 5) == BWAPI::Positions::Origin)
+            {
+                collisionX = collisionVector.x;
+                collisionY = collisionVector.y;
+            }
+        }
+
         // Cohesion
 
         int cohesionX = 0;
@@ -114,14 +116,20 @@ bool UnitCluster::moveAsBall(BWAPI::Position targetPosition)
         // Separation
         int separationX = 0;
         int separationY = 0;
-        for (const auto &other : units)
+        for (const auto &other : ballUnits)
         {
             if (other == unit) continue;
+            if (other->isFlying) continue;
+            if (other->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
             Boids::AddSeparation(unit.get(), other, separationDetectionLimitFactor, separationWeight, separationX, separationY);
         }
 
-        auto pos = Boids::ComputePosition(unit.get(), {goalX, separationX, cohesionX}, {goalY, separationY, cohesionY}, 80, 48);
+        auto pos = Boids::ComputePosition(unit.get(),
+                                          {goalX, collisionX, separationX, cohesionX},
+                                          {goalY, collisionY, separationY, cohesionY},
+                                          80,
+                                          48);
 
         // Default to the goal node if the unit can't move in the direction it wants to
         if (pos == BWAPI::Positions::Invalid)
@@ -151,6 +159,7 @@ bool UnitCluster::moveAsBall(BWAPI::Position targetPosition)
                                  << nodes.str()
                                  << "; cluster=" << BWAPI::WalkPosition(center)
                                  << ": goal=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(goalX, goalY))
+                                 << "; collision=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(collisionX, collisionY))
                                  << "; cohesion=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(cohesionX, cohesionY))
                                  << "; separation=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(separationX, separationY))
                                  << "; total=" << BWAPI::WalkPosition(

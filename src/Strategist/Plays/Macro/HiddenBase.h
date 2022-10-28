@@ -11,6 +11,9 @@ public:
 
     void update() override;
 
+    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                 const std::function<void(const MyUnit)> &movableUnitCallback) override;
+
 private:
     MyUnit builder;
 };

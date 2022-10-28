@@ -18,10 +18,10 @@ void MyUnitImpl::move(BWAPI::Position position, bool force)
         if (bwapiUnit->getLastCommand().getTargetPosition().getApproxDistance(position) > 3) return false;
 
         // Don't resend orders to similar positions too quickly
-        if (bwapiUnit->getLastCommandFrame() > (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames() - 3)) return false;
+        if (lastCommandFrame > (currentFrame - BWAPI::Broodwar->getLatencyFrames() - 3)) return false;
 
         // Don't resend order if the unit is moving
-        return bwapiUnit->getLastCommandFrame() < frameLastMoved;
+        return lastCommandFrame < frameLastMoved;
     };
 
     if (skipMoveCommand()) return;
@@ -29,7 +29,7 @@ void MyUnitImpl::move(BWAPI::Position position, bool force)
     issuedOrderThisFrame = bwapiUnit->move(position);
     if (issuedOrderThisFrame)
     {
-        lastMoveFrame = BWAPI::Broodwar->getFrameCount();
+        lastMoveFrame = currentFrame;
     }
 
 #if DEBUG_UNIT_ORDERS
@@ -304,5 +304,34 @@ void MyUnitImpl::unloadAll(BWAPI::Position pos)
 
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(id) << "Order: Unload All " << BWAPI::WalkPosition(pos);
+#endif
+}
+
+void MyUnitImpl::unload(BWAPI::Unit cargo)
+{
+    if (issuedOrderThisFrame)
+    {
+        Log::Get() << "DUPLICATE ORDER: " << *this << ": Unload " << cargo->getType() << " @ " << cargo->getTilePosition();
+        return;
+    }
+
+    issuedOrderThisFrame = bwapiUnit->unload(cargo);
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Order: Unload " << cargo->getType() << " @ " << cargo->getTilePosition();
+#endif
+}
+
+void MyUnitImpl::setProducerRallyPosition(BWAPI::Position pos) const
+{
+    if (!producer) return;
+
+    auto current = producer->getRallyPosition();
+    if (current.isValid() && pos.getApproxDistance(current) < 32) return;
+
+    producer->setRallyPoint(pos);
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(producer->getID()) << "Order: Set rally position to " << BWAPI::WalkPosition(pos);
 #endif
 }

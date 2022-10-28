@@ -21,9 +21,6 @@ namespace
 
 PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, std::vector<std::shared_ptr<Play>> &plays)
 {
-    int enemyStrategyStableFor = 0;
-    if (newEnemyStrategy == enemyStrategy) enemyStrategyStableFor = BWAPI::Broodwar->getFrameCount() - enemyStrategyChanged;
-
     auto canTransitionFromAntiMarineRush = [&]()
     {
         // Transition immediately if we've discovered a different enemy strategy

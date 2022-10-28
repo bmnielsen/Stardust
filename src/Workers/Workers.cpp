@@ -8,6 +8,7 @@
 #include "WorkerOrderTimer.h"
 #include "Geo.h"
 #include "Boids.h"
+#include "Strategist.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -161,13 +162,15 @@ namespace Workers
         Base *assignBaseAndJob(const MyUnit &unit, Job preferredJob)
         {
             // TODO: Prioritize empty bases over nearly-full bases
-            // TODO: Consider whether or not there is a safe path to the base
 
             int bestFrames = INT_MAX;
             Base *bestBase = nullptr;
             bool bestHasPreferredJob = false;
-            for (auto &base : Map::allBases())
+            bool bestHasNonPreferredJob = false;
+            for (auto &base : Map::getMyBases())
             {
+                if (!base->resourceDepot || !base->resourceDepot->exists()) continue;
+
                 bool hasPreferred, hasNonPreferred;
                 if (preferredJob == Job::Minerals)
                 {
@@ -184,8 +187,6 @@ namespace Workers
                     hasNonPreferred = availableMineralAssignmentsAtBase(base) > 0;
                 }
 
-                if (!hasPreferred && !hasNonPreferred) continue;
-
                 int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
                                                              base->getPosition(),
                                                              unit->type,
@@ -193,40 +194,64 @@ namespace Workers
                                                              -1);
                 if (frames == -1) continue;
 
+                // Don't transfer to a threatened base
+                if (!Units::enemyAtBase(base).empty()) continue;
+
+                // If the base is far away, require that our army is on the map
+                if (frames > 500)
+                {
+                    auto mainArmyPlay = Strategist::getMainArmyPlay();
+                    if (!mainArmyPlay) continue;
+
+                    auto vanguardCluster = mainArmyPlay->getSquad()->vanguardCluster();
+                    if (!vanguardCluster) continue;
+
+                    if (vanguardCluster->percentageToEnemyMain < 0.6) continue;
+                }
+
                 if (!base->resourceDepot->completed)
                     frames = std::max(frames, base->resourceDepot->bwapiUnit->getRemainingBuildTime());
 
-                if (frames < bestFrames || (hasPreferred && !bestHasPreferredJob))
+                if (frames < bestFrames || (hasPreferred && !bestHasPreferredJob) || (hasNonPreferred && !bestHasNonPreferredJob))
                 {
                     bestFrames = frames;
                     bestBase = base;
                     bestHasPreferredJob = hasPreferred;
+                    bestHasNonPreferredJob = hasNonPreferred;
                 }
             }
 
+            Job job = Job::None;
             if (bestBase)
             {
                 workerBase[unit] = bestBase;
                 baseWorkers[bestBase].insert(unit);
 
-                auto job = bestHasPreferredJob ? preferredJob : (preferredJob == Job::Minerals ? Job::Gas : Job::Minerals);
+                if (bestHasPreferredJob)
+                {
+                    job = preferredJob;
+                }
+                else if (bestHasNonPreferredJob)
+                {
+                    job = (preferredJob == Job::Minerals ? Job::Gas : Job::Minerals);
+                }
+            }
 
 #if CHERRYVIS_ENABLED
-                if (workerJob[unit] != job)
+            if (workerJob[unit] != job)
+            {
+                if (job == Job::Minerals)
                 {
-                    if (job == Job::Minerals)
-                    {
-                        CherryVis::log(unit->id) << "Assigned to Minerals";
-                    }
-                    else
-                    {
-                        CherryVis::log(unit->id) << "Assigned to Gas";
-                    }
+                    CherryVis::log(unit->id) << "Assigned to Minerals";
                 }
+                else
+                {
+                    CherryVis::log(unit->id) << "Assigned to Gas";
+                }
+            }
 #endif
 
-                workerJob[unit] = job;
-            }
+            workerJob[unit] = job;
 
             return bestBase;
         }
@@ -424,7 +449,7 @@ namespace Workers
         };
 
         // Special case on frame 0: try to optimize for earliest possible fifth mineral returned
-        if (BWAPI::Broodwar->getFrameCount() == 0)
+        if (currentFrame == 0)
         {
             assignInitialMineralWorkers();
         }
@@ -472,11 +497,7 @@ namespace Workers
                 base = assignBaseAndJob(worker, (workerJob[worker] == Job::Gas) ? Job::Gas : Job::Minerals);
 
                 // Maybe we have none
-                if (!base)
-                {
-                    workerJob[worker] = Job::None;
-                    continue;
-                }
+                if (!base) continue;
             }
 
             // Assign a resource when the worker is close enough to the base
@@ -668,7 +689,7 @@ namespace Workers
                             // Exception: If we are not at the patch yet, and our last command was sent a long time ago,
                             // we probably want to wait and allow our order timer optimization to send the command instead.
                             int dist = worker->bwapiUnit->getDistance(mineralPatch);
-                            if (dist > 20 && worker->bwapiUnit->getLastCommandFrame() < (BWAPI::Broodwar->getFrameCount() - 20)) continue;
+                            if (dist > 20 && worker->lastCommandFrame < (currentFrame - 20)) continue;
 
                             worker->gather(mineralPatch);
                             continue;
@@ -680,8 +701,8 @@ namespace Workers
                         {
                             if (worker->bwapiUnit->getOrderTarget() && worker->bwapiUnit->getOrderTarget()->getResources()
                                 && worker->bwapiUnit->getOrderTarget() != mineralPatch
-                                && worker->bwapiUnit->getLastCommandFrame()
-                                   < (BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))
+                                && worker->lastCommandFrame
+                                   < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
                             {
                                 worker->gather(mineralPatch);
                             }
@@ -733,6 +754,21 @@ namespace Workers
                     worker->moveTo(base->getPosition());
                     break;
                 }
+                case Job::None:
+                {
+                    // Move towards the base if we aren't near it
+                    auto base = workerBase[worker];
+                    if (!base || !base->resourceDepot || !base->resourceDepot->exists())
+                    {
+                        continue;
+                    }
+
+                    int dist = worker->getDistance(base->getPosition());
+                    if (dist > 200)
+                    {
+                        worker->moveTo(base->getPosition());
+                    }
+                }
                 default:
                 {
                     // Nothing needed for other cases
@@ -753,10 +789,7 @@ namespace Workers
             if (unit->bwapiUnit->isCarryingGas()) return false;
             if (!allowCarryMinerals && unit->bwapiUnit->isCarryingMinerals()) return false;
 
-            // Don't interrupt a worker that is currently mining, but other states are OK
-            return (unit->bwapiUnit->getOrder() == BWAPI::Orders::Move
-                    || unit->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals
-                    || unit->bwapiUnit->getOrder() == BWAPI::Orders::ReturnMinerals);
+            return true;
         }
 
         return false;
@@ -765,6 +798,7 @@ namespace Workers
     MyUnit getClosestReassignableWorker(BWAPI::Position position, bool allowCarryMinerals, int *bestTravelTime)
     {
         int bestTime = INT_MAX;
+        int bestScore = INT_MAX;
         MyUnit bestWorker = nullptr;
         for (auto &unit : Units::allMine())
         {
@@ -776,9 +810,19 @@ namespace Workers
                                                     unit->type,
                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea,
                                                     -1);
-            if (travelTime != -1 && travelTime < bestTime)
+
+            // If the unit is currently mining, penalize it by 3 seconds to encourage selecting other workers
+            int score = travelTime;
+            if (unit->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
+                unit->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
+            {
+                score += 72;
+            }
+
+            if (travelTime != -1 && score < bestScore)
             {
                 bestTime = travelTime;
+                bestScore = score;
                 bestWorker = unit;
             }
         }
@@ -850,6 +894,7 @@ namespace Workers
         if (!unit || !unit->exists() || !unit->type.isWorker() || !unit->completed || workerJob[unit] != Job::Reserved) return;
 
         workerJob[unit] = Job::None;
+        CherryVis::log(unit->id) << "Released from non-mining duties";
     }
 
     int availableMineralAssignments(Base *base)
@@ -946,5 +991,18 @@ namespace Workers
         }
 
         return result;
+    }
+
+    int idleWorkerCount()
+    {
+        int count = 0;
+        for (const auto &workerAndJob : workerJob)
+        {
+            if (workerAndJob.second == Job::None)
+            {
+                count++;
+            }
+        }
+        return count;
     }
 }

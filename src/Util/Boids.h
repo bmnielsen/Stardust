@@ -17,5 +17,5 @@ namespace Boids
                                     const std::vector<int> &y,
                                     int scale,
                                     int minDist = 16,
-                                    int collisionWeight = 0);
+                                    bool collision = false);
 }

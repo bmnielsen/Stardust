@@ -4,15 +4,16 @@
 #include "Squad.h"
 #include "ProductionGoal.h"
 
-#define PRIORITY_EMERGENCY 1
-#define PRIORITY_WORKERS 2
-#define PRIORITY_DEPOTS 3
-#define PRIORITY_BASEDEFENSE 4              // Generally early-game defenders
-#define PRIORITY_SPECIALTEAMS 5
-#define PRIORITY_MAINARMYBASEPRODUCTION 6   // What we consider to be the minimum allowable production for our main army
-#define PRIORITY_NORMAL 7
-#define PRIORITY_MAINARMY 8
-#define PRIORITY_LOWEST 9
+#define PRIORITY_EMERGENCY 10
+#define PRIORITY_WORKERS 20
+#define PRIORITY_DEPOTS 30
+#define PRIORITY_BASEDEFENSE 40              // Generally early-game defenders
+#define PRIORITY_SPECIALTEAMS 50             // Units we need for some specific purpose
+#define PRIORITY_MAINARMYBASEPRODUCTION 60   // What we consider to be the minimum allowable production for our main army
+#define PRIORITY_HIGHPRIORITYUPGRADES 70     // e.g. basic ground upgrades that we don't want to get pushed behind less-important stuff
+#define PRIORITY_NORMAL 80
+#define PRIORITY_MAINARMY 90
+#define PRIORITY_LOWEST 100
 
 class Play;
 
@@ -74,6 +75,8 @@ public:
 
     // Whether this play should receive any unassigned combat units
     [[nodiscard]] virtual bool receivesUnassignedUnits() const { return false; }
+
+    [[nodiscard]] virtual bool canReassignUnit(const MyUnit &unit) const { return true; }
 
     // Returns the play's squad, if it has one
     virtual std::shared_ptr<Squad> getSquad() { return nullptr; }

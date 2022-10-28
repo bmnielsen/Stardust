@@ -83,7 +83,20 @@ namespace PathFinding
             BWAPI::Position end,
             BWAPI::UnitType unitType,
             PathFindingOptions options = PathFindingOptions::Default,
+            double penaltyFactor = 1.4,
             int defaultIfInaccessible = 0);
+
+    // Gets the expected time it will take the given unit type to move from the given start position
+    // to the given end position.
+    // If there is no valid path, the result is undefined.
+    // If you want to use the nearest BWEM areas, pass the UseNearestBWEMArea flag.
+    // Make sure neither of the ends is over a lake, this will make it very slow!
+    int ExpectedTravelTime(
+            BWAPI::Position start,
+            BWAPI::Position end,
+            BWAPI::UnitType unitType,
+            PathFindingOptions options,
+            int defaultIfInaccessible);
 
     // Initializes the path finding search
     void initializeSearch();
@@ -94,7 +107,8 @@ namespace PathFinding
     std::vector<BWAPI::TilePosition> Search(BWAPI::TilePosition start,
                                             BWAPI::TilePosition end,
                                             const std::function<bool(const BWAPI::TilePosition &)> &tileValidator = nullptr,
-                                            const std::function<bool(const BWAPI::TilePosition &)> &closeEnoughToEnd = nullptr);
+                                            const std::function<bool(const BWAPI::TilePosition &)> &closeEnoughToEnd = nullptr,
+                                            int maxBacktracking = 500);
 
     // Gets a "waypoint" a specified number of nodes ahead in a navigation grid.
     // If the grid is not available, falls back to a chokepoint-based approach.

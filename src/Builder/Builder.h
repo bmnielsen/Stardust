@@ -5,6 +5,8 @@
 #include "Building.h"
 #include "MyUnit.h"
 
+class Base;
+
 namespace Builder
 {
     void initialize();
@@ -23,6 +25,8 @@ namespace Builder
 
     std::vector<Building *> pendingBuildingsOfType(BWAPI::UnitType type);
 
+    void cancelBase(Base *base);
+
     bool isPendingHere(BWAPI::TilePosition tile);
 
     Building *pendingHere(BWAPI::TilePosition tile);
@@ -32,4 +36,6 @@ namespace Builder
     void addReservedBuilder(const MyUnit &builder);
 
     void releaseReservedBuilder(const MyUnit &builder);
+
+    bool isInEnemyStaticThreatRange(BWAPI::TilePosition tile, BWAPI::UnitType type);
 }

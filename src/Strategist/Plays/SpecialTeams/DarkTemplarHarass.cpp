@@ -37,7 +37,7 @@ namespace
             bool hasCannon = false;
             for (const auto &cannon : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon))
             {
-                if (!cannon->completed && cannon->estimatedCompletionFrame < (BWAPI::Broodwar->getFrameCount() + 120))
+                if (!cannon->completed && cannon->estimatedCompletionFrame < (currentFrame + 120))
                 {
                     continue;
                 }
@@ -111,7 +111,7 @@ namespace
                 if (!allowRetreating)
                 {
                     auto predictedEnemyPosition = enemy->predictPosition(1);
-                    if (predictedEnemyPosition.isValid() && myUnit->getDistance(enemy, predictedEnemyPosition) > dist)
+                    if (myUnit->getDistance(enemy, predictedEnemyPosition) > dist)
                     {
                         continue;
                     }
@@ -157,8 +157,7 @@ namespace
 #if DEBUG_UNIT_ORDERS
                 CherryVis::log(unit->id) << "Attacking blocking unit " << *target;
 #endif
-                std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
-                unit->attackUnit(target, emptyUnitsAndTargets);
+                unit->attackUnit(target);
                 return;
             }
         }
@@ -175,12 +174,12 @@ namespace
             // Attack a target if we think we can kill it before it completes
             auto damagePerAttack = Players::attackDamage(unit->player, unit->type, target->player, target->type);
             auto moveFrames = (int) ((double) unit->getDistance(target) * 1.4 / unit->type.topSpeed());
-            auto nextAttack = std::max(unit->cooldownUntil - BWAPI::Broodwar->getFrameCount(), moveFrames);
+            auto nextAttack = std::max(unit->cooldownUntil - currentFrame, moveFrames);
 
             int attacks = (int) ((float) (target->lastHealth + target->lastShields) / (float) damagePerAttack);
             int framesToKill = nextAttack + attacks * unit->type.groundWeapon().damageCooldown();
 
-            return (BWAPI::Broodwar->getFrameCount() + framesToKill) < target->estimatedCompletionFrame;
+            return (currentFrame + framesToKill) < target->estimatedCompletionFrame;
         };
         auto cannonTarget = getTarget(unit,
                                       Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon),
@@ -192,8 +191,7 @@ namespace
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unit->id) << "Attacking cannon " << *cannonTarget;
 #endif
-            std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
-            unit->attackUnit(cannonTarget, emptyUnitsAndTargets);
+            unit->attackUnit(cannonTarget);
             return;
         }
 
@@ -203,8 +201,7 @@ namespace
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unit->id) << "Attacking worker " << *workerTarget;
 #endif
-            std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
-            unit->attackUnit(workerTarget, emptyUnitsAndTargets);
+            unit->attackUnit(workerTarget);
             return;
         }
 
@@ -238,8 +235,7 @@ namespace
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unit->id) << "Attacking target " << *otherTarget;
 #endif
-            std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
-            unit->attackUnit(otherTarget, emptyUnitsAndTargets);
+            unit->attackUnit(otherTarget);
             return;
         }
 

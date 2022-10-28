@@ -17,6 +17,8 @@
 #include "Blocks/StartCompactRightVertical.h"
 #include "Blocks/StartBottomLeftHorizontal.h"
 #include "Blocks/StartTopLeftHorizontal.h"
+#include "Blocks/StartBottomHorizontal.h"
+#include "Blocks/StartAboveAndBelowLeft.h"
 
 #include "Blocks/18x6.h"
 #include "Blocks/16x8.h"
@@ -124,6 +126,22 @@ namespace BuildingPlacement
                         }
                     }
                 }
+
+                // If the geyser is on the left, mark the top row and the row above it towards the nexus unbuildable
+                // Building something here will interfere with gas collection
+                for (auto &geyserTile : base->geyserLocations())
+                {
+                    if (geyserTile.x >= (base->getTilePosition().x - 2)) continue;
+                    if (geyserTile.y < base->getTilePosition().y) continue;
+                    if (geyserTile.y > (base->getTilePosition().y + 3)) continue;
+
+                    tileAvailability[geyserTile.x + 4 + geyserTile.y * BWAPI::Broodwar->mapWidth()] = 1;
+                    tileAvailability[geyserTile.x + 5 + geyserTile.y * BWAPI::Broodwar->mapWidth()] = 1;
+                    tileAvailability[geyserTile.x + 6 + geyserTile.y * BWAPI::Broodwar->mapWidth()] = 1;
+                    tileAvailability[geyserTile.x + 4 + (geyserTile.y - 1) * BWAPI::Broodwar->mapWidth()] = 1;
+                    tileAvailability[geyserTile.x + 5 + (geyserTile.y - 1) * BWAPI::Broodwar->mapWidth()] = 1;
+                    tileAvailability[geyserTile.x + 6 + (geyserTile.y - 1) * BWAPI::Broodwar->mapWidth()] = 1;
+                }
             }
         }
 
@@ -135,7 +153,7 @@ namespace BuildingPlacement
 
             // Main base
             neighbourhoodAreas[Neighbourhood::MainBase] = Map::getMyMainAreas();
-            Map::mapSpecificOverride()->addMainBaseBuildingPlacementAreas(neighbourhoodAreas[Neighbourhood::MainBase]);
+            Map::mapSpecificOverride()->modifyMainBaseBuildingPlacementAreas(neighbourhoodAreas[Neighbourhood::MainBase]);
 
             auto mainChoke = Map::getMyMainChoke();
             auto mainExit = mainChoke ? mainChoke->center : Map::getMyMain()->getPosition();
@@ -227,6 +245,8 @@ namespace BuildingPlacement
                     std::make_shared<StartCompactRightVertical>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
                     std::make_shared<StartBottomLeftHorizontal>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
                     std::make_shared<StartTopLeftHorizontal>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<StartBottomHorizontal>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
+                    std::make_shared<StartAboveAndBelowLeft>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
             };
 
             for (const auto &blockType : startBlocks)
@@ -931,7 +951,7 @@ namespace BuildingPlacement
                 if (base->owner != BWAPI::Broodwar->self()) continue;
                 if (!base->resourceDepot || !base->resourceDepot->exists()) continue;
                 if (!base->resourceDepot->completed &&
-                    (base->resourceDepot->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount())
+                    (base->resourceDepot->estimatedCompletionFrame - currentFrame)
                     > UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator))
                 {
                     continue;

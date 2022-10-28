@@ -183,7 +183,7 @@ namespace
             return false;
         }
 
-        CombatSimResult previousSimResult = cluster.recentSimResults.rbegin()[1].first;
+        CombatSimResult &previousSimResult = cluster.recentSimResults.rbegin()[1].first;
 
         // If the enemy army strength has increased significantly, abort the attack immediately
         if (simResult.initialEnemy > (int) ((double) previousSimResult.initialEnemy * 1.2))
@@ -257,6 +257,17 @@ namespace
 
             // Scale based on length: 0 pixels long gives no reduction, 128 or higher gives 0.35 reduction
             aggression -= std::max(0.0, 0.35 * std::min(1.0, ((double) simResult.narrowChoke->length) / 128.0));
+        }
+        else if (cluster.currentSubActivity == UnitCluster::SubActivity::ContainChoke)
+        {
+            // Special case if we were previously containing the choke and now the battle is not across it any more
+            // This indicates the enemy has moved across the choke, so consider this to be attacking instead
+            aggression = 1.2;
+        }
+        else if (cluster.currentSubActivity == UnitCluster::SubActivity::StandGround)
+        {
+            // This is considered a somewhat neutral case
+            aggression = 1.0;
         }
 
         // Adjust the aggression for reinforcements
@@ -360,7 +371,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
         }
 
         // Other targets are valid if they have been seen in the past 5 seconds
-        if (unitAndTarget.second->lastSeen > (BWAPI::Broodwar->getFrameCount() - 120))
+        if (unitAndTarget.second->lastSeen > (currentFrame - 120))
         {
             hasValidTarget = true;
             break;

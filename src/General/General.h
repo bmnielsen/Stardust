@@ -20,6 +20,8 @@ namespace General
     void removeSquad(const std::shared_ptr<Squad> &squad);
 
     AttackBaseSquad *getAttackBaseSquad(Base *targetBase);
+
+    void writeInstrumentation();
 }
 
 namespace CombatSim

@@ -1,11 +1,49 @@
 #include "UnitUtil.h"
 
+#include <array>
 
 namespace UnitUtil
 {
     namespace
     {
         const int WARP_IN_FRAMES = 71;
+
+        // Weapon angles indexed by weapon ID
+        const std::array<int, 134> weaponAngles = {
+                16, 16, 16, 16, 64, 64, 128, 16, 32, 16, 32, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+                16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 128, 128, 128, 128, 16, 16, 16, 16, 16, 16, 16, 16, 16,
+                16, 128, 128, 16, 16, 16, 16, 16, 16, 32, 16, 32, 16, 16, 16, 128, 128, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 128, 128, 96, 64, 16,
+                32, 32, 32, 16, 16, 16, 32, 16, 16, 16, 16, 16, 0, 16, 16, 16, 16, 16, 32, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16
+        };
+
+        // Halt distances indexed by unit ID
+        // Some are adjusted slightly based on observed behaviour
+        const std::array<int, 234> haltDistances = {
+                0, 0, 57, 0, 0, 0, 0, 48, 85, 20,
+                0, 147, 30, 0, 4309, 0, 0, 0, 0, 57,
+                0, 85, 20, 0, 0, 0, 0, 30, 30, 30,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 48, 3, 85, 30, 85, 0, 53, 0, 85,
+                0, 0, 0, 0, 0, 85, 30, 3, 86, 0,
+                67+64, 53, 67, 20, 48, 0, 0, 53, 20, 147,
+                67, 97, 53, 53, 53, 53, 20, 0, 0, 53,
+                67, 0, 53, 0, 53, 0, 97, 53, 67, 0,
+                0, 0, 0, 0, 200, 0, 0, 0, 67, 0,
+                0, 0, 30, 0, 0, 0, 11, 0, 0, 0,
+                11, 11, 0, 11, 11, 0, 11, 0, 0, 0,
+                0, 0, 11, 0, 0, 11, 0, 0, 0, 0,
+                11, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0
+        };
     }
 
     bool Powers(BWAPI::TilePosition pylonTile, BWAPI::TilePosition buildingTile, BWAPI::UnitType buildingType)
@@ -182,5 +220,33 @@ namespace UnitUtil
         if (morphsFrom.second > 0) gas += morphsFrom.second * GasCost(morphsFrom.first);
 
         return gas;
+    }
+
+    int GroundWeaponAngle(BWAPI::UnitType type)
+    {
+        if (type.groundWeapon().getID() >= weaponAngles.size()) return 0;
+        return weaponAngles[type.groundWeapon().getID()];
+    }
+
+    int AirWeaponAngle(BWAPI::UnitType type)
+    {
+        if (type.airWeapon().getID() >= weaponAngles.size()) return 0;
+        return weaponAngles[type.airWeapon().getID()];
+    }
+
+    int HaltDistance(BWAPI::UnitType type)
+    {
+        if (type.getID() >= haltDistances.size()) return 0;
+        return haltDistances[type.getID()];
+    }
+
+    int Acceleration(BWAPI::UnitType type, double currentTopSpeed)
+    {
+        // Acceleration is doubled when speed is upgraded
+        if (currentTopSpeed > type.topSpeed())
+        {
+            return type.acceleration() << 1;
+        }
+        return type.acceleration();
     }
 }

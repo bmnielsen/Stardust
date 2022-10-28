@@ -13,6 +13,7 @@
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
 #include "Plays/SpecialTeams/CarrierHarass.h"
+#include "Plays/SpecialTeams/Elevator.h"
 #include "Plays/SpecialTeams/ElevatorRush.h"
 
 namespace
@@ -32,6 +33,7 @@ void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
     plays.emplace_back(std::make_shared<EjectEnemyScout>());
+    plays.emplace_back(std::make_shared<Elevator>());
     plays.emplace_back(std::make_shared<DefendMyMain>());
 
     // AIST S4 vs. Human match - do a fast expansion on Fighting Spirit and Circuit Breaker
@@ -61,7 +63,7 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 #endif
 
         enemyStrategy = newEnemyStrategy;
-        enemyStrategyChanged = BWAPI::Broodwar->getFrameCount();
+        enemyStrategyChanged = currentFrame;
     }
 
     if (ourStrategy != newStrategy)
@@ -72,18 +74,16 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 #endif
 
         // AIST S4 vs. Human match - When we transition from early-game defense to normal on specific maps, do an elevator rush
-        /*
-        if (ourStrategy == OurStrategy::EarlyGameDefense && newStrategy == OurStrategy::NormalOpening &&
-            (BWAPI::Broodwar->mapHash() == "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b" ||
-             BWAPI::Broodwar->mapHash() == "e39c1c81740a97a733d227e238bd11df734eaf96" ||
-             BWAPI::Broodwar->mapHash() == "6f8da3c3cc8d08d9cf882700efa049280aedca8c" ||
-             BWAPI::Broodwar->mapHash() == "fe25d8b79495870ac1981c2dfee9368f543321e3" ||
-             BWAPI::Broodwar->mapHash() == "d9757c0adcfd61386dff8fe3e493e9e8ef9b45e3" ||
-             BWAPI::Broodwar->mapHash() == "ecb9c70c5594a5c6882baaf4857a61824fba0cfa"))
-        {
-            //plays.insert(plays.begin(), std::make_shared<ElevatorRush>());
-        }
-        */
+//        if (ourStrategy == OurStrategy::EarlyGameDefense && newStrategy == OurStrategy::NormalOpening &&
+//            (BWAPI::Broodwar->mapHash() == "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b" ||
+//             BWAPI::Broodwar->mapHash() == "e39c1c81740a97a733d227e238bd11df734eaf96" ||
+//             BWAPI::Broodwar->mapHash() == "6f8da3c3cc8d08d9cf882700efa049280aedca8c" ||
+//             BWAPI::Broodwar->mapHash() == "fe25d8b79495870ac1981c2dfee9368f543321e3" ||
+//             BWAPI::Broodwar->mapHash() == "d9757c0adcfd61386dff8fe3e493e9e8ef9b45e3" ||
+//             BWAPI::Broodwar->mapHash() == "ecb9c70c5594a5c6882baaf4857a61824fba0cfa"))
+//        {
+//            plays.insert(plays.begin(), std::make_shared<Elevator>());
+//        }
 
         ourStrategy = newStrategy;
     }
@@ -127,6 +127,7 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
     updateAttackPlays(plays, defendOurMain);
     updateDefendBasePlays(plays);
+    updateSpecialTeamsPlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 15000);
 
@@ -252,6 +253,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
                             auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
                             prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                        "SE-antirush",
                                                                                         type,
                                                                                         buildLocation);
                         };
@@ -276,13 +278,9 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 return completedCannons;
             };
 
-            // Take enemy production into account when determining how many marines they have
-            int enemyMarines = Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) + 1;
-            if (enemyStrategy == TerranStrategy::ProxyRush) enemyMarines += 2;
-
             // Build cannons if the strategy has been stable for 5 seconds
             int completedCannons =
-                    enemyStrategyChanged < (BWAPI::Broodwar->getFrameCount() - 120)
+                    enemyStrategyChanged < (currentFrame - 120)
                     ? buildCannons(2)
                     : 0;
 
@@ -299,10 +297,11 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::NormalOpening:
         {
             // If any zealots are in production, and we don't have an emergency production goal, cancel them
-            if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot) > 0)
-            {
-                cancelTrainingUnits(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot);
-            }
+            // Disabled for COG as this can cause crashes in BWAPI
+//            if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot) > 0)
+//            {
+//                cancelTrainingUnits(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot);
+//            }
 
             // Try to keep at least two army units in production while taking our natural
             int higherPriorityCount = 2 - inProgressCount;
@@ -325,17 +324,33 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 !Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Science_Facility))
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "SE-nodetect",
                                                                          BWAPI::UnitTypes::Protoss_Dark_Templar,
                                                                          1,
                                                                          1);
             }
              */
 
+            // Against mech, get one shuttle unless the enemy has more than one goliath or many marines
+            // Obs may get higher priority depending on what we have scouted
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) < 1 &&
+                enemyStrategy == TerranStrategy::MidGameMech &&
+                Units::countEnemy(BWAPI::UnitTypes::Terran_Goliath) < 2 &&
+                Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) < 10)
+            {
+                prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                               "SE",
+                                                                               BWAPI::UnitTypes::Protoss_Shuttle,
+                                                                               1,
+                                                                               1);
+            }
+
             // Build arbiters on three completed nexuses
             int arbiterCount = Units::countAll(BWAPI::UnitTypes::Protoss_Arbiter);
             if (arbiterCount < 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "SE",
                                                                          BWAPI::UnitTypes::Protoss_Arbiter,
                                                                          1,
                                                                          1);
@@ -353,6 +368,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // Produce unlimited carriers off of two stargates, at slightly higher priority than main army
             prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     "SE",
                                                                      BWAPI::UnitTypes::Protoss_Carrier,
                                                                      -1,
                                                                      2);
@@ -364,6 +380,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             if (weaponLevel < 3)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+                                                                         "SE",
                                                                          BWAPI::UpgradeTypes::Protoss_Air_Weapons,
                                                                          weaponLevel + 1,
                                                                          1);
@@ -454,7 +471,11 @@ void PvT::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
 
     // Cases where we want the upgrade as soon as we start building one of the units
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
-    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
+    upgradeWhenUnitCreated(prioritizedProductionGoals,
+                           BWAPI::UpgradeTypes::Gravitic_Drive,
+                           BWAPI::UnitTypes::Protoss_Shuttle,
+                           false,
+                           Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) < 3);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Khaydarin_Core, BWAPI::UnitTypes::Protoss_Arbiter, false);
     upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::TechTypes::Stasis_Field, BWAPI::UnitTypes::Protoss_Arbiter, false);
@@ -477,19 +498,20 @@ void PvT::handleDetection(std::vector<std::shared_ptr<Play>> &plays, std::map<in
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
     if (mainArmyPlay && mainArmyPlay->getSquad() && !mainArmyPlay->getSquad()->getDetectors().empty()) return;
 
-    auto buildObserver = [&]()
+    auto buildObserver = [&](int priority = PRIORITY_NORMAL)
     {
-        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                 BWAPI::UnitTypes::Protoss_Observer,
-                                                                 1,
-                                                                 1);
+        prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                          "SE-detection",
+                                                          BWAPI::UnitTypes::Protoss_Observer,
+                                                          1,
+                                                          1);
     };
 
     // Build an observer if the enemy has cloaked wraith tech
     if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Control_Tower) ||
         Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Cloaking_Field))
     {
-        buildObserver();
+        buildObserver(PRIORITY_SPECIALTEAMS);
         return;
     }
 
@@ -499,12 +521,12 @@ void PvT::handleDetection(std::vector<std::shared_ptr<Play>> &plays, std::map<in
     // Get obs immediately if we've seen a spider mine
     if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Vulture_Spider_Mine))
     {
-        buildObserver();
+        buildObserver(PRIORITY_SPECIALTEAMS);
         return;
     }
 
     // Get obs earlier if we've seen a vulture or tank, indicating mech play and likely spider mines
-    if (BWAPI::Broodwar->getFrameCount() > 10000 && (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) ||
+    if (currentFrame > 10000 && (Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) ||
                                                      Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) ||
                                                      Units::hasEnemyBuilt(BWAPI::UnitTypes::Terran_Vulture)))
     {
@@ -513,7 +535,7 @@ void PvT::handleDetection(std::vector<std::shared_ptr<Play>> &plays, std::map<in
     }
 
     // Otherwise start getting obs at frame 14000
-    if (BWAPI::Broodwar->getFrameCount() > 14000)
+    if (currentFrame > 14000)
     {
         buildObserver();
         return;

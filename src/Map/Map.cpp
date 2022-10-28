@@ -3,6 +3,7 @@
 #include "MapSpecificOverrides/Fortress.h"
 #include "MapSpecificOverrides/Plasma.h"
 #include "MapSpecificOverrides/Alchemist.h"
+#include "MapSpecificOverrides/Outsider.h"
 
 #include "Units.h"
 #include "PathFinding.h"
@@ -16,24 +17,30 @@ namespace Map
     {
         int mapWidth;
         int mapHeight;
-        
+        int mapWidthPixels;
+        int mapHeightPixels;
+
         MapSpecificOverride *_mapSpecificOverride;
         std::vector<Base *> bases;
         std::vector<Base *> startingLocationBases;
+
         std::map<const BWEM::ChokePoint *, Choke *> chokes;
         int _minChokeWidth;
 
-        std::set<const BWEM::Area *> myStartingMainAreas;
+        std::map<Base *, std::set<const BWEM::Area *>> startingBaseAreas;
+
+        std::map<const BWEM::Area *, std::set<BWAPI::TilePosition>> areasToEdgePositions;
+        std::map<BWAPI::TilePosition, const BWEM::Area *> edgePositionsToArea;
 
         std::vector<bool> inOwnMineralLine;
 
         std::vector<bool> narrowChokeTiles;
         std::vector<bool> leafAreaTiles;
+        std::vector<bool> islandTiles;
 
         std::vector<int> tileLastSeen;
 
 #if CHERRYVIS_ENABLED
-        std::vector<long> visibility;
         std::vector<long> power;
 #endif
 
@@ -273,7 +280,7 @@ namespace Map
                        << playerLabel(owner);
 
             base->owner = owner;
-            base->ownedSince = BWAPI::Broodwar->getFrameCount();
+            base->ownedSince = currentFrame;
             base->resourceDepot = nullptr;
             setResourceDepot();
 
@@ -509,19 +516,77 @@ namespace Map
 #endif
         }
 
-        void computeLeafAreaTiles()
+        void computeIslandTiles()
         {
-            // Gather all "leaf" areas, which we define as areas that are only connected by narrow chokes
-            // We also always add our starting main areas as leaf areas
-            std::set<const BWEM::Area *> leafAreas;
-            leafAreas.insert(myStartingMainAreas.begin(), myStartingMainAreas.end());
+            // Gather all "island" areas, which are areas not ground-connected to our start location
+            std::set<const BWEM::Area *> islandAreas;
             for (const auto &area : BWEM::Map::Instance().Areas())
             {
+                auto dist = PathFinding::GetGroundDistance(BWAPI::Position(area.Top()),
+                                                           BWAPI::Position(BWAPI::Broodwar->self()->getStartLocation()));
+                if (dist == -1)
+                {
+                    islandAreas.insert(&area);
+                }
+            }
+            _mapSpecificOverride->addIslandAreas(islandAreas);
+
+            islandTiles.resize(mapWidth * mapHeight);
+
+            for (int y = 0; y < mapHeight; y++)
+            {
+                for (int x = 0; x < mapWidth; x++)
+                {
+                    BWAPI::TilePosition here(x, y);
+                    auto area = BWEM::Map::Instance().GetArea(here);
+                    if (area)
+                    {
+                        if (islandAreas.find(area) != islandAreas.end())
+                        {
+                            islandTiles[here.x + here.y * mapWidth] = true;
+                        }
+                    }
+                }
+            }
+
+#if CHERRYVIS_ENABLED
+            // Dump to CherryVis
+            std::vector<long> islandTilesCVis(mapWidth * mapHeight);
+            for (int y = 0; y < mapHeight; y++)
+            {
+                for (int x = 0; x < mapWidth; x++)
+                {
+                    islandTilesCVis[x + y * mapWidth] = islandTiles[x + y * mapWidth];
+                }
+            }
+
+            CherryVis::addHeatmap("IslandTiles", islandTilesCVis, mapWidth, mapHeight);
+#endif
+        }
+
+        void computeLeafAreaTiles()
+        {
+            // Gather all "leaf" areas, which we define as areas that are only connected by narrow or blocked chokes
+            // We also always add our starting main areas as leaf areas
+            std::set<const BWEM::Area *> leafAreas;
+            auto &myStartingMainAreas = startingBaseAreas[getMyMain()];
+            leafAreas.insert(myStartingMainAreas.begin(), myStartingMainAreas.end());
+            auto isIslandArea = [](const BWEM::Area *area)
+            {
+                return isOnIsland(BWAPI::TilePosition(area->Top()));
+            };
+            for (const auto &area : BWEM::Map::Instance().Areas())
+            {
+                if (isIslandArea(&area)) continue;
+
                 for (const auto &bwemChoke : area.ChokePoints())
                 {
                     auto choke = Map::choke(bwemChoke);
                     if (!choke) continue;
-                    if (!choke->isNarrowChoke) goto NextArea;
+                    if (!choke->isNarrowChoke && !isIslandArea(bwemChoke->GetAreas().first) && !isIslandArea(bwemChoke->GetAreas().second))
+                    {
+                        goto NextArea;
+                    }
                 }
 
                 leafAreas.insert(&area);
@@ -537,9 +602,12 @@ namespace Map
                 {
                     BWAPI::TilePosition here(x, y);
                     auto area = BWEM::Map::Instance().GetArea(here);
-                    if (area && leafAreas.find(area) != leafAreas.end())
+                    if (area)
                     {
-                        leafAreaTiles[here.x + here.y * mapWidth] = true;
+                        if (leafAreas.find(area) != leafAreas.end())
+                        {
+                            leafAreaTiles[here.x + here.y * mapWidth] = true;
+                        }
                     }
                 }
             }
@@ -598,6 +666,30 @@ namespace Map
             }
 
             CherryVis::addHeatmap("Walkable", walkability, mapWidth * 4, mapHeight * 4);
+
+            // Altitude is at walk tile resolution
+            std::vector<long> altitude(mapWidth * mapHeight * 16);
+            for (int y = 0; y < mapHeight * 4; y++)
+            {
+                for (int x = 0; x < mapWidth * 4; x++)
+                {
+                    altitude[x + y * mapWidth * 4] = BWEM::Map::Instance().GetMiniTile(BWAPI::WalkPosition(x, y)).Altitude();
+                }
+            }
+
+            CherryVis::addHeatmap("Altitude", altitude, mapWidth * 4, mapHeight * 4);
+
+            // Edge tiles are at tile resolution
+            std::vector<long> edgeTiles(mapWidth * mapHeight);
+            for (int y = 0; y < mapHeight; y++)
+            {
+                for (int x = 0; x < mapWidth; x++)
+                {
+                    edgeTiles[x + y * mapWidth] = edgePositionsToArea.find(BWAPI::TilePosition(x, y)) == edgePositionsToArea.end() ? 0 : 100;
+                }
+            }
+
+            CherryVis::addHeatmap("EdgeTiles", edgeTiles, mapWidth, mapHeight);
 
             // Mineral lines from all bases
             std::vector<long> mineralLineCvis(mapWidth * mapHeight);
@@ -720,7 +812,9 @@ namespace Map
     {
         mapWidth = BWAPI::Broodwar->mapWidth();
         mapHeight = BWAPI::Broodwar->mapHeight();
-        
+        mapWidthPixels = mapWidth * 32;
+        mapHeightPixels = mapHeight * 32;
+
         if (_mapSpecificOverride)
         {
             delete _mapSpecificOverride;
@@ -736,18 +830,20 @@ namespace Map
             delete it->second;
         }
         _minChokeWidth = 0;
-        myStartingMainAreas.clear();
+        startingBaseAreas.clear();
+        areasToEdgePositions.clear();
+        edgePositionsToArea.clear();
         inOwnMineralLine.clear();
         inOwnMineralLine.resize(mapWidth * mapHeight);
         narrowChokeTiles.clear();
         leafAreaTiles.clear();
+        islandTiles.clear();
         tileLastSeen.clear();
         tileLastSeen.resize(mapWidth * mapHeight);
 
         NoGoAreas::initialize();
 
 #if CHERRYVIS_ENABLED
-        visibility.clear();
         power.clear();
 #endif
         playerToPlayerBases.clear();
@@ -778,6 +874,12 @@ namespace Map
             Log::Get() << "Using map-specific override for Alchemist";
             _mapSpecificOverride = new Alchemist();
         }
+        else if (BWAPI::Broodwar->mapHash() == "63a94b3a878c912f2fa5e31700491a60ac3f29d9" ||
+                 BWAPI::Broodwar->mapHash() == "99324782b01af58f6b25aea13e2d62aa83564de0")
+        {
+            Log::Get() << "Using map-specific override for Outsider";
+            _mapSpecificOverride = new Outsider();
+        }
         else
         {
             _mapSpecificOverride = new MapSpecificOverride();
@@ -803,6 +905,8 @@ namespace Map
             if (pair.second->width < _minChokeWidth)
                 _minChokeWidth = pair.second->width;
         }
+
+        computeIslandTiles();
 
         // Initialize bases
         for (const auto &area : BWEM::Map::Instance().Areas())
@@ -831,29 +935,62 @@ namespace Map
             playerToPlayerBases[BWAPI::Broodwar->self()].startingMainChoke->setAsMainChoke();
         }
 
-        myStartingMainAreas.insert(getMyMain()->getArea());
-        if (playerToPlayerBases[BWAPI::Broodwar->self()].startingMainChoke &&
-            playerToPlayerBases[BWAPI::Broodwar->self()].startingNatural)
+        // Compute areas for all starting location bases
+        for (auto &base : startingLocationBases)
         {
-            // Main areas consist of all areas where the path to the natural goes through the main choke
+            // Initialize with the base area
+            startingBaseAreas[base].insert(base->getArea());
+
+            // Add any areas where the path to the natural goes through the main choke
             // TODO: Doesn't work for Alchemist 3 o'clock where we don't have a main choke or natural
+
+            auto natural = getNaturalForStartLocation(base->getTilePosition());
+            if (!natural) continue;
+
+            auto mainChoke = computeMainChoke(base, natural);
+            if (!mainChoke) continue;
+
             for (const auto &area : BWEM::Map::Instance().Areas())
             {
+                if (isOnIsland(BWAPI::TilePosition(area.Top()))) continue;
+
                 bool hasMainChoke = false;
                 for (const auto &choke : PathFinding::GetChokePointPath(
                         BWAPI::Position(area.Top()),
-                        getMyNatural()->getPosition(),
+                        natural->getPosition(),
                         BWAPI::UnitTypes::Protoss_Dragoon,
                         PathFinding::PathFindingOptions::UseNearestBWEMArea))
                 {
-                    if (choke == playerToPlayerBases[BWAPI::Broodwar->self()].startingMainChoke->choke)
+                    if (choke == mainChoke->choke)
                     {
                         hasMainChoke = true;
                         break;
                     }
                 }
 
-                if (hasMainChoke) myStartingMainAreas.insert(&area);
+                if (hasMainChoke) startingBaseAreas[base].insert(&area);
+            }
+        }
+
+        // Gather the edges of all areas on the map
+        for (int y = 0; y < mapHeight * 4; y++)
+        {
+            for (int x = 0; x < mapWidth * 4; x++)
+            {
+                if (!BWAPI::Broodwar->isWalkable(x, y)) continue;
+
+                BWAPI::WalkPosition wp(x, y);
+
+                auto &miniTile = BWEM::Map::Instance().GetMiniTile(wp);
+                if (miniTile.Altitude() >= 24 && miniTile.Altitude() < 32 && miniTile.AreaId() >= 0)
+                {
+                    auto area = BWEM::Map::Instance().GetArea(miniTile.AreaId());
+                    if (area->MaxAltitude() < 128) continue; // Exclude small / narrow areas
+
+                    BWAPI::TilePosition tp(wp);
+                    areasToEdgePositions[area].insert(tp);
+                    edgePositionsToArea[tp] = area;
+                }
             }
         }
 
@@ -901,12 +1038,12 @@ namespace Map
             if (BWAPI::Broodwar->isVisible(base->getTilePosition().x + 1, base->getTilePosition().y + 1) ||
                 BWAPI::Broodwar->isVisible(base->getTilePosition().x + 2, base->getTilePosition().y + 1))
             {
-                base->lastScouted = BWAPI::Broodwar->getFrameCount();
+                base->lastScouted = currentFrame;
             }
 
                 // If the base hasn't been owned for a while, and the enemy could be zerg, can we see creep?
             else if (
-                    (base->ownedSince == -1 || base->ownedSince < (BWAPI::Broodwar->getFrameCount() - 2500)) &&
+                    (base->ownedSince == -1 || base->ownedSince < (currentFrame - 2500)) &&
                     BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran &&
                     BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss &&
                     checkCreep(base))
@@ -929,7 +1066,7 @@ namespace Map
         }
 
         // Periodically check if base ownership is out-of-sync for any bases
-        if (BWAPI::Broodwar->getFrameCount() % 24 == 17)
+        if (currentFrame % 24 == 17)
         {
             for (auto &base : bases)
             {
@@ -948,7 +1085,7 @@ namespace Map
             {
                 if (BWAPI::Broodwar->isVisible(x, y))
                 {
-                    tileLastSeen[x + y * mapWidth] = BWAPI::Broodwar->getFrameCount();
+                    tileLastSeen[x + y * mapWidth] = currentFrame;
                 }
             }
         }
@@ -1162,28 +1299,32 @@ namespace Map
 
     std::set<const BWEM::Area *> &getMyMainAreas()
     {
-        return myStartingMainAreas;
+        return startingBaseAreas[getMyMain()];
     }
 
-    void dumpVisibilityHeatmap()
+    std::set<const BWEM::Area *> &getStartingBaseAreas(Base *base)
+    {
+        return startingBaseAreas[base];
+    }
+
+    Base *getStartingBaseNatural(Base *base)
+    {
+        return getNaturalForStartLocation(base->getTilePosition());
+    }
+
+    std::map<const BWEM::Area *, std::set<BWAPI::TilePosition>> &getAreasToEdgePositions()
+    {
+        return areasToEdgePositions;
+    }
+
+    std::map<BWAPI::TilePosition, const BWEM::Area *> &getEdgePositionsToArea()
+    {
+        return edgePositionsToArea;
+    }
+
+    void dumpPowerHeatmap()
     {
 #if CHERRYVIS_ENABLED
-        std::vector<long> newVisibility(mapWidth * mapHeight, 0);
-        for (int y = 0; y < mapHeight; y++)
-        {
-            for (int x = 0; x < mapWidth; x++)
-            {
-                if (BWAPI::Broodwar->isVisible(x, y))
-                    newVisibility[x + y * mapWidth] = 1;
-            }
-        }
-
-        if (newVisibility != visibility)
-        {
-            CherryVis::addHeatmap("FogOfWar", newVisibility, mapWidth, mapHeight);
-            visibility = newVisibility;
-        }
-
         std::vector<long> newPower(mapWidth * mapHeight, 0);
         for (int y = 0; y < mapHeight; y++)
         {
@@ -1222,6 +1363,11 @@ namespace Map
         return leafAreaTiles[pos.x + pos.y * mapWidth];
     }
 
+    bool isOnIsland(BWAPI::TilePosition pos)
+    {
+        return islandTiles[pos.x + pos.y * mapWidth];
+    }
+
     int lastSeen(BWAPI::TilePosition tile)
     {
         return tileLastSeen[tile.x + tile.y * mapWidth];
@@ -1230,5 +1376,11 @@ namespace Map
     int lastSeen(int x, int y)
     {
         return tileLastSeen[x + y * mapWidth];
+    }
+
+    void makePositionValid(int &x, int &y)
+    {
+        x = std::clamp(x, 0, mapWidthPixels);
+        y = std::clamp(y, 0, mapHeightPixels);
     }
 }

@@ -38,10 +38,11 @@ namespace
     }
 }
 
-TakeIslandExpansion::TakeIslandExpansion(Base *base)
+TakeIslandExpansion::TakeIslandExpansion(Base *base, bool canCancel, bool transferWorkers)
         : TakeExpansion(base, 0)
+        , canCancel(canCancel)
         , shuttle(nullptr)
-        , workerTransferState(0) {}
+        , workerTransferState(transferWorkers ? 0 : 2) {}
 
 void TakeIslandExpansion::update()
 {
@@ -117,6 +118,12 @@ void TakeIslandExpansion::update()
 
         // Jump out now if the shuttle hasn't loaded the builder yet
         if (builder->getDistance(base->getPosition()) > 128) return;
+
+        // The shuttle has transferred the builder and doesn't need to transfer workers, release it
+        if (shuttle && workerTransferState == 2)
+        {
+            status.removedUnits.push_back(shuttle);
+        }
 
         // Ensure the builder clears a blocking neutral
         if (base->blockingNeutral && base->blockingNeutral->exists())
@@ -200,7 +207,7 @@ void TakeIslandExpansion::update()
                 {
                     int frames = 600 +
                                  PathFinding::ExpectedTravelTime(base->getPosition(), bestBase->getPosition(), BWAPI::UnitTypes::Protoss_Shuttle);
-                    if (nexus->estimatedCompletionFrame - BWAPI::Broodwar->getFrameCount() > frames)
+                    if (nexus->estimatedCompletionFrame - currentFrame > frames)
                     {
                         break;
                     }
@@ -286,7 +293,14 @@ void TakeIslandExpansion::addPrioritizedProductionGoals(std::map<int, std::vecto
     for (auto &unitRequirement : status.unitRequirements)
     {
         if (unitRequirement.count < 1) continue;
+
+        // We only build a shuttle if we don't already have one
+        // If we have one, we'll wait until it is available for island expo duties
+        if (unitRequirement.type != BWAPI::UnitTypes::Protoss_Shuttle) continue;
+        if (Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) > 0) continue;
+
         prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 label,
                                                                  unitRequirement.type,
                                                                  unitRequirement.count,
                                                                  1);
@@ -305,6 +319,7 @@ void TakeIslandExpansion::removeUnit(const MyUnit &unit)
 
 bool TakeIslandExpansion::cancellable()
 {
+    if (!canCancel) return false;
     if (!shuttle) return true;
     if (builder) return false;
     return workerTransfer.empty();

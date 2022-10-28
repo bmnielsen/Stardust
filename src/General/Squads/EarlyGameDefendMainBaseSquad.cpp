@@ -23,8 +23,8 @@ namespace
         // Get enemy combat units in our base
         auto combatUnitSeenRecentlyPredicate = [](const Unit &unit)
         {
-            if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 48)) return false;
-            if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) return false;
+            if (!unit->type.isBuilding() && unit->lastSeen < (currentFrame - 48)) return false;
+            if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (currentFrame - 120)) return false;
             if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) return false;
 
             return true;
@@ -140,7 +140,7 @@ namespace
             return true;
         }
 
-        CombatSimResult previousSimResult = cluster.recentSimResults.rbegin()[1].first;
+        CombatSimResult &previousSimResult = cluster.recentSimResults.rbegin()[1].first;
 
         // If the number of enemy units has increased, abort the attack: the enemy has reinforced or we have discovered previously-unseen enemy units
         if (simResult.enemyUnitCount > previousSimResult.enemyUnitCount)
@@ -323,8 +323,8 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     {
         Units::enemyInRadius(enemyUnits, choke->center, 256, [](const Unit &unit)
         {
-            if (!unit->type.isBuilding() && unit->lastSeen < (BWAPI::Broodwar->getFrameCount() - 48)) return false;
-            if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (BWAPI::Broodwar->getFrameCount() - 120)) return false;
+            if (!unit->type.isBuilding() && unit->lastSeen < (currentFrame - 48)) return false;
+            if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (currentFrame - 120)) return false;
             if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) return false;
 
             return true;
@@ -408,7 +408,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         }
         else if (enemiesNeedingDetection.empty() && !enemyInOurBase && choke && choke->isNarrowChoke)
         {
-            if (enemyUnits.empty() && blockedFriendlyUnit(choke, unitToCluster))
+            if (enemyUnits.empty() && Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Dark_Templar).empty() && blockedFriendlyUnit(choke, unitToCluster))
             {
                 cluster.attack(unitsAndTargets, Map::getMyMain()->mineralLineCenter);
             }
@@ -466,7 +466,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unitAndTarget.first->id) << "Targeting worker threat: " << unitAndTarget.second->type << " @ "
-                                                    << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
+                                                    << BWAPI::WalkPosition(unitAndTarget.second->simPosition);
 #endif
             unit->attackUnit(unitAndTarget.second, unitsAndTargets, false);
             continue;
@@ -479,7 +479,7 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
-                                                    << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
+                                                    << BWAPI::WalkPosition(unitAndTarget.second->simPosition);
 #endif
             unit->attackUnit(unitAndTarget.second, unitsAndTargets, false);
             continue;
