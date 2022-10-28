@@ -982,7 +982,7 @@ namespace Map
                 BWAPI::WalkPosition wp(x, y);
 
                 auto &miniTile = BWEM::Map::Instance().GetMiniTile(wp);
-                if (miniTile.Altitude() >= 24 && miniTile.Altitude() < 32 && miniTile.AreaId() >= 0)
+                if (miniTile.Altitude() >= 24 && miniTile.Altitude() < 32 && miniTile.AreaId() > 0)
                 {
                     auto area = BWEM::Map::Instance().GetArea(miniTile.AreaId());
                     if (area->MaxAltitude() < 128) continue; // Exclude small / narrow areas
