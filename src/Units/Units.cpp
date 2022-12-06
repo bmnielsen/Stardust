@@ -605,6 +605,11 @@ namespace Units
                 unitIdToMyUnit.emplace(unit->id, unit);
 
                 unitCreated(unit);
+
+                if (unit->completed)
+                    myCompletedUnitsByType[unit->type].insert(unit);
+                else
+                    myIncompleteUnitsByType[unit->type].insert(unit);
             }
             else
             {
@@ -628,16 +633,14 @@ namespace Units
                     }
                 }
 
+                if (!unit->completed && bwapiUnit->isCompleted())
+                {
+                    myCompletedUnitsByType[unit->type].insert(unit);
+                    myIncompleteUnitsByType[unit->type].erase(unit);
+                }
+
                 unit->update(bwapiUnit);
             }
-
-            if (unit->completed)
-            {
-                myCompletedUnitsByType[unit->type].insert(unit);
-                myIncompleteUnitsByType[unit->type].erase(unit);
-            }
-            else
-                myIncompleteUnitsByType[unit->type].insert(unit);
 
             if (bwapiUnit->isUpgrading())
             {

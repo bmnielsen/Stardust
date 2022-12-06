@@ -214,6 +214,9 @@ bool MyUnitImpl::isReady() const
 
 bool MyUnitImpl::unstick()
 {
+    // Unit is dead
+    if (!bwapiUnit) return true;
+
     // If we recently sent a command meant to unstick the unit, give it a bit of time to kick in
     if (unstickUntil > currentFrame)
     {
