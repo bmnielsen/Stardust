@@ -75,6 +75,8 @@ namespace Map
 
     Choke *getMyMainChoke();
 
+    Choke *getMyNaturalChoke();
+
     void setMyMainChoke(Choke *choke);
 
     Choke *getEnemyMainChoke();

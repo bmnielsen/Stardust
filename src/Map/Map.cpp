@@ -49,13 +49,15 @@ namespace Map
             Base *startingMain;
             Base *startingNatural;
             Choke *startingMainChoke;
+            Choke *startingNaturalChoke;
 
             Base *main;
             std::set<Base *> allOwned;
             std::vector<Base *> probableExpansions;
             std::vector<Base *> islandExpansions;
 
-            PlayerBases() : startingMain(nullptr), startingNatural(nullptr), main(nullptr) {}
+            PlayerBases() : startingMain(nullptr), startingNatural(nullptr), startingMainChoke(nullptr), startingNaturalChoke(nullptr), main(nullptr)
+            {}
         };
 
         std::map<BWAPI::Player, PlayerBases> playerToPlayerBases;
@@ -80,6 +82,47 @@ namespace Map
             }
 
             return choke(*path.begin());
+        }
+
+        Choke *computeNaturalChoke(Base *main, Base *natural, Choke *mainChoke)
+        {
+            if (!main || !natural || !mainChoke) return nullptr;
+
+            // Finds the choke out of the natural area that:
+            // - is not the main choke
+            // - is not blocked or very narrow
+            // - goes to the area closest to the map center
+            // Ties are broken by closest choke to our main
+
+            auto naturalArea = natural->getArea();
+            auto mapCenter = BWEM::Map::Instance().Center();
+
+            // Find the closest choke to the area closest to the center
+            auto areaDistBest = INT_MAX;
+            auto chokeDistBest = INT_MAX;
+            const BWEM::ChokePoint *best = nullptr;
+            for (auto& choke : naturalArea->ChokePoints())
+            {
+                if (choke->Center() == mainChoke->choke->Center()) continue;
+                if (choke->Blocked() || choke->Geometry().size() <= 3) continue;
+
+                auto& area = choke->GetAreas().first == naturalArea ? choke->GetAreas().second : choke->GetAreas().first;
+                if (!area->Top().isValid()) continue;
+
+                const auto areaDist = BWAPI::Position(area->Top()).getApproxDistance(mapCenter);
+                if (areaDist > areaDistBest) continue;
+
+                const auto chokeDist = BWAPI::Position(choke->Center()).getApproxDistance(main->getPosition());
+                if (areaDist < areaDistBest || chokeDist < chokeDistBest)
+                {
+                    best = choke;
+                    areaDistBest = areaDist;
+                    chokeDistBest = chokeDist;
+                }
+            }
+
+            if (!best) return nullptr;
+            return choke(best);
         }
 
         int closestBaseDistance(Base *base, const std::set<Base *> &otherBases)
@@ -297,6 +340,7 @@ namespace Map
                     ownerBases.startingMain = base;
                     ownerBases.startingNatural = getNaturalForStartLocation(base->getTilePosition());
                     ownerBases.startingMainChoke = computeMainChoke(base, ownerBases.startingNatural);
+                    ownerBases.startingNaturalChoke = computeNaturalChoke(base, ownerBases.startingNatural, ownerBases.startingMainChoke);
                     ownerBases.main = base;
 
                     if (owner == BWAPI::Broodwar->enemy())
@@ -1271,6 +1315,11 @@ namespace Map
     Choke *getMyMainChoke()
     {
         return playerToPlayerBases[BWAPI::Broodwar->self()].startingMainChoke;
+    }
+
+    Choke *getMyNaturalChoke()
+    {
+        return playerToPlayerBases[BWAPI::Broodwar->self()].startingNaturalChoke;
     }
 
     void setMyMainChoke(Choke *choke)
