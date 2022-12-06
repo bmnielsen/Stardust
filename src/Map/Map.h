@@ -104,6 +104,8 @@ namespace Map
 
     bool isWalkable(int x, int y);
 
+    bool isTerrainWalkable(int tileX, int tileY);
+
     unsigned short unwalkableProximity(int x, int y);
 
     unsigned short walkableWidth(int x, int y);

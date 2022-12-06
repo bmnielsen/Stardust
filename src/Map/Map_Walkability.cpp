@@ -23,6 +23,7 @@ namespace Map
         int mapWidth;
         int mapHeight;
         
+        std::vector<bool> tileTerrainWalkability;
         std::vector<bool> tileWalkability;
         std::vector<unsigned short> tileDistanceToUnwalkableDirections;
         std::vector<unsigned short> tileDistanceToUnwalkable;
@@ -356,12 +357,14 @@ namespace Map
         mapWidth = BWAPI::Broodwar->mapWidth();
         mapHeight = BWAPI::Broodwar->mapHeight();
         
+        tileTerrainWalkability.clear();
         tileWalkability.clear();
         tileDistanceToUnwalkableDirections.clear();
         tileCollisionVector.clear();
         tileCollisionVector.resize(mapWidth * mapHeight, BWAPI::Position(0, 0));
         tileWalkabilityUpdated = true;
 
+        tileTerrainWalkability.resize(mapWidth * mapHeight);
         tileWalkability.resize(mapWidth * mapHeight);
 
         // Start by checking the normal BWAPI walkability
@@ -383,6 +386,7 @@ namespace Map
                     }
                 }
                 breakInnerLoop:
+                tileTerrainWalkability[tileX + tileY * mapWidth] = walkable;
                 tileWalkability[tileX + tileY * mapWidth] = walkable;
             }
         }
@@ -406,6 +410,22 @@ namespace Map
         updateTileWalkability(BWAPI::Broodwar->self()->getStartLocation(), BWAPI::UnitTypes::Protoss_Nexus.tileSize(), false);
 
         // Add static neutrals
+        auto handleStaticNeutral = [&](BWAPI::TilePosition tile, BWAPI::TilePosition size)
+        {
+            // Update terrain walkability directly
+            auto bottomRight = tile + size;
+            for (int y = tile.y; y < bottomRight.y; y++)
+            {
+                for (int x = tile.x; x < bottomRight.x; x++)
+                {
+                    tileTerrainWalkability[x + y * mapWidth] = false;
+                }
+            }
+
+            // Update our main walkability through the update method so other related structures are updated
+            updateTileWalkability(tile, size, false);
+        };
+
         for (auto neutral : BWAPI::Broodwar->getStaticNeutralUnits())
         {
             if (neutral->getType().isCritter()) continue;
@@ -415,13 +435,27 @@ namespace Map
             if (neutral->getType() == BWAPI::UnitTypes::Zerg_Lurker_Egg)
             {
                 BWAPI::Position bottomRight(neutral->getInitialPosition() + BWAPI::Position(neutral->getType().width(), neutral->getType().height()));
-                updateTileWalkability(neutral->getInitialTilePosition(), BWAPI::TilePosition(bottomRight) - neutral->getInitialTilePosition(), false);
+                handleStaticNeutral(neutral->getInitialTilePosition(), BWAPI::TilePosition(bottomRight) - neutral->getInitialTilePosition());
             } else {
-                updateTileWalkability(neutral->getInitialTilePosition(), neutral->getType().tileSize(), false);
+                handleStaticNeutral(neutral->getInitialTilePosition(), neutral->getType().tileSize());
             }
         }
 
         dumpWalkability();
+
+        // Terrain walkability is static, so dump it only at initialization
+#if CHERRYVIS_ENABLED
+        std::vector<long> tileTerrainWalkabilityCVis(mapWidth * mapHeight);
+        for (int y = 0; y < mapHeight; y++)
+        {
+            for (int x = 0; x < mapWidth; x++)
+            {
+                tileTerrainWalkabilityCVis[x + y * mapWidth] = tileTerrainWalkability[x + y * mapWidth];
+            }
+        }
+
+        CherryVis::addHeatmap("TileTerrainWalkable", tileTerrainWalkabilityCVis, mapWidth, mapHeight);
+#endif
     }
 
     // Writes the tile walkability grid to CherryVis
@@ -662,6 +696,11 @@ namespace Map
     bool isWalkable(int x, int y)
     {
         return tileWalkability[x + y * mapWidth];
+    }
+
+    bool isTerrainWalkable(int x, int y)
+    {
+        return tileTerrainWalkability[x + y * mapWidth];
     }
 
     unsigned short unwalkableProximity(int x, int y)
