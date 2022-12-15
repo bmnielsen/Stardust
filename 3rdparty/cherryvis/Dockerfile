@@ -7,7 +7,7 @@ WORKDIR /openbw
 
 RUN ./build_js.sh
 	
-FROM python:3-alpine
+FROM python:3.7-alpine
 
 COPY cherryvis/requirements.txt .
 
