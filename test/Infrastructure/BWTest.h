@@ -71,6 +71,8 @@ public:
 
     void run();
 
+    void addClockPositionToReplayName();
+
 private:
 
     int initialUnitFrames = 0;

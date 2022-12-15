@@ -12,6 +12,8 @@
 
 #include "Geo.h"
 
+const double pi = 3.14159265358979323846;
+
 namespace
 {
     std::mt19937 rng((std::random_device()) ());
@@ -281,6 +283,29 @@ void BWTest::run()
         shmdt(sharedMemory);
         shmctl(shmid, IPC_RMID, nullptr);
     }
+}
+
+void BWTest::addClockPositionToReplayName()
+{
+    // First get the positions of the start location and center of the map
+    auto startPos = BWAPI::Position(BWAPI::Broodwar->self()->getStartLocation()) + BWAPI::Position(64, 48);
+    auto centerPos = BWAPI::Position(BWAPI::TilePosition(BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight())) / 2;
+
+    // Calculate the angle
+    auto angle = atan2(centerPos.y - startPos.y, centerPos.x - startPos.x);
+
+    // Adjust the frame of reference so 0 is up and normalize so all numbers are positive
+    angle -= (pi / 2.0);
+    if (angle < 0) angle += (pi * 2.0);
+
+    // Round to nearest clock direction and convert 0 to 12
+    auto clockDirection = std::lround(angle / (pi / 6.0));
+    if (clockDirection == 0) clockDirection = 12;
+
+    std::ostringstream replayNameBuilder;
+    replayNameBuilder << replayName;
+    replayNameBuilder << "_" << clockDirection << "_OClock";
+    replayName = replayNameBuilder.str();
 }
 
 void BWTest::runGame(bool opponent)
