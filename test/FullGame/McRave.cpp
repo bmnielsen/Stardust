@@ -129,3 +129,25 @@ TEST(McRave, PoolHatch_9Pool_2HatchMuta)
     };
     test.run();
 }
+
+TEST(McRave, PoolHatch_Overpool_2HatchMuta)
+{
+    BWTest test;
+    McRaveModule* mcraveModule;
+    test.opponentName = "McRave";
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.map = Maps::GetOne("Heartbreak");
+    test.randomSeed = 20126;
+    test.opponentModule = [&]()
+    {
+        mcraveModule = new McRaveModule();
+        return mcraveModule;
+    };
+    test.onStartOpponent = [&]()
+    {
+        McRave::BuildOrder::setLearnedBuild("PoolHatch", "Overpool", "2HatchMuta");
+
+        std::cout.setstate(std::ios_base::failbit);
+    };
+    test.run();
+}
