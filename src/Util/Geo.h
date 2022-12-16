@@ -38,6 +38,8 @@ namespace Geo
 
     void FindTilesBetween(BWAPI::TilePosition start, BWAPI::TilePosition end, std::vector<BWAPI::TilePosition> &result);
 
+    void FindWalkTilesBetween(BWAPI::WalkPosition start, BWAPI::WalkPosition end, std::vector<BWAPI::WalkPosition> &result);
+
     BWAPI::Position CenterOfUnit(BWAPI::TilePosition topLeft, BWAPI::UnitType type);
 
     BWAPI::Position CenterOfUnit(BWAPI::Position topLeft, BWAPI::UnitType type);

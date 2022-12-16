@@ -306,6 +306,26 @@ namespace Geo
         }
     }
 
+    void FindWalkTilesBetween(BWAPI::WalkPosition start, BWAPI::WalkPosition end, std::vector<BWAPI::WalkPosition> &result)
+    {
+        std::set<BWAPI::WalkPosition> added;
+        int distTotal = start.getApproxDistance(end);
+        int xdiff = end.x - start.x;
+        int ydiff = end.y - start.y;
+        for (int distStop = 0; distStop <= distTotal; distStop++)
+        {
+            BWAPI::WalkPosition pos(
+                    start.x + (int) std::round(((double) distStop / distTotal) * xdiff),
+                    start.y + (int) std::round(((double) distStop / distTotal) * ydiff));
+
+            if (!pos.isValid()) continue;
+            if (added.find(pos) != added.end()) continue;
+
+            result.push_back(pos);
+            added.insert(pos);
+        }
+    }
+
     BWAPI::Position CenterOfUnit(BWAPI::TilePosition topLeft, BWAPI::UnitType type)
     {
         return CenterOfUnit(BWAPI::Position(topLeft), type);
