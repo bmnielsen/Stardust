@@ -1,6 +1,10 @@
 # Stardust
 AI for StarCraft: Brood War
 
+NOTE: This branch contains an archive of public Stardust releases from 
+when the source was otherwise kept mostly private. 
+Refer to the main branch for the current state of the project.
+
 ## About
 Stardust is written in C++ and uses [BWAPI](https://github.com/bwapi/bwapi) to play 1v1 Melee games of StarCraft: Brood War. Stardust plays as the Protoss race.
 
