@@ -5,6 +5,7 @@
 #include "Unit.h"
 #include "Block.h"
 #include "Base.h"
+#include "ForgeGatewayWall.h"
 
 /*
  * Block finding logic:
@@ -95,4 +96,6 @@ namespace BuildingPlacement
     std::pair<BWAPI::TilePosition, BWAPI::TilePosition> mainChokeCannonLocations();
 
     bool isInNeighbourhood(BWAPI::TilePosition buildTile, Neighbourhood neighbourhood);
+
+    ForgeGatewayWall createForgeGatewayWall(bool tight);
 }
