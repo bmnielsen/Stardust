@@ -97,5 +97,7 @@ namespace BuildingPlacement
 
     bool isInNeighbourhood(BWAPI::TilePosition buildTile, Neighbourhood neighbourhood);
 
-    ForgeGatewayWall createForgeGatewayWall(bool tight);
+    std::tuple<BWAPI::Unit, BWAPI::Unit, std::set<BWAPI::TilePosition>> initializeBaseDefenseAnalysis(Base *base);
+
+    ForgeGatewayWall createForgeGatewayWall(bool tight, Base *base);
 }

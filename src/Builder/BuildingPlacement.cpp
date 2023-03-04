@@ -350,53 +350,11 @@ namespace BuildingPlacement
                     continue;
                 }
 
-                // Find the end mineral patches, which are the patches furthest away from each other
-                BWAPI::Unit end1, end2;
-                {
-                    int maxDist = 0;
-                    auto patches = base->mineralPatches();
-                    for (auto first : patches)
-                    {
-                        for (auto second : patches)
-                        {
-                            int dist = first->getDistance(second);
-                            if (dist > maxDist)
-                            {
-                                maxDist = dist;
-                                end1 = first;
-                                end2 = second;
-                            }
-                        }
-                    }
-
-                    // If for whatever reason this base has no mineral patches, continue
-                    if (maxDist == 0) continue;
-                }
-
-                std::set<BWAPI::TilePosition> positions;
-                auto addPositionIfValid = [&positions](BWAPI::TilePosition topLeft)
-                {
-                    for (int y = topLeft.y; y < topLeft.y + 2; y++)
-                    {
-                        for (int x = topLeft.x; x < topLeft.x + 2; x++)
-                        {
-                            if (!BWAPI::TilePosition(x, y).isValid()) return;
-                            if ((tileAvailability[x + y * BWAPI::Broodwar->mapWidth()] & 1U) == 1) return;
-                        }
-                    }
-
-                    positions.insert(topLeft);
-                };
-                for (int x = -2; x <= 4; x++)
-                {
-                    addPositionIfValid(base->getTilePosition() + BWAPI::TilePosition(x, -2));
-                    addPositionIfValid(base->getTilePosition() + BWAPI::TilePosition(x, 3));
-                }
-                for (int y = -1; y <= 2; y++)
-                {
-                    addPositionIfValid(base->getTilePosition() + BWAPI::TilePosition(-2, y));
-                    addPositionIfValid(base->getTilePosition() + BWAPI::TilePosition(4, y));
-                }
+                auto analysis = initializeBaseDefenseAnalysis(base);
+                auto end1 = std::get<0>(analysis);
+                auto end2 = std::get<1>(analysis);
+                auto positions = std::get<2>(analysis);
+                if (!end1 || !end2 || positions.empty()) continue;
 
                 auto usePosition = [&positions](BWAPI::TilePosition tile)
                 {
@@ -1285,5 +1243,58 @@ namespace BuildingPlacement
 
         Log::Get() << "WARNING: Tile " << buildTile << " not in a block";
         return false;
+    }
+
+    std::tuple<BWAPI::Unit, BWAPI::Unit, std::set<BWAPI::TilePosition>> initializeBaseDefenseAnalysis(Base *base)
+    {
+        // Find the end mineral patches, which are the patches furthest away from each other
+        BWAPI::Unit end1, end2;
+        {
+            int maxDist = 0;
+            auto patches = base->mineralPatches();
+            for (auto first : patches)
+            {
+                for (auto second : patches)
+                {
+                    int dist = first->getDistance(second);
+                    if (dist > maxDist)
+                    {
+                        maxDist = dist;
+                        end1 = first;
+                        end2 = second;
+                    }
+                }
+            }
+
+            // If for whatever reason this base has no mineral patches, continue
+            if (maxDist == 0) return {};
+        }
+
+        std::set<BWAPI::TilePosition> positions;
+        auto addPositionIfValid = [&positions](BWAPI::TilePosition topLeft)
+        {
+            for (int y = topLeft.y; y < topLeft.y + 2; y++)
+            {
+                for (int x = topLeft.x; x < topLeft.x + 2; x++)
+                {
+                    if (!BWAPI::TilePosition(x, y).isValid()) return;
+                    if ((tileAvailability[x + y * BWAPI::Broodwar->mapWidth()] & 1U) == 1) return;
+                }
+            }
+
+            positions.insert(topLeft);
+        };
+        for (int x = -2; x <= 4; x++)
+        {
+            addPositionIfValid(base->getTilePosition() + BWAPI::TilePosition(x, -2));
+            addPositionIfValid(base->getTilePosition() + BWAPI::TilePosition(x, 3));
+        }
+        for (int y = -1; y <= 2; y++)
+        {
+            addPositionIfValid(base->getTilePosition() + BWAPI::TilePosition(-2, y));
+            addPositionIfValid(base->getTilePosition() + BWAPI::TilePosition(4, y));
+        }
+
+        return std::make_tuple(end1, end2, positions);
     }
 }

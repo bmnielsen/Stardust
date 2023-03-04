@@ -3,6 +3,7 @@
 #include "Map.h"
 #include "PathFinding.h"
 #include "Geo.h"
+#include "UnitUtil.h"
 
 #include <cfloat>
 
@@ -16,6 +17,17 @@ namespace BuildingPlacement
 {
     namespace
     {
+        Base *natural;
+        Choke *mainChoke;
+        Choke *naturalChoke;
+
+        struct PylonOption
+        {
+            BWAPI::TilePosition pylon;
+            std::set<BWAPI::TilePosition> cannons;
+            int score;
+        };
+        std::vector<PylonOption> pylonOptions;
 
         BWAPI::TilePosition pathfindingStartTile;
         BWAPI::TilePosition pathfindingEndTile;
@@ -74,6 +86,126 @@ namespace BuildingPlacement
             }
         };
 
+        void generatePylonOptions()
+        {
+            pylonOptions.clear();
+
+            // Determine what direction the choke is in compared to the natural
+            auto direction = Geo::directionFromBuilding(natural->getTilePosition(),
+                                                        BWAPI::UnitTypes::Protoss_Nexus.tileSize(),
+                                                        naturalChoke->center,
+                                                        true);
+
+            // Generate the pylon positions we want to consider
+            std::set<BWAPI::TilePosition> options;
+            if (direction == Geo::Direction::up)
+            {
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(-2, -1));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(-1, -2));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(0, -2));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(1, -2));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(2, -2));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(3, -2));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(4, -2));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(4, -1));
+            }
+            else if (direction == Geo::Direction::down)
+            {
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(-2, 2));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(-2, 3));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(-1, 3));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(0, 3));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(1, 3));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(2, 3));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(3, 3));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(4, 2));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(4, 3));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(5, 2));
+                options.insert(natural->getTilePosition() + BWAPI::TilePosition(5, 3));
+            }
+            else if (direction == Geo::Direction::left)
+            {
+                for (int x = -3; x <= -2; x++)
+                    for (int y = -1; y <= 3; y++)
+                        options.insert(natural->getTilePosition() + BWAPI::TilePosition(x, y));
+            }
+            else if (direction == Geo::Direction::right)
+            {
+                for (int x = 4; x <= 5; x++)
+                    for (int y = -2; y <= 3; y++)
+                        options.insert(natural->getTilePosition() + BWAPI::TilePosition(x, y));
+            }
+            else
+            {
+                return;
+            }
+
+            auto analysis = initializeBaseDefenseAnalysis(natural);
+            auto end1 = std::get<0>(analysis);
+            auto end2 = std::get<1>(analysis);
+            auto initialPositions = std::get<2>(analysis);
+            if (!end1 || !end2 || initialPositions.empty()) return;
+
+            // Now consider each possibility and score them based on how well-placed the cannons can be
+            for (auto pylon : options)
+            {
+                // Skip pylons in the mineral line
+                if (natural->isInMineralLine(pylon) || natural->isInMineralLine(pylon + BWAPI::TilePosition(1, 1))) continue;
+
+                // Create copy of positions set so we can remove invalid options
+                auto positions = initialPositions;
+                auto usePosition = [&positions](BWAPI::TilePosition tile)
+                {
+                    for (int x = tile.x - 1; x <= tile.x + 1; x++)
+                    {
+                        for (int y = tile.y - 1; y <= tile.y + 1; y++)
+                        {
+                            positions.erase(BWAPI::TilePosition(x, y));
+                        }
+                    }
+                };
+                usePosition(pylon);
+
+                std::set<BWAPI::TilePosition> cannons;
+
+                // Now place a cannon closest to each end
+                auto placeEnd = [&](BWAPI::Unit end)
+                {
+                    int minDist = INT_MAX;
+                    BWAPI::TilePosition best = BWAPI::TilePositions::Invalid;
+                    for (auto tile : positions)
+                    {
+                        if (!UnitUtil::Powers(pylon, tile, BWAPI::UnitTypes::Protoss_Photon_Cannon)) continue;
+
+                        int dist = end->getPosition().getApproxDistance(BWAPI::Position(tile) + BWAPI::Position(16, 16));
+                        if (dist < minDist)
+                        {
+                            minDist = dist;
+                            best = tile;
+                        }
+                    }
+
+                    if (best != BWAPI::TilePositions::Invalid)
+                    {
+                        usePosition(best);
+                        cannons.insert(best);
+                    }
+
+                    return minDist;
+                };
+                int score = placeEnd(end1);
+                score += placeEnd(end2);
+                if (cannons.size() == 2)
+                {
+                    pylonOptions.push_back(PylonOption{pylon, cannons, score});
+                }
+            }
+
+            std::sort(pylonOptions.begin(), pylonOptions.end(), [](const PylonOption &a, const PylonOption &b) {
+                return a.score < b.score;
+            });
+        }
+
         void addWallTiles(BWAPI::TilePosition tile, BWAPI::TilePosition size)
         {
             for (int x = tile.x; x < tile.x + size.x; x++)
@@ -128,9 +260,7 @@ namespace BuildingPlacement
                 startTile = alternateStartTile;
             }
 
-            auto natural = Map::getMyNatural();
-
-            auto validPathfindingTile = [&natural](BWAPI::TilePosition tile)
+            auto validPathfindingTile = [](BWAPI::TilePosition tile)
             {
                 return buildableTile(tile) && natural->mineralLineTiles.find(tile) == natural->mineralLineTiles.end();
             };
@@ -357,7 +487,7 @@ namespace BuildingPlacement
                 addGatewayGeo(gateway, *geo2);
             }
 
-            BWAPI::Position natCenter = Map::getMyNatural()->getPosition();
+            BWAPI::Position natCenter = natural->getPosition();
             double bestDist = DBL_MAX;
             double bestNatDist = DBL_MAX;
             BWAPI::Position bestCenter = BWAPI::Positions::Invalid;
@@ -443,27 +573,6 @@ namespace BuildingPlacement
             return std::min(std::abs(a - b), pi - std::abs(a - b));
         }
 
-        bool powers(BWAPI::TilePosition pylon, BWAPI::TilePosition building, BWAPI::UnitType type)
-        {
-            int offsetY = building.y - pylon.y;
-            int offsetX = building.x - pylon.x;
-
-            if (type.tileWidth() == 4)
-            {
-                if (offsetY < -5 || offsetY > 4) return false;
-                if ((offsetY == -5 || offsetY == 4) && (offsetX < -4 || offsetX > 1)) return false;
-                if ((offsetY == -4 || offsetY == 3) && (offsetX < -7 || offsetX > 4)) return false;
-                if ((offsetY == -3 || offsetY == 2) && (offsetX < -8 || offsetX > 5)) return false;
-                return (offsetX >= -8 && offsetX <= 6);
-            }
-
-            if (offsetY < -4 || offsetY > 4) return false;
-            if (offsetY == 4 && (offsetX < -3 || offsetX > 2)) return false;
-            if ((offsetY == -4 || offsetY == 3) && (offsetX < -6 || offsetX > 5)) return false;
-            if ((offsetY == -3 || offsetY == 2) && (offsetX < -7 || offsetX > 6)) return false;
-            return (offsetX >= -7 && offsetX <= 7);
-        }
-
         bool sideOfLine(BWAPI::Position lineEnd1, BWAPI::Position lineEnd2, BWAPI::Position point)
         {
             return ((point.x - lineEnd1.x) * (lineEnd2.y - lineEnd1.y)) - ((point.y - lineEnd1.y) * (lineEnd2.x - lineEnd1.x)) < 0;
@@ -485,7 +594,7 @@ namespace BuildingPlacement
 
         void analyzeWallGeo(ForgeGatewayWall &wall)
         {
-            BWAPI::Position natCenter = Map::getMyNatural()->getPosition();
+            BWAPI::Position natCenter = natural->getPosition();
 
             BWAPI::Position forgeCenter = BWAPI::Position(wall.forge) + BWAPI::Position(BWAPI::UnitTypes::Protoss_Forge.tileWidth() * 16,
                                                                                         BWAPI::UnitTypes::Protoss_Forge.tileHeight() * 16);
@@ -524,7 +633,7 @@ namespace BuildingPlacement
 
             // Move tiles we flagged inside the wall to outside if they were not in the natural area
             auto &bwemMap = BWEM::Map::Instance();
-            auto naturalArea = Map::getMyNatural()->getArea();
+            auto naturalArea = natural->getArea();
             for (auto it = wall.tilesInsideWall.begin(); it != wall.tilesInsideWall.end();)
             {
                 if (bwemMap.GetArea(*it) != naturalArea)
@@ -615,15 +724,15 @@ namespace BuildingPlacement
         void initializePathfindingTiles()
         {
             auto &bwemMap = BWEM::Map::Instance();
-            auto naturalArea = Map::getMyNatural()->getArea();
+            auto naturalArea = natural->getArea();
 
             // End tile
 
             // Initialize 5 tiles away from the choke in the opposite direction of the natural
             BWAPI::TilePosition start;
 
-            auto p0 = BWAPI::Position(Map::getMyNaturalChoke()->center);
-            auto p1 = Map::getMyNatural()->getPosition();
+            auto p0 = BWAPI::Position(naturalChoke->center);
+            auto p1 = natural->getPosition();
 
             // Special case where the slope is infinite
             if (p0.x == p1.x)
@@ -675,8 +784,8 @@ namespace BuildingPlacement
             // Start tile
 
             // Initialize to a tile between the main choke and natural center, closer to the main choke
-            auto mainChokeCenter = BWAPI::TilePosition(Map::getMyMainChoke()->center);
-            pathfindingStartTile = (mainChokeCenter + mainChokeCenter + mainChokeCenter + Map::getMyNatural()->getTilePosition()) / 4;
+            auto mainChokeCenter = BWAPI::TilePosition(mainChoke->center);
+            pathfindingStartTile = (mainChokeCenter + mainChokeCenter + mainChokeCenter + natural->getTilePosition()) / 4;
 
             if (!bwemMap.GetArea(pathfindingStartTile) || !Map::isTerrainWalkable(pathfindingStartTile.x, pathfindingStartTile.y))
             {
@@ -708,7 +817,7 @@ namespace BuildingPlacement
         bool overlapsNaturalArea(BWAPI::TilePosition tile, BWAPI::UnitType building)
         {
             auto &bwemMap = BWEM::Map::Instance();
-            auto naturalArea = Map::getMyNatural()->getArea();
+            auto naturalArea = natural->getArea();
 
             for (auto x = tile.x; x < tile.x + building.tileWidth(); x++)
             {
@@ -743,7 +852,7 @@ namespace BuildingPlacement
         {
             // Geysers are always tight, so treat them specially
             std::set<BWAPI::TilePosition> geyserTiles;
-            for (auto geyser : Map::getMyNatural()->geyserLocations())
+            for (auto geyser : natural->geyserLocations())
             {
                 for (int x = geyser.x; x < geyser.x + BWAPI::UnitTypes::Resource_Vespene_Geyser.tileWidth(); x++)
                 {
@@ -755,10 +864,10 @@ namespace BuildingPlacement
             }
 
             // Get elevation of natural, we want our wall to be at the same elevation
-            auto elevation = BWAPI::Broodwar->getGroundHeight(Map::getMyNatural()->getTilePosition());
+            auto elevation = BWAPI::Broodwar->getGroundHeight(natural->getTilePosition());
 
-            auto end1 = BWAPI::TilePosition(Map::getMyNaturalChoke()->choke->Pos(BWEM::ChokePoint::end1));
-            auto end2 = BWAPI::TilePosition(Map::getMyNaturalChoke()->choke->Pos(BWEM::ChokePoint::end2));
+            auto end1 = BWAPI::TilePosition(naturalChoke->choke->Pos(BWEM::ChokePoint::end1));
+            auto end2 = BWAPI::TilePosition(naturalChoke->choke->Pos(BWEM::ChokePoint::end2));
 
             auto diffX = end1.x - end2.x;
             auto diffY = end1.y - end2.y;
@@ -982,7 +1091,7 @@ namespace BuildingPlacement
             BWAPI::Position gatewayCenter = BWAPI::Position(wall.gateway) + BWAPI::Position(BWAPI::UnitTypes::Protoss_Gateway.tileWidth() * 16,
                                                                                             BWAPI::UnitTypes::Protoss_Gateway.tileHeight() * 16);
             BWAPI::Position startTileCenter = BWAPI::Position(pathfindingStartTile) + BWAPI::Position(16, 16);
-            BWAPI::Position natCenter = Map::getMyNatural()->getPosition();
+            BWAPI::Position natCenter = natural->getPosition();
             bool natSideOfForgeGatewayLine = sideOfLine(forgeCenter, gatewayCenter, natCenter);
             bool natSideOfGapLine = sideOfLine(wall.gapEnd1, wall.gapEnd2, natCenter);
 
@@ -998,13 +1107,13 @@ namespace BuildingPlacement
                 {
                     BWAPI::TilePosition tile(x, y);
                     if (!tile.isValid()) continue;
-                    if (!powers(tile, wall.gateway, BWAPI::UnitTypes::Protoss_Gateway)) continue;
-                    if (!powers(tile, wall.forge, BWAPI::UnitTypes::Protoss_Forge)) continue;
+                    if (!UnitUtil::Powers(tile, wall.gateway, BWAPI::UnitTypes::Protoss_Gateway)) continue;
+                    if (!UnitUtil::Powers(tile, wall.forge, BWAPI::UnitTypes::Protoss_Forge)) continue;
 
                     bool powersCannons = true;
                     for (const auto &cannon : wall.cannons)
                     {
-                        powersCannons = powersCannons && powers(tile, cannon, BWAPI::UnitTypes::Protoss_Photon_Cannon);
+                        powersCannons = powersCannons && UnitUtil::Powers(tile, cannon, BWAPI::UnitTypes::Protoss_Photon_Cannon);
                     }
                     if (!powersCannons) continue;
 
@@ -1077,7 +1186,7 @@ namespace BuildingPlacement
 
             BWAPI::Position mapCenter = bwemMap.Center();
             BWAPI::Position startTileCenter = BWAPI::Position(pathfindingStartTile) + BWAPI::Position(16, 16);
-            BWAPI::Position natCenter = Map::getMyNatural()->getPosition();
+            BWAPI::Position natCenter = natural->getPosition();
 
             double bestWallQuality = DBL_MAX;
             double bestDistCentroid = 0;
@@ -1163,7 +1272,7 @@ namespace BuildingPlacement
             BWAPI::Position forgeCenter = BWAPI::Position(wall.forge) + (BWAPI::Position(BWAPI::UnitTypes::Protoss_Forge.tileSize()) / 2);
             BWAPI::Position gatewayCenter = BWAPI::Position(wall.gateway) + (BWAPI::Position(BWAPI::UnitTypes::Protoss_Gateway.tileSize()) / 2);
             BWAPI::Position centroid = (forgeCenter + gatewayCenter) / 2;
-            BWAPI::Position natCenter = Map::getMyNatural()->getPosition();
+            BWAPI::Position natCenter = natural->getPosition();
             bool natSideOfForgeGatewayLine = sideOfLine(forgeCenter, gatewayCenter, natCenter);
 
             bool forgeGatewayTouching = areForgeAndGatewayTouching(wall.forge, wall.gateway);
@@ -1178,7 +1287,7 @@ namespace BuildingPlacement
                 {
                     BWAPI::TilePosition tile(x, y);
                     if (!tile.isValid()) continue;
-                    if (wall.pylon.isValid() && !powers(wall.pylon, tile, BWAPI::UnitTypes::Protoss_Photon_Cannon)) continue;
+                    if (wall.pylon.isValid() && !UnitUtil::Powers(wall.pylon, tile, BWAPI::UnitTypes::Protoss_Photon_Cannon)) continue;
                     if (!buildable(BWAPI::UnitTypes::Protoss_Photon_Cannon, tile)) continue;
                     if (!overlapsNaturalArea(tile, BWAPI::UnitTypes::Protoss_Pylon)) continue;
 
@@ -1397,7 +1506,7 @@ namespace BuildingPlacement
         }
     }
 
-    ForgeGatewayWall createForgeGatewayWall(bool tight)
+    ForgeGatewayWall createForgeGatewayWall(bool tight, Base *base)
     {
 #if DEBUG_PLACEMENT
         Log::Debug() << "Creating wall; tight=" << tight;
@@ -1416,15 +1525,37 @@ namespace BuildingPlacement
 */
 
         // Ensure we have the ability to make a wall
-        if (!Map::getMyNatural() || !Map::getMyMainChoke() || !Map::getMyNaturalChoke())
+        natural = Map::getStartingBaseNatural(base);
+        auto chokes = Map::getStartingBaseChokes(base);
+        mainChoke = chokes.first;
+        naturalChoke = chokes.second;
+        if (!natural || !mainChoke || !naturalChoke)
         {
             Log::Get() << "Wall cannot be created; missing natural, main choke, or natural choke";
             return {};
         }
 
+        // Select possible locations for the pylon that are close to the choke and provide natural cannon locations
+        generatePylonOptions();
+        if (pylonOptions.empty())
+        {
+            Log::Get() << "Wall cannot be created; no pylon options";
+            return {};
+        }
+        Log::Get() << "Pylon options:";
+        for (auto &pylonOption : pylonOptions)
+        {
+            std::ostringstream out;
+            out << pylonOption.score << ": " << "Pylon@" << pylonOption.pylon << ";Cannons@";
+            for (auto cannon : pylonOption.cannons)
+            {
+                out << cannon;
+            }
+            Log::Get() << out.str();
+        }
+
         // Initialize reserved tiles
         // These are tiles in the natural we don't want to block
-        auto natural = Map::getMyNatural();
         reservedTiles.clear();
         auto addBuildingToReservedTiles = [](BWAPI::TilePosition tile, BWAPI::UnitType type)
         {
@@ -1501,60 +1632,6 @@ namespace BuildingPlacement
         else
         {
             Log::Debug() << "Could not find wall";
-        }
-#endif
-
-#if CHERRYVIS_ENABLED
-        if (wall.isValid())
-        {
-            // We dump a heatmap with the following values:
-            // - No building: 0
-            // - Gateway: 2
-            // - Forge: 4
-            // - Pylon: 6
-            // - Cannon: 8
-
-            std::vector<long> wallHeatmap(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
-
-            auto addLocation = [&wallHeatmap](BWAPI::TilePosition tile, int width, int height, int value)
-            {
-                auto bottomRight = tile + BWAPI::TilePosition(width, height);
-
-                for (int y = tile.y; y < bottomRight.y; y++)
-                {
-                    if (y > BWAPI::Broodwar->mapHeight() - 1)
-                    {
-                        Log::Get() << "ERROR: WALL LOCATION OUT OF BOUNDS @ " << tile;
-                        continue;
-                    }
-
-                    for (int x = tile.x; x < bottomRight.x; x++)
-                    {
-                        if (x > BWAPI::Broodwar->mapWidth() - 1)
-                        {
-                            Log::Get() << "ERROR: WALL LOCATION OUT OF BOUNDS @ " << tile;
-                            continue;
-                        }
-
-                        wallHeatmap[x + y * BWAPI::Broodwar->mapWidth()] = value;
-                    }
-                }
-            };
-
-            addLocation(wall.gateway, 4, 3, 2);
-            addLocation(wall.forge, 3, 2, 4);
-            addLocation(wall.pylon, 2, 2, 6);
-            for (const auto &cannon : wall.cannons)
-            {
-                addLocation(cannon, 2, 2, 8);
-            }
-
-            for (const auto &tile : reservedTiles)
-            {
-                wallHeatmap[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = -8;
-            }
-
-            CherryVis::addHeatmap("Wall", wallHeatmap, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
         }
 #endif
 
