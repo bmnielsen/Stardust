@@ -48,6 +48,11 @@ namespace Geo
 
     BWAPI::Position PerpendicularVector(BWAPI::Position vector, int length);
 
+    enum Direction { up, down, left, right, upleft, downleft, upright, downright, error };
+
+    // Gets the relative direction between a building and a position
+    Direction directionFromBuilding(BWAPI::TilePosition tile, BWAPI::TilePosition size, BWAPI::Position pos, bool fourDirections = false);
+
     // The direction along a vector in BW representation (1/256th of a circle)
     int BWDirection(BWAPI::Position vector);
 

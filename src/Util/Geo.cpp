@@ -356,6 +356,69 @@ namespace Geo
         return ScaleVector({-vector.y, vector.x}, length);
     }
 
+    Direction directionFromBuilding(BWAPI::TilePosition tile, BWAPI::TilePosition size, BWAPI::Position pos, bool fourDirections)
+    {
+        int left = BWAPI::Position(tile).x;
+        int right = BWAPI::Position(tile + BWAPI::TilePosition(size.x, 0)).x;
+        int top = BWAPI::Position(tile).y;
+        int bottom = BWAPI::Position(tile + BWAPI::TilePosition(0, size.y)).y;
+
+        if (pos.x >= left && pos.x <= right && pos.y >= top && pos.y <= bottom)
+        {
+            return Direction::error;
+        }
+
+        if (pos.x >= left && pos.x <= right)
+        {
+            if (pos.y < top)
+            {
+                return Direction::up;
+            }
+            return Direction::down;
+        }
+        if (pos.y >= top && pos.y <= bottom)
+        {
+            if (pos.x < left)
+            {
+                return Direction::left;
+            }
+            return Direction::right;
+        }
+        if (pos.x < left)
+        {
+            if (pos.y < top)
+            {
+                if (fourDirections)
+                {
+                    if ((top - pos.y) > (left - pos.x)) return Direction::up;
+                    return Direction::left;
+                }
+                return Direction::upleft;
+            }
+            if (fourDirections)
+            {
+                if ((pos.y - bottom) > (left - pos.x)) return Direction::down;
+                return Direction::left;
+            }
+            return Direction::downleft;
+        }
+        if (pos.y < top)
+        {
+            if (fourDirections)
+            {
+                if ((top - pos.y) > (pos.x - right)) return Direction::up;
+                return Direction::right;
+            }
+            return Direction::upright;
+        }
+        if (fourDirections)
+        {
+            if ((pos.y - bottom) > (pos.x - right)) return Direction::down;
+            return Direction::right;
+        }
+        return Direction::downright;
+    }
+
     int BWDirection(BWAPI::Position vector)
     {
         // Combination of the logic in openbw's xy_direction and atan
