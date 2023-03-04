@@ -91,14 +91,7 @@ TEST(NaturalLayouts, AnalyzeAll)
         {
             Map::initialize();
 
-            auto bases = Map::unscoutedStartingLocations();
-            bases.insert(Map::getMyMain());
-            auto enemyMain = Map::getEnemyStartingMain();
-            if (enemyMain)
-            {
-                bases.insert(enemyMain);
-            }
-
+            auto bases = Map::allStartingLocations();
             for (auto base : bases)
             {
                 auto natural = Map::getStartingBaseNatural(base);

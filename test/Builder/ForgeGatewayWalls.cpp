@@ -2,6 +2,28 @@
 #include "DoNothingModule.h"
 
 #include "BuildingPlacement.h"
+#include "Map.h"
+
+namespace
+{
+    void generateWalls()
+    {
+        std::vector<long> wallHeatmap(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
+
+        for (auto base : Map::allStartingLocations())
+        {
+            auto wall = BuildingPlacement::createForgeGatewayWall(true, base);
+            if (wall.isValid())
+            {
+                std::cout << "Generated wall: " << wall << std::endl;
+
+                wall.addToHeatmap(wallHeatmap);
+            }
+        }
+
+        CherryVis::addHeatmap("Wall", wallHeatmap, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+    }
+}
 
 TEST(ForgeGatewayWalls, AllSSCAIT)
 {
@@ -22,8 +44,7 @@ TEST(ForgeGatewayWalls, AllSSCAIT)
         test.onFrameMine = []() {
             if (currentFrame == 0)
             {
-                auto wall = BuildingPlacement::createForgeGatewayWall(true);
-                std::cout << "Generated wall: " << wall << std::endl;
+                generateWalls();
             }
         };
         test.run();
@@ -44,8 +65,7 @@ TEST(ForgeGatewayWalls, Benzene8Oclock)
     test.onFrameMine = []() {
         if (currentFrame == 0)
         {
-            auto wall = BuildingPlacement::createForgeGatewayWall(true);
-            std::cout << "Generated wall: " << wall << std::endl;
+            generateWalls();
         }
     };
     test.run();
