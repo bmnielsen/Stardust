@@ -1278,6 +1278,11 @@ namespace Map
         return result;
     }
 
+    std::vector<Base *> allStartingLocations()
+    {
+        return startingLocationBases;
+    }
+
     std::set<Base *> unscoutedStartingLocations()
     {
         std::set<Base *> result;

@@ -67,6 +67,8 @@ namespace Map
 
     Base *baseNear(BWAPI::Position position);
 
+    std::vector<Base *> allStartingLocations();
+
     std::set<Base *> unscoutedStartingLocations();
 
     std::vector<Choke *> allChokes();
