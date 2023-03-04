@@ -91,6 +91,8 @@ namespace Map
 
     Base *getStartingBaseNatural(Base *base);
 
+    std::pair<Choke*, Choke*> getStartingBaseChokes(Base *base);
+
     std::map<const BWEM::Area *, std::set<BWAPI::TilePosition>> &getAreasToEdgePositions();
 
     std::map<BWAPI::TilePosition, const BWEM::Area *> &getEdgePositionsToArea();

@@ -1361,6 +1361,14 @@ namespace Map
         return getNaturalForStartLocation(base->getTilePosition());
     }
 
+    std::pair<Choke*, Choke*> getStartingBaseChokes(Base *base)
+    {
+        auto natural = getNaturalForStartLocation(base->getTilePosition());
+        auto mainChoke = computeMainChoke(base, natural);
+        auto naturalChoke = computeNaturalChoke(base, natural, mainChoke);
+        return std::make_pair(mainChoke, naturalChoke);
+    }
+
     std::map<const BWEM::Area *, std::set<BWAPI::TilePosition>> &getAreasToEdgePositions()
     {
         return areasToEdgePositions;
