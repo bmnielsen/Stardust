@@ -5,45 +5,48 @@
 #include "Choke.h"
 #include "Map.h"
 
-void run(const std::string &map, BWAPI::TilePosition chokeLocation, std::function<void(const BWEM::ChokePoint*)> callback)
+namespace
 {
-    BWTest test;
-    test.opponentModule = []()
+    void run(const std::string &map, BWAPI::TilePosition chokeLocation, std::function<void(const BWEM::ChokePoint*)> callback)
     {
-        return new DoNothingModule();
-    };
-    test.myModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.map = Maps::GetOne(map);
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.writeReplay = false;
-
-    test.onStartMine = [&]()
-    {
-        BWEM::Map::ResetInstance();
-        BWEM::Map::Instance().Initialize(BWAPI::BroodwarPtr);
-        BWEM::Map::Instance().EnableAutomaticPathAnalysis();
-        BWEM::Map::Instance().FindBasesForStartingLocations();
-
-        for (const auto &area : BWEM::Map::Instance().Areas())
+        BWTest test;
+        test.opponentModule = []()
         {
-            for (const BWEM::ChokePoint *choke : area.ChokePoints())
+            return new DoNothingModule();
+        };
+        test.myModule = []()
+        {
+            return new DoNothingModule();
+        };
+        test.map = Maps::GetOne(map);
+        test.frameLimit = 10;
+        test.expectWin = false;
+        test.writeReplay = false;
+
+        test.onStartMine = [&]()
+        {
+            BWEM::Map::ResetInstance();
+            BWEM::Map::Instance().Initialize(BWAPI::BroodwarPtr);
+            BWEM::Map::Instance().EnableAutomaticPathAnalysis();
+            BWEM::Map::Instance().FindBasesForStartingLocations();
+
+            for (const auto &area : BWEM::Map::Instance().Areas())
             {
-                if (chokeLocation.getApproxDistance(BWAPI::TilePosition(choke->Center())) < 5)
+                for (const BWEM::ChokePoint *choke : area.ChokePoints())
                 {
-                    callback(choke);
-                    return;
+                    if (chokeLocation.getApproxDistance(BWAPI::TilePosition(choke->Center())) < 5)
+                    {
+                        callback(choke);
+                        return;
+                    }
                 }
             }
-        }
 
-        EXPECT_FALSE(true);
-    };
+            EXPECT_FALSE(true);
+        };
 
-    test.run();
+        test.run();
+    }
 }
 
 TEST(ChokeAnalysis, Python)
@@ -219,6 +222,26 @@ TEST(ChokeAnalysis, AnalyzeAll_MatchPoint)
 {
     BWTest test;
     test.map = Maps::GetOne("Match");
+    test.frameLimit = 10;
+    test.randomSeed = 6903;
+    test.expectWin = false;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+
+    test.onEndMine = [](bool win)
+    {
+        EXPECT_FALSE(Map::isInNarrowChoke(BWAPI::TilePosition(80, 55)));
+    };
+
+    test.run();
+}
+
+TEST(ChokeAnalysis, AnalyzeAll_Outsider)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Outsider");
     test.frameLimit = 10;
     test.randomSeed = 6903;
     test.expectWin = false;
