@@ -86,6 +86,27 @@ namespace BuildingPlacement
             }
         };
 
+        bool buildableTile(BWAPI::TilePosition tile)
+        {
+            return tile.isValid() &&
+                   Map::isWalkable(tile) &&
+                   reservedTiles.find(tile) == reservedTiles.end() &&
+                   wallTiles.find(tile) == wallTiles.end();
+        }
+
+        bool buildable(BWAPI::UnitType type, BWAPI::TilePosition tile)
+        {
+            for (int y = tile.y; y < tile.y + type.tileHeight(); y++)
+            {
+                for (int x = tile.x; x < tile.x + type.tileWidth(); x++)
+                {
+                    if (!buildableTile(BWAPI::TilePosition(x, y))) return false;
+                }
+            }
+
+            return true;
+        }
+
         void generatePylonOptions()
         {
             pylonOptions.clear();
@@ -149,7 +170,8 @@ namespace BuildingPlacement
             // Now consider each possibility and score them based on how well-placed the cannons can be
             for (auto pylon : options)
             {
-                // Skip pylons in the mineral line
+                // Skip pylons in the mineral line or unbuildable
+                if (!buildable(BWAPI::UnitTypes::Protoss_Pylon, pylon)) continue;
                 if (natural->isInMineralLine(pylon) || natural->isInMineralLine(pylon + BWAPI::TilePosition(1, 1))) continue;
 
                 // Create copy of positions set so we can remove invalid options
@@ -226,27 +248,6 @@ namespace BuildingPlacement
                     wallTiles.erase(BWAPI::TilePosition(x, y));
                 }
             }
-        }
-
-        bool buildableTile(BWAPI::TilePosition tile)
-        {
-            return tile.isValid() &&
-                   Map::isWalkable(tile) &&
-                   reservedTiles.find(tile) == reservedTiles.end() &&
-                   wallTiles.find(tile) == wallTiles.end();
-        }
-
-        bool buildable(BWAPI::UnitType type, BWAPI::TilePosition tile)
-        {
-            for (int y = tile.y; y < tile.y + type.tileHeight(); y++)
-            {
-                for (int x = tile.x; x < tile.x + type.tileWidth(); x++)
-                {
-                    if (!buildableTile(BWAPI::TilePosition(x, y))) return false;
-                }
-            }
-
-            return true;
         }
 
         bool hasPathWithBuilding(BWAPI::TilePosition tile,
@@ -507,14 +508,11 @@ namespace BuildingPlacement
                         bestNatDist = bestCenter.getDistance(natCenter);
                         end1 = first;
                         end2 = second;
-                        //Log::Get() << "best: " << BWAPI::TilePosition(bestCenter) << "; " << bestNatDist;
                     }
                     else if (dist == bestDist)
                     {
                         BWAPI::Position thisCenter = BWAPI::Position((first.x + second.x) / 2, (first.y + second.y) / 2);
                         double natDist = thisCenter.getDistance(natCenter);
-
-                        //Log::Get() << "equal: " << BWAPI::TilePosition(bestCenter) << "; " << bestNatDist << " new " << BWAPI::TilePosition(thisCenter) << "; " << natDist;
 
                         if (natDist < bestNatDist)
                         {
@@ -1084,99 +1082,68 @@ namespace BuildingPlacement
             }
         }
 
-        BWAPI::TilePosition getPylonPlacement(ForgeGatewayWall wall, int optimalPathLength, bool returnFirst = false)
+        BWAPI::TilePosition getPylonPlacement(ForgeGatewayWall wall, int optimalPathLength)
         {
             BWAPI::Position forgeCenter = BWAPI::Position(wall.forge) + BWAPI::Position(BWAPI::UnitTypes::Protoss_Forge.tileWidth() * 16,
                                                                                         BWAPI::UnitTypes::Protoss_Forge.tileHeight() * 16);
             BWAPI::Position gatewayCenter = BWAPI::Position(wall.gateway) + BWAPI::Position(BWAPI::UnitTypes::Protoss_Gateway.tileWidth() * 16,
                                                                                             BWAPI::UnitTypes::Protoss_Gateway.tileHeight() * 16);
-            BWAPI::Position startTileCenter = BWAPI::Position(pathfindingStartTile) + BWAPI::Position(16, 16);
             BWAPI::Position natCenter = natural->getPosition();
             bool natSideOfForgeGatewayLine = sideOfLine(forgeCenter, gatewayCenter, natCenter);
-            bool natSideOfGapLine = sideOfLine(wall.gapEnd1, wall.gapEnd2, natCenter);
 
-            BWAPI::Position centroid = (forgeCenter + gatewayCenter) / 2;
-            double distCentroidNat = centroid.getDistance(natCenter);
-
-            double bestPylonDist = 0;
-            BWAPI::TilePosition bestPylon = BWAPI::TilePositions::Invalid;
-
-            for (int x = wall.gateway.x - 10; x <= wall.gateway.x + 10; x++)
+            for (auto &pylonOption : pylonOptions)
             {
-                for (int y = wall.gateway.y - 10; y <= wall.gateway.y + 10; y++)
+                auto tile = pylonOption.pylon;
+                if (!UnitUtil::Powers(tile, wall.gateway, BWAPI::UnitTypes::Protoss_Gateway)) continue;
+                if (!UnitUtil::Powers(tile, wall.forge, BWAPI::UnitTypes::Protoss_Forge)) continue;
+
+                bool powersCannons = true;
+                for (const auto &cannon : wall.cannons)
                 {
-                    BWAPI::TilePosition tile(x, y);
-                    if (!tile.isValid()) continue;
-                    if (!UnitUtil::Powers(tile, wall.gateway, BWAPI::UnitTypes::Protoss_Gateway)) continue;
-                    if (!UnitUtil::Powers(tile, wall.forge, BWAPI::UnitTypes::Protoss_Forge)) continue;
+                    powersCannons = powersCannons && UnitUtil::Powers(tile, cannon, BWAPI::UnitTypes::Protoss_Photon_Cannon);
+                }
+                if (!powersCannons) continue;
 
-                    bool powersCannons = true;
-                    for (const auto &cannon : wall.cannons)
-                    {
-                        powersCannons = powersCannons && UnitUtil::Powers(tile, cannon, BWAPI::UnitTypes::Protoss_Photon_Cannon);
-                    }
-                    if (!powersCannons) continue;
+                bool natCannonsBuildable = true;
+                for (auto natCannon : pylonOption.cannons)
+                {
+                    natCannonsBuildable = natCannonsBuildable && buildable(BWAPI::UnitTypes::Protoss_Photon_Cannon, natCannon);
+                }
+                if (!natCannonsBuildable) continue;
 
-                    if (!buildable(BWAPI::UnitTypes::Protoss_Pylon, tile)) continue;
+                if (!buildable(BWAPI::UnitTypes::Protoss_Pylon, tile)) continue;
 
-                    BWAPI::Position pylonCenter = BWAPI::Position(BWAPI::TilePosition(x, y)) + BWAPI::Position(32, 32);
-                    if (sideOfLine(forgeCenter, gatewayCenter, pylonCenter) != natSideOfForgeGatewayLine
-                        && sideOfLine(wall.gapEnd1, wall.gapEnd2, pylonCenter) != natSideOfGapLine)
+                BWAPI::TilePosition spawn = gatewaySpawnPosition(wall, tile, BWAPI::UnitTypes::Protoss_Pylon);
+                if (!spawn.isValid())
+                {
+                    continue;
+                }
+
+                // Ensure there is a valid path through the wall
+                if (!hasPathWithBuilding(tile, BWAPI::UnitTypes::Protoss_Pylon.tileSize(), optimalPathLength * 2))
+                {
+#if DEBUG_PLACEMENT
+                    Log::Debug() << "Pylon " << tile << " rejected for not having a valid main path";
+#endif
+                    continue;
+                }
+
+                // Ensure there is a valid path from the gateway spawn position
+                if (sideOfLine(forgeCenter, gatewayCenter, center(spawn)) == natSideOfForgeGatewayLine)
+                {
+                    if (!hasPathWithBuilding(tile, BWAPI::UnitTypes::Protoss_Pylon.tileSize(), 0, spawn))
                     {
 #if DEBUG_PLACEMENT
-                        Log::Debug() << "Pylon " << tile << " rejected for being on the wrong side of the line";
+                        Log::Debug() << "Pylon " << tile << " rejected for not having a path from gateway spawn position";
 #endif
                         continue;
-                    }
-
-                    if (pylonCenter.getDistance(natCenter) > distCentroidNat)
-                    {
-#if DEBUG_PLACEMENT
-                        Log::Debug() << "Pylon " << tile << " rejected for being further away from the natural";
-#endif
-                        continue;
-                    }
-
-                    BWAPI::TilePosition spawn = gatewaySpawnPosition(wall, tile, BWAPI::UnitTypes::Protoss_Pylon);
-                    if (!spawn.isValid())
-                    {
-                        continue;
-                    }
-
-                    double dist = pylonCenter.getDistance(startTileCenter) / pylonCenter.getDistance(natCenter);
-                    if (dist > bestPylonDist)
-                    {
-                        // Ensure there is a valid path through the wall
-                        if (!hasPathWithBuilding(tile, BWAPI::UnitTypes::Protoss_Pylon.tileSize(), optimalPathLength * 2))
-                        {
-#if DEBUG_PLACEMENT
-                            Log::Debug() << "Pylon " << tile << " rejected for not having a valid main path";
-#endif
-                            continue;
-                        }
-
-                        // Ensure there is a valid path from the gateway spawn position
-                        if (sideOfLine(forgeCenter, gatewayCenter, center(spawn)) == natSideOfForgeGatewayLine)
-                        {
-                            if (!hasPathWithBuilding(tile, BWAPI::UnitTypes::Protoss_Pylon.tileSize(), 0, spawn))
-                            {
-#if DEBUG_PLACEMENT
-                                Log::Debug() << "Pylon " << tile << " rejected for not having a path from gateway spawn position";
-#endif
-                                continue;
-                            }
-                        }
-
-                        // The caller just wants to verify there is one, so return immediately
-                        if (returnFirst) return tile;
-
-                        bestPylonDist = dist;
-                        bestPylon = tile;
                     }
                 }
+
+                return tile;
             }
 
-            return bestPylon;
+            return BWAPI::TilePositions::Invalid;
         }
 
         ForgeGatewayWallOption getBestWallOption(std::vector<ForgeGatewayWallOption> &wallOptions, int optimalPathLength)
@@ -1194,6 +1161,19 @@ namespace BuildingPlacement
 
             for (auto const &wall : wallOptions)
             {
+                // Check if there is a pylon location that powers both buildings
+                bool powered = false;
+                for (auto &pylonOption : pylonOptions)
+                {
+                    if (UnitUtil::Powers(pylonOption.pylon, wall.forge, BWAPI::UnitTypes::Protoss_Forge) &&
+                        UnitUtil::Powers(pylonOption.pylon, wall.gateway, BWAPI::UnitTypes::Protoss_Gateway))
+                    {
+                        powered = true;
+                        break;
+                    }
+                }
+                if (!powered) continue;
+
                 // Center of each building
                 BWAPI::Position forgeCenter = BWAPI::Position(wall.forge) + (BWAPI::Position(BWAPI::UnitTypes::Protoss_Forge.tileSize()) / 2);
                 BWAPI::Position gatewayCenter = BWAPI::Position(wall.gateway) + (BWAPI::Position(BWAPI::UnitTypes::Protoss_Gateway.tileSize()) / 2);
@@ -1237,23 +1217,6 @@ namespace BuildingPlacement
                 if (wallQuality < bestWallQuality
                     || (wallQuality == bestWallQuality && distCentroidNat > bestDistCentroid))
                 {
-                    // Make sure there is at least one valid pylon to power this wall
-                    addWallTiles(wall.forge, BWAPI::UnitTypes::Protoss_Forge.tileSize());
-                    addWallTiles(wall.gateway, BWAPI::UnitTypes::Protoss_Forge.tileSize());
-
-                    bool hasPylon = getPylonPlacement(wall.toWall(), optimalPathLength, true).isValid();
-
-                    removeWallTiles(wall.forge, BWAPI::UnitTypes::Protoss_Forge.tileSize());
-                    removeWallTiles(wall.gateway, BWAPI::UnitTypes::Protoss_Forge.tileSize());
-
-                    if (!hasPylon)
-                    {
-#if DEBUG_PLACEMENT
-                        Log::Debug() << "Rejected as no valid pylon";
-#endif
-                        continue;
-                    }
-
                     bestWallOption = wall;
                     bestWallQuality = wallQuality;
                     bestDistCentroid = distCentroidNat;
@@ -1478,6 +1441,27 @@ namespace BuildingPlacement
             bestWall.pylon = pylon;
             addWallTiles(pylon, BWAPI::UnitTypes::Protoss_Pylon.tileSize());
 
+            // Add the natural cannons
+            for (auto &pylonOption : pylonOptions)
+            {
+                if (pylonOption.pylon != bestWall.pylon) continue;
+
+                bestWall.naturalCannons.assign(pylonOption.cannons.begin(), pylonOption.cannons.end());
+
+                // Build cannon furthest from wall first
+                std::sort(bestWall.naturalCannons.begin(),
+                          bestWall.naturalCannons.end(),
+                          [&bestWall](const BWAPI::TilePosition &a, const BWAPI::TilePosition &b)
+                          {
+                              return a.getApproxDistance(bestWall.forge) > a.getApproxDistance(bestWall.forge);
+                          });
+
+                for (auto naturalCannon : bestWall.naturalCannons)
+                {
+                    addWallTiles(naturalCannon, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize());
+                }
+            }
+
             // Analyze the wall geo now since we know this is the final wall
             analyzeWallGeo(bestWall);
 
@@ -1542,7 +1526,7 @@ namespace BuildingPlacement
             Log::Get() << "Wall cannot be created; no pylon options";
             return {};
         }
-        Log::Get() << "Pylon options:";
+        Log::Debug() << "Pylon options:";
         for (auto &pylonOption : pylonOptions)
         {
             std::ostringstream out;
@@ -1551,7 +1535,7 @@ namespace BuildingPlacement
             {
                 out << cannon;
             }
-            Log::Get() << out.str();
+            Log::Debug() << out.str();
         }
 
         // Initialize reserved tiles
@@ -1568,15 +1552,6 @@ namespace BuildingPlacement
             }
         };
         addBuildingToReservedTiles(natural->getTilePosition(), BWAPI::UnitTypes::Protoss_Nexus);
-//        auto &defensePositions = BuildingPlacement::baseStaticDefenseLocations(natural);
-//        if (defensePositions.isValid())
-//        {
-//            addBuildingToReservedTiles(defensePositions.powerPylon, BWAPI::UnitTypes::Protoss_Pylon);
-//            for (const auto &tile : defensePositions.workerDefenseCannons)
-//            {
-//                addBuildingToReservedTiles(tile, BWAPI::UnitTypes::Protoss_Photon_Cannon);
-//            }
-//        }
 
         // Initialize pathfinding tiles
         initializePathfindingTiles();
