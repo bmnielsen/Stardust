@@ -19,6 +19,10 @@ namespace
 
                 wall.addToHeatmap(wallHeatmap);
             }
+            else
+            {
+                std::cout << "ERROR: No wall available" << std::endl;
+            }
         }
 
         CherryVis::addHeatmap("Wall", wallHeatmap, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
@@ -27,7 +31,7 @@ namespace
 
 TEST(ForgeGatewayWalls, AllSSCAIT)
 {
-    Maps::RunOnEachStartLocation(Maps::Get("sscai"), [](BWTest test)
+    Maps::RunOnEach(Maps::Get("sscai"), [](BWTest test)
     {
         test.opponentModule = []()
         {
@@ -35,11 +39,6 @@ TEST(ForgeGatewayWalls, AllSSCAIT)
         };
         test.frameLimit = 10;
         test.expectWin = false;
-
-        test.onStartMine = [&test]()
-        {
-            test.addClockPositionToReplayName();
-        };
 
         test.onFrameMine = []() {
             if (currentFrame == 0)
