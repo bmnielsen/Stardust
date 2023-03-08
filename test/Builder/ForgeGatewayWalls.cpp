@@ -69,3 +69,63 @@ TEST(ForgeGatewayWalls, Benzene8Oclock)
     };
     test.run();
 }
+
+TEST(ForgeGatewayWalls, NeoMoonGlaive)
+{
+    BWTest test;
+    test.randomSeed = 1617;
+    test.map = Maps::GetOne("Glaive");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.onFrameMine = []() {
+        if (currentFrame == 0)
+        {
+            generateWalls();
+        }
+    };
+    test.run();
+}
+
+TEST(ForgeGatewayWalls, Destination)
+{
+    BWTest test;
+    test.randomSeed = 1617;
+    test.map = Maps::GetOne("Destination");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.onFrameMine = []() {
+        if (currentFrame == 0)
+        {
+            generateWalls();
+        }
+    };
+    test.run();
+}
+
+TEST(ForgeGatewayWalls, Python)
+{
+    BWTest test;
+    test.randomSeed = 1617;
+    test.map = Maps::GetOne("Python");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.onFrameMine = []() {
+        if (currentFrame == 0)
+        {
+            generateWalls();
+        }
+    };
+    test.run();
+}
