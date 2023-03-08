@@ -6,6 +6,7 @@
 #include "Choke.h"
 #include "UnitCluster.h"
 #include "StrategyEngine.h"
+#include "ForgeGatewayWall.h"
 
 class MapSpecificOverride
 {
@@ -54,4 +55,8 @@ public:
 
     // Adds island areas that aren't marked as such by BWEM
     virtual void addIslandAreas(std::set<const BWEM::Area *> &islandAreas) {}
+
+    // Gets a hard-coded wall for a start position
+    // Used in cases where our automatic wall generation doesn't work for whatever reason
+    virtual ForgeGatewayWall getWall(BWAPI::TilePosition startTile) { return {}; }
 };

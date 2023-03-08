@@ -1496,18 +1496,6 @@ namespace BuildingPlacement
         Log::Debug() << "Creating wall; tight=" << tight;
 #endif
 
-        // Map-specific hard-coded walls
-        /*
-         * TODO: refactor into our map-specific overrides
-        if (BWAPI::Broodwar->mapHash() == "8000dc6116e405ab878c14bb0f0cde8efa4d640c") return ForgeGatewayWall(); // Alchemist
-        if (BWAPI::Broodwar->mapHash() == "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b") return destinationWall();
-        if (BWAPI::Broodwar->mapHash() == "0a41f144c6134a2204f3d47d57cf2afcd8430841") return matchPointWall();
-        if (BWAPI::Broodwar->mapHash() == "83320e505f35c65324e93510ce2eafbaa71c9aa1") return fortressWall();
-        if (BWAPI::Broodwar->mapHash() == "33527b4ce7662f83485575c4b1fcad5d737dfcf1"
-            && bwebMap.getNatural().y < BWAPI::TilePosition(bwemMap.Center()).y
-            && bwebMap.getNatural().x < BWAPI::TilePosition(bwemMap.Center()).x) return luna10Oclock();
-*/
-
         // Ensure we have the ability to make a wall
         natural = Map::getStartingBaseNatural(base);
         auto chokes = Map::getStartingBaseChokes(base);
@@ -1517,6 +1505,14 @@ namespace BuildingPlacement
         {
             Log::Get() << "Wall cannot be created; missing natural, main choke, or natural choke";
             return {};
+        }
+
+        // Map-specific hard-coded walls
+        auto mapSpecificWall = Map::mapSpecificOverride()->getWall(base->getTilePosition());
+        if (mapSpecificWall.isValid())
+        {
+            analyzeWallGeo(mapSpecificWall);
+            return mapSpecificWall;
         }
 
         // Select possible locations for the pylon that are close to the choke and provide natural cannon locations
