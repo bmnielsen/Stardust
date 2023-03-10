@@ -1,7 +1,6 @@
 #include "StrategyEngines/PvT.h"
 
 #include "Map.h"
-#include "Plays/MainArmy/DefendMyMain.h"
 #include "Units.h"
 
 std::map<PvT::OurStrategy, std::string> PvT::OurStrategyNames = {
@@ -144,7 +143,7 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                 }
 
                 auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-                if (mainArmyPlay && typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                if (mainArmyPlay && mainArmyPlay->isDefensive())
                 {
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                     if (vanguard && vanguard->units.size() >= 6)

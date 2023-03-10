@@ -18,7 +18,6 @@
 #include "Play.h"
 #include "Strategist.h"
 
-#include "Plays/MainArmy/DefendMyMain.h"
 #include "Plays/MainArmy/MopUp.h"
 
 /*
@@ -612,7 +611,7 @@ namespace Strategist
         auto mainArmyPlay = StrategyEngine::getPlay<MainArmyPlay>(plays);
         if (!mainArmyPlay) return 1.0;
 
-        if (typeid(*mainArmyPlay) == typeid(DefendMyMain)) return 1.0;
+        if (mainArmyPlay->isDefensive()) return 1.0;
         if (typeid(*mainArmyPlay) == typeid(MopUp)) return 0.0;
 
         auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();

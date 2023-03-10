@@ -140,7 +140,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 defendOurMain = false;
 
                 // Transition from defense when appropriate
-                if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                if (mainArmyPlay->isDefensive())
                 {
                     if (ourStrategy == OurStrategy::FastExpansion)
                     {

@@ -6,7 +6,6 @@
 #include "UnitUtil.h"
 #include "General.h"
 
-#include "Plays/MainArmy/DefendMyMain.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/MainArmy/MopUp.h"
 #include "Plays/Macro/CullArmy.h"
@@ -423,7 +422,7 @@ void StrategyEngine::updateDefendBasePlays(std::vector<std::shared_ptr<Play>> &p
     std::unordered_map<Base *, int> basesToDefend;
 
     // Don't defend any bases if our main army play is defending our main
-    if (mainArmyPlay && typeid(*mainArmyPlay) != typeid(DefendMyMain))
+    if (mainArmyPlay && !mainArmyPlay->isDefensive())
     {
         for (auto &base : Map::getMyBases())
         {

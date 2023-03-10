@@ -2,7 +2,6 @@
 
 #include "Map.h"
 #include "Plays/Macro/HiddenBase.h"
-#include "Plays/MainArmy/DefendMyMain.h"
 #include "Units.h"
 
 std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
@@ -239,7 +238,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                 }
 
                 auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-                if (mainArmyPlay && typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                if (mainArmyPlay && mainArmyPlay->isDefensive())
                 {
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                     if (vanguard && vanguard->units.size() >= 6)

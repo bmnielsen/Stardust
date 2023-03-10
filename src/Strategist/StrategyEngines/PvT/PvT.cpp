@@ -114,7 +114,7 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 defendOurMain = false;
 
                 // Transition from a defend squad when the vanguard cluster has 2 units
-                if (typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                if (mainArmyPlay->isDefensive())
                 {
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                     defendOurMain = (!vanguard || vanguard->units.size() < 2);

@@ -8,6 +8,8 @@ class DefendMyMain : public MainArmyPlay
 public:
     explicit DefendMyMain();
 
+    [[nodiscard]] bool isDefensive() const override { return true; }
+
     std::shared_ptr<Squad> getSquad() override { return squad; }
 
     void update() override;

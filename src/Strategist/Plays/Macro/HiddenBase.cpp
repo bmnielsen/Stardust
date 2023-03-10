@@ -5,7 +5,6 @@
 #include "Builder.h"
 #include "Units.h"
 #include "Strategist.h"
-#include "Plays/MainArmy/DefendMyMain.h"
 
 void HiddenBase::update()
 {
@@ -58,7 +57,7 @@ void HiddenBase::update()
 
         auto mainArmyPlay = Strategist::getMainArmyPlay();
         if (!mainArmyPlay) return;
-        if (typeid(*mainArmyPlay) == typeid(DefendMyMain)) return;
+        if (mainArmyPlay->isDefensive()) return;
 
         // TODO: Check path
 
