@@ -8,7 +8,6 @@
 #include "Players.h"
 #include "Geo.h"
 #include "Boids.h"
-#include "Opponent.h"
 #include "Strategist.h"
 #include "OpponentEconomicModel.h"
 
@@ -599,11 +598,12 @@ void EarlyGameWorkerScout::monitorEnemyChoke()
 
 bool EarlyGameWorkerScout::reserveScout()
 {
-    // Scout after the first gateway if playing a non-random opponent on a two-player map
+    // Scout after the first gateway if playing a non-zerg opponent on a two-player map
     // In all other cases scout after the first pylon
     auto scoutAfterBuilding = BWAPI::UnitTypes::Protoss_Pylon;
     auto scoutAtBuildingCount = 1;
-    if (Map::getEnemyStartingMain() && !Opponent::isUnknownRace())
+    if (Map::getEnemyStartingMain()
+        && (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran || BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss))
     {
         scoutAfterBuilding = BWAPI::UnitTypes::Protoss_Gateway;
     }

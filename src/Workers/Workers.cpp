@@ -811,6 +811,10 @@ namespace Workers
                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea,
                                                     -1);
 
+            // Disallow carrying minerals in all cases if the travel time is excessive
+            // Rationale: we might be sending the unit to build something at another base and we want to return minerals first
+            if (travelTime > 100 && unit->bwapiUnit->isCarryingMinerals()) continue;
+
             // If the unit is currently mining, penalize it by 3 seconds to encourage selecting other workers
             int score = travelTime;
             if (unit->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
