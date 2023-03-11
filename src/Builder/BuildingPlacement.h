@@ -100,4 +100,8 @@ namespace BuildingPlacement
     std::tuple<BWAPI::Unit, BWAPI::Unit, std::set<BWAPI::TilePosition>> initializeBaseDefenseAnalysis(Base *base);
 
     ForgeGatewayWall createForgeGatewayWall(bool tight, Base *base);
+
+    bool hasForgeGatewayWall();
+
+    ForgeGatewayWall &getForgeGatewayWall();
 }

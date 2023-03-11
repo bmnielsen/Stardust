@@ -8,6 +8,7 @@ std::map<PvZ::OurStrategy, std::string> PvZ::OurStrategyNames = {
         {OurStrategy::EarlyGameDefense, "EarlyGameDefense"},
         {OurStrategy::AntiAllIn,        "AntiAllIn"},
         {OurStrategy::AntiSunkenContain,"AntiSunkenContain"},
+        {OurStrategy::ForgeFastExpand,  "ForgeFastExpand"},
         {OurStrategy::FastExpansion,    "FastExpansion"},
         {OurStrategy::Defensive,        "Defensive"},
         {OurStrategy::Normal,           "Normal"},
@@ -123,6 +124,13 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                     strategy = OurStrategy::Normal;
                     continue;
                 }
+
+                break;
+            }
+            case PvZ::OurStrategy::ForgeFastExpand:
+            {
+                // Against rush: transition to anti all-in if our wall is busted
+                // Otherwise transition to normal at some point
 
                 break;
             }

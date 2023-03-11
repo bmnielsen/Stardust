@@ -9,6 +9,7 @@
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
+#include "Plays/MainArmy/ForgeFastExpand.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
@@ -39,7 +40,18 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
     plays.emplace_back(std::make_shared<EjectEnemyScout>());
     plays.emplace_back(std::make_shared<Corsairs>());
-    plays.emplace_back(std::make_shared<DefendMyMain>());
+
+    // Determine whether to do a forge fast expand
+    // Currently always does one if there is a wall on this map
+    if (BuildingPlacement::hasForgeGatewayWall())
+    {
+        plays.emplace_back(std::make_shared<ForgeFastExpand>());
+        ourStrategy = OurStrategy::ForgeFastExpand;
+    }
+    else
+    {
+        plays.emplace_back(std::make_shared<DefendMyMain>());
+    }
 }
 
 void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
@@ -207,6 +219,13 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     auto buildAntiSneakAttackCannons = [&]()
     {
+        // Not relevant when we are doing an FFE
+        if (ourStrategy == OurStrategy::ForgeFastExpand)
+        {
+            CherryVis::setBoardValue("anti-sneak-attack", "ffe");
+            return;
+        }
+
         // Only relevant in early game
         if (currentFrame > 10000) return;
 
@@ -372,6 +391,18 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             buildAntiSneakAttackCannons();
 
             break;
+        }
+
+        case OurStrategy::ForgeFastExpand:
+        {
+            // Production is fully handled by the play until the natural nexus is finished
+            auto natural = Map::getMyNatural();
+            if (!natural->resourceDepot || !natural->resourceDepot->completed)
+            {
+                break;
+            }
+
+            // Fall through to normal production, play may still queue units with higher priority similar to defend main emergency production
         }
 
         case OurStrategy::Defensive:
@@ -551,6 +582,11 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // Don't take our natural if the enemy could be rushing or doing an all-in
             CherryVis::setBoardValue("natural", "wait-defensive");
             break;
+
+        case OurStrategy::ForgeFastExpand:
+            // Handled by the play
+            CherryVis::setBoardValue("natural", "forge-expand");
+            return;
 
         case OurStrategy::FastExpansion:
             CherryVis::setBoardValue("natural", "take-fast-expo");

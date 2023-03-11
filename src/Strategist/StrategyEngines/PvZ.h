@@ -46,7 +46,8 @@ private:
         EarlyGameDefense,       // We don't have scouting data yet
         AntiAllIn,              // For fast rushes or any serious early pressure, defends main until it can get tech out
         AntiSunkenContain,      // For when enemy builds sunkens at our natural
-        FastExpansion,          // For when the opponent plays a greedy or turtle strategy
+        ForgeFastExpand,        // For when we do a forge-first fast expansion
+        FastExpansion,          // For when we expand quickly
         Defensive,              // Cautious opening, for when we don't know if the opponent could be going for an all-in
         Normal,                 // Normal non-greedy and non-cautious opening
         MidGame,                // When we have reached the mid-game

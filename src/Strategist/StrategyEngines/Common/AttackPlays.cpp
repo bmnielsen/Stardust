@@ -1,6 +1,7 @@
 #include "StrategyEngine.h"
 
 #include <Strategist/Plays/MainArmy/DefendMyMain.h>
+#include <Strategist/Plays/MainArmy/ForgeFastExpand.h>
 #include <Strategist/Plays/MainArmy/AttackEnemyBase.h>
 #include <Strategist/Plays/MainArmy/MopUp.h>
 #include <Strategist/Plays/Offensive/AttackExpansion.h>
@@ -29,11 +30,26 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
     // If we want to defend our main, cancel all attack plays and transition the main army
     if (defendOurMain)
     {
+        if (mainArmyPlay->isDefensive()) return;
+
         for (auto &play : plays)
         {
             if (auto attackExpansionPlay = std::dynamic_pointer_cast<AttackExpansion>(play))
             {
                 attackExpansionPlay->status.complete = true;
+            }
+        }
+
+        // If we have built a wall, defend it
+        // The ForgeFastExpand play will transition itself to DefendMyMain if it determines the wall is indefensible
+        if (BuildingPlacement::hasForgeGatewayWall())
+        {
+            auto &wall = BuildingPlacement::getForgeGatewayWall();
+            auto forge = Units::myBuildingAt(wall.forge);
+            if (forge && forge->type == BWAPI::UnitTypes::Protoss_Forge && forge->exists() && forge->bwapiUnit->isPowered())
+            {
+                setMainPlay<ForgeFastExpand>(mainArmyPlay);
+                return;
             }
         }
 

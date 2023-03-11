@@ -66,6 +66,8 @@ namespace BuildingPlacement
                 std::vector<BWAPI::TilePosition>{},
                 BWAPI::TilePositions::Invalid};
 
+        std::unique_ptr<ForgeGatewayWall> forgeGatewayWall;
+
         std::shared_ptr<Block> chokeCannonBlock;
         BWAPI::TilePosition chokeCannonPlacement;
 
@@ -79,6 +81,18 @@ namespace BuildingPlacement
         Base *hiddenBase;
 
         BuildLocationSet _availableGeysers;
+
+        ForgeGatewayWall &getOrCreateForgeGatewayWall()
+        {
+            if (!forgeGatewayWall)
+            {
+                forgeGatewayWall = std::make_unique<ForgeGatewayWall>(createForgeGatewayWall(
+                        BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran && BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss,
+                        Map::getMyMain()));
+            }
+
+            return *forgeGatewayWall;
+        }
 
         void initializeTileAvailability()
         {
@@ -1296,5 +1310,15 @@ namespace BuildingPlacement
         }
 
         return std::make_tuple(end1, end2, positions);
+    }
+
+    bool hasForgeGatewayWall()
+    {
+        return getOrCreateForgeGatewayWall().isValid();
+    }
+
+    ForgeGatewayWall &getForgeGatewayWall()
+    {
+        return getOrCreateForgeGatewayWall();
     }
 }
