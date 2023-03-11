@@ -44,6 +44,20 @@ int UnitImpl::BWSpeed() const
     return bwSpeed;
 }
 
+bool UnitImpl::isTraining() const
+{
+    if (!exists() || !completed ) return false;
+    if (bwapiUnit->isTraining()) return true;
+
+    if (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
+        (currentFrame - lastCommandFrame - 1) <= BWAPI::Broodwar->getLatencyFrames())
+    {
+        return true;
+    }
+
+    return false;
+}
+
 bool UnitImpl::isAttackable() const
 {
     return exists() &&

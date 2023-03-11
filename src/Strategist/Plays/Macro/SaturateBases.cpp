@@ -6,23 +6,6 @@
 #include "PathFinding.h"
 #include "Strategist.h"
 
-namespace
-{
-    bool isTraining(const Unit &resourceDepot)
-    {
-        if (!resourceDepot || !resourceDepot->completed || !resourceDepot->exists()) return false;
-        if (resourceDepot->bwapiUnit->isTraining()) return true;
-
-        if (resourceDepot->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
-            (currentFrame - resourceDepot->lastCommandFrame - 1) <= BWAPI::Broodwar->getLatencyFrames())
-        {
-            return true;
-        }
-
-        return false;
-    }
-}
-
 void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
     // Hard cap of 75 workers
@@ -37,13 +20,13 @@ void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
 
         // Reduce by one if this base is already building a worker
         // It's OK if this base goes to a negative number of workers
-        if (isTraining(base->resourceDepot)) desiredWorkers--;
+        if (base->resourceDepot && base->resourceDepot->isTraining()) desiredWorkers--;
 
         // TODO: Reduce by workers in the area assigned to other duties
 
         if (desiredWorkers > 0)
         {
-            baseClusters.emplace_back(std::make_pair(std::vector<Base *>{base}, desiredWorkers));
+            baseClusters.emplace_back(std::vector<Base *>{base}, desiredWorkers);
         }
         else
         {

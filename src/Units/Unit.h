@@ -125,6 +125,8 @@ public:
 
     [[nodiscard]] int BWSpeed() const;
 
+    [[nodiscard]] bool isTraining() const;
+
     [[nodiscard]] virtual bool isBeingManufacturedOrCarried() const { return false; };
 
     [[nodiscard]] bool isBeingHealed() const { return currentFrame < (lastHealFrame + 24); };
