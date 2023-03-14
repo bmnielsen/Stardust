@@ -1636,6 +1636,23 @@ namespace Producer
                     return;
                 }
 
+                // If the building is the same type as one we already have committed, and the current one does not already have a building location,
+                // attach this goal's build location to it instead
+                // This will currently only apply to cases where we've queued a pylon for supply and also want a pylon in a specific location for
+                // power, as other buildings are getting their build location resolved by this point already
+                for (auto &otherItem : committedItems)
+                {
+                    auto committedItemUnitType = std::get_if<BWAPI::UnitType>(&otherItem->type);
+                    if (!committedItemUnitType || *committedItemUnitType != *unitType) continue;
+
+                    if (otherItem->buildLocation.location.tile.isValid()) continue;
+
+                    otherItem->estimatedWorkerMovementTime = buildLocation->builderFrames;
+                    otherItem->buildLocation = *buildLocation;
+                    otherItem->reservedBuilder = std::move(reservedBuilder);
+                    return;
+                }
+
                 auto buildingItem = std::make_shared<ProductionItem>(type, prerequisitesAvailable, location);
                 buildingItem->estimatedWorkerMovementTime = buildLocation->builderFrames;
                 buildingItem->buildLocation = *buildLocation;
