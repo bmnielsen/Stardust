@@ -54,6 +54,10 @@ public:
     // This is useful for plays that "own" a worker and want to build something with it.
     [[nodiscard]] MyUnit getReservedBuilder() const { return reservedBuilder; };
 
+    // Sets the number of items that should be produced
+    // Used occasionally if something needs to reprioritize the queue
+    void setCountToProduce(int newCount) { count = newCount; }
+
     friend std::ostream &operator<<(std::ostream &os, const UnitProductionGoal &goal)
     {
         os << goal.count << "x" << goal.type << " (" << goal.requester << ")";
