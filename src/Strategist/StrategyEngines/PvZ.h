@@ -67,5 +67,5 @@ private:
 
     static void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
-    static void handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    void handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 };

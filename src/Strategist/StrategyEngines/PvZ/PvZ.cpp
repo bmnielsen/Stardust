@@ -395,14 +395,36 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::ForgeFastExpand:
         {
-            // Production is fully handled by the play until the natural nexus is finished
-            auto natural = Map::getMyNatural();
-            if (!natural->resourceDepot || !natural->resourceDepot->completed)
+            // Production of zealots needed for base defense is fully handled by the play
+            // So here we just define what production we want to happen once the FFE has been executed
+            if (dragoonCount >= 2)
             {
-                break;
+                int corsairs = desiredCorsairs();
+                if (corsairs > 0)
+                {
+                    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                               "SE",
+                                                                               BWAPI::UnitTypes::Protoss_Corsair,
+                                                                               1,
+                                                                               1);
+                }
             }
 
-            // Fall through to normal production, play may still queue units with higher priority similar to defend main emergency production
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
+                                                                       BWAPI::UnitTypes::Protoss_Zealot,
+                                                                       -1,
+                                                                       -1);
+
+            // Upgrade goon range at 2 dragoons
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+
+            break;
         }
 
         case OurStrategy::Defensive:
@@ -692,6 +714,29 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
+    bool enemyHasLurkerTech = Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker_Egg) ||
+                              Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker) ||
+                              Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Lurker_Aspect);
+
+    auto buildObserver = [&]()
+    {
+        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                 "SE",
+                                                                 BWAPI::UnitTypes::Protoss_Observer,
+                                                                 1,
+                                                                 1);
+    };
+
+    // If we are doing an FFE, only build an observer if we have seen lurkers
+    if (ourStrategy == OurStrategy::ForgeFastExpand)
+    {
+        if (enemyHasLurkerTech)
+        {
+            buildObserver();
+        }
+        return;
+    }
+
     // If the opponent has done a lurker rush recently, build a cannon at the choke to protect our main
     auto lurkerInMain = Opponent::minValueInPreviousGames("firstLurkerAtOurMain", INT_MAX, 20, 0);
     if (lurkerInMain < 12000)
@@ -702,14 +747,8 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     // Build an observer when we are on two gas or the enemy has lurker tech
     if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
         (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && currentFrame > 10000) ||
-        Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker_Egg) ||
-        Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker) ||
-        Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Lurker_Aspect))
+        enemyHasLurkerTech)
     {
-        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                 "SE",
-                                                                 BWAPI::UnitTypes::Protoss_Observer,
-                                                                 1,
-                                                                 1);
+        buildObserver();
     }
 }
