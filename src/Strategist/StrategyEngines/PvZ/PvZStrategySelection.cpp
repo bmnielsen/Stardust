@@ -2,13 +2,14 @@
 
 #include "Map.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
+#include "Plays/MainArmy/DefendMyMain.h"
 #include "Units.h"
 
 std::map<PvZ::OurStrategy, std::string> PvZ::OurStrategyNames = {
         {OurStrategy::EarlyGameDefense, "EarlyGameDefense"},
         {OurStrategy::AntiAllIn,        "AntiAllIn"},
         {OurStrategy::AntiSunkenContain,"AntiSunkenContain"},
-        {OurStrategy::ForgeFastExpand,  "ForgeFastExpand"},
+        {OurStrategy::SairSpeedlot,     "SairSpeedlot"},
         {OurStrategy::FastExpansion,    "FastExpansion"},
         {OurStrategy::Defensive,        "Defensive"},
         {OurStrategy::Normal,           "Normal"},
@@ -127,10 +128,24 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
 
                 break;
             }
-            case PvZ::OurStrategy::ForgeFastExpand:
+            case PvZ::OurStrategy::SairSpeedlot:
             {
-                // Against rush: transition to anti all-in if our wall is busted
-                // Otherwise transition to normal at some point
+                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+                if (!mainArmyPlay) break;
+
+                // If the enemy is doing a rush and our main army play has transitioned to defending the main, switch to anti all-in strategy
+                if (enemyStrategy == ZergStrategy::ZerglingRush && typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                {
+                    strategy = OurStrategy::AntiAllIn;
+                    continue;
+                }
+
+                // Transition to mid game when we have gone on the attack, indicating the opening is done
+                if (typeid(*mainArmyPlay) == typeid(AttackEnemyBase))
+                {
+                    strategy = OurStrategy::MidGame;
+                    continue;
+                }
 
                 break;
             }

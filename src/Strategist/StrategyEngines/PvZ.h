@@ -46,7 +46,7 @@ private:
         EarlyGameDefense,       // We don't have scouting data yet
         AntiAllIn,              // For fast rushes or any serious early pressure, defends main until it can get tech out
         AntiSunkenContain,      // For when enemy builds sunkens at our natural
-        ForgeFastExpand,        // For when we do a forge-first fast expansion
+        SairSpeedlot,           // For when we do a FFE into sair/speedlot
         FastExpansion,          // For when we expand quickly
         Defensive,              // Cautious opening, for when we don't know if the opponent could be going for an all-in
         Normal,                 // Normal non-greedy and non-cautious opening
@@ -68,4 +68,9 @@ private:
     static void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
     void handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+
+    static bool isFFE(OurStrategy strategy)
+    {
+        return strategy == OurStrategy::SairSpeedlot;
+    }
 };

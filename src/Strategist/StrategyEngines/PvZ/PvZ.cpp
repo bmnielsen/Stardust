@@ -46,7 +46,7 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays)
     if (BuildingPlacement::hasForgeGatewayWall())
     {
         plays.emplace_back(std::make_shared<ForgeFastExpand>());
-        ourStrategy = OurStrategy::ForgeFastExpand;
+        ourStrategy = OurStrategy::SairSpeedlot;
     }
     else
     {
@@ -220,7 +220,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     auto buildAntiSneakAttackCannons = [&]()
     {
         // Not relevant when we are doing an FFE
-        if (ourStrategy == OurStrategy::ForgeFastExpand)
+        if (isFFE(ourStrategy))
         {
             CherryVis::setBoardValue("anti-sneak-attack", "ffe");
             return;
@@ -393,7 +393,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             break;
         }
 
-        case OurStrategy::ForgeFastExpand:
+        case OurStrategy::SairSpeedlot:
         {
             // Production of zealots needed for base defense is fully handled by the play
             // So here we just define what production we want to happen once the FFE has been executed
@@ -605,7 +605,7 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             CherryVis::setBoardValue("natural", "wait-defensive");
             break;
 
-        case OurStrategy::ForgeFastExpand:
+        case OurStrategy::SairSpeedlot:
             // Handled by the play
             CherryVis::setBoardValue("natural", "forge-expand");
             return;
@@ -728,7 +728,7 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     };
 
     // If we are doing an FFE, only build an observer if we have seen lurkers
-    if (ourStrategy == OurStrategy::ForgeFastExpand)
+    if (isFFE(ourStrategy))
     {
         if (enemyHasLurkerTech)
         {
