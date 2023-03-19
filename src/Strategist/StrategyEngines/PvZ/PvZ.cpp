@@ -141,6 +141,14 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
                 break;
             }
+            case OurStrategy::SairSpeedlot:
+            {
+                // Attack when we have +1 and speed
+                defendOurMain = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) == 0 ||
+                                 BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Leg_Enhancements) == 0);
+
+                break;
+            }
             default:
             {
                 if (!mainArmyPlay)
@@ -395,34 +403,36 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::SairSpeedlot:
         {
-            // Production of zealots needed for base defense is fully handled by the play
-            // So here we just define what production we want to happen once the FFE has been executed
-            if (dragoonCount >= 2)
+            // Production of higher-priority zealots needed for base defense is handled by the play
+            int corsairs = std::max(7 - corsairCount, desiredCorsairs());
+            if (corsairCount == 0)
             {
-                int corsairs = desiredCorsairs();
-                if (corsairs > 0)
-                {
-                    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                               "SE",
-                                                                               BWAPI::UnitTypes::Protoss_Corsair,
-                                                                               1,
-                                                                               1);
-                }
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "SE",
+                                                                         BWAPI::UnitTypes::Protoss_Corsair,
+                                                                         1,
+                                                                         1);
+                corsairs--;
             }
 
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       "SE",
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       -1,
-                                                                       -1);
+            upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, 1, PRIORITY_NORMAL);
+            upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Air_Weapons, 1, PRIORITY_NORMAL);
+            upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, 1, PRIORITY_NORMAL);
+
+            if (corsairs > 0)
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           "SE",
+                                                                           BWAPI::UnitTypes::Protoss_Corsair,
+                                                                           corsairs,
+                                                                           1);
+            }
+
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        "SE",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        -1);
-
-            // Upgrade goon range at 2 dragoons
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
             break;
         }
