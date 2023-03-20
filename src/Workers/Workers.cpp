@@ -52,7 +52,13 @@ namespace Workers
             auto baseIt = workerBase.find(unit);
             if (baseIt != workerBase.end())
             {
-                baseWorkers[baseIt->second].erase(unit);
+                if (baseIt->second)
+                {
+#if CHERRYVIS_ENABLED
+                    CherryVis::log(unit->id) << "Removed from base @ " << BWAPI::WalkPosition(baseIt->second->getPosition());
+#endif
+                    baseWorkers[baseIt->second].erase(unit);
+                }
                 workerBase.erase(baseIt);
             }
 
@@ -148,7 +154,11 @@ namespace Workers
                 if (bestWorker && bestPatch)
                 {
                     workerJob[bestWorker] = Job::Minerals;
+#if CHERRYVIS_ENABLED
+                    CherryVis::log(bestWorker->id) << "Assigned to base @ " << BWAPI::WalkPosition(base->getPosition());
                     CherryVis::log(bestWorker->id) << "Assigned to Minerals";
+#endif
+
                     workerBase[bestWorker] = base;
                     baseWorkers[base].insert(bestWorker);
                     workerMineralPatch[bestWorker] = bestPatch;
@@ -224,6 +234,13 @@ namespace Workers
             Job job = Job::None;
             if (bestBase)
             {
+#if CHERRYVIS_ENABLED
+                if (workerBase[unit] != bestBase)
+                {
+                    CherryVis::log(unit->id) << "Assigned to base @ " << BWAPI::WalkPosition(bestBase->getPosition());
+                }
+#endif
+
                 workerBase[unit] = bestBase;
                 baseWorkers[bestBase].insert(unit);
 
@@ -474,6 +491,9 @@ namespace Workers
                 auto base = workerBase[worker];
                 if (base && availableMineralAssignmentsAtBase(base) <= 0)
                 {
+#if CHERRYVIS_ENABLED
+                    CherryVis::log(worker->id) << "Removed from base @ " << BWAPI::WalkPosition(base->getPosition());
+#endif
                     baseWorkers[base].erase(worker);
                     workerBase[worker] = nullptr;
                     base = nullptr;
@@ -492,8 +512,18 @@ namespace Workers
 
             // If the worker doesn't have an assigned base, assign it one
             auto base = workerBase[worker];
-            if (!base || !base->resourceDepot || !base->resourceDepot->exists())
+            if (workerJob[worker] == Job::None || !base || !base->resourceDepot || !base->resourceDepot->exists()
+                || availableMineralAssignmentsAtBase(base) <= 0)
             {
+                if (base)
+                {
+#if CHERRYVIS_ENABLED
+                    CherryVis::log(worker->id) << "Removed from base @ " << BWAPI::WalkPosition(base->getPosition());
+#endif
+                    baseWorkers[base].erase(worker);
+                    workerBase[worker] = nullptr;
+                }
+
                 base = assignBaseAndJob(worker, (workerJob[worker] == Job::Gas) ? Job::Gas : Job::Minerals);
 
                 // Maybe we have none
@@ -519,9 +549,11 @@ namespace Workers
         // We assign 4 workers to bottom geysers, which would confuse our producer, since the fourth worker doesn't contribute
         // to higher income compared to a normal geyser
         // So reduce our gas worker counts by one for each refinery with 4 workers assigned to it
+        int excessGasWorkers = 0;
         for (auto &refineryAndWorkers : refineryWorkers)
         {
             if (refineryAndWorkers.second.size() <= 3) continue;
+            excessGasWorkers++;
             if (refineryAndWorkers.first->getResources() <= 0)
             {
                 gasWorkerCount.second--;
@@ -533,7 +565,8 @@ namespace Workers
         }
 
         CherryVis::setBoardValue("mineralWorkers", (std::ostringstream() << mineralWorkerCount).str());
-        CherryVis::setBoardValue("gasWorkers", (std::ostringstream() << gasWorkerCount.first << ":" << gasWorkerCount.second).str());
+        CherryVis::setBoardValue("gasWorkers",
+                                 (std::ostringstream() << gasWorkerCount.first << ":" << gasWorkerCount.second << "+" << excessGasWorkers).str());
     }
 
     void issueOrders()
@@ -822,6 +855,9 @@ namespace Workers
             {
                 score += 72;
             }
+
+            // If the unit is currently unassigned, give it a 4 second bonus to encourage selecting it
+            if (workerJob[unit] == Job::None) score -= 96;
 
             if (travelTime != -1 && score < bestScore)
             {
