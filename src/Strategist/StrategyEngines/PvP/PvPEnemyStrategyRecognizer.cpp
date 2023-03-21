@@ -152,8 +152,7 @@ namespace
         }
 
         // If the enemy main has been scouted, determine if there is a proxy by looking at what they have built
-        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
-            Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
+        if (Strategist::hasWorkerScoutCompletedInitialBaseScan())
         {
             // Expect first pylon by frame 1300
             if (currentFrame > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
@@ -169,7 +168,8 @@ namespace
 
             // If the enemy hasn't built a forge, expect a second pylon by frame 4000 if we still have a live scout
             if (currentFrame > 4000 &&
-                Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted &&
+                Strategist::hasWorkerScoutCompletedInitialBaseScan() &&
+                !Strategist::isWorkerScoutComplete() &&
                 !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1) &&
                 !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 2))
             {

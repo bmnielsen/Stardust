@@ -641,6 +641,15 @@ namespace Strategist
                workerScoutStatus == Strategist::WorkerScoutStatus::ScoutingBlocked;
     }
 
+    bool hasWorkerScoutCompletedInitialBaseScan()
+    {
+        return
+                workerScoutStatus == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
+                workerScoutStatus == Strategist::WorkerScoutStatus::MonitoringEnemyChoke ||
+                workerScoutStatus == Strategist::WorkerScoutStatus::ScoutingCompleted;
+    }
+
+
     // Following methods are used by tests to force specific behaviour
 
     void setOpening(std::vector<std::shared_ptr<Play>> openingPlays)

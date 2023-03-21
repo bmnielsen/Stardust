@@ -151,8 +151,7 @@ namespace
         }
 
         // If the enemy main has been scouted, determine if there is a proxy by looking at what they have built
-        if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
-            Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
+        if (Strategist::hasWorkerScoutCompletedInitialBaseScan())
         {
             // Expect first barracks, refinery or command center by frame 2400
             if (currentFrame > 2400
@@ -258,8 +257,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
 
                 // Default to something reasonable if we don't detect anything else
                 if (currentFrame > 4000 ||
-                    Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
-                    Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingCompleted)
+                    Strategist::hasWorkerScoutCompletedInitialBaseScan())
                 {
                     strategy = TerranStrategy::NormalOpening;
                     continue;
