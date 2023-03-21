@@ -7,6 +7,7 @@
 #include "MapSpecificOverrides/NeoMoonGlaive.h"
 #include "MapSpecificOverrides/Destination.h"
 #include "MapSpecificOverrides/Python.h"
+#include "MapSpecificOverrides/TauCross.h"
 
 #include "Units.h"
 #include "PathFinding.h"
@@ -946,6 +947,12 @@ namespace Map
         {
             Log::Get() << "Using map-specific override for Python";
             _mapSpecificOverride = new Python();
+        }
+        else if (BWAPI::Broodwar->mapHash() == "9bfc271360fa5bab3707a29e1326b84d0ff58911" ||
+                 BWAPI::Broodwar->mapHash() == "85f6d2a51c1437a7e6743402614879e476c54de7")
+        {
+            Log::Get() << "Using map-specific override for Tau Cross";
+            _mapSpecificOverride = new TauCross();
         }
         else
         {

@@ -86,12 +86,17 @@ namespace BuildingPlacement
             }
         };
 
-        bool buildableTile(BWAPI::TilePosition tile)
+        bool walkableTile(BWAPI::TilePosition tile)
         {
             return tile.isValid() &&
                    Map::isWalkable(tile) &&
                    reservedTiles.find(tile) == reservedTiles.end() &&
                    wallTiles.find(tile) == wallTiles.end();
+        }
+
+        bool buildableTile(BWAPI::TilePosition tile)
+        {
+            return walkableTile(tile) && BWAPI::Broodwar->isBuildable(tile.x, tile.y);
         }
 
         bool buildable(BWAPI::UnitType type, BWAPI::TilePosition tile)
@@ -263,7 +268,7 @@ namespace BuildingPlacement
 
             auto validPathfindingTile = [](BWAPI::TilePosition tile)
             {
-                return buildableTile(tile) && natural->mineralLineTiles.find(tile) == natural->mineralLineTiles.end();
+                return walkableTile(tile) && natural->mineralLineTiles.find(tile) == natural->mineralLineTiles.end();
             };
 
             addWallTiles(tile, size);
@@ -1270,14 +1275,14 @@ namespace BuildingPlacement
                     if (!spawn.isValid()) continue;
 
                     int borderingTiles = 0;
-                    if (!buildableTile(BWAPI::TilePosition(x - 1, y))) borderingTiles++;
-                    if (!buildableTile(BWAPI::TilePosition(x - 1, y + 1))) borderingTiles++;
-                    if (!buildableTile(BWAPI::TilePosition(x, y - 1))) borderingTiles++;
-                    if (!buildableTile(BWAPI::TilePosition(x + 1, y - 1))) borderingTiles++;
-                    if (!buildableTile(BWAPI::TilePosition(x + 2, y))) borderingTiles++;
-                    if (!buildableTile(BWAPI::TilePosition(x + 2, y + 1))) borderingTiles++;
-                    if (!buildableTile(BWAPI::TilePosition(x, y + 2))) borderingTiles++;
-                    if (!buildableTile(BWAPI::TilePosition(x + 1, y + 2))) borderingTiles++;
+                    if (!walkableTile(BWAPI::TilePosition(x - 1, y))) borderingTiles++;
+                    if (!walkableTile(BWAPI::TilePosition(x - 1, y + 1))) borderingTiles++;
+                    if (!walkableTile(BWAPI::TilePosition(x, y - 1))) borderingTiles++;
+                    if (!walkableTile(BWAPI::TilePosition(x + 1, y - 1))) borderingTiles++;
+                    if (!walkableTile(BWAPI::TilePosition(x + 2, y))) borderingTiles++;
+                    if (!walkableTile(BWAPI::TilePosition(x + 2, y + 1))) borderingTiles++;
+                    if (!walkableTile(BWAPI::TilePosition(x, y + 2))) borderingTiles++;
+                    if (!walkableTile(BWAPI::TilePosition(x + 1, y + 2))) borderingTiles++;
 
                     // When forge and gateway are touching, use the wall centroid as the distance measurement
                     // Otherwise, use the smallest distance to either of the buildings

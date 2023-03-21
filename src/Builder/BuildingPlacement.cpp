@@ -89,6 +89,15 @@ namespace BuildingPlacement
                 forgeGatewayWall = std::make_unique<ForgeGatewayWall>(createForgeGatewayWall(
                         BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran && BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss,
                         Map::getMyMain()));
+
+#if CHERRYVIS_ENABLED
+                if (forgeGatewayWall->isValid())
+                {
+                    std::vector<long> wallHeatmap(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
+                    forgeGatewayWall->addToHeatmap(wallHeatmap);
+                    CherryVis::addHeatmap("Wall", wallHeatmap, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+                }
+#endif
             }
 
             return *forgeGatewayWall;
@@ -1054,6 +1063,7 @@ namespace BuildingPlacement
         _availableGeysers.clear();
         buildAwayFromExit = false;
         hiddenBase = nullptr;
+        forgeGatewayWall = nullptr;
 
         initializeTileAvailability();
         updateNeighbourhoods();
