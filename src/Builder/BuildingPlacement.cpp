@@ -90,14 +90,44 @@ namespace BuildingPlacement
                         BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran && BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss,
                         Map::getMyMain()));
 
-#if CHERRYVIS_ENABLED
                 if (forgeGatewayWall->isValid())
                 {
+                    // Remove any blocks that are overlapping the wall
+                    for (auto it = blocks.begin(); it != blocks.end(); )
+                    {
+                        // Consider a buffer around the block
+                        auto topLeft = (*it)->topLeft + BWAPI::TilePosition(-1, -1);
+                        auto width = (*it)->width() + 2;
+                        auto height = (*it)->height() + 2;
+
+                        bool overlaps = false;
+                        auto visit = [&](BWAPI::TilePosition tile, int x, int y)
+                        {
+                            overlaps = overlaps || Geo::Overlaps(tile, x, y, topLeft, width, height);
+                        };
+
+                        visit(forgeGatewayWall->pylon, 2, 2);
+                        visit(forgeGatewayWall->forge, 3, 2);
+                        visit(forgeGatewayWall->gateway, 4, 3);
+                        for (auto tile : forgeGatewayWall->cannons) visit(tile, 2, 2);
+                        for (auto tile : forgeGatewayWall->naturalCannons) visit(tile, 2, 2);
+
+                        if (overlaps)
+                        {
+                            it = blocks.erase(it);
+                        } else {
+                            it++;
+                        }
+                    }
+
+                    updateRequired = true;
+
+#if CHERRYVIS_ENABLED
                     std::vector<long> wallHeatmap(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
                     forgeGatewayWall->addToHeatmap(wallHeatmap);
                     CherryVis::addHeatmap("Wall", wallHeatmap, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
-                }
 #endif
+                }
             }
 
             return *forgeGatewayWall;
@@ -1071,6 +1101,8 @@ namespace BuildingPlacement
         findBaseStaticDefenses();
         findBlocks();
         findMainChokeCannonPlacement();
+
+        if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg) getOrCreateForgeGatewayWall();
 
         dumpHeatmap();
     }
