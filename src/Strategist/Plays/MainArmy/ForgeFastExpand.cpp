@@ -6,6 +6,11 @@
 #include "Map.h"
 #include "Workers.h"
 #include "Strategist.h"
+#include "UnitUtil.h"
+
+// Thresholds that determine our cannon timings, if lings can arrive before these frames we build (a) cannon(s)
+#define LINGARRIVAL_CANNONSBEFORENEXUS 4500
+#define LINGARRIVAL_ONECANNONBEFOREGATEWAY 5000
 
 /*
  * Our FFE play handles both performing the build order, defending the wall, and transitioning
@@ -15,6 +20,77 @@
  *
  * The logic is implemented as a state machine, see states defined in the class.
  */
+
+namespace
+{
+    int worstCaseZerglingArrivalFrame()
+    {
+        // Get pool start frame
+        // If we have scouted the enemy base, defaults to now, as we assume the enemy hasn't built it yet
+        // If we haven't scouted the enemy base, defaults to 9 pool
+        int poolStartFrame;
+        if (Strategist::hasWorkerScoutCompletedInitialBaseScan())
+        {
+            poolStartFrame = currentFrame;
+        }
+        else
+        {
+            poolStartFrame = 1600;
+        }
+
+        auto poolTimings = Units::getEnemyUnitTimings(BWAPI::UnitTypes::Zerg_Spawning_Pool);
+        if (!poolTimings.empty())
+        {
+            auto &[startFrame, seenFrame] = *poolTimings.begin();
+
+            // We do not trust the start frame if we first saw the pool after it was finished
+            // In this case we assume 9 pool
+            if (startFrame <= (seenFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Spawning_Pool)))
+            {
+                poolStartFrame = 1600;
+            }
+            else
+            {
+                poolStartFrame = startFrame;
+            }
+        }
+
+        CherryVis::log() << "Pool start frame: " << poolStartFrame;
+
+        auto &wall = BuildingPlacement::getForgeGatewayWall();
+        int lowestTravelTime = INT_MAX;
+        for (auto &base : Map::allStartingLocations())
+        {
+            if (base == Map::getMyMain()) continue;
+            if (Map::getEnemyStartingMain() && base != Map::getEnemyStartingMain()) continue;
+
+            int frames = PathFinding::ExpectedTravelTime(base->getPosition(),
+                                                         wall.gapCenter,
+                                                         BWAPI::UnitTypes::Zerg_Zergling,
+                                                         PathFinding::PathFindingOptions::Default,
+                                                         1.2,
+                                                         INT_MAX);
+            if (frames < lowestTravelTime) lowestTravelTime = frames;
+        }
+
+        if (lowestTravelTime == INT_MAX)
+        {
+            Log::Get() << "ERROR: Unable to compute zergling travel time to wall";
+            lowestTravelTime = 650; // short rush distance on Python
+        }
+
+        CherryVis::log() << "travel time: " << lowestTravelTime;
+
+        int arrivalTime = poolStartFrame
+                          + UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Spawning_Pool)
+                          + UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Zergling)
+                          + lowestTravelTime;
+
+        CherryVis::setBoardValue("worstCaseLingArrival", (std::ostringstream() << arrivalTime).str());
+
+        return arrivalTime;
+    }
+}
 
 ForgeFastExpand::ForgeFastExpand()
         : MainArmyPlay("ForgeFastExpand")
@@ -193,15 +269,12 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
     switch (currentState)
     {
         case State::STATE_PYLON_PENDING:
-            addBuilding(BWAPI::UnitTypes::Protoss_Pylon, wall.pylon);
-            addBuilding(BWAPI::UnitTypes::Protoss_Forge, wall.forge);
-            addCannons(2);
-            addBuilding(BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
-            addBuilding(BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
-            pauseProbeProduction(14);
-            addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
-            break;
         case State::STATE_FORGE_PENDING:
+            // Initially we assume no scouting information and plan for two cannons
+            if (currentState == State::STATE_PYLON_PENDING)
+            {
+                addBuilding(BWAPI::UnitTypes::Protoss_Pylon, wall.pylon);
+            }
             addBuilding(BWAPI::UnitTypes::Protoss_Forge, wall.forge);
             addCannons(2);
             addBuilding(BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
@@ -211,21 +284,34 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             break;
         case State::STATE_NEXUS_PENDING:
         {
-            addCannons(2);
+            bool buildCannonsBeforeNexus = worstCaseZerglingArrivalFrame() < LINGARRIVAL_CANNONSBEFORENEXUS;
+            if (buildCannonsBeforeNexus) addCannons(2);
             addBuilding(BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             addBuilding(BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
-            pauseProbeProduction(14);
+            if (buildCannonsBeforeNexus) pauseProbeProduction(14);
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
         }
         case State::STATE_GATEWAY_PENDING:
         {
+            bool cannonBeforeGateway = false;
+            int lingArrivalFrame = worstCaseZerglingArrivalFrame();
+            if (lingArrivalFrame < LINGARRIVAL_CANNONSBEFORENEXUS)
+            {
+                cannonBeforeGateway = true;
+                addCannons(2);
+            } else if (lingArrivalFrame < LINGARRIVAL_ONECANNONBEFOREGATEWAY)
+            {
+                cannonBeforeGateway = true;
+                addCannons(1);
+            }
             addBuilding(BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
-            pauseProbeProduction(14);
+            if (cannonBeforeGateway) pauseProbeProduction(14);
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
         }
         case State::STATE_FINISHED:
+            addCannons(2);
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
         case State::STATE_ANTIFASTRUSH:
