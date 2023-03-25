@@ -2,6 +2,7 @@
 
 #include "MainArmyPlay.h"
 #include "Squads/DefendWallSquad.h"
+#include "Squads/WorkerDefenseSquad.h"
 
 class ForgeFastExpand : public MainArmyPlay
 {
@@ -16,6 +17,9 @@ public:
 
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 
+    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+                 const std::function<void(const MyUnit)> &movableUnitCallback) override;
+
 private:
     enum class State
     {
@@ -28,4 +32,5 @@ private:
     };
     State currentState;
     std::shared_ptr<DefendWallSquad> squad;
+    std::unique_ptr<WorkerDefenseSquad> mainBaseWorkerDefenseSquad;
 };

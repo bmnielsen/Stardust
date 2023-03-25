@@ -96,12 +96,19 @@ ForgeFastExpand::ForgeFastExpand()
         : MainArmyPlay("ForgeFastExpand")
         , currentState(State::STATE_PYLON_PENDING)
         , squad(std::make_shared<DefendWallSquad>())
+        , mainBaseWorkerDefenseSquad(std::make_unique<WorkerDefenseSquad>(Map::getMyMain()))
 {
     General::addSquad(squad);
 }
 
 void ForgeFastExpand::update()
 {
+    // Perform worker defense in main base
+    std::set<Unit> enemyUnits(Units::enemyAtBase(Map::getMyMain()).begin(), Units::enemyAtBase(Map::getMyMain()).end());
+    auto workersAndTargets = mainBaseWorkerDefenseSquad->selectTargets(enemyUnits);
+    std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
+    mainBaseWorkerDefenseSquad->execute(workersAndTargets, emptyUnitsAndTargets);
+
     auto &wall = BuildingPlacement::getForgeGatewayWall();
 
     // Update the current state
@@ -318,4 +325,11 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             // TODO: Pylon, cannon, gateway in main
             break;
     }
+}
+
+void ForgeFastExpand::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
+             const std::function<void(const MyUnit)> &movableUnitCallback)
+{
+    MainArmyPlay::disband(removedUnitCallback, movableUnitCallback);
+    mainBaseWorkerDefenseSquad->disband();
 }
