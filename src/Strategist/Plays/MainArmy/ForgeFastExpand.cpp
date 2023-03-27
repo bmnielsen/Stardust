@@ -55,8 +55,6 @@ namespace
             }
         }
 
-        CherryVis::log() << "Pool start frame: " << poolStartFrame;
-
         auto &wall = BuildingPlacement::getForgeGatewayWall();
         int lowestTravelTime = INT_MAX;
         for (auto &base : Map::allStartingLocations())
@@ -78,8 +76,6 @@ namespace
             Log::Get() << "ERROR: Unable to compute zergling travel time to wall";
             lowestTravelTime = 650; // short rush distance on Python
         }
-
-        CherryVis::log() << "travel time: " << lowestTravelTime;
 
         int arrivalTime = poolStartFrame
                           + UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Spawning_Pool)

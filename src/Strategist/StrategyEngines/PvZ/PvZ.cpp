@@ -223,7 +223,10 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                           + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dark_Templar)
                           + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Corsair);
 
-    handleGasStealProduction(prioritizedProductionGoals, zealotCount);
+    if (!isFFE(ourStrategy))
+    {
+        handleGasStealProduction(prioritizedProductionGoals, zealotCount);
+    }
 
     auto buildAntiSneakAttackCannons = [&]()
     {

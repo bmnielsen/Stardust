@@ -209,6 +209,14 @@ namespace Units
             enemyUnits.erase(unit);
             unitIdToEnemyUnit.erase(unit->id);
             enemyUnitsByType[unit->type].erase(unit);
+            auto current = enemyUnitsToBase.find(unit);
+            if (current != enemyUnitsToBase.end())
+            {
+                CherryVis::log(unit->id) << "Removed from base @ " << BWAPI::WalkPosition(current->second->getPosition());
+
+                basesToEnemyUnits[current->second].erase(unit);
+                enemyUnitsToBase.erase(current);
+            }
 
             OpponentEconomicModel::opponentUnitDestroyed(unit->type, unit->id);
         }
@@ -413,20 +421,6 @@ namespace Units
 
         void assignEnemyUnitsToBases()
         {
-            // First clear dead units
-            for (auto it = enemyUnitsToBase.begin(); it != enemyUnitsToBase.end();)
-            {
-                if (!it->first->exists())
-                {
-                    basesToEnemyUnits[it->second].erase(it->first);
-                    it = enemyUnitsToBase.erase(it);
-                }
-                else
-                {
-                    it++;
-                }
-            }
-
             auto getBase = [](const Unit &unit) -> Base *
             {
                 if (!unit->lastPositionValid) return nullptr;
@@ -480,7 +474,6 @@ namespace Units
                 return closest;
             };
 
-            // Now update each enemy unit
             for (auto &unit : enemyUnits)
             {
                 auto base = getBase(unit);
@@ -810,51 +803,50 @@ namespace Units
         // Occasionally check for any inconsistencies in the enemy unit collections
         if (currentFrame % 48 == 0)
         {
-            for (auto it = enemyUnits.begin(); it != enemyUnits.end();)
+            auto checkUnit = [](const Unit &unit, const std::string &label)
             {
-                auto &unit = *it;
                 if (!unit->exists())
                 {
-                    Log::Get() << "ERROR: " << *unit << " in enemyUnits does not exist!";
-                    it = enemyUnits.erase(it);
+                    Log::Get() << "ERROR: " << *unit << " in " << label << " does not exist!";
+                    CherryVis::log(unit->id) << "ERROR: " << *unit << " in " << label << " does not exist!";
+                    return false;
                 }
-                else if (unit->player != BWAPI::Broodwar->enemy())
+                if (unit->player != BWAPI::Broodwar->enemy())
                 {
-                    Log::Get() << "ERROR: " << *unit << " in enemyUnits not owned by enemy!";
-                    it = enemyUnits.erase(it);
+                    Log::Get() << "ERROR: " << *unit << " in " << label << " not owned by enemy!";
+                    CherryVis::log(unit->id) << "ERROR: " << *unit << " in " << label << " not owned by enemy!";
+                    return false;
                 }
-                else if (unit->bwapiUnit->isVisible() && unit->bwapiUnit->getPlayer() != BWAPI::Broodwar->enemy())
+                if (unit->bwapiUnit->isVisible() && unit->bwapiUnit->getPlayer() != BWAPI::Broodwar->enemy())
                 {
-                    Log::Get() << "ERROR: " << *unit << " in enemyUnits not owned by enemy (bwapiUnit)!";
-                    it = enemyUnits.erase(it);
+                    Log::Get() << "ERROR: " << *unit << " in " << label << " not owned by enemy (bwapiUnit)!";
+                    CherryVis::log(unit->id) << "ERROR: " << *unit << " in " << label << " not owned by enemy (bwapiUnit)!";
+                    return false;
+                }
+                return true;
+            };
+
+            for (auto it = enemyUnits.begin(); it != enemyUnits.end();)
+            {
+                if (checkUnit(*it, "enemyUnits"))
+                {
+                    it++;
                 }
                 else
                 {
-                    it++;
+                    it = enemyUnits.erase(it);
                 }
             }
 
             for (auto it = unitIdToEnemyUnit.begin(); it != unitIdToEnemyUnit.end();)
             {
-                auto &unit = it->second;
-                if (!unit->exists())
+                if (checkUnit(it->second, "unitIdToEnemyUnit"))
                 {
-                    Log::Get() << "ERROR: " << *unit << " in unitIdToEnemyUnit does not exist!";
-                    it = unitIdToEnemyUnit.erase(it);
-                }
-                else if (unit->player != BWAPI::Broodwar->enemy())
-                {
-                    Log::Get() << "ERROR: " << *unit << " in unitIdToEnemyUnit not owned by enemy!";
-                    it = unitIdToEnemyUnit.erase(it);
-                }
-                else if (unit->bwapiUnit->isVisible() && unit->bwapiUnit->getPlayer() != BWAPI::Broodwar->enemy())
-                {
-                    Log::Get() << "ERROR: " << *unit << " in unitIdToEnemyUnit not owned by enemy (bwapiUnit)!";
-                    it = unitIdToEnemyUnit.erase(it);
+                    it++;
                 }
                 else
                 {
-                    it++;
+                    it = unitIdToEnemyUnit.erase(it);
                 }
             }
 
@@ -862,25 +854,40 @@ namespace Units
             {
                 for (auto it = typeAndEnemyUnits.second.begin(); it != typeAndEnemyUnits.second.end();)
                 {
-                    auto &unit = *it;
-                    if (!unit->exists())
+                    if (checkUnit(*it, "enemyUnitsByType"))
                     {
-                        Log::Get() << "ERROR: " << *unit << " in enemyUnitsByType does not exist!";
-                        it = typeAndEnemyUnits.second.erase(it);
-                    }
-                    else if (unit->player != BWAPI::Broodwar->enemy())
-                    {
-                        Log::Get() << "ERROR: " << *unit << " in enemyUnitsByType not owned by enemy!";
-                        it = typeAndEnemyUnits.second.erase(it);
-                    }
-                    else if (unit->bwapiUnit->isVisible() && unit->bwapiUnit->getPlayer() != BWAPI::Broodwar->enemy())
-                    {
-                        Log::Get() << "ERROR: " << *unit << " in enemyUnitsByType not owned by enemy (bwapiUnit)!";
-                        it = typeAndEnemyUnits.second.erase(it);
+                        it++;
                     }
                     else
                     {
+                        it = typeAndEnemyUnits.second.erase(it);
+                    }
+                }
+            }
+
+            for (auto it = enemyUnitsToBase.begin(); it != enemyUnitsToBase.end();)
+            {
+                if (checkUnit(it->first, "enemyUnitsToBase"))
+                {
+                    it++;
+                }
+                else
+                {
+                    it = enemyUnitsToBase.erase(it);
+                }
+            }
+
+            for (auto &basesAndEnemyUnits : basesToEnemyUnits)
+            {
+                for (auto it = basesAndEnemyUnits.second.begin(); it != basesAndEnemyUnits.second.end();)
+                {
+                    if (checkUnit(*it, "basesAndEnemyUnits"))
+                    {
                         it++;
+                    }
+                    else
+                    {
+                        it = basesAndEnemyUnits.second.erase(it);
                     }
                 }
             }

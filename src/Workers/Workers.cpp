@@ -55,7 +55,8 @@ namespace Workers
                 if (baseIt->second)
                 {
 #if CHERRYVIS_ENABLED
-                    CherryVis::log(unit->id) << "Removed from base @ " << BWAPI::WalkPosition(baseIt->second->getPosition());
+                    CherryVis::log(unit->id) << "Removed from base @ " << BWAPI::WalkPosition(baseIt->second->getPosition())
+                                             << " (removeFromResource)";
 #endif
                     baseWorkers[baseIt->second].erase(unit);
                 }
@@ -204,12 +205,13 @@ namespace Workers
                                                              -1);
                 if (frames == -1) continue;
 
-                // Don't transfer to a threatened base
-                if (!Units::enemyAtBase(base).empty()) continue;
-
-                // If the base is far away, require that our army is on the map
+                // Logic if the base is far away (i.e. would require a worker transfer)
                 if (frames > 500)
                 {
+                    // Don't transfer to a threatened base
+                    if (!Units::enemyAtBase(base).empty()) continue;
+
+                    // Require our main army to be on the map
                     auto mainArmyPlay = Strategist::getMainArmyPlay();
                     if (!mainArmyPlay) continue;
 
@@ -261,9 +263,13 @@ namespace Workers
                 {
                     CherryVis::log(unit->id) << "Assigned to Minerals";
                 }
-                else
+                else if (job == Job::Gas)
                 {
                     CherryVis::log(unit->id) << "Assigned to Gas";
+                }
+                else if (job == Job::None)
+                {
+                    CherryVis::log(unit->id) << "Assigned to None";
                 }
             }
 #endif
@@ -378,6 +384,9 @@ namespace Workers
 
             if (bestWorker)
             {
+#if CHERRYVIS_ENABLED
+                CherryVis::log() << "Picked worker " << bestWorker->id << " for gas";
+#endif
                 removeFromResource(bestWorker, workerMineralPatch, mineralPatchWorkers);
                 assignBaseAndJob(bestWorker, Job::Gas);
                 assignRefinery(bestWorker);
@@ -492,7 +501,7 @@ namespace Workers
                 if (base && availableMineralAssignmentsAtBase(base) <= 0)
                 {
 #if CHERRYVIS_ENABLED
-                    CherryVis::log(worker->id) << "Removed from base @ " << BWAPI::WalkPosition(base->getPosition());
+                    CherryVis::log(worker->id) << "Removed from base @ " << BWAPI::WalkPosition(base->getPosition()) << " (mined out)";
 #endif
                     baseWorkers[base].erase(worker);
                     workerBase[worker] = nullptr;
@@ -515,16 +524,19 @@ namespace Workers
             if (workerJob[worker] == Job::None || !base || !base->resourceDepot || !base->resourceDepot->exists()
                 || availableMineralAssignmentsAtBase(base) <= 0)
             {
-                if (base)
-                {
-#if CHERRYVIS_ENABLED
-                    CherryVis::log(worker->id) << "Removed from base @ " << BWAPI::WalkPosition(base->getPosition());
-#endif
-                    baseWorkers[base].erase(worker);
-                    workerBase[worker] = nullptr;
-                }
+                auto newBase = assignBaseAndJob(worker, (workerJob[worker] == Job::Gas) ? Job::Gas : Job::Minerals);
 
-                base = assignBaseAndJob(worker, (workerJob[worker] == Job::Gas) ? Job::Gas : Job::Minerals);
+                if (base != newBase)
+                {
+                    if (base)
+                    {
+#if CHERRYVIS_ENABLED
+                        CherryVis::log(worker->id) << "Removed from base @ " << BWAPI::WalkPosition(base->getPosition()) << " (new base)";
+#endif
+                        baseWorkers[base].erase(worker);
+                    }
+                    base = newBase;
+                }
 
                 // Maybe we have none
                 if (!base) continue;
