@@ -31,6 +31,8 @@ namespace Producer
         std::vector<int> gas;
         std::vector<int> supply;
         std::vector<int> totalSupply;
+        std::multiset<int> framesWithReassignableMineralWorker;
+        int reassignedMineralWorkersAtStartFrame;
         std::map<BuildingPlacement::Neighbourhood, std::map<int, BuildingPlacement::BuildLocationSet>> buildLocations;
         BuildingPlacement::BuildLocationSet availableGeysers;
 
@@ -383,6 +385,15 @@ namespace Producer
                 if (remainingTrainTime >= 0) updateResourceCollection(minerals, remainingTrainTime + 1, 1, MINERALS_PER_WORKER_FRAME);
             }
 
+            // Initialize workers available for transfer
+            framesWithReassignableMineralWorker.clear();
+            reassignedMineralWorkersAtStartFrame = 0;
+            int reassignableMineralWorkersNow = Workers::reassignableMineralWorkers();
+            for (int i=0; i<reassignableMineralWorkersNow; i++)
+            {
+                framesWithReassignableMineralWorker.insert(0);
+            }
+
             // Adjust for pending buildings
             // This also adds all pending buildings to the committed item set
             // TODO: Should be able to change our minds and cancel pending buildings that are no longer needed
@@ -402,12 +413,13 @@ namespace Producer
                     addProvidedSupply(pendingBuilding->type.supplyProvided(), item->completionFrame);
                 }
 
-                // Refineries are assumed to move three workers to gas on completion
-                // TODO: Do this more dynamically
+                // Refineries are assumed to allow three workers to transfer on completion
+                // In certain cases this might not be possible, but for simplicity we assume there will always be three workers available
                 if (pendingBuilding->type == BWAPI::Broodwar->self()->getRace().getRefinery())
                 {
-                    updateResourceCollection(minerals, item->completionFrame, -3, MINERALS_PER_WORKER_FRAME);
-                    updateResourceCollection(gas, item->completionFrame, 3, GAS_PER_WORKER_FRAME);
+                    framesWithReassignableMineralWorker.insert(item->completionFrame);
+                    framesWithReassignableMineralWorker.insert(item->completionFrame);
+                    framesWithReassignableMineralWorker.insert(item->completionFrame);
                 }
             }
 
@@ -948,7 +960,7 @@ namespace Producer
                 if (cost > 0)
                 {
                     frameStopsAndResourceNeeded.emplace_back(item.startFrame - (*prerequisiteIt)->startFrame, prerequisiteCost);
-                    prerequisiteCost -= isMinerals ? (*prerequisiteIt)->mineralPrice() : (*prerequisiteIt)->gasPrice();
+                    prerequisiteCost -= cost;
 
                     if (includeGasCostInMinerals)
                     {
@@ -1033,8 +1045,9 @@ namespace Producer
 
                         // Update mineral and gas collection
                         int completionFrame = prerequisiteItem->startFrame + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator);
-                        updateResourceCollection(minerals, completionFrame, -3, MINERALS_PER_WORKER_FRAME);
-                        updateResourceCollection(gas, completionFrame, 3, GAS_PER_WORKER_FRAME);
+                        framesWithReassignableMineralWorker.insert(completionFrame);
+                        framesWithReassignableMineralWorker.insert(completionFrame);
+                        framesWithReassignableMineralWorker.insert(completionFrame);
 
                         // Commit
                         auto geyser = *committedItems.emplace(std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Assimilator,
@@ -1048,17 +1061,93 @@ namespace Producer
                 }
             }
 
-            // Determine the frame where we need 3 additional gas workers to resolve a gas deficit
-            int gasCost = item.gasPrice();
-            int gasDeficit = 0;
-            int gasDeficitFrame = PREDICT_FRAMES;
-
             // Get the total gas cost of the prerequisites
             int prerequisiteCost = 0;
             for (auto &prerequisiteItem : prerequisiteItems)
             {
                 prerequisiteCost += prerequisiteItem->gasPrice();
             }
+
+            // Jump out now if the item doesn't require gas
+            if (item.gasPrice() == 0 && prerequisiteCost == 0) return true;
+
+            // Precompute the frame stops and how much gas we need at each one
+            std::vector<std::pair<int, int>> frameStopsAndGasNeeded;
+            frameStopsAndGasNeeded.emplace_back(0, prerequisiteCost + item.gasPrice());
+            for (auto prerequisiteIt = prerequisiteItems.rbegin(); prerequisiteIt != prerequisiteItems.rend(); prerequisiteIt++)
+            {
+                int cost = (*prerequisiteIt)->gasPrice();
+                if (cost > 0)
+                {
+                    frameStopsAndGasNeeded.emplace_back(item.startFrame - (*prerequisiteIt)->startFrame, prerequisiteCost);
+                    prerequisiteCost -= cost;
+                }
+            }
+
+            // While we have workers we can assign to gas, repeatedly assign one of them to resolve any gas blocks
+            while (!framesWithReassignableMineralWorker.empty())
+            {
+                // Find the earliest gas block
+                auto getGasBlockFrame = [&frameStopsAndGasNeeded, &item]()
+                {
+                    for (int f = item.startFrame; f < PREDICT_FRAMES; f++)
+                    {
+                        for (auto &frameStopAndGasNeeded : frameStopsAndGasNeeded)
+                        {
+                            int frame = f - frameStopAndGasNeeded.first;
+                            if (frame >= PREDICT_FRAMES) continue;
+                            if (frame < 0 || gas[frame] < frameStopAndGasNeeded.second) return f + 1;
+                        }
+                    }
+                    return PREDICT_FRAMES;
+                };
+                int gasBlockFrame = getGasBlockFrame();
+
+                // If there is no gas block, return immediately
+                if (gasBlockFrame == PREDICT_FRAMES) return true;
+
+                // Get the first frame where we have a worker we can reassign
+                int reassignFrame = *framesWithReassignableMineralWorker.begin();
+
+                // Find the first frame where we have enough minerals to reassign it
+                int mineralBlockFrame;
+                for (mineralBlockFrame = PREDICT_FRAMES - 1; mineralBlockFrame > reassignFrame; mineralBlockFrame--)
+                {
+                    int mineralsNeeded = (int) ((mineralBlockFrame - reassignFrame) * MINERALS_PER_WORKER_FRAME);
+                    if (minerals[mineralBlockFrame] < mineralsNeeded) break;
+                }
+
+                // If we never have enough minerals, abort here, as we can't produce the item
+                if (mineralBlockFrame == (PREDICT_FRAMES - 1)) return false;
+
+                // If this is too late to help resolve the gas block, shift the item
+                int delta = mineralBlockFrame - gasBlockFrame;
+                if (delta > 0)
+                {
+                    item.startFrame += delta;
+                    item.completionFrame += delta;
+                    shiftAll(prerequisiteItems, prerequisiteItems.begin(), delta);
+                }
+
+                // Move the worker from minerals to gas
+                // Note that this does not take refineries into account that require 4 workers - we will overestimate gas collection slightly
+                updateResourceCollection(minerals, mineralBlockFrame, -1, MINERALS_PER_WORKER_FRAME);
+                updateResourceCollection(gas, mineralBlockFrame, 1, GAS_PER_WORKER_FRAME);
+
+                // If it is frame 0, record this
+                if (mineralBlockFrame == 0)
+                {
+                    reassignedMineralWorkersAtStartFrame++;
+                }
+
+                // Remove the reassignable worker
+                framesWithReassignableMineralWorker.erase(framesWithReassignableMineralWorker.begin());
+            }
+
+            // Determine the frame where we need 3 additional gas workers to resolve a gas deficit
+            int gasCost = item.gasPrice();
+            int gasDeficit = 0;
+            int gasDeficitFrame = PREDICT_FRAMES;
 
             // Simple case: no prerequisites, or the prerequisites require no gas
             if (prerequisiteCost == 0)
@@ -1078,7 +1167,7 @@ namespace Producer
                     }
                 }
             }
-
+            else
             // There are prerequisites that require gas
             {
                 // Get the gas deficit if we produce the item and prerequisites on schedule
@@ -1464,12 +1553,12 @@ namespace Producer
             if (item->is(BWAPI::Broodwar->self()->getRace().getWorker()))
                 updateResourceCollection(minerals, item->completionFrame, 1, MINERALS_PER_WORKER_FRAME);
 
-            // If the item is a refinery, move three workers to it when it finishes
-            // TODO: allow more fine-grained selection of gas workers
+            // If the item is a refinery, make three workers available to it when it finishes
             if (item->is(BWAPI::Broodwar->self()->getRace().getRefinery()))
             {
-                updateResourceCollection(minerals, item->completionFrame, -3, MINERALS_PER_WORKER_FRAME);
-                updateResourceCollection(gas, item->completionFrame, 3, GAS_PER_WORKER_FRAME);
+                framesWithReassignableMineralWorker.insert(item->completionFrame);
+                framesWithReassignableMineralWorker.insert(item->completionFrame);
+                framesWithReassignableMineralWorker.insert(item->completionFrame);
             }
 
             // If the item provides supply, add it
@@ -1885,31 +1974,19 @@ namespace Producer
         write(committedItems, (std::ostringstream() << "producergoal" << count).str());
 #endif
 
-        // While running through the goals, keep track of whether we need to collect gas
-        // At some point this should be integrated into the actual producer logic so it can be adjusted dynamically
-        // For now, we collect gas if the first unlimited production goal requires it or if we need gas for an earlier goal
-        bool hasSeenUnlimited = false;
+        // While running through the goals, keep track of whether we have an unlimited production goal that needs gas
+        // In emergency situations we might cancel all production of units that need gas, in which case we want to transfer workers off of gas
+        // Transferring workers onto gas is handled in the producer logic
+        bool hasUnlimitedGasGoal = false;
         int availableGas = BWAPI::Broodwar->self()->gas();
         for (auto goal : Strategist::currentProductionGoals())
         {
             if (auto unitProductionGoal = std::get_if<UnitProductionGoal>(&goal))
             {
-                if (!hasSeenUnlimited &&
-                    unitProductionGoal->countToProduce() == -1)
+                if (unitProductionGoal->countToProduce() == -1 && unitProductionGoal->unitType().gasPrice() > 0)
                 {
-                    if (unitProductionGoal->unitType().gasPrice() > 0)
-                    {
-                        availableGas = -1;
-                    }
-                    else
-                    {
-                        for (const auto &item : committedItems)
-                        {
-                            availableGas -= item->gasPrice();
-                        }
-                    }
-
-                    hasSeenUnlimited = true;
+                    hasUnlimitedGasGoal = true;
+                    availableGas = -1;
                 }
 
                 handleGoal(unitProductionGoal->unitType(),
@@ -1939,7 +2016,7 @@ namespace Producer
 #endif
         }
 
-        if (!hasSeenUnlimited)
+        if (!hasUnlimitedGasGoal)
         {
             for (const auto &item : committedItems)
             {
@@ -1948,11 +2025,11 @@ namespace Producer
         }
 
         // Set gas collection appropriately
-        if (availableGas < 0)
+        if (reassignedMineralWorkersAtStartFrame > 0)
         {
-            Workers::setDesiredGasWorkerDelta(Workers::reassignableMineralWorkers());
+            Workers::setDesiredGasWorkerDelta(reassignedMineralWorkersAtStartFrame);
         }
-        else
+        else if (availableGas >= 0)
         {
             Workers::setDesiredGasWorkerDelta(-Workers::reassignableGasWorkers());
         }

@@ -992,7 +992,8 @@ namespace Workers
 
     int reassignableMineralWorkers()
     {
-        auto result = 0;
+        // Do an initial scan to find the number of gas slots and available mineral workers there are at each base
+        std::vector<std::tuple<Base*, int, int>> basesAndGasSlotsAndMineralWorkersAvailable;
         for (auto &baseAndWorkers : baseWorkers)
         {
             if (!baseAndWorkers.first || baseAndWorkers.first->owner != BWAPI::Broodwar->self()) continue;
@@ -1006,7 +1007,6 @@ namespace Workers
                     gasAvailable += desiredRefineryWorkers(baseAndWorkers.first, refinery->getInitialTilePosition());
                 }
             }
-            if (gasAvailable == 0) continue;
 
             int mineralWorkersAvailable = 0;
             for (const auto &worker : baseAndWorkers.second)
@@ -1015,7 +1015,39 @@ namespace Workers
                 if (workerJob[worker] == Job::Gas) gasAvailable--;
             }
 
-            result += std::min(gasAvailable, mineralWorkersAvailable);
+            basesAndGasSlotsAndMineralWorkersAvailable.emplace_back(baseAndWorkers.first, std::max(gasAvailable, 0), mineralWorkersAvailable);
+        }
+
+        // Now count the number of mineral workers that can be transferred to gas, allowing transfer to close bases
+        int result = 0;
+        for (auto &[base, gasAvailable, mineralWorkersAvailable] : basesAndGasSlotsAndMineralWorkersAvailable)
+        {
+            if (gasAvailable == 0) continue;
+            if (mineralWorkersAvailable >= gasAvailable)
+            {
+                result += gasAvailable;
+                continue;
+            }
+
+            // Check if we can borrow mineral workers from a nearby base
+            int borrowedMineralWorkers = 0;
+            for (auto &[otherBase, otherGasAvailable, otherMineralWorkersAvailable] : basesAndGasSlotsAndMineralWorkersAvailable)
+            {
+                if (base == otherBase) continue;
+                if (otherMineralWorkersAvailable <= otherGasAvailable) continue;
+                int frames = PathFinding::ExpectedTravelTime(base->getPosition(),
+                                                             otherBase->getPosition(),
+                                                             BWAPI::UnitTypes::Protoss_Probe,
+                                                             PathFinding::PathFindingOptions::Default,
+                                                             -1);
+                if (frames == -1) continue;
+                if (frames < 400)
+                {
+                    borrowedMineralWorkers += (otherMineralWorkersAvailable - otherGasAvailable);
+                }
+            }
+
+            result += std::min(gasAvailable, mineralWorkersAvailable + borrowedMineralWorkers);
         }
 
         return result;
