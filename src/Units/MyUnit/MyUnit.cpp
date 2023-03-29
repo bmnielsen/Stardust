@@ -12,6 +12,7 @@ MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         , producer(nullptr)
         , energy(unit->getEnergy())
         , lastCastFrame(-1)
+        , completionFrame(unit->isCompleted() ? currentFrame : -1)
         , issuedOrderThisFrame(false)
         , moveCommand(nullptr)
         , targetPosition(BWAPI::Positions::Invalid)
@@ -46,7 +47,11 @@ void MyUnitImpl::update(BWAPI::Unit unit)
     }
     simulatedPositionsUpdated = false;
 
-    if (bwapiUnit->isCompleted()) producer = nullptr;
+    if (bwapiUnit->isCompleted() && completionFrame == -1)
+    {
+        producer = nullptr;
+        completionFrame = currentFrame;
+    }
 
     if (energy - unit->getEnergy() > 45)
     {

@@ -18,6 +18,7 @@ public:
 
     int energy;                         // Estimated energy of the unit
     int lastCastFrame;                  // Last frame the unit cast some kind of energy-using spell
+    int completionFrame;                // Actual completion frame, -1 until complete
 
     explicit MyUnitImpl(BWAPI::Unit unit);
 
