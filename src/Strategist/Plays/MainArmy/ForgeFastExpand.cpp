@@ -314,9 +314,52 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             break;
         }
         case State::STATE_FINISHED:
+        {
             addCannons(2);
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
+
+            // If the enemy did a gas steal, build a cannon in our main to kill it
+            auto main = Map::getMyMain();
+            for (const auto &gasSteal : Units::allEnemyOfType(BWAPI::Broodwar->enemy()->getRace().getRefinery()))
+            {
+                if (!main->hasGeyserAt(gasSteal->getTilePosition())) continue;
+
+                // Find the best cannon location
+                auto defenseLocations = BuildingPlacement::baseStaticDefenseLocations(main);
+                if (!defenseLocations.powerPylon.isValid()) break;
+
+                auto pylon = Units::myBuildingAt(defenseLocations.powerPylon);
+                if (!pylon || !pylon->completed) break;
+
+                for (const auto cannonLocation : defenseLocations.workerDefenseCannons)
+                {
+                    auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                                        BWAPI::Position(cannonLocation) + BWAPI::Position(32, 32),
+                                                        gasSteal->type,
+                                                        gasSteal->lastPosition);
+                    if (dist > (BWAPI::UnitTypes::Protoss_Photon_Cannon.groundWeapon().maxRange() - 16)) continue;
+
+                    if (Units::myBuildingAt(cannonLocation)) break;
+                    auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(cannonLocation),
+                                                                          BuildingPlacement::builderFrames(Map::getMyMain()->getPosition(),
+                                                                                                           cannonLocation,
+                                                                                                           BWAPI::UnitTypes::Protoss_Photon_Cannon),
+                                                                          0,
+                                                                          0);
+                    prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(
+                            std::in_place_type<UnitProductionGoal>,
+                            label,
+                            BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                            1,
+                            1,
+                            buildLocation);
+                }
+
+                break;
+            }
+
             break;
+        }
         case State::STATE_ANTIFASTRUSH:
             // TODO: Pylon, cannon, gateway in main
             break;
