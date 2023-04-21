@@ -77,11 +77,14 @@ public:
     void addToHeatmap(std::vector<long> &wallHeatmap)
     {
         // Values:
-        // - Gateway: 2
-        // - Forge: 4
-        // - Pylon: 6
-        // - Cannon: 8
-        // - Natural Cannon: 10
+        // - Gateway: 10
+        // - Forge: 10
+        // - Pylon: 40
+        // - Cannon: 20
+        // - Natural Cannon: 20
+        // - tilesInsideWall: 2
+        // - tilesOutsideWall: -2
+        // - tilesOutsideButCloseToWall: -1
 
         auto addLocation = [&wallHeatmap](BWAPI::TilePosition tile, int width, int height, int value)
         {
@@ -108,16 +111,29 @@ public:
             }
         };
 
-        addLocation(gateway, 4, 3, 2);
-        addLocation(forge, 3, 2, 4);
-        addLocation(pylon, 2, 2, 6);
+        for (const auto &tile : tilesInsideWall)
+        {
+            wallHeatmap[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = 2;
+        }
+        for (const auto &tile : tilesOutsideWall)
+        {
+            wallHeatmap[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = -2;
+        }
+        for (const auto &tile : tilesOutsideButCloseToWall)
+        {
+            wallHeatmap[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = -1;
+        }
+
+        addLocation(gateway, 4, 3, 10);
+        addLocation(forge, 3, 2, 10);
+        addLocation(pylon, 2, 2, 40);
         for (const auto &cannon : cannons)
         {
-            addLocation(cannon, 2, 2, 8);
+            addLocation(cannon, 2, 2, 20);
         }
         for (const auto &cannon : naturalCannons)
         {
-            addLocation(cannon, 2, 2, 10);
+            addLocation(cannon, 2, 2, 25);
         }
     }
 };

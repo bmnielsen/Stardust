@@ -1235,7 +1235,7 @@ namespace BuildingPlacement
             return bestWallOption;
         }
 
-        BWAPI::TilePosition getCannonPlacement(ForgeGatewayWall &wall, int optimalPathLength)
+        BWAPI::TilePosition getCannonPlacement(ForgeGatewayWall &wall, int optimalPathLength, std::set<BWAPI::TilePosition> &unusedNaturalCannons)
         {
             BWAPI::Position forgeCenter = BWAPI::Position(wall.forge) + (BWAPI::Position(BWAPI::UnitTypes::Protoss_Forge.tileSize()) / 2);
             BWAPI::Position gatewayCenter = BWAPI::Position(wall.gateway) + (BWAPI::Position(BWAPI::UnitTypes::Protoss_Gateway.tileSize()) / 2);
@@ -1254,25 +1254,33 @@ namespace BuildingPlacement
                 for (int y = startTile.y - 10; y <= startTile.y + 10; y++)
                 {
                     BWAPI::TilePosition tile(x, y);
-                    if (!tile.isValid()) continue;
-                    if (wall.pylon.isValid() && !UnitUtil::Powers(wall.pylon, tile, BWAPI::UnitTypes::Protoss_Photon_Cannon)) continue;
-                    if (!buildable(BWAPI::UnitTypes::Protoss_Photon_Cannon, tile)) continue;
-                    if (!overlapsNaturalArea(tile, BWAPI::UnitTypes::Protoss_Pylon)) continue;
+
+                    // Natural cannons come "pre-validated"
+                    bool prevalidated = (unusedNaturalCannons.find(tile) != unusedNaturalCannons.end());
 
                     BWAPI::Position cannonCenter = BWAPI::Position(BWAPI::TilePosition(x, y)) + BWAPI::Position(32, 32);
-                    if (sideOfLine(forgeCenter, gatewayCenter, cannonCenter + BWAPI::Position(16, 16)) != natSideOfForgeGatewayLine
-                        || sideOfLine(forgeCenter, gatewayCenter, cannonCenter + BWAPI::Position(16, -16)) != natSideOfForgeGatewayLine
-                        || sideOfLine(forgeCenter, gatewayCenter, cannonCenter + BWAPI::Position(-16, 16)) != natSideOfForgeGatewayLine
-                        || sideOfLine(forgeCenter, gatewayCenter, cannonCenter + BWAPI::Position(-16, -16)) != natSideOfForgeGatewayLine)
+                    BWAPI::TilePosition spawn;
+                    if (!prevalidated)
                     {
-#if DEBUG_PLACEMENT
-                        Log::Debug() << "Cannon " << tile << " rejected because on wrong side of line";
-#endif
-                        continue;
-                    }
+                        if (!tile.isValid()) continue;
+                        if (wall.pylon.isValid() && !UnitUtil::Powers(wall.pylon, tile, BWAPI::UnitTypes::Protoss_Photon_Cannon)) continue;
+                        if (!buildable(BWAPI::UnitTypes::Protoss_Photon_Cannon, tile)) continue;
+                        if (!overlapsNaturalArea(tile, BWAPI::UnitTypes::Protoss_Pylon)) continue;
 
-                    BWAPI::TilePosition spawn = gatewaySpawnPosition(wall, tile, BWAPI::UnitTypes::Protoss_Photon_Cannon);
-                    if (!spawn.isValid()) continue;
+                        if (sideOfLine(forgeCenter, gatewayCenter, cannonCenter + BWAPI::Position(16, 16)) != natSideOfForgeGatewayLine
+                            || sideOfLine(forgeCenter, gatewayCenter, cannonCenter + BWAPI::Position(16, -16)) != natSideOfForgeGatewayLine
+                            || sideOfLine(forgeCenter, gatewayCenter, cannonCenter + BWAPI::Position(-16, 16)) != natSideOfForgeGatewayLine
+                            || sideOfLine(forgeCenter, gatewayCenter, cannonCenter + BWAPI::Position(-16, -16)) != natSideOfForgeGatewayLine)
+                        {
+    #if DEBUG_PLACEMENT
+                            Log::Debug() << "Cannon " << tile << " rejected because on wrong side of line";
+    #endif
+                            continue;
+                        }
+
+                        spawn = gatewaySpawnPosition(wall, tile, BWAPI::UnitTypes::Protoss_Photon_Cannon);
+                        if (!spawn.isValid()) continue;
+                    }
 
                     int borderingTiles = 0;
                     if (!walkableTile(BWAPI::TilePosition(x - 1, y))) borderingTiles++;
@@ -1307,24 +1315,27 @@ namespace BuildingPlacement
 
                     if (dist > distBest)
                     {
-                        // Ensure there is still a valid path through the wall
-                        if (!hasPathWithBuilding(tile, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize(), optimalPathLength * 3))
+                        if (!prevalidated)
                         {
-#if DEBUG_PLACEMENT
-                            Log::Debug() << "(rejected as blocks path)";
-#endif
-                            continue;
-                        }
-
-                        // Ensure there is a valid path from the gateway spawn position
-                        if (sideOfLine(forgeCenter, gatewayCenter, center(spawn)) == natSideOfForgeGatewayLine)
-                        {
-                            if (!hasPathWithBuilding(tile, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize(), 0, spawn))
+                            // Ensure there is still a valid path through the wall
+                            if (!hasPathWithBuilding(tile, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize(), optimalPathLength * 3))
                             {
-#if DEBUG_PLACEMENT
-                                Log::Debug() << "(rejected as blocks path from gateway spawn point)";
-#endif
+    #if DEBUG_PLACEMENT
+                                Log::Debug() << "(rejected as blocks path)";
+    #endif
                                 continue;
+                            }
+
+                            // Ensure there is a valid path from the gateway spawn position
+                            if (sideOfLine(forgeCenter, gatewayCenter, center(spawn)) == natSideOfForgeGatewayLine)
+                            {
+                                if (!hasPathWithBuilding(tile, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize(), 0, spawn))
+                                {
+    #if DEBUG_PLACEMENT
+                                    Log::Debug() << "(rejected as blocks path from gateway spawn point)";
+    #endif
+                                    continue;
+                                }
                             }
                         }
 
@@ -1398,9 +1409,10 @@ namespace BuildingPlacement
             // Step 4: Find initial cannons
             // We do this before finding the pylon so the pylon doesn't interfere too much with optimal cannon placement
             // If we can't place the pylon later, we will roll back cannons until we can
+            std::set<BWAPI::TilePosition> unusedNaturalCannons;
             for (int i = 0; i < 2; i++)
             {
-                BWAPI::TilePosition cannon = getCannonPlacement(bestWall, optimalPathLength);
+                BWAPI::TilePosition cannon = getCannonPlacement(bestWall, optimalPathLength, unusedNaturalCannons);
                 if (cannon.isValid())
                 {
                     addWallTiles(cannon, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize());
@@ -1452,6 +1464,7 @@ namespace BuildingPlacement
                 if (pylonOption.pylon != bestWall.pylon) continue;
 
                 bestWall.naturalCannons.assign(pylonOption.cannons.begin(), pylonOption.cannons.end());
+                unusedNaturalCannons.insert(pylonOption.cannons.begin(), pylonOption.cannons.end());
 
                 // Build cannon furthest from wall first
                 std::sort(bestWall.naturalCannons.begin(),
@@ -1465,26 +1478,28 @@ namespace BuildingPlacement
                 {
                     addWallTiles(naturalCannon, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize());
                 }
+                break;
             }
 
             // Analyze the wall geo now since we know this is the final wall
             analyzeWallGeo(bestWall);
 
-            // Step 6: Find remaining cannon positions (up to 6)
+            // Step 6: Find remaining cannon positions (up to 6 in total)
 
             // Find location closest to the wall that is behind it
             // Only return powered buildings
             // Prefer a location that is close to the door
             // Prefer a location that doesn't leave space around it
+            // Allow using the natural cannons
+
             for (int n = bestWall.cannons.size(); n < 6; n++)
             {
-                BWAPI::TilePosition cannon = getCannonPlacement(bestWall, optimalPathLength);
+                BWAPI::TilePosition cannon = getCannonPlacement(bestWall, optimalPathLength, unusedNaturalCannons);
                 if (!cannon.isValid()) break;
-
-                hasPathWithBuilding(cannon, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize(), optimalPathLength * 3);
 
                 addWallTiles(cannon, BWAPI::UnitTypes::Protoss_Photon_Cannon.tileSize());
                 bestWall.cannons.push_back(cannon);
+                unusedNaturalCannons.erase(cannon);
 
 #if DEBUG_PLACEMENT
                 Log::Debug() << "Added cannon @ " << cannon;
@@ -1527,6 +1542,8 @@ namespace BuildingPlacement
             Log::Get() << "Wall cannot be created; no pylon options";
             return {};
         }
+
+#if DEBUG_PLACEMENT
         Log::Debug() << "Pylon options:";
         for (auto &pylonOption : pylonOptions)
         {
@@ -1538,6 +1555,7 @@ namespace BuildingPlacement
             }
             Log::Debug() << out.str();
         }
+#endif
 
         // Initialize reserved tiles
         // These are tiles in the natural we don't want to block
@@ -1561,54 +1579,19 @@ namespace BuildingPlacement
 #if DEBUG_PLACEMENT
         Log::Debug() << "Creating wall; tight=" << tight;
 #endif
-        ForgeGatewayWall wall = createForgeGatewayWall(tight, INT_MAX);
+        ForgeGatewayWall wall = createForgeGatewayWall(tight, 4);
 
         // Fall back to non-tight if a tight wall could not be found
-        if (tight && !wall.isValid())
+        if (!wall.isValid())
         {
 #if DEBUG_PLACEMENT
-            Log::Debug() << "Tight wall invalid, trying with loose";
-#endif
-
-            wall = createForgeGatewayWall(false, INT_MAX);
-        }
-
-            // If a tight wall has a large gap, check if a loose wall is better
-        else if (tight && wall.gapSize >= 5)
-        {
-#if DEBUG_PLACEMENT
-            Log::Debug() << "Tight wall has large gap, trying with loose";
-#endif
-
-            // Generate the loose wall, with the constraint of the gap being at least 1.5 tiles smaller
-            ForgeGatewayWall looseWall = createForgeGatewayWall(false, wall.gapSize - 3);
-            if (looseWall.isValid())
-            {
-#if DEBUG_PLACEMENT
-                Log::Debug() << "Using loose wall";
-#endif
-
-                wall = looseWall;
-            }
-
-                // The loose wall wasn't better, so reset the overlap
-            else
-            {
-#if DEBUG_PLACEMENT
-                Log::Debug() << "Using tight wall";
-#endif
-            }
-        }
-
-#if DEBUG_PLACEMENT
-        if (wall.isValid())
-        {
-            Log::Debug() << "Wall: " << wall;
-        }
-        else
-        {
             Log::Debug() << "Could not find wall";
+#endif
+            return {};
         }
+
+#if DEBUG_PLACEMENT
+        Log::Debug() << "Wall: " << wall;
 #endif
 
         return wall;
