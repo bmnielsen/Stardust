@@ -7,6 +7,8 @@
 #include "Workers.h"
 #include "Strategist.h"
 #include "UnitUtil.h"
+#include "Builder.h"
+#include <Strategist/Plays/MainArmy/DefendMyMain.h>
 
 // Thresholds that determine our cannon timings, if lings can arrive before these frames we build (a) cannon(s)
 #define LINGARRIVAL_CANNONSBEFORENEXUS 4500
@@ -118,7 +120,6 @@ void ForgeFastExpand::update()
             break;
 
         case State::STATE_FORGE_PENDING:
-            // TODO: Add check for fast rush
             if (Units::myBuildingAt(wall.forge))
             {
                 currentState = State::STATE_NEXUS_PENDING;
@@ -128,6 +129,11 @@ void ForgeFastExpand::update()
         case State::STATE_NEXUS_PENDING:
         {
             auto natural = Map::getMyNatural();
+            if (Strategist::getStrategyEngine()->isEnemyRushing())
+            {
+                Builder::cancelBase(natural);
+                currentState = State::STATE_ANTIFASTRUSH;
+            }
             if (natural->resourceDepot && natural->resourceDepot->exists() && natural->owner == BWAPI::Broodwar->self())
             {
                 currentState = State::STATE_GATEWAY_PENDING;
@@ -136,18 +142,32 @@ void ForgeFastExpand::update()
         }
 
         case State::STATE_GATEWAY_PENDING:
+        {
+            auto natural = Map::getMyNatural();
+            if (Strategist::getStrategyEngine()->isEnemyRushing())
+            {
+                Builder::cancelBase(natural);
+                Builder::cancel(wall.gateway);
+                currentState = State::STATE_ANTIFASTRUSH;
+            }
+
             if (Units::myBuildingAt(wall.gateway))
             {
                 currentState = State::STATE_FINISHED;
             }
             break;
+        }
 
         case State::STATE_FINISHED:
             // Final state
             break;
 
         case State::STATE_ANTIFASTRUSH:
-            // TODO: Add logic for transitioning to DefendMyMain play when buildings at main are ready
+            // Transition when we've completed the gateway in our main
+            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Gateway) > 0)
+            {
+                status.transitionTo = std::make_shared<DefendMyMain>();
+            }
             break;
     }
 }
@@ -205,17 +225,17 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         }
         return currentCannons;
     };
-    auto addUnits = [&](BWAPI::UnitType type, int desiredCount, int priority = PRIORITY_DEPOTS)
+    auto addUnits = [&](BWAPI::UnitType type, int desiredCount, int priority = PRIORITY_DEPOTS, int producers = 1)
     {
         int currentCount = Units::countAll(type);
-        if (desiredCount > currentCount)
+        if (desiredCount > currentCount || desiredCount == -1)
         {
             prioritizedProductionGoals[priority].emplace_back(
                     std::in_place_type<UnitProductionGoal>,
                     label,
                     type,
-                    desiredCount - currentCount,
-                    1);
+                    (desiredCount == -1) ? -1 : (desiredCount - currentCount),
+                    producers);
         }
         return currentCount;
     };
@@ -361,8 +381,37 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             break;
         }
         case State::STATE_ANTIFASTRUSH:
-            // TODO: Pylon, cannon, gateway in main
+        {
+            // Basic idea is to build a pylon, cannon and gateway in the main
+            auto defenseLocations = BuildingPlacement::baseStaticDefenseLocations(Map::getMyMain());
+            if (!defenseLocations.powerPylon.isValid() || defenseLocations.workerDefenseCannons.empty())
+            {
+                status.transitionTo = std::make_shared<DefendMyMain>();
+                break;
+            }
+
+            auto pylon = Units::myBuildingAt(defenseLocations.powerPylon);
+            if (!pylon)
+            {
+                addBuilding(BWAPI::UnitTypes::Protoss_Pylon, defenseLocations.powerPylon, PRIORITY_EMERGENCY);
+            }
+
+            auto cannonLocation = *defenseLocations.workerDefenseCannons.begin();
+            if (!Units::myBuildingAt(cannonLocation))
+            {
+                addBuilding(BWAPI::UnitTypes::Protoss_Photon_Cannon, cannonLocation, PRIORITY_EMERGENCY);
+            }
+
+            addUnits(BWAPI::UnitTypes::Protoss_Zealot, 1, PRIORITY_EMERGENCY);
+
+            if (defenseLocations.startBlockCannon.isValid() && !Units::myBuildingAt(defenseLocations.startBlockCannon))
+            {
+                addBuilding(BWAPI::UnitTypes::Protoss_Photon_Cannon, defenseLocations.startBlockCannon, PRIORITY_EMERGENCY);
+            }
+
+            addUnits(BWAPI::UnitTypes::Protoss_Zealot, 10, PRIORITY_EMERGENCY, 2);
             break;
+        }
     }
 }
 

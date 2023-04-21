@@ -408,6 +408,8 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             // Production of higher-priority zealots needed for base defense is handled by the play
             int corsairs = std::max(7 - corsairCount, desiredCorsairs());
+
+            // First sair is prioritized above upgrades
             if (corsairCount == 0)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
