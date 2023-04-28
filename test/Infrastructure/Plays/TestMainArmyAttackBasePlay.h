@@ -16,6 +16,8 @@ public:
         General::addSquad(squad);
     };
 
+    [[nodiscard]] bool isDefensive() const override { return false; }
+
     std::shared_ptr<Squad> getSquad() override { return squad; }
 
 private:

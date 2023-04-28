@@ -10,7 +10,7 @@ TEST(Steamhammer, RunThirty)
         BWTest test;
         test.opponentName = "Steamhammer";
         test.opponentRace = BWAPI::Races::Zerg;
-        test.maps = Maps::Get("cog");
+        test.maps = Maps::Get("sscait");
         test.opponentModule = []()
         {
             auto module = new UAlbertaBot::UAlbertaBotModule();
@@ -107,7 +107,7 @@ TEST(Steamhammer, 4PoolHard)
 {
     BWTest test;
     test.opponentName = "Steamhammer";
-    test.map = Maps::GetOne("Destination");
+    test.map = Maps::GetOne("Python");
     test.randomSeed = 50443;
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
@@ -232,6 +232,7 @@ TEST(Steamhammer, 9PoolSpeed)
     test.map = Maps::GetOne("Python");
     test.randomSeed = 30841;
     test.opponentRace = BWAPI::Races::Zerg;
+    test.frameLimit = 10000;
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
@@ -379,12 +380,31 @@ TEST(Steamhammer, 12HatchTurtle)
 {
     BWTest test;
     test.opponentName = "Steamhammer";
-    test.map = Maps::GetOne("Destination");
+    test.map = Maps::GetOne("Python");
     test.opponentRace = BWAPI::Races::Zerg;
+    test.frameLimit = 10000;
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
         Config::StardustTestStrategyName = "12HatchTurtle";
+        return module;
+    };
+
+    test.run();
+}
+
+TEST(Steamhammer, ZvZ_12PoolLing)
+{
+    BWTest test;
+    test.opponentName = "Steamhammer";
+    test.map = Maps::GetOne("Python");
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.randomSeed = 73549;
+    test.frameLimit = 10000;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "ZvZ_12PoolLing";
         return module;
     };
 

@@ -11,11 +11,12 @@ TEST(Crona, RunThirty)
         BWTest test;
         BananaBrain* bbModule;
         test.opponentName = "Crona";
-        test.maps = Maps::Get("cog");
+        test.maps = Maps::Get("sscait");
         test.opponentRace = BWAPI::Races::Zerg;
         test.opponentModule = [&]()
         {
             bbModule = new BananaBrain();
+            bbModule->strategyName = ZergStrategy::kZvP_5Pool;
             return bbModule;
         };
         test.onStartOpponent = [&]()
@@ -115,9 +116,10 @@ TEST(Crona, 5Pool)
 {
     BWTest test;
     test.opponentName = "Crona";
-    test.map = Maps::GetOne("Outsider");
-    test.frameLimit = 20000;
+    test.map = Maps::GetOne("Heartbreak");
+    test.frameLimit = 12000;
     test.opponentRace = BWAPI::Races::Zerg;
+    test.randomSeed = 40356;
     test.opponentModule = []()
     {
         auto bbModule = new BananaBrain();
