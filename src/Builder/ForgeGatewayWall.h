@@ -17,6 +17,8 @@ public:
     BWAPI::Position gapEnd1;
     BWAPI::Position gapEnd2;
 
+    std::set<BWAPI::Position> probeBlockingPositions;
+
     std::set<BWAPI::TilePosition> tilesInsideWall;
     std::set<BWAPI::TilePosition> tilesOutsideWall;
     std::set<BWAPI::TilePosition> tilesOutsideButCloseToWall;
@@ -70,6 +72,7 @@ public:
             {
                 out << tile;
             }
+            out << ";gapSize=" << wall.gapSize;
         }
         return out;
     };

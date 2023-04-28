@@ -2,6 +2,9 @@
 
 ForgeGatewayWall Destination::getWall(BWAPI::TilePosition startTile)
 {
+    // Currently disabling walls that aren't tight and narrow
+    return {};
+
     ForgeGatewayWall result;
 
     if (startTile.x == 31 && startTile.y == 7)
@@ -20,8 +23,6 @@ ForgeGatewayWall Destination::getWall(BWAPI::TilePosition startTile)
 
         result.gapEnd1 = BWAPI::Position(BWAPI::TilePosition(61, 22)) + BWAPI::Position(16, 16);
         result.gapEnd2 = BWAPI::Position(BWAPI::TilePosition(63, 21)) + BWAPI::Position(16, 16);
-        result.gapCenter = BWAPI::Position(BWAPI::TilePosition(62, 22)) + BWAPI::Position(16, 0);
-        result.gapSize = 1;
     }
     else if (startTile.x == 64 && startTile.y == 118)
     {
@@ -38,8 +39,6 @@ ForgeGatewayWall Destination::getWall(BWAPI::TilePosition startTile)
 
         result.gapEnd1 = BWAPI::Position(BWAPI::TilePosition(32, 107)) + BWAPI::Position(16, 16);
         result.gapEnd2 = BWAPI::Position(BWAPI::TilePosition(35, 107)) + BWAPI::Position(16, 16);
-        result.gapCenter = BWAPI::Position(BWAPI::TilePosition(34, 107)) + BWAPI::Position(0, 16);
-        result.gapSize = 2;
     }
     else
     {

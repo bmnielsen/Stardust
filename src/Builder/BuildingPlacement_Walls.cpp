@@ -293,53 +293,74 @@ namespace BuildingPlacement
             return BWAPI::Position(tile) + BWAPI::Position(16, 16);
         }
 
-        bool walkableAbove(BWAPI::TilePosition tile)
+        BWAPI::Position center(BWAPI::WalkPosition walk)
+        {
+            return BWAPI::Position(walk) + BWAPI::Position(4, 4);
+        }
+
+        bool walkableAbove(BWAPI::TilePosition tile, int toleranceAbove, int toleranceLeft, int toleranceRight)
         {
             if (!tile.isValid()) return false;
 
-            BWAPI::WalkPosition start = BWAPI::WalkPosition(tile) - BWAPI::WalkPosition(0, 1);
-            for (int x = 0; x < 4; x++)
+            BWAPI::WalkPosition start(tile);
+            for (int x = (0 - toleranceLeft); x < (4 + toleranceRight); x++)
             {
-                if (!BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(start.x + x, start.y))) return false;
+                for (int y = 1; y <= toleranceAbove; y++)
+                {
+                    BWAPI::WalkPosition walk(start.x + x, start.y - y);
+                    if (!walk.isValid() || !BWAPI::Broodwar->isWalkable(walk)) return false;
+                }
             }
 
             return true;
         }
 
-        bool walkableBelow(BWAPI::TilePosition tile)
+        bool walkableBelow(BWAPI::TilePosition tile, int toleranceBelow, int toleranceLeft, int toleranceRight)
         {
             if (!tile.isValid()) return false;
 
-            BWAPI::WalkPosition start = BWAPI::WalkPosition(tile) + BWAPI::WalkPosition(0, 4);
-            for (int x = 0; x < 4; x++)
+            BWAPI::WalkPosition start(tile);
+            for (int x = (0 - toleranceLeft); x < (4 + toleranceRight); x++)
             {
-                if (!BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(start.x + x, start.y))) return false;
+                for (int y = 1; y <= toleranceBelow; y++)
+                {
+                    BWAPI::WalkPosition walk(start.x + x, start.y + 3 + y);
+                    if (!walk.isValid() || !BWAPI::Broodwar->isWalkable(walk)) return false;
+                }
             }
 
             return true;
         }
 
-        bool walkableLeft(BWAPI::TilePosition tile)
+        bool walkableLeft(BWAPI::TilePosition tile, int toleranceLeft, int toleranceAbove, int toleranceBelow)
         {
             if (!tile.isValid()) return false;
 
-            BWAPI::WalkPosition start = BWAPI::WalkPosition(tile) - BWAPI::WalkPosition(1, 0);
-            for (int y = 0; y < 4; y++)
+            BWAPI::WalkPosition start(tile);
+            for (int y = (0 - toleranceAbove); y < (4 + toleranceBelow); y++)
             {
-                if (!BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(start.x, start.y + y))) return false;
+                for (int x = 1; x <= toleranceLeft; x++)
+                {
+                    BWAPI::WalkPosition walk(start.x - x, start.y + y);
+                    if (!walk.isValid() || !BWAPI::Broodwar->isWalkable(walk)) return false;
+                }
             }
 
             return true;
         }
 
-        bool walkableRight(BWAPI::TilePosition tile)
+        bool walkableRight(BWAPI::TilePosition tile, int toleranceRight, int toleranceAbove, int toleranceBelow)
         {
             if (!tile.isValid()) return false;
 
-            BWAPI::WalkPosition start = BWAPI::WalkPosition(tile) + BWAPI::WalkPosition(4, 0);
-            for (int y = 0; y < 4; y++)
+            BWAPI::WalkPosition start(tile);
+            for (int y = (0 - toleranceAbove); y < (4 + toleranceBelow); y++)
             {
-                if (!BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(start.x, start.y + y))) return false;
+                for (int x = 1; x <= toleranceRight; x++)
+                {
+                    BWAPI::WalkPosition walk(start.x + 3 + x, start.y + y);
+                    if (!walk.isValid() || !BWAPI::Broodwar->isWalkable(walk)) return false;
+                }
             }
 
             return true;
@@ -355,21 +376,26 @@ namespace BuildingPlacement
             // Collect the possible build locations covering this tile
             std::set<BWAPI::TilePosition> tiles;
 
-            bool geyserBlockTop = geyserTiles.find(BWAPI::TilePosition(x, y - 1)) != geyserTiles.end()
-                                  || geyserTiles.find(BWAPI::TilePosition(x - 1, y - 1)) != geyserTiles.end()
-                                  || geyserTiles.find(BWAPI::TilePosition(x + 1, y - 1)) != geyserTiles.end();
-            bool geyserBlockLeft = geyserTiles.find(BWAPI::TilePosition(x - 1, y)) != geyserTiles.end()
-                                   || geyserTiles.find(BWAPI::TilePosition(x - 1, y - 1)) != geyserTiles.end()
-                                   || geyserTiles.find(BWAPI::TilePosition(x - 1, y + 1)) != geyserTiles.end();
+            bool isForge = (building == BWAPI::UnitTypes::Protoss_Forge);
+            bool isGate = (building == BWAPI::UnitTypes::Protoss_Gateway);
+
+            bool geyserBlockTop = isForge && (
+                    geyserTiles.find(BWAPI::TilePosition(x, y - 1)) != geyserTiles.end()
+                    || geyserTiles.find(BWAPI::TilePosition(x - 1, y - 1)) != geyserTiles.end()
+                    || geyserTiles.find(BWAPI::TilePosition(x + 1, y - 1)) != geyserTiles.end());
+            bool geyserBlockLeft = isForge && (
+                    geyserTiles.find(BWAPI::TilePosition(x - 1, y)) != geyserTiles.end()
+                    || geyserTiles.find(BWAPI::TilePosition(x - 1, y - 1)) != geyserTiles.end()
+                    || geyserTiles.find(BWAPI::TilePosition(x - 1, y + 1)) != geyserTiles.end());
             bool geyserBlockBottom = geyserTiles.find(BWAPI::TilePosition(x, y + 1)) != geyserTiles.end()
-                                     || geyserTiles.find(BWAPI::TilePosition(x - 1, y + 1)) != geyserTiles.end()
-                                     || geyserTiles.find(BWAPI::TilePosition(x + 1, y + 1)) != geyserTiles.end();
+                                     || (isForge && geyserTiles.find(BWAPI::TilePosition(x - 1, y + 1)) != geyserTiles.end())
+                                     || (isForge && geyserTiles.find(BWAPI::TilePosition(x + 1, y + 1)) != geyserTiles.end());
             bool geyserBlockRight = geyserTiles.find(BWAPI::TilePosition(x + 1, y)) != geyserTiles.end()
-                                    || geyserTiles.find(BWAPI::TilePosition(x + 1, y - 1)) != geyserTiles.end()
-                                    || geyserTiles.find(BWAPI::TilePosition(x + 1, y + 1)) != geyserTiles.end();
+                                    || (isForge && geyserTiles.find(BWAPI::TilePosition(x + 1, y - 1)) != geyserTiles.end())
+                                    || (isForge && geyserTiles.find(BWAPI::TilePosition(x + 1, y + 1)) != geyserTiles.end());
 
             // Blocked on top
-            if (geyserBlockTop || (building == BWAPI::UnitTypes::Protoss_Forge && !walkableAbove(BWAPI::TilePosition(x, y)))
+            if (geyserBlockTop || (isForge && !walkableAbove(BWAPI::TilePosition(x, y), 1, 1, 1))
                 || (!tight && !Map::isTerrainWalkable(x, y - 1)))
             {
                 for (int i = 0; i < building.tileWidth(); i++)
@@ -379,7 +405,7 @@ namespace BuildingPlacement
             }
 
             // Blocked on left
-            if (geyserBlockLeft || (building == BWAPI::UnitTypes::Protoss_Forge && !walkableLeft(BWAPI::TilePosition(x, y)))
+            if (geyserBlockLeft || (isForge && !walkableLeft(BWAPI::TilePosition(x, y), 1, 1, 1))
                 || (!tight && !Map::isTerrainWalkable(x - 1, y)))
             {
                 for (int i = 0; i < building.tileHeight(); i++)
@@ -389,7 +415,8 @@ namespace BuildingPlacement
             }
 
             // Blocked on bottom
-            if (geyserBlockBottom || (building == BWAPI::UnitTypes::Protoss_Gateway && !walkableBelow(BWAPI::TilePosition(x, y)))
+            if (geyserBlockBottom || (isForge && !walkableBelow(BWAPI::TilePosition(x, y), 1, 1, 1))
+                || (isGate && !walkableBelow(BWAPI::TilePosition(x, y), 2, 0, 1))
                 || (!tight && !Map::isTerrainWalkable(x, y + 1)))
             {
                 int thisY = y - building.tileHeight() + 1;
@@ -400,7 +427,8 @@ namespace BuildingPlacement
             }
 
             // Blocked on right
-            if (geyserBlockRight || (building == BWAPI::UnitTypes::Protoss_Gateway && !walkableRight(BWAPI::TilePosition(x, y)))
+            if (geyserBlockRight || (isForge && !walkableRight(BWAPI::TilePosition(x, y), 1, 1, 1))
+                || (isGate && !walkableRight(BWAPI::TilePosition(x, y), 1, 0, 2))
                 || (!tight && !Map::isTerrainWalkable(x + 1, y)))
             {
                 int thisX = x - building.tileWidth() + 1;
@@ -423,33 +451,40 @@ namespace BuildingPlacement
             }
         }
 
-        void addForgeGeo(BWAPI::TilePosition forge, std::vector<BWAPI::Position> &geo)
+        void addBuildingGeo(BWAPI::TilePosition tile, BWAPI::UnitType type, std::set<BWAPI::WalkPosition> &geo)
         {
-            geo.push_back(center(forge));
-            geo.push_back(center(BWAPI::TilePosition(forge.x + 1, forge.y)));
-            geo.push_back(center(BWAPI::TilePosition(forge.x + 2, forge.y)));
-            geo.push_back(center(BWAPI::TilePosition(forge.x + 2, forge.y + 1)));
-            geo.push_back(center(BWAPI::TilePosition(forge.x + 1, forge.y + 1)));
-            geo.push_back(center(BWAPI::TilePosition(forge.x, forge.y + 1)));
-        }
+            // Compute walkable pixels in each dimension
+            int pixelsLeft = (type.tileWidth() * 16) - type.dimensionLeft();
+            int pixelsRight = (type.tileWidth() * 16) - type.dimensionRight() - 1;
+            int pixelsTop = (type.tileHeight() * 16) - type.dimensionUp();
+            int pixelsBottom = (type.tileHeight() * 16) - type.dimensionDown() - 1;
 
-        void addGatewayGeo(BWAPI::TilePosition gateway, std::vector<BWAPI::Position> &geo)
-        {
-            geo.push_back(center(gateway));
-            geo.push_back(center(BWAPI::TilePosition(gateway.x + 1, gateway.y)));
-            geo.push_back(center(BWAPI::TilePosition(gateway.x + 2, gateway.y)));
-            geo.push_back(center(BWAPI::TilePosition(gateway.x + 3, gateway.y)));
-            geo.push_back(center(BWAPI::TilePosition(gateway.x + 3, gateway.y + 1)));
-            geo.push_back(center(BWAPI::TilePosition(gateway.x + 3, gateway.y + 2)));
-            geo.push_back(center(BWAPI::TilePosition(gateway.x + 2, gateway.y + 2)));
-            geo.push_back(center(BWAPI::TilePosition(gateway.x + 1, gateway.y + 2)));
-            geo.push_back(center(BWAPI::TilePosition(gateway.x, gateway.y + 2)));
-            geo.push_back(center(BWAPI::TilePosition(gateway.x, gateway.y + 1)));
+            // Compute offset with first fully-unwalkable walktile in each dimension
+            int left = (pixelsLeft + 7) / 8;
+            int right = (type.tileWidth() * 4) - ((pixelsRight + 7) / 8) - 1;
+            int top = (pixelsTop + 7) / 8;
+            int bottom = (type.tileHeight() * 4) - ((pixelsBottom + 7) / 8) - 1;
+
+            BWAPI::WalkPosition start(tile);
+
+            // Top and bottom rows
+            for (int x = left; x <= right; x++)
+            {
+                geo.insert(start + BWAPI::WalkPosition(x, top));
+                geo.insert(start + BWAPI::WalkPosition(x, bottom));
+            }
+
+            // Left and right columns, ignoring corners that were already handled above
+            for (int y = (top + 1); y <= (bottom - 1); y++)
+            {
+                geo.insert(start + BWAPI::WalkPosition(left, y));
+                geo.insert(start + BWAPI::WalkPosition(right, y));
+            }
         }
 
         void addWallOption(BWAPI::TilePosition forge,
                            BWAPI::TilePosition gateway,
-                           std::vector<BWAPI::Position> *geo,
+                           std::set<BWAPI::WalkPosition> *geo,
                            std::vector<ForgeGatewayWallOption> &wallOptions)
         {
             // Check if we've already considered this wall
@@ -462,7 +497,7 @@ namespace BuildingPlacement
             }
 
             // Buildings overlap
-            if (forge.x > (gateway.x - 3) && forge.x<(gateway.x + 4) && forge.y>(gateway.y - 2) && forge.y < (gateway.y + 3))
+            if (Geo::Overlaps(forge, 3, 2, gateway, 4, 3))
             {
                 wallOptions.emplace_back(forge, gateway);
                 return;
@@ -477,20 +512,20 @@ namespace BuildingPlacement
             }
 
             // Set up the sets of positions we are comparing between
-            std::vector<BWAPI::Position> geo1;
-            std::vector<BWAPI::Position> *geo2;
+            std::set<BWAPI::WalkPosition> geo1;
+            std::set<BWAPI::WalkPosition> *geo2;
 
             if (geo)
             {
-                addForgeGeo(forge, geo1);
-                addGatewayGeo(gateway, geo1);
+                addBuildingGeo(forge, BWAPI::UnitTypes::Protoss_Forge, geo1);
+                addBuildingGeo(gateway, BWAPI::UnitTypes::Protoss_Gateway, geo1);
                 geo2 = geo;
             }
             else
             {
-                addForgeGeo(forge, geo1);
-                geo2 = new std::vector<BWAPI::Position>();
-                addGatewayGeo(gateway, *geo2);
+                addBuildingGeo(forge, BWAPI::UnitTypes::Protoss_Forge, geo1);
+                geo2 = new std::set<BWAPI::WalkPosition>();
+                addBuildingGeo(gateway, BWAPI::UnitTypes::Protoss_Gateway, *geo2);
             }
 
             BWAPI::Position natCenter = natural->getPosition();
@@ -501,10 +536,13 @@ namespace BuildingPlacement
             BWAPI::Position end1;
             BWAPI::Position end2;
 
-            for (BWAPI::Position first : geo1)
+            for (BWAPI::WalkPosition firstWP : geo1)
             {
-                for (BWAPI::Position second : *geo2)
+                for (BWAPI::WalkPosition secondWP : *geo2)
                 {
+                    auto first = center(firstWP);
+                    auto second = center(secondWP);
+
                     double dist = first.getDistance(second);
                     if (dist < bestDist)
                     {
@@ -514,7 +552,7 @@ namespace BuildingPlacement
                         end1 = first;
                         end2 = second;
                     }
-                    else if (dist == bestDist)
+                    else if (std::abs(dist - bestDist) < 0.0001)
                     {
                         BWAPI::Position thisCenter = BWAPI::Position((first.x + second.x) / 2, (first.y + second.y) / 2);
                         double natDist = thisCenter.getDistance(natCenter);
@@ -597,6 +635,91 @@ namespace BuildingPlacement
 
         void analyzeWallGeo(ForgeGatewayWall &wall)
         {
+            // Pull the gap ends so they are on the closest unwalkable positions
+            std::set<BWAPI::Position> unwalkablePositions;
+            auto addBuildingToUnwalkablePositions = [&unwalkablePositions](BWAPI::UnitType type, BWAPI::TilePosition tile)
+            {
+                auto buildingCenter = BWAPI::Position(tile) + BWAPI::Position(type.tileWidth() * 16, type.tileHeight() * 16);
+                for (int x = (buildingCenter.x - type.dimensionLeft()); x <= (buildingCenter.x + type.dimensionRight()); x++)
+                {
+                    for (int y = (buildingCenter.y - type.dimensionUp()); y <= (buildingCenter.y + type.dimensionDown()); y++)
+                    {
+                        unwalkablePositions.insert({x, y});
+                    }
+                }
+            };
+            auto walkablePos = [&unwalkablePositions](BWAPI::Position pos)
+            {
+                if (!pos.isValid()) return false;
+                if (unwalkablePositions.find(pos) != unwalkablePositions.end()) return false;
+                if (!BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos))) return false;
+                return true;
+            };
+            auto pullToWalkable = [&walkablePos](BWAPI::Position end, BWAPI::Position other)
+            {
+                int distTotal = end.getApproxDistance(other);
+                int xdiff = other.x - end.x;
+                int ydiff = other.y - end.y;
+
+                // If the end is walkable at the start, we pull in the opposite direction until we hit something that isn't walkable
+                if (walkablePos(end))
+                {
+                    for (int distStop = 1; distStop <= distTotal; distStop++)
+                    {
+                        BWAPI::Position pos(
+                                end.x - (int) std::round(((double) distStop / distTotal) * xdiff),
+                                end.y - (int) std::round(((double) distStop / distTotal) * ydiff));
+
+                        if (walkablePos(pos)) continue;
+
+                        return pos;
+                    }
+
+                    Log::Get() << "WARNING: Pulling wall gap ends did not find unwalkable moving backwards from " << end << " vs. " << other;
+                    return end;
+                }
+
+                auto previous = end;
+                for (int distStop = 1; distStop <= distTotal; distStop++)
+                {
+                    BWAPI::Position pos(
+                            end.x + (int) std::round(((double) distStop / distTotal) * xdiff),
+                            end.y + (int) std::round(((double) distStop / distTotal) * ydiff));
+
+                    if (!walkablePos(pos))
+                    {
+                        previous = pos;
+                        continue;
+                    }
+
+                    return previous;
+                }
+
+                Log::Get() << "WARNING: Pulling wall gap ends did not find a walkable position between " << end << " and " << other;
+                return end;
+            };
+            addBuildingToUnwalkablePositions(BWAPI::UnitTypes::Protoss_Forge, wall.forge);
+            addBuildingToUnwalkablePositions(BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
+            wall.gapEnd1 = pullToWalkable(wall.gapEnd1, wall.gapEnd2);
+            wall.gapEnd2 = pullToWalkable(wall.gapEnd2, wall.gapEnd1);
+            wall.gapCenter = (wall.gapEnd1 + wall.gapEnd2) / 2;
+            double gapLength = wall.gapEnd1.getDistance(wall.gapEnd2);
+            wall.gapSize = (int)ceil((gapLength / 16.0) - 0.00001);
+
+            // Compute probe blocking positions
+            int probes = (int)ceil(((gapLength - 15.0) / 38.0) - 0.0001);
+            double spaceBetween = (gapLength - ((double)(23 * probes))) / ((double)(probes + 1));
+            int xdiff = wall.gapEnd2.x - wall.gapEnd1.x;
+            int ydiff = wall.gapEnd2.y - wall.gapEnd1.y;
+            for (int i = 0; i < probes; i++)
+            {
+                double distStop = (23.0 * i) + (spaceBetween * (i + 1)) + 11.5;
+                wall.probeBlockingPositions.emplace(
+                        wall.gapEnd1.x + (int)std::round(((double)distStop / gapLength) * xdiff),
+                        wall.gapEnd1.y + (int)std::round(((double)distStop / gapLength) * ydiff)
+                );
+            }
+
             BWAPI::Position natCenter = natural->getPosition();
 
             BWAPI::Position forgeCenter = BWAPI::Position(wall.forge) + BWAPI::Position(BWAPI::UnitTypes::Protoss_Forge.tileWidth() * 16,
@@ -845,14 +968,40 @@ namespace BuildingPlacement
         }
 
         void analyzeChokeGeoAndFindBuildingOptions(
-                std::vector<BWAPI::Position> &end1Geo,
-                std::vector<BWAPI::Position> &end2Geo,
+                std::set<BWAPI::WalkPosition> &end1Geo,
+                std::set<BWAPI::WalkPosition> &end2Geo,
                 std::set<BWAPI::TilePosition> &end1ForgeOptions,
                 std::set<BWAPI::TilePosition> &end1GatewayOptions,
                 std::set<BWAPI::TilePosition> &end2ForgeOptions,
                 std::set<BWAPI::TilePosition> &end2GatewayOptions,
                 bool tight)
         {
+            // Adds unwalkable walk positions that border a walkable walk position
+            auto processEndGeo = [](BWAPI::TilePosition tile, std::set<BWAPI::WalkPosition> &geo)
+            {
+                auto walkable = [](BWAPI::WalkPosition pos)
+                {
+                    return pos.isValid() && BWAPI::Broodwar->isWalkable(pos);
+                };
+
+                for (int walkX = 0; walkX < 4; walkX++)
+                {
+                    for (int walkY = 0; walkY < 4; walkY++)
+                    {
+                        BWAPI::WalkPosition pos(tile.x * 4 + walkX, tile.y * 4 + walkY);
+                        if (!BWAPI::Broodwar->isWalkable(pos) && (
+                                walkable(pos + BWAPI::WalkPosition(1, 0)) ||
+                                walkable(pos + BWAPI::WalkPosition(0, 1)) ||
+                                walkable(pos + BWAPI::WalkPosition(-1, 0)) ||
+                                walkable(pos + BWAPI::WalkPosition(0, -1))
+                        ))
+                        {
+                            geo.insert(pos);
+                        }
+                    }
+                }
+            };
+
             // Geysers are always tight, so treat them specially
             std::set<BWAPI::TilePosition> geyserTiles;
             for (auto geyser : natural->geyserLocations())
@@ -892,7 +1041,7 @@ namespace BuildingPlacement
                     {
                         BWAPI::TilePosition tile(x, y);
                         if (!tile.isValid()) continue;
-                        if (!Map::isWalkable(tile)) end1Geo.push_back(center(tile));
+                        processEndGeo(tile, end1Geo);
                         if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
                         addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end1ForgeOptions, tight, geyserTiles);
@@ -907,7 +1056,7 @@ namespace BuildingPlacement
                     {
                         BWAPI::TilePosition tile(x, y);
                         if (!tile.isValid()) continue;
-                        if (!Map::isWalkable(tile)) end2Geo.push_back(center(tile));
+                        processEndGeo(tile, end2Geo);
                         if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
                         addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end2ForgeOptions, tight, geyserTiles);
@@ -932,7 +1081,7 @@ namespace BuildingPlacement
                     {
                         BWAPI::TilePosition tile(x, y);
                         if (!tile.isValid()) continue;
-                        if (!Map::isWalkable(tile)) end1Geo.push_back(center(tile));
+                        processEndGeo(tile, end1Geo);
                         if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
                         addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end1ForgeOptions, tight, geyserTiles);
@@ -947,7 +1096,7 @@ namespace BuildingPlacement
                     {
                         BWAPI::TilePosition tile(x, y);
                         if (!tile.isValid()) continue;
-                        if (!Map::isWalkable(tile)) end2Geo.push_back(center(tile));
+                        processEndGeo(tile, end2Geo);
                         if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
                         addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end2ForgeOptions, tight, geyserTiles);
@@ -982,7 +1131,7 @@ namespace BuildingPlacement
                             BWAPI::TilePosition tile(x, y);
                             if (!tile.isValid()) continue;
                             if (center(tile).getDistance(end1Center) > center(tile).getDistance(end2Center)) continue;
-                            if (!Map::isWalkable(tile)) end1Geo.push_back(center(tile));
+                            processEndGeo(tile, end1Geo);
                             if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
                             addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end1ForgeOptions, tight, geyserTiles);
@@ -997,7 +1146,7 @@ namespace BuildingPlacement
                             BWAPI::TilePosition tile(x, y);
                             if (!tile.isValid()) continue;
                             if (center(tile).getDistance(end2Center) > center(tile).getDistance(end1Center)) continue;
-                            if (!Map::isWalkable(tile)) end2Geo.push_back(center(tile));
+                            processEndGeo(tile, end2Geo);
                             if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
                             addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end2ForgeOptions, tight, geyserTiles);
@@ -1010,8 +1159,8 @@ namespace BuildingPlacement
 
         void generateWallOptions(
                 std::vector<ForgeGatewayWallOption> &wallOptions,
-                std::vector<BWAPI::Position> &end1Geo,
-                std::vector<BWAPI::Position> &end2Geo,
+                std::set<BWAPI::WalkPosition> &end1Geo,
+                std::set<BWAPI::WalkPosition> &end2Geo,
                 std::set<BWAPI::TilePosition> &end1ForgeOptions,
                 std::set<BWAPI::TilePosition> &end1GatewayOptions,
                 std::set<BWAPI::TilePosition> &end2ForgeOptions,
@@ -1033,6 +1182,7 @@ namespace BuildingPlacement
                 addWallOption(forge, BWAPI::TilePosition(forge.x - 1, forge.y - 3), &end2Geo, wallOptions);
                 addWallOption(forge, BWAPI::TilePosition(forge.x, forge.y - 3), &end2Geo, wallOptions);
                 addWallOption(forge, BWAPI::TilePosition(forge.x + 1, forge.y - 3), &end2Geo, wallOptions);
+                addWallOption(forge, BWAPI::TilePosition(forge.x + 2, forge.y - 3), &end2Geo, wallOptions);
             }
 
             // Forge on end2 side
@@ -1050,6 +1200,7 @@ namespace BuildingPlacement
                 addWallOption(forge, BWAPI::TilePosition(forge.x - 1, forge.y - 3), &end1Geo, wallOptions);
                 addWallOption(forge, BWAPI::TilePosition(forge.x, forge.y - 3), &end1Geo, wallOptions);
                 addWallOption(forge, BWAPI::TilePosition(forge.x + 1, forge.y - 3), &end1Geo, wallOptions);
+                addWallOption(forge, BWAPI::TilePosition(forge.x + 2, forge.y - 3), &end1Geo, wallOptions);
             }
 
             // Gateway on end1 side, forge below gateway
@@ -1060,6 +1211,7 @@ namespace BuildingPlacement
                 addWallOption(BWAPI::TilePosition(gateway.x, gateway.y + 3), gateway, &end2Geo, wallOptions);
                 addWallOption(BWAPI::TilePosition(gateway.x + 1, gateway.y + 3), gateway, &end2Geo, wallOptions);
                 addWallOption(BWAPI::TilePosition(gateway.x + 2, gateway.y + 3), gateway, &end2Geo, wallOptions);
+                addWallOption(BWAPI::TilePosition(gateway.x + 3, gateway.y + 3), gateway, &end2Geo, wallOptions);
             }
 
             // Gateway on end2 side, forge below gateway
@@ -1070,6 +1222,7 @@ namespace BuildingPlacement
                 addWallOption(BWAPI::TilePosition(gateway.x, gateway.y + 3), gateway, &end1Geo, wallOptions);
                 addWallOption(BWAPI::TilePosition(gateway.x + 1, gateway.y + 3), gateway, &end1Geo, wallOptions);
                 addWallOption(BWAPI::TilePosition(gateway.x + 2, gateway.y + 3), gateway, &end1Geo, wallOptions);
+                addWallOption(BWAPI::TilePosition(gateway.x + 3, gateway.y + 3), gateway, &end1Geo, wallOptions);
             }
 
             // Prune invalid options from the vector, we don't need to store them any more
@@ -1170,12 +1323,23 @@ namespace BuildingPlacement
                 bool powered = false;
                 for (auto &pylonOption : pylonOptions)
                 {
-                    if (UnitUtil::Powers(pylonOption.pylon, wall.forge, BWAPI::UnitTypes::Protoss_Forge) &&
-                        UnitUtil::Powers(pylonOption.pylon, wall.gateway, BWAPI::UnitTypes::Protoss_Gateway))
+                    if (!UnitUtil::Powers(pylonOption.pylon, wall.forge, BWAPI::UnitTypes::Protoss_Forge)) continue;
+                    if (!UnitUtil::Powers(pylonOption.pylon, wall.gateway, BWAPI::UnitTypes::Protoss_Gateway)) continue;
+                    if (Geo::Overlaps(pylonOption.pylon, 2, 2, wall.forge, 3, 2)) continue;
+                    if (Geo::Overlaps(pylonOption.pylon, 2, 2, wall.gateway, 4, 3)) continue;
+                    bool overlapsCannon = false;
+                    for (auto cannon : pylonOption.cannons)
                     {
-                        powered = true;
-                        break;
+                        if (Geo::Overlaps(cannon, 2, 2, wall.forge, 3, 2) || Geo::Overlaps(cannon, 2, 2, wall.gateway, 4, 3))
+                        {
+                            overlapsCannon = true;
+                            break;
+                        }
                     }
+                    if (overlapsCannon) continue;
+
+                    powered = true;
+                    break;
                 }
                 if (!powered) continue;
 
@@ -1235,6 +1399,19 @@ namespace BuildingPlacement
             return bestWallOption;
         }
 
+        bool overlapsProbeBlockingLocation(ForgeGatewayWall &wall, BWAPI::TilePosition tile, BWAPI::UnitType type)
+        {
+            for (const auto &probe : wall.probeBlockingPositions)
+            {
+                if (Geo::Overlaps(BWAPI::TilePosition(probe), 1, 1, tile, type.tileWidth(), type.tileHeight()))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         BWAPI::TilePosition getCannonPlacement(ForgeGatewayWall &wall, int optimalPathLength, std::set<BWAPI::TilePosition> &unusedNaturalCannons)
         {
             BWAPI::Position forgeCenter = BWAPI::Position(wall.forge) + (BWAPI::Position(BWAPI::UnitTypes::Protoss_Forge.tileSize()) / 2);
@@ -1266,6 +1443,7 @@ namespace BuildingPlacement
                         if (wall.pylon.isValid() && !UnitUtil::Powers(wall.pylon, tile, BWAPI::UnitTypes::Protoss_Photon_Cannon)) continue;
                         if (!buildable(BWAPI::UnitTypes::Protoss_Photon_Cannon, tile)) continue;
                         if (!overlapsNaturalArea(tile, BWAPI::UnitTypes::Protoss_Pylon)) continue;
+                        if (overlapsProbeBlockingLocation(wall, tile, BWAPI::UnitTypes::Protoss_Photon_Cannon)) continue;
 
                         if (sideOfLine(forgeCenter, gatewayCenter, cannonCenter + BWAPI::Position(16, 16)) != natSideOfForgeGatewayLine
                             || sideOfLine(forgeCenter, gatewayCenter, cannonCenter + BWAPI::Position(16, -16)) != natSideOfForgeGatewayLine
@@ -1364,8 +1542,8 @@ namespace BuildingPlacement
 #endif
 
             // Step 1: Analyze choke geo and find potential forge and gateway options
-            std::vector<BWAPI::Position> end1Geo;
-            std::vector<BWAPI::Position> end2Geo;
+            std::set<BWAPI::WalkPosition> end1Geo;
+            std::set<BWAPI::WalkPosition> end2Geo;
 
             std::set<BWAPI::TilePosition> end1ForgeOptions;
             std::set<BWAPI::TilePosition> end1GatewayOptions;
@@ -1447,7 +1625,7 @@ namespace BuildingPlacement
             if (!pylon.isValid())
             {
 #if DEBUG_PLACEMENT
-                Log::Debug() << "ERROR: Could not find valid pylon, but this should have been checked when picking the best wall";
+                Log::Get() << "ERROR: Wall generation: Could not find valid pylon, but this should have been checked when picking the best wall";
 #endif
                 return {};
             }
@@ -1481,8 +1659,19 @@ namespace BuildingPlacement
                 break;
             }
 
-            // Analyze the wall geo now since we know this is the final wall
+            // Step 5: Analyze the wall geo and remove cannons overlapping probe blocking positions
             analyzeWallGeo(bestWall);
+            for (auto it = bestWall.cannons.begin(); it != bestWall.cannons.end(); )
+            {
+                if (overlapsProbeBlockingLocation(bestWall, *it, BWAPI::UnitTypes::Protoss_Photon_Cannon))
+                {
+                    it = bestWall.cannons.erase(it);
+                }
+                else
+                {
+                    it++;
+                }
+            }
 
             // Step 6: Find remaining cannon positions (up to 6 in total)
 
@@ -1579,7 +1768,7 @@ namespace BuildingPlacement
 #if DEBUG_PLACEMENT
         Log::Debug() << "Creating wall; tight=" << tight;
 #endif
-        ForgeGatewayWall wall = createForgeGatewayWall(tight, 4);
+        ForgeGatewayWall wall = createForgeGatewayWall(tight, 6);
 
         // Fall back to non-tight if a tight wall could not be found
         if (!wall.isValid())

@@ -2,6 +2,9 @@
 
 ForgeGatewayWall TauCross::getWall(BWAPI::TilePosition startTile)
 {
+    // Currently disabling walls that don't give proper defense locations
+    return {};
+
     if (startTile.x != 93 || startTile.y != 118) return {};
 
     ForgeGatewayWall result;
@@ -21,8 +24,6 @@ ForgeGatewayWall TauCross::getWall(BWAPI::TilePosition startTile)
 
     result.gapEnd1 = BWAPI::Position(BWAPI::TilePosition(50, 109)) + BWAPI::Position(16, 0);
     result.gapEnd2 = BWAPI::Position(BWAPI::TilePosition(48, 109)) + BWAPI::Position(16, 0);
-    result.gapCenter = BWAPI::Position(BWAPI::TilePosition(49, 109)) + BWAPI::Position(16, 0);
-    result.gapSize = 1;
 
     return result;
 }

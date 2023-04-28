@@ -2,6 +2,9 @@
 
 ForgeGatewayWall Python::getWall(BWAPI::TilePosition startTile)
 {
+    // Currently disabling walls that aren't tight and narrow
+    return {};
+
     if (startTile.x != 83 || startTile.y != 6) return {};
 
     ForgeGatewayWall result;
@@ -21,8 +24,6 @@ ForgeGatewayWall Python::getWall(BWAPI::TilePosition startTile)
 
     result.gapEnd1 = BWAPI::Position(BWAPI::TilePosition(50, 8)) + BWAPI::Position(16, 16);
     result.gapEnd2 = BWAPI::Position(BWAPI::TilePosition(52, 8)) + BWAPI::Position(16, 16);
-    result.gapCenter = BWAPI::Position(BWAPI::TilePosition(51, 8)) + BWAPI::Position(16, 16);
-    result.gapSize = 1;
 
     return result;
 }

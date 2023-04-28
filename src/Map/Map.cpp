@@ -709,7 +709,14 @@ namespace Map
             {
                 for (int x = 0; x < mapWidth * 4; x++)
                 {
-                    walkability[x + y * mapWidth * 4] = BWAPI::Broodwar->isWalkable(x, y);
+                    if (BWAPI::Broodwar->isBuildable(x / 4, y / 4))
+                    {
+                        walkability[x + y * mapWidth * 4] = 2;
+                    }
+                    else
+                    {
+                        walkability[x + y * mapWidth * 4] = BWAPI::Broodwar->isWalkable(x, y);
+                    }
                 }
             }
 
