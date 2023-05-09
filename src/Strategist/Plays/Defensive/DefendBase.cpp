@@ -268,6 +268,19 @@ int DefendBase::desiredCannons()
     // Desire no cannons if the pylon is not yet complete
     if (!pylon || !pylon->completed) return 0;
 
+    int neededCannons = enemyAirThreatCannons(base);
+
+    // At expansions we always get cannons if the enemy is not contained
+    if (base != Map::getMyMain() && base != Map::getMyNatural())
+    {
+        neededCannons = std::min(2, neededCannons);
+    }
+
+    return neededCannons;
+}
+
+int DefendBase::enemyAirThreatCannons(Base *baseToDefend)
+{
     // Count enemy air units we want to defend against
     int enemyAirUnits =
             Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) +
@@ -325,7 +338,7 @@ int DefendBase::desiredCannons()
             Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observer);
 
     // Handle island expansions now
-    if (base->island)
+    if (baseToDefend->island)
     {
         if (enemyAirUnits > 0) return 2;
         if (enemyAirThreat || enemyDropThreat) return 1;
@@ -348,30 +361,21 @@ int DefendBase::desiredCannons()
             expectedMutaliskCompletionFrame = Opponent::minValueInPreviousGames("firstMutaliskCompleted", 8500, 15, 10);
         }
 
-        int flightTime = PathFinding::ExpectedTravelTime(base->getPosition(), enemyMain->getPosition(), BWAPI::UnitTypes::Zerg_Mutalisk) - 50;
+        int flightTime = PathFinding::ExpectedTravelTime(baseToDefend->getPosition(), enemyMain->getPosition(), BWAPI::UnitTypes::Zerg_Mutalisk) - 50;
 
         if (currentFrame > (expectedMutaliskCompletionFrame + flightTime - cannonBuildTime)) enemyAirThreat = true;
     }
 
     // Main and natural are special cases, we only get cannons there to defend against air threats or sneak attacks
-    if (base == Map::getMyMain() || base == Map::getMyNatural())
+    if (baseToDefend == Map::getMyMain() || baseToDefend == Map::getMyNatural())
     {
         if (enemyAirUnits > 6) return 4;
         if (enemyAirThreat) return 3;
-
-        // Disabled as we handle it in PvZ and it isn't tweaked for other races
-//        auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
-//        if (sneakAttack < 10000 && currentFrame > (sneakAttack - cannonBuildTime))
-//        {
-//            return 3;
-//        }
-
         if (enemyDropThreat && currentFrame > 8000) return 1;
         return 0;
     }
 
-    // At expansions we get cannons if the enemy is not contained or has an air threat
-    if (!Strategist::isEnemyContained() || enemyAirUnits > 0) return 2;
+    if (enemyAirUnits > 0) return 2;
     if (enemyAirThreat || enemyDropThreat) return 1;
     return 0;
 }

@@ -17,6 +17,8 @@ public:
 
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 
+    static int enemyAirThreatCannons(Base *baseToDefend);
+
 protected:
     std::shared_ptr<DefendBaseSquad> squad;
 

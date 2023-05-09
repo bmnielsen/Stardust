@@ -179,8 +179,9 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
     updateAttackPlays(plays, defendOurMain);
 
-    // Set the worker scout to monitor the enemy choke once the pool is finished
-    if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted)
+    // Set the worker scout to monitor the enemy choke once the pool is finished if we are in a defensive mode
+    if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted &&
+        (ourStrategy == OurStrategy::AntiAllIn || ourStrategy == OurStrategy::Defensive))
     {
         auto play = getPlay<EarlyGameWorkerScout>(plays);
         if (play)

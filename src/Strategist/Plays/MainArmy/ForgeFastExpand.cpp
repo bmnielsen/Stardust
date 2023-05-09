@@ -9,6 +9,7 @@
 #include "UnitUtil.h"
 #include "Builder.h"
 #include <Strategist/Plays/MainArmy/DefendMyMain.h>
+#include <Strategist/Plays/Defensive/DefendBase.h>
 
 // Thresholds that determine our cannon timings, if lings can arrive before these frames we build (a) cannon(s)
 #define LINGARRIVAL_CANNONSBEFORENEXUS 4500
@@ -87,6 +88,68 @@ namespace
         CherryVis::setBoardValue("worstCaseLingArrival", (std::ostringstream() << arrivalTime).str());
 
         return arrivalTime;
+    }
+
+    void addBuildingToGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                            BWAPI::UnitType type,
+                            BWAPI::TilePosition tile,
+                            int priority = PRIORITY_DEPOTS)
+    {
+        auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile),
+                                                              BuildingPlacement::builderFrames(Map::getMyMain()->getPosition(),
+                                                                                               tile,
+                                                                                               type),
+                                                              0,
+                                                              0);
+        prioritizedProductionGoals[priority].emplace_back(
+                std::in_place_type<UnitProductionGoal>,
+                "ForgeFastExpand",
+                type,
+                1,
+                1,
+                buildLocation);
+    };
+
+    void buildAirDefenseCannons(Base *base, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+    {
+        if (!base) return;
+
+        auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
+        if (!baseStaticDefenseLocations.isValid()) return;
+
+        int currentCannons = 0;
+        auto cannonLocations = baseStaticDefenseLocations.workerDefenseCannons;
+        for (auto it = cannonLocations.begin(); it != cannonLocations.end();)
+        {
+            auto cannon = Units::myBuildingAt(*it);
+            if (cannon)
+            {
+                currentCannons++;
+                it = cannonLocations.erase(it);
+            }
+            else
+            {
+                it++;
+            }
+        }
+
+        if (cannonLocations.empty()) return;
+        if (DefendBase::enemyAirThreatCannons(base) <= currentCannons) return;
+
+        auto pylon = Units::myBuildingAt(baseStaticDefenseLocations.powerPylon);
+        if (!pylon)
+        {
+            addBuildingToGoals(prioritizedProductionGoals,
+                               BWAPI::UnitTypes::Protoss_Pylon,
+                               baseStaticDefenseLocations.powerPylon,
+                               PRIORITY_BASEDEFENSE);
+            return;
+        }
+
+        addBuildingToGoals(prioritizedProductionGoals,
+                           BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                           *(cannonLocations.begin()),
+                           PRIORITY_BASEDEFENSE);
     }
 }
 
@@ -181,22 +244,6 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
     
     auto &wall = BuildingPlacement::getForgeGatewayWall();
 
-    auto addBuilding = [&](BWAPI::UnitType type, BWAPI::TilePosition tile, int priority = PRIORITY_DEPOTS)
-    {
-        auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile),
-                                                              BuildingPlacement::builderFrames(Map::getMyMain()->getPosition(),
-                                                                                               tile,
-                                                                                               type),
-                                                              0,
-                                                              0);
-        prioritizedProductionGoals[priority].emplace_back(
-                std::in_place_type<UnitProductionGoal>,
-                label,
-                type,
-                1,
-                1,
-                buildLocation);
-    };
     auto addCannons = [&](int desiredCount, int priority = PRIORITY_DEPOTS)
     {
         int currentCannons = 0;
@@ -296,12 +343,12 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             // Initially we assume no scouting information and plan for two cannons
             if (currentState == State::STATE_PYLON_PENDING)
             {
-                addBuilding(BWAPI::UnitTypes::Protoss_Pylon, wall.pylon);
+                addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Pylon, wall.pylon);
             }
-            addBuilding(BWAPI::UnitTypes::Protoss_Forge, wall.forge);
+            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Forge, wall.forge);
             addCannons(2);
-            addBuilding(BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
-            addBuilding(BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
+            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
+            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             pauseProbeProduction(14);
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
@@ -309,8 +356,8 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         {
             bool buildCannonsBeforeNexus = worstCaseZerglingArrivalFrame() < LINGARRIVAL_CANNONSBEFORENEXUS;
             if (buildCannonsBeforeNexus) addCannons(2);
-            addBuilding(BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
-            addBuilding(BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
+            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
+            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             if (buildCannonsBeforeNexus) pauseProbeProduction(14);
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
@@ -328,7 +375,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
                 cannonBeforeGateway = true;
                 addCannons(1);
             }
-            addBuilding(BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
+            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             if (cannonBeforeGateway) pauseProbeProduction(14);
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
@@ -378,6 +425,10 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
                 break;
             }
 
+            // Build cannons to defend against air attacks in the main and natural
+            buildAirDefenseCannons(Map::getMyMain(), prioritizedProductionGoals);
+            buildAirDefenseCannons(Map::getMyNatural(), prioritizedProductionGoals);
+
             break;
         }
         case State::STATE_ANTIFASTRUSH:
@@ -393,20 +444,20 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             auto pylon = Units::myBuildingAt(defenseLocations.powerPylon);
             if (!pylon)
             {
-                addBuilding(BWAPI::UnitTypes::Protoss_Pylon, defenseLocations.powerPylon, PRIORITY_EMERGENCY);
+                addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Pylon, defenseLocations.powerPylon, PRIORITY_EMERGENCY);
             }
 
             auto cannonLocation = *defenseLocations.workerDefenseCannons.begin();
             if (!Units::myBuildingAt(cannonLocation))
             {
-                addBuilding(BWAPI::UnitTypes::Protoss_Photon_Cannon, cannonLocation, PRIORITY_EMERGENCY);
+                addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Photon_Cannon, cannonLocation, PRIORITY_EMERGENCY);
             }
 
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 1, PRIORITY_EMERGENCY);
 
             if (defenseLocations.startBlockCannon.isValid() && !Units::myBuildingAt(defenseLocations.startBlockCannon))
             {
-                addBuilding(BWAPI::UnitTypes::Protoss_Photon_Cannon, defenseLocations.startBlockCannon, PRIORITY_EMERGENCY);
+                addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Photon_Cannon, defenseLocations.startBlockCannon, PRIORITY_EMERGENCY);
             }
 
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 10, PRIORITY_EMERGENCY, 2);
