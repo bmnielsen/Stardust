@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.24)
 project(Locutus)
 
 file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR}/Locutus/Source/*.cpp)
