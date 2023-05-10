@@ -122,6 +122,13 @@ namespace BuildingPlacement
 
                     updateRequired = true;
 
+                    if (!forgeGatewayWall->naturalCannons.empty())
+                    {
+                        auto &naturalDefenses = baseStaticDefenses[Map::getMyNatural()];
+                        naturalDefenses.powerPylon = forgeGatewayWall->pylon;
+                        naturalDefenses.workerDefenseCannons = forgeGatewayWall->naturalCannons;
+                    }
+
 #if CHERRYVIS_ENABLED
                     std::vector<long> wallHeatmap(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
                     forgeGatewayWall->addToHeatmap(wallHeatmap);
