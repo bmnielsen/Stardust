@@ -761,6 +761,23 @@ namespace Producer
                 // If there is an available location now, just take it
                 if (availableAt <= item.startFrame)
                 {
+                    // If we are building a Stargate, peek ahead to see if there is a location with lower builder frames
+                    // Here the "exit" is not really a concern
+                    if (*unitType == BWAPI::UnitTypes::Protoss_Stargate)
+                    {
+                        auto alternateLocation = locations.begin();
+                        std::advance(alternateLocation, 1);
+                        for (; alternateLocation != locations.end(); alternateLocation++)
+                        {
+                            if (alternateLocation->framesUntilPowered > availableAt) break;
+                            if (alternateLocation->builderFrames < location->builderFrames)
+                            {
+                                location = alternateLocation;
+                                availableAt = location->framesUntilPowered;
+                            }
+                        }
+                    }
+
                     item.estimatedWorkerMovementTime = location->builderFrames;
                     item.buildLocation = *location;
                     locations.erase(location);
