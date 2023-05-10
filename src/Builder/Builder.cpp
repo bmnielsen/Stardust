@@ -46,10 +46,11 @@ namespace Builder
             }
 
             // Move towards the build position
+            auto interceptPosition = Geo::NearestPointOnEdge(building.builder->lastPosition, building.type, building.getPosition());
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(building.builder->id) << "moveTo: Build location " << BWAPI::WalkPosition(building.getPosition());
+            CherryVis::log(building.builder->id) << "moveTo: Build location " << BWAPI::WalkPosition(interceptPosition);
 #endif
-            building.builder->moveTo(building.getPosition());
+            building.builder->moveTo(interceptPosition);
         }
 
         // Releases the builder from constructing the given building
