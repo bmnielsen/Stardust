@@ -26,6 +26,8 @@ IF(MSVC)
     add_definitions(-DWITHOUT_POSIX)
     add_subdirectory(3rdparty/BWAPILIB)
 ELSE(MSVC)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET 13.0)
+
     set(OPENBW_DIR ${CMAKE_SOURCE_DIR}/3rdparty/openbw/openbw)
     add_subdirectory(3rdparty/openbw/bwapi)
 ENDIF(MSVC)
