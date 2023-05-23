@@ -5,33 +5,6 @@
 class PvT : public StrategyEngine
 {
 public:
-    void initialize(std::vector<std::shared_ptr<Play>> &plays) override;
-
-    void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override;
-
-    void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
-                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                          std::vector<std::pair<int, int>> &mineralReservations) override;
-
-    std::string getEnemyStrategy() override { return TerranStrategyNames[enemyStrategy]; }
-
-    std::string getOurStrategy() override { return OurStrategyNames[ourStrategy]; }
-
-    bool isFastExpanding() override { return ourStrategy == OurStrategy::FastExpansion; }
-
-    bool isEnemyRushing() override
-    {
-        return enemyStrategy == TerranStrategy::WorkerRush ||
-               enemyStrategy == TerranStrategy::ProxyRush ||
-               enemyStrategy == TerranStrategy::MarineRush;
-    }
-
-    bool isEnemyProxy() override
-    {
-        return enemyStrategy == TerranStrategy::ProxyRush;
-    }
-
-private:
     enum class TerranStrategy
     {
         Unknown,
@@ -65,6 +38,36 @@ private:
 
     TerranStrategy enemyStrategy;
     OurStrategy ourStrategy;
+
+    PvT() : enemyStrategy(TerranStrategy::Unknown), ourStrategy(OurStrategy::EarlyGameDefense), enemyStrategyChanged(0) {}
+
+    void initialize(std::vector<std::shared_ptr<Play>> &plays) override;
+
+    void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override;
+
+    void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
+                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                          std::vector<std::pair<int, int>> &mineralReservations) override;
+
+    std::string getEnemyStrategy() override { return TerranStrategyNames[enemyStrategy]; }
+
+    std::string getOurStrategy() override { return OurStrategyNames[ourStrategy]; }
+
+    bool isFastExpanding() override { return ourStrategy == OurStrategy::FastExpansion; }
+
+    bool isEnemyRushing() override
+    {
+        return enemyStrategy == TerranStrategy::WorkerRush ||
+               enemyStrategy == TerranStrategy::ProxyRush ||
+               enemyStrategy == TerranStrategy::MarineRush;
+    }
+
+    bool isEnemyProxy() override
+    {
+        return enemyStrategy == TerranStrategy::ProxyRush;
+    }
+
+private:
     int enemyStrategyChanged;
 
     TerranStrategy recognizeEnemyStrategy();

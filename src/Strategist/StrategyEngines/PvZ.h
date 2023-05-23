@@ -5,27 +5,6 @@
 class PvZ : public StrategyEngine
 {
 public:
-    PvZ() : enemyStrategy(ZergStrategy::Unknown), ourStrategy(OurStrategy::EarlyGameDefense), enemyStrategyChanged(0) {}
-
-    void initialize(std::vector<std::shared_ptr<Play>> &plays) override;
-
-    void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override;
-
-    void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
-                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                          std::vector<std::pair<int, int>> &mineralReservations) override;
-
-    std::string getEnemyStrategy() override { return ZergStrategyNames[enemyStrategy]; }
-
-    std::string getOurStrategy() override { return OurStrategyNames[ourStrategy]; }
-
-    bool isEnemyRushing() override
-    {
-        return enemyStrategy == ZergStrategy::WorkerRush ||
-               enemyStrategy == ZergStrategy::ZerglingRush;
-    }
-
-private:
     enum class ZergStrategy
     {
         Unknown,
@@ -57,6 +36,28 @@ private:
 
     ZergStrategy enemyStrategy;
     OurStrategy ourStrategy;
+
+    PvZ() : enemyStrategy(ZergStrategy::Unknown), ourStrategy(OurStrategy::EarlyGameDefense), enemyStrategyChanged(0) {}
+
+    void initialize(std::vector<std::shared_ptr<Play>> &plays) override;
+
+    void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override;
+
+    void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
+                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                          std::vector<std::pair<int, int>> &mineralReservations) override;
+
+    std::string getEnemyStrategy() override { return ZergStrategyNames[enemyStrategy]; }
+
+    std::string getOurStrategy() override { return OurStrategyNames[ourStrategy]; }
+
+    bool isEnemyRushing() override
+    {
+        return enemyStrategy == ZergStrategy::WorkerRush ||
+               enemyStrategy == ZergStrategy::ZerglingRush;
+    }
+
+private:
     int enemyStrategyChanged;
 
     ZergStrategy recognizeEnemyStrategy();

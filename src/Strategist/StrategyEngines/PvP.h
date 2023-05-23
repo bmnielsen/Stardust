@@ -5,33 +5,6 @@
 class PvP : public StrategyEngine
 {
 public:
-    PvP() : enemyStrategy(ProtossStrategy::Unknown), ourStrategy(OurStrategy::EarlyGameDefense), enemyStrategyChanged(0) {}
-
-    void initialize(std::vector<std::shared_ptr<Play>> &plays) override;
-
-    void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override;
-
-    void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
-                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
-                          std::vector<std::pair<int, int>> &mineralReservations) override;
-
-    std::string getEnemyStrategy() override { return ProtossStrategyNames[enemyStrategy]; }
-
-    std::string getOurStrategy() override { return OurStrategyNames[ourStrategy]; }
-
-    bool isEnemyRushing() override
-    {
-        return enemyStrategy == ProtossStrategy::WorkerRush ||
-               enemyStrategy == ProtossStrategy::ProxyRush ||
-               enemyStrategy == ProtossStrategy::ZealotRush;
-    }
-
-    bool isEnemyProxy() override
-    {
-        return enemyStrategy == ProtossStrategy::ProxyRush;
-    }
-
-private:
     enum class ProtossStrategy
     {
         Unknown,
@@ -70,6 +43,34 @@ private:
 
     ProtossStrategy enemyStrategy;
     OurStrategy ourStrategy;
+
+    PvP() : enemyStrategy(ProtossStrategy::Unknown), ourStrategy(OurStrategy::EarlyGameDefense), enemyStrategyChanged(0) {}
+
+    void initialize(std::vector<std::shared_ptr<Play>> &plays) override;
+
+    void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override;
+
+    void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
+                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                          std::vector<std::pair<int, int>> &mineralReservations) override;
+
+    std::string getEnemyStrategy() override { return ProtossStrategyNames[enemyStrategy]; }
+
+    std::string getOurStrategy() override { return OurStrategyNames[ourStrategy]; }
+
+    bool isEnemyRushing() override
+    {
+        return enemyStrategy == ProtossStrategy::WorkerRush ||
+               enemyStrategy == ProtossStrategy::ProxyRush ||
+               enemyStrategy == ProtossStrategy::ZealotRush;
+    }
+
+    bool isEnemyProxy() override
+    {
+        return enemyStrategy == ProtossStrategy::ProxyRush;
+    }
+
+private:
     int enemyStrategyChanged;
 
     ProtossStrategy recognizeEnemyStrategy();
