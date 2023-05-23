@@ -21,8 +21,6 @@ public:
 
     virtual std::string getOurStrategy() { return "Unknown"; }
 
-    virtual bool isFastExpanding() { return false; }
-
     virtual bool isEnemyRushing() { return false; }
 
     virtual bool isEnemyProxy() { return false; }

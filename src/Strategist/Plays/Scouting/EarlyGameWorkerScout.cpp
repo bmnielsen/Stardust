@@ -9,6 +9,7 @@
 #include "Geo.h"
 #include "Boids.h"
 #include "Strategist.h"
+#include "Strategies.h"
 #include "OpponentEconomicModel.h"
 
 #include "DebugFlag_UnitOrders.h"
@@ -607,7 +608,7 @@ bool EarlyGameWorkerScout::reserveScout()
     {
         scoutAfterBuilding = BWAPI::UnitTypes::Protoss_Gateway;
     }
-    if (Strategist::getStrategyEngine()->isFastExpanding())
+    if (Strategist::isOurStrategy(PvT::OurStrategy::FastExpansion))
     {
         scoutAfterBuilding = BWAPI::UnitTypes::Protoss_Nexus;
         scoutAtBuildingCount = 2;

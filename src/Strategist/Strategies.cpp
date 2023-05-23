@@ -3,6 +3,41 @@
 
 namespace Strategist
 {
+    bool isOurStrategy(std::variant<PvP::OurStrategy, PvT::OurStrategy, PvZ::OurStrategy> strategy)
+    {
+        if (auto *s = std::get_if<PvP::OurStrategy>(&strategy))
+        {
+            if (auto strategyEngine = dynamic_cast<PvP*>(Strategist::getStrategyEngine()))
+            {
+                return strategyEngine->ourStrategy == *s;
+            }
+
+            return false;
+        }
+
+        if (auto *s = std::get_if<PvT::OurStrategy>(&strategy))
+        {
+            if (auto strategyEngine = dynamic_cast<PvT*>(Strategist::getStrategyEngine()))
+            {
+                return strategyEngine->ourStrategy == *s;
+            }
+
+            return false;
+        }
+
+        if (auto *s = std::get_if<PvZ::OurStrategy>(&strategy))
+        {
+            if (auto strategyEngine = dynamic_cast<PvZ*>(Strategist::getStrategyEngine()))
+            {
+                return strategyEngine->ourStrategy == *s;
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
     bool isEnemyStrategy(std::variant<PvP::ProtossStrategy, PvT::TerranStrategy, PvZ::ZergStrategy> strategy)
     {
         if (auto *protossStrategy = std::get_if<PvP::ProtossStrategy>(&strategy))

@@ -53,8 +53,6 @@ public:
 
     std::string getOurStrategy() override { return OurStrategyNames[ourStrategy]; }
 
-    bool isFastExpanding() override { return ourStrategy == OurStrategy::FastExpansion; }
-
     bool isEnemyRushing() override
     {
         return enemyStrategy == TerranStrategy::WorkerRush ||

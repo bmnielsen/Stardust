@@ -8,5 +8,7 @@
 
 namespace Strategist
 {
+    bool isOurStrategy(std::variant<PvP::OurStrategy, PvT::OurStrategy, PvZ::OurStrategy> strategy);
+
     bool isEnemyStrategy(std::variant<PvP::ProtossStrategy, PvT::TerranStrategy, PvZ::ZergStrategy> strategy);
 }
