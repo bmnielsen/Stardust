@@ -327,7 +327,7 @@ void CorsairSquad::execute()
 
     // Select the strategy to use for our corsairs based on the targets available
     // Priority is:
-    // - Scout enemy main if it is early-game and we haven't scouted it recently
+    // - Scout enemy main and natural if it is early-game and we haven't scouted it recently
     // - Combat units threatening our bases
     // - Other combat units
     // - Non-combat units not covered by anti-air
@@ -339,15 +339,27 @@ void CorsairSquad::execute()
     // Check if we need to do an early-game scout
     if (Strategist::isWorkerScoutComplete() && currentFrame < 11000)
     {
+        Base *baseToScout = nullptr;
+
         auto enemyMain = Map::getEnemyStartingMain();
-        if (enemyMain && enemyMain->lastScouted < 6000)
+        auto enemyNatural = Map::getEnemyStartingNatural();
+        if (enemyMain && enemyMain->lastScouted < 7500)
+        {
+            baseToScout = enemyMain;
+        }
+        else if (enemyNatural && enemyNatural->lastScouted < 7500)
+        {
+            baseToScout = enemyNatural;
+        }
+
+        if (baseToScout)
         {
             // Scout with the closest cluster
             int bestDist = INT_MAX;
             std::shared_ptr<UnitCluster> bestCluster = nullptr;
             for (const auto &cluster : remainingClusters)
             {
-                int dist = cluster->center.getApproxDistance(enemyMain->getPosition());
+                int dist = cluster->center.getApproxDistance(baseToScout->getPosition());
                 if (dist < bestDist)
                 {
                     bestDist = dist;
@@ -356,7 +368,7 @@ void CorsairSquad::execute()
             }
             if (bestCluster)
             {
-                clusterMove(*bestCluster, enemyMain->getPosition());
+                clusterMove(*bestCluster, baseToScout->getPosition());
                 remainingClusters.erase(bestCluster);
             }
         }

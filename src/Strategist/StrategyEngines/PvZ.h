@@ -14,8 +14,10 @@ public:
         PoolBeforeHatchery,     // e.g. 9-pool or overpool
         HatcheryBeforePool,     // e.g. 10 or 12 hatch
         ZerglingAllIn,          // Builds that get mass zerglings before other tech
+        HydraBust,              // Builds that get mass hydras
         Turtle,                 // Mass sunkens
         Lair,                   // Have seen lair, indicates possibility of mutas or lurkers
+        MutaRush,               // Builds that get mutas quickly
         // TODO: Mid- and late game
     };
     static std::map<ZergStrategy, std::string> ZergStrategyNames;

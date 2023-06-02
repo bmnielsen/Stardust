@@ -14,8 +14,10 @@ std::map<PvZ::ZergStrategy, std::string> PvZ::ZergStrategyNames = {
         {ZergStrategy::PoolBeforeHatchery, "PoolBeforeHatchery"},
         {ZergStrategy::HatcheryBeforePool, "HatcheryBeforePool"},
         {ZergStrategy::ZerglingAllIn,      "ZerglingAllIn"},
+        {ZergStrategy::HydraBust,          "HydraBust"},
         {ZergStrategy::Turtle,             "Turtle"},
-        {ZergStrategy::Lair,               "Lair"}
+        {ZergStrategy::Lair,               "Lair"},
+        {ZergStrategy::MutaRush,           "MutaRush"},
 };
 
 namespace
@@ -109,6 +111,29 @@ namespace
                Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 10;
     }
 
+    bool isHydraBust()
+    {
+        // Not a Hydra bust if there are more than 6 lings or no early hydra den
+        if (createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 7000, 7) ||
+            !createdBeforeFrame(BWAPI::UnitTypes::Zerg_Hydralisk_Den, 7000, 1))
+        {
+            return false;
+        }
+
+        // Early logic: determined purely on existance of early Hydra den
+        if (currentFrame < 8000) return true;
+
+        // Middle logic: ling and hydra counts
+        if (currentFrame < 10000)
+        {
+            return !createdBeforeFrame(BWAPI::UnitTypes::Zerg_Zergling, 10000, 10) &&
+                   createdBeforeFrame(BWAPI::UnitTypes::Zerg_Hydralisk, 10000, 4);
+        }
+
+        // Late logic: current hydra counts
+        return Units::countEnemy(BWAPI::UnitTypes::Zerg_Hydralisk) > 10;
+    }
+
     bool isTurtle()
     {
         return createdBeforeFrame(BWAPI::UnitTypes::Zerg_Creep_Colony, 5000, 2) ||
@@ -179,6 +204,16 @@ namespace
                countAtLeast(BWAPI::UnitTypes::Zerg_Defiler_Mound, 1) ||
                countAtLeast(BWAPI::UnitTypes::Zerg_Defiler, 1);
     }
+
+    bool isMutaRush()
+    {
+        // Assume early lair means mutas
+        if (currentFrame < 8000 && createdBeforeFrame(BWAPI::UnitTypes::Zerg_Lair, 6000, 1)) return true;
+
+        // Early spire or mutas
+        return currentFrame < 12000 && (createdBeforeFrame(BWAPI::UnitTypes::Zerg_Spire, 8000, 1) ||
+                                        createdBeforeFrame(BWAPI::UnitTypes::Zerg_Mutalisk, 10000, 4));
+    }
 }
 
 PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
@@ -246,6 +281,8 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
 
                 if (isZerglingAllIn()) return ZergStrategy::ZerglingAllIn;
 
+                if (isHydraBust()) return ZergStrategy::HydraBust;
+
                 if (isTurtle())
                 {
                     strategy = ZergStrategy::Turtle;
@@ -263,6 +300,7 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
                 if (isWorkerRush()) return ZergStrategy::WorkerRush;
                 if (isSunkenContain()) return ZergStrategy::SunkenContain;
                 if (isZerglingAllIn()) return ZergStrategy::ZerglingAllIn;
+                if (isHydraBust()) return ZergStrategy::HydraBust;
 
                 if (isTurtle())
                 {
@@ -293,8 +331,19 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
                 }
 
                 break;
+            case ZergStrategy::HydraBust:
+                if (isZerglingAllIn()) return ZergStrategy::ZerglingAllIn;
+
+                if (!isHydraBust())
+                {
+                    strategy = ZergStrategy::PoolBeforeHatchery;
+                    continue;
+                }
+
+                break;
             case ZergStrategy::Turtle:
                 if (isSunkenContain()) return ZergStrategy::SunkenContain;
+                if (isHydraBust()) return ZergStrategy::HydraBust;
 
                 if (hasLairTech())
                 {
@@ -312,6 +361,12 @@ PvZ::ZergStrategy PvZ::recognizeEnemyStrategy()
 
                 break;
             case ZergStrategy::Lair:
+                if (isMutaRush()) return ZergStrategy::MutaRush;
+
+                break;
+            case ZergStrategy::MutaRush:
+                if (!isMutaRush()) return ZergStrategy::Lair;
+
                 break;
         }
 

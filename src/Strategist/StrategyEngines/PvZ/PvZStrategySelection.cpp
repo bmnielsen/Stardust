@@ -83,6 +83,7 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                         continue;
                     }
                     case ZergStrategy::HatcheryBeforePool:
+                    case ZergStrategy::HydraBust:
                     {
                         strategy = OurStrategy::Normal;
                         continue;
@@ -93,6 +94,7 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                         continue;
                     }
                     case ZergStrategy::Lair:
+                    case ZergStrategy::MutaRush:
                     {
                         strategy = OurStrategy::MidGame;
                         continue;
@@ -185,7 +187,7 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
 
                 // Transition to normal when we either detect another Zerg opening or when there are six units in the vanguard cluster
 
-                if (newEnemyStrategy == ZergStrategy::Turtle || newEnemyStrategy == ZergStrategy::Lair)
+                if (newEnemyStrategy == ZergStrategy::Turtle || newEnemyStrategy == ZergStrategy::Lair || newEnemyStrategy == ZergStrategy::MutaRush)
                 {
                     strategy = OurStrategy::Normal;
                     continue;
@@ -222,7 +224,8 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
 
                 // Transition to mid-game when the enemy has lair tech or we are on two bases
                 // TODO: Also transition to mid-game in other cases
-                if (newEnemyStrategy == ZergStrategy::Lair || Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
+                if (newEnemyStrategy == ZergStrategy::Lair || newEnemyStrategy == ZergStrategy::MutaRush ||
+                    Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
                 {
                     strategy = OurStrategy::MidGame;
                     continue;
