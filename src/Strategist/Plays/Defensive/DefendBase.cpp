@@ -369,8 +369,14 @@ int DefendBase::enemyAirThreatCannons(Base *baseToDefend)
     // Main and natural are special cases, we only get cannons there to defend against air threats or sneak attacks
     if (baseToDefend == Map::getMyMain() || baseToDefend == Map::getMyNatural())
     {
-        if (enemyAirUnits > 6) return 4;
-        if (enemyAirThreat) return 3;
+        if (enemyAirUnits > 6)
+        {
+            return std::max(1, 4 - (Units::countAll(BWAPI::UnitTypes::Protoss_Corsair) / 2));
+        }
+        if (enemyAirThreat)
+        {
+            return std::max(1, 3 - Units::countAll(BWAPI::UnitTypes::Protoss_Corsair));
+        }
         if (enemyDropThreat && currentFrame > 8000) return 1;
         return 0;
     }

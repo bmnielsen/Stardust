@@ -10,6 +10,7 @@
 #include "Builder.h"
 #include <Strategist/Plays/MainArmy/DefendMyMain.h>
 #include <Strategist/Plays/Defensive/DefendBase.h>
+#include "Strategies.h"
 
 // Thresholds that determine our cannon timings, if lings can arrive before these frames we build (a) cannon(s)
 #define LINGARRIVAL_CANNONSBEFORENEXUS 4500
@@ -85,6 +86,23 @@ namespace
                           + UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Zergling)
                           + lowestTravelTime;
 
+        // If our scout is still active, use scouted zergling information as well
+        if (Map::getEnemyStartingMain() && !Strategist::isWorkerScoutComplete())
+        {
+            auto timings = Units::getEnemyUnitTimings(BWAPI::UnitTypes::Zerg_Zergling);
+            if (timings.empty())
+            {
+                // Haven't seen a ling yet, compute the time if some popped now
+                arrivalTime = std::max(arrivalTime, currentFrame + lowestTravelTime);
+            }
+            else
+            {
+                // Base off of the time we saw the first ling and assume it was close to the enemy main
+                // If we didn't get a scout in the base early enough to see a ling, we would have overbuilt cannons anyway
+                arrivalTime = std::max(arrivalTime, timings.begin()->second + lowestTravelTime);
+            }
+        }
+
         CherryVis::setBoardValue("worstCaseLingArrival", (std::ostringstream() << arrivalTime).str());
 
         return arrivalTime;
@@ -110,7 +128,7 @@ namespace
                 buildLocation);
     };
 
-    void buildAirDefenseCannons(Base *base, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+    void buildAirDefenseCannons(Base *base, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals, int count, int frame)
     {
         if (!base) return;
 
@@ -134,22 +152,145 @@ namespace
         }
 
         if (cannonLocations.empty()) return;
-        if (DefendBase::enemyAirThreatCannons(base) <= currentCannons) return;
+        if (currentCannons >= count) return;
+
+        // TODO: When producer can support it, order the buildings at the correct frame
+
+        int startFrame = frame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
 
         auto pylon = Units::myBuildingAt(baseStaticDefenseLocations.powerPylon);
         if (!pylon)
         {
-            addBuildingToGoals(prioritizedProductionGoals,
-                               BWAPI::UnitTypes::Protoss_Pylon,
-                               baseStaticDefenseLocations.powerPylon,
-                               PRIORITY_BASEDEFENSE);
-            return;
+            startFrame -= UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
         }
 
-        addBuildingToGoals(prioritizedProductionGoals,
-                           BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                           *(cannonLocations.begin()),
-                           PRIORITY_BASEDEFENSE);
+        if (currentFrame > (startFrame - 500))
+        {
+            if (!pylon)
+            {
+                addBuildingToGoals(prioritizedProductionGoals,
+                                   BWAPI::UnitTypes::Protoss_Pylon,
+                                   baseStaticDefenseLocations.powerPylon,
+                                   PRIORITY_BASEDEFENSE);
+            }
+
+            int queued = 0;
+            for (auto cannonLocation : cannonLocations)
+            {
+                addBuildingToGoals(prioritizedProductionGoals,
+                                   BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                   cannonLocation,
+                                   PRIORITY_BASEDEFENSE);
+                queued++;
+                if ((queued + currentCannons) >= count) break;
+            }
+        }
+    }
+
+    void handleMutaRush(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+    {
+        if (!Strategist::isEnemyStrategy(PvZ::ZergStrategy::MutaRush)) return;
+
+        // Determine potential positions and frames where a muta will complete
+        std::vector<std::pair<BWAPI::Position, int>> mutaPositionsAndFrames;
+
+        // Case where we haven't seen them yet
+        if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) == 0)
+        {
+            int spireStartFrame = 0;
+            auto spireTimings = Units::getEnemyUnitTimings(BWAPI::UnitTypes::Zerg_Spire);
+            if (!spireTimings.empty())
+            {
+                auto &[startFrame, seenFrame] = *spireTimings.begin();
+
+                // We trust the start frame if we first saw it while it was incomplete
+                if (startFrame > (seenFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Spire)))
+                {
+                    spireStartFrame = startFrame;
+                }
+            }
+            if (spireStartFrame == 0)
+            {
+                auto lairTimings = Units::getEnemyUnitTimings(BWAPI::UnitTypes::Zerg_Lair);
+                if (!lairTimings.empty())
+                {
+                    auto &[startFrame, seenFrame] = *lairTimings.begin();
+
+                    // We trust the start frame if we first saw it while it was incomplete
+                    if (startFrame > (seenFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Lair)))
+                    {
+                        spireStartFrame = startFrame + UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Lair);
+                    }
+                }
+            }
+
+            // If we don't have data now, we didn't scout the spire or lair while they were incomplete
+            // So default to a muta completing now
+            int mutaCompletionFrame;
+            if (spireStartFrame == 0)
+            {
+                mutaCompletionFrame = currentFrame;
+            }
+            else
+            {
+                mutaCompletionFrame =
+                        spireStartFrame + UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Spire) + UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Mutalisk);
+            }
+
+            // Add one muta from each known enemy hatchery or lair
+            for (const auto &hatch : Units::allEnemyOfType(BWAPI::UnitTypes::Zerg_Hatchery))
+            {
+                if (hatch->completed)
+                {
+                    mutaPositionsAndFrames.emplace_back(hatch->lastPosition, mutaCompletionFrame);
+                }
+            }
+            for (const auto &lair : Units::allEnemyOfType(BWAPI::UnitTypes::Zerg_Lair))
+            {
+                mutaPositionsAndFrames.emplace_back(lair->lastPosition, mutaCompletionFrame);
+            }
+        }
+        else
+        {
+            // Add each muta's last position
+            for (const auto &muta : Units::allEnemyOfType(BWAPI::UnitTypes::Zerg_Mutalisk))
+            {
+                mutaPositionsAndFrames.emplace_back(muta->lastPosition, muta->lastSeen);
+            }
+        }
+
+        // Now determine when the earliest muta could reach the main and natural
+        auto frameForBase = [&mutaPositionsAndFrames](Base *base)
+        {
+            int earliestArrivalFrame = INT_MAX;
+            for (const auto &[pos, frame] : mutaPositionsAndFrames)
+            {
+                int arrivalFrame = frame + PathFinding::ExpectedTravelTime(pos, base->getPosition(), BWAPI::UnitTypes::Zerg_Mutalisk);
+                if (arrivalFrame < earliestArrivalFrame)
+                {
+                    earliestArrivalFrame = arrivalFrame;
+                }
+            }
+            return earliestArrivalFrame;
+        };
+        buildAirDefenseCannons(Map::getMyMain(), prioritizedProductionGoals, 2, frameForBase(Map::getMyMain()));
+        buildAirDefenseCannons(Map::getMyNatural(), prioritizedProductionGoals, 1, frameForBase(Map::getMyNatural()));
+    }
+
+    int antiZerglingAllInCannons()
+    {
+        if (!Strategist::isEnemyStrategy(PvZ::ZergStrategy::ZerglingAllIn)) return 0;
+
+        // TODO
+        return 0;
+    }
+
+    int antiHydraBustCannons()
+    {
+        if (!Strategist::isEnemyStrategy(PvZ::ZergStrategy::HydraBust)) return 0;
+
+        // TODO
+        return 0;
     }
 }
 
@@ -350,6 +491,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             pauseProbeProduction(14);
+            addUnits(BWAPI::UnitTypes::Protoss_Corsair, 1);
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
         case State::STATE_NEXUS_PENDING:
@@ -359,6 +501,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             if (buildCannonsBeforeNexus) pauseProbeProduction(14);
+            addUnits(BWAPI::UnitTypes::Protoss_Corsair, 1);
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
         }
@@ -377,12 +520,30 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             }
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             if (cannonBeforeGateway) pauseProbeProduction(14);
+            addUnits(BWAPI::UnitTypes::Protoss_Corsair, 1);
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
         }
         case State::STATE_FINISHED:
         {
-            addCannons(2);
+            // Determine cannons needed
+            int cannonCount = 1;
+
+            // Add a second cannon if we need it before a zealot is out
+            int lingArrivalFrame = worstCaseZerglingArrivalFrame();
+            if (lingArrivalFrame < (currentFrame + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon)) &&
+                Units::countAll(BWAPI::UnitTypes::Protoss_Zealot) == 0)
+            {
+                cannonCount = 2;
+            }
+
+            // Scale up cannons if needed based on enemy strategy
+            cannonCount = std::max(cannonCount, antiZerglingAllInCannons());
+            cannonCount = std::max(cannonCount, antiHydraBustCannons());
+
+            addCannons(cannonCount);
+
+            addUnits(BWAPI::UnitTypes::Protoss_Corsair, 1);
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
 
             // If the enemy did a gas steal, build a cannon in our main to kill it
@@ -425,9 +586,8 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
                 break;
             }
 
-            // Build cannons to defend against air attacks in the main and natural
-            buildAirDefenseCannons(Map::getMyMain(), prioritizedProductionGoals);
-            buildAirDefenseCannons(Map::getMyNatural(), prioritizedProductionGoals);
+            // Adds air defense cannons at the bases if needed
+            handleMutaRush(prioritizedProductionGoals);
 
             break;
         }
