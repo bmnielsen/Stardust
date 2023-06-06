@@ -721,46 +721,8 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    auto framesNeededFor = [](BWAPI::UnitType buildingType)
-    {
-        int earliestCompletion = INT_MAX;
-        for (const auto &unit : Units::allMineIncompleteOfType(buildingType))
-        {
-            if (unit->estimatedCompletionFrame < earliestCompletion)
-            {
-                earliestCompletion = unit->estimatedCompletionFrame;
-            }
-        }
-
-        if (earliestCompletion == INT_MAX)
-        {
-            return UnitUtil::BuildTime(buildingType);
-        }
-
-        return earliestCompletion - currentFrame;
-    };
-
     auto buildObserver = [&](int frameNeeded = 0)
     {
-        // If we know what frame the observer is needed, check if we need to start building it now
-        if (frameNeeded > 0)
-        {
-            int frameStarted = frameNeeded - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Observer);
-            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Observatory) == 0)
-            {
-                frameStarted -= framesNeededFor(BWAPI::UnitTypes::Protoss_Observatory);
-
-                if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observatory) == 0 &&
-                    Units::countCompleted(BWAPI::UnitTypes::Protoss_Robotics_Facility) == 0)
-                {
-                    frameStarted -= framesNeededFor(BWAPI::UnitTypes::Protoss_Robotics_Facility);
-                }
-            }
-
-            // TODO: When the Producer understands to build something at a specific frame, use that
-            if ((currentFrame + 500) < frameStarted) return;
-        }
-
         auto priority = Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0
                         ? PRIORITY_EMERGENCY
                         : PRIORITY_NORMAL;
@@ -768,7 +730,8 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
                                                           "SE-detection",
                                                           BWAPI::UnitTypes::Protoss_Observer,
                                                           1,
-                                                          1);
+                                                          1,
+                                                          frameNeeded);
     };
 
     // If the enemy is known to have produced a DT, get a cannon and observer

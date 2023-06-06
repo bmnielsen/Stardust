@@ -111,7 +111,8 @@ namespace
     void addBuildingToGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                             BWAPI::UnitType type,
                             BWAPI::TilePosition tile,
-                            int priority = PRIORITY_DEPOTS)
+                            int priority = PRIORITY_DEPOTS,
+                            int frame = 0)
     {
         auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile),
                                                               BuildingPlacement::builderFrames(Map::getMyMain()->getPosition(),
@@ -125,7 +126,8 @@ namespace
                 type,
                 1,
                 1,
-                buildLocation);
+                buildLocation,
+                frame);
     };
 
     void buildAirDefenseCannons(Base *base, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals, int count, int frame)
@@ -154,36 +156,33 @@ namespace
         if (cannonLocations.empty()) return;
         if (currentCannons >= count) return;
 
-        // TODO: When producer can support it, order the buildings at the correct frame
-
         int startFrame = frame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
 
         auto pylon = Units::myBuildingAt(baseStaticDefenseLocations.powerPylon);
         if (!pylon)
         {
-            startFrame -= UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
+            addBuildingToGoals(prioritizedProductionGoals,
+                               BWAPI::UnitTypes::Protoss_Pylon,
+                               baseStaticDefenseLocations.powerPylon,
+                               PRIORITY_BASEDEFENSE,
+                               startFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon));
         }
 
-        if (currentFrame > (startFrame - 500))
+        if (pylon && !pylon->completed)
         {
-            if (!pylon)
-            {
-                addBuildingToGoals(prioritizedProductionGoals,
-                                   BWAPI::UnitTypes::Protoss_Pylon,
-                                   baseStaticDefenseLocations.powerPylon,
-                                   PRIORITY_BASEDEFENSE);
-            }
+            startFrame = std::max(startFrame, pylon->completionFrame);
+        }
 
-            int queued = 0;
-            for (auto cannonLocation : cannonLocations)
-            {
-                addBuildingToGoals(prioritizedProductionGoals,
-                                   BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                                   cannonLocation,
-                                   PRIORITY_BASEDEFENSE);
-                queued++;
-                if ((queued + currentCannons) >= count) break;
-            }
+        int queued = 0;
+        for (auto cannonLocation : cannonLocations)
+        {
+            addBuildingToGoals(prioritizedProductionGoals,
+                               BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                               cannonLocation,
+                               PRIORITY_BASEDEFENSE,
+                               startFrame);
+            queued++;
+            if ((queued + currentCannons) >= count) break;
         }
     }
 

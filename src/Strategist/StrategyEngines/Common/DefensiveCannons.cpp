@@ -5,28 +5,6 @@
 #include "UnitUtil.h"
 #include "Builder.h"
 
-namespace
-{
-    int framesNeededFor(BWAPI::UnitType buildingType)
-    {
-        int earliestCompletion = INT_MAX;
-        for (const auto &unit: Units::allMineIncompleteOfType(buildingType))
-        {
-            if (unit->estimatedCompletionFrame < earliestCompletion)
-            {
-                earliestCompletion = unit->estimatedCompletionFrame;
-            }
-        }
-
-        if (earliestCompletion == INT_MAX)
-        {
-            return UnitUtil::BuildTime(buildingType);
-        }
-
-        return earliestCompletion - currentFrame;
-    };
-}
-
 void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                            bool atChoke,
                                            int frameNeeded,
@@ -39,24 +17,7 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
         if (!pylonTile.isValid()) return;
         if (!cannonTile.isValid()) return;
 
-        // If we know what frame the cannon is needed, check if we need to start building it now
-        if (frameNeeded > 0)
-        {
-            int frameStarted = frameNeeded - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
-            if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Forge) == 0)
-            {
-                frameStarted -= framesNeededFor(BWAPI::UnitTypes::Protoss_Forge);
-            }
-            else if (!Units::myBuildingAt(pylonTile))
-            {
-                frameStarted -= UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
-            }
-
-            // TODO: When the Producer understands to build something at a specific frame, use that
-            if ((currentFrame + 500) < frameStarted) return;
-        }
-
-        auto buildAtTile = [&prioritizedProductionGoals](BWAPI::TilePosition tile, BWAPI::UnitType type)
+        auto buildAtTile = [&prioritizedProductionGoals](BWAPI::TilePosition tile, BWAPI::UnitType type, int frame)
         {
             if (Units::myBuildingAt(tile) != nullptr) return;
             if (Builder::isPendingHere(tile)) return;
@@ -70,18 +31,23 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
             prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                               "SE-defcan",
                                                               type,
-                                                              buildLocation);
+                                                              buildLocation,
+                                                              frame);
         };
 
         auto pylon = Units::myBuildingAt(pylonTile);
-        if (pylon && pylon->completed)
+        if (!pylon)
         {
-            buildAtTile(cannonTile, BWAPI::UnitTypes::Protoss_Photon_Cannon);
+            buildAtTile(pylonTile, BWAPI::UnitTypes::Protoss_Pylon, std::max(0, frameNeeded - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon)));
         }
-        else
+
+        int startFrame = frameNeeded;
+        if (pylon && !pylon->completed)
         {
-            buildAtTile(pylonTile, BWAPI::UnitTypes::Protoss_Pylon);
+            startFrame = std::max(startFrame, pylon->completionFrame);
         }
+
+        buildAtTile(cannonTile, BWAPI::UnitTypes::Protoss_Photon_Cannon, startFrame);
     };
 
     // Check if we have a cannon at our choke

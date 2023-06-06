@@ -6,11 +6,12 @@
 class UpgradeProductionGoal
 {
 public:
-    explicit UpgradeProductionGoal(std::string requester, UpgradeOrTechType type, int level = 1, int producerLimit = 1)
+    explicit UpgradeProductionGoal(std::string requester, UpgradeOrTechType type, int level = 1, int producerLimit = 1, int frame = 0)
             : requester(std::move(requester))
             , type(type)
             , level(level)
-            , producerLimit(producerLimit) {}
+            , producerLimit(producerLimit)
+            , frame(frame) {}
 
     std::string requester;
 
@@ -24,6 +25,9 @@ public:
     // May be -1 if we do not want to limit it
     [[nodiscard]] int getProducerLimit() const { return producerLimit; }
 
+    // The frame when the upgrade should be started
+    [[nodiscard]] int getFrame() const { return frame; };
+
     friend std::ostream &operator<<(std::ostream &os, const UpgradeProductionGoal &goal)
     {
         os << goal.type << "@" << goal.level << " (" << goal.requester << ")";
@@ -34,4 +38,5 @@ private:
     UpgradeOrTechType type;
     int level;
     int producerLimit;
+    int frame;
 };

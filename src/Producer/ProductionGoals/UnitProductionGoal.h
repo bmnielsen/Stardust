@@ -8,30 +8,59 @@
 class UnitProductionGoal
 {
 public:
-    // Constructor for normal units or buildings
+    // Constructors for normal units or buildings
     explicit UnitProductionGoal(std::string requester,
                                 BWAPI::UnitType type,
                                 int count = -1,
                                 int producerLimit = -1,
-                                ProductionLocation location = std::monostate())
+                                ProductionLocation location = std::monostate(),
+                                int frame = 0)
             : requester(std::move(requester))
             , type(type)
             , count(count)
             , producerLimit(producerLimit)
             , location(std::move(location))
-            , reservedBuilder(nullptr) {}
+            , reservedBuilder(nullptr)
+            , frame(frame) {}
 
-    // Constructor for buildings at a specific build location
+    explicit UnitProductionGoal(std::string requester,
+                                BWAPI::UnitType type,
+                                int count,
+                                int producerLimit,
+                                int frame)
+            : requester(std::move(requester))
+            , type(type)
+            , count(count)
+            , producerLimit(producerLimit)
+            , location(std::monostate())
+            , reservedBuilder(nullptr)
+            , frame(frame) {}
+
+    // Constructors for buildings at a specific build location
     UnitProductionGoal(std::string requester,
                        BWAPI::UnitType type,
                        BuildingPlacement::BuildLocation location,
-                       MyUnit reservedBuilder = nullptr)
+                       MyUnit reservedBuilder = nullptr,
+                       int frame = 0)
             : requester(std::move(requester))
             , type(type)
             , count(1)
             , producerLimit(1)
             , location(location)
-            , reservedBuilder(std::move(reservedBuilder)) {}
+            , reservedBuilder(std::move(reservedBuilder))
+            , frame(frame) {}
+
+    UnitProductionGoal(std::string requester,
+                       BWAPI::UnitType type,
+                       BuildingPlacement::BuildLocation location,
+                       int frame)
+            : requester(std::move(requester))
+            , type(type)
+            , count(1)
+            , producerLimit(1)
+            , location(location)
+            , reservedBuilder(nullptr)
+            , frame(frame) {}
 
     std::string requester;
 
@@ -54,6 +83,9 @@ public:
     // This is useful for plays that "own" a worker and want to build something with it.
     [[nodiscard]] MyUnit getReservedBuilder() const { return reservedBuilder; };
 
+    // The frame when the first item should be produced
+    [[nodiscard]] int getFrame() const { return frame; };
+
     // Sets the number of items that should be produced
     // Used occasionally if something needs to reprioritize the queue
     void setCountToProduce(int newCount) { count = newCount; }
@@ -70,4 +102,5 @@ private:
     int producerLimit;
     ProductionLocation location;
     MyUnit reservedBuilder;
+    int frame;
 };

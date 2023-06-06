@@ -1686,7 +1686,8 @@ namespace Producer
                         int countToProduce,
                         int producerLimit,
                         BWAPI::UnitType prerequisite,
-                        MyUnit reservedBuilder)
+                        MyUnit reservedBuilder,
+                        int frame)
         {
             int toProduce = countToProduce;
 
@@ -1731,6 +1732,9 @@ namespace Producer
 
             // If the last goal item has been pushed back, update the prerequisitesAvailable frame
             if (!prerequisiteItems.empty()) prerequisitesAvailable = std::max(prerequisitesAvailable, (*prerequisiteItems.rbegin())->completionFrame);
+
+            // Push the prerequisitesAvailable frame if we want to build the item later
+            prerequisitesAvailable = std::max(prerequisitesAvailable, frame - currentFrame);
 
             // Buildings can now be handled immediately - we only ever produce one at a time and require a specific location
             if (unitType && unitType->isBuilding())
@@ -2011,7 +2015,8 @@ namespace Producer
                            unitProductionGoal->countToProduce(),
                            unitProductionGoal->getProducerLimit(),
                            BWAPI::UnitTypes::None,
-                           unitProductionGoal->getReservedBuilder());
+                           unitProductionGoal->getReservedBuilder(),
+                           unitProductionGoal->getFrame());
             }
             else if (auto upgradeProductionGoal = std::get_if<UpgradeProductionGoal>(&goal))
             {
@@ -2020,7 +2025,8 @@ namespace Producer
                            1,
                            upgradeProductionGoal->getProducerLimit(),
                            upgradeProductionGoal->prerequisiteForNextLevel(),
-                           nullptr);
+                           nullptr,
+                           upgradeProductionGoal->getFrame());
             }
             else
             {
