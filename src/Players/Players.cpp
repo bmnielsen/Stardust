@@ -102,9 +102,14 @@ namespace Players
         return getUpgradeTracker(player)->unitSightRange(type);
     }
 
-    int attackDamage(BWAPI::Player attackingPlayer, BWAPI::UnitType attackingUnit, BWAPI::Player targetPlayer, BWAPI::UnitType targetUnit)
+    int attackDamage(BWAPI::Player attackingPlayer,
+                     BWAPI::UnitType attackingUnit,
+                     BWAPI::Player targetPlayer,
+                     BWAPI::UnitType targetUnit,
+                     BWAPI::WeaponType weaponOverride)
     {
-        auto weapon = targetUnit.isFlyer() ? attackingUnit.airWeapon() : attackingUnit.groundWeapon();
+        auto weapon = weaponOverride;
+        if (weapon == BWAPI::WeaponTypes::None) weapon = targetUnit.isFlyer() ? attackingUnit.airWeapon() : attackingUnit.groundWeapon();
         if (weapon == BWAPI::WeaponTypes::None) return 0;
 
         int damage = (weaponDamage(attackingPlayer, weapon) - unitArmor(targetPlayer, targetUnit))

@@ -14,6 +14,7 @@
 #include "Opponent.h"
 #include "OpponentEconomicModel.h"
 #include "Strategist.h"
+#include "Bullets.h"
 
 #include "DebugFlag_GridUpdates.h"
 
@@ -1080,34 +1081,21 @@ namespace Units
 
     void onBulletCreate(BWAPI::Bullet bullet)
     {
-        if (!bullet->getSource() || !bullet->getTarget()) return;
-
-        auto source = get(bullet->getSource());
+        if (!bullet->getTarget()) return;
         auto target = get(bullet->getTarget());
-        if (!source || !target) return;
+        if (!target) return;
 
-        source->lastTarget = target;
+        Unit source = nullptr;
+        if (bullet->getSource()) {
+            source = get(bullet->getSource());
+        }
+
+        if (source) source->lastTarget = target;
 
         // If this bullet is a ranged bullet that deals damage after a delay, track it on the unit it is moving towards
-        if (bullet->getType() == BWAPI::BulletTypes::Gemini_Missiles ||         // Wraith
-            bullet->getType() == BWAPI::BulletTypes::Fragmentation_Grenade ||   // Vulture
-            bullet->getType() == BWAPI::BulletTypes::Longbolt_Missile ||        // Missile turret
-            bullet->getType() == BWAPI::BulletTypes::ATS_ATA_Laser_Battery ||   // Battlecruiser
-            bullet->getType() == BWAPI::BulletTypes::Burst_Lasers ||            // Wraith
-            bullet->getType() == BWAPI::BulletTypes::Anti_Matter_Missile ||     // Scout
-            bullet->getType() == BWAPI::BulletTypes::Pulse_Cannon ||            // Interceptor
-            bullet->getType() == BWAPI::BulletTypes::Yamato_Gun ||              // Battlecruiser
-            bullet->getType() == BWAPI::BulletTypes::Phase_Disruptor ||         // Dragoon
-            bullet->getType() == BWAPI::BulletTypes::STA_STS_Cannon_Overlay ||  // Photon cannon?
-            bullet->getType() == BWAPI::BulletTypes::Glave_Wurm ||              // Mutalisk
-            bullet->getType() == BWAPI::BulletTypes::Seeker_Spores ||           // Spore colony
-            bullet->getType() == BWAPI::BulletTypes::Halo_Rockets ||            // Valkyrie
-            bullet->getType() == BWAPI::BulletTypes::Subterranean_Spines)       // Lurker
+        if (Bullets::dealsDamageAfterDelay(bullet->getType()))
         {
-            if (source && target)
-            {
-                target->addUpcomingAttack(source, bullet);
-            }
+            target->addUpcomingAttack(source, bullet);
         }
     }
 

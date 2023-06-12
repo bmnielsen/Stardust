@@ -5,12 +5,13 @@
 #include "Map.h"
 #include "General.h"
 #include "UnitUtil.h"
+#include "Bullets.h"
 #include <iomanip>
 
 #include "DebugFlag_GridUpdates.h"
 
 #if INSTRUMENTATION_ENABLED
-#define UPCOMING_ATTACKS_DEBUG false
+#define UPCOMING_ATTACKS_DEBUG true
 #define SIMULATED_POSITIONS_DEBUG false
 #define SIMULATED_POSITIONS_DRAW false
 #endif
@@ -239,7 +240,10 @@ void UnitImpl::update(BWAPI::Unit unit)
         if (currentFrame >= it->expiryFrame)
         {
 #if UPCOMING_ATTACKS_DEBUG
-            CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as it has expired";
+            if (it->attacker)
+            {
+                CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as it has expired";
+            }
 #endif
             it = upcomingAttacks.erase(it);
             continue;
@@ -252,7 +256,10 @@ void UnitImpl::update(BWAPI::Unit unit)
                 || it->bullet->getPosition().getApproxDistance(it->bullet->getTargetPosition()) == 0)
             {
 #if UPCOMING_ATTACKS_DEBUG
-                CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as bullet has hit";
+                if (it->attacker)
+                {
+                    CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as bullet has hit";
+                }
 #endif
                 it = upcomingAttacks.erase(it);
                 continue;
@@ -260,10 +267,14 @@ void UnitImpl::update(BWAPI::Unit unit)
         }
 
             // Clear if the attacker is dead, no longer visible, or out of range
-        else if (!it->attacker || !it->attacker->exists() || !it->attacker->bwapiUnit->isVisible() || !isInEnemyWeaponRange(it->attacker))
+        else if (!it->unknownAttacker
+                 && (!it->attacker || !it->attacker->exists() || !it->attacker->bwapiUnit->isVisible() || !isInEnemyWeaponRange(it->attacker)))
         {
 #if UPCOMING_ATTACKS_DEBUG
-            CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as the attacker is gone";
+            if (it->attacker)
+            {
+                CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as the attacker is gone";
+            }
 #endif
             it = upcomingAttacks.erase(it);
             continue;
@@ -406,32 +417,38 @@ void UnitImpl::updateUnitInFog()
 void UnitImpl::addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet)
 {
     // Bullets always remove any existing upcoming attack from this attacker
-    for (auto it = upcomingAttacks.begin(); it != upcomingAttacks.end();)
+    if (attacker)
     {
-        if (it->attacker == attacker)
+        for (auto it = upcomingAttacks.begin(); it != upcomingAttacks.end();)
         {
+            if (it->attacker == attacker)
+            {
 #if UPCOMING_ATTACKS_DEBUG
-            CherryVis::log(id) << "Removing upcoming attack from " << *attacker << " because of created bullet";
+                CherryVis::log(id) << "Removing upcoming attack from " << *attacker << " because of created bullet";
 #endif
-            it = upcomingAttacks.erase(it);
+                it = upcomingAttacks.erase(it);
+            }
+            else
+                it++;
         }
-        else
-            it++;
     }
 
 #if UPCOMING_ATTACKS_DEBUG
-    CherryVis::log(id) << "Adding upcoming attack (bullet) from " << *attacker;
+    if (attacker)
+    {
+        CherryVis::log(id) << "Adding upcoming attack (bullet) from " << *attacker;
+    }
+    else
+    {
+        CherryVis::log(id) << "Adding upcoming attack (bullet) from unknown attacker";
+    }
 #endif
 
-    // Don't add the attack if it is a miss
-    if (bullet->getTargetPosition() != bullet->getTarget()->getPosition())
+    int damage = Bullets::upcomingDamage(bullet);
+    if (damage > 0)
     {
-        return;
+        upcomingAttacks.emplace_back(attacker, bullet, damage);
     }
-
-    upcomingAttacks.emplace_back(attacker,
-                                 bullet,
-                                 Players::attackDamage(attacker->player, attacker->type, player, type));
 }
 
 void UnitImpl::addUpcomingAttack(const Unit &attacker)

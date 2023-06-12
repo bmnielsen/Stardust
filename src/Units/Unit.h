@@ -15,20 +15,29 @@ struct UpcomingAttack
     int bulletId;           // Bullet objects are re-used, so keep track of the original ID
     int expiryFrame;        // The frame at which this upcoming attack "expires" (i.e. results in a bullet or deals damage)
     int damage;
+    bool unknownAttacker;
 
     UpcomingAttack(Unit attacker, BWAPI::Bullet bullet, int damage)
             : attacker(std::move(attacker))
             , bullet(bullet)
             , bulletId(bullet ? bullet->getID() : -1)
             , expiryFrame(INT_MAX)
-            , damage(damage) {}
+            , damage(damage)
+            , unknownAttacker(false)
+    {
+        unknownAttacker = (attacker == nullptr);
+    }
 
     UpcomingAttack(Unit attacker, int frames, int damage)
             : attacker(std::move(attacker))
             , bullet(nullptr)
             , bulletId(-1)
             , expiryFrame(currentFrame + frames)
-            , damage(damage) {}
+            , damage(damage)
+            , unknownAttacker(false)
+    {
+        unknownAttacker = (attacker == nullptr);
+    }
 };
 
 class UnitImpl

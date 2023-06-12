@@ -8,6 +8,25 @@ namespace Bullets
 {
     namespace
     {
+        // Map of bullet types to unit types for bullets that deal damage after a delay
+        // We use this for determining damage from bullets that come out of the fog
+        const std::map<BWAPI::BulletType, std::set<std::pair<BWAPI::UnitType, int>>> delayedDamageBulletUnits = {
+                {BWAPI::BulletTypes::Burst_Lasers, {{BWAPI::UnitTypes::Terran_Wraith, 254}}},
+                {BWAPI::BulletTypes::Gemini_Missiles, {{BWAPI::UnitTypes::Terran_Wraith, 254}}},
+                {BWAPI::BulletTypes::Fragmentation_Grenade, {{BWAPI::UnitTypes::Terran_Vulture, 254}}},
+                {BWAPI::BulletTypes::Longbolt_Missile, {{BWAPI::UnitTypes::Terran_Missile_Turret, 254}, {BWAPI::UnitTypes::Terran_Goliath, 246}}},
+                {BWAPI::BulletTypes::ATS_ATA_Laser_Battery, {{BWAPI::UnitTypes::Terran_Battlecruiser, 254}}},
+                {BWAPI::BulletTypes::Yamato_Gun, {{BWAPI::UnitTypes::Terran_Battlecruiser, 254}}},
+                {BWAPI::BulletTypes::Halo_Rockets, {{BWAPI::UnitTypes::Terran_Valkyrie, 254}}},
+                {BWAPI::BulletTypes::Anti_Matter_Missile, {{BWAPI::UnitTypes::Protoss_Scout, 29}}},
+                {BWAPI::BulletTypes::Phase_Disruptor, {{BWAPI::UnitTypes::Protoss_Dragoon, 254}}},
+                {BWAPI::BulletTypes::STA_STS_Cannon_Overlay, {{BWAPI::UnitTypes::Protoss_Photon_Cannon, 254}}},
+                {BWAPI::BulletTypes::Pulse_Cannon, {{BWAPI::UnitTypes::Protoss_Interceptor, 254}}},
+                {BWAPI::BulletTypes::Glave_Wurm, {{BWAPI::UnitTypes::Zerg_Mutalisk, 60}}},
+                {BWAPI::BulletTypes::Seeker_Spores, {{BWAPI::UnitTypes::Zerg_Spore_Colony, 59}}},
+                {BWAPI::BulletTypes::Subterranean_Spines, {{BWAPI::UnitTypes::Zerg_Lurker, 254}}},
+        };
+
         std::map<int, int> seenBulletFrames;
         int bulletsSeenAtExtendedMarineRange;
 
@@ -136,5 +155,74 @@ namespace Bullets
                 checkBunkerRange(bullet);
             }
         }
+    }
+
+    bool dealsDamageAfterDelay(BWAPI::BulletType type)
+    {
+        return delayedDamageBulletUnits.find(type) != delayedDamageBulletUnits.end();
+    }
+
+    int upcomingDamage(BWAPI::Bullet bullet)
+    {
+        // Require target
+        if (!bullet->getTarget() || !bullet->getTarget()->getPlayer()) return 0;
+
+        // Get the player owning the bullet
+        BWAPI::Player attackingPlayer = bullet->getPlayer();
+        if (bullet->getSource())
+        {
+            attackingPlayer = bullet->getSource()->getPlayer();
+        }
+        if (!attackingPlayer) return 0;
+
+        // Set weapon override for Yamato
+        auto weaponOverride = BWAPI::WeaponTypes::None;
+        if (bullet->getType() == BWAPI::BulletTypes::Yamato_Gun)
+        {
+            weaponOverride = BWAPI::WeaponTypes::Yamato_Gun;
+        }
+
+        // Require ranged bullet that deals damage after a delay
+        auto bulletInfo = delayedDamageBulletUnits.find(bullet->getType());
+        if (bulletInfo == delayedDamageBulletUnits.end()) return 0;
+
+        BWAPI::UnitType sourceUnitType = BWAPI::UnitTypes::None;
+        for (const auto &unitTypeAndInitialRemoveTimer : bulletInfo->second)
+        {
+            if (bullet->getSource() && unitTypeAndInitialRemoveTimer.first != bullet->getSource()->getType()) continue;
+            if (bullet->getRemoveTimer() != unitTypeAndInitialRemoveTimer.second) continue;
+
+            sourceUnitType = unitTypeAndInitialRemoveTimer.first;
+        }
+
+        // If we hit this block, we didn't see the bullet on its first frame and couldn't get an exact match
+        if (sourceUnitType == BWAPI::UnitTypes::None)
+        {
+            Log::Get() << "Unmatched bullet " << bullet->getType() << " @ " << BWAPI::WalkPosition(bullet->getPosition())
+                       << ": " << bullet->getRemoveTimer();
+
+            if (bullet->getSource())
+            {
+                return Players::attackDamage(attackingPlayer,
+                                             bullet->getSource()->getType(),
+                                             bullet->getTarget()->getPlayer(),
+                                             bullet->getTarget()->getType(),
+                                             weaponOverride);
+            }
+
+            return Players::attackDamage(attackingPlayer,
+                                         bulletInfo->second.begin()->first,
+                                         bullet->getTarget()->getPlayer(),
+                                         bullet->getTarget()->getType(),
+                                         weaponOverride);
+        }
+
+        if (bullet->getTargetPosition() != bullet->getTarget()->getPosition()) return 0;
+
+        return Players::attackDamage(attackingPlayer,
+                                     sourceUnitType,
+                                     bullet->getTarget()->getPlayer(),
+                                     bullet->getTarget()->getType(),
+                                     weaponOverride);
     }
 }

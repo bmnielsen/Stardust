@@ -28,7 +28,11 @@ namespace Players
 
     int unitSightRange(BWAPI::Player player, BWAPI::UnitType type);
 
-    int attackDamage(BWAPI::Player firstPlayer, BWAPI::UnitType firstUnit, BWAPI::Player secondPlayer, BWAPI::UnitType secondUnit);
+    int attackDamage(BWAPI::Player firstPlayer,
+                     BWAPI::UnitType firstUnit,
+                     BWAPI::Player secondPlayer,
+                     BWAPI::UnitType secondUnit,
+                     BWAPI::WeaponType weaponOverride = BWAPI::WeaponTypes::None);
 
     bool hasResearched(BWAPI::Player player, BWAPI::TechType type);
 
