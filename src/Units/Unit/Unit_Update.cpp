@@ -11,7 +11,7 @@
 #include "DebugFlag_GridUpdates.h"
 
 #if INSTRUMENTATION_ENABLED
-#define UPCOMING_ATTACKS_DEBUG true
+#define UPCOMING_ATTACKS_DEBUG false
 #define SIMULATED_POSITIONS_DEBUG false
 #define SIMULATED_POSITIONS_DRAW false
 #endif

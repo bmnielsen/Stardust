@@ -384,9 +384,6 @@ namespace Workers
 
             if (bestWorker)
             {
-#if CHERRYVIS_ENABLED
-                CherryVis::log() << "Picked worker " << bestWorker->id << " for gas";
-#endif
                 removeFromResource(bestWorker, workerMineralPatch, mineralPatchWorkers);
                 assignBaseAndJob(bestWorker, Job::Gas);
                 assignRefinery(bestWorker);

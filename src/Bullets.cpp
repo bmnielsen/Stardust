@@ -198,9 +198,6 @@ namespace Bullets
         // If we hit this block, we didn't see the bullet on its first frame and couldn't get an exact match
         if (sourceUnitType == BWAPI::UnitTypes::None)
         {
-            Log::Get() << "Unmatched bullet " << bullet->getType() << " @ " << BWAPI::WalkPosition(bullet->getPosition())
-                       << ": " << bullet->getRemoveTimer();
-
             if (bullet->getSource())
             {
                 return Players::attackDamage(attackingPlayer,
