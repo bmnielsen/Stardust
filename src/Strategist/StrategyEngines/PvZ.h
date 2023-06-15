@@ -72,8 +72,5 @@ private:
 
     void handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
 
-    static bool isFFE(OurStrategy strategy)
-    {
-        return strategy == OurStrategy::SairSpeedlot;
-    }
+    bool isFFE();
 };

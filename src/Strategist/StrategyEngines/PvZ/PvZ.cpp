@@ -224,7 +224,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                           + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dark_Templar)
                           + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Corsair);
 
-    if (!isFFE(ourStrategy))
+    if (!isFFE())
     {
         handleGasStealProduction(prioritizedProductionGoals, zealotCount);
     }
@@ -232,7 +232,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     auto buildAntiSneakAttackCannons = [&]()
     {
         // Not relevant when we are doing an FFE
-        if (isFFE(ourStrategy))
+        if (isFFE())
         {
             CherryVis::setBoardValue("anti-sneak-attack", "ffe");
             return;
@@ -744,7 +744,7 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     };
 
     // If we are doing an FFE, only build an observer if we have seen lurkers
-    if (isFFE(ourStrategy))
+    if (isFFE())
     {
         if (enemyHasLurkerTech)
         {
@@ -767,4 +767,34 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     {
         buildObserver();
     }
+}
+
+bool PvZ::isFFE()
+{
+    // Return true if we are executing a FFE strategy
+    switch (ourStrategy)
+    {
+        case OurStrategy::SairSpeedlot:
+            return true;
+        default:
+            break;
+    }
+
+    // Return true if we have a wall with at least one powered cannon
+    if (!BuildingPlacement::hasForgeGatewayWall()) return false;
+
+    auto &wall = BuildingPlacement::getForgeGatewayWall();
+
+    auto completedUnit = [](BWAPI::TilePosition tile)
+    {
+        auto unit = Units::myBuildingAt(tile);
+        if (!unit) return false;
+        return unit->completed;
+    };
+    if (!completedUnit(wall.pylon)) return false;
+    for (const auto &cannonTile : wall.cannons)
+    {
+        if (completedUnit(cannonTile)) return true;
+    }
+    return false;
 }
