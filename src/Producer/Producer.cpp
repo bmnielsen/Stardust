@@ -1658,20 +1658,23 @@ namespace Producer
             }
         }
 
-        // Pulls pylons earlier if there are minerals available to do so
-        void pullPylons()
+        // Pulls supply providers earlier if there are minerals available to do so
+        void pullSupplyProviders()
         {
             for (const auto &item : committedItems)
             {
-                if (!item->is(BWAPI::UnitTypes::Protoss_Pylon)) continue;
+                if (!item->is(BWAPI::UnitTypes::Protoss_Pylon) && !item->is(BWAPI::UnitTypes::Protoss_Nexus)) continue;
                 if (item->queuedBuilding) continue;
                 if (item->completionFrame >= PREDICT_FRAMES) continue;
 
                 int mineralCost = item->mineralPrice();
 
-                // Find the earliest frame up to 48 frames earlier where we have the minerals to build the pylon
+                // Pull nexuses as far as possible, pylons up to 48 frames
+                int limit = 0;
+                if (item->is(BWAPI::UnitTypes::Protoss_Pylon)) limit = std::max(0, item->startFrame - 48);
+
                 int f = item->startFrame - 1;
-                for (; f >= 0 && f >= item->startFrame - 48; f--)
+                for (; f >= limit; f--)
                 {
                     if (minerals[f] < mineralCost) break;
                 }
@@ -1694,6 +1697,41 @@ namespace Producer
             // For some logic we need to know which variant type we are producing, so reference them here
             auto unitType = std::get_if<BWAPI::UnitType>(&type);
             auto upgradeOrTechType = std::get_if<UpgradeOrTechType>(&type);
+            auto buildLocation = std::get_if<BuildingPlacement::BuildLocation>(&location);
+
+            // Do some preprocessing of buildings to remove them if a matching building already exists in the committed items
+            // This happens if we are requesting a building that has been queued by the builder
+            if (unitType && unitType->isBuilding())
+            {
+                // Verify we have a build location, which is required for buildings
+                if (!buildLocation)
+                {
+                    Log::Get() << "ERROR: Trying to produce building without specifying a location";
+                    return;
+                }
+
+                // Scan for a matching building in the committed item set
+                for (auto &otherItem : committedItems)
+                {
+                    // Compare unit types
+                    auto committedItemUnitType = std::get_if<BWAPI::UnitType>(&otherItem->type);
+                    if (!committedItemUnitType || *committedItemUnitType != *unitType) continue;
+
+                    // If the tile positions are the same, skip this item
+                    if (buildLocation->location.tile == otherItem->buildLocation.location.tile) return;
+
+                    // If the other item is a pylon that does not already have a location, use this one instead
+                    // This case happens if we've queued a pylon for supply earlier and now get a request for a specific
+                    // pylon location - we may as well just build one
+                    if (*unitType == BWAPI::UnitTypes::Protoss_Pylon && !otherItem->buildLocation.location.tile.isValid())
+                    {
+                        otherItem->estimatedWorkerMovementTime = buildLocation->builderFrames;
+                        otherItem->buildLocation = *buildLocation;
+                        otherItem->reservedBuilder = std::move(reservedBuilder);
+                        return;
+                    }
+                }
+            }
 
             BWAPI::UnitType producerType;
             if (unitType)
@@ -1739,30 +1777,6 @@ namespace Producer
             // Buildings can now be handled immediately - we only ever produce one at a time and require a specific location
             if (unitType && unitType->isBuilding())
             {
-                auto buildLocation = std::get_if<BuildingPlacement::BuildLocation>(&location);
-                if (!buildLocation)
-                {
-                    Log::Get() << "ERROR: Trying to produce building without specifying a location";
-                    return;
-                }
-
-                // If the building is the same type as one we already have committed, and the current one does not already have a building location,
-                // attach this goal's build location to it instead
-                // This will currently only apply to cases where we've queued a pylon for supply and also want a pylon in a specific location for
-                // power, as other buildings are getting their build location resolved by this point already
-                for (auto &otherItem : committedItems)
-                {
-                    auto committedItemUnitType = std::get_if<BWAPI::UnitType>(&otherItem->type);
-                    if (!committedItemUnitType || *committedItemUnitType != *unitType) continue;
-
-                    if (otherItem->buildLocation.location.tile.isValid()) continue;
-
-                    otherItem->estimatedWorkerMovementTime = buildLocation->builderFrames;
-                    otherItem->buildLocation = *buildLocation;
-                    otherItem->reservedBuilder = std::move(reservedBuilder);
-                    return;
-                }
-
                 auto buildingItem = std::make_shared<ProductionItem>(type, prerequisitesAvailable, location);
                 buildingItem->estimatedWorkerMovementTime = buildLocation->builderFrames;
                 buildingItem->buildLocation = *buildLocation;
@@ -2061,7 +2075,8 @@ namespace Producer
 
         // Pylons are often built a bit too late, since we don't accurately simulate mineral collection and the build worker
         // can be delayed. So pull pylons a bit earlier whenever we have the resources for it.
-        pullPylons();
+        // Also pulls nexuses since we always want them build as early as possible.
+        pullSupplyProviders();
 
         // When we are maxed, ensure we have enough gateways to quickly replace losses
         if (totalSupply[0] >= 400 && supply[0] <= 4)
