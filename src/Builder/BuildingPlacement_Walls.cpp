@@ -382,8 +382,7 @@ namespace BuildingPlacement
                                int y,
                                BWAPI::UnitType building,
                                std::set<BWAPI::TilePosition> &buildingOptions,
-                               bool tight,
-                               std::set<BWAPI::TilePosition> &geyserTiles)
+                               bool tight)
         {
             // Collect the possible build locations covering this tile
             std::set<BWAPI::TilePosition> tiles;
@@ -391,23 +390,8 @@ namespace BuildingPlacement
             bool isForge = (building == BWAPI::UnitTypes::Protoss_Forge);
             bool isGate = (building == BWAPI::UnitTypes::Protoss_Gateway);
 
-            bool geyserBlockTop = isForge && (
-                    geyserTiles.find(BWAPI::TilePosition(x, y - 1)) != geyserTiles.end()
-                    || geyserTiles.find(BWAPI::TilePosition(x - 1, y - 1)) != geyserTiles.end()
-                    || geyserTiles.find(BWAPI::TilePosition(x + 1, y - 1)) != geyserTiles.end());
-            bool geyserBlockLeft = isForge && (
-                    geyserTiles.find(BWAPI::TilePosition(x - 1, y)) != geyserTiles.end()
-                    || geyserTiles.find(BWAPI::TilePosition(x - 1, y - 1)) != geyserTiles.end()
-                    || geyserTiles.find(BWAPI::TilePosition(x - 1, y + 1)) != geyserTiles.end());
-            bool geyserBlockBottom = geyserTiles.find(BWAPI::TilePosition(x, y + 1)) != geyserTiles.end()
-                                     || (isForge && geyserTiles.find(BWAPI::TilePosition(x - 1, y + 1)) != geyserTiles.end())
-                                     || (isForge && geyserTiles.find(BWAPI::TilePosition(x + 1, y + 1)) != geyserTiles.end());
-            bool geyserBlockRight = geyserTiles.find(BWAPI::TilePosition(x + 1, y)) != geyserTiles.end()
-                                    || (isForge && geyserTiles.find(BWAPI::TilePosition(x + 1, y - 1)) != geyserTiles.end())
-                                    || (isForge && geyserTiles.find(BWAPI::TilePosition(x + 1, y + 1)) != geyserTiles.end());
-
             // Blocked on top
-            if (geyserBlockTop || (isForge && !walkableAbove(BWAPI::TilePosition(x, y), 1, 1, 1))
+            if ((isForge && !walkableAbove(BWAPI::TilePosition(x, y), 1, 1, 1))
                 || (!tight && !Map::isTerrainWalkable(x, y - 1)))
             {
                 for (int i = 0; i < building.tileWidth(); i++)
@@ -417,7 +401,7 @@ namespace BuildingPlacement
             }
 
             // Blocked on left
-            if (geyserBlockLeft || (isForge && !walkableLeft(BWAPI::TilePosition(x, y), 1, 1, 1))
+            if ((isForge && !walkableLeft(BWAPI::TilePosition(x, y), 1, 1, 1))
                 || (!tight && !Map::isTerrainWalkable(x - 1, y)))
             {
                 for (int i = 0; i < building.tileHeight(); i++)
@@ -427,7 +411,7 @@ namespace BuildingPlacement
             }
 
             // Blocked on bottom
-            if (geyserBlockBottom || (isForge && !walkableBelow(BWAPI::TilePosition(x, y), 1, 1, 1))
+            if ((isForge && !walkableBelow(BWAPI::TilePosition(x, y), 1, 1, 1))
                 || (isGate && !walkableBelow(BWAPI::TilePosition(x, y), 2, 0, 1))
                 || (!tight && !Map::isTerrainWalkable(x, y + 1)))
             {
@@ -439,7 +423,7 @@ namespace BuildingPlacement
             }
 
             // Blocked on right
-            if (geyserBlockRight || (isForge && !walkableRight(BWAPI::TilePosition(x, y), 1, 1, 1))
+            if ((isForge && !walkableRight(BWAPI::TilePosition(x, y), 1, 1, 1))
                 || (isGate && !walkableRight(BWAPI::TilePosition(x, y), 1, 0, 2))
                 || (!tight && !Map::isTerrainWalkable(x + 1, y)))
             {
@@ -974,6 +958,11 @@ namespace BuildingPlacement
                     width = 8;
                     height = 4;
                 }
+                else if (unit->getType() == BWAPI::UnitTypes::Resource_Vespene_Geyser)
+                {
+                    width = 16;
+                    height = 8;
+                }
                 else
                 {
                     continue;
@@ -1054,19 +1043,6 @@ namespace BuildingPlacement
                 }
             };
 
-            // Geysers are always tight, so treat them specially
-            std::set<BWAPI::TilePosition> geyserTiles;
-            for (auto geyser : natural->geyserLocations())
-            {
-                for (int x = geyser.x; x < geyser.x + BWAPI::UnitTypes::Resource_Vespene_Geyser.tileWidth(); x++)
-                {
-                    for (int y = geyser.y; y < geyser.y + BWAPI::UnitTypes::Resource_Vespene_Geyser.tileHeight(); y++)
-                    {
-                        geyserTiles.insert(BWAPI::TilePosition(x, y));
-                    }
-                }
-            }
-
             // Get elevation of natural, we want our wall to be at the same elevation
             auto elevation = BWAPI::Broodwar->getGroundHeight(natural->getTilePosition());
 
@@ -1096,8 +1072,8 @@ namespace BuildingPlacement
                         processEndGeo(tile, end1Geo);
                         if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
-                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end1ForgeOptions, tight, geyserTiles);
-                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end1GatewayOptions, tight, geyserTiles);
+                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end1ForgeOptions, tight);
+                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end1GatewayOptions, tight);
                     }
                 }
 
@@ -1111,8 +1087,8 @@ namespace BuildingPlacement
                         processEndGeo(tile, end2Geo);
                         if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
-                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end2ForgeOptions, tight, geyserTiles);
-                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end2GatewayOptions, tight, geyserTiles);
+                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end2ForgeOptions, tight);
+                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end2GatewayOptions, tight);
                     }
                 }
             }
@@ -1136,8 +1112,8 @@ namespace BuildingPlacement
                         processEndGeo(tile, end1Geo);
                         if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
-                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end1ForgeOptions, tight, geyserTiles);
-                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end1GatewayOptions, tight, geyserTiles);
+                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end1ForgeOptions, tight);
+                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end1GatewayOptions, tight);
                     }
                 }
 
@@ -1151,8 +1127,8 @@ namespace BuildingPlacement
                         processEndGeo(tile, end2Geo);
                         if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
-                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end2ForgeOptions, tight, geyserTiles);
-                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end2GatewayOptions, tight, geyserTiles);
+                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end2ForgeOptions, tight);
+                        addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end2GatewayOptions, tight);
                     }
                 }
             }
@@ -1186,8 +1162,8 @@ namespace BuildingPlacement
                             processEndGeo(tile, end1Geo);
                             if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
-                            addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end1ForgeOptions, tight, geyserTiles);
-                            addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end1GatewayOptions, tight, geyserTiles);
+                            addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end1ForgeOptions, tight);
+                            addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end1GatewayOptions, tight);
                         }
 
                         // Find options on right side
@@ -1201,8 +1177,8 @@ namespace BuildingPlacement
                             processEndGeo(tile, end2Geo);
                             if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
-                            addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end2ForgeOptions, tight, geyserTiles);
-                            addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end2GatewayOptions, tight, geyserTiles);
+                            addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end2ForgeOptions, tight);
+                            addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end2GatewayOptions, tight);
                         }
                     }
                 }
