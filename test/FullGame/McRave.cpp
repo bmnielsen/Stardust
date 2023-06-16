@@ -14,7 +14,7 @@ TEST(McRave, RunThirty)
         McRaveModule* mcraveModule;
         test.opponentName = "McRave";
         test.opponentRace = BWAPI::Races::Zerg;
-        test.maps = Maps::Get("sscait");
+        test.maps = Maps::Get("cog2022");
         test.opponentModule = [&]()
         {
             mcraveModule = new McRaveModule();
@@ -116,6 +116,7 @@ TEST(McRave, PoolHatch_9Pool_2HatchMuta)
     test.opponentRace = BWAPI::Races::Zerg;
     test.map = Maps::GetOne("Heartbreak");
     test.randomSeed = 20126;
+    test.frameLimit = 10000;
     test.opponentModule = [&]()
     {
         mcraveModule = new McRaveModule();

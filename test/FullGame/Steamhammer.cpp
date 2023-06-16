@@ -1,5 +1,6 @@
 #include "BWTest.h"
 #include "UAlbertaBotModule.h"
+#include "BuildingPlacement.h"
 
 TEST(Steamhammer, RunThirty)
 {
@@ -10,13 +11,24 @@ TEST(Steamhammer, RunThirty)
         BWTest test;
         test.opponentName = "Steamhammer";
         test.opponentRace = BWAPI::Races::Zerg;
-        test.maps = Maps::Get("sscait");
+        test.maps = Maps::Get("cog2022");
         test.opponentModule = []()
         {
             auto module = new UAlbertaBot::UAlbertaBotModule();
 //            Config::StardustTestStrategyName = "11HatchTurtleHydra";
             return module;
         };
+//        test.onFrameMine = [&test]()
+//        {
+//            if (currentFrame == 1)
+//            {
+//                if (!BuildingPlacement::hasForgeGatewayWall())
+//                {
+//                    test.writeReplay = false;
+//                    BWAPI::Broodwar->leaveGame();
+//                }
+//            }
+//        };
         test.onStartOpponent = [&test]()
         {
             std::cout << "Steamhammer strategy: " << Config::Strategy::StrategyName << std::endl;
@@ -30,6 +42,8 @@ TEST(Steamhammer, RunThirty)
         };
         test.onEndMine = [&](bool won)
         {
+            if (currentFrame < 100) return;
+
             std::ostringstream replayName;
             replayName << "Steamhammer_" << test.map->shortname();
             if (!won)
@@ -265,6 +279,7 @@ TEST(Steamhammer, 9PoolSpeedAllIn)
     BWTest test;
     test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;
+    test.map = Maps::GetOne("Benzene");
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
@@ -397,7 +412,7 @@ TEST(Steamhammer, ZvZ_12PoolLing)
 {
     BWTest test;
     test.opponentName = "Steamhammer";
-    test.map = Maps::GetOne("Python");
+    test.map = Maps::GetOne("Fighting");
     test.opponentRace = BWAPI::Races::Zerg;
     test.randomSeed = 73549;
     test.frameLimit = 10000;
@@ -472,8 +487,24 @@ TEST(Steamhammer, 973HydraBust)
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
-        Config::StardustTestForceGasSteal = true;
         Config::StardustTestStrategyName = "973HydraBust";
+        return module;
+    };
+
+    test.run();
+}
+
+TEST(Steamhammer, OneHatchMuta)
+{
+    BWTest test;
+    test.opponentName = "Steamhammer";
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 71869;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "Sparkle 1HatchMuta";
         return module;
     };
 
