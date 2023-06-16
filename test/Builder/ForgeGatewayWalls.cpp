@@ -23,13 +23,13 @@ namespace
             auto wall = BuildingPlacement::createForgeGatewayWall(true, base);
             if (wall.isValid())
             {
-                std::cout << base << ": " << wall << std::endl;
+                std::cout << base->getTilePosition() << ": " << wall << std::endl;
 
                 wall.addToHeatmap(wallHeatmap);
             }
             else
             {
-                std::cout << base << ": ERROR: No wall available" << std::endl;
+                std::cout << base->getTilePosition() << ": ERROR: No wall available" << std::endl;
             }
         }
 
@@ -239,6 +239,27 @@ TEST(ForgeGatewayWalls, AllSSCAIT)
     });
 }
 
+TEST(ForgeGatewayWalls, AllCOG)
+{
+    Maps::RunOnEach(Maps::Get("cog2022"), [](BWTest test)
+    {
+        test.opponentModule = []()
+        {
+            return new DoNothingModule();
+        };
+        test.frameLimit = 10;
+        test.expectWin = false;
+
+        test.onFrameMine = []() {
+            if (currentFrame == 0)
+            {
+                generateWalls();
+            }
+        };
+        test.run();
+    });
+}
+
 TEST(ForgeGatewayWalls, LingTightAllSSCAIT)
 {
     Maps::RunOnEachStartLocation(Maps::Get("sscai"), [](BWTest test)
@@ -246,6 +267,75 @@ TEST(ForgeGatewayWalls, LingTightAllSSCAIT)
         configureLingTightTest(test);
         test.run();
     });
+}
+
+TEST(ForgeGatewayWalls, LingTightAllCOG)
+{
+    Maps::RunOnEachStartLocation(Maps::Get("cog2022"), [](BWTest test)
+    {
+        configureLingTightTest(test);
+        test.run();
+    });
+}
+
+TEST(ForgeGatewayWalls, NeoSylphid2)
+{
+    BWTest test;
+    test.randomSeed = 1617;
+    test.map = Maps::GetOne("NeoSylphid2");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.onFrameMine = []() {
+        if (currentFrame == 0)
+        {
+            generateWalls(7, 91);
+        }
+    };
+    test.run();
+}
+
+TEST(ForgeGatewayWalls, Eclipse)
+{
+    BWTest test;
+    test.randomSeed = 1617;
+    test.map = Maps::GetOne("Eclipse");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.onFrameMine = []() {
+        if (currentFrame == 0)
+        {
+            generateWalls();
+        }
+    };
+    test.run();
+}
+
+TEST(ForgeGatewayWalls, MatchPoint)
+{
+    BWTest test;
+    test.randomSeed = 1617;
+    test.map = Maps::GetOne("Match");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.onFrameMine = []() {
+        if (currentFrame == 0)
+        {
+            generateWalls(100, 14);
+        }
+    };
+    test.run();
 }
 
 TEST(ForgeGatewayWalls, Benzene)
