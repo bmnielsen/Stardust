@@ -12,9 +12,6 @@
 #include <Strategist/Plays/Defensive/DefendBase.h>
 #include "Strategies.h"
 
-#define PRIORITY_CANNONS (PRIORITY_WORKERS - 2)
-#define PRIORITY_ALLOWPAUSEPROBES (PRIORITY_WORKERS - 1)
-
 /*
  * Our FFE play handles both performing the build order, defending the wall, and transitioning
  * into normal base defense if the wall is at any point determined to be indefensible.
@@ -127,7 +124,58 @@ namespace
                 1,
                 buildLocation,
                 frame);
-    };
+    }
+
+    void moveWorkerProductionToLowerPriority(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                             int afterWorkers,
+                                             int newPriority = PRIORITY_DEPOTS)
+    {
+        // Jump out if there is no probe production in progress
+        auto &workerGoals = prioritizedProductionGoals[PRIORITY_WORKERS];
+        if (workerGoals.empty()) return;
+        for (auto &workerGoal : workerGoals)
+        {
+            auto probeGoal = std::get_if<UnitProductionGoal>(&workerGoal);
+            if (!probeGoal || !probeGoal->unitType().isWorker())
+            {
+                return;
+            }
+        }
+
+        auto &newGoals = prioritizedProductionGoals[newPriority];
+
+        // Get current number of probes without counting scout worker
+        int currentProbes = Units::countAll(BWAPI::UnitTypes::Protoss_Probe);
+        if (Strategist::getWorkerScoutStatus() != Strategist::WorkerScoutStatus::Unstarted && !Strategist::isWorkerScoutComplete()) currentProbes--;
+
+        // Adjust probe production at high priority to the number requested
+        int probes = currentProbes;
+        auto it = workerGoals.begin();
+        while (it != workerGoals.end() && probes < afterWorkers)
+        {
+            auto probeGoal = std::get_if<UnitProductionGoal>(&*it);
+            probes += probeGoal->countToProduce();
+            if (probes > afterWorkers)
+            {
+                probeGoal->setCountToProduce(afterWorkers - (probes - probeGoal->countToProduce()));
+
+                newGoals.emplace_back(std::in_place_type<UnitProductionGoal>,
+                                      probeGoal->requester,
+                                      BWAPI::UnitTypes::Protoss_Probe,
+                                      probes - afterWorkers,
+                                      probeGoal->getProducerLimit(),
+                                      probeGoal->getLocation());
+            }
+
+            it++;
+        }
+
+        if (it != workerGoals.end())
+        {
+            newGoals.insert(newGoals.end(), std::make_move_iterator(it), std::make_move_iterator(workerGoals.end()));
+            workerGoals.erase(it, workerGoals.end());
+        }
+    }
 
     void buildAirDefenseCannons(Base *base, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals, int count, int frame)
     {
@@ -220,7 +268,7 @@ namespace
     void buildWallCannons(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                           int count,
                           int frame,
-                          int priority = PRIORITY_CANNONS)
+                          int priority = PRIORITY_EMERGENCY)
     {
         if (count <= 0) return;
 
@@ -493,12 +541,9 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         case State::STATE_NEXUS_PENDING:
         {
             buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, cannonFrame);
-            addBuildingToGoals(prioritizedProductionGoals,
-                               BWAPI::UnitTypes::Protoss_Nexus,
-                               Map::getMyNatural()->getTilePosition(),
-                               3750,
-                               PRIORITY_ALLOWPAUSEPROBES);
-            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway, 3750, PRIORITY_ALLOWPAUSEPROBES);
+            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
+            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
+            moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 14);
             addUnits(BWAPI::UnitTypes::Protoss_Corsair, 1);
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
@@ -506,7 +551,8 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         case State::STATE_GATEWAY_PENDING:
         {
             buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, cannonFrame);
-            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway, 0, PRIORITY_ALLOWPAUSEPROBES);
+            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
+            moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 14);
             addUnits(BWAPI::UnitTypes::Protoss_Corsair, 1);
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
