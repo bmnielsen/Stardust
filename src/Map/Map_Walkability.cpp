@@ -432,11 +432,14 @@ namespace Map
             if (neutral->isFlying()) continue;
 
             // Eggs might not be aligned to tiles, so add any tiles they overlap
-            if (neutral->getType() == BWAPI::UnitTypes::Zerg_Lurker_Egg)
+            if (neutral->getType() == BWAPI::UnitTypes::Zerg_Lurker_Egg ||
+                neutral->getType() == BWAPI::UnitTypes::Zerg_Egg)
             {
                 BWAPI::Position bottomRight(neutral->getInitialPosition() + BWAPI::Position(neutral->getType().width(), neutral->getType().height()));
                 handleStaticNeutral(neutral->getInitialTilePosition(), BWAPI::TilePosition(bottomRight) - neutral->getInitialTilePosition());
-            } else {
+            }
+            else
+            {
                 handleStaticNeutral(neutral->getInitialTilePosition(), neutral->getType().tileSize());
             }
         }

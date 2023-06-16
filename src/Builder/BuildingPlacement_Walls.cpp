@@ -979,7 +979,9 @@ namespace BuildingPlacement
                     continue;
                 }
 
-                auto walk = BWAPI::WalkPosition(unit->getTilePosition());
+                int left = unit->getPosition().x - unit->getType().dimensionLeft();
+                int top = unit->getPosition().y - unit->getType().dimensionUp();
+                auto walk = BWAPI::WalkPosition(BWAPI::Position(left, top));
                 for (int walkX = 0; walkX < width; walkX++)
                 {
                     for (int walkY = 0; walkY < height; walkY++)
