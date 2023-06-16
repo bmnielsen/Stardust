@@ -1,6 +1,5 @@
 #include "Producer.h"
 
-#include <array>
 #include <utility>
 #include "Strategist.h"
 #include "Units.h"
@@ -696,6 +695,8 @@ namespace Producer
                 {
                     bestScore = score;
                     best = it;
+
+                    if (bestScore == 0) break;
                 }
             }
 
@@ -1089,15 +1090,16 @@ namespace Producer
             if (item.gasPrice() == 0 && prerequisiteCost == 0) return true;
 
             // Precompute the frame stops and how much gas we need at each one
+            int prerequisiteCostRemaining = prerequisiteCost;
             std::vector<std::pair<int, int>> frameStopsAndGasNeeded;
-            frameStopsAndGasNeeded.emplace_back(0, prerequisiteCost + item.gasPrice());
+            frameStopsAndGasNeeded.emplace_back(0, prerequisiteCostRemaining + item.gasPrice());
             for (auto prerequisiteIt = prerequisiteItems.rbegin(); prerequisiteIt != prerequisiteItems.rend(); prerequisiteIt++)
             {
                 int cost = (*prerequisiteIt)->gasPrice();
                 if (cost > 0)
                 {
-                    frameStopsAndGasNeeded.emplace_back(item.startFrame - (*prerequisiteIt)->startFrame, prerequisiteCost);
-                    prerequisiteCost -= cost;
+                    frameStopsAndGasNeeded.emplace_back(item.startFrame - (*prerequisiteIt)->startFrame, prerequisiteCostRemaining);
+                    prerequisiteCostRemaining -= cost;
                 }
             }
 
@@ -1614,9 +1616,6 @@ namespace Producer
         // Pulls refineries earlier if there are minerals available to do so
         void pullRefineries()
         {
-            // Disable for now, since it doesn't make sense to have an excess of gas through the early game
-            return;
-
             auto refineryType = BWAPI::Broodwar->self()->getRace().getRefinery();
             for (auto it = committedItems.begin(); it != committedItems.end(); it++)
             {
@@ -1723,7 +1722,9 @@ namespace Producer
                     // If the other item is a pylon that does not already have a location, use this one instead
                     // This case happens if we've queued a pylon for supply earlier and now get a request for a specific
                     // pylon location - we may as well just build one
-                    if (*unitType == BWAPI::UnitTypes::Protoss_Pylon && !otherItem->buildLocation.location.tile.isValid())
+                    // One exception is if we don't have any pylons currently - we don't want to steal our start block pylon
+                    if (*unitType == BWAPI::UnitTypes::Protoss_Pylon && !otherItem->buildLocation.location.tile.isValid()
+                        && Units::countAll(BWAPI::UnitTypes::Protoss_Pylon) > 0)
                     {
                         otherItem->estimatedWorkerMovementTime = buildLocation->builderFrames;
                         otherItem->buildLocation = *buildLocation;
@@ -2071,7 +2072,10 @@ namespace Producer
             Workers::setDesiredGasWorkerDelta(-Workers::reassignableGasWorkers());
         }
 
-        pullRefineries();
+        if (hasUnlimitedGasGoal)
+        {
+            pullRefineries();
+        }
 
         // Pylons are often built a bit too late, since we don't accurately simulate mineral collection and the build worker
         // can be delayed. So pull pylons a bit earlier whenever we have the resources for it.
