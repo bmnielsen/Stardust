@@ -895,7 +895,7 @@ namespace Map
         leafAreaTiles.clear();
         islandTiles.clear();
         tileLastSeen.clear();
-        tileLastSeen.resize(mapWidth * mapHeight);
+        tileLastSeen.assign(mapWidth * mapHeight, -1);
 
         NoGoAreas::initialize();
 
@@ -1119,26 +1119,61 @@ namespace Map
 
     void update()
     {
+        // Update the last seen frame for all visible tiles
+        for (int y = 0; y < mapHeight; y++)
+        {
+            for (int x = 0; x < mapWidth; x++)
+            {
+                if (BWAPI::Broodwar->isVisible(x, y))
+                {
+                    tileLastSeen[x + y * mapWidth] = currentFrame;
+                }
+            }
+        }
+
         // Update base scouting
         for (auto &base : bases)
         {
-            // Is the center of where the resource depot should be visible?
-            if (BWAPI::Broodwar->isVisible(base->getTilePosition().x + 1, base->getTilePosition().y + 1) ||
-                BWAPI::Broodwar->isVisible(base->getTilePosition().x + 2, base->getTilePosition().y + 1))
+            // Owned bases were scouted when we last saw each of the tiles around where the resource depot should be
+            // Unowned bases were scouted when we last saw one of the center tiles of where the resource depot should be
+            auto tile = base->getTilePosition();
+            if (base->owner)
             {
-                base->lastScouted = currentFrame;
+                base->lastScouted = std::min({
+                     tileLastSeen[tile.x - 1 + (tile.y - 1) * mapWidth],
+                     tileLastSeen[tile.x + (tile.y - 1) * mapWidth],
+                     tileLastSeen[tile.x + 1 + (tile.y - 1) * mapWidth],
+                     tileLastSeen[tile.x + 2 + (tile.y - 1) * mapWidth],
+                     tileLastSeen[tile.x + 3 + (tile.y - 1) * mapWidth],
+                     tileLastSeen[tile.x + 4 + (tile.y - 1) * mapWidth],
+                     tileLastSeen[tile.x - 1 + tile.y * mapWidth],
+                     tileLastSeen[tile.x + 4 + tile.y * mapWidth],
+                     tileLastSeen[tile.x - 1 + (tile.y + 1) * mapWidth],
+                     tileLastSeen[tile.x + 4 + (tile.y + 1) * mapWidth],
+                     tileLastSeen[tile.x - 1 + (tile.y + 2) * mapWidth],
+                     tileLastSeen[tile.x + 4 + (tile.y + 2) * mapWidth],
+                     tileLastSeen[tile.x - 1 + (tile.y + 3) * mapWidth],
+                     tileLastSeen[tile.x + (tile.y + 3) * mapWidth],
+                     tileLastSeen[tile.x + 1 + (tile.y + 3) * mapWidth],
+                     tileLastSeen[tile.x + 2 + (tile.y + 3) * mapWidth],
+                     tileLastSeen[tile.x + 3 + (tile.y + 3) * mapWidth],
+                     tileLastSeen[tile.x + 4 + (tile.y + 3) * mapWidth],
+                });
             }
+            else
+            {
+                base->lastScouted = std::max(
+                        tileLastSeen[tile.x + 1 + (tile.y + 1) * mapWidth],
+                        tileLastSeen[tile.x + 2 + (tile.y + 1) * mapWidth]);
 
-                // If the base hasn't been owned for a while, and the enemy could be zerg, can we see creep?
-            else if (
-                    (base->ownedSince == -1 || base->ownedSince < (currentFrame - 2500)) &&
+                // If the enemy could be zerg, check for creep
+                if ((base->ownedSince == -1 || base->ownedSince < (currentFrame - 2500)) &&
                     BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran &&
                     BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss &&
                     checkCreep(base))
-            {
-                setBaseOwner(base, BWAPI::Broodwar->enemy());
-
-                // Don't set lastScouted as this refers to when the depot location was seen
+                {
+                    setBaseOwner(base, BWAPI::Broodwar->enemy());
+                }
             }
         }
 
@@ -1165,18 +1200,6 @@ namespace Map
         dumpWalkability();
 
         NoGoAreas::update();
-
-        // Update the last seen frame for all visible tiles
-        for (int y = 0; y < mapHeight; y++)
-        {
-            for (int x = 0; x < mapWidth; x++)
-            {
-                if (BWAPI::Broodwar->isVisible(x, y))
-                {
-                    tileLastSeen[x + y * mapWidth] = currentFrame;
-                }
-            }
-        }
     }
 
     MapSpecificOverride *mapSpecificOverride()

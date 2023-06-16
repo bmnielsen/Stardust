@@ -29,12 +29,12 @@ namespace
     int worstCaseZerglingArrivalFrame()
     {
         // Get pool start frame
-        // If we have scouted the enemy base, defaults to now, as we assume the enemy hasn't built it yet
+        // If we have scouted the enemy base, defaults to the last time we scouted it
         // If we haven't scouted the enemy base, defaults to 9 pool
         int poolStartFrame;
         if (Strategist::hasWorkerScoutCompletedInitialBaseScan())
         {
-            poolStartFrame = currentFrame;
+            poolStartFrame = Map::getEnemyStartingMain()->lastScouted;
         }
         else
         {
