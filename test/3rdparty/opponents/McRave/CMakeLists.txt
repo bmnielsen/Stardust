@@ -15,6 +15,6 @@ include_directories(${MCRAVE_INCLUDES})
 
 add_library(McRave SHARED ${SRC_FILES} ${BWEM_SRC_FILES} ${BWEB_SRC_FILES} ${HORIZON_SRC_FILES})
 
-target_link_libraries(McRave -L/usr/local/Cellar/llvm/13.0.0_2/lib BWAPILIB)
+target_link_libraries(McRave BWAPILIB)
 target_include_directories(McRave SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/McRave)
 target_compile_options(McRave PRIVATE -w)
