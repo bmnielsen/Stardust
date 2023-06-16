@@ -6,6 +6,7 @@
 #include "Players.h"
 #include "Workers.h"
 #include "Builder.h"
+#include "Opponent.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -48,6 +49,9 @@ void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays)
         ourStrategy = OurStrategy::FastExpansion;
     }
     */
+
+    Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);
+    Opponent::addEnemyStrategyChange(TerranStrategyNames[enemyStrategy]);
 }
 
 void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
@@ -64,6 +68,7 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
         enemyStrategy = newEnemyStrategy;
         enemyStrategyChanged = currentFrame;
+        Opponent::addEnemyStrategyChange(TerranStrategyNames[enemyStrategy]);
     }
 
     if (ourStrategy != newStrategy)
@@ -86,6 +91,7 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 //        }
 
         ourStrategy = newStrategy;
+        Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);
     }
 
     bool defendOurMain;

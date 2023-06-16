@@ -104,6 +104,8 @@ namespace Opponent
         currentGame["firstLurkerAtOurMain"] = INT_MAX;
         currentGame["sneakAttack"] = INT_MAX;
         currentGame["elevatoredUnits"] = 0;
+        currentGame["myStrategy"] = nlohmann::json::array();
+        currentGame["enemyStrategy"] = nlohmann::json::array();
     }
 
     void update()
@@ -247,6 +249,16 @@ namespace Opponent
     bool isGameValueSet(const std::string &key)
     {
         return setKeys.find(key) != setKeys.end();
+    }
+
+    void addMyStrategyChange(const std::string &strategy)
+    {
+        currentGame["myStrategy"].push_back(nlohmann::json::array({currentFrame, strategy}));
+    }
+
+    void addEnemyStrategyChange(const std::string &strategy)
+    {
+        currentGame["enemyStrategy"].push_back(nlohmann::json::array({currentFrame, strategy}));
     }
 
     int minValueInPreviousGames(const std::string &key, int defaultNoData, int maxCount, int minCount)

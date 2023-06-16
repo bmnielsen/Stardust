@@ -22,6 +22,10 @@ namespace Opponent
 
     bool isGameValueSet(const std::string &key);
 
+    void addMyStrategyChange(const std::string &strategy);
+
+    void addEnemyStrategyChange(const std::string &strategy);
+
     int minValueInPreviousGames(const std::string &key, int defaultNoData, int maxCount = INT_MAX, int minCount = 0);
 
     double winLossRatio(double defaultValue, int maxCount = INT_MAX);

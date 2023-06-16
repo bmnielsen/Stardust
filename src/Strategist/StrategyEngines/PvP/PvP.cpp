@@ -33,6 +33,9 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<EjectEnemyScout>());
     plays.emplace_back(std::make_shared<DefendMyMain>());
 //    plays.emplace_back(std::make_shared<HiddenBase>());
+
+    Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);
+    Opponent::addEnemyStrategyChange(ProtossStrategyNames[enemyStrategy]);
 }
 
 void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
@@ -68,6 +71,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
         enemyStrategy = newEnemyStrategy;
         enemyStrategyChanged = currentFrame;
+        Opponent::addEnemyStrategyChange(ProtossStrategyNames[enemyStrategy]);
     }
 
     if (ourStrategy != newStrategy)
@@ -78,6 +82,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 #endif
 
         ourStrategy = newStrategy;
+        Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);
     }
 
     bool defendOurMain;

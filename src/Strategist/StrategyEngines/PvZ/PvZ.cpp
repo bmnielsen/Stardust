@@ -52,6 +52,9 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays)
     {
         plays.emplace_back(std::make_shared<DefendMyMain>());
     }
+
+    Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);
+    Opponent::addEnemyStrategyChange(ZergStrategyNames[enemyStrategy]);
 }
 
 void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
@@ -68,6 +71,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
         enemyStrategy = newEnemyStrategy;
         enemyStrategyChanged = currentFrame;
+        Opponent::addEnemyStrategyChange(ZergStrategyNames[enemyStrategy]);
     }
 
     if (ourStrategy != newStrategy)
@@ -78,6 +82,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 #endif
 
         ourStrategy = newStrategy;
+        Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);
     }
 
     bool defendOurMain;
