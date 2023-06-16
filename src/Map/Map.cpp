@@ -8,6 +8,7 @@
 #include "MapSpecificOverrides/Destination.h"
 #include "MapSpecificOverrides/Python.h"
 #include "MapSpecificOverrides/TauCross.h"
+#include "MapSpecificOverrides/MatchPoint.h"
 
 #include "Units.h"
 #include "PathFinding.h"
@@ -960,6 +961,12 @@ namespace Map
         {
             Log::Get() << "Using map-specific override for Tau Cross";
             _mapSpecificOverride = new TauCross();
+        }
+        else if (BWAPI::Broodwar->mapHash() == "0a41f144c6134a2204f3d47d57cf2afcd8430841" ||
+                 BWAPI::Broodwar->mapHash() == "7e14d53b944b1365973f2d8768c75358c6b28a8f")
+        {
+            Log::Get() << "Using map-specific override for Match Point";
+            _mapSpecificOverride = new MatchPoint();
         }
         else
         {
