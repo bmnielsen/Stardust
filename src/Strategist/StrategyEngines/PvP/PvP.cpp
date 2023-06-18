@@ -116,6 +116,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             }
             case OurStrategy::FastExpansion:
             case OurStrategy::Normal:
+            case OurStrategy::ThreeGateRobo:
             case OurStrategy::MidGame:
             {
                 auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
@@ -133,9 +134,9 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     break;
                 }
 
-                // Use a defend play if the enemy has dark templar and our army has no observers
-                if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0 &&
-                    mainArmyPlay->getSquad()->getDetectors().empty())
+                // Use a defend play if we are doing a 3 gate robo or the enemy has dark templar and our army has no observers
+                if ((ourStrategy == OurStrategy::ThreeGateRobo && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0)
+                    || (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0 && mainArmyPlay->getSquad()->getDetectors().empty()))
                 {
                     defendOurMain = true;
                     break;
@@ -359,6 +360,46 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             break;
         }
 
+        case OurStrategy::ThreeGateRobo:
+        {
+            if (zealotCount == 0 && dragoonCount == 0)
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           "SE-3grobo",
+                                                                           BWAPI::UnitTypes::Protoss_Zealot,
+                                                                           1,
+                                                                           1);
+            }
+
+            if (dragoonCount < 2)
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           "SE-3grobo",
+                                                                           BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                           2 - dragoonCount,
+                                                                           1);
+            }
+
+            int observerCount = completedUnits[BWAPI::UnitTypes::Protoss_Observer] + incompleteUnits[BWAPI::UnitTypes::Protoss_Observer];
+            if (observerCount == 0)
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           "SE-3grobo",
+                                                                           BWAPI::UnitTypes::Protoss_Observer,
+                                                                           1,
+                                                                           1);
+            }
+
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE-3grobo",
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
+            break;
+        }
+
         case OurStrategy::MidGame:
         {
             // Have a couple of DTs on hand if we have a templar archives and the enemy hasn't built mobile detection
@@ -495,6 +536,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             return;
 
         case OurStrategy::Normal:
+        case OurStrategy::ThreeGateRobo:
         case OurStrategy::MidGame:
         {
             // In this case we want to expand when we consider it safe to do so: we have an attacking or containing army
@@ -723,6 +765,13 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     if (Units::countAll(BWAPI::UnitTypes::Protoss_Observer) > 0)
     {
         CherryVis::setBoardValue("detection", "have-observer");
+        return;
+    }
+
+    // Break out if we are going 3 gate robo
+    if (ourStrategy == OurStrategy::ThreeGateRobo)
+    {
+        CherryVis::setBoardValue("detection", "3-gate-robo");
         return;
     }
 

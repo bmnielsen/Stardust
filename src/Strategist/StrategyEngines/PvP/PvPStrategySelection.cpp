@@ -11,6 +11,7 @@ std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
         {OurStrategy::FastExpansion,       "FastExpansion"},
         {OurStrategy::Defensive,           "Defensive"},
         {OurStrategy::Normal,              "Normal"},
+        {OurStrategy::ThreeGateRobo,       "3GateRobo"},
         {OurStrategy::DTExpand,            "DTExpand"},
         {OurStrategy::MidGame,             "MidGame"}
 };
@@ -265,6 +266,38 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     !canTransitionFromAntiDarkTemplarRush())
                 {
                     strategy = OurStrategy::AntiDarkTemplarRush;
+                    continue;
+                }
+
+                if (newEnemyStrategy == ProtossStrategy::DragoonAllIn && isDTExpandFeasible())
+                {
+                    strategy = OurStrategy::DTExpand;
+                    continue;
+                }
+
+                // Transition to mid-game when the enemy has done so or we are on two bases
+                // TODO: This is very vaguely defined
+                if (newEnemyStrategy == ProtossStrategy::MidGame || Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
+                {
+                    strategy = OurStrategy::MidGame;
+                    continue;
+                }
+
+                // TODO: Define conditions to go 3-gate robo based on opponent model
+//                strategy = OurStrategy::ThreeGateRobo;
+//                continue;
+
+                break;
+            }
+            case PvP::OurStrategy::ThreeGateRobo:
+            {
+                if ((newEnemyStrategy == ProtossStrategy::WorkerRush ||
+                     newEnemyStrategy == ProtossStrategy::ProxyRush ||
+                     newEnemyStrategy == ProtossStrategy::ZealotRush ||
+                     newEnemyStrategy == ProtossStrategy::ZealotAllIn) &&
+                    !canTransitionFromAntiZealotRush())
+                {
+                    strategy = OurStrategy::AntiZealotRush;
                     continue;
                 }
 
