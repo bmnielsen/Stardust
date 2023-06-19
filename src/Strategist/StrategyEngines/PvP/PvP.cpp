@@ -324,6 +324,14 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1,
                                                                        -1);
 
+            // Produce probes at our main so we can quickly ramp up our natural after moving out
+            prioritizedProductionGoals[PRIORITY_LOWEST].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
+                                                                       BWAPI::UnitTypes::Protoss_Probe,
+                                                                       -1,
+                                                                       1,
+                                                                       BuildingPlacement::Neighbourhood::MainBase);
+
             break;
         }
 

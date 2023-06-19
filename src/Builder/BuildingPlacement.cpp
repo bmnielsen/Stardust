@@ -1304,6 +1304,22 @@ namespace BuildingPlacement
             return it != neighbourhoodAreas[neighbourhood].end();
         }
 
+        // Check if the tile is a nexus
+        for (const auto &base : Map::allBases())
+        {
+            if (buildTile != base->getTilePosition()) continue;
+
+            switch (neighbourhood)
+            {
+                case Neighbourhood::MainBase:
+                    return base == Map::getMyMain();
+                case Neighbourhood::AllMyBases:
+                    return true;
+                case Neighbourhood::HiddenBase:
+                    return base == Map::getHiddenBase();
+            }
+        }
+
         Log::Get() << "WARNING: Tile " << buildTile << " not in a block";
         return false;
     }
