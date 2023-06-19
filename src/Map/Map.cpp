@@ -1509,7 +1509,7 @@ namespace Map
 
     void makePositionValid(int &x, int &y)
     {
-        x = std::clamp(x, 0, mapWidthPixels);
-        y = std::clamp(y, 0, mapHeightPixels);
+        x = std::clamp(x, 0, mapWidthPixels - 1);
+        y = std::clamp(y, 0, mapHeightPixels - 1);
     }
 }
