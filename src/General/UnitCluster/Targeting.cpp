@@ -154,6 +154,21 @@ namespace
         return 1;
     }
 
+    bool isInOurMainOrNatural(const Unit &unit)
+    {
+        if (!unit->lastPositionValid) return false;
+
+        auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition));
+        auto mainAndNaturalAreas = Map::getMyMainAreas();
+        auto natural = Map::getMyNatural();
+        if (natural)
+        {
+            mainAndNaturalAreas.insert(natural->getArea());
+        }
+
+        return mainAndNaturalAreas.find(area) != mainAndNaturalAreas.end();
+    }
+
     struct Target
     {
         Unit unit;
@@ -161,13 +176,15 @@ namespace
         int healthIncludingShields; // Estimated health reduced by incoming bullets and earlier attackers
         int attackerCount;          // How many attackers have this target in their closeTargets vector
         bool cliffedTank;
+        bool inMyMainOrNatural;
 
         explicit Target(const Unit &unit, const MyUnit &vanguard)
                 : unit(unit)
                 , priority(targetPriority(unit))
                 , healthIncludingShields(unit->health + unit->shields)
                 , attackerCount(0)
-                , cliffedTank(unit->isCliffedTank(vanguard)) {}
+                , cliffedTank(unit->isCliffedTank(vanguard))
+                , inMyMainOrNatural(isInOurMainOrNatural(unit)) {}
 
         void dealDamage(const MyUnit &attacker)
         {
@@ -417,7 +434,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             }
 
             // The next checks apply if we are not close to our target position
-            if (distanceToTargetPosition > 500 && !isAntiAir)
+            if (distanceToTargetPosition > 500 && !isAntiAir && !target.inMyMainOrNatural)
             {
                 // Skip targets that are out of range and moving away from us
                 if (distanceToTargetPosition > 500 && distToRange > 0)
