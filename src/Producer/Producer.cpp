@@ -1600,6 +1600,22 @@ namespace Producer
             // Guard against endless loops if there's a logic bug in one of the shift methods
             if (item->startFrame >= PREDICT_FRAMES) return false;
 
+            // Shift if the producer is busy at the start frame
+            // This can happen if the producer was able to insert this item earlier, but we didn't have resources for it at the time
+            if (item->producer)
+            {
+                int delta = availableAt(item->type, item->startFrame, item->producer) - item->startFrame;
+                if (delta > 0)
+                {
+                    item->startFrame += delta;
+                    item->completionFrame += delta;
+                    shiftAll(prerequisiteItems, prerequisiteItems.begin(), delta);
+
+                    // Also set the availability of the producer later so it won't be considered for inserting the next item
+                    item->producer->availableFrom = item->completionFrame;
+                }
+            }
+
             if (!commit) return true;
 
             // If there are prerequisites, commit them now
