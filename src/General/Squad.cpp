@@ -276,6 +276,7 @@ void Squad::updateClusters()
 bool Squad::hasDetection() const
 {
     if (detectors.empty()) return false;
+    if (enemiesNeedingDetection.empty()) return true;
 
     // We consider the squad to have detection if an observer is near the vanguard unit
     if (currentVanguardCluster && currentVanguardCluster->vanguard && std::any_of(
