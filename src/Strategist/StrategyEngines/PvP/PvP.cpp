@@ -532,11 +532,23 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     {
         case OurStrategy::EarlyGameDefense:
         case OurStrategy::AntiZealotRush:
-        case OurStrategy::AntiDarkTemplarRush:
         case OurStrategy::Defensive:
             // Don't take our natural if the enemy could be rushing or doing an all-in
             CherryVis::setBoardValue("natural", "wait-defensive");
             break;
+
+        case OurStrategy::AntiDarkTemplarRush:
+        {
+            if (underConstruction && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) > 0)
+            {
+                CherryVis::setBoardValue("natural", "take");
+                takeNaturalExpansion(plays, prioritizedProductionGoals);
+                return;
+            }
+
+            CherryVis::setBoardValue("natural", "wait-defensive");
+            break;
+        }
 
         case OurStrategy::FastExpansion:
             CherryVis::setBoardValue("natural", "take-fast-expo");
