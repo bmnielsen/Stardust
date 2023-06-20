@@ -23,7 +23,7 @@ namespace PathFinding
     {
         for (auto base : Map::allBases())
         {
-            createNavigationGrid(base->getTilePosition(), BWAPI::UnitTypes::Protoss_Nexus.tileSize());
+            createNavigationGrid(BWAPI::TilePosition(base->getPosition()), BWAPI::UnitTypes::Protoss_Nexus.tileSize());
         }
         for (auto choke : Map::allChokes())
         {
@@ -35,17 +35,17 @@ namespace PathFinding
 
     NavigationGrid *getNavigationGrid(BWAPI::TilePosition goal, bool ignoreEnemyBuildings)
     {
-        for (auto &goalAndNavigationGrid : goalToNavigationGrid)
-        {
-            if (goalAndNavigationGrid.first.getApproxDistance(goal) < 5)
-            {
-                auto &grid = ignoreEnemyBuildings ? goalAndNavigationGrid.second.second : goalAndNavigationGrid.second.first;
-                grid.update();
-                return &grid;
-            }
-        }
+        auto gridIt = goalToNavigationGrid.find(goal);
+        if (gridIt == goalToNavigationGrid.end()) return nullptr;
 
-        return nullptr;
+        auto &grid = ignoreEnemyBuildings ? gridIt->second.second : gridIt->second.first;
+        grid.update();
+        return &grid;
+    }
+
+    NavigationGrid *getNavigationGrid(BWAPI::Position goal, bool ignoreEnemyBuildings)
+    {
+        return getNavigationGrid(BWAPI::TilePosition(goal), ignoreEnemyBuildings);
     }
 
     void addBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile, bool isEnemyBuilding)

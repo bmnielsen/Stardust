@@ -273,7 +273,7 @@ void UnitCluster::holdChoke(Choke *choke,
     }
 
     // Now execute move orders
-    auto navigationGrid = PathFinding::getNavigationGrid(BWAPI::TilePosition(choke->center));
+    auto navigationGrid = PathFinding::getNavigationGrid(choke->center);
     for (auto &moveUnit : unitsAndMoveTargets)
     {
         auto &myUnit = std::get<0>(moveUnit);

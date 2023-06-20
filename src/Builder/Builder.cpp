@@ -29,7 +29,7 @@ namespace Builder
 
             // If we are close to the build position and want to build now, issue the build command
             int dist = Geo::EdgeToEdgeDistance(building.builder->type, building.builder->lastPosition, building.type, building.getPosition());
-            if (dist <= 64 && building.desiredStartFrame - currentFrame <= BWAPI::Broodwar->getRemainingLatencyFrames())
+            if (dist <= 24 && building.desiredStartFrame - currentFrame <= BWAPI::Broodwar->getRemainingLatencyFrames())
             {
                 // Return immediately if issuing the build command succeeded
                 if (building.builder->build(building.type, building.tile))

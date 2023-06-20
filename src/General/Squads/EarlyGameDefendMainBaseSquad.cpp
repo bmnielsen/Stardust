@@ -249,7 +249,7 @@ void EarlyGameDefendMainBaseSquad::initializeChoke()
 
         if (choke->isNarrowChoke)
         {
-            auto grid = PathFinding::getNavigationGrid(base->getTilePosition());
+            auto grid = PathFinding::getNavigationGrid(base->getPosition());
             auto end1Node = grid ? &(*grid)[choke->end1Center] : nullptr;
             auto end2Node = grid ? &(*grid)[choke->end2Center] : nullptr;
             if (end1Node && end1Node->nextNode && end2Node && end2Node->nextNode)

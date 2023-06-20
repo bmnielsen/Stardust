@@ -28,7 +28,7 @@ void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
     auto unitsAndTargets = selectTargets(enemyUnits, targetPosition, true);
 
     auto &grid = Players::grid(BWAPI::Broodwar->enemy());
-    auto navigationGrid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition), true);
+    auto navigationGrid = PathFinding::getNavigationGrid(targetPosition, true);
 
     // Do an initial scan to filter out not-ready units and gather their nearest threats
     // The important thing to track is whether any of our units is in range of static defense

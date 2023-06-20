@@ -35,7 +35,7 @@ namespace
 bool UnitCluster::moveAsBall(BWAPI::Position targetPosition, std::set<MyUnit> &ballUnits) const
 {
     // We require a grid
-    auto grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
+    auto grid = PathFinding::getNavigationGrid(targetPosition);
     if (!grid) return false;
 
     // Scaling factor for cohesion boid is based on the size of the squad

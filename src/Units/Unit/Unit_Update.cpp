@@ -788,7 +788,7 @@ bool UnitImpl::updateSimPosition()
     {
         if (BWAPI::Broodwar->isVisible(BWAPI::TilePosition(pos))) return false;
 
-        grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(pos));
+        grid = PathFinding::getNavigationGrid(pos);
         if (!grid) return false;
 
         targetPosition = pos;

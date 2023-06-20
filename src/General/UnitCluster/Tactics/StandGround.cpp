@@ -34,7 +34,7 @@ void UnitCluster::standGround(std::set<Unit> &enemyUnits, BWAPI::Position target
     {
         auto waypoint = PathFinding::NextGridOrChokeWaypoint(vanguard->lastPosition,
                 targetPosition,
-                PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition)),
+                PathFinding::getNavigationGrid(targetPosition),
                 3,
                 true);
         if (waypoint != BWAPI::Positions::Invalid)

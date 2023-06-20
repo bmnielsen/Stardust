@@ -15,6 +15,7 @@ namespace PathFinding
 
     // Gets the navigation grid to a specific goal position
     NavigationGrid *getNavigationGrid(BWAPI::TilePosition goal, bool ignoreEnemyBuildings = false);
+    NavigationGrid *getNavigationGrid(BWAPI::Position goal, bool ignoreEnemyBuildings = false);
 
     // An object that affects pathfinding (e.g. a building) has been added
     void addBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile, bool isEnemyBuilding = false);

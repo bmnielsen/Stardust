@@ -129,7 +129,7 @@ namespace
 
     void moveToBase(MyUnit &unit, Base *base)
     {
-        auto grid = PathFinding::getNavigationGrid(base->getTilePosition());
+        auto grid = PathFinding::getNavigationGrid(base->getPosition());
         if (grid)
         {
             auto node = (*grid)[unit->getTilePosition()];

@@ -133,7 +133,7 @@ void MyUnitImpl::resetMoveData()
 
 void MyUnitImpl::moveToNextWaypoint()
 {
-    // Current grid node is close to the target
+    // Current grid node is close to the target (approx. 3 tiles away)
     if (gridNode && gridNode->cost <= 90)
     {
 #if DEBUG_UNIT_ORDERS
@@ -345,19 +345,19 @@ void MyUnitImpl::resetGrid()
 
     if (mineralWalkingChoke)
     {
-        grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(mineralWalkingChoke->center));
+        grid = PathFinding::getNavigationGrid(mineralWalkingChoke->center);
     }
     else
     {
         // We have ruled out mineral walking, so try to get a grid to the target
-        grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(targetPosition));
+        grid = PathFinding::getNavigationGrid(targetPosition);
 
         // If that failed, try to get a grid to the furthest choke we can
         if (!grid)
         {
             for (auto it = chokePath.rbegin(); it != chokePath.rend(); it++)
             {
-                grid = PathFinding::getNavigationGrid(BWAPI::TilePosition((*it)->Center()));
+                grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(Map::choke(*it)->center));
 
                 // Don't use a grid if the current node is invalid or if the goal is very close
                 if (grid)

@@ -182,7 +182,7 @@ namespace
         auto mainChoke = Map::getMyMainChoke();
         if (!enemyMain || !mainChoke) return false;
 
-        auto grid = PathFinding::getNavigationGrid(enemyMain->getTilePosition());
+        auto grid = PathFinding::getNavigationGrid(enemyMain->getPosition());
         if (!grid) return false;
 
         auto node = (*grid)[mainChoke->center];

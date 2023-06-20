@@ -223,7 +223,7 @@ namespace
 
         if (!vanguard) return true;
 
-        auto grid = PathFinding::getNavigationGrid(targetBase->getTilePosition());
+        auto grid = PathFinding::getNavigationGrid(targetBase->getPosition());
         if (!grid) return true;
 
         auto node = (*grid)[vanguard->lastPosition];
