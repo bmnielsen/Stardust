@@ -166,7 +166,7 @@ void TakeExpansion::update()
 
     // If the enemy base is blocked by a hidden enemy unit, build a cannon to clear it
     buildCannon = false;
-    if (blocker || base->blockedByEnemy)
+    if (blocker || base->blockedByEnemy || Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
     {
         buildCannon = true;
 
