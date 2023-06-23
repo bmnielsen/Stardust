@@ -563,9 +563,15 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // that is close to the enemy base
 
             // Check for an attack play first - if we don't have one, we will cancel a constructing natural nexus
+            // Exception is if our attack play went defensive because an observer isn't close enough to detect a DT
             auto mainArmyPlay = getPlay<AttackEnemyBase>(plays);
             if (!mainArmyPlay)
             {
+                if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) > 0)
+                {
+                    cancel = false;
+                }
+
                 CherryVis::setBoardValue("natural", "no-attack-play");
                 break;
             }
