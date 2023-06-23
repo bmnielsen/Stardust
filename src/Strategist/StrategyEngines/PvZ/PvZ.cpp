@@ -42,8 +42,8 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays)
     plays.emplace_back(std::make_shared<Corsairs>());
 
     // Determine whether to do a forge fast expand
-    // Currently always does one if there is a wall on this map
-    if (BuildingPlacement::hasForgeGatewayWall())
+    // Currently always does one if there is a wall on this map unless enemy was random
+    if (currentFrame == 0 && BuildingPlacement::hasForgeGatewayWall())
     {
         plays.emplace_back(std::make_shared<ForgeFastExpand>());
         ourStrategy = OurStrategy::SairSpeedlot;
