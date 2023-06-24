@@ -251,7 +251,8 @@ void StardustAIModule::onFrame()
     Timer::checkpoint("Units::issueOrders");
 
     auto enemyNatural = Map::getEnemyStartingNatural();
-    if (enemyNatural && enemyNatural->resourceDepot && enemyNatural->resourceDepot->exists() && enemyNatural->resourceDepot->bwapiUnit->isVisible())
+    if (enemyNatural && enemyNatural->resourceDepot && enemyNatural->resourceDepot->exists() && enemyNatural->resourceDepot->bwapiUnit->isVisible()
+            && enemyNatural->resourceDepot->health > 100)
     {
         // Check for other visible enemy units
         std::set<Unit> enemyUnits;
