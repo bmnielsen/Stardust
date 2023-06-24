@@ -14,7 +14,7 @@ namespace CherryVis
     {
 #if CHERRYVIS_ENABLED
 
-        bool disabled;
+        bool disabled = false;
 
         enum DataFileType {
             Array,
@@ -331,7 +331,6 @@ namespace CherryVis
     void initialize()
     {
 #if CHERRYVIS_ENABLED
-        disabled = false;
         boardUpdatesFile = std::make_unique<DataFile>("board_updates", DataFileType::ObjectPerFrame);
         frameBoardUpdates = nlohmann::json::object();
         frameHasBoardUpdates = false;
@@ -645,6 +644,8 @@ void CherryVis::disable()
 void CherryVis::writeFrameData(const std::string &label, const nlohmann::json &entry, int framesPerPartition)
 {
 #if CHERRYVIS_ENABLED
+    if (disabled) return;
+
     auto fileIt = labelToDataFile.find(label);
     if (fileIt == labelToDataFile.end())
     {
