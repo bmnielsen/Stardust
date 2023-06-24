@@ -166,6 +166,10 @@ public:
 
     [[nodiscard]] int range(const Unit &target) const;
 
+    [[nodiscard]] int groundDamage() const;
+
+    [[nodiscard]] int airDamage() const;
+
     [[nodiscard]] BWAPI::WeaponType groundWeapon() const;
 
     [[nodiscard]] BWAPI::WeaponType airWeapon() const;

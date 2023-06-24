@@ -150,24 +150,31 @@ int UnitImpl::range(const Unit &target) const
     return target->isFlying ? airRange() : groundRange();
 }
 
+int UnitImpl::groundDamage() const
+{
+    if (type != BWAPI::UnitTypes::Terran_Vulture_Spider_Mine &&
+        ((burrowed && type != BWAPI::UnitTypes::Zerg_Lurker) ||
+         (!burrowed && type == BWAPI::UnitTypes::Zerg_Lurker)))
+    {
+        return 0;
+    }
+
+    return Players::weaponDamage(player, groundWeapon()) * type.maxGroundHits();
+}
+
+int UnitImpl::airDamage() const
+{
+    return Players::weaponDamage(player, airWeapon()) * type.maxAirHits();
+}
+
 BWAPI::WeaponType UnitImpl::groundWeapon() const
 {
-    auto weaponUnitType = type;
-    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
-    if (type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
-    if (type == BWAPI::UnitTypes::Protoss_Reaver) weaponUnitType = BWAPI::UnitTypes::Protoss_Scarab;
-
-    return UnitUtil::GetGroundWeapon(weaponUnitType);
+    return UnitUtil::GetGroundWeapon(type);
 }
 
 BWAPI::WeaponType UnitImpl::airWeapon() const
 {
-    auto weaponUnitType = type;
-    if (type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
-    if (type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
-    if (type == BWAPI::UnitTypes::Protoss_Reaver) weaponUnitType = BWAPI::UnitTypes::Protoss_Scarab;
-
-    return UnitUtil::GetAirWeapon(weaponUnitType);
+    return UnitUtil::GetAirWeapon(type);
 }
 
 BWAPI::WeaponType UnitImpl::getWeapon(const Unit &target) const

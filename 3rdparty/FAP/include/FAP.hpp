@@ -42,18 +42,18 @@ namespace FAP {
         , collisionPlayer2(collisionPlayer2) {}
 
     /**
-     * \brief Adds the unit to the simulator for player 1, only if it is a combat unit
+     * \brief Adds the unit to the simulator for player 1
      * \param fu The FAPUnit to add
      */
     template<bool choke = false, UnitValues uv>
-    bool addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu);
+    void addPlayer1(Unit<uv, UnitExtension> &&fu);
 
     /**
-     * \brief Adds the unit to the simulator for player 2, only if it is a combat unit
+     * \brief Adds the unit to the simulator for player 2
      * \param fu The FAPUnit to add
      */
     template<bool choke = false, UnitValues uv>
-    bool addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu);
+    void addPlayer2(Unit<uv, UnitExtension> &&fu);
 
     /**
      * \brief Starts the simulation. You can run this function multiple times. Feel free to run once, get the state and keep running.
@@ -140,13 +140,6 @@ namespace FAP {
       int vars[2] = { a, b };
       return vars[a < b];
     }
-
-    static bool isCombatUnit(FAPUnit<UnitExtension> &u) {
-      return (u.unitType != BWAPI::UnitTypes::Protoss_Interceptor) &
-        (static_cast<bool>(u.airDamage) | static_cast<bool>(u.groundDamage)
-                | static_cast<bool>(u.unitType == BWAPI::UnitTypes::Terran_Medic)
-                | static_cast<bool>(u.unitType == BWAPI::UnitTypes::Zerg_Overlord));
-    }
   };
 
   template<UnitValues uv>
@@ -195,28 +188,20 @@ namespace FAP {
 
   template<typename UnitExtension>
   template<bool choke, UnitValues uv>
-  bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer1(Unit<uv, UnitExtension> &&fu) {
-    if (isCombatUnit(fu.unit)) {
-      static_assert(AssertValidUnit<uv>());
-      initializeCollision<choke>(fu.unit, collisionPlayer1);
-      fu.unit.player = 1;
-      player1.emplace_back(fu.unit);
-      return true;
-    }
-    return false;
+  void FastAPproximation<UnitExtension>::addPlayer1(Unit<uv, UnitExtension> &&fu) {
+    static_assert(AssertValidUnit<uv>());
+    initializeCollision<choke>(fu.unit, collisionPlayer1);
+    fu.unit.player = 1;
+    player1.emplace_back(fu.unit);
   }
 
   template<typename UnitExtension>
   template<bool choke, UnitValues uv>
-  bool FastAPproximation<UnitExtension>::addIfCombatUnitPlayer2(Unit<uv, UnitExtension> &&fu) {
-    if (isCombatUnit(fu.unit)) {
-      static_assert(AssertValidUnit<uv>());
-      initializeCollision<choke>(fu.unit, collisionPlayer2);
-      fu.unit.player = 2;
-      player2.emplace_back(fu.unit);
-      return true;
-    }
-    return false;
+  void FastAPproximation<UnitExtension>::addPlayer2(Unit<uv, UnitExtension> &&fu) {
+    static_assert(AssertValidUnit<uv>());
+    initializeCollision<choke>(fu.unit, collisionPlayer2);
+    fu.unit.player = 2;
+    player2.emplace_back(fu.unit);
   }
 
   template<typename UnitExtension>

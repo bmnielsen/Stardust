@@ -35,38 +35,25 @@ namespace
     int baseScore[BWAPI::UnitTypes::Enum::MAX];
     int scaledScore[BWAPI::UnitTypes::Enum::MAX];
 
+    // Whether a unit goes into the sim
+    bool isSimUnit(const Unit &unit)
+    {
+        if (!unit->completed) return false;
+        if (unit->immobile) return false;
+
+        if (unit->type == BWAPI::UnitTypes::Protoss_Interceptor) return false;
+        if (unit->type == BWAPI::UnitTypes::Terran_Medic) return true;
+        if (unit->type == BWAPI::UnitTypes::Zerg_Overlord) return true;
+
+        return unit->groundDamage() > 0 || unit->airDamage() > 0;
+    }
+
     auto inline makeUnit(const Unit &unit,
                          const Unit &vanguard,
                          bool mobileDetection,
                          BWAPI::Position targetPosition = BWAPI::Positions::Invalid,
                          int target = 0)
     {
-        BWAPI::UnitType weaponType;
-        switch (unit->type)
-        {
-            case BWAPI::UnitTypes::Protoss_Carrier:
-                weaponType = BWAPI::UnitTypes::Protoss_Interceptor;
-                break;
-            case BWAPI::UnitTypes::Terran_Bunker:
-                weaponType = BWAPI::UnitTypes::Terran_Marine;
-                break;
-            case BWAPI::UnitTypes::Protoss_Reaver:
-                weaponType = BWAPI::UnitTypes::Protoss_Scarab;
-                break;
-            default:
-                weaponType = unit->type;
-                break;
-        }
-
-        int groundDamage = Players::weaponDamage(unit->player, weaponType.groundWeapon());
-        int airDamage = Players::weaponDamage(unit->player, weaponType.airWeapon());
-        if (unit->type != BWAPI::UnitTypes::Terran_Vulture_Spider_Mine &&
-            ((unit->burrowed && unit->type != BWAPI::UnitTypes::Zerg_Lurker) ||
-             (!unit->burrowed && unit->type == BWAPI::UnitTypes::Zerg_Lurker)))
-        {
-            groundDamage = airDamage = 0;
-        }
-
         int collisionValue;
         int collisionValueChoke;
         if (unit->isFlying)
@@ -115,17 +102,16 @@ namespace
                         // For this next section, we have modified FAP to allow taking the upgraded values instead of the upgrade levels
                 .setSpeed(Players::unitTopSpeed(unit->player, unit->type))
                 .setArmor(Players::unitArmor(unit->player, unit->type))
-                .setGroundCooldown(Players::unitGroundCooldown(unit->player, weaponType)
-                                   / std::max(weaponType.maxGroundHits(), 1))
-                .setGroundDamage(groundDamage)
+                .setGroundCooldown(Players::unitGroundCooldown(unit->player, unit->type))
+                .setGroundDamage(unit->groundDamage())
                 .setGroundMaxRange(unit->groundRange())
-                .setAirCooldown(Players::unitAirCooldown(unit->player, weaponType)
-                                / std::max(weaponType.maxAirHits(), 1))
-                .setAirDamage(airDamage)
+                .setAirCooldown(Players::unitAirCooldown(unit->player, unit->type))
+                .setAirDamage(unit->airDamage())
                 .setAirMaxRange(unit->airRange())
 
                 .setElevation(BWAPI::Broodwar->getGroundHeight(unit->simPosition.x >> 5, unit->simPosition.y >> 5))
 
+                // TODO: Figure out if we need to do something with initializing attack cooldown for bunkers
                 .setAttackerCount(unit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
                 .setAttackCooldownRemaining(std::max(0, unit->cooldownUntil - currentFrame))
 
@@ -187,22 +173,24 @@ namespace
         int myCount = 0;
         for (auto &unitAndTarget : unitsAndTargets)
         {
-            if (unitAndTarget.first->immobile) continue;
+            if (!isSimUnit(unitAndTarget.first)) continue;
 
             auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
-            bool added = attacking
-                         ? sim.addIfCombatUnitPlayer1<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, targetPosition, target))
-                         : sim.addIfCombatUnitPlayer2<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, targetPosition, target));
-
-            if (added)
+            if (attacking)
             {
-                myCount++;
-                if (unitAndTarget.first->type != BWAPI::UnitTypes::Protoss_Zealot) allTierOne = false;
+                sim.addPlayer1<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, targetPosition, target));
+            }
+            else
+            {
+                sim.addPlayer2<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, targetPosition, target));
+            }
+
+            myCount++;
+            if (unitAndTarget.first->type != BWAPI::UnitTypes::Protoss_Zealot) allTierOne = false;
 
 #if DEBUG_COMBATSIM_CSV
-                if (unitAndTarget.first->id < minUnitId) minUnitId = unitAndTarget.first->id;
+            if (unitAndTarget.first->id < minUnitId) minUnitId = unitAndTarget.first->id;
 #endif
-            }
         }
 
         // Determine if we have mobile detection with this cluster
@@ -221,27 +209,29 @@ namespace
         bool enemyHasUndetectedUnits = false;
         for (auto &unit : targets)
         {
-            if (!unit->completed) continue;
-            if (unit->immobile) continue;
+            if (!isSimUnit(unit)) continue;
             if (unit->undetected && !haveMobileDetection) enemyHasUndetectedUnits = true;
 
             // Only include workers if they have been seen attacking recently
             // TODO: Handle worker rushes
             if (!unit->type.isWorker() || (currentFrame - unit->lastSeenAttacking) < 120)
             {
-                bool added = attacking
-                             ? sim.addIfCombatUnitPlayer2<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection))
-                             : sim.addIfCombatUnitPlayer1<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection));
-
-                if (added)
+                if (attacking)
                 {
-                    enemyCount++;
-                    if (unit->type != BWAPI::UnitTypes::Protoss_Zealot &&
-                        unit->type != BWAPI::UnitTypes::Zerg_Zergling &&
-                        unit->type != BWAPI::UnitTypes::Terran_Marine)
-                    {
-                        allTierOne = false;
-                    }
+                    sim.addPlayer2<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection));
+                }
+                else
+                {
+                    sim.addPlayer1<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection));
+                }
+
+                enemyCount++;
+
+                if (unit->type != BWAPI::UnitTypes::Protoss_Zealot &&
+                    unit->type != BWAPI::UnitTypes::Zerg_Zergling &&
+                    unit->type != BWAPI::UnitTypes::Terran_Marine)
+                {
+                    allTierOne = false;
                 }
             }
         }
@@ -553,7 +543,7 @@ CombatSimResult UnitCluster::runCombatSim(BWAPI::Position targetPosition,
             int total = 0;
             for (const auto &unit : targets)
             {
-                if (!unit->completed) continue;
+                if (!isSimUnit(unit)) continue;
                 if (!unit->simPositionValid) continue;
 
                 total++;

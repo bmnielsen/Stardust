@@ -68,6 +68,12 @@ namespace Players
             return 38;
         }
 
+        // Assume marines are in bunkers
+        if (type == BWAPI::UnitTypes::Terran_Bunker)
+        {
+            return getUpgradeTracker(player)->unitGroundCooldown(BWAPI::UnitTypes::Terran_Marine);
+        }
+
         return getUpgradeTracker(player)->unitGroundCooldown(type);
     }
 
@@ -77,6 +83,12 @@ namespace Players
         if (type == BWAPI::UnitTypes::Protoss_Interceptor || type == BWAPI::UnitTypes::Protoss_Carrier)
         {
             return 38;
+        }
+
+        // Assume marines are in bunkers
+        if (type == BWAPI::UnitTypes::Terran_Bunker)
+        {
+            return getUpgradeTracker(player)->unitAirCooldown(BWAPI::UnitTypes::Terran_Marine);
         }
 
         return getUpgradeTracker(player)->unitAirCooldown(type);
