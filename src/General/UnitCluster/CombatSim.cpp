@@ -305,6 +305,15 @@ namespace
         int iterations = 288;
         if (allTierOne && !attacking) iterations = 60;
 
+#if DEBUG_COMBATSIM_EACHFRAME
+        std::vector<int> eachFrameMine;
+        std::vector<int> eachFrameEnemy;
+        eachFrameMine.reserve(iterations + 1);
+        eachFrameEnemy.reserve(iterations + 1);
+        eachFrameMine.push_back(initialMine);
+        eachFrameEnemy.push_back(initialEnemy);
+#endif
+
         auto startTime = std::chrono::high_resolution_clock::now();
         int i = 0;
         while (true)
@@ -383,6 +392,11 @@ namespace
             }
 #endif
 
+#if DEBUG_COMBATSIM_EACHFRAME
+            eachFrameMine.push_back(score(attacking ? sim.getState().first : sim.getState().second));
+            eachFrameEnemy.push_back(score(attacking ? sim.getState().second : sim.getState().first));
+#endif
+
             i++;
 
             if (i >= iterations) break;
@@ -414,11 +428,23 @@ namespace
         CherryVis::log() << debug.str();
 #endif
 
-#if DEBUG_COMBATSIM_CVIS
-        return {myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, enemyHasUndetectedUnits, narrowChoke, std::move(unitLog)};
-#else
-        return {myCount, enemyCount, initialMine, initialEnemy, finalMine, finalEnemy, enemyHasUndetectedUnits, narrowChoke};
+        return {
+            myCount,
+            enemyCount,
+            initialMine,
+            initialEnemy,
+            finalMine,
+            finalEnemy,
+#if DEBUG_COMBATSIM_EACHFRAME
+            std::move(eachFrameMine),
+            std::move(eachFrameEnemy),
 #endif
+            enemyHasUndetectedUnits,
+            narrowChoke,
+#if DEBUG_COMBATSIM_CVIS
+            std::move(unitLog),
+#endif
+        };
     }
 }
 

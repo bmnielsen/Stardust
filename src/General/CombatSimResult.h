@@ -14,6 +14,10 @@ public:
     int initialEnemy;
     int finalMine;
     int finalEnemy;
+#if DEBUG_COMBATSIM_EACHFRAME
+    std::vector<int> eachFrameMine;
+    std::vector<int> eachFrameEnemy;
+#endif
 
     bool enemyHasUndetectedUnits;
 
@@ -34,6 +38,10 @@ public:
                     int initialEnemy,
                     int finalMine,
                     int finalEnemy,
+#if DEBUG_COMBATSIM_EACHFRAME
+                    std::vector<int> eachFrameMine,
+                    std::vector<int> eachFrameEnemy,
+#endif
                     bool enemyHasUndetectedUnits,
                     Choke *narrowChoke
 #if DEBUG_COMBATSIM_CVIS
@@ -47,6 +55,10 @@ public:
             , initialEnemy(initialEnemy)
             , finalMine(finalMine)
             , finalEnemy(finalEnemy)
+#if DEBUG_COMBATSIM_EACHFRAME
+            , eachFrameMine(std::move(eachFrameMine))
+            , eachFrameEnemy(std::move(eachFrameEnemy))
+#endif
             , enemyHasUndetectedUnits(enemyHasUndetectedUnits)
             , narrowChoke(narrowChoke)
             , distanceFactor(-1.0)
@@ -58,11 +70,15 @@ public:
 #endif
             {}
 
-#if DEBUG_COMBATSIM_CVIS
-    CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0, false, nullptr, std::unordered_map<std::string, std::vector<int>>()) {};
-#else
-    CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0, false, nullptr) {};
+    CombatSimResult() : CombatSimResult(0, 0, 0, 0, 0, 0
+#if DEBUG_COMBATSIM_EACHFRAME
+            , std::vector<int>(), std::vector<int>()
 #endif
+            , false, nullptr
+#if DEBUG_COMBATSIM_CVIS
+            , std::unordered_map<std::string, std::vector<int>>()
+#endif
+    ) {};
 
     // What percentage of my army value was lost during the sim
     [[nodiscard]] double myPercentLost() const;
