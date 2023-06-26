@@ -250,7 +250,10 @@ function cvis_dbg_unitslist_update_selected(global_data, cvis_state) {
         selected_units_bw[i].bw_id, true));
   }
 
-  cvis_state.selected_units = units_selected.map(x => x.id);
+  let new_selected = units_selected.map(x => x.id).sort();
+  if (cvis_state.selected_units.join(",") === new_selected.join(",")) return;
+
+  cvis_state.selected_units = new_selected;
 
   if (units_selected.length) {
     $('.hide-if-units-selected').hide();
@@ -264,4 +267,18 @@ function cvis_dbg_unitslist_update_selected(global_data, cvis_state) {
     units_selected,
     u => (u.id + '__' + u.type)
   );
+
+  if (units_selected.length) {
+    let units = "Selected units:";
+    for (const unit of units_selected) {
+      units += "\nUnitTypeAndPosition(BWAPI::UnitTypes::";
+      units += (global_data['types_names'] || {})[unit.type] || ('UnkType ' + unit.type);
+      units += ", BWAPI::Position(";
+      units += unit.x;
+      units += ", ";
+      units += unit.y;
+      units += "), true),";
+    }
+    console.log(units);
+  }
 }
