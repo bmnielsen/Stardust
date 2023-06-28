@@ -60,6 +60,7 @@ TEST(BananaBrain, RunThirty)
         BananaBrain* bbModule;
         test.maps = Maps::Get("cog2022");
         test.opponentRace = BWAPI::Races::Protoss;
+        test.frameLimit = 12000;
         test.opponentModule = [&]()
         {
             bbModule = new BananaBrain();
@@ -116,6 +117,7 @@ TEST(BananaBrain, RunOne)
     test.opponentName = "BananaBrain";
     test.opponentRace = BWAPI::Races::Protoss;
     test.maps = Maps::Get("sscait");
+    test.frameLimit = 10000;
     test.opponentModule = [&]()
     {
         bbModule = new BananaBrain();
@@ -279,6 +281,7 @@ TEST(BananaBrain, NZCoreDt)
     test.opponentRace = BWAPI::Races::Protoss;
     test.map = Maps::GetOne("Breakers");
     test.frameLimit = 15000;
+    test.randomSeed = 62090;
     test.opponentModule = []()
     {
         auto bbModule = new BananaBrain();
@@ -294,9 +297,9 @@ TEST(BananaBrain, NZCore)
     BWTest test;
     test.opponentName = "BananaBrain";
     test.opponentRace = BWAPI::Races::Protoss;
-    test.map = Maps::GetOne("Breakers");
-    test.randomSeed = 39960;
-    test.frameLimit = 15000;
+    test.map = Maps::GetOne("Python");
+    test.randomSeed = 26255;
+    test.frameLimit = 10000;
     test.opponentModule = []()
     {
         auto bbModule = new BananaBrain();

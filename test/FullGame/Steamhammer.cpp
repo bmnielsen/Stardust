@@ -152,6 +152,8 @@ TEST(Steamhammer, OverhatchExpoMuta)
     BWTest test;
     test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;
+    test.map = Maps::GetOne("Andromeda");
+    test.randomSeed = 84773;
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();

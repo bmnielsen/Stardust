@@ -46,6 +46,7 @@ TEST(McRave, RunThirty)
             if (!won)
             {
                 replayName << "_LOSS";
+                lost++;
             }
             if (test.sharedMemory) replayName << "_" << test.sharedMemory;
             replayName << "_" << test.randomSeed;
