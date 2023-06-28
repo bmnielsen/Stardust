@@ -33,4 +33,7 @@ namespace CombatSim
     int unitValue(const Unit &unit);
 
     int unitValue(BWAPI::UnitType type);
+
+    // Used from tests for sim evaluation
+    void setMaxIterations(int iterations);
 }

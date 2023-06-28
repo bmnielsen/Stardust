@@ -35,6 +35,9 @@ namespace
     int baseScore[BWAPI::UnitTypes::Enum::MAX];
     int scaledScore[BWAPI::UnitTypes::Enum::MAX];
 
+    // Parameters
+    int maxIterations;
+
     // Whether a unit goes into the sim
     bool isSimUnit(const Unit &unit)
     {
@@ -302,8 +305,8 @@ namespace
         int initialMine = score(attacking ? sim.getState().first : sim.getState().second);
         int initialEnemy = score(attacking ? sim.getState().second : sim.getState().first);
 
-        int iterations = 288;
-        if (allTierOne && !attacking) iterations = 60;
+        int iterations = maxIterations;
+        if (allTierOne && !attacking) iterations /= 4;
 
 #if DEBUG_COMBATSIM_EACHFRAME
         std::vector<int> eachFrameMine;
@@ -404,7 +407,7 @@ namespace
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count();
             if (duration > LIMIT_MICROSECONDS)
             {
-                if (iterations < 144) CherryVis::log() << "Sim aborted after " << i << "iterations";
+                if (iterations < maxIterations) CherryVis::log() << "Sim aborted after " << i << "iterations";
                 break;
             }
         }
@@ -519,6 +522,8 @@ namespace CombatSim
             baseScore[type] = score >> 2U;
             scaledScore[type] = score - baseScore[type];
         }
+
+        maxIterations = 288;
     }
 
     int unitValue(const FAP::FAPUnit<> &unit)
@@ -536,6 +541,11 @@ namespace CombatSim
     {
         return baseScore[type] + scaledScore[type];
     }
+
+    void setMaxIterations(int iterations)
+    {
+        maxIterations = iterations;
+    }
 }
 
 CombatSimResult UnitCluster::runCombatSim(BWAPI::Position targetPosition,
@@ -547,7 +557,7 @@ CombatSimResult UnitCluster::runCombatSim(BWAPI::Position targetPosition,
 {
     if (unitsAndTargets.empty() || targets.empty())
     {
-        return CombatSimResult();
+        return CombatSimResult{};
     }
 
     // Check if the armies are separated by a narrow choke
@@ -602,7 +612,7 @@ void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
         recentSimResults.clear();
     }
 
-    recentSimResults.emplace_back(std::make_pair(simResult, attack));
+    recentSimResults.emplace_back(simResult, attack);
 }
 
 void UnitCluster::addRegroupSimResult(CombatSimResult &simResult, bool contain)
@@ -613,7 +623,7 @@ void UnitCluster::addRegroupSimResult(CombatSimResult &simResult, bool contain)
         recentRegroupSimResults.clear();
     }
 
-    recentRegroupSimResults.emplace_back(std::make_pair(simResult, contain));
+    recentRegroupSimResults.emplace_back(simResult, contain);
 }
 
 int UnitCluster::consecutiveSimResults(std::deque<std::pair<CombatSimResult, bool>> &simResults,
