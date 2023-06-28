@@ -7,5 +7,5 @@
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_COMBATSIM_CVIS true        // Writes combat sim data to cherryvis
-#define DEBUG_COMBATSIM_EACHFRAME true   // Writes values after each frame of the sim
+#define DEBUG_COMBATSIM_EACHFRAME false   // Writes values after each frame of the sim
 #endif
