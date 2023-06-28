@@ -247,6 +247,9 @@ void StrategyEngine::cancelTrainingUnits(std::map<int, std::vector<ProductionGoa
                                          int requiredCapacity,
                                          int remainingTrainingTimeThreshold)
 {
+    // Disabled as this can cause crashes because of BWAPI issue https://github.com/bwapi/bwapi/issues/864
+    return;
+
     if (requiredCapacity < 1) return;
 
     // Abort if there is emergency production of the unit
