@@ -50,6 +50,10 @@ namespace
             Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
         };
         bool failed = false;
+        test.onEndMine = [&test](bool)
+        {
+            test.addClockPositionToReplayName();
+        };
         test.onFrameMine = [&failed, &test]()
         {
             auto &wall = BuildingPlacement::getForgeGatewayWall();
@@ -312,7 +316,27 @@ TEST(ForgeGatewayWalls, Eclipse)
     test.onFrameMine = []() {
         if (currentFrame == 0)
         {
-            generateWalls();
+            generateWalls(116, 7);
+        }
+    };
+    test.run();
+}
+
+TEST(ForgeGatewayWalls, Outsider)
+{
+    BWTest test;
+    test.randomSeed = 1617;
+    test.map = Maps::GetOne("Outsider");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.onFrameMine = []() {
+        if (currentFrame == 0)
+        {
+            generateWalls(96, 7);
         }
     };
     test.run();
