@@ -50,6 +50,8 @@ int currentFrame;
 
 namespace
 {
+    bool gameFinished;
+
     void handleUnitDiscover(BWAPI::Unit unit)
     {
         Map::onUnitDiscover(unit);
@@ -65,6 +67,7 @@ namespace
 
 void StardustAIModule::onStart()
 {
+    gameFinished = false;
     currentFrame = 0;
 
     // Initialize globals that just need to make sure their global data is reset
@@ -82,6 +85,11 @@ void StardustAIModule::onStart()
 
     Log::SetDebug(true);
     CherryVis::initialize();
+
+    if (moduleBaseAddress > 0)
+    {
+        Log::Get() << "Module base address: 0x" << std::hex << moduleBaseAddress;
+    }
 
     Timer::start("Startup");
 
@@ -145,6 +153,7 @@ void StardustAIModule::onFrame()
         return;
     }
     if (gameFinished) return;
+
     if (BWAPI::Broodwar->isPaused()) return;
     if (BWAPI::Broodwar->isReplay()) return;
 
@@ -202,7 +211,7 @@ void StardustAIModule::onFrame()
 
     // Update general information things
     Opponent::update();
-    Timer::checkpoint("Players::update");
+    Timer::checkpoint("Opponent::update");
 
     Players::update();
     Timer::checkpoint("Players::update");
@@ -252,7 +261,7 @@ void StardustAIModule::onFrame()
 
     auto enemyNatural = Map::getEnemyStartingNatural();
     if (enemyNatural && enemyNatural->resourceDepot && enemyNatural->resourceDepot->exists() && enemyNatural->resourceDepot->bwapiUnit->isVisible()
-            && enemyNatural->resourceDepot->health > 100)
+        && enemyNatural->resourceDepot->health > 100)
     {
         // Check for other visible enemy units
         std::set<Unit> enemyUnits;

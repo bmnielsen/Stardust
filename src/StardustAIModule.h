@@ -5,13 +5,14 @@
 class StardustAIModule : public BWAPI::AIModule
 {
 public:
-    bool gameFinished = false;
-
     // Used in our test infrastructure
     int frameSkip = 0;
     std::function<void()> testOnStart = nullptr;
     std::function<void()> testOnFrame = nullptr;
     std::function<void(bool)> testOnEnd = nullptr;
+
+    // Used for getting stable pointers in the case of crashes
+    unsigned long moduleBaseAddress = 0;
 
     void onStart() override;
 
