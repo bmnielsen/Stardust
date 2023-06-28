@@ -774,3 +774,66 @@ TEST(ContainAtChoke, DragoonsVsDragoonsLargeArmy)
 
     test.run();
 }
+
+TEST(ContainAtChoke, ChokeDetectFailure)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        auto module = new StardustAIModule();
+        CherryVis::disable();
+        return module;
+    };
+    test.map = Maps::GetOne("Breakers");
+    test.randomSeed = 62090;
+    test.frameLimit = 2000;
+    test.expectWin = false;
+
+    // Equal dragoon armies at each side of the choke
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(67, 118), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(63, 122), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(61, 138), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(65, 140), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(64, 129), true),
+    };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(35, 117), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(43, 129), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(43, 124), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(39, 122), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::WalkPosition(31, 115), true),
+    };
+
+    Base *baseToAttack = nullptr;
+
+    test.onStartMine = [&baseToAttack]()
+    {
+        BWAPI::Broodwar->self()->setUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge, 1);
+
+        baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(7, 9)));
+
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack));
+        Strategist::setOpening(openingPlays);
+    };
+
+    test.onStartOpponent = []()
+    {
+        BWAPI::Broodwar->self()->setUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge, 1);
+
+        auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 9)));
+
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack, true));
+        Strategist::setOpening(openingPlays);
+    };
+
+    test.run();
+}

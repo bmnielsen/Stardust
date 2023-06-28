@@ -11,21 +11,21 @@ public:
     BWAPI::UnitType type;
     bool waitForCreep;
 
-    UnitTypeAndPosition(BWAPI::UnitType type, BWAPI::Position position)
-            : type(type), waitForCreep(false), position(position), tilePosition(BWAPI::TilePositions::Invalid) {}
+    UnitTypeAndPosition(BWAPI::UnitType type, BWAPI::Position position, bool isCenter = false)
+            : type(type), waitForCreep(false), position(position), tilePosition(BWAPI::TilePositions::Invalid), isCenter(isCenter) {}
 
-    UnitTypeAndPosition(BWAPI::UnitType type, BWAPI::WalkPosition position)
-            : UnitTypeAndPosition(type, BWAPI::Position(position) + BWAPI::Position(2, 2)) {}
+    UnitTypeAndPosition(BWAPI::UnitType type, BWAPI::WalkPosition position, bool isCenter = false)
+            : UnitTypeAndPosition(type, BWAPI::Position(position) + BWAPI::Position(4, 4), isCenter) {}
 
     UnitTypeAndPosition(BWAPI::UnitType type, BWAPI::TilePosition tilePosition, bool waitForCreep = false)
-            : type(type), waitForCreep(waitForCreep), position(BWAPI::Positions::Invalid), tilePosition(tilePosition) {}
+            : type(type), waitForCreep(waitForCreep), position(BWAPI::Positions::Invalid), tilePosition(tilePosition), isCenter(false) {}
 
-    BWAPI::Position getCenterPosition();
+    BWAPI::Position getCenterPosition() const;
 
 private:
     BWAPI::Position position;
     BWAPI::TilePosition tilePosition;
-
+    bool isCenter;
 };
 
 struct BWTest

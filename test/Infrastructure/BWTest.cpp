@@ -175,12 +175,14 @@ namespace
     }
 }
 
-BWAPI::Position UnitTypeAndPosition::getCenterPosition()
+BWAPI::Position UnitTypeAndPosition::getCenterPosition() const
 {
-    if (tilePosition.isValid())
+    if (tilePosition != BWAPI::TilePositions::Invalid)
     {
         return Geo::CenterOfUnit(tilePosition, type);
     }
+
+    if (isCenter) return position;
 
     return Geo::CenterOfUnit(position, type);
 }
