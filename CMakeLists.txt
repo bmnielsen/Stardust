@@ -4,13 +4,13 @@ project(Stardust)
 set(CMAKE_CXX_STANDARD 17)
 
 IF(MSVC)
-    include(CheckIPOSupported)
-    check_ipo_supported()
-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-
     option(TOURNAMENT_BUILD "Tournament build" OFF)
 
-    IF(NOT TOURNAMENT_BUILD)
+    IF(TOURNAMENT_BUILD)
+        include(CheckIPOSupported)
+        check_ipo_supported()
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+    ELSE(TOURNAMENT_BUILD)
         set(ZSTD_BUILD_CONTRIB false)
         set(ZSTD_BUILD_PROGRAMS false)
         set(ZSTD_BUILD_SHARED false)
