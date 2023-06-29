@@ -1738,9 +1738,10 @@ namespace Producer
                     // If the other item is a pylon that does not already have a location, use this one instead
                     // This case happens if we've queued a pylon for supply earlier and now get a request for a specific
                     // pylon location - we may as well just build one
-                    // One exception is if we don't have any pylons currently - we don't want to steal our start block pylon
+                    // An exception is if the pylon is being queued for a much later frame, in which case we don't want to interrupt our normal
+                    // pylon placement decisions
                     if (*unitType == BWAPI::UnitTypes::Protoss_Pylon && !otherItem->buildLocation.location.tile.isValid()
-                        && Units::countAll(BWAPI::UnitTypes::Protoss_Pylon) > 0)
+                        && (frame - otherItem->startFrame) < 2000)
                     {
                         otherItem->estimatedWorkerMovementTime = buildLocation->builderFrames;
                         otherItem->buildLocation = *buildLocation;
