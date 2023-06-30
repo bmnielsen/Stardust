@@ -43,6 +43,10 @@ IF (MSVC)
     ENDIF (TOURNAMENT_BUILD)
 
 ELSE (MSVC)
+    if (CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined,leak -fsanitize-recover=address,undefined,leak -g")
+    endif()
+
     target_compile_definitions(Stardust PUBLIC IS_OPENBW=true)
     target_compile_definitions(Stardust PUBLIC LOGGING_ENABLED=true)
     target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
