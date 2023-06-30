@@ -562,7 +562,9 @@ namespace Producer
 
             if (item->supplyProvided() > 0)
             {
-                moveProvidedSupply(item->supplyProvided(), item->completionFrame, delta);
+                moveProvidedSupply(item->supplyProvided(),
+                                   std::min(PREDICT_FRAMES - 1, item->completionFrame),
+                                   delta);
             }
 
             if (item->gasPrice() > 0)
