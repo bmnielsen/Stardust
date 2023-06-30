@@ -13,8 +13,15 @@ public:
         unsigned short cost;
         GridNode *nextNode;
         unsigned char prevNodes;
+        BWAPI::TilePosition tile;
 
-        GridNode(unsigned short x, unsigned short y) : x(x), y(y), cost(USHRT_MAX), nextNode(nullptr), prevNodes(0) {}
+        GridNode(unsigned short x, unsigned short y)
+            : x(x)
+            , y(y)
+            , cost(USHRT_MAX)
+            , nextNode(nullptr)
+            , prevNodes(0)
+            , tile(BWAPI::TilePosition(x, y)) {}
 
         friend std::ostream &operator<<(std::ostream &os, const GridNode &node)
         {

@@ -79,7 +79,7 @@ namespace
                 {
                     if (Geo::ApproximateDistance(0, x, 0, y) <= radius)
                     {
-                        positions.insert(BWAPI::TilePosition(x >> 5U, y >> 5U));
+                        positions.insert(BWAPI::TilePosition(BWAPI::Position(x, y)));
                     }
                 }
             }

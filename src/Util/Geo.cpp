@@ -425,7 +425,7 @@ namespace Geo
 
         if (vector.x == 0) return vector.y <= 0 ? 0 : -128;
 
-        auto raw = (vector.y << 8) / vector.x;
+        auto raw = (vector.y * 256) / vector.x;
 
         bool negative = raw < 0;
         if (negative) raw = -raw;

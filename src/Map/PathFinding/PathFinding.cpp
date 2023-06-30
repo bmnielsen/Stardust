@@ -19,7 +19,8 @@ namespace PathFinding
 
             if (node)
             {
-                return start + BWAPI::Position((node->x - (start.x >> 5)) << 5, (node->y - (start.y >> 5)) << 5);
+                auto startTile = BWAPI::TilePosition(start);
+                return start + BWAPI::Position(node->tile - startTile);
             }
         }
 
