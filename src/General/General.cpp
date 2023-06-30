@@ -76,6 +76,7 @@ namespace General
             {
                 currentSquad->second->removeUnit(cannon);
                 cannonToSquad.erase(currentSquad);
+                currentSquad = cannonToSquad.end();
             }
             if (baseSquad != baseToDefendSquad.end() && (currentSquad == cannonToSquad.end() || baseSquad->second != currentSquad->second))
             {

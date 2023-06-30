@@ -246,6 +246,7 @@ BWAPI::Position UnitImpl::intercept(const Unit &target) const
     }
 
     if (t < 0) return BWAPI::Positions::Invalid;
+    if (t > 5000) return BWAPI::Positions::Invalid;
 
     return BWAPI::Position(
             target->lastPosition.x + (int) (t * target->bwapiUnit->getVelocityX()),
