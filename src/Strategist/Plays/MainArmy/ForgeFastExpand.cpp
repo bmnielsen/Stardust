@@ -177,7 +177,11 @@ namespace
         }
     }
 
-    void buildAirDefenseCannons(Base *base, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals, int count, int frame)
+    void buildBaseDefenseCannons(Base *base,
+                                 std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                                 int count,
+                                 int frame,
+                                 int priority = PRIORITY_BASEDEFENSE)
     {
         if (!base) return;
 
@@ -212,7 +216,7 @@ namespace
                                BWAPI::UnitTypes::Protoss_Pylon,
                                baseStaticDefenseLocations.powerPylon,
                                startFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon),
-                               PRIORITY_BASEDEFENSE);
+                               priority);
         }
 
         if (pylon && !pylon->completed)
@@ -227,7 +231,7 @@ namespace
                                BWAPI::UnitTypes::Protoss_Photon_Cannon,
                                cannonLocation,
                                startFrame,
-                               PRIORITY_BASEDEFENSE);
+                               priority);
             queued++;
             if ((queued + currentCannons) >= count) break;
         }
@@ -372,8 +376,8 @@ namespace
             }
             return earliestArrivalFrame;
         };
-        buildAirDefenseCannons(Map::getMyMain(), prioritizedProductionGoals, 2, frameForPosition(Map::getMyMain()->getPosition()));
-        buildAirDefenseCannons(Map::getMyNatural(), prioritizedProductionGoals, 1, frameForPosition(Map::getMyNatural()->getPosition()));
+        buildBaseDefenseCannons(Map::getMyMain(), prioritizedProductionGoals, 2, frameForPosition(Map::getMyMain()->getPosition()));
+        buildBaseDefenseCannons(Map::getMyNatural(), prioritizedProductionGoals, 1, frameForPosition(Map::getMyNatural()->getPosition()));
 
         // Add a second cannon at the wall
         int currentCannons = currentWallCannons(prioritizedProductionGoals);
@@ -601,7 +605,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         }
         case State::STATE_ANTIFASTRUSH:
         {
-            // Basic idea is to build a pylon, cannon and gateway in the main
+            // Basic idea is to build a pylon and cannons in the main, then add a gateway
             auto defenseLocations = BuildingPlacement::baseStaticDefenseLocations(Map::getMyMain());
             if (!defenseLocations.powerPylon.isValid() || defenseLocations.workerDefenseCannons.empty())
             {
@@ -609,19 +613,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
                 break;
             }
 
-            auto pylon = Units::myBuildingAt(defenseLocations.powerPylon);
-            if (!pylon)
-            {
-                addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Pylon, defenseLocations.powerPylon, 0, PRIORITY_EMERGENCY);
-            }
-
-            auto cannonLocation = *defenseLocations.workerDefenseCannons.begin();
-            if (!Units::myBuildingAt(cannonLocation))
-            {
-                addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Photon_Cannon, cannonLocation, 0, PRIORITY_EMERGENCY);
-            }
-
-            addUnits(BWAPI::UnitTypes::Protoss_Zealot, 1, PRIORITY_EMERGENCY);
+            buildBaseDefenseCannons(Map::getMyMain(), prioritizedProductionGoals, 2, 0, PRIORITY_EMERGENCY);
 
             if (defenseLocations.startBlockCannon.isValid() && !Units::myBuildingAt(defenseLocations.startBlockCannon))
             {
@@ -632,7 +624,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
                                    PRIORITY_EMERGENCY);
             }
 
-            addUnits(BWAPI::UnitTypes::Protoss_Zealot, 10, PRIORITY_EMERGENCY, 2);
+            addUnits(BWAPI::UnitTypes::Protoss_Zealot, 1, PRIORITY_EMERGENCY);
             break;
         }
     }
