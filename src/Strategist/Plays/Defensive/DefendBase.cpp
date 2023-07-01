@@ -364,7 +364,7 @@ int DefendBase::enemyAirThreatCannons(Base *baseToDefend)
         int expectedMutaliskCompletionFrame = 8500;
         if (Opponent::winLossRatio(0.0, 200) < 0.99)
         {
-            expectedMutaliskCompletionFrame = Opponent::minValueInPreviousGames("firstMutaliskCompleted", 8500, 15, 10);
+            expectedMutaliskCompletionFrame = std::min(Opponent::minValueInPreviousGames("firstMutaliskCompleted", 8500, 15, 10), 20000);
         }
 
         int flightTime = PathFinding::ExpectedTravelTime(baseToDefend->getPosition(), enemyMain->getPosition(), BWAPI::UnitTypes::Zerg_Mutalisk) - 50;
