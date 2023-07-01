@@ -135,6 +135,10 @@ namespace BuildingPlacement
                     CherryVis::addHeatmap("Wall", wallHeatmap, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
 #endif
                 }
+                else
+                {
+                    Log::Get() << "WARNING: No wall available";
+                }
             }
 
             return *forgeGatewayWall;
