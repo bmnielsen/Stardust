@@ -789,9 +789,9 @@ namespace Units
 
                 unit->bwapiUnit = nullptr; // Signals to all holding a copy of the pointer that this unit is dead
 
+                enemyUnitsByType[unit->type].erase(unit);
                 enemyUnits.erase(unit);
                 unitIdToEnemyUnit.erase(it);
-                enemyUnitsByType[unit->type].erase(unit);
             }
         }
         for (auto &unit : destroyedEnemyUnits)
