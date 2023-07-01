@@ -5,7 +5,7 @@
 #include "Map.h"
 
 #if INSTRUMENTATION_ENABLED
-#define DEBUG_SQUAD_TARGET false
+#define DEBUG_SQUAD_TARGET true
 #endif
 
 MopUpSquad::MopUpSquad() : Squad("Mop Up")
@@ -81,6 +81,33 @@ void MopUpSquad::execute(UnitCluster &cluster)
         targetPosition = base ? base->getPosition() : closestPosition;
         cluster.move(targetPosition);
         return;
+    }
+
+    // If we don't know the enemy's starting main, try to find it first
+    if (!Map::getEnemyStartingMain())
+    {
+        auto unscoutedStartingLocations = Map::unscoutedStartingLocations();
+        if (unscoutedStartingLocations.empty())
+        {
+#if DEBUG_SQUAD_TARGET
+            CherryVis::log() << "MopUp cluster " << BWAPI::WalkPosition(cluster.center)
+                             << ": don't know enemy starting base but have no unscouted starting locations";
+#endif
+        }
+        else
+        {
+            auto base = *unscoutedStartingLocations.begin();
+
+#if DEBUG_SQUAD_TARGET
+            CherryVis::log() << "MopUp cluster " << BWAPI::WalkPosition(cluster.center)
+                             << ": moving to next unscouted starting location @ " << BWAPI::WalkPosition(base->getPosition());
+#endif
+
+            cluster.setActivity(UnitCluster::Activity::Moving);
+            targetPosition = base->getPosition();
+            cluster.move(targetPosition);
+            return;
+        }
     }
 
     // We don't know of any enemy buildings, so try to find one
