@@ -1355,7 +1355,6 @@ namespace Map
         std::set<Base *> result;
         for (auto base : startingLocationBases)
         {
-            if (base->owner) continue;
             if (base->lastScouted >= 0) continue;
 
             result.insert(base);

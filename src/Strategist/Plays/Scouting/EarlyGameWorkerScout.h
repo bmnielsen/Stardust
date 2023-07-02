@@ -5,13 +5,18 @@
 class EarlyGameWorkerScout : public Play
 {
 public:
+    struct ScoutLookingForEnemyBase
+    {
+        MyUnit unit = nullptr;
+        bool reserved = false;
+        Base *targetBase = nullptr;
+        int closestDistanceToTargetBase = INT_MAX;
+        int lastDistanceToTargetBase = INT_MAX;
+        int lastForwardMotionFrame = 0;
+    };
+
     EarlyGameWorkerScout()
             : Play("EarlyGameWorkerScout")
-            , scout(nullptr)
-            , targetBase(nullptr)
-            , closestDistanceToTargetBase(INT_MAX)
-            , lastDistanceToTargetBase(INT_MAX)
-            , lastForewardMotionFrame(0)
             , fixedPosition(BWAPI::TilePositions::Invalid)
             , hidingUntil(0) {}
 
@@ -27,23 +32,21 @@ public:
     void monitorEnemyChoke();
 
 private:
-    MyUnit scout;
-    Base *targetBase;
-    int closestDistanceToTargetBase;
-    int lastDistanceToTargetBase;
-    int lastForewardMotionFrame;
+    ScoutLookingForEnemyBase scout;
+    ScoutLookingForEnemyBase secondScout;
+
     std::map<int, std::set<BWAPI::TilePosition>> scoutTiles;
     std::set<const BWEM::Area *> scoutAreas;
     BWAPI::TilePosition fixedPosition;
     int hidingUntil;
 
-    bool reserveScout();
+    void findEnemyBase();
 
-    bool pickInitialTargetBase();
+    void scoutEnemyBase();
 
-    void updateTargetBase();
+    bool selectScout();
 
-    bool isScoutBlocked();
+    void selectSecondScout();
 
     BWAPI::TilePosition getHighestPriorityScoutTile();
 };

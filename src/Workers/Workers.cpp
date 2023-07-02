@@ -12,6 +12,10 @@
 
 #include "DebugFlag_UnitOrders.h"
 
+#if INSTRUMENTATION_ENABLED
+#define DEBUG_WORKER_ASSIGNMENTS false
+#endif
+
 namespace Workers
 {
     namespace
@@ -206,7 +210,8 @@ namespace Workers
                 if (frames == -1) continue;
 
                 // Logic if the base is far away (i.e. would require a worker transfer)
-                if (frames > 500)
+                // Exclusion if we don't have many workers yet, in which case this is probably our scout
+                if (frames > 500 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Probe) > 20)
                 {
                     // Don't transfer to a threatened base
                     if (!Units::enemyAtBase(base).empty()) continue;
@@ -481,7 +486,13 @@ namespace Workers
         {
             if (!worker->type.isWorker()) continue;
             if (!worker->completed) continue;
-            if (workerJob[worker] == Job::Reserved) continue;
+            if (workerJob[worker] == Job::Reserved)
+            {
+#if DEBUG_WORKER_ASSIGNMENTS
+                CherryVis::log(worker->id) << "Assignment: reserved";
+#endif
+                continue;
+            }
 
             if (workerJob[worker] == Job::Minerals)
             {
@@ -489,6 +500,10 @@ namespace Workers
                 auto mineralPatch = workerMineralPatch[worker];
                 if (mineralPatch)
                 {
+#if DEBUG_WORKER_ASSIGNMENTS
+                    CherryVis::log(worker->id) << "Assignment: mineral patch @ " << BWAPI::WalkPosition(mineralPatch->getPosition());
+#endif
+
                     countMineralWorker(worker, mineralPatch);
                     continue;
                 }
@@ -511,6 +526,10 @@ namespace Workers
                 auto refinery = workerRefinery[worker];
                 if (refinery && refinery->exists())
                 {
+#if DEBUG_WORKER_ASSIGNMENTS
+                    CherryVis::log(worker->id) << "Assignment: refinery @ " << BWAPI::WalkPosition(refinery->getPosition());
+#endif
+
                     countGasWorker(worker, refinery);
                     continue;
                 }
@@ -536,7 +555,14 @@ namespace Workers
                 }
 
                 // Maybe we have none
-                if (!base) continue;
+                if (!base)
+                {
+#if DEBUG_WORKER_ASSIGNMENTS
+                    CherryVis::log(worker->id) << "Assignment: no base available";
+#endif
+
+                    continue;
+                }
             }
 
             // Assign a resource when the worker is close enough to the base
@@ -546,11 +572,33 @@ namespace Workers
                 {
                     auto mineralPatch = assignMineralPatch(worker);
                     countMineralWorker(worker, mineralPatch);
+
+#if DEBUG_WORKER_ASSIGNMENTS
+                    if (mineralPatch)
+                    {
+                        CherryVis::log(worker->id) << "Assignment: mineral patch @ " << BWAPI::WalkPosition(mineralPatch->getPosition());
+                    }
+                    else
+                    {
+                        CherryVis::log(worker->id) << "Assignment: no mineral patch available";
+                    }
+#endif
                 }
                 else
                 {
                     auto refinery = assignRefinery(worker);
                     countGasWorker(worker, refinery);
+
+#if DEBUG_WORKER_ASSIGNMENTS
+                    if (refinery)
+                    {
+                        CherryVis::log(worker->id) << "Assignment: refinery @ " << BWAPI::WalkPosition(refinery->getPosition());
+                    }
+                    else
+                    {
+                        CherryVis::log(worker->id) << "Assignment: no refinery available";
+                    }
+#endif
                 }
             }
         }
