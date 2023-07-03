@@ -5,7 +5,6 @@
 #include "Geo.h"
 #include "BuildingPlacement.h"
 #include "Map.h"
-#include "NoGoAreas.h"
 #include "Players.h"
 
 #include "DebugFlag_UnitOrders.h"
@@ -22,6 +21,8 @@ namespace Builder
         void build(Building &building)
         {
             if (building.unit || !building.builder || !building.builder->exists()) return;
+
+            building.addNoGoAreaWhenNeeded();
 
             // If the builder is constructing, we have already given it the build command and are waiting
             // for the building to appear
@@ -138,10 +139,7 @@ namespace Builder
                 BuildingPlacement::onBuildingCancelled(&building);
 
                 releaseBuilder(building);
-                if (!building.unit)
-                {
-                    NoGoAreas::removeBox((*it)->tile - BWAPI::TilePosition(1, 1), (*it)->type.tileSize() + BWAPI::TilePosition(2, 2));
-                }
+                building.removeNoGoArea();
                 it = pendingBuildings.erase(it);
                 continue;
             }
@@ -177,7 +175,7 @@ namespace Builder
 
                 // TODO: At some point we should restore the building placement, at least in some cases
                 releaseBuilder(building);
-                NoGoAreas::removeBox((*it)->tile - BWAPI::TilePosition(1, 1), (*it)->type.tileSize() + BWAPI::TilePosition(2, 2));
+                building.removeNoGoArea();
                 it = pendingBuildings.erase(it);
                 continue;
             }
@@ -200,8 +198,7 @@ namespace Builder
 
                     pendingBuilding->constructionStarted(unit);
                     releaseBuilder(*pendingBuilding);
-                    NoGoAreas::removeBox(pendingBuilding->tile - BWAPI::TilePosition(1, 1),
-                                         pendingBuilding->type.tileSize() + BWAPI::TilePosition(2, 2));
+                    pendingBuilding->removeNoGoArea();
                 }
             }
         }
@@ -255,7 +252,6 @@ namespace Builder
                      << "; builder queue length: " << builderQueues[builder].size();
 
         BuildingPlacement::onBuildingQueued(building.get());
-        NoGoAreas::addBox(building->tile - BWAPI::TilePosition(1, 1), building->type.tileSize() + BWAPI::TilePosition(2, 2));
     }
 
     void cancel(BWAPI::TilePosition tile)
@@ -270,10 +266,8 @@ namespace Builder
                 Log::Get() << "Cancelling construction of " << *(*it)->unit;
                 (*it)->unit->cancelConstruction();
             }
-            else
-            {
-                NoGoAreas::removeBox((*it)->tile - BWAPI::TilePosition(1, 1), (*it)->type.tileSize() + BWAPI::TilePosition(2, 2));
-            }
+
+            (*it)->removeNoGoArea();
 
             BuildingPlacement::onBuildingCancelled(it->get());
 

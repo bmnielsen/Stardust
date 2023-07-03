@@ -2,6 +2,7 @@
 
 #include "PathFinding.h"
 #include "UnitUtil.h"
+#include "NoGoAreas.h"
 
 Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyUnit builder, int desiredStartFrame)
         : type(type)
@@ -11,6 +12,7 @@ Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyUnit builde
         , desiredStartFrame(desiredStartFrame)
         , buildCommandSuccessFrames(0)
         , buildCommandFailureFrames(0)
+        , noGoAreaAdded(false)
         , startFrame(-1)
 {
 }
@@ -62,3 +64,23 @@ bool Building::builderReady() const
 
     return builder->getDistance(getPosition()) < 32;
 }
+
+void Building::addNoGoAreaWhenNeeded()
+{
+    if (noGoAreaAdded) return;
+
+    // Add the no-go area when the desired start frame is within 5 seconds of now
+    if (desiredStartFrame > (currentFrame + 120)) return;
+
+    NoGoAreas::addBox(tile - BWAPI::TilePosition(1, 1), type.tileSize() + BWAPI::TilePosition(2, 2));
+    noGoAreaAdded = true;
+}
+
+void Building::removeNoGoArea()
+{
+    if (!noGoAreaAdded) return;
+
+    NoGoAreas::removeBox(tile - BWAPI::TilePosition(1, 1), type.tileSize() + BWAPI::TilePosition(2, 2));
+    noGoAreaAdded = false;
+}
+
