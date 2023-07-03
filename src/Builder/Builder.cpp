@@ -35,9 +35,17 @@ namespace Builder
                 // Return immediately if issuing the build command succeeded
                 if (building.builder->build(building.type, building.tile))
                 {
+#if INSTRUMENTATION_ENABLED
+                    Log::Debug() << "Issued successful build command for builder " << building.builder->id << " to build " << building;
+#endif
+
                     building.buildCommandSuccessFrames++;
                     return;
                 }
+
+#if INSTRUMENTATION_ENABLED
+                Log::Debug() << "Builder " << building.builder->id << " could not build " << building << ": " << BWAPI::Broodwar->getLastError();
+#endif
 
                 if (BWAPI::Broodwar->getLastError() != BWAPI::Errors::Insufficient_Minerals &&
                     BWAPI::Broodwar->getLastError() != BWAPI::Errors::Insufficient_Gas)

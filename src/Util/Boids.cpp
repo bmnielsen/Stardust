@@ -107,21 +107,16 @@ namespace Boids
                 if (NoGoAreas::isNoGo(x, y)) continue;
                 if (unit->type.isWorker() && Map::bordersMineralPatch(x, y)) continue;
 
-                int dist = Geo::ApproximateDistance(unit->tilePositionX, x, unit->tilePositionY, y);
-                if (dist < closestDist)
-                {
-                    if (Map::isInOwnMineralLine(x, y))
-                    {
-                        if (closestIsOutsideMineralLine) continue;
-                    }
-                    else
-                    {
-                        closestIsOutsideMineralLine = true;
-                    }
+                auto isInMineralLine = Map::isInOwnMineralLine(x, y);
+                if (isInMineralLine && closestIsOutsideMineralLine) continue;
 
+                int dist = Geo::ApproximateDistance(unit->tilePositionX, x, unit->tilePositionY, y);
+                if (dist < closestDist || (!isInMineralLine && !closestIsOutsideMineralLine))
+                {
                     closestDist = dist;
                     closestX = x * 32 + 16;
                     closestY = y * 32 + 16;
+                    closestIsOutsideMineralLine = !isInMineralLine;
                 }
             }
         }
