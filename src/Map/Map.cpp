@@ -38,6 +38,7 @@ namespace Map
         std::map<BWAPI::TilePosition, const BWEM::Area *> edgePositionsToArea;
 
         std::vector<bool> inOwnMineralLine;
+        std::vector<bool> borderingMineralPatch;
 
         std::vector<bool> narrowChokeTiles;
         std::vector<bool> leafAreaTiles;
@@ -973,6 +974,40 @@ namespace Map
             _mapSpecificOverride = new MapSpecificOverride();
         }
 
+        borderingMineralPatch.clear();
+        borderingMineralPatch.resize(mapWidth * mapHeight);
+        for (auto neutral : BWAPI::Broodwar->getStaticNeutralUnits())
+        {
+            if (!neutral->getType().isMineralField()) continue;
+
+            int top = neutral->getTilePosition().y - 1;
+            int bottom = neutral->getTilePosition().y + 1;
+            for (int x = (neutral->getTilePosition().x - 1); x < (neutral->getTilePosition().x + 3); x++)
+            {
+                if (x < 0 || x >= mapWidth) continue;
+                if (top >= 0) borderingMineralPatch[x + top * mapWidth] = true;
+                if (bottom < mapHeight) borderingMineralPatch[x + bottom * mapWidth] = true;
+            }
+
+            int left = neutral->getTilePosition().x - 1;
+            int right = neutral->getTilePosition().x + 2;
+            if (left >= 0) borderingMineralPatch[left + neutral->getTilePosition().y * mapWidth] = true;
+            if (right < mapWidth) borderingMineralPatch[right + neutral->getTilePosition().y * mapWidth] = true;
+        }
+#if CHERRYVIS_ENABLED
+        // Dump to CherryVis
+        std::vector<long> borderingMineralPatchCVis(mapWidth * mapHeight);
+        for (int y = 0; y < mapHeight; y++)
+        {
+            for (int x = 0; x < mapWidth; x++)
+            {
+                borderingMineralPatchCVis[x + y * mapWidth] = borderingMineralPatch[x + y * mapWidth] ? 1 : 0;
+            }
+        }
+
+        CherryVis::addHeatmap("BorderingMineralPatch", borderingMineralPatchCVis, mapWidth, mapHeight);
+#endif
+
         initializeWalkability();
 
         // Analyze chokepoints
@@ -1479,6 +1514,11 @@ namespace Map
     bool isInOwnMineralLine(int x, int y)
     {
         return inOwnMineralLine[x + y * mapWidth];
+    }
+
+    bool bordersMineralPatch(int x, int y)
+    {
+        return borderingMineralPatch[x + y * mapWidth];
     }
 
     bool isInNarrowChoke(BWAPI::TilePosition pos)

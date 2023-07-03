@@ -122,6 +122,8 @@ namespace Map
 
     bool isInOwnMineralLine(int x, int y);
 
+    bool bordersMineralPatch(int x, int y);
+
     bool isInNarrowChoke(BWAPI::TilePosition pos);
 
     bool isInLeafArea(BWAPI::TilePosition pos);

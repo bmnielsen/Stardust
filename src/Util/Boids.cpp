@@ -90,7 +90,9 @@ namespace Boids
         if (!NoGoAreas::isNoGo(unit->tilePositionX, unit->tilePositionY)) return unit->lastPosition;
 
         // Find the closest tile that is walkable and not in a no-go area
+        // We prefer tiles that are not in a mineral line
         int closestDist = INT_MAX;
+        bool closestIsOutsideMineralLine = false;
         int closestX = unit->lastPosition.x;
         int closestY = unit->lastPosition.y;
         for (int y = unit->tilePositionY - 5; y < unit->tilePositionY + 5; y++)
@@ -103,10 +105,20 @@ namespace Boids
 
                 if (!unit->isFlying && !Map::isWalkable(x, y)) continue;
                 if (NoGoAreas::isNoGo(x, y)) continue;
+                if (unit->type.isWorker() && Map::bordersMineralPatch(x, y)) continue;
 
                 int dist = Geo::ApproximateDistance(unit->tilePositionX, x, unit->tilePositionY, y);
                 if (dist < closestDist)
                 {
+                    if (Map::isInOwnMineralLine(x, y))
+                    {
+                        if (closestIsOutsideMineralLine) continue;
+                    }
+                    else
+                    {
+                        closestIsOutsideMineralLine = true;
+                    }
+
                     closestDist = dist;
                     closestX = x * 32 + 16;
                     closestY = y * 32 + 16;
