@@ -461,4 +461,22 @@ namespace Builder
 
         return false;
     }
+
+    int framesUntilCompleted(BWAPI::TilePosition tile, int defaultValue)
+    {
+        auto unit = Units::myBuildingAt(tile);
+        if (unit)
+        {
+            if (unit->completed) return 0;
+            return unit->estimatedCompletionFrame - currentFrame;
+        }
+
+        auto pendingBuilding = Builder::pendingHere(tile);
+        if (pendingBuilding)
+        {
+            return pendingBuilding->expectedFramesUntilCompletion();
+        }
+
+        return defaultValue;
+    }
 }

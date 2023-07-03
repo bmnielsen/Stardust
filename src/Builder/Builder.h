@@ -38,4 +38,9 @@ namespace Builder
     void releaseReservedBuilder(const MyUnit &builder);
 
     bool isInEnemyStaticThreatRange(BWAPI::TilePosition tile, BWAPI::UnitType type);
+
+    // If there is a building at this tile, gets the frames until it is completed.
+    // If there is already a completed building, returns 0.
+    // If there is no building pending or completed, returns the given default value.
+    int framesUntilCompleted(BWAPI::TilePosition tile, int defaultValue);
 }

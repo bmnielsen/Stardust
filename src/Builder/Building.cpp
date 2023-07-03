@@ -70,7 +70,7 @@ void Building::addNoGoAreaWhenNeeded()
     if (noGoAreaAdded) return;
 
     // Add the no-go area when the desired start frame is within 5 seconds of now
-    if (desiredStartFrame > (currentFrame + 120)) return;
+    if (expectedFramesUntilStarted() > 120) return;
 
     NoGoAreas::addBox(tile - BWAPI::TilePosition(1, 1), type.tileSize() + BWAPI::TilePosition(2, 2));
     noGoAreaAdded = true;

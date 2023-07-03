@@ -108,13 +108,14 @@ namespace
                             BWAPI::UnitType type,
                             BWAPI::TilePosition tile,
                             int frame = 0,
-                            int priority = PRIORITY_DEPOTS)
+                            int priority = PRIORITY_DEPOTS,
+                            int framesUntilPowered = 0)
     {
         auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile),
                                                               BuildingPlacement::builderFrames(Map::getMyMain()->getPosition(),
                                                                                                tile,
                                                                                                type),
-                                                              0,
+                                                              framesUntilPowered,
                                                               0);
         prioritizedProductionGoals[priority].emplace_back(
                 std::in_place_type<UnitProductionGoal>,
@@ -177,16 +178,16 @@ namespace
         }
     }
 
-    void buildBaseDefenseCannons(Base *base,
+    int buildBaseDefenseCannons(Base *base,
                                  std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                  int count,
                                  int frame,
                                  int priority = PRIORITY_BASEDEFENSE)
     {
-        if (!base) return;
+        if (!base) return 0;
 
         auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-        if (!baseStaticDefenseLocations.isValid()) return;
+        if (!baseStaticDefenseLocations.isValid()) return 0;
 
         int currentCannons = 0;
         auto cannonLocations = baseStaticDefenseLocations.workerDefenseCannons;
@@ -204,10 +205,13 @@ namespace
             }
         }
 
-        if (cannonLocations.empty()) return;
-        if (currentCannons >= count) return;
+        if (cannonLocations.empty()) return 0;
+        if (currentCannons >= count) return 0;
 
         int startFrame = frame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
+        int powerFrame = Builder::framesUntilCompleted(
+                baseStaticDefenseLocations.powerPylon,
+                UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon) + 240);
 
         auto pylon = Units::myBuildingAt(baseStaticDefenseLocations.powerPylon);
         if (!pylon)
@@ -231,10 +235,13 @@ namespace
                                BWAPI::UnitTypes::Protoss_Photon_Cannon,
                                cannonLocation,
                                startFrame,
-                               priority);
+                               priority,
+                               powerFrame);
             queued++;
             if ((queued + currentCannons) >= count) break;
         }
+
+        return powerFrame;
     }
 
     int currentWallCannons(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
@@ -613,7 +620,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
                 break;
             }
 
-            buildBaseDefenseCannons(Map::getMyMain(), prioritizedProductionGoals, 2, 0, PRIORITY_EMERGENCY);
+            int powerFrame = buildBaseDefenseCannons(Map::getMyMain(), prioritizedProductionGoals, 2, 0, PRIORITY_EMERGENCY);
 
             if (defenseLocations.startBlockCannon.isValid() && !Units::myBuildingAt(defenseLocations.startBlockCannon))
             {
@@ -621,7 +628,8 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
                                    BWAPI::UnitTypes::Protoss_Photon_Cannon,
                                    defenseLocations.startBlockCannon,
                                    0,
-                                   PRIORITY_EMERGENCY);
+                                   PRIORITY_EMERGENCY,
+                                   powerFrame);
             }
 
             addUnits(BWAPI::UnitTypes::Protoss_Zealot, 1, PRIORITY_EMERGENCY);

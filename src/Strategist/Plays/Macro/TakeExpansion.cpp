@@ -234,32 +234,24 @@ void TakeExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
         if (!Units::myBuildingAt(*baseStaticDefenseLocations.workerDefenseCannons.begin()) &&
             !Builder::pendingHere(*baseStaticDefenseLocations.workerDefenseCannons.begin()))
         {
-            // Check the status of the pylon
-            int framesToPylon = 0;
-            auto pylonUnit = Units::myBuildingAt(baseStaticDefenseLocations.powerPylon);
-            if (pylonUnit)
+            // Build the pylon if it is not already pending
+            if (!Units::myBuildingAt(baseStaticDefenseLocations.powerPylon) &&
+                !Builder::pendingHere(baseStaticDefenseLocations.powerPylon))
             {
-                framesToPylon = pylonUnit->estimatedCompletionFrame - currentFrame;
-            }
-            else
-            {
-                auto pylonBuilding = Builder::pendingHere(baseStaticDefenseLocations.powerPylon);
-                if (pylonBuilding)
-                {
-                    framesToPylon = pylonBuilding->expectedFramesUntilCompletion();
-                }
-                else
-                {
-                    auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(baseStaticDefenseLocations.powerPylon), 0, 0, 0);
-                    prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                             label,
-                                                                             BWAPI::UnitTypes::Protoss_Pylon,
-                                                                             buildLocation,
-                                                                             builder);
-                }
+                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(baseStaticDefenseLocations.powerPylon), 0, 0, 0);
+                prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         label,
+                                                                         BWAPI::UnitTypes::Protoss_Pylon,
+                                                                         buildLocation,
+                                                                         builder);
             }
 
-            auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(*baseStaticDefenseLocations.workerDefenseCannons.begin()), 0, framesToPylon, 0);
+            auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(*baseStaticDefenseLocations.workerDefenseCannons.begin()),
+                                                                  0,
+                                                                  Builder::framesUntilCompleted(
+                                                                          baseStaticDefenseLocations.powerPylon,
+                                                                          UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon) + 240),
+                                                                  0);
             prioritizedProductionGoals[PRIORITY_DEPOTS].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                      label,
                                                                      BWAPI::UnitTypes::Protoss_Photon_Cannon,

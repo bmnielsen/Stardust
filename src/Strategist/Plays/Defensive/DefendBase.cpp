@@ -178,7 +178,12 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
     // Always ensure the pylon is built
     if (!pylon && pylonLocation.isValid() && !Builder::pendingHere(pylonLocation))
     {
-        auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(pylonLocation), 0, 0, 0);
+        auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(pylonLocation),
+                                                              BuildingPlacement::builderFrames(base->getPosition(),
+                                                                                               pylonLocation,
+                                                                                               BWAPI::UnitTypes::Protoss_Pylon),
+                                                              0,
+                                                              0);
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                    label,
                                                                    BWAPI::UnitTypes::Protoss_Pylon,
@@ -240,7 +245,21 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
 
             if (!Builder::pendingHere(cannonLocations[i]))
             {
-                auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(cannonLocations[i]), 0, 0, 0);
+                int framesUntilPowered = 0;
+                if (!pylon || !pylon->completed)
+                {
+                    framesUntilPowered = Builder::framesUntilCompleted(
+                            pylonLocation,
+                            UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon) + 240);
+                }
+
+                auto buildLocation = BuildingPlacement::BuildLocation(
+                        Block::Location(cannonLocations[i]),
+                        BuildingPlacement::builderFrames(base->getPosition(),
+                                                         cannonLocations[i],
+                                                         BWAPI::UnitTypes::Protoss_Photon_Cannon),
+                        framesUntilPowered,
+                        0);
                 prioritizedProductionGoals[priority].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                   label,
                                                                   BWAPI::UnitTypes::Protoss_Photon_Cannon,

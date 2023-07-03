@@ -1797,6 +1797,9 @@ namespace Producer
             // Buildings can now be handled immediately - we only ever produce one at a time and require a specific location
             if (unitType && unitType->isBuilding())
             {
+                // Push the prerequisitesAvailable frame if the location is not yet powered
+                prerequisitesAvailable = std::max(prerequisitesAvailable, buildLocation->framesUntilPowered);
+
                 auto buildingItem = std::make_shared<ProductionItem>(type, prerequisitesAvailable, location);
                 buildingItem->estimatedWorkerMovementTime = buildLocation->builderFrames;
                 buildingItem->buildLocation = *buildLocation;

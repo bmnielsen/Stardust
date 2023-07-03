@@ -263,7 +263,12 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                         {
                             if (Builder::isPendingHere(tile)) return;
 
-                            auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
+                            auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile),
+                                                                                  BuildingPlacement::builderFrames(Map::getMyMain()->getPosition(),
+                                                                                                                   tile,
+                                                                                                                   type),
+                                                                                  0,
+                                                                                  0);
                             prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                                         "SE-antirush",
                                                                                         type,

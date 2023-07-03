@@ -12,17 +12,30 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
 {
     if (frameNeeded < 0) return;
 
-    auto buildCannonAt = [&](BWAPI::TilePosition pylonTile, BWAPI::TilePosition cannonTile)
+    auto buildCannonAt = [&](BWAPI::TilePosition pylonTile, BWAPI::TilePosition cannonTile, Base *base)
     {
         if (!pylonTile.isValid()) return;
         if (!cannonTile.isValid()) return;
 
-        auto buildAtTile = [&prioritizedProductionGoals](BWAPI::TilePosition tile, BWAPI::UnitType type, int frame)
+        auto buildAtTile = [&](BWAPI::TilePosition tile, BWAPI::UnitType type, int frame)
         {
             if (Units::myBuildingAt(tile) != nullptr) return;
             if (Builder::isPendingHere(tile)) return;
 
-            auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile), 0, 0, 0);
+            int framesUntilPowered = 0;
+            if (type != BWAPI::UnitTypes::Protoss_Pylon)
+            {
+                framesUntilPowered = Builder::framesUntilCompleted(
+                        pylonTile,
+                        UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon) + 240);
+            }
+
+            auto buildLocation = BuildingPlacement::BuildLocation(Block::Location(tile),
+                                                                  BuildingPlacement::builderFrames(base->getPosition(),
+                                                                                                   tile,
+                                                                                                   type),
+                                                                  framesUntilPowered,
+                                                                  0);
             auto priority = (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0
                              || Units::countEnemy(BWAPI::UnitTypes::Zerg_Lurker) > 0
                              || Units::countEnemy(BWAPI::UnitTypes::Zerg_Lurker_Egg) > 0)
@@ -60,7 +73,7 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
         // Build it if requested
         if (atChoke && !chokeCannon && !Builder::isInEnemyStaticThreatRange(cannonLocations.second, BWAPI::UnitTypes::Protoss_Photon_Cannon))
         {
-            buildCannonAt(cannonLocations.first, cannonLocations.second);
+            buildCannonAt(cannonLocations.first, cannonLocations.second, Map::getMyMain());
         }
     }
     else if (atChoke)
@@ -88,7 +101,7 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
                         continue;
                     }
 
-                    buildCannonAt(baseStaticDefenseLocations.powerPylon, location);
+                    buildCannonAt(baseStaticDefenseLocations.powerPylon, location, base);
                 }
             }
         };
