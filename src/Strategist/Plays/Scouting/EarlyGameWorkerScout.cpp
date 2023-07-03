@@ -862,9 +862,9 @@ bool EarlyGameWorkerScout::selectScout()
 
 void EarlyGameWorkerScout::selectSecondScout()
 {
-    // Only scout against Zerg on a 4p map where we have 2 or more starting locations left to scout
+    // Only scout against Zerg or Random on a 4p map where we have 2 or more starting locations left to scout
     if (Map::getEnemyStartingMain()) return;
-    if (BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Zerg) return;
+    if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran || BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss) return;
     if (BWAPI::Broodwar->getStartLocations().size() < 4) return;
     if (Map::unscoutedStartingLocations().size() < 2) return;
 
