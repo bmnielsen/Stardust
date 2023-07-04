@@ -92,7 +92,27 @@ public:
 
     friend std::ostream &operator<<(std::ostream &os, const UnitProductionGoal &goal)
     {
-        os << goal.count << "x" << goal.type << " (" << goal.requester << ")";
+        if (goal.type.isBuilding())
+        {
+            os << goal.type;
+            if (auto *buildLocation = std::get_if<BuildingPlacement::BuildLocation>(&goal.location))
+            {
+                os << "@" << buildLocation->location.tile;
+            }
+            else
+            {
+                os << "@UNK";
+            }
+        }
+        else
+        {
+            os << goal.count << "x" << goal.type;
+        }
+        if (goal.frame > 0)
+        {
+            os << "%" << goal.frame;
+        }
+        os << " (" << goal.requester << ")";
         return os;
     }
 
