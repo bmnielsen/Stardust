@@ -5,7 +5,19 @@
 class PvU : public StrategyEngine
 {
 public:
-    void initialize(std::vector<std::shared_ptr<Play>> &plays) override;
+    // Against random we either open zealots or FFE
+    enum class OurStrategy
+    {
+        TwoGateZealots,
+        ForgeFastExpand,
+    };
+    static std::map<OurStrategy, std::string> OurStrategyNames;
+
+    OurStrategy ourStrategy;
+
+    PvU() : ourStrategy(OurStrategy::TwoGateZealots) {}
+
+    void initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom) override;
 
     void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override;
 

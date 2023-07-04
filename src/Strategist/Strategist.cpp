@@ -38,7 +38,7 @@ namespace Strategist
         int enemyContainedChanged;
         Strategist::WorkerScoutStatus workerScoutStatus;
 
-        void setStrategyEngine()
+        void setStrategyEngine(bool transitioningFromRandom)
         {
             engine = Map::mapSpecificOverride()->createStrategyEngine();
             if (!engine)
@@ -61,7 +61,7 @@ namespace Strategist
                 }
             }
 
-            engine->initialize(plays);
+            engine->initialize(plays, transitioningFromRandom);
         }
 
         void updateUnitAssignments()
@@ -429,7 +429,7 @@ namespace Strategist
         enemyContainedChanged = 0;
         workerScoutStatus = WorkerScoutStatus::Unstarted;
 
-        setStrategyEngine();
+        setStrategyEngine(false);
     }
 
     void update()
@@ -439,17 +439,7 @@ namespace Strategist
         // Change the strategy engine when we discover the race of a random opponent
         if (Opponent::hasRaceJustBeenDetermined())
         {
-            // We first need to clear all of our existing plays, as the new strategy engine will add its own
-            auto removeUnit = [&](const MyUnit& unit)
-            {
-                unitToPlay.erase(unit);
-            };
-            for (auto &play : plays)
-            {
-                play->disband(removeUnit, removeUnit);
-            }
-            plays.clear();
-            setStrategyEngine();
+            setStrategyEngine(true);
         }
 
         if (enemyContained != enemyIsContained())

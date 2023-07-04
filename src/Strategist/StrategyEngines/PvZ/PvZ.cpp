@@ -34,23 +34,37 @@ namespace
     }
 }
 
-void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays)
+void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom)
 {
-    plays.emplace_back(std::make_shared<SaturateBases>());
-    plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
-    plays.emplace_back(std::make_shared<EjectEnemyScout>());
-    plays.emplace_back(std::make_shared<Corsairs>());
-
-    // Determine whether to do a forge fast expand
-    // Currently always does one if there is a wall on this map unless enemy was random
-    if (currentFrame == 0 && BuildingPlacement::hasForgeGatewayWall())
+    if (transitioningFromRandom)
     {
-        plays.emplace_back(std::make_shared<ForgeFastExpand>());
-        ourStrategy = OurStrategy::SairSpeedlot;
+        plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<EjectEnemyScout>());
+        plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<Corsairs>());
+
+        auto ffePlay = getPlay<ForgeFastExpand>(plays);
+        if (ffePlay)
+        {
+            ourStrategy = OurStrategy::SairSpeedlot;
+        }
     }
     else
     {
-        plays.emplace_back(std::make_shared<DefendMyMain>());
+        plays.emplace_back(std::make_shared<SaturateBases>());
+        plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
+        plays.emplace_back(std::make_shared<EjectEnemyScout>());
+        plays.emplace_back(std::make_shared<Corsairs>());
+
+        // Determine whether to do a forge fast expand
+        // Currently always does one if there is a wall on this map
+        if (BuildingPlacement::hasForgeGatewayWall())
+        {
+            plays.emplace_back(std::make_shared<ForgeFastExpand>());
+            ourStrategy = OurStrategy::SairSpeedlot;
+        }
+        else
+        {
+            plays.emplace_back(std::make_shared<DefendMyMain>());
+        }
     }
 
     Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);

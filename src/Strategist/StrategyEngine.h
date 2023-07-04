@@ -9,7 +9,7 @@ class StrategyEngine
 public:
     virtual ~StrategyEngine() = default;
 
-    virtual void initialize(std::vector<std::shared_ptr<Play>> &plays) = 0;
+    virtual void initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom) = 0;
 
     virtual void updatePlays(std::vector<std::shared_ptr<Play>> &plays) = 0;
 

@@ -15,8 +15,10 @@ namespace
     std::map<BWAPI::UnitType, int> emptyUnitCountMap;
 }
 
-void PlasmaStrategyEngine::initialize(std::vector<std::shared_ptr<Play>> &plays)
+void PlasmaStrategyEngine::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom)
 {
+    if (transitioningFromRandom) return;
+
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
     plays.emplace_back(std::make_shared<DefendMyMain>());

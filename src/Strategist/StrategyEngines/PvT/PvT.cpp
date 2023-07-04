@@ -29,13 +29,28 @@ namespace
     }
 }
 
-void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays)
+void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom)
 {
-    plays.emplace_back(std::make_shared<SaturateBases>());
-    plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
-    plays.emplace_back(std::make_shared<EjectEnemyScout>());
-    plays.emplace_back(std::make_shared<Elevator>());
-    plays.emplace_back(std::make_shared<DefendMyMain>());
+    if (transitioningFromRandom)
+    {
+        plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<EjectEnemyScout>());
+        plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<Elevator>());
+
+        // TODO: Enable
+//        auto ffePlay = getPlay<ForgeFastExpand>(plays);
+//        if (ffePlay)
+//        {
+//            ourStrategy = OurStrategy::FiveGateGoon;
+//        }
+    }
+    else
+    {
+        plays.emplace_back(std::make_shared<SaturateBases>());
+        plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
+        plays.emplace_back(std::make_shared<EjectEnemyScout>());
+        plays.emplace_back(std::make_shared<Elevator>());
+        plays.emplace_back(std::make_shared<DefendMyMain>());
+    }
 
     // AIST S4 vs. Human match - do a fast expansion on Fighting Spirit and Circuit Breaker
     /*

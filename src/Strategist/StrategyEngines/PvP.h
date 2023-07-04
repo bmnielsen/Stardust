@@ -47,7 +47,7 @@ public:
 
     PvP() : enemyStrategy(ProtossStrategy::Unknown), ourStrategy(OurStrategy::EarlyGameDefense), enemyStrategyChanged(0) {}
 
-    void initialize(std::vector<std::shared_ptr<Play>> &plays) override;
+    void initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom) override;
 
     void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override;
 

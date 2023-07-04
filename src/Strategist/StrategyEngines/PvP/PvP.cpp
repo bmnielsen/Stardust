@@ -13,6 +13,7 @@
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
+#include "Plays/MainArmy/ForgeFastExpand.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
 #include "Plays/Defensive/AntiCannonRush.h"
@@ -26,13 +27,27 @@ namespace
     std::map<BWAPI::UnitType, int> emptyUnitCountMap;
 }
 
-void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays)
+void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom)
 {
-    plays.emplace_back(std::make_shared<SaturateBases>());
-    plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
-    plays.emplace_back(std::make_shared<EjectEnemyScout>());
-    plays.emplace_back(std::make_shared<DefendMyMain>());
-//    plays.emplace_back(std::make_shared<HiddenBase>());
+    if (transitioningFromRandom)
+    {
+        plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<EjectEnemyScout>());
+
+        // TODO: Enable
+//        auto ffePlay = getPlay<ForgeFastExpand>(plays);
+//        if (ffePlay)
+//        {
+//            ourStrategy = OurStrategy::FiveGateGoon;
+//        }
+    }
+    else
+    {
+        plays.emplace_back(std::make_shared<SaturateBases>());
+        plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
+        plays.emplace_back(std::make_shared<EjectEnemyScout>());
+        plays.emplace_back(std::make_shared<DefendMyMain>());
+//      plays.emplace_back(std::make_shared<HiddenBase>());
+    }
 
     Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);
     Opponent::addEnemyStrategyChange(ProtossStrategyNames[enemyStrategy]);

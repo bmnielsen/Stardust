@@ -3,7 +3,7 @@
 
 namespace Strategist
 {
-    bool isOurStrategy(std::variant<PvP::OurStrategy, PvT::OurStrategy, PvZ::OurStrategy> strategy)
+    bool isOurStrategy(std::variant<PvP::OurStrategy, PvT::OurStrategy, PvZ::OurStrategy, PvU::OurStrategy> strategy)
     {
         if (auto *s = std::get_if<PvP::OurStrategy>(&strategy))
         {
@@ -28,6 +28,16 @@ namespace Strategist
         if (auto *s = std::get_if<PvZ::OurStrategy>(&strategy))
         {
             if (auto strategyEngine = dynamic_cast<PvZ*>(Strategist::getStrategyEngine()))
+            {
+                return strategyEngine->ourStrategy == *s;
+            }
+
+            return false;
+        }
+
+        if (auto *s = std::get_if<PvU::OurStrategy>(&strategy))
+        {
+            if (auto strategyEngine = dynamic_cast<PvU*>(Strategist::getStrategyEngine()))
             {
                 return strategyEngine->ourStrategy == *s;
             }

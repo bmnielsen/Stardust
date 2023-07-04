@@ -2,13 +2,33 @@
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
+#include "Plays/MainArmy/ForgeFastExpand.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
+#include "Opponent.h"
 
-void PvU::initialize(std::vector<std::shared_ptr<Play>> &plays)
+std::map<PvU::OurStrategy, std::string> PvU::OurStrategyNames = {
+        {OurStrategy::TwoGateZealots,  "TwoGateZealots"},
+        {OurStrategy::ForgeFastExpand, "ForgeFastExpand"}
+};
+
+void PvU::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom)
 {
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
-    plays.emplace_back(std::make_shared<DefendMyMain>());
+
+    // TODO: Use UCB1 to pick the opening
+    if (BuildingPlacement::hasForgeGatewayWall())
+    {
+        plays.emplace_back(std::make_shared<ForgeFastExpand>());
+        ourStrategy = OurStrategy::ForgeFastExpand;
+    }
+    else
+    {
+        plays.emplace_back(std::make_shared<DefendMyMain>());
+    }
+
+    Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);
+    Opponent::addEnemyStrategyChange("RandomUnknown");
 }
 
 void PvU::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
