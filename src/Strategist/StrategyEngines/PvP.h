@@ -29,6 +29,7 @@ public:
 
     enum class OurStrategy
     {
+        FiveGateGoon,           // FFE strategy we use against Random
         EarlyGameDefense,       // We don't have enough scouting data yet
         AntiZealotRush,         // For fast rushes, proxy rushes or any serious early pressure, defends main until it can get tech out
         AntiDarkTemplarRush,    // For responding to a DT rush

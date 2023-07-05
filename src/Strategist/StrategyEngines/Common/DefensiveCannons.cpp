@@ -114,3 +114,24 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
         }
     }
 }
+
+bool StrategyEngine::hasCannonAtWall()
+{
+    // Return true if we have a wall with at least one powered cannon
+    if (!BuildingPlacement::hasForgeGatewayWall()) return false;
+
+    auto &wall = BuildingPlacement::getForgeGatewayWall();
+
+    auto completedUnit = [](BWAPI::TilePosition tile)
+    {
+        auto unit = Units::myBuildingAt(tile);
+        if (!unit) return false;
+        return unit->completed;
+    };
+    if (!completedUnit(wall.pylon)) return false;
+    for (const auto &cannonTile : wall.cannons)
+    {
+        if (completedUnit(cannonTile)) return true;
+    }
+    return false;
+}

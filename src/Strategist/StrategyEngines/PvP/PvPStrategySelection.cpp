@@ -2,9 +2,12 @@
 
 #include "Map.h"
 #include "Plays/Macro/HiddenBase.h"
+#include "Plays/MainArmy/DefendMyMain.h"
+#include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Units.h"
 
 std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
+        {OurStrategy::FiveGateGoon,        "FiveGateGoon"},
         {OurStrategy::EarlyGameDefense,    "EarlyGameDefense"},
         {OurStrategy::AntiZealotRush,      "AntiZealotRush"},
         {OurStrategy::AntiDarkTemplarRush, "AntiDarkTemplarRush"},
@@ -115,6 +118,28 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
     {
         switch (strategy)
         {
+            case PvP::OurStrategy::FiveGateGoon:
+            {
+                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+                if (!mainArmyPlay) break;
+
+                // If the enemy is doing a rush and our main army play has transitioned to defending the main, switch to anti all-in strategy
+                if ((enemyStrategy == ProtossStrategy::ZealotRush || enemyStrategy == ProtossStrategy::ProxyRush)
+                    && typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                {
+                    strategy = OurStrategy::AntiZealotRush;
+                    continue;
+                }
+
+                // Transition to mid game when we have gone on the attack, indicating the opening is done
+                if (typeid(*mainArmyPlay) == typeid(AttackEnemyBase))
+                {
+                    strategy = OurStrategy::MidGame;
+                    continue;
+                }
+
+                break;
+            }
             case PvP::OurStrategy::EarlyGameDefense:
             {
                 // Transition appropriately as soon as we have an idea of what the enemy is doing

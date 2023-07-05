@@ -23,38 +23,67 @@
 
 namespace
 {
-    int worstCaseZerglingArrivalFrame()
+    int worstCaseEnemyArrivalFrame()
     {
-        // Get pool start frame
-        // If we have scouted the enemy base, defaults to the last time we scouted it
-        // If we haven't scouted the enemy base, defaults to 9 pool
-        int poolStartFrame;
-        if (Strategist::hasWorkerScoutCompletedInitialBaseScan())
+        // For PvP or PvT proxy rushes assume arrival frame of 3700
+        if (Strategist::getStrategyEngine()->isEnemyProxy())
         {
-            poolStartFrame = Map::getEnemyStartingMain()->lastScouted;
+            CherryVis::setBoardValue("worstCaseEnemyArrival", (std::ostringstream() << 3700).str());
+            return 3700;
+        }
+
+        // Set the types we are looking for, random assumes zerg as the worst-case situation (besides proxies)
+        BWAPI::UnitType builderType;
+        BWAPI::UnitType unitType;
+        if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss)
+        {
+            builderType = BWAPI::UnitTypes::Protoss_Gateway;
+            unitType = BWAPI::UnitTypes::Protoss_Zealot;
+        }
+        else if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss)
+        {
+            builderType = BWAPI::UnitTypes::Terran_Barracks;
+            unitType = BWAPI::UnitTypes::Terran_Marine;
         }
         else
         {
-            poolStartFrame = 1600;
+            builderType = BWAPI::UnitTypes::Zerg_Spawning_Pool;
+            unitType = BWAPI::UnitTypes::Zerg_Zergling;
         }
 
-        auto poolTimings = Units::getEnemyUnitTimings(BWAPI::UnitTypes::Zerg_Spawning_Pool);
-        if (!poolTimings.empty())
-        {
-            auto &[startFrame, seenFrame] = *poolTimings.begin();
+        // Get start frame of the building needed to produce combat units
 
-            // We do not trust the start frame if we first saw the pool after it was finished
+        // If we have scouted the enemy base, default to the last time we scouted it
+        // If we haven't scouted the enemy base, default to 9 pool
+        int builderStartFrame;
+        if (Strategist::hasWorkerScoutCompletedInitialBaseScan())
+        {
+            builderStartFrame = Map::getEnemyStartingMain()->lastScouted;
+        }
+        else
+        {
+            builderStartFrame = 1600;
+        }
+
+        // Add observed information about the building construction
+        auto builderTimings = Units::getEnemyUnitTimings(builderType);
+        if (!builderTimings.empty())
+        {
+            auto &[startFrame, seenFrame] = *builderTimings.begin();
+
+            // We do not trust the start frame if we first saw the building was finished
             // In this case we assume 9 pool
-            if (startFrame <= (seenFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Spawning_Pool)))
+            if (startFrame <= (seenFrame - UnitUtil::BuildTime(builderType)))
             {
-                poolStartFrame = 1600;
+                builderStartFrame = 1600;
             }
             else
             {
-                poolStartFrame = startFrame;
+                builderStartFrame = startFrame;
             }
         }
 
+        // Get travel time from the enemy base
         auto &wall = BuildingPlacement::getForgeGatewayWall();
         int lowestTravelTime = INT_MAX;
         for (auto &base : Map::allStartingLocations())
@@ -64,7 +93,7 @@ namespace
 
             int frames = PathFinding::ExpectedTravelTime(base->getPosition(),
                                                          wall.gapCenter,
-                                                         BWAPI::UnitTypes::Zerg_Zergling,
+                                                         unitType,
                                                          PathFinding::PathFindingOptions::Default,
                                                          1.2,
                                                          INT_MAX);
@@ -73,33 +102,34 @@ namespace
 
         if (lowestTravelTime == INT_MAX)
         {
-            Log::Get() << "ERROR: Unable to compute zergling travel time to wall";
+            Log::Get() << "ERROR: Unable to compute enemy unit travel time to wall";
             lowestTravelTime = 650; // short rush distance on Python
         }
 
-        int arrivalTime = poolStartFrame
-                          + UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Spawning_Pool)
-                          + UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Zergling)
+        // Put it all together to get the arrival time
+        int arrivalTime = builderStartFrame
+                          + UnitUtil::BuildTime(builderType)
+                          + UnitUtil::BuildTime(unitType)
                           + lowestTravelTime;
 
         // If our scout is still active, use scouted zergling information as well
         if (Map::getEnemyStartingMain() && !Strategist::isWorkerScoutComplete())
         {
-            auto timings = Units::getEnemyUnitTimings(BWAPI::UnitTypes::Zerg_Zergling);
+            auto timings = Units::getEnemyUnitTimings(unitType);
             if (timings.empty())
             {
-                // Haven't seen a ling yet, compute the time if some popped now
+                // Haven't seen a unit yet, compute the time if some completed now
                 arrivalTime = std::max(arrivalTime, currentFrame + lowestTravelTime);
             }
             else
             {
-                // Base off of the time we saw the first ling and assume it was close to the enemy main
-                // If we didn't get a scout in the base early enough to see a ling, we would have overbuilt cannons anyway
+                // Base off of the time we saw the first unit and assume it was close to the enemy main
+                // If we didn't get a scout in the base early enough to see a unit, we would have overbuilt cannons anyway
                 arrivalTime = std::max(arrivalTime, timings.begin()->second + lowestTravelTime);
             }
         }
 
-        CherryVis::setBoardValue("worstCaseLingArrival", (std::ostringstream() << arrivalTime).str());
+        CherryVis::setBoardValue("worstCaseEnemyArrival", (std::ostringstream() << arrivalTime).str());
 
         return arrivalTime;
     }
@@ -419,6 +449,36 @@ namespace
         if (currentCannons < 5) buildWallCannons(prioritizedProductionGoals, 1, 8000);
         if (currentCannons < 6) buildWallCannons(prioritizedProductionGoals, 1, 9000);
     }
+
+    void handleNonZergRush(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+    {
+        int baseFrame = 4000 - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
+        if (Strategist::isEnemyStrategy(PvP::ProtossStrategy::ProxyRush) ||
+            Strategist::isEnemyStrategy(PvT::TerranStrategy::ProxyRush))
+        {
+            baseFrame -= 500;
+        }
+        else if (!Strategist::isEnemyStrategy(PvP::ProtossStrategy::ZealotRush) &&
+            !Strategist::isEnemyStrategy(PvT::TerranStrategy::MarineRush))
+        {
+            return;
+        }
+
+        int currentCannons = currentWallCannons(prioritizedProductionGoals);
+        if (currentCannons < 2) buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, baseFrame);
+        if (currentCannons < 3) buildWallCannons(prioritizedProductionGoals, 1, baseFrame + 1000);
+        if (currentCannons < 4) buildWallCannons(prioritizedProductionGoals, 1, baseFrame + 2000);
+
+        if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) == 0)
+        {
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(
+                    std::in_place_type<UnitProductionGoal>,
+                    "ForgeFastExpand",
+                    BWAPI::UnitTypes::Protoss_Zealot,
+                    1,
+                    1);
+        }
+    }
 }
 
 ForgeFastExpand::ForgeFastExpand()
@@ -463,7 +523,15 @@ void ForgeFastExpand::update()
             if (Strategist::getStrategyEngine()->isEnemyRushing())
             {
                 Builder::cancelBase(natural);
-                currentState = State::STATE_ANTIFASTRUSH;
+
+                if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
+                {
+                    currentState = State::STATE_ANTIFASTRUSHZERG;
+                }
+                else
+                {
+                    currentState = State::STATE_ANTIFASTRUSH_GATEWAY_PENDING;
+                }
             }
             if (natural->resourceDepot && natural->resourceDepot->exists() && natural->owner == BWAPI::Broodwar->self())
             {
@@ -478,8 +546,16 @@ void ForgeFastExpand::update()
             if (Strategist::getStrategyEngine()->isEnemyRushing())
             {
                 Builder::cancelBase(natural);
-                Builder::cancel(wall.gateway);
-                currentState = State::STATE_ANTIFASTRUSH;
+
+                if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
+                {
+                    Builder::cancel(wall.gateway);
+                    currentState = State::STATE_ANTIFASTRUSHZERG;
+                }
+                else
+                {
+                    currentState = State::STATE_ANTIFASTRUSH_GATEWAY_PENDING;
+                }
             }
 
             if (Units::myBuildingAt(wall.gateway))
@@ -493,11 +569,26 @@ void ForgeFastExpand::update()
             // Final state
             break;
 
-        case State::STATE_ANTIFASTRUSH:
+        case State::STATE_ANTIFASTRUSHZERG:
             // Transition when we've completed the gateway in our main
             if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Gateway) > 0)
             {
                 status.transitionTo = std::make_shared<DefendMyMain>();
+            }
+            break;
+
+        case State::STATE_ANTIFASTRUSH_GATEWAY_PENDING:
+            if (Units::myBuildingAt(wall.gateway))
+            {
+                currentState = State::STATE_ANTIFASTRUSH_NEXUS_PENDING;
+            }
+            break;
+
+        case State::STATE_ANTIFASTRUSH_NEXUS_PENDING:
+            auto natural = Map::getMyNatural();
+            if (natural->resourceDepot && natural->resourceDepot->exists() && natural->owner == BWAPI::Broodwar->self())
+            {
+                currentState = State::STATE_FINISHED;
             }
             break;
     }
@@ -512,24 +603,9 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
     
     auto &wall = BuildingPlacement::getForgeGatewayWall();
 
-    auto addUnits = [&](BWAPI::UnitType type, int desiredCount, int priority = PRIORITY_DEPOTS, int producers = 1)
-    {
-        int currentCount = Units::countAll(type);
-        if (desiredCount > currentCount || desiredCount == -1)
-        {
-            prioritizedProductionGoals[priority].emplace_back(
-                    std::in_place_type<UnitProductionGoal>,
-                    label,
-                    type,
-                    (desiredCount == -1) ? -1 : (desiredCount - currentCount),
-                    producers);
-        }
-        return currentCount;
-    };
-
     // Common timing-based logic needed by multiple states
-    int lingArrivalFrame = worstCaseZerglingArrivalFrame();
-    int cannonFrame = lingArrivalFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
+    int enemyArrivalFrame = worstCaseEnemyArrivalFrame();
+    int cannonFrame = enemyArrivalFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
     int currentCannons = currentWallCannons(prioritizedProductionGoals);
 
     switch (currentState)
@@ -545,8 +621,6 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             buildWallCannons(prioritizedProductionGoals, 2, cannonFrame, PRIORITY_DEPOTS);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
-            addUnits(BWAPI::UnitTypes::Protoss_Corsair, 1);
-            addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
         }
         case State::STATE_NEXUS_PENDING:
@@ -555,8 +629,6 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 14);
-            addUnits(BWAPI::UnitTypes::Protoss_Corsair, 1);
-            addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
         }
         case State::STATE_GATEWAY_PENDING:
@@ -564,8 +636,6 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, cannonFrame);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 14);
-            addUnits(BWAPI::UnitTypes::Protoss_Corsair, 1);
-            addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
             break;
         }
         case State::STATE_FINISHED:
@@ -576,9 +646,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             handleMutaRush(prioritizedProductionGoals);
             handleZerglingAllIn(prioritizedProductionGoals);
             handleHydraBust(prioritizedProductionGoals);
-
-            addUnits(BWAPI::UnitTypes::Protoss_Corsair, 1);
-            addUnits(BWAPI::UnitTypes::Protoss_Zealot, 2);
+            handleNonZergRush(prioritizedProductionGoals);
 
             // If the enemy did a gas steal, build a cannon in our main to kill it
             auto main = Map::getMyMain();
@@ -610,7 +678,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
 
             break;
         }
-        case State::STATE_ANTIFASTRUSH:
+        case State::STATE_ANTIFASTRUSHZERG:
         {
             // Basic idea is to build a pylon and cannons in the main, then add a gateway
             auto defenseLocations = BuildingPlacement::baseStaticDefenseLocations(Map::getMyMain());
@@ -632,7 +700,28 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
                                    powerFrame);
             }
 
-            addUnits(BWAPI::UnitTypes::Protoss_Zealot, 1, PRIORITY_EMERGENCY);
+            prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(
+                    std::in_place_type<UnitProductionGoal>,
+                    label,
+                    BWAPI::UnitTypes::Protoss_Zealot,
+                    1,
+                    1);
+
+            break;
+        }
+        case State::STATE_ANTIFASTRUSH_GATEWAY_PENDING:
+        {
+            buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, cannonFrame);
+            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway, 0, PRIORITY_EMERGENCY);
+            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
+            moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 16);
+            break;
+        }
+        case State::STATE_ANTIFASTRUSH_NEXUS_PENDING:
+        {
+            buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, cannonFrame);
+            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
+            moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 16);
             break;
         }
     }

@@ -426,18 +426,27 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::SairSpeedlot:
         {
-            // Production of higher-priority zealots needed for base defense is handled by the play
             int corsairs = std::max(7 - corsairCount, desiredCorsairs());
 
-            // First sair is prioritized above upgrades
+            // First sair is prioritized highest
             if (corsairCount == 0)
             {
-                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                         "SE",
-                                                                         BWAPI::UnitTypes::Protoss_Corsair,
-                                                                         1,
-                                                                         1);
+                prioritizedProductionGoals[PRIORITY_DEPOTS + 1].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                             "SE",
+                                                                             BWAPI::UnitTypes::Protoss_Corsair,
+                                                                             1,
+                                                                             1);
                 corsairs--;
+            }
+
+            // First zealots are prioritized next
+            if (zealotCount < 2)
+            {
+                prioritizedProductionGoals[PRIORITY_DEPOTS + 1].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                             "SE",
+                                                                             BWAPI::UnitTypes::Protoss_Zealot,
+                                                                             2 - zealotCount,
+                                                                             1);
             }
 
             upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, 1, PRIORITY_NORMAL);
@@ -450,7 +459,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                            "SE",
                                                                            BWAPI::UnitTypes::Protoss_Corsair,
                                                                            corsairs,
-                                                                           1);
+                                                                           ((enemyStrategy == ZergStrategy::MutaRush) ? 2 : 1));
             }
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -799,21 +808,5 @@ bool PvZ::isFFE()
             break;
     }
 
-    // Return true if we have a wall with at least one powered cannon
-    if (!BuildingPlacement::hasForgeGatewayWall()) return false;
-
-    auto &wall = BuildingPlacement::getForgeGatewayWall();
-
-    auto completedUnit = [](BWAPI::TilePosition tile)
-    {
-        auto unit = Units::myBuildingAt(tile);
-        if (!unit) return false;
-        return unit->completed;
-    };
-    if (!completedUnit(wall.pylon)) return false;
-    for (const auto &cannonTile : wall.cannons)
-    {
-        if (completedUnit(cannonTile)) return true;
-    }
-    return false;
+    return hasCannonAtWall();
 }

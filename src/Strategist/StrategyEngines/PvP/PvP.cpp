@@ -33,12 +33,10 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
     {
         plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<EjectEnemyScout>());
 
-        // TODO: Enable
-//        auto ffePlay = getPlay<ForgeFastExpand>(plays);
-//        if (ffePlay)
-//        {
-//            ourStrategy = OurStrategy::FiveGateGoon;
-//        }
+        if (getPlay<ForgeFastExpand>(plays))
+        {
+            ourStrategy = OurStrategy::FiveGateGoon;
+        }
     }
     else
     {
@@ -109,6 +107,13 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     {
         switch (ourStrategy)
         {
+            case OurStrategy::FiveGateGoon:
+            {
+                // Attack when we have goon range
+                defendOurMain = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0);
+                break;
+            }
+
             case OurStrategy::EarlyGameDefense:
             case OurStrategy::AntiZealotRush:
             case OurStrategy::AntiDarkTemplarRush:
@@ -144,6 +149,13 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 // Always use a defend play if the squad has no units
                 auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
                 if (!vanguard)
+                {
+                    defendOurMain = true;
+                    break;
+                }
+
+                // Require range off of an FFE
+                if (getPlay<ForgeFastExpand>(plays) && BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0)
                 {
                     defendOurMain = true;
                     break;
@@ -290,11 +302,24 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                           + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon)
                           + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dark_Templar);
 
-    handleGasStealProduction(prioritizedProductionGoals, zealotCount);
+    if (!getPlay<ForgeFastExpand>(plays))
+    {
+        handleGasStealProduction(prioritizedProductionGoals, zealotCount);
+    }
 
     // Main army production
     switch (ourStrategy)
     {
+        case OurStrategy::FiveGateGoon:
+        {
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
+            break;
+        }
         case OurStrategy::EarlyGameDefense:
         {
             // Start with one-gate core with two zealots until we have more scouting information
@@ -545,6 +570,11 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     bool buildProbes = false;
     switch (ourStrategy)
     {
+        case OurStrategy::FiveGateGoon:
+            // Handled by the play
+            CherryVis::setBoardValue("natural", "forge-expand");
+            return;
+
         case OurStrategy::EarlyGameDefense:
         case OurStrategy::AntiZealotRush:
         case OurStrategy::Defensive:
@@ -833,7 +863,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     if (enemyStrategy == ProtossStrategy::DarkTemplarRush ||
         Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Dark_Templar))
     {
-        buildDefensiveCannons(prioritizedProductionGoals, true, 0, 1);
+        buildDefensiveCannons(prioritizedProductionGoals, !hasCannonAtWall(), 0, 1);
         buildObserver();
         CherryVis::setBoardValue("detection", "emergency-build-cannon-and-observer");
         return;
@@ -913,7 +943,7 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     auto enemyMain = Map::getEnemyMain();
     if (!enemyMain)
     {
-        buildDefensiveCannons(prioritizedProductionGoals, true, expectedCompletionFrame + 500);
+        buildDefensiveCannons(prioritizedProductionGoals, !hasCannonAtWall(), expectedCompletionFrame + 500);
         CherryVis::setBoardValue("detection", "cannon-at-worst-case");
         return;
     }
@@ -981,13 +1011,13 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     if (frame < 0) return;
     if (templarArchiveTimings.empty())
     {
-        buildDefensiveCannons(prioritizedProductionGoals, true, frame);
+        buildDefensiveCannons(prioritizedProductionGoals, !hasCannonAtWall(), frame);
         CherryVis::setBoardValue("detection", (std::ostringstream() << "cannon-at-" << frame).str());
     }
     else
     {
         buildObserver(frame);
-        buildDefensiveCannons(prioritizedProductionGoals, true,frame, 1);
+        buildDefensiveCannons(prioritizedProductionGoals, !hasCannonAtWall(), frame, 1);
         CherryVis::setBoardValue("detection", (std::ostringstream() << "cannon-and-observer-at-" << frame).str());
     }
 }

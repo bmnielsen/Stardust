@@ -11,6 +11,7 @@
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
+#include "Plays/MainArmy/ForgeFastExpand.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
 #include "Plays/SpecialTeams/CarrierHarass.h"
@@ -36,12 +37,10 @@ void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<EjectEnemyScout>());
         plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<Elevator>());
 
-        // TODO: Enable
-//        auto ffePlay = getPlay<ForgeFastExpand>(plays);
-//        if (ffePlay)
-//        {
-//            ourStrategy = OurStrategy::FiveGateGoon;
-//        }
+        if (getPlay<ForgeFastExpand>(plays))
+        {
+            ourStrategy = OurStrategy::FiveGateGoon;
+        }
     }
     else
     {
@@ -118,6 +117,13 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     {
         switch (ourStrategy)
         {
+            case OurStrategy::FiveGateGoon:
+            {
+                // Attack when we have goon range
+                defendOurMain = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0);
+                break;
+            }
+
             case OurStrategy::EarlyGameDefense:
             case OurStrategy::AntiMarineRush:
             case OurStrategy::Defensive:
@@ -127,6 +133,13 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             {
                 auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
                 if (!mainArmyPlay)
+                {
+                    defendOurMain = true;
+                    break;
+                }
+
+                // Require range off of an FFE
+                if (getPlay<ForgeFastExpand>(plays) && BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0)
                 {
                     defendOurMain = true;
                     break;
@@ -198,7 +211,10 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                           + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon)
                           + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dark_Templar);
 
-    handleGasStealProduction(prioritizedProductionGoals, zealotCount);
+    if (!getPlay<ForgeFastExpand>(plays))
+    {
+        handleGasStealProduction(prioritizedProductionGoals, zealotCount);
+    }
 
     auto midAndLateGameMainArmyProduction = [&]()
     {
@@ -234,6 +250,17 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     switch (ourStrategy)
     {
+        case OurStrategy::FiveGateGoon:
+        {
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
+            break;
+        }
+
         case OurStrategy::EarlyGameDefense:
         {
             oneGateCoreOpening(prioritizedProductionGoals, dragoonCount, zealotCount, 1);
@@ -459,6 +486,11 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 
     switch (ourStrategy)
     {
+        case OurStrategy::FiveGateGoon:
+            // Handled by the play
+            CherryVis::setBoardValue("natural", "forge-expand");
+            return;
+
         case OurStrategy::EarlyGameDefense:
         case OurStrategy::AntiMarineRush:
         case OurStrategy::Defensive:

@@ -128,4 +128,6 @@ protected:
                                       bool atChoke = true,
                                       int frameNeeded = 0,
                                       int atBases = 0);
+
+    static bool hasCannonAtWall();
 };
