@@ -43,7 +43,24 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         plays.emplace_back(std::make_shared<SaturateBases>());
         plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
         plays.emplace_back(std::make_shared<EjectEnemyScout>());
-        plays.emplace_back(std::make_shared<DefendMyMain>());
+
+        // We keep an FFE build as a backup option if we e.g. end up getting cheesed with DTs all the time
+        auto opening = Opponent::selectOpeningUCB1(
+                {
+                        OurStrategyNames[OurStrategy::EarlyGameDefense],
+                        OurStrategyNames[OurStrategy::FiveGateGoon]
+                });
+        if (opening == OurStrategyNames[OurStrategy::FiveGateGoon] && BuildingPlacement::hasForgeGatewayWall())
+        {
+            plays.emplace_back(std::make_shared<ForgeFastExpand>());
+            ourStrategy = OurStrategy::FiveGateGoon;
+        }
+        else
+        {
+            plays.emplace_back(std::make_shared<DefendMyMain>());
+        }
+        Log::Get() << "Selected opening " << OurStrategyNames[ourStrategy];
+
 //      plays.emplace_back(std::make_shared<HiddenBase>());
     }
 
