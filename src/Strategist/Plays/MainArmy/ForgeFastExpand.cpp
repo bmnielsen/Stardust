@@ -40,7 +40,7 @@ namespace
             builderType = BWAPI::UnitTypes::Protoss_Gateway;
             unitType = BWAPI::UnitTypes::Protoss_Zealot;
         }
-        else if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss)
+        else if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran)
         {
             builderType = BWAPI::UnitTypes::Terran_Barracks;
             unitType = BWAPI::UnitTypes::Terran_Marine;
@@ -112,7 +112,7 @@ namespace
                           + UnitUtil::BuildTime(unitType)
                           + lowestTravelTime;
 
-        // If our scout is still active, use scouted zergling information as well
+        // If our scout is still active, use scouted unit information as well
         if (Map::getEnemyStartingMain() && !Strategist::isWorkerScoutComplete())
         {
             auto timings = Units::getEnemyUnitTimings(unitType);
