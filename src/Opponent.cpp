@@ -61,6 +61,23 @@ namespace Opponent
 
             return true;
         }
+
+        bool isPreviousGameOnThisMap(const nlohmann::json &previousGameResult)
+        {
+            try
+            {
+                auto mapHashIt = previousGameResult.find("mapHash");
+                if (mapHashIt != previousGameResult.end())
+                {
+                    return mapHashIt->get<std::string>() == BWAPI::Broodwar->mapHash();
+                }
+            }
+            catch (std::exception &ex)
+            {
+                // Just skip this game result
+            }
+            return false;
+        }
     }
 
     void initialize()
@@ -325,5 +342,83 @@ namespace Opponent
 
         if (wins == 0 && losses == 0) return defaultValue;
         return (double)wins / (double)(wins + losses);
+    }
+
+    std::string selectOpeningUCB1(const std::set<std::string> &openings, int maxCount)
+    {
+        // Gather wins and losses for previous games
+        std::map<std::string, std::pair<int, int>> resultsByOpening;
+        int count = 0;
+        for (auto gameIt = previousGames.rbegin(); gameIt != previousGames.rend(); gameIt++)
+        {
+            if (count >= maxCount) break;
+
+            try
+            {
+                auto wonIt = gameIt->find("won");
+                if (wonIt == gameIt->end()) continue;
+                auto won = wonIt->get<bool>();
+
+                auto myStrategiesIt = gameIt->find("myStrategy");
+                if (myStrategiesIt == gameIt->end()) continue;
+                auto initialStrategy = (*myStrategiesIt)[0];
+                if (initialStrategy[0] != 0) continue;
+
+                auto &resultCounter = resultsByOpening[initialStrategy[1]];
+                auto delta = (isPreviousGameOnThisMap(*gameIt) ? 2 : 1);
+                if (won)
+                {
+                    resultCounter.first += delta;
+                }
+                else
+                {
+                    resultCounter.second += delta;
+                }
+            }
+            catch (std::exception &ex)
+            {
+                // Just skip this game result
+            }
+
+            count++;
+        }
+
+        Log::Get() << "Previous opening results weighted by map:";
+        for (const auto &[opening, results] : resultsByOpening)
+        {
+            Log::Get() << opening << ": " << results.first << " won " << results.second << " lost";
+        }
+
+        // If there is one, select the first opening that has either never lost or hasn't been attempted
+        // Also grab the total number of samples at the same time
+        int samples = 0;
+        for (const auto &opening : openings)
+        {
+            auto resultsIt = resultsByOpening.find(opening);
+            if (resultsIt == resultsByOpening.end()) return opening;
+
+            if (resultsIt->second.second == 0) return opening;
+
+            samples += resultsIt->second.first;
+            samples += resultsIt->second.second;
+        }
+
+        // Run UCB1 on each opening
+        double bestScore = 0.0;
+        std::string bestOpening;
+        for (const auto &opening : openings)
+        {
+            const auto &results = resultsByOpening[opening];
+            double tries = results.first + results.second;
+            double score = ((double)results.first / tries) + std::sqrt(2.0 * std::log((double)samples) / tries);
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestOpening = opening;
+            }
+        }
+
+        return bestOpening;
     }
 }

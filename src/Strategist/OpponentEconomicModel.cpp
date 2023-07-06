@@ -372,8 +372,6 @@ namespace OpponentEconomicModel
             return;
         }
 
-        Log::Get() << "Initializing opponent economic model";
-
 #if OUTPUT_BUILD_ORDER
         observations = std::ostringstream();
 #endif

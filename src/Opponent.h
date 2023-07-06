@@ -29,4 +29,7 @@ namespace Opponent
     int minValueInPreviousGames(const std::string &key, int defaultNoData, int maxCount = INT_MAX, int minCount = 0);
 
     double winLossRatio(double defaultValue, int maxCount = INT_MAX);
+
+    // Picks the next opening from the given set of openings using UCB1 based on win rate of the given openings
+    std::string selectOpeningUCB1(const std::set<std::string> &openings, int maxCount = INT_MAX);
 }

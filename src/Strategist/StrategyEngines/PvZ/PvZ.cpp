@@ -54,9 +54,12 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         plays.emplace_back(std::make_shared<EjectEnemyScout>());
         plays.emplace_back(std::make_shared<Corsairs>());
 
-        // Determine whether to do a forge fast expand
-        // Currently always does one if there is a wall on this map
-        if (BuildingPlacement::hasForgeGatewayWall())
+        auto opening = Opponent::selectOpeningUCB1(
+                {
+                        OurStrategyNames[OurStrategy::SairSpeedlot],
+                        OurStrategyNames[OurStrategy::EarlyGameDefense]
+                });
+        if (opening == OurStrategyNames[OurStrategy::SairSpeedlot] && BuildingPlacement::hasForgeGatewayWall())
         {
             plays.emplace_back(std::make_shared<ForgeFastExpand>());
             ourStrategy = OurStrategy::SairSpeedlot;
@@ -65,6 +68,7 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         {
             plays.emplace_back(std::make_shared<DefendMyMain>());
         }
+        Log::Get() << "Selected opening " << OurStrategyNames[ourStrategy];
     }
 
     Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);

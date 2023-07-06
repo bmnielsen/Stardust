@@ -16,8 +16,12 @@ void PvU::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
 
-    // TODO: Use UCB1 to pick the opening
-    if (BuildingPlacement::hasForgeGatewayWall())
+    auto opening = Opponent::selectOpeningUCB1(
+            {
+                OurStrategyNames[OurStrategy::ForgeFastExpand],
+                OurStrategyNames[OurStrategy::TwoGateZealots]
+            });
+    if (opening == OurStrategyNames[OurStrategy::ForgeFastExpand] && BuildingPlacement::hasForgeGatewayWall())
     {
         plays.emplace_back(std::make_shared<ForgeFastExpand>());
         ourStrategy = OurStrategy::ForgeFastExpand;
@@ -26,6 +30,7 @@ void PvU::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
     {
         plays.emplace_back(std::make_shared<DefendMyMain>());
     }
+    Log::Get() << "Selected opening " << OurStrategyNames[ourStrategy];
 
     Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);
     Opponent::addEnemyStrategyChange("RandomUnknown");
