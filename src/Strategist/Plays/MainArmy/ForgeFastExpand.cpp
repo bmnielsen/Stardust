@@ -301,15 +301,19 @@ namespace
         return powerFrame;
     }
 
-    int currentWallCannons(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+    int currentWallCannons(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                           std::vector<BWAPI::TilePosition> &cannonPlacementsAvailable)
     {
+        cannonPlacementsAvailable = BuildingPlacement::getForgeGatewayWall().cannons;
+
         int count = 0;
-        for (const auto &tile : BuildingPlacement::getForgeGatewayWall().cannons)
+        for (auto it = cannonPlacementsAvailable.begin(); it != cannonPlacementsAvailable.end(); )
         {
+            auto tile = *it;
+
             if (Units::myBuildingAt(tile))
             {
-                count++;
-                continue;
+                goto cannonPlacementUsed;
             }
 
             for (const auto &priorityGoals : prioritizedProductionGoals)
@@ -323,32 +327,46 @@ namespace
                         const auto& location = unitProductionGoal->getLocation();
                         if (auto buildLocation = std::get_if<BuildingPlacement::BuildLocation>(&location))
                         {
-                            if (buildLocation->location.tile == tile) count++;
+                            if (buildLocation->location.tile == tile)
+                            {
+                                goto cannonPlacementUsed;
+                            }
                         }
                     }
                 }
             }
+
+            it++;
+            continue;
+
+            cannonPlacementUsed:;
+
+            it = cannonPlacementsAvailable.erase(it);
+            count++;
         }
 
         return count;
     }
 
     void buildWallCannons(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                          std::vector<BWAPI::TilePosition> &cannonPlacementsAvailable,
                           int count,
                           int frame,
                           int priority = PRIORITY_EMERGENCY)
     {
         if (count <= 0) return;
 
-        auto &wall = BuildingPlacement::getForgeGatewayWall();
-
         int remaining = count;
-        for (int i = 0; i < wall.cannons.size() && remaining > 0; i++)
+        while (remaining > 0)
         {
-            auto tile = wall.cannons[i];
-            if (Units::myBuildingAt(tile)) continue;
+            if (cannonPlacementsAvailable.empty()) return;
 
-            addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Photon_Cannon, tile, frame, priority);
+            addBuildingToGoals(prioritizedProductionGoals,
+                               BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                               *cannonPlacementsAvailable.begin(),
+                               frame,
+                               priority);
+            cannonPlacementsAvailable.erase(cannonPlacementsAvailable.begin());
 
             remaining--;
         }
@@ -444,10 +462,12 @@ namespace
         buildBaseDefenseCannons(Map::getMyNatural(), prioritizedProductionGoals, 1, frameForPosition(Map::getMyNatural()->getPosition()));
 
         // Add a second cannon at the wall
-        int currentCannons = currentWallCannons(prioritizedProductionGoals);
+        std::vector<BWAPI::TilePosition> cannonPlacementsAvailable;
+        int currentCannons = currentWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable);
         if (currentCannons < 2)
         {
             buildWallCannons(prioritizedProductionGoals,
+                             cannonPlacementsAvailable,
                              2 - currentCannons,
                              frameForPosition(Map::getMyNatural()->getPosition()) - 100,
                              PRIORITY_BASEDEFENSE);
@@ -458,23 +478,25 @@ namespace
     {
         if (!Strategist::isEnemyStrategy(PvZ::ZergStrategy::ZerglingAllIn)) return;
 
-        int currentCannons = currentWallCannons(prioritizedProductionGoals);
-        if (currentCannons < 2) buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, 0);
-        if (currentCannons < 3) buildWallCannons(prioritizedProductionGoals, 1, 4000);
-        if (currentCannons < 4) buildWallCannons(prioritizedProductionGoals, 1, 5000);
-        if (currentCannons < 5) buildWallCannons(prioritizedProductionGoals, 1, 6000);
+        std::vector<BWAPI::TilePosition> cannonPlacementsAvailable;
+        int currentCannons = currentWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable);
+        if (currentCannons < 2) buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, 0);
+        if (currentCannons < 3) buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 1, 4000);
+        if (currentCannons < 4) buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 1, 5000);
+        if (currentCannons < 5) buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 1, 6000);
     }
 
     void handleHydraBust(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
     {
         if (!Strategist::isEnemyStrategy(PvZ::ZergStrategy::HydraBust)) return;
 
-        int currentCannons = currentWallCannons(prioritizedProductionGoals);
-        if (currentCannons < 2) buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, 5000);
-        if (currentCannons < 3) buildWallCannons(prioritizedProductionGoals, 1, 6000);
-        if (currentCannons < 4) buildWallCannons(prioritizedProductionGoals, 1, 7000);
-        if (currentCannons < 5) buildWallCannons(prioritizedProductionGoals, 1, 8000);
-        if (currentCannons < 6) buildWallCannons(prioritizedProductionGoals, 1, 9000);
+        std::vector<BWAPI::TilePosition> cannonPlacementsAvailable;
+        int currentCannons = currentWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable);
+        if (currentCannons < 2) buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, 5000);
+        if (currentCannons < 3) buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 1, 6000);
+        if (currentCannons < 4) buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 1, 7000);
+        if (currentCannons < 5) buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 1, 8000);
+        if (currentCannons < 6) buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 1, 9000);
     }
 
     void handleNonZergRush(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
@@ -491,22 +513,28 @@ namespace
             return;
         }
 
-        int currentCannons = currentWallCannons(prioritizedProductionGoals);
-        if (currentCannons < 2) buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, baseFrame);
-        if (currentCannons < 3) buildWallCannons(prioritizedProductionGoals, 1, baseFrame + 1000);
-        if (currentCannons < 4) buildWallCannons(prioritizedProductionGoals, 1, baseFrame + 2000);
+        std::vector<BWAPI::TilePosition> cannonPlacementsAvailable;
+        int currentCannons = currentWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable);
+        if (currentCannons < 2) buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, baseFrame);
+        if (currentCannons < 3) buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 1, baseFrame + 1000);
+        if (currentCannons < 4) buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 1, baseFrame + 2000);
 
         if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) == 0)
         {
-            // Put priority of zealot slightly lower than cannons if we don't have any yet
-            int zealotPriority = PRIORITY_MAINARMY;
-            if (Units::countAll(BWAPI::UnitTypes::Protoss_Zealot) == 0) zealotPriority = PRIORITY_EMERGENCY + 1;
-            prioritizedProductionGoals[zealotPriority].emplace_back(
-                    std::in_place_type<UnitProductionGoal>,
-                    "ForgeFastExpand",
-                    BWAPI::UnitTypes::Protoss_Zealot,
-                    1,
-                    1);
+            int zealots = Units::countAll(BWAPI::UnitTypes::Protoss_Zealot);
+            int desiredZealots = std::min(1, Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) / 2);
+            if (zealots < desiredZealots)
+            {
+                // Put priority of zealot slightly lower than cannons if we don't have any yet
+                int zealotPriority = PRIORITY_MAINARMY;
+                if (zealots == 0) zealotPriority = PRIORITY_EMERGENCY + 1;
+                prioritizedProductionGoals[zealotPriority].emplace_back(
+                        std::in_place_type<UnitProductionGoal>,
+                        "ForgeFastExpand",
+                        BWAPI::UnitTypes::Protoss_Zealot,
+                        1,
+                        1);
+            }
         }
     }
 }
@@ -637,7 +665,8 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
     // Common timing-based logic needed by multiple states
     int enemyArrivalFrame = worstCaseEnemyArrivalFrame();
     int cannonFrame = enemyArrivalFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon);
-    int currentCannons = currentWallCannons(prioritizedProductionGoals);
+    std::vector<BWAPI::TilePosition> cannonPlacementsAvailable;
+    int currentCannons = currentWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable);
 
     switch (currentState)
     {
@@ -649,14 +678,14 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
                 addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Pylon, wall.pylon);
             }
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Forge, wall.forge);
-            buildWallCannons(prioritizedProductionGoals, 2, cannonFrame, PRIORITY_DEPOTS);
+            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2, cannonFrame, PRIORITY_DEPOTS);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             break;
         }
         case State::STATE_NEXUS_PENDING:
         {
-            buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, cannonFrame);
+            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, cannonFrame);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 14);
@@ -664,14 +693,14 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         }
         case State::STATE_GATEWAY_PENDING:
         {
-            buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, cannonFrame);
+            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, cannonFrame);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 14);
             break;
         }
         case State::STATE_FINISHED:
         {
-            buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, cannonFrame);
+            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, cannonFrame);
 
             // Handle additional cannons based on enemy strategy
             handleMutaRush(prioritizedProductionGoals);
@@ -742,7 +771,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         }
         case State::STATE_ANTIFASTRUSH_GATEWAY_PENDING:
         {
-            buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, cannonFrame);
+            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, cannonFrame);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway, 0, PRIORITY_EMERGENCY);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 16);
@@ -750,7 +779,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         }
         case State::STATE_ANTIFASTRUSH_NEXUS_PENDING:
         {
-            buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, cannonFrame);
+            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, cannonFrame);
             handleNonZergRush(prioritizedProductionGoals);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 16);
