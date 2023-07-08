@@ -841,22 +841,24 @@ void EarlyGameWorkerScout::scoutEnemyBase()
 
 bool EarlyGameWorkerScout::selectScout()
 {
-    // Scout after the first gateway if playing a non-zerg opponent on a two-player map
-    // In all other cases scout after the first pylon
-    auto scoutAfterBuilding = BWAPI::UnitTypes::Protoss_Pylon;
-    auto scoutAtBuildingCount = 1;
+    // Normally we scout after the first pylon
+    // Exceptions are that we wait for the first gateway or forge if on a two-player map and enemy is not zerg,
+    // and we wait for the nexus if we are doing a 12 nexus vs. Terran
     if (Map::getEnemyStartingMain()
         && (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran || BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss))
     {
-        scoutAfterBuilding = BWAPI::UnitTypes::Protoss_Gateway;
+        scout.unit = getScoutAfterBuilding(BWAPI::UnitTypes::Protoss_Gateway, 1);
+        if (!scout.unit) scout.unit = getScoutAfterBuilding(BWAPI::UnitTypes::Protoss_Forge, 1);
     }
-    if (Strategist::isOurStrategy(PvT::OurStrategy::FastExpansion))
+    else if (Strategist::isOurStrategy(PvT::OurStrategy::FastExpansion))
     {
-        scoutAfterBuilding = BWAPI::UnitTypes::Protoss_Nexus;
-        scoutAtBuildingCount = 2;
+        scout.unit = getScoutAfterBuilding(BWAPI::UnitTypes::Protoss_Nexus, 2);
+    }
+    else
+    {
+        scout.unit = getScoutAfterBuilding(BWAPI::UnitTypes::Protoss_Pylon, 1);
     }
 
-    scout.unit = getScoutAfterBuilding(scoutAfterBuilding, scoutAtBuildingCount);
     return scout.unit != nullptr;
 }
 
