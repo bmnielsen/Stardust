@@ -23,6 +23,33 @@
 
 namespace
 {
+    bool proxyBehindOurWall()
+    {
+        if (!Strategist::isEnemyStrategy(PvP::ProtossStrategy::ProxyRush) &&
+            !Strategist::isEnemyStrategy(PvT::TerranStrategy::ProxyRush))
+        {
+            return false;
+        }
+
+        auto mainAndNaturalAreas = Map::getMyMainAreas();
+        mainAndNaturalAreas.insert(Map::getMyNatural()->getArea());
+
+        for (const auto &unit : Units::allEnemy())
+        {
+            if (!unit->lastPositionValid) continue;
+            if (!unit->type.isBuilding()) continue;
+            if (unit->isFlying) continue;
+
+            if (mainAndNaturalAreas.find(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition))) != mainAndNaturalAreas.end())
+            {
+                Log::Get() << "Proxy detected behind our wall";
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     int worstCaseEnemyArrivalFrame()
     {
         // For PvP or PvT proxy rushes assume arrival frame of 3700
@@ -524,7 +551,8 @@ void ForgeFastExpand::update()
             {
                 Builder::cancelBase(natural);
 
-                if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
+                if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg ||
+                    proxyBehindOurWall())
                 {
                     currentState = State::STATE_ANTIFASTRUSHZERG;
                 }
