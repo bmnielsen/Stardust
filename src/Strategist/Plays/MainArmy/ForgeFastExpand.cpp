@@ -498,7 +498,10 @@ namespace
 
         if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) == 0)
         {
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(
+            // Put priority of zealot slightly lower than cannons if we don't have any yet
+            int zealotPriority = PRIORITY_MAINARMY;
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Zealot) == 0) zealotPriority = PRIORITY_EMERGENCY + 1;
+            prioritizedProductionGoals[zealotPriority].emplace_back(
                     std::in_place_type<UnitProductionGoal>,
                     "ForgeFastExpand",
                     BWAPI::UnitTypes::Protoss_Zealot,
@@ -748,6 +751,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         case State::STATE_ANTIFASTRUSH_NEXUS_PENDING:
         {
             buildWallCannons(prioritizedProductionGoals, 2 - currentCannons, cannonFrame);
+            handleNonZergRush(prioritizedProductionGoals);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 16);
             break;
