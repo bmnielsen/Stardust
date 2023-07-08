@@ -3,6 +3,7 @@
 #include "Squads/AttackBaseSquad.h"
 #include "Squads/DefendBaseSquad.h"
 #include "Squads/EarlyGameDefendMainBaseSquad.h"
+#include "Squads/DefendWallSquad.h"
 #include "Base.h"
 #include "Map.h"
 #include "Units.h"
@@ -20,6 +21,8 @@ namespace General
         std::unordered_map<Base *, std::shared_ptr<AttackBaseSquad>> baseToAttackSquad;
         std::unordered_map<Base *, std::shared_ptr<Squad>> baseToDefendSquad;
         std::unordered_map<MyUnit, std::shared_ptr<Squad>> cannonToSquad;
+
+        std::shared_ptr<Squad> defendWallSquad;
     }
 
     void initialize()
@@ -28,6 +31,7 @@ namespace General
         baseToAttackSquad.clear();
         baseToDefendSquad.clear();
         cannonToSquad.clear();
+        defendWallSquad = nullptr;
     }
 
     void updateClusters()
@@ -46,6 +50,34 @@ namespace General
                     cannonToSquad.erase(it);
                 }
                 continue;
+            }
+
+            // Check if the cannon should belong to a defend wall squad
+            if (defendWallSquad)
+            {
+                bool foundCannon = false;
+
+                for (auto cannonPlacement : BuildingPlacement::getForgeGatewayWall().cannons)
+                {
+                    if (cannon->getTilePosition() != cannonPlacement) continue;
+
+                    auto currentSquad = cannonToSquad.find(cannon);
+                    if (currentSquad == cannonToSquad.end() || currentSquad->second != defendWallSquad)
+                    {
+                        if (currentSquad != cannonToSquad.end())
+                        {
+                            currentSquad->second->removeUnit(cannon);
+                        }
+
+                        defendWallSquad->addUnit(cannon);
+                        cannonToSquad[cannon] = defendWallSquad;
+                    }
+
+                    foundCannon = true;
+                    break;
+                }
+
+                if (foundCannon) continue;
             }
 
             // Determine the base the cannon belongs to
@@ -115,6 +147,10 @@ namespace General
         {
             baseToDefendSquad[Map::getMyMain()] = squad;
         }
+        if (auto match = std::dynamic_pointer_cast<DefendWallSquad>(squad))
+        {
+            defendWallSquad = squad;
+        }
     }
 
     void removeSquad(const std::shared_ptr<Squad> &squad)
@@ -139,6 +175,8 @@ namespace General
         cleanupMap(baseToAttackSquad);
         cleanupMap(baseToDefendSquad);
         cleanupMap(cannonToSquad);
+
+        if (defendWallSquad == squad) defendWallSquad = nullptr;
     }
 
     AttackBaseSquad *getAttackBaseSquad(Base *targetBase)
