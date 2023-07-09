@@ -1791,16 +1791,27 @@ namespace Producer
             // If the last goal item has been pushed back, update the prerequisitesAvailable frame
             if (!prerequisiteItems.empty()) prerequisitesAvailable = std::max(prerequisitesAvailable, (*prerequisiteItems.rbegin())->completionFrame);
 
-            // Push the prerequisitesAvailable frame if we want to build the item later
-            prerequisitesAvailable = std::max(prerequisitesAvailable, frame - currentFrame);
+            // Push the start frame if we want to build the item later
+            int earliestStartFrame = std::max(prerequisitesAvailable, frame - currentFrame);
+
+            // Push the start frame if the build location for a building is not yet powered
+            if (unitType && unitType->isBuilding()) earliestStartFrame = std::max(earliestStartFrame, buildLocation->framesUntilPowered);
+
+            // Shift the prerequisite items if needed
+            if (!prerequisiteItems.empty() && earliestStartFrame > prerequisitesAvailable)
+            {
+                int delta = earliestStartFrame - prerequisitesAvailable;
+                for (auto &prerequisiteItem : prerequisiteItems)
+                {
+                    prerequisiteItem->startFrame += delta;
+                    prerequisiteItem->completionFrame += delta;
+                }
+            }
 
             // Buildings can now be handled immediately - we only ever produce one at a time and require a specific location
             if (unitType && unitType->isBuilding())
             {
-                // Push the prerequisitesAvailable frame if the location is not yet powered
-                prerequisitesAvailable = std::max(prerequisitesAvailable, buildLocation->framesUntilPowered);
-
-                auto buildingItem = std::make_shared<ProductionItem>(type, prerequisitesAvailable, location);
+                auto buildingItem = std::make_shared<ProductionItem>(type, earliestStartFrame, location);
                 buildingItem->estimatedWorkerMovementTime = buildLocation->builderFrames;
                 buildingItem->buildLocation = *buildLocation;
                 buildingItem->reservedBuilder = std::move(reservedBuilder);
@@ -1815,7 +1826,7 @@ namespace Producer
             for (auto &item : prerequisiteItems)
             {
                 if (item->is(producerType) && canProduceFrom(type, location, *item))
-                    producers.emplace_back(std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame)));
+                    producers.emplace_back(std::make_shared<Producer>(item, std::max(earliestStartFrame, item->completionFrame)));
             }
 
             // Committed producers
@@ -1828,18 +1839,18 @@ namespace Producer
                     auto existingProducerIt = existingProducers.find(item->queuedBuilding->unit);
                     if (existingProducerIt != existingProducers.end())
                     {
-                        existingProducerIt->second->availableFrom = std::max(prerequisitesAvailable, item->completionFrame);
+                        existingProducerIt->second->availableFrom = std::max(earliestStartFrame, item->completionFrame);
                         producers.push_back(existingProducerIt->second);
                         continue;
                     }
 
-                    auto producer = std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame));
+                    auto producer = std::make_shared<Producer>(item, std::max(earliestStartFrame, item->completionFrame));
                     producers.push_back(producer);
                     existingProducers[item->queuedBuilding->unit] = producer;
                 }
                 else
                 {
-                    producers.emplace_back(std::make_shared<Producer>(item, std::max(prerequisitesAvailable, item->completionFrame)));
+                    producers.emplace_back(std::make_shared<Producer>(item, std::max(earliestStartFrame, item->completionFrame)));
                 }
             }
 
@@ -1877,12 +1888,12 @@ namespace Producer
                 auto existingProducerIt = existingProducers.find(unit);
                 if (existingProducerIt != existingProducers.end())
                 {
-                    existingProducerIt->second->availableFrom = std::max(prerequisitesAvailable, remainingTrainTime + 1);
+                    existingProducerIt->second->availableFrom = std::max(earliestStartFrame, remainingTrainTime + 1);
                     producers.push_back(existingProducerIt->second);
                     continue;
                 }
 
-                auto producer = std::make_shared<Producer>(unit, std::max(prerequisitesAvailable, remainingTrainTime + 1));
+                auto producer = std::make_shared<Producer>(unit, std::max(earliestStartFrame, remainingTrainTime + 1));
                 producers.push_back(producer);
                 existingProducers[unit] = producer;
             }
@@ -1891,13 +1902,13 @@ namespace Producer
             // So add a new producer at the correct location to the prerequisite items
             if (producers.empty())
             {
-                int startFrame = std::max(0, prerequisitesAvailable - UnitUtil::BuildTime(producerType));
+                int startFrame = std::max(0, earliestStartFrame - UnitUtil::BuildTime(producerType));
                 auto producerItem = std::make_shared<ProductionItem>(producerType, startFrame, location);
                 prerequisiteItems.insert(producerItem);
 
                 reserveBuildPositions(prerequisiteItems);
 
-                producers.emplace_back(std::make_shared<Producer>(producerItem, std::max(prerequisitesAvailable, producerItem->completionFrame)));
+                producers.emplace_back(std::make_shared<Producer>(producerItem, std::max(earliestStartFrame, producerItem->completionFrame)));
             }
 
             // Step 3: Repeatedly commit a unit from the earliest producer available, or a new one if applicable, until we have built enough
@@ -1911,7 +1922,7 @@ namespace Producer
                 int bestFrame = PREDICT_FRAMES;
                 for (auto &producer : producers)
                 {
-                    int available = availableAt(type, prerequisitesAvailable, producer);
+                    int available = availableAt(type, earliestStartFrame, producer);
                     if (available < bestFrame)
                     {
                         bestFrame = available;
@@ -1943,13 +1954,12 @@ namespace Producer
                         if (toProduce > 0) toProduce--;
                         bestProducer->items.insert(bestProducerItem);
 
-                        // If we have prerequisites, we may need to adjust the frame when prerequisites are available, as
-                        // they may have shifted
+                        // If we have prerequisites, we may need to adjust the earliest start frame, as they may have shifted
                         if (!prerequisiteItems.empty())
                         {
                             for (auto &prerequisiteItem : prerequisiteItems)
                             {
-                                prerequisitesAvailable = std::max(prerequisitesAvailable, prerequisiteItem->completionFrame);
+                                earliestStartFrame = std::max(earliestStartFrame, prerequisiteItem->completionFrame);
                             }
 
                             // Clear the prerequisites, as they have now been committed
@@ -1972,7 +1982,7 @@ namespace Producer
                 ProductionItemSet newProducerPrerequisites;
                 auto producerItem = *newProducerPrerequisites.emplace(std::make_shared<ProductionItem>(producerType,
                                                                                                        std::max(0,
-                                                                                                                prerequisitesAvailable
+                                                                                                                earliestStartFrame
                                                                                                                 - UnitUtil::BuildTime(producerType)),
                                                                                                        location));
                 auto newProducer = std::make_shared<Producer>(producerItem, producerItem->completionFrame);
