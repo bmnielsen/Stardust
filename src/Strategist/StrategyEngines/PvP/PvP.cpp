@@ -47,7 +47,7 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         // We keep an FFE build as a backup option if we e.g. end up getting cheesed with DTs all the time
         auto opening = Opponent::selectOpeningUCB1(
                 {
-                        OurStrategyNames[OurStrategy::EarlyGameDefense],
+//                        OurStrategyNames[OurStrategy::EarlyGameDefense],
                         OurStrategyNames[OurStrategy::FiveGateGoon]
                 });
         if (opening == OurStrategyNames[OurStrategy::FiveGateGoon] && BuildingPlacement::hasForgeGatewayWall())
@@ -335,6 +335,17 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1,
                                                                        -1);
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
+
+            if (currentFrame < 10000 && Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) == 0)
+            {
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                        "SE",
+                        BWAPI::UnitTypes::Protoss_Dark_Templar,
+                        1,
+                        1,
+                        9000 - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar));
+            }
+
             break;
         }
         case OurStrategy::EarlyGameDefense:
