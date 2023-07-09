@@ -40,11 +40,28 @@ void DefendWallSquad::execute(UnitCluster &cluster)
     }
 
     // If there are no enemy units, move to the wall center
-    // TODO: Help our units outside the wall get inside again
     if (enemyUnits.empty())
     {
         cluster.setActivity(UnitCluster::Activity::Moving);
-        cluster.move(targetPosition);
+
+        // If any of our units are outside the wall, move to our main to give them room to get in
+        bool unitOutsideWall = false;
+        for (const auto &unit : cluster.units)
+        {
+            if (wall.tilesOutsideWall.find(unit->getTilePosition()) == wall.tilesOutsideWall.end()) continue;
+            unitOutsideWall = true;
+            break;
+        }
+
+        if (unitOutsideWall)
+        {
+            cluster.move(Map::getMyMain()->getPosition());
+        }
+        else
+        {
+            cluster.move(targetPosition);
+        }
+
         return;
     }
 
