@@ -344,15 +344,16 @@ namespace Opponent
         return (double)wins / (double)(wins + losses);
     }
 
-    std::string selectOpeningUCB1(const std::set<std::string> &openings, int maxCount)
+    std::string selectOpeningUCB1(const std::set<std::string> &openings, double decayFactor)
     {
-        // Gather wins and losses for previous games
-        std::map<std::string, std::pair<int, int>> resultsByOpening;
+        // Gather wins, losses, reward, and potential for previous games
+        // To account for the opponent changing strategies, we weight recent results above older ones using the decay factor
+        // We also give a bonus weighting to results on the same map
+        std::map<std::string, std::tuple<int, int, double, double>> resultsByOpening;
+        double totalPotential = 0.0;
         int count = 0;
         for (auto gameIt = previousGames.rbegin(); gameIt != previousGames.rend(); gameIt++)
         {
-            if (count >= maxCount) break;
-
             try
             {
                 auto wonIt = gameIt->find("won");
@@ -364,15 +365,20 @@ namespace Opponent
                 auto initialStrategy = (*myStrategiesIt)[0];
                 if (initialStrategy[0] != 0) continue;
 
-                auto &resultCounter = resultsByOpening[initialStrategy[1]];
-                auto delta = (isPreviousGameOnThisMap(*gameIt) ? 2 : 1);
+                auto &[wins, losses, reward, potential] = resultsByOpening[initialStrategy[1]];
+
+                double thisPotential = (isPreviousGameOnThisMap(*gameIt) ? 2.0 : 1.0);
+                thisPotential *= std::exp(decayFactor * -1 * (count + 1));
+                potential += thisPotential;
+                totalPotential += thisPotential;
                 if (won)
                 {
-                    resultCounter.first += delta;
+                    wins++;
+                    reward += thisPotential;
                 }
                 else
                 {
-                    resultCounter.second += delta;
+                    losses++;
                 }
             }
             catch (std::exception &ex)
@@ -383,24 +389,24 @@ namespace Opponent
             count++;
         }
 
-        Log::Get() << "Previous opening results weighted by map:";
+#if INSTRUMENTATION_ENABLED
+        Log::Get() << "Previous opening results for past " << count << " games:";
         for (const auto &[opening, results] : resultsByOpening)
         {
-            Log::Get() << opening << ": " << results.first << " won " << results.second << " lost";
+            auto &[wins, losses, reward, potential] = results;
+            Log::Get() << opening << ": " << wins << " won " << losses << " lost"
+                << "; weighted result " << std::fixed << std::setprecision(1) << (100.0 * reward / potential) << "%";
         }
+#endif
 
         // If there is one, select the first opening that has either never lost or hasn't been attempted
-        // Also grab the total number of samples at the same time
-        int samples = 0;
         for (const auto &opening : openings)
         {
             auto resultsIt = resultsByOpening.find(opening);
             if (resultsIt == resultsByOpening.end()) return opening;
 
-            if (resultsIt->second.second == 0) return opening;
-
-            samples += resultsIt->second.first;
-            samples += resultsIt->second.second;
+            auto &[wins, losses, reward, potential] = resultsIt->second;
+            if (losses == 0) return opening;
         }
 
         // Run UCB1 on each opening
@@ -408,9 +414,9 @@ namespace Opponent
         std::string bestOpening;
         for (const auto &opening : openings)
         {
-            const auto &results = resultsByOpening[opening];
-            double tries = results.first + results.second;
-            double score = ((double)results.first / tries) + std::sqrt(2.0 * std::log((double)samples) / tries);
+            auto &[wins, losses, reward, potential] = resultsByOpening[opening];
+
+            double score = (reward / potential) + std::sqrt(2.0 * std::log(totalPotential) / potential);
 
             if (score > bestScore)
             {

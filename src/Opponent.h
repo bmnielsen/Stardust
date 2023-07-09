@@ -31,5 +31,5 @@ namespace Opponent
     double winLossRatio(double defaultValue, int maxCount = INT_MAX);
 
     // Picks the next opening from the given set of openings using UCB1 based on win rate of the given openings
-    std::string selectOpeningUCB1(const std::set<std::string> &openings, int maxCount = INT_MAX);
+    std::string selectOpeningUCB1(const std::set<std::string> &openings, double decayFactor = 0.05);
 }
