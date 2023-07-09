@@ -6,7 +6,7 @@
 #include "Plays/MainArmy/AttackEnemyBase.h"
 
 std::map<PvT::OurStrategy, std::string> PvT::OurStrategyNames = {
-        {OurStrategy::FiveGateGoon,     "FiveGateGoon"},
+        {OurStrategy::ForgeExpandGoons, "ForgeExpandGoons"},
         {OurStrategy::EarlyGameDefense, "EarlyGameDefense"},
         {OurStrategy::AntiMarineRush,   "AntiMarineRush"},
         {OurStrategy::FastExpansion,    "FastExpansion"},
@@ -70,7 +70,7 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
     {
         switch (strategy)
         {
-            case PvT::OurStrategy::FiveGateGoon:
+            case PvT::OurStrategy::ForgeExpandGoons:
             {
                 auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
                 if (!mainArmyPlay) break;

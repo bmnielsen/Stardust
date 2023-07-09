@@ -35,7 +35,7 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
 
         if (getPlay<ForgeFastExpand>(plays))
         {
-            ourStrategy = OurStrategy::FiveGateGoon;
+            ourStrategy = OurStrategy::ForgeExpandDT;
         }
     }
     else
@@ -44,16 +44,15 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
         plays.emplace_back(std::make_shared<EjectEnemyScout>());
 
-        // We keep an FFE build as a backup option if we e.g. end up getting cheesed with DTs all the time
         auto opening = Opponent::selectOpeningUCB1(
                 {
-//                        OurStrategyNames[OurStrategy::EarlyGameDefense],
-                        OurStrategyNames[OurStrategy::FiveGateGoon]
+                        OurStrategyNames[OurStrategy::EarlyGameDefense],
+                        OurStrategyNames[OurStrategy::ForgeExpandDT]
                 });
-        if (opening == OurStrategyNames[OurStrategy::FiveGateGoon] && BuildingPlacement::hasForgeGatewayWall())
+        if (opening == OurStrategyNames[OurStrategy::ForgeExpandDT] && BuildingPlacement::hasForgeGatewayWall())
         {
             plays.emplace_back(std::make_shared<ForgeFastExpand>());
-            ourStrategy = OurStrategy::FiveGateGoon;
+            ourStrategy = OurStrategy::ForgeExpandDT;
         }
         else
         {
@@ -124,7 +123,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     {
         switch (ourStrategy)
         {
-            case OurStrategy::FiveGateGoon:
+            case OurStrategy::ForgeExpandDT:
             {
                 // Attack when we have goon range
                 defendOurMain = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0);
@@ -327,7 +326,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     // Main army production
     switch (ourStrategy)
     {
-        case OurStrategy::FiveGateGoon:
+        case OurStrategy::ForgeExpandDT:
         {
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        "SE",
@@ -598,7 +597,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     bool buildProbes = false;
     switch (ourStrategy)
     {
-        case OurStrategy::FiveGateGoon:
+        case OurStrategy::ForgeExpandDT:
             // Handled by the play
             CherryVis::setBoardValue("natural", "forge-expand");
             return;

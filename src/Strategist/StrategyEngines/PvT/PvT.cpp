@@ -39,7 +39,7 @@ void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
 
         if (getPlay<ForgeFastExpand>(plays))
         {
-            ourStrategy = OurStrategy::FiveGateGoon;
+            ourStrategy = OurStrategy::ForgeExpandGoons;
         }
     }
     else
@@ -117,7 +117,7 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     {
         switch (ourStrategy)
         {
-            case OurStrategy::FiveGateGoon:
+            case OurStrategy::ForgeExpandGoons:
             {
                 // Attack when we have goon range
                 defendOurMain = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0);
@@ -250,7 +250,7 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     switch (ourStrategy)
     {
-        case OurStrategy::FiveGateGoon:
+        case OurStrategy::ForgeExpandGoons:
         {
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        "SE",
@@ -486,7 +486,7 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 
     switch (ourStrategy)
     {
-        case OurStrategy::FiveGateGoon:
+        case OurStrategy::ForgeExpandGoons:
             // Handled by the play
             CherryVis::setBoardValue("natural", "forge-expand");
             return;

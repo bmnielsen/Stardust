@@ -7,7 +7,7 @@
 #include "Units.h"
 
 std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
-        {OurStrategy::FiveGateGoon,        "FiveGateGoon"},
+        {OurStrategy::ForgeExpandDT,       "ForgeExpandDT"},
         {OurStrategy::EarlyGameDefense,    "EarlyGameDefense"},
         {OurStrategy::AntiZealotRush,      "AntiZealotRush"},
         {OurStrategy::AntiDarkTemplarRush, "AntiDarkTemplarRush"},
@@ -118,7 +118,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
     {
         switch (strategy)
         {
-            case PvP::OurStrategy::FiveGateGoon:
+            case PvP::OurStrategy::ForgeExpandDT:
             {
                 auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
                 if (!mainArmyPlay) break;
