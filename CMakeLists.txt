@@ -21,7 +21,7 @@ IF(MSVC)
         set(ZSTD_MULTITHREAD_SUPPORT false)
         set(ZSTD_USE_STATIC_RUNTIME true)
         set(ZSTD_ZLIB_SUPPORT false)
-    ENDIF(NOT TOURNAMENT_BUILD)
+    ENDIF(TOURNAMENT_BUILD)
 
     add_definitions(-DWITHOUT_POSIX)
     add_subdirectory(3rdparty/BWAPILIB)

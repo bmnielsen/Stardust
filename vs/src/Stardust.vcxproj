@@ -22,6 +22,7 @@
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
     <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -89,6 +90,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Builder\Builder.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Builder\Building.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Builder\BuildingPlacement.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Builder\BuildingPlacement_Walls.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Bullets.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Dll.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\CombatSimResult.cpp" />
@@ -97,6 +99,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\AttackBaseSquad.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\CorsairSquad.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\DefendBaseSquad.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\General\Squads\DefendWallSquad.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\EarlyGameDefendMainBaseSquad.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\MopUpSquad.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\General\Squads\WorkerDefenseSquad.cpp" />
@@ -122,9 +125,14 @@
     <ClCompile Include="$(SolutionDir)\..\src\Map\Map.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\Map_Walkability.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Alchemist.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Destination.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Fortress.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\MatchPoint.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\NeoMoonGlaive.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Outsider.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Plasma.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Python.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\TauCross.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\NoGoAreas.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\NavigationGrid.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding.cpp" />
@@ -150,6 +158,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Macro\TakeIslandExpansion.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\AttackEnemyBase.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\DefendMyMain.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\ForgeFastExpand.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\MainArmyPlay.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\MainArmy\MopUp.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\Offensive\AttackExpansion.cpp" />
@@ -163,6 +172,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\Elevator.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\ElevatorRush.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Plays\SpecialTeams\ShuttleHarass.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Strategist\Strategies.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\Strategist.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\AttackPlays.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Strategist\StrategyEngines\Common\DefensiveCannons.cpp" />
