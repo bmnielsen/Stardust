@@ -24,7 +24,7 @@ void DefendWallSquad::execute(UnitCluster &cluster)
     for (const auto &area : Map::getMyMainAreas()) Units::enemyInArea(enemyUnits, area);
     Units::enemyInArea(enemyUnits, Map::getMyNatural()->getArea());
 
-    // Remove enemy units that are outside the wall
+    // Remove enemy units that are outside and not close to the wall
     for (auto it = enemyUnits.begin(); it != enemyUnits.end(); )
     {
         auto tile = (*it)->getTilePosition();

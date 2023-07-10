@@ -615,22 +615,6 @@ namespace BuildingPlacement
             return ((point.x - lineEnd1.x) * (lineEnd2.y - lineEnd1.y)) - ((point.y - lineEnd1.y) * (lineEnd2.x - lineEnd1.x)) < 0;
         }
 
-        bool isAnyWalkable(const BWAPI::TilePosition here)
-        {
-            const auto start = BWAPI::WalkPosition(here);
-            for (auto x = start.x; x < start.x + 4; x++)
-            {
-                for (auto y = start.y; y < start.y + 4; y++)
-                {
-                    auto walk = BWAPI::WalkPosition(x, y);
-                    if (!walk.isValid()) return false;
-                    if (neutralWalkTiles.find(walk) == neutralWalkTiles.end()) return true;
-                    if (BWAPI::Broodwar->isWalkable(walk)) return true;
-                }
-            }
-            return false;
-        }
-
         void analyzeWallGeo(ForgeGatewayWall &wall)
         {
             // Pull the gap ends so they are on the closest unwalkable positions
@@ -720,84 +704,148 @@ namespace BuildingPlacement
                 );
             }
 
-            BWAPI::Position natCenter = natural->getPosition();
+            // Compute the sets of tiles inside and outside the wall
 
-            BWAPI::Position forgeCenter = BWAPI::Position(wall.forge) + BWAPI::Position(BWAPI::UnitTypes::Protoss_Forge.tileWidth() * 16,
-                                                                                        BWAPI::UnitTypes::Protoss_Forge.tileHeight() * 16);
-            BWAPI::Position gatewayCenter = BWAPI::Position(wall.gateway) + BWAPI::Position(BWAPI::UnitTypes::Protoss_Gateway.tileWidth() * 16,
-                                                                                            BWAPI::UnitTypes::Protoss_Gateway.tileHeight() * 16);
-            BWAPI::Position centroid = (forgeCenter + gatewayCenter) / 2;
-            bool natSideOfForgeGatewayLine = sideOfLine(forgeCenter, gatewayCenter, natCenter);
-            bool natSideOfGapLine = sideOfLine(wall.gapEnd1, wall.gapEnd2, natCenter);
-
-            // Use the bounding box defined by the gap center, natural center, and wall centroid to define the search area
-            BWAPI::TilePosition topLeft = BWAPI::TilePosition(BWAPI::Position(std::min(natCenter.x, std::min(centroid.x, wall.gapCenter.x)),
-                                                                              std::min(natCenter.y, std::min(centroid.y, wall.gapCenter.y))));
-            BWAPI::TilePosition bottomRight = BWAPI::TilePosition(BWAPI::Position(std::max(natCenter.x, std::max(centroid.x, wall.gapCenter.x)),
-                                                                                  std::max(natCenter.y, std::max(centroid.y, wall.gapCenter.y))));
-
-            // Add all the valid tiles we can find inside and outside the wall
-            for (int x = topLeft.x - 10; x < bottomRight.x + 10; x++)
+            // We start by setting forge and gateway building tiles as inside the wall
+            auto addBuildingToInsideTiles = [&wall](BWAPI::UnitType type, BWAPI::TilePosition tile)
             {
-                for (int y = topLeft.y - 10; y < bottomRight.y + 10; y++)
+                for (int x = tile.x; x < (tile.x + type.tileWidth()); x++)
                 {
-                    BWAPI::TilePosition tile = BWAPI::TilePosition(x, y);
-                    if (!isAnyWalkable(tile)) continue;
+                    for (int y = tile.y; y < (tile.y + type.tileHeight()); y++)
+                    {
+                        wall.tilesInsideWall.emplace(x, y);
+                    }
+                }
+            };
+            addBuildingToInsideTiles(BWAPI::UnitTypes::Protoss_Forge, wall.forge);
+            addBuildingToInsideTiles(BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
 
-                    BWAPI::Position tileCenter = center(tile);
-                    if (sideOfLine(forgeCenter, gatewayCenter, tileCenter) != natSideOfForgeGatewayLine
-                        && sideOfLine(wall.gapEnd1, wall.gapEnd2, tileCenter) != natSideOfGapLine)
-                    {
-                        wall.tilesOutsideWall.insert(tile);
-                    }
-                    else
-                    {
-                        wall.tilesInsideWall.insert(tile);
-                    }
+            // Then we trace the wall gap as inside the wall
+            std::vector<BWAPI::TilePosition> gapTiles;
+            Geo::FindTilesBetween(BWAPI::TilePosition(wall.gapEnd1), BWAPI::TilePosition(wall.gapEnd2), gapTiles);
+            std::copy(gapTiles.begin(), gapTiles.end(), std::inserter(wall.tilesInsideWall, wall.tilesInsideWall.end()));
+
+            // Then we flood-fill inside tiles from the natural center, not going outside the natural area unless close to the gap center
+            {
+                auto gapCenterTile = BWAPI::TilePosition(wall.gapCenter);
+                std::queue<BWAPI::TilePosition> queue;
+                auto visited = wall.tilesInsideWall;
+                auto visit = [&](BWAPI::TilePosition tile)
+                {
+                    if (visited.find(tile) != visited.end()) return;
+                    visited.insert(tile);
+
+                    if (!tile.isValid()) return;
+                    if (!Map::isWalkable(tile)) return;
+
+                    if (tile.getApproxDistance(gapCenterTile) > 6 && BWEM::Map::Instance().GetNearestArea(tile) != natural->getArea()) return;
+
+                    wall.tilesInsideWall.insert(tile);
+
+                    queue.emplace(tile.x - 1, tile.y);
+                    queue.emplace(tile.x + 1, tile.y);
+                    queue.emplace(tile.x, tile.y - 1);
+                    queue.emplace(tile.x, tile.y + 1);
+                };
+                queue.push(natural->getTilePosition());
+                while (!queue.empty())
+                {
+                    auto current = queue.front();
+                    queue.pop();
+                    visit(current);
                 }
             }
 
-            // Move tiles we flagged inside the wall to outside if they were not in the natural area
-            auto &bwemMap = BWEM::Map::Instance();
-            auto naturalArea = natural->getArea();
-            for (auto it = wall.tilesInsideWall.begin(); it != wall.tilesInsideWall.end();)
+            // Mark the outside edge of the forge and gateway as being outside the wall
+            auto outside = [&wall](BWAPI::TilePosition tile)
             {
-                if (bwemMap.GetArea(*it) != naturalArea)
+                if (!tile.isValid()) return false;
+                if (!Map::isWalkable(tile)) return false;
+                return wall.tilesInsideWall.find(tile) == wall.tilesInsideWall.end();
+            };
+            auto markOutsideBuildingEdge = [&wall, &outside](BWAPI::UnitType type, BWAPI::TilePosition tile)
+            {
+                for (int x = tile.x; x < (tile.x + type.tileWidth()); x++)
                 {
-                    wall.tilesOutsideWall.insert(*it);
-                    it = wall.tilesInsideWall.erase(it);
+                    for (int y = tile.y; y < (tile.y + type.tileHeight()); y++)
+                    {
+                        if (outside(BWAPI::TilePosition(x - 1, y)) ||
+                            outside(BWAPI::TilePosition(x + 1, y)) ||
+                            outside(BWAPI::TilePosition(x, y - 1)) ||
+                            outside(BWAPI::TilePosition(x, y + 1)))
+                        {
+                            wall.tilesOutsideWall.emplace(x, y);
+                            wall.tilesOutsideButCloseToWall.emplace(x, y);
+                        }
+                    }
                 }
-                else
+                for (int x = tile.x; x < (tile.x + type.tileWidth()); x++)
                 {
-                    it++;
+                    for (int y = tile.y; y < (tile.y + type.tileHeight()); y++)
+                    {
+                        BWAPI::TilePosition here(x, y);
+                        if (wall.tilesOutsideWall.find(here) != wall.tilesOutsideWall.end())
+                        {
+                            wall.tilesInsideWall.erase(here);
+                        }
+                    }
                 }
+            };
+            markOutsideBuildingEdge(BWAPI::UnitTypes::Protoss_Forge, wall.forge);
+            markOutsideBuildingEdge(BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
+
+            // Mark the outside bordering tiles to the gap tiles as outside the wall
+            auto markIfOutside = [&wall, &outside](BWAPI::TilePosition tile)
+            {
+                if (!outside(tile)) return;
+
+                wall.tilesOutsideWall.insert(tile);
+                wall.tilesOutsideButCloseToWall.insert(tile);
+            };
+            for (auto &tile : gapTiles)
+            {
+                markIfOutside(BWAPI::TilePosition(tile.x - 1, tile.y));
+                markIfOutside(BWAPI::TilePosition(tile.x + 1, tile.y));
+                markIfOutside(BWAPI::TilePosition(tile.x, tile.y - 1));
+                markIfOutside(BWAPI::TilePosition(tile.x, tile.y + 1));
             }
 
-            // For tiles outside the wall, prune tiles more than 4 tiles away from the wall
-            // Move tiles less than 1.5 tiles away from the wall to a separate set of tiles close to the wall
-            for (auto it = wall.tilesOutsideWall.begin(); it != wall.tilesOutsideWall.end();)
+            // Flood-fill the outside tiles until we reach 10 tiles away
             {
-                double bestDist = DBL_MAX;
-                BWAPI::Position tileCenter = center(*it);
+                std::queue<std::pair<BWAPI::TilePosition, int>> queue;
+                std::set<BWAPI::TilePosition> visited;
+                auto visit = [&](BWAPI::TilePosition tile, int dist)
+                {
+                    if (visited.find(tile) != visited.end()) return;
+                    visited.insert(tile);
 
-                for (auto const &tile : wall.tilesInsideWall)
-                {
-                    double dist = center(tile).getDistance(tileCenter);
-                    if (dist < bestDist) bestDist = dist;
-                }
+                    if (!tile.isValid()) return;
+                    if (!Map::isWalkable(tile)) return;
 
-                if (bestDist < 48)
-                {
-                    wall.tilesOutsideButCloseToWall.insert(*it);
-                }
+                    if (wall.tilesInsideWall.find(tile) != wall.tilesInsideWall.end()) return;
 
-                if (bestDist > 128)
+                    wall.tilesOutsideWall.insert(tile);
+                    if (dist < 3)
+                    {
+                        wall.tilesOutsideButCloseToWall.insert(tile);
+                    }
+
+                    if (dist == 10) return;
+
+                    queue.emplace(std::make_pair<BWAPI::TilePosition, int>({tile.x - 1, tile.y}, dist + 1));
+                    queue.emplace(std::make_pair<BWAPI::TilePosition, int>({tile.x + 1, tile.y}, dist + 1));
+                    queue.emplace(std::make_pair<BWAPI::TilePosition, int>({tile.x, tile.y - 1}, dist + 1));
+                    queue.emplace(std::make_pair<BWAPI::TilePosition, int>({tile.x, tile.y + 1}, dist + 1));
+                };
+                for (auto tile : wall.tilesOutsideWall)
                 {
-                    it = wall.tilesOutsideWall.erase(it);
+                    queue.emplace(tile, 0);
                 }
-                else
+                while (!queue.empty())
                 {
-                    it++;
+                    auto current = queue.front();
+                    queue.pop();
+                    visit(current.first, current.second);
                 }
             }
         }

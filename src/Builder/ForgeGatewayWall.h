@@ -114,19 +114,6 @@ public:
             }
         };
 
-        for (const auto &tile : tilesInsideWall)
-        {
-            wallHeatmap[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = 2;
-        }
-        for (const auto &tile : tilesOutsideWall)
-        {
-            wallHeatmap[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = -2;
-        }
-        for (const auto &tile : tilesOutsideButCloseToWall)
-        {
-            wallHeatmap[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = -1;
-        }
-
         addLocation(gateway, 4, 3, 10);
         addLocation(forge, 3, 2, 10);
         addLocation(pylon, 2, 2, 40);
@@ -137,6 +124,19 @@ public:
         for (const auto &cannon : naturalCannons)
         {
             addLocation(cannon, 2, 2, 25);
+        }
+
+        for (const auto &tile : tilesInsideWall)
+        {
+            wallHeatmap[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] += 2;
+        }
+        for (const auto &tile : tilesOutsideWall)
+        {
+            wallHeatmap[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] -= 2;
+        }
+        for (const auto &tile : tilesOutsideButCloseToWall)
+        {
+            wallHeatmap[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] -= 1;
         }
     }
 };
