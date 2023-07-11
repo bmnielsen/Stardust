@@ -77,7 +77,6 @@ void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
 
             if (count < 1) continue;
             if (!base->resourceDepot) continue;
-            if (!base->resourceDepot->exists()) continue;
             if (!base->resourceDepot->completed) continue;
 
             prioritizedProductionGoals[PRIORITY_WORKERS].emplace_back(std::in_place_type<UnitProductionGoal>,

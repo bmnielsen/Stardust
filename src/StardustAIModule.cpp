@@ -259,8 +259,9 @@ void StardustAIModule::onFrame()
     Units::issueOrders();
     Timer::checkpoint("Units::issueOrders");
 
+#if INSTRUMENTATION_ENABLED
     auto enemyNatural = Map::getEnemyStartingNatural();
-    if (enemyNatural && enemyNatural->resourceDepot && enemyNatural->resourceDepot->exists() && enemyNatural->resourceDepot->bwapiUnit->isVisible()
+    if (enemyNatural && enemyNatural->resourceDepot && enemyNatural->resourceDepot->bwapiUnit->isVisible()
         && enemyNatural->resourceDepot->health > 100)
     {
         // Check for other visible enemy units
@@ -281,6 +282,7 @@ void StardustAIModule::onFrame()
             }
         }
     }
+#endif
 
     // Instrumentation
     NoGoAreas::writeInstrumentation();

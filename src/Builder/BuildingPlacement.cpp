@@ -239,7 +239,7 @@ namespace BuildingPlacement
                 if (base == Map::getMyMain()) continue;
                 if (base->island) continue;
 
-                if (!base->resourceDepot || !base->resourceDepot->exists()) continue;
+                if (!base->resourceDepot) continue;
 
                 neighbourhoodAreas[Neighbourhood::AllMyBases].insert(base->getArea());
                 areaOrigins[base->getArea()] = base->mineralLineCenter;
@@ -987,7 +987,7 @@ namespace BuildingPlacement
             for (auto &base : Map::allBases())
             {
                 if (base->owner != BWAPI::Broodwar->self()) continue;
-                if (!base->resourceDepot || !base->resourceDepot->exists()) continue;
+                if (!base->resourceDepot) continue;
                 if (!base->resourceDepot->completed &&
                     (base->resourceDepot->estimatedCompletionFrame - currentFrame)
                     > UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator))

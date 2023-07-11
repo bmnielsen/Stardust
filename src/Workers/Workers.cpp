@@ -86,7 +86,7 @@ namespace Workers
         int availableMineralAssignmentsAtBase(Base *base)
         {
             if (!base || base->owner != BWAPI::Broodwar->self()) return 0;
-            if (!base->resourceDepot || !base->resourceDepot->exists()) return 0;
+            if (!base->resourceDepot) return 0;
 
             int count = base->mineralPatchCount() * 2;
             for (const auto &worker : baseWorkers[base])
@@ -100,7 +100,7 @@ namespace Workers
         int availableGasAssignmentsAtBase(Base *base)
         {
             if (!base || base->owner != BWAPI::Broodwar->self()) return 0;
-            if (!base->resourceDepot || !base->resourceDepot->exists()) return 0;
+            if (!base->resourceDepot) return 0;
 
             int count = 0;
             for (auto refinery : base->refineries())
@@ -184,7 +184,7 @@ namespace Workers
             bool bestHasNonPreferredJob = false;
             for (auto &base : Map::getMyBases())
             {
-                if (!base->resourceDepot || !base->resourceDepot->exists()) continue;
+                if (!base->resourceDepot) continue;
 
                 bool hasPreferred, hasNonPreferred;
                 if (preferredJob == Job::Minerals)
@@ -537,8 +537,7 @@ namespace Workers
 
             // If the worker doesn't have an assigned base, assign it one
             auto base = workerBase[worker];
-            if (workerJob[worker] == Job::None || !base || !base->resourceDepot || !base->resourceDepot->exists()
-                || availableMineralAssignmentsAtBase(base) <= 0)
+            if (workerJob[worker] == Job::None || !base || !base->resourceDepot || availableMineralAssignmentsAtBase(base) <= 0)
             {
                 auto newBase = assignBaseAndJob(worker, (workerJob[worker] == Job::Gas) ? Job::Gas : Job::Minerals);
 
@@ -660,7 +659,7 @@ namespace Workers
                 {
                     // Skip if the worker doesn't have a valid base
                     auto base = workerBase[worker];
-                    if (!base || !base->resourceDepot || !base->resourceDepot->exists())
+                    if (!base || !base->resourceDepot)
                     {
                         continue;
                     }
@@ -848,7 +847,7 @@ namespace Workers
                 {
                     // Move towards the base if we aren't near it
                     auto base = workerBase[worker];
-                    if (!base || !base->resourceDepot || !base->resourceDepot->exists())
+                    if (!base || !base->resourceDepot)
                     {
                         continue;
                     }
@@ -1042,7 +1041,7 @@ namespace Workers
         for (auto &baseAndWorkers : baseWorkers)
         {
             if (!baseAndWorkers.first || baseAndWorkers.first->owner != BWAPI::Broodwar->self()) continue;
-            if (!baseAndWorkers.first->resourceDepot || !baseAndWorkers.first->resourceDepot->exists()) return 0;
+            if (!baseAndWorkers.first->resourceDepot) return 0;
 
             int gasAvailable = 0;
             for (const auto &refinery : baseAndWorkers.first->refineries())
@@ -1104,7 +1103,7 @@ namespace Workers
         for (auto &baseAndWorkers : baseWorkers)
         {
             if (!baseAndWorkers.first || baseAndWorkers.first->owner != BWAPI::Broodwar->self()) continue;
-            if (!baseAndWorkers.first->resourceDepot || !baseAndWorkers.first->resourceDepot->exists()) return 0;
+            if (!baseAndWorkers.first->resourceDepot) return 0;
 
             int mineralsAvailable = baseAndWorkers.first->mineralPatchCount() * 2;
             if (mineralsAvailable == 0) continue;

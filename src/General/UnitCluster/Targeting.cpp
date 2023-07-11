@@ -219,7 +219,7 @@ namespace
         auto targetBase = Map::baseNear(targetPosition);
         if (!targetBase) return false;
         if (targetBase->owner != BWAPI::Broodwar->enemy()) return false;
-        if (targetBase->lastScouted != -1 && (!targetBase->resourceDepot || !targetBase->resourceDepot->exists())) return false;
+        if (targetBase->lastScouted != -1 && !targetBase->resourceDepot) return false;
 
         if (!vanguard) return true;
 

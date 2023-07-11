@@ -592,7 +592,7 @@ void ForgeFastExpand::update()
                     currentState = State::STATE_ANTIFASTRUSH_GATEWAY_PENDING;
                 }
             }
-            if (natural->resourceDepot && natural->resourceDepot->exists() && natural->owner == BWAPI::Broodwar->self())
+            if (natural->resourceDepot && natural->owner == BWAPI::Broodwar->self())
             {
                 currentState = State::STATE_GATEWAY_PENDING;
             }
@@ -645,7 +645,7 @@ void ForgeFastExpand::update()
 
         case State::STATE_ANTIFASTRUSH_NEXUS_PENDING:
             auto natural = Map::getMyNatural();
-            if (natural->resourceDepot && natural->resourceDepot->exists() && natural->owner == BWAPI::Broodwar->self())
+            if (natural->resourceDepot && natural->owner == BWAPI::Broodwar->self())
             {
                 currentState = State::STATE_FINISHED;
             }

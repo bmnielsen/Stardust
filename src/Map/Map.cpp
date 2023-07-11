@@ -220,7 +220,7 @@ namespace Map
                 // We consider bases owned by us to be taken if the resource depot exists
                 if (base->owner &&
                     (base->owner != BWAPI::Broodwar->self() || player != BWAPI::Broodwar->self()
-                     || (base->resourceDepot && base->resourceDepot->exists())))
+                     || (base->resourceDepot)))
                 {
                     continue;
                 }
@@ -411,7 +411,7 @@ namespace Map
                 Unit depot = nullptr;
                 if (unit->type.isResourceDepot())
                 {
-                    if (nearbyBase->resourceDepot && nearbyBase->resourceDepot->exists())
+                    if (nearbyBase->resourceDepot)
                     {
                         int existingDist = nearbyBase->resourceDepot->lastPosition.getApproxDistance(nearbyBase->getPosition());
                         int newDist = unit->lastPosition.getApproxDistance(nearbyBase->getPosition());
@@ -532,6 +532,9 @@ namespace Map
             // Ensure there is a base owned by the player near the building
             auto nearbyBase = baseNear(unit->lastPosition);
             if (!nearbyBase || !nearbyBase->owner || nearbyBase->owner != unit->player) return;
+
+            // Clear dead resource depot
+            if (nearbyBase->resourceDepot == unit) nearbyBase->resourceDepot = nullptr;
 
             // Check if the destruction of the unit results in the base ownership changing
             validateBaseOwnership(nearbyBase, unit);
@@ -1166,9 +1169,15 @@ namespace Map
             }
         }
 
-        // Update base scouting
+        // Update base scouting and resource depot
         for (auto &base : bases)
         {
+            // If the resource depot is killed, reset it
+            if (base->resourceDepot && !base->resourceDepot->exists())
+            {
+                base->resourceDepot = nullptr;
+            }
+
             // Owned bases were scouted when we last saw each of the tiles around where the resource depot should be
             // Unowned bases were scouted when we last saw one of the center tiles of where the resource depot should be
             auto tile = base->getTilePosition();
