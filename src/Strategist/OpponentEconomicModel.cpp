@@ -75,6 +75,11 @@ namespace OpponentEconomicModel
             int prerequisitesAvailableFrame;
             int shiftedCreationFrame;
 
+            // These are cached for performance reasons
+            int supplyRequired;
+            int mineralPrice;
+            int gasPrice;
+
             EcoModelUnit(BWAPI::UnitType type, int id, int creationFrame, bool creationFrameKnown = false)
                     : type(type)
                     , id(id)
@@ -86,6 +91,9 @@ namespace OpponentEconomicModel
                     , canProduceAt(completionFrame)
                     , prerequisitesAvailableFrame(creationFrame)
                     , shiftedCreationFrame(creationFrame)
+                    , supplyRequired(type.supplyRequired())
+                    , mineralPrice(type.mineralPrice())
+                    , gasPrice(type.gasPrice())
             {}
         };
 
@@ -521,7 +529,7 @@ namespace OpponentEconomicModel
             std::vector<std::pair<int, int>> gasFrames;
             for (const auto &unit : allUnits)
             {
-                if (unit->type.gasPrice() > 5) gasFrames.emplace_back(std::make_pair(unit->creationFrame, unit->type.gasPrice()));
+                if (unit->gasPrice > 5) gasFrames.emplace_back(std::make_pair(unit->creationFrame, unit->gasPrice));
             }
             for (const auto &[upgradeOrTechType, frame] : research)
             {
@@ -557,19 +565,19 @@ namespace OpponentEconomicModel
         {
             spendResource(
                     minerals,
-                    (unit->type.mineralPrice() + ((unit->type.isBuilding() && unit->creationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0)),
+                    (unit->mineralPrice + ((unit->type.isBuilding() && unit->creationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0)),
                     unit->creationFrame);
-            spendResource(gas, unit->type.gasPrice(), unit->creationFrame);
-            spendResource(supplyAvailable, unit->type.supplyRequired(), unit->creationFrame);
+            spendResource(gas, unit->gasPrice, unit->creationFrame);
+            spendResource(supplyAvailable, unit->supplyRequired, unit->creationFrame);
             if (unit->deathFrame < MODEL_FRAME_LIMIT)
             {
-                spendResource(supplyAvailable, -unit->type.supplyRequired(), unit->deathFrame);
+                spendResource(supplyAvailable, -unit->supplyRequired, unit->deathFrame);
 
                 // Refund cancelled buildings
                 if (unit->type.isBuilding() && unit->completionFrame > unit->deathFrame)
                 {
-                    spendResource(minerals, (unit->type.mineralPrice() * -3) / 4, unit->deathFrame);
-                    spendResource(gas, (unit->type.gasPrice() * -3) / 4, unit->deathFrame);
+                    spendResource(minerals, (unit->mineralPrice * -3) / 4, unit->deathFrame);
+                    spendResource(gas, (unit->gasPrice * -3) / 4, unit->deathFrame);
                 }
             }
         };
@@ -635,8 +643,8 @@ namespace OpponentEconomicModel
                     int f;
                     for (f = unit->creationFrame - 1; f >= prerequisitesDone; f--)
                     {
-                        if (minerals[f] < unit->type.mineralPrice()) break;
-                        if (gas[f] < unit->type.gasPrice()) break;
+                        if (minerals[f] < unit->mineralPrice) break;
+                        if (gas[f] < unit->gasPrice) break;
                     }
                     f++;
 
@@ -708,9 +716,9 @@ namespace OpponentEconomicModel
                     {
                         if (toFrame >= unit->shiftedCreationFrame) return;
 
-                        spendResource(minerals, unit->type.mineralPrice(), toFrame, unit->shiftedCreationFrame);
-                        spendResource(gas, unit->type.gasPrice(), toFrame, unit->shiftedCreationFrame);
-                        spendResource(supplyAvailable, unit->type.supplyRequired(), toFrame, unit->shiftedCreationFrame);
+                        spendResource(minerals, unit->mineralPrice, toFrame, unit->shiftedCreationFrame);
+                        spendResource(gas, unit->gasPrice, toFrame, unit->shiftedCreationFrame);
+                        spendResource(supplyAvailable, unit->supplyRequired, toFrame, unit->shiftedCreationFrame);
 
                         unit->shiftedCreationFrame = toFrame;
                     };
@@ -722,9 +730,9 @@ namespace OpponentEconomicModel
                         int f;
                         for (f = unit->creationFrame - 1; f >= unit->prerequisitesAvailableFrame; f--)
                         {
-                            if (minerals[f] < unit->type.mineralPrice()) break;
-                            if (gas[f] < unit->type.gasPrice()) break;
-                            if (supplyAvailable[f] < unit->type.supplyRequired())
+                            if (minerals[f] < unit->mineralPrice) break;
+                            if (gas[f] < unit->gasPrice) break;
+                            if (supplyAvailable[f] < unit->supplyRequired)
                             {
                                 if (firstSupplyBlockFrame == 0) firstSupplyBlockFrame = f;
                                 lastSupplyBlockFrame = f;
@@ -765,8 +773,8 @@ namespace OpponentEconomicModel
                                 // When we cross the creation frame (or start there), begin considering the unit itself
                                 if (f == unit->shiftedCreationFrame)
                                 {
-                                    nowMinerals = unit->type.mineralPrice() + pylonCost;
-                                    nowGas = unit->type.gasPrice();
+                                    nowMinerals = unit->mineralPrice + pylonCost;
+                                    nowGas = unit->gasPrice;
                                 }
 
                                 if (minerals[f] < nowMinerals) break;
@@ -812,13 +820,13 @@ namespace OpponentEconomicModel
 
                                 if (f == unit->prerequisitesAvailableFrame)
                                 {
-                                    mineralCost -= unit->type.mineralPrice();
-                                    gasCost -= unit->type.gasPrice();
+                                    mineralCost -= unit->mineralPrice;
+                                    gasCost -= unit->gasPrice;
                                 }
                                 if (f == unit->shiftedCreationFrame)
                                 {
-                                    mineralCost += unit->type.mineralPrice();
-                                    gasCost += unit->type.gasPrice();
+                                    mineralCost += unit->mineralPrice;
+                                    gasCost += unit->gasPrice;
                                 }
                             }
                             f++;
@@ -851,11 +859,12 @@ namespace OpponentEconomicModel
                             // Find an earlier frame with enough resources
                             int earliestFrame = std::max(unit->shiftedCreationFrame - producerBuildTime, producer->prerequisitesAvailableFrame);
                             int mineralPrice = producer->type.mineralPrice() + ((earliestFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0);
+                            int gasPrice = producer->type.gasPrice();
                             int f;
                             for (f = producer->creationFrame - 1; f >= earliestFrame; f--)
                             {
                                 if (minerals[f] < mineralPrice) break;
-                                if (gas[f] < producer->type.gasPrice()) break;
+                                if (gas[f] < gasPrice) break;
                             }
                             producer->canProduceAt = f + 1 + producerBuildTime;
                         }
@@ -890,9 +899,9 @@ namespace OpponentEconomicModel
                         // Shift the unit later if the producer isn't available early enough
                         if (productionFrame > unit->shiftedCreationFrame)
                         {
-                            spendResource(minerals, -unit->type.mineralPrice(), unit->shiftedCreationFrame, productionFrame);
-                            spendResource(gas, -unit->type.gasPrice(), unit->shiftedCreationFrame, productionFrame);
-                            spendResource(supplyAvailable, -unit->type.supplyRequired(), unit->shiftedCreationFrame, productionFrame);
+                            spendResource(minerals, -unit->mineralPrice, unit->shiftedCreationFrame, productionFrame);
+                            spendResource(gas, -unit->gasPrice, unit->shiftedCreationFrame, productionFrame);
+                            spendResource(supplyAvailable, -unit->supplyRequired, unit->shiftedCreationFrame, productionFrame);
                             unit->shiftedCreationFrame = productionFrame;
                         }
 
@@ -913,11 +922,12 @@ namespace OpponentEconomicModel
 
                     // Now find the first frame
                     int mineralPrice = producerType.mineralPrice() + ((unit->creationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0);
+                    int gasPrice = producerType.gasPrice();
                     int f;
                     for (f = unit->creationFrame; f >= prerequisitesAvailableByType[producerType]; f--)
                     {
                         if (minerals[f] < mineralPrice) break;
-                        if (gas[f] < producerType.gasPrice()) break;
+                        if (gas[f] < gasPrice) break;
                         if (f == BUILDER_LOSS_UNTIL) mineralPrice += BUILDER_LOSS;
                     }
                     f++;
@@ -1138,6 +1148,9 @@ namespace OpponentEconomicModel
 
         // Computes when the unit can next be produced at
         // Shifts pylons earlier if needed
+        int supplyRequired = type.supplyRequired();
+        int mineralPrice = type.mineralPrice();
+        int gasPrice = type.gasPrice();
         auto canProduceUnitAt = [&]()
         {
             int firstSupplyBlockFrame = 0;
@@ -1147,9 +1160,9 @@ namespace OpponentEconomicModel
                 int f;
                 for (f = MODEL_FRAME_LIMIT - 1; f >= earliestFrame; f--)
                 {
-                    if (minerals[f] < type.mineralPrice()) break;
-                    if (gas[f] < type.gasPrice()) break;
-                    if (supplyAvailable[f] < type.supplyRequired())
+                    if (minerals[f] < mineralPrice) break;
+                    if (gas[f] < gasPrice) break;
+                    if (supplyAvailable[f] < supplyRequired)
                     {
                         if (firstSupplyBlockFrame == 0) firstSupplyBlockFrame = f;
                         lastSupplyBlockFrame = f;
@@ -1191,8 +1204,8 @@ namespace OpponentEconomicModel
                     // When we cross the supply block frame (or start there), begin considering the unit itself
                     if (f == firstSupplyBlockFrame)
                     {
-                        nowMinerals = type.mineralPrice() + pylonCost;
-                        nowGas = type.gasPrice();
+                        nowMinerals = mineralPrice + pylonCost;
+                        nowGas = gasPrice;
                     }
 
                     if (minerals[f] < nowMinerals) break;
@@ -1226,9 +1239,9 @@ namespace OpponentEconomicModel
 
             // There wasn't a pylon to shift, so try creating one instead
             int earliestPylonFrame = resourcesAvailableFrame - pylonBuildTime;
-            int mineralCost = 100 + type.mineralPrice();
+            int mineralCost = 100 + mineralPrice;
             if (earliestPylonFrame < BUILDER_LOSS_UNTIL) mineralCost += BUILDER_LOSS;
-            int gasCost = type.gasPrice();
+            int gasCost = gasPrice;
             int f;
             for (f = MODEL_FRAME_LIMIT - 1; f >= earliestPylonFrame; f--)
             {
@@ -1237,8 +1250,8 @@ namespace OpponentEconomicModel
 
                 if (f == resourcesAvailableFrame)
                 {
-                    mineralCost -= type.mineralPrice();
-                    gasCost -= type.gasPrice();
+                    mineralCost -= mineralPrice;
+                    gasCost -= gasPrice;
                 }
             }
             f++;
@@ -1283,9 +1296,9 @@ namespace OpponentEconomicModel
                 int productionFrame = std::max(earliestFrame, producerFrames.top());
                 producerFrames.pop();
 
-                spendResource(minerals, type.mineralPrice(), productionFrame);
-                spendResource(gas, type.gasPrice(), productionFrame);
-                spendResource(supplyAvailable, type.supplyRequired(), productionFrame);
+                spendResource(minerals, mineralPrice, productionFrame);
+                spendResource(gas, gasPrice, productionFrame);
+                spendResource(supplyAvailable, supplyRequired, productionFrame);
 
                 additionalUnitCount++;
 
@@ -1295,8 +1308,8 @@ namespace OpponentEconomicModel
             }
 
             // Try to create a new producer that can produce it
-            int mineralCost = type.mineralPrice() + producerType.mineralPrice();
-            int gasCost = type.gasPrice() + producerType.gasPrice();
+            int mineralCost = mineralPrice + producerType.mineralPrice();
+            int gasCost = gasPrice + producerType.gasPrice();
             int f;
             for (f = MODEL_FRAME_LIMIT - 1; f >= earliestFrame - producerBuildTime; f--)
             {
@@ -1310,8 +1323,8 @@ namespace OpponentEconomicModel
 
                 if (f == earliestFrame)
                 {
-                    mineralCost -= type.mineralPrice();
-                    gasCost -= type.gasPrice();
+                    mineralCost -= mineralPrice;
+                    gasCost -= gasPrice;
                 }
             }
             f++;
@@ -1322,9 +1335,9 @@ namespace OpponentEconomicModel
             spendResource(minerals, producerType.mineralPrice(), f);
             spendResource(gas, producerType.gasPrice(), f);
 
-            spendResource(minerals, type.mineralPrice(), productionFrame);
-            spendResource(gas, type.gasPrice(), productionFrame);
-            spendResource(supplyAvailable, type.supplyRequired(), productionFrame);
+            spendResource(minerals, mineralPrice, productionFrame);
+            spendResource(gas, gasPrice, productionFrame);
+            spendResource(supplyAvailable, supplyRequired, productionFrame);
 
             additionalUnitCount++;
 
@@ -1393,6 +1406,8 @@ namespace OpponentEconomicModel
         removeDuplicates(prerequisites);
 
         // Now figure out the earliest frames we could produce everything
+        int mineralPrice = type.mineralPrice();
+        int gasPrice = type.gasPrice();
         int f;
 
         // Simple case: no prerequisites
@@ -1401,8 +1416,8 @@ namespace OpponentEconomicModel
             // Find the first frame scanning backwards where we don't have enough of the resource, then advance one
             for (f = MODEL_FRAME_LIMIT - 1; f >= startFrame; f--)
             {
-                if (minerals[f] < type.mineralPrice()) break;
-                if (gas[f] < type.gasPrice()) break;
+                if (minerals[f] < mineralPrice) break;
+                if (gas[f] < gasPrice) break;
             }
 
             return createResult(f + 1);
@@ -1419,7 +1434,7 @@ namespace OpponentEconomicModel
 
         // Compute the frame stops and how much of the resource we need at each one
         std::vector<std::tuple<int, int, int>> frameStopsAndResourcesNeeded;
-        frameStopsAndResourcesNeeded.emplace_back(0, totalMineralCost + type.mineralPrice(), totalGasCost + type.gasPrice());
+        frameStopsAndResourcesNeeded.emplace_back(0, totalMineralCost + mineralPrice, totalGasCost + gasPrice);
         for (auto it = prerequisites.rbegin(); it != prerequisites.rend(); it++)
         {
             frameStopsAndResourcesNeeded.emplace_back(it->first, totalMineralCost, totalGasCost);
