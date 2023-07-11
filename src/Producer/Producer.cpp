@@ -463,6 +463,7 @@ namespace Producer
                                      int baseFrame = 0,
                                      bool isPrerequisite = false)
         {
+            if (unitType.isResourceDepot()) return;
             if (Units::countCompleted(unitType) > 0) return;
 
             // If we are already building one, add an item as a placeholder for how much longer it will take to complete it
@@ -500,8 +501,9 @@ namespace Producer
         {
             for (auto typeAndCount : unitType.requiredUnits())
             {
-                // Don't include workers
+                // Don't include workers or resource depots
                 if (typeAndCount.first.isWorker()) continue;
+                if (typeAndCount.first.isResourceDepot()) continue;
 
                 addBuildingIfIncomplete(items, typeAndCount.first, location, producerType, startFrame, true);
             }
@@ -1900,8 +1902,11 @@ namespace Producer
 
             // If we at this point have no producers, it means we have buildings that can produce the item, but not in the location we need
             // So add a new producer at the correct location to the prerequisite items
+            // It can also mean we are trying to produce workers and have no resource depots left
             if (producers.empty())
             {
+                if (producerType.isResourceDepot()) return;
+
                 int startFrame = std::max(0, earliestStartFrame - UnitUtil::BuildTime(producerType));
                 auto producerItem = std::make_shared<ProductionItem>(producerType, startFrame, location);
                 prerequisiteItems.insert(producerItem);
