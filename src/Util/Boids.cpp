@@ -97,7 +97,7 @@ namespace Boids
         int closestY = unit->lastPosition.y;
         for (int y = unit->tilePositionY - 5; y < unit->tilePositionY + 5; y++)
         {
-            if (y < 0 || y >= BWAPI::Broodwar->mapWidth()) continue;
+            if (y < 0 || y >= BWAPI::Broodwar->mapHeight()) continue;
 
             for (int x = unit->tilePositionX - 5; x < unit->tilePositionX + 5; x++)
             {
