@@ -2205,11 +2205,11 @@ namespace Producer
                         continue;
                     }
 
-                    int arrivalFrame = 0;
+                    int arrivalFrame = currentFrame;
                     auto builder = item->reservedBuilder
                                    ? item->reservedBuilder
                                    : Builder::getBuilderUnit(item->buildLocation.location.tile, *unitType, &arrivalFrame);
-                    if (builder && arrivalFrame >= item->startFrame)
+                    if (builder && (arrivalFrame - currentFrame) >= item->startFrame)
                     {
                         Builder::build(*unitType, item->buildLocation.location.tile, builder, currentFrame + item->startFrame);
                     }
