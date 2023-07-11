@@ -1158,7 +1158,19 @@ namespace Map
     void update()
     {
         // Update the last seen frame for all visible tiles
-        for (int y = 0; y < mapHeight; y++)
+        // This is fairly expensive and we don't need super high resolution updates, so we split the update over two frames
+        int startY, endY;
+        if (currentFrame % 2 == 0)
+        {
+            startY = 0;
+            endY = mapHeight >> 1;
+        }
+        else
+        {
+            startY = mapHeight >> 1;
+            endY = mapHeight;
+        }
+        for (int y = startY; y < endY; y++)
         {
             for (int x = 0; x < mapWidth; x++)
             {
