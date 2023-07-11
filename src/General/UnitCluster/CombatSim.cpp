@@ -528,15 +528,13 @@ namespace CombatSim
 
     int unitValue(const FAP::FAPUnit<> &unit)
     {
-        return baseScore[unit.unitType]
-               + (int)((float)scaledScore[unit.unitType] * (float)(unit.health * 3 + unit.shields) / (float)(unit.maxHealth * 3 + unit.maxShields));
+        return baseScore[unit.unitType] + (scaledScore[unit.unitType] * (unit.health * 3 + unit.shields)) / (unit.maxHealth * 3 + unit.maxShields);
     }
 
     int unitValue(const Unit &unit)
     {
         return baseScore[unit->type] +
-               (int)((float)scaledScore[unit->type] * (float)(unit->lastHealth * 3 + unit->lastShields)
-                     / (float)(unit->type.maxHitPoints() * 3 + unit->type.maxShields()));
+               (scaledScore[unit->type] * (unit->lastHealth * 3 + unit->lastShields)) / (unit->type.maxHitPoints() * 3 + unit->type.maxShields());
     }
 
     int unitValue(BWAPI::UnitType type)
