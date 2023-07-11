@@ -440,9 +440,11 @@ namespace BuildingPlacement
                 if (!tile.isValid()) continue;
                 if (!buildable(building, tile)) continue;
 
-                auto result = buildingOptions.insert(tile);
 #if DEBUG_PLACEMENT
+                auto result = buildingOptions.insert(tile);
                 if (result.second) Log::Debug() << building << " option at " << tile;
+#else
+                buildingOptions.insert(tile);
 #endif
             }
         }
