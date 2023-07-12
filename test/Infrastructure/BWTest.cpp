@@ -364,6 +364,12 @@ void BWTest::runGame(bool opponent)
             {
                 h->setLocalSpeed(0);
 
+                if (opponent)
+                {
+                    std::cout.setstate(std::ios_base::failbit);
+                    std::cerr.setstate(std::ios_base::failbit);
+                }
+
                 if (opponent && onStartOpponent) onStartOpponent();
                 if (!opponent && onStartMine) onStartMine();
             };
