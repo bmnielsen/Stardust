@@ -6,6 +6,7 @@
 #include "Units.h"
 #include "TestAttackBasePlay.h"
 #include "TestMainArmyAttackBasePlay.h"
+#include "Plays/MainArmy/ForgeFastExpand.h"
 
 namespace
 {
@@ -246,6 +247,56 @@ TEST(Targeting, MixedVsZerglings)
     {
         // Ensure there are no enemy zerglings remaining
         EXPECT_EQ(0, Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling));
+    };
+
+    test.run();
+}
+
+TEST(Targeting, CannonsVsZealots)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.map = Maps::GetOne("Polypoid");
+    test.randomSeed = 42;
+    test.frameLimit = 500;
+    test.expectWin = false;
+
+    test.myInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(3552, 1130), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Photon_Cannon, BWAPI::Position(3648, 1216), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Nexus, BWAPI::Position(3840, 1168), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Photon_Cannon, BWAPI::Position(3584, 1280), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Photon_Cannon, BWAPI::Position(3648, 1280), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Gateway, BWAPI::Position(3552, 1200), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Forge, BWAPI::Position(3504, 1280), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Pylon, BWAPI::Position(3712, 1216), true),
+        };
+
+    test.opponentInitialUnits = {
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(BWAPI::TilePosition(89, 39))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(BWAPI::TilePosition(87, 39))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(BWAPI::TilePosition(85, 40))),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(BWAPI::TilePosition(83, 40))),
+    };
+
+    test.onStartMine = []()
+    {
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<ForgeFastExpand>());
+        Strategist::setOpening(openingPlays);
+    };
+
+    test.onFrameOpponent = []()
+    {
+        for (auto unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (unit->getType() != BWAPI::UnitTypes::Protoss_Zealot) continue;
+            if (unit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Move) continue;
+            unit->move(BWAPI::Position(BWAPI::TilePosition(118, 14)));
+        }
     };
 
     test.run();
