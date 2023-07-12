@@ -23,7 +23,6 @@ namespace McRave::Grids
         float eAirThreat[1024][1024] ={};
         float eGroundCluster[1024][1024] ={};
         float eAirCluster[1024][1024] ={};
-        int eSplash[1024][1024] ={};
 
         // Mobility Grid
         int mobility[1024][1024] ={};
@@ -32,6 +31,22 @@ namespace McRave::Grids
         int verticalCollision[1024][1024] ={};
 
         bool cliffVision[256][256] ={};
+
+        bool canAddToGrid(UnitInfo& unit)
+        {
+            // Don't add these to grids
+            if ((unit.unit()->exists() && (unit.unit()->isStasised() || unit.unit()->isMaelstrommed() || unit.unit()->isLoaded()))
+                || !unit.getPosition().isValid()
+                || unit.getType() == Protoss_Interceptor
+                || unit.getType().isSpell()
+                || unit.getType() == Terran_Vulture_Spider_Mine
+                || unit.getType() == Protoss_Scarab
+                || (unit.getPlayer() == Broodwar->self() && !unit.getType().isBuilding() && !unit.unit()->isCompleted())
+                || (unit.getPlayer() != Broodwar->self() && unit.getType().isWorker() && !unit.hasAttackedRecently() && !Scouts::gatheringInformation())
+                || (unit.getPlayer() != Broodwar->self() && !unit.hasTarget() && !unit.unit()->exists() && !Scouts::gatheringInformation()))
+                return false;
+            return true;
+        }
 
         int fasterDistGrids(int x1, int y1, int x2, int y2) {
             unsigned int min = abs((int)(x1 - x2));
@@ -52,34 +67,11 @@ namespace McRave::Grids
                 resetVector.emplace_back(x, y);
         }
 
-        void addSplash(UnitInfo& unit)
+        void addToGrids(UnitInfo& unit, bool collisionReq, bool threatReq)
         {
-            WalkPosition start(unit.getTarget().getWalkPosition());
-            Position target = unit.getTarget().getPosition();
-
-            for (int x = start.x - 12; x <= start.x + 12 + unit.getWalkWidth(); x++) {
-                for (int y = start.y - 12; y <= start.y + 12 + unit.getWalkHeight(); y++) {
-
-                    WalkPosition w(x, y);
-                    Position p = Position(w) + Position(4, 4);
-                    if (!w.isValid())
-                        continue;
-
-                    saveReset(x, y);
-                    eSplash[x][y] += (target.getDistance(p) <= 96);
-                }
-            }
-        }
-
-        void addToGrids(UnitInfo& unit, Position position, WalkPosition walkPosition)
-        {
-            // Pixel and walk sizes
-            const auto walkWidth = unit.getType().isBuilding() ? (unit.getType().tileWidth() * 4) : unit.getWalkWidth();
-            const auto walkHeight = unit.getType().isBuilding() ? (unit.getType().tileHeight() * 4) : unit.getWalkHeight();
-
             // Choose threat grid
-            auto grdGrid = unit.getPlayer() == Broodwar->self() ? nullptr : eGroundThreat;
-            auto airGrid = unit.getPlayer() == Broodwar->self() ? nullptr : eAirThreat;
+            auto grdGrid = (unit.getPlayer() == Broodwar->self() || !unit.canAttackGround()) ? nullptr : eGroundThreat;
+            auto airGrid = (unit.getPlayer() == Broodwar->self() || !unit.canAttackAir()) ? nullptr : eAirThreat;
 
             // Choose cluster grid
             auto clusterGrid = unit.getPlayer() == Broodwar->self() ?
@@ -93,34 +85,58 @@ namespace McRave::Grids
                 (unit.unit()->isConstructing() || unit.unit()->isGatheringGas() || unit.unit()->isGatheringMinerals()))
                 radius = radius / 3;
 
-            const auto left = max(0, walkPosition.x - radius);
-            const auto right = min(1024, walkPosition.x + walkWidth + radius);
-            const auto top = max(0, walkPosition.y - radius);
-            const auto bottom = min(1024, walkPosition.y + walkHeight + radius);
+            const auto left = max(0, unit.getWalkPosition().x - radius);
+            const auto right = min(1024, unit.getWalkPosition().x + unit.getWalkWidth() + radius);
+            const auto top = max(0, unit.getWalkPosition().y - radius);
+            const auto bottom = min(1024, unit.getWalkPosition().y + unit.getWalkHeight() + radius);
 
             // Pixel rectangle (make any even size units an extra WalkPosition)
-            const auto topLeft = Position(position.x - unit.getType().dimensionLeft(), position.y - unit.getType().dimensionUp());
-            const auto topRight = Position(position.x + unit.getType().dimensionRight() + 1, position.y - unit.getType().dimensionUp());
-            const auto botLeft = Position(position.x - unit.getType().dimensionLeft(), position.y + unit.getType().dimensionDown() + 1);
-            const auto botRight = Position(position.x + unit.getType().dimensionRight() + 1, position.y + unit.getType().dimensionDown() + 1);
-            const auto x1 = position.x;
-            const auto y1 = position.y;
+            const auto topLeft = Position(unit.getPosition().x - unit.getType().dimensionLeft(), unit.getPosition().y - unit.getType().dimensionUp());
+            const auto topRight = Position(unit.getPosition().x + unit.getType().dimensionRight() + 1, unit.getPosition().y - unit.getType().dimensionUp());
+            const auto botLeft = Position(unit.getPosition().x - unit.getType().dimensionLeft(), unit.getPosition().y + unit.getType().dimensionDown() + 1);
+            const auto botRight = Position(unit.getPosition().x + unit.getType().dimensionRight() + 1, unit.getPosition().y + unit.getType().dimensionDown() + 1);
+            const auto x1 = unit.getPosition().x;
+            const auto y1 = unit.getPosition().y;
 
             const auto clusterTopLeft = topLeft - Position(88, 88);
             const auto clusterBotRight = botRight + Position(88, 88);
 
-            // If no nearby unit owned by self, ignore threat grids
-            auto inRange = false;
-            auto pState = unit.getPlayer() == Broodwar->self() ? PlayerState::Enemy : PlayerState::Self;
-            auto closest = Util::getClosestUnit(position, pState, [&](auto&u) { return true; });
-            if (closest) {
-                const auto dist = Util::boxDistance(closest->getType(), closest->getPosition(), unit.getType(), position) - 128.0;
-                const auto vision = max(closest->getType().sightRange(), unit.getType().sightRange());
-                const auto range = max({ closest->getGroundRange(), closest->getAirRange(), unit.getGroundRange(), unit.getAirRange() });
+            // Create remainder of collision pixels
+            WalkPosition TL = WalkPosition(topLeft);
+            WalkPosition TR = WalkPosition(topRight);
+            WalkPosition BL = WalkPosition(botLeft);
+            WalkPosition BR = WalkPosition(botRight);
 
-                // If out of vision and range
-                if (dist <= vision || dist <= range)
-                    inRange = true;
+            if (!unit.isFlying()) {
+                if (topLeft.y % 8 > 0) {
+                    for (auto x = TL.x; x <= TR.x; x++) {
+                        verticalCollision[x][TL.y] = topLeft.y % 8;
+                        //Broodwar->drawTextMap(Position(WalkPosition(x, TL.y)), "%d", verticalCollision[x][TL.y]);
+                        saveReset(x, TL.y);
+                    }
+                }
+                if (botRight.y % 8 > 0) {
+                    for (auto x = BL.x; x <= BR.x; x++) {
+                        verticalCollision[x][BL.y] = 8 - botRight.y % 8;
+                        //Broodwar->drawTextMap(Position(WalkPosition(x, BL.y)), "%d", verticalCollision[x][BL.y]);
+                        saveReset(x, BL.y);
+                    }
+                }
+
+                if (topLeft.x % 8 > 0) {
+                    for (auto y = TL.y; y <= BL.y; y++) {
+                        horizontalCollision[TL.x][y] = topLeft.x % 8;
+                        //Broodwar->drawTextMap(Position(WalkPosition(TL.x, y)), "%d", horizontalCollision[TL.x][y]);
+                        saveReset(TL.x, y);
+                    }
+                }
+                if (botRight.x % 8 > 0) {
+                    for (auto y = TR.y; y <= BR.y; y++) {
+                        horizontalCollision[TR.x][y] = 8 - botRight.x % 8;
+                        //Broodwar->drawTextMap(Position(WalkPosition(TR.x, y)), "%d", horizontalCollision[TR.x][y]);
+                        saveReset(TR.x, y);
+                    }
+                }
             }
 
             // Iterate tiles and add to grid
@@ -140,52 +156,17 @@ namespace McRave::Grids
                     }
 
                     // Threat
-                    if (inRange && (grdGrid || airGrid)) {
+                    if (grdGrid || airGrid) {
                         const auto dist = fasterDistGrids(x1, y1, (x * 8) + 4, (y * 8) + 4);
                         if (grdGrid && dist <= unit.getGroundReach()) {
-                            grdGrid[x][y] += float(unit.getVisibleGroundStrength()) / max(1.0f, log((float)dist));
+                            grdGrid[x][y] += float(unit.getVisibleGroundStrength() / max(1.0, logLookup16[dist/16]));
                             saveReset(x, y);
                         }
                         if (airGrid && dist <= unit.getAirReach()) {
-                            airGrid[x][y] += float(unit.getVisibleAirStrength()) / max(1.0f, log((float)dist));
+                            airGrid[x][y] += float(unit.getVisibleAirStrength() / max(1.0, logLookup16[dist/16]));
                             saveReset(x, y);
                         }
                     }
-                }
-            }
-
-            if (unit.getPlayer() != Broodwar->self())
-                return;
-
-            // Create remainder of collision pixels
-            WalkPosition TL = WalkPosition(topLeft);
-            WalkPosition TR = WalkPosition(topRight);
-            WalkPosition BL = WalkPosition(botLeft);
-            WalkPosition BR = WalkPosition(botRight);
-
-            if (topLeft.y % 8 > 0) {
-                for (auto x = TL.x; x < TR.x + 1; x++) {
-                    verticalCollision[x][TL.y] = topLeft.y % 8;
-                    saveReset(x, TL.y);
-                }
-            }
-            if (botRight.y % 8 > 0) {
-                for (auto x = BL.x; x < BR.x + 1; x++) {
-                    verticalCollision[x][BL.y] = 8 - botRight.y % 8;
-                    saveReset(x, BL.y);
-                }
-            }
-
-            if (topLeft.x % 8 > 0) {
-                for (auto y = TL.y; y < BL.y + 1; y++) {
-                    horizontalCollision[TL.x][y] = topLeft.x % 8;
-                    saveReset(TL.x, y);
-                }
-            }
-            if (botRight.x % 8 > 0) {
-                for (auto y = TR.y; y < BR.y + 1; y++) {
-                    horizontalCollision[TR.x][y] = 8 - botRight.x % 8;
-                    saveReset(TR.x, y);
                 }
             }
         }
@@ -204,7 +185,6 @@ namespace McRave::Grids
                 eAirThreat[x][y] = 0.0;
                 eGroundCluster[x][y] = 0;
                 eAirCluster[x][y] = 0;
-                eSplash[x][y] = 0;
 
                 collision[x][y] = 0;
                 verticalCollision[x][y] = 0;
@@ -222,36 +202,18 @@ namespace McRave::Grids
                 UnitInfo &unit = *u;
 
                 // Don't add these to grids
-                if ((unit.unit()->exists() && (unit.unit()->isStasised() || unit.unit()->isMaelstrommed()))
-                    || unit.getType() == Protoss_Interceptor
-                    || unit.getType().isSpell()
-                    || (unit.getPlayer() == Broodwar->self() && !unit.getType().isBuilding() && !unit.unit()->isCompleted()))
+                if (!canAddToGrid(unit))
                     continue;
-
-                // Pixel and walk sizes
-                auto walkWidth = unit.getType().isBuilding() ? unit.getType().tileWidth() * 4 : (int)ceil(unit.getType().width() / 8.0);
-                auto walkHeight = unit.getType().isBuilding() ? unit.getType().tileHeight() * 4 : (int)ceil(unit.getType().height() / 8.0);
 
                 // Add a visited grid for rough guideline of what we've seen by this unit recently
                 auto start = unit.getWalkPosition();
-                for (int x = start.x - 2; x < start.x + walkWidth + 2; x++) {
-                    for (int y = start.y - 2; y < start.y + walkHeight + 2; y++) {
+                for (int x = start.x - 2; x < start.x + unit.getWalkWidth() + 2; x++) {
+                    for (int y = start.y - 2; y < start.y + unit.getWalkHeight() + 2; y++) {
                         auto t = WalkPosition(x, y);
-                        if (t.isValid()) {
-                            visitedGrid[x][y] = Broodwar->getFrameCount();
-                            //Broodwar->drawBoxMap(Position(t), Position(t) + Position(9, 9), Colors::Green);
-                        }
+                        visitedGrid[x][y] = Broodwar->getFrameCount();
                     }
                 }
-
-                // Spider mines are added to the enemy splash grid so ally units avoid allied mines
-                if (unit.getType() == Terran_Vulture_Spider_Mine) {
-                    if (!unit.isBurrowed() && unit.hasTarget() && unit.getTarget().unit() && unit.getTarget().unit()->exists())
-                        addSplash(unit);
-                }
-
-                else if (!unit.unit()->isLoaded())
-                    addToGrids(unit, unit.getPosition(), unit.getWalkPosition());
+                addToGrids(unit, false, false);
             }
             Visuals::endPerfTest("Grid Self");
         }
@@ -263,19 +225,20 @@ namespace McRave::Grids
                 UnitInfo &unit = *u;
 
                 // Don't add these to grids
-                if ((unit.unit()->exists() && (unit.unit()->isStasised() || unit.unit()->isMaelstrommed()))
-                    || unit.getType() == Protoss_Interceptor
-                    || (unit.getType().isWorker() && !unit.hasAttackedRecently())
-                    || unit.getType().isSpell())
+                if (!canAddToGrid(unit))
                     continue;
 
-                if (unit.getType() == Terran_Vulture_Spider_Mine || unit.getType() == Protoss_Scarab) {
-                    if (unit.hasTarget() && unit.getTarget().unit() && unit.getTarget().unit()->exists())
-                        addSplash(unit);
-                }
-                else {
-                    addToGrids(unit, unit.getPosition(), unit.getWalkPosition());
-                }
+                //// Prevent running grids if the unit is irrelevant
+                //if (!unit.getType().isBuilding() && unit.hasTarget()) {
+                //    auto unitTarget = unit.getTarget().lock();
+                //    auto maxRange = max({ unit.getAirRange(), unit.getGroundRange(), double(unit.getType().sightRange()),
+                //        unitTarget->getAirRange(), unitTarget->getGroundRange(), double(unitTarget->getType().sightRange()),
+                //        unitTarget->getEngageRadius(), unitTarget->getRetreatRadius() }) + 160.0;
+                //    if (unit.getPosition().getDistance(unitTarget->getPosition()) > maxRange)
+                //        continue;
+                //}
+
+                addToGrids(unit, !unit.isFlying(), true);
             }
             Visuals::endPerfTest("Grid Enemy");
         }
@@ -357,6 +320,13 @@ namespace McRave::Grids
                 }
             }
         }
+
+        void initializeLogTable()
+        {
+            for (int i = 0; i < 1024; i++) {
+                logLookup16[i] = log(16 * i);
+            }
+        }
     }
 
     void onFrame()
@@ -370,6 +340,7 @@ namespace McRave::Grids
 
     void onStart()
     {
+        initializeLogTable();
         initializeMobility();
 
         const auto areaBlocked = [&](const BWEM::Area * a) {
@@ -382,10 +353,10 @@ namespace McRave::Grids
             return true;
         };
 
-        const auto fullyFogged = [&](auto t) {
+        const auto fullyFogged = [&](auto &t) {
             for (int x = -2; x <= 2; x++) {
                 for (int y = -2; y <= 2; y++) {
-                    auto tile = t + TilePosition(x,y);
+                    auto tile = t + TilePosition(x, y);
                     if (!tile.isValid())
                         continue;
 
@@ -396,7 +367,7 @@ namespace McRave::Grids
             return true;
         };
 
-        const auto fullyRanged = [&](auto t) {
+        const auto fullyRanged = [&](auto &t) {
             for (int x = -6; x <= 6; x++) {
                 for (int y = -6; y <= 6; y++) {
                     auto tile = t + TilePosition(x, y);
@@ -420,7 +391,7 @@ namespace McRave::Grids
 
         for (int x = 0; x < Broodwar->mapWidth(); x++) {
             for (int y = 0; y < Broodwar->mapHeight(); y++) {
-                if (!fullyFogged(TilePosition(x, y)) || !fullyRanged(TilePosition(x,y)) || areaBlocked(mapBWEM.GetArea(TilePosition(x,y))))
+                if (!fullyFogged(TilePosition(x, y)) || !fullyRanged(TilePosition(x, y)) || areaBlocked(mapBWEM.GetArea(TilePosition(x, y))))
                     cliffVision[x][y] = true;
                 else
                     cliffVision[x][y] = false;
@@ -449,43 +420,12 @@ namespace McRave::Grids
     int getCollision(WalkPosition here) { return collision[here.x][here.y]; }
     int getVCollision(WalkPosition here) { return verticalCollision[here.x][here.y]; }
     int getHCollision(WalkPosition here) { return horizontalCollision[here.x][here.y]; }
-    int getESplash(WalkPosition here) { return eSplash[here.x][here.y]; }
 
     int getMobility(WalkPosition here) { return mobility[here.x][here.y]; }
     int getMobility(Position here) { return getMobility(WalkPosition(here)); }
 
     int lastVisibleFrame(TilePosition t) { return visibleGrid[t.x][t.y]; }
     int lastVisitedFrame(WalkPosition w) { return visitedGrid[w.x][w.y]; }
-
-    void addMovement(Position here, UnitInfo& unit)
-    {
-        if (unit.isLightAir()) {
-            const auto walkWidth = unit.getWalkWidth();
-            const auto walkHeight = unit.getWalkHeight();
-
-            const auto left = max(0, WalkPosition(here).x - walkWidth - 4);
-            const auto right = min(1024, WalkPosition(here).x + walkWidth + 4);
-            const auto top = max(0, WalkPosition(here).y - walkHeight - 4);
-            const auto bottom = min(1024, WalkPosition(here).y + walkHeight + 4);
-
-            for (int x = left; x < right; x++) {
-                for (int y = top; y < bottom; y++) {
-
-                    //const auto dist = fasterDistGrids(x1, y1, (x * 8) + 4, (y * 8) + 4);
-                    const auto dist = float(here.getDistance(Position((x * 8) + 4, (y * 8) + 4)));
-
-                    //// Cluster
-                    //if (dist < 64.0) {
-                    //    aAirCluster[x][y] += (65.0f - dist) / 64.0f;
-                    //    saveReset(x, y);
-                    //}
-                }
-            }
-        }
-        else {
-            addToGrids(unit, here, WalkPosition(here));
-        }
-    }
 
     bool hasCliffVision(TilePosition t) { return cliffVision[t.x][t.y]; }
 }

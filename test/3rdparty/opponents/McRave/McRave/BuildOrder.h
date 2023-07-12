@@ -22,21 +22,19 @@ namespace McRave::BuildOrder {
         inline bool playPassive = false;
         inline bool rush = false;
         inline bool pressure = false;
-        inline bool cutWorkers = false; // TODO: Use unlocking
         inline bool lockedTransition = false;
         inline bool gasTrick = false;
         inline bool inBookSupply = false;
         inline bool transitionReady = false;
-        inline bool defensesNow = false;
         inline bool planEarly = false;
 
+        inline bool gasDesired = false;
         inline bool expandDesired = false;
         inline bool rampDesired = false;
-        // inline bool techDesired = false;
 
         inline std::map<BWAPI::UnitType, int> unitLimits;
+        inline std::map<BWAPI::UnitType, int> unitReservations;
         inline int gasLimit = INT_MAX;
-        inline int startCount = 0;
         inline int s = 0;
 
         inline std::string currentBuild = "";
@@ -55,50 +53,6 @@ namespace McRave::BuildOrder {
         inline std::map <BWAPI::UnitType, double> armyComposition;
     }
 
-    namespace Protoss {
-
-        void opener();
-        void tech();
-        void situational();
-        void composition();
-        void unlocks();
-
-        void PvP1GateCore();
-        void PvP2Gate();
-
-        void PvTGateNexus();
-        void PvTNexusGate();
-        void PvT1GateCore();
-        void PvT2Gate();
-
-        void PvZFFE();
-        void PvZ1GateCore();
-        void PvZ2Gate();
-    }
-
-    namespace Terran {
-        void opener();
-        void tech();
-        void situational();
-        void composition();
-        void unlocks();
-
-        void RaxFact();
-    }
-
-    namespace Zerg {
-
-        void opener();
-        void tech();
-        void situational();
-        void composition();
-        void unlocks();
-
-        void ZvT();
-        void ZvP();
-        void ZvZ();
-    }
-
     double getCompositionPercentage(BWAPI::UnitType);
     std::map<BWAPI::UnitType, double> getArmyComposition();
     int buildCount(BWAPI::UnitType);
@@ -109,13 +63,9 @@ namespace McRave::BuildOrder {
     void getNewTech();
     void getTechBuildings();
 
-    void checkExpand();
-    void checkRamp();
-
     int getGasQueued();
     int getMinQueued();
     bool shouldRamp();
-    bool shouldAddGas();
     bool shouldExpand();
     bool techComplete();
     bool atPercent(BWAPI::UnitType, double);
@@ -128,8 +78,7 @@ namespace McRave::BuildOrder {
     std::set <BWAPI::UnitType>& getTechList();
     std::set <BWAPI::UnitType>& getUnlockedList();
     int gasWorkerLimit();
-    int getUnitLimit(BWAPI::UnitType);
-    bool isWorkerCut();
+    int getUnitReservation(BWAPI::UnitType);
     bool isUnitUnlocked(BWAPI::UnitType);
     bool isTechUnit(BWAPI::UnitType);
     bool isOpener();
@@ -145,7 +94,6 @@ namespace McRave::BuildOrder {
     bool isPressure();
     bool isGasTrick();
     bool isPlanEarly();
-    bool makeDefensesNow();
     std::string getCurrentBuild();
     std::string getCurrentOpener();
     std::string getCurrentTransition();

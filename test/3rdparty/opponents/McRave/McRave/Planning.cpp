@@ -9,10 +9,63 @@ namespace McRave::Planning {
 
         int plannedMineral, plannedGas;
         map<TilePosition, UnitType> buildingsPlanned;
+        map<TilePosition, int> buildingTimer;
         set<TilePosition> validDefenses, plannedGround, plannedAir;
         bool expansionPlanned = false;
         BWEB::Station * currentExpansion = nullptr;
         BWEB::Station * nextExpansion = nullptr;
+        vector<TilePosition> unreachablePositions;
+
+        UnitInfo* getBuilder(UnitType building, Position here)
+        {
+            auto builder = Util::getClosestUnitGround(here, PlayerState::Self, [&](auto &u) {
+                if (u->getType().getRace() != building.getRace()
+                    || u->getBuildType() != None
+                    || u->unit()->getOrder() == Orders::ConstructingBuilding
+                    || !Workers::canAssignToBuild(*u))
+                    return false;
+                return true;
+            });
+            return builder;
+        }
+
+        bool isPathable(UnitType building, TilePosition here) { return find(unreachablePositions.begin(), unreachablePositions.end(), here) == unreachablePositions.end(); }
+
+        bool creepOrPowerReadyOnArrival(UnitType building, TilePosition here, UnitInfo& builder)
+        {
+            const auto adjacentToHatch = [&](auto &hatch) {
+                return (here.x - hatch.x >= -2 && here.x - hatch.x <= 4 && here.y - hatch.y >= -2 && here.y - hatch.y <= 3);
+            };
+
+            // TODO: Impl
+            if (building.requiresPsi()) {
+
+            }
+
+            if (building.requiresCreep()) {
+
+                // Check if a hatchery that is adjacent to this position will finish soon
+                for (auto &u : Units::getUnits(PlayerState::Self)) {
+                    auto &unit = *u;
+                    if (unit.getType() == Zerg_Hatchery && adjacentToHatch(unit.getTilePosition())) {
+                        auto builderArriveFrame = builder.getPosition().getDistance(unit.getPosition()) / builder.getSpeed();
+                        if (builderArriveFrame > unit.frameCompletesWhen())
+                            return true;
+                    }
+                }
+
+                // Check if there is full creep on this position
+                for (int x = here.x; x < here.x + building.tileWidth(); x++) {
+                    for (int y = here.y; y < here.y + building.tileHeight(); y++) {
+                        TilePosition t(x, y);
+                        if (!Broodwar->hasCreep(t))
+                            return false;
+                    }
+                }
+                return true;
+            }
+            return false;
+        }
 
         bool overlapsLarvaHistory(UnitType building, TilePosition here)
         {
@@ -26,97 +79,7 @@ namespace McRave::Planning {
                     return true;
             }
             return false;
-        }
-
-        bool isDefensiveType(UnitType building)
-        {
-            return building == Protoss_Photon_Cannon
-                || building == Protoss_Shield_Battery
-                || building == Zerg_Creep_Colony
-                || building == Zerg_Sunken_Colony
-                || building == Zerg_Spore_Colony
-                || building == Zerg_Spire
-                || building == Terran_Missile_Turret
-                || building == Terran_Bunker;
-        }
-
-        bool isProductionType(UnitType building)
-        {
-            return building == Protoss_Gateway
-                || building == Protoss_Robotics_Facility
-                || building == Protoss_Stargate
-                || building == Terran_Barracks
-                || building == Terran_Factory
-                || building == Terran_Starport
-                || building == Zerg_Hatchery;
-        }
-
-        bool isTechType(UnitType building)
-        {
-            return building == Protoss_Forge
-                || building == Protoss_Cybernetics_Core
-                || building == Protoss_Robotics_Support_Bay
-                || building == Protoss_Observatory
-                || building == Protoss_Citadel_of_Adun
-                || building == Protoss_Templar_Archives
-                || building == Protoss_Fleet_Beacon
-                || building == Protoss_Arbiter_Tribunal
-                || building == Terran_Supply_Depot
-                || building == Terran_Engineering_Bay
-                || building == Terran_Academy
-                || building == Terran_Armory
-                || building == Terran_Science_Facility
-                || building == Zerg_Spawning_Pool
-                || building == Zerg_Evolution_Chamber
-                || building == Zerg_Hydralisk_Den
-                || building == Zerg_Spire
-                || building == Zerg_Queens_Nest
-                || building == Zerg_Defiler_Mound
-                || building == Zerg_Ultralisk_Cavern;
-        }
-
-        bool isWallType(UnitType building)
-        {
-            return building == Protoss_Forge
-                || building == Protoss_Gateway
-                || building == Protoss_Pylon
-                || building == Terran_Barracks
-                || building == Terran_Supply_Depot
-                || building == Zerg_Hydralisk_Den
-                || building == Zerg_Evolution_Chamber
-                || building == Zerg_Hatchery;
-        }
-
-        bool isPathable(UnitType building, TilePosition here) {
-            if (isDefensiveType(building))
-                return true;
-
-            const auto insideBlock = [&](TilePosition t) {
-                return Util::rectangleIntersect(Position(here), Position(here) + Position(building.tileSize()), Position(t));
-            };
-
-            auto pathChokes = mapBWEM.GetNearestArea(here)->ChokePoints();
-
-            for (int x = here.x - 1; x < here.x + building.tileWidth() + 1; x++) {
-                for (int y = here.y - 1; y < here.y + building.tileHeight() + 1; y++) {
-                    TilePosition tile = TilePosition(x, y);
-                    if (!BWEB::Map::isWalkable(tile, Zerg_Ultralisk) || BWEB::Map::isUsed(tile) != UnitTypes::None)
-                        continue;
-                    if (insideBlock(tile))
-                        continue;
-
-                    for (auto &choke : pathChokes) {
-                        if (choke->Blocked())
-                            continue;
-                        BWEB::Path path(Position(tile), Position(choke->Center()), Zerg_Ultralisk, false, true);
-                        path.generateJPS([&](auto t) { return path.unitWalkable(t) && !insideBlock(t); });
-                        if (!path.isReachable())
-                            return false;
-                    }
-                }
-            }
-            return true;
-        }
+        }        
 
         bool isPlannable(UnitType building, TilePosition here)
         {
@@ -137,43 +100,12 @@ namespace McRave::Planning {
             auto center = Position(here) + Position(building.tileWidth() * 16, building.tileHeight() * 16);
             auto creepFully = true;
 
-            if (building.requiresCreep()) {
-                for (int x = here.x; x < here.x + building.tileWidth(); x++) {
-                    for (int y = here.y; y < here.y + building.tileHeight(); y++) {
-                        TilePosition t(x, y);
-                        if (!Broodwar->hasCreep(t))
-                            creepFully = false;
-                    }
-                }
-            }
-
             // See if it's being blocked
             auto closestEnemy = Util::getClosestUnit(center, PlayerState::Enemy, [&](auto &u) {
-                return !u.isFlying();
+                return !u->isFlying() && u->getType() != Terran_Vulture_Spider_Mine;
             });
             if (closestEnemy && Util::boxDistance(closestEnemy->getType(), closestEnemy->getPosition(), building, center) < 32.0)
                 return false;
-
-            // Check to see if we expect creep to be here soon
-            auto creepSoon = false;
-            auto distCheck = 110.0;
-            if (!creepFully && building.requiresCreep()) {
-                auto closestStation = Stations::getClosestStationGround(PlayerState::Self, Position(here));
-                if (closestStation) {
-
-                    if (Players::ZvP() && Strategy::getEnemyOpener() != "10/17" && (here.y > closestStation->getBase()->Location().y + 1 || here.y < closestStation->getBase()->Location().y))
-                        return false;
-
-                    // Found that > 5 tiles away causes us to wait forever
-                    if (center.getDistance(closestStation->getBase()->Center()) > distCheck)
-                        return false;
-                    creepSoon = true;
-
-                    // Don't build vertically
-                    if (Strategy::enemyRush() && (here.y > closestStation->getBase()->Location().y + 4 || here.y < closestStation->getBase()->Location().y - 2))
-                        return false;
-                }
-            }
 
             // Refinery only on Geysers
             if (building.isRefinery()) {
@@ -186,16 +118,15 @@ namespace McRave::Planning {
                 return false;
             }
 
-            // Used tile / creep check
+            // Used tile check
             for (int x = here.x; x < here.x + building.tileWidth(); x++) {
                 for (int y = here.y; y < here.y + building.tileHeight(); y++) {
                     TilePosition t(x, y);
                     if (!t.isValid())
                         return false;
-
-                    if (building.getRace() == Races::Zerg && !creepSoon && building.requiresCreep() && !Broodwar->hasCreep(t))
-                        return false;
                     if (BWEB::Map::isUsed(t) != None)
+                        return false;
+                    if (!Broodwar->isBuildable(t))
                         return false;
                 }
             }
@@ -209,6 +140,13 @@ namespace McRave::Planning {
             // Psi check
             if (building.requiresPsi() && !Pylons::hasPowerSoon(here, building))
                 return false;
+
+            // Creep check
+            if (building.requiresCreep()) {
+                auto builder = getBuilder(building, center);
+                return builder && creepOrPowerReadyOnArrival(building, here, *builder);
+            }
+
             return true;
         }
 
@@ -240,7 +178,7 @@ namespace McRave::Planning {
                     current = current * 32.0;
 
                 if (overlapsLarvaHistory(building, placement)) {
-                    if (Util::getTime() < Time(6, 00) || isTechType(building))
+                    if (Util::getTime() < Time(6, 00))
                         continue;
                     current = current * 4.0;
                 }
@@ -262,7 +200,7 @@ namespace McRave::Planning {
             set<TilePosition> placements;
             for (auto &block : BWEB::Blocks::getBlocks()) {
                 Position blockCenter = Position(block.getTilePosition()) + Position(block.width() * 16, block.height() * 16);
-                if (!Terrain::isInAllyTerritory(block.getTilePosition()))
+                if (!Terrain::inTerritory(PlayerState::Self, block.getCenter()))
                     continue;
 
                 // Not sure what this is for
@@ -304,7 +242,7 @@ namespace McRave::Planning {
             }
 
             // Check if any secondary locations are available here
-            auto closestStation = Stations::getClosestStationAir(PlayerState::Self, here);
+            auto closestStation = Stations::getClosestStationAir(here, PlayerState::Self);
             if (closestStation && building == Zerg_Hatchery) {
                 for (auto &location : closestStation->getSecondaryLocations()) {
                     if (isBuildable(building, location) && isPlannable(building, location) && isPathable(building, location)) {
@@ -319,7 +257,7 @@ namespace McRave::Planning {
             multimap<double, BWEB::Block*> listByDist;
             for (auto &block : list) {
                 if (!closestStation
-                    || (!Terrain::isInAllyTerritory(block.getTilePosition()) && !BuildOrder::isProxy()))
+                    || (!Terrain::inTerritory(PlayerState::Self, block.getCenter()) && !BuildOrder::isProxy()))
                     continue;
 
                 // Zerg
@@ -336,6 +274,11 @@ namespace McRave::Planning {
                         if ((Pylons::countPoweredPositions(Protoss_Gateway) < 2 && block.getLargeTiles().empty())
                             || (Pylons::countPoweredPositions(Protoss_Forge) < 2 && block.getMediumTiles().empty()))
                             continue;
+
+                        if (!block.getPlacements(building).empty()) {
+                            listByDist.emplace(make_pair(block.getCenter().getDistance(here) / (1 + block.getLargeTiles().size() + block.getMediumTiles().size()), &block));
+                            continue;
+                        }
                     }
                 }
 
@@ -359,9 +302,9 @@ namespace McRave::Planning {
 
             // If we are expanding, it must be on an expansion area and be when build order requests one
             const auto expand = Broodwar->self()->getRace() != Races::Zerg
-                || (!BuildOrder::isOpener() && BuildOrder::shouldExpand())
-                || (BuildOrder::isOpener() && int(Stations::getMyStations().size()) <= 1 && BuildOrder::takeNatural())
-                || (BuildOrder::isOpener() && int(Stations::getMyStations().size()) <= 2 && BuildOrder::takeThird());
+                || BuildOrder::shouldExpand()
+                || (int(Stations::getStations(PlayerState::Self).size()) <= 1 && BuildOrder::takeNatural() && !BuildOrder::shouldRamp())
+                || (int(Stations::getStations(PlayerState::Self).size()) <= 2 && BuildOrder::takeThird() && !BuildOrder::shouldRamp());
 
             if (!building.isResourceDepot()
                 || !expand
@@ -370,34 +313,9 @@ namespace McRave::Planning {
                 return false;
 
             // First expansion is always the Natural
-            if (Stations::getMyStations().size() == 1 && !Terrain::isShitMap() && isBuildable(baseType, BWEB::Map::getNaturalTile()) && isPlannable(baseType, BWEB::Map::getNaturalTile()) && isPathable(building, BWEB::Map::getNaturalTile())) {
+            if (Stations::getStations(PlayerState::Self).size() == 1 && isBuildable(baseType, BWEB::Map::getNaturalTile()) && isPlannable(baseType, BWEB::Map::getNaturalTile()) && isPathable(building, BWEB::Map::getNaturalTile())) {
                 placement = BWEB::Map::getNaturalTile();
                 currentExpansion = Terrain::getMyNatural();
-                expansionPlanned = true;
-                return true;
-            }
-
-            if (Stations::getMyStations().size() == 1 && Terrain::isShitMap() && Terrain::getEnemyStartingPosition().isValid()) {
-                if (BWEB::Map::getMainTile() == TilePosition(8, 7)) {
-                    if (Terrain::getEnemyStartingTilePosition() == TilePosition(43, 118))
-                        placement = TilePosition(45, 19);
-                    else
-                        placement = TilePosition(8, 41);
-                }
-                if (BWEB::Map::getMainTile() == TilePosition(43, 118)) {
-                    if (Terrain::getEnemyStartingTilePosition() == TilePosition(8, 7))
-                        placement = TilePosition(77, 118);
-                    else
-                        placement = TilePosition(8, 113);
-                }
-                if (BWEB::Map::getMainTile() == TilePosition(117, 51)) {
-                    if (Terrain::getEnemyStartingTilePosition() == TilePosition(8, 7))
-                        placement = TilePosition(91, 67);
-                    else
-                        placement = TilePosition(108, 13);
-
-                }
-
                 expansionPlanned = true;
                 return true;
             }
@@ -417,8 +335,8 @@ namespace McRave::Planning {
                 return false;
 
             // Figure out where we need to place a production building
-            for (auto &[_, station] : Stations::getStationsBySaturation()) {
-                auto desiredCenter = (Broodwar->self()->getRace() == Races::Zerg || !station->getChokepoint()) ? station->getBase()->Center() : Position(station->getChokepoint()->Center());
+            for (auto &[_, station] : Stations::getStationsByProduction()) {
+                auto desiredCenter = station->getBase()->Center();
                 placement = closestLocation(building, desiredCenter);
                 if (placement.isValid())
                     return true;
@@ -434,11 +352,11 @@ namespace McRave::Planning {
 
             // Hide tech if needed or against a rush
             if ((BuildOrder::isHideTech() && (building == Protoss_Citadel_of_Adun || building == Protoss_Templar_Archives))
-                || (Strategy::enemyRush() && (Players::PvZ() || Players::TvZ())))
+                || (Spy::enemyRush() && (Players::PvZ() || Players::TvZ())))
                 placement = furthestLocation(building, (Position)BWEB::Map::getMainChoke()->Center());
 
             // Try to place the tech building inside a main base
-            for (auto &station : Stations::getMyStations()) {
+            for (auto &station : Stations::getStations(PlayerState::Self)) {
                 if (station->isMain()) {
                     auto desiredCenter = Players::ZvZ() ? station->getResourceCentroid() : station->getBase()->Center();
                     placement = closestLocation(building, desiredCenter);
@@ -448,7 +366,7 @@ namespace McRave::Planning {
             }
 
             // Try to place the tech building anywhere
-            for (auto &station : Stations::getMyStations()) {
+            for (auto &station : Stations::getStations(PlayerState::Self)) {
                 if (!station->isMain()) {
                     placement = closestLocation(building, station->getBase()->Center());
                     if (placement.isValid())
@@ -468,11 +386,11 @@ namespace McRave::Planning {
             // Place spire as close to the Lair in case we're hiding it
             if (building == Zerg_Spire) {
                 auto closestLair = Util::getClosestUnit(BWEB::Map::getMainPosition(), PlayerState::Self, [&](auto &u) {
-                    return u.getType() == Zerg_Lair;
+                    return u->getType() == Zerg_Lair;
                 });
 
                 if (closestLair) {
-                    auto closestStation = Stations::getClosestStationAir(PlayerState::Self, closestLair->getPosition());
+                    auto closestStation = Stations::getClosestStationAir(closestLair->getPosition(), PlayerState::Self);
                     if (closestStation) {
                         placement = returnFurthest(building, closestStation->getDefenses(), Position(BWEB::Map::getMainChoke()->Center()));
                         if (placement.isValid())
@@ -486,7 +404,7 @@ namespace McRave::Planning {
             }
 
             // Defense placements near stations
-            for (auto &station : Stations::getMyStations()) {
+            for (auto &station : Stations::getStations(PlayerState::Self)) {
 
                 int colonies = 0;
                 for (auto& tile : station->getDefenses()) {
@@ -496,8 +414,8 @@ namespace McRave::Planning {
 
                 // If we need ground defenses
                 if (Stations::needGroundDefenses(station) > colonies) {
-                    if (station->isMain() && station->getChokepoint()->Center()) {
-                        Position desiredCenter = Position(station->getChokepoint()->Center());
+                    if (station->isMain()) {
+                        Position desiredCenter = Position(station->getResourceCentroid());
                         placement = returnClosest(building, station->getDefenses(), desiredCenter);
                         if (placement.isValid())
                             return true;
@@ -536,14 +454,30 @@ namespace McRave::Planning {
                 auto desiredCenter = Position(wall.getChokePoint()->Center());
                 auto closestMain = BWEB::Stations::getClosestMainStation(TilePosition(wall.getChokePoint()->Center()));
 
+                // How to dictate first placement position
                 if (wall.getGroundDefenseCount() < 2) {
-                    if (closestMain && closestMain->getChokepoint())
-                        desiredCenter = Position(closestMain->getChokepoint()->Center());
+                    if (closestMain && closestMain->getChokepoint() && wall.getStation() && Players::ZvT())
+                        desiredCenter = (Position(closestMain->getChokepoint()->Center()) + Position(wall.getStation()->getBase()->Center())) / 2;
                     else if (wall.getStation())
                         desiredCenter = Position(wall.getStation()->getBase()->Center());
                 }
-                else if (wall.getStation()) {
-                    desiredCenter = Position(wall.getStation()->getResourceCentroid());
+
+                // How to dictate row order
+                vector<int> desiredRowOrder ={ 3, 4, 2, 1 };
+
+                auto closestDefense = Util::getClosestUnit(Position(closestMain->getChokepoint()->Center()), PlayerState::Self, [&](auto &u) {
+                    return isDefensiveType(u->getType());
+                });
+                if (closestDefense) {
+                    desiredCenter = closestDefense->getPosition();
+                    for (int i = 4; i >= 1; i--) {
+                        if (wall.getDefenses(i).find(closestDefense->getTilePosition()) != wall.getDefenses(i).end()) {
+                            if (i == 1)
+                                desiredRowOrder.insert(desiredRowOrder.begin(), { i, i + 1 });
+                            else
+                                desiredRowOrder.insert(desiredRowOrder.begin(), { i, i + 1, i - 1 });
+                        }
+                    }
                 }
 
                 int colonies = 0;
@@ -555,9 +489,9 @@ namespace McRave::Planning {
                 // If this wall needs defenses
                 if (Walls::needGroundDefenses(wall) > colonies) {
 
-                    // Against Zealot builds try to place far back
-                    if (Strategy::getEnemyOpener() == "9/9") {
-                        for (int i = 4; i > 1; i--) {
+                    // Try to place in adjacent rows as existing defenses
+                    if (!desiredRowOrder.empty()) {
+                        for (auto i : desiredRowOrder) {
                             placement = returnClosest(building, wall.getDefenses(i), desiredCenter);
                             if (placement.isValid()) {
                                 plannedGround.insert(placement);
@@ -566,21 +500,13 @@ namespace McRave::Planning {
                         }
                     }
 
-                    // Try to always place in front rows first
-                    auto firstRow = wall.getGroundDefenseCount() == 0 && !Players::ZvT() ? 2 : 1;
-                    for (int i = firstRow; i <= 4; i++) {
-                        placement = returnClosest(building, wall.getDefenses(i), desiredCenter);
+                    // Resort to just placing a defense in the wall
+                    else {
+                        placement = returnClosest(building, wall.getDefenses(0), desiredCenter);
                         if (placement.isValid()) {
                             plannedGround.insert(placement);
                             return true;
                         }
-                    }
-
-                    // Resort to just placing a defense in the wall
-                    placement = returnClosest(building, wall.getDefenses(0), desiredCenter);
-                    if (placement.isValid()) {
-                        plannedGround.insert(placement);
-                        return true;
                     }
                 }
 
@@ -613,39 +539,27 @@ namespace McRave::Planning {
                 return false;
 
             // Don't wall if not needed
-            if ((!BuildOrder::isWallNat() && !BuildOrder::isWallMain()) || (Strategy::enemyBust() && BuildOrder::isOpener()))
+            if ((!BuildOrder::isWallNat() && !BuildOrder::isWallMain()) || (Spy::enemyBust() && BuildOrder::isOpener()))
                 return false;
 
             // As Zerg, we have to place natural hatch before wall
-            if (building == Zerg_Hatchery && !Terrain::isShitMap() && isPlannable(building, BWEB::Map::getNaturalTile()) && BWEB::Map::isUsed(BWEB::Map::getNaturalTile()) == UnitTypes::None)
+            if (building == Zerg_Hatchery && isPlannable(building, BWEB::Map::getNaturalTile()) && BWEB::Map::isUsed(BWEB::Map::getNaturalTile()) == UnitTypes::None)
                 return false;
 
             // Find a wall location
             set<TilePosition> placements;
-            if (!Terrain::isShitMap()) {
-                for (auto &[_, wall] : BWEB::Walls::getWalls()) {
+            for (auto &[_, wall] : BWEB::Walls::getWalls()) {
 
-                    if (!Terrain::isInAllyTerritory(wall.getArea()))
-                        continue;
-
-                    // Setup placements
-                    if (building.tileWidth() == 4)
-                        placements.insert(wall.getLargeTiles().begin(), wall.getLargeTiles().end());
-                    else if (building.tileWidth() == 3)
-                        placements.insert(wall.getMediumTiles().begin(), wall.getMediumTiles().end());
-                    else
-                        placements.insert(wall.getSmallTiles().begin(), wall.getSmallTiles().end());
-                }
-            }
-            else if (Walls::getNaturalWall()) {
+                if (!Terrain::inTerritory(PlayerState::Self, wall.getArea()))
+                    continue;
 
                 // Setup placements
                 if (building.tileWidth() == 4)
-                    placements.insert(Walls::getNaturalWall()->getLargeTiles().begin(), Walls::getNaturalWall()->getLargeTiles().end());
+                    placements.insert(wall.getLargeTiles().begin(), wall.getLargeTiles().end());
                 else if (building.tileWidth() == 3)
-                    placements.insert(Walls::getNaturalWall()->getMediumTiles().begin(), Walls::getNaturalWall()->getMediumTiles().end());
+                    placements.insert(wall.getMediumTiles().begin(), wall.getMediumTiles().end());
                 else
-                    placements.insert(Walls::getNaturalWall()->getSmallTiles().begin(), Walls::getNaturalWall()->getSmallTiles().end());
+                    placements.insert(wall.getSmallTiles().begin(), wall.getSmallTiles().end());
             }
 
             // Get closest placement
@@ -703,8 +617,8 @@ namespace McRave::Planning {
             };
 
             // Check if any Nexus needs a Pylon for defense placement
-            if (com(Protoss_Pylon) >= (Players::vT() ? 5 : 3) || Strategy::getEnemyTransition() == "2HatchMuta" || Strategy::getEnemyTransition() == "3HatchMuta") {
-                for (auto &station : Stations::getMyStations()) {
+            if (com(Protoss_Pylon) >= (Players::vT() ? 5 : 3) || Spy::getEnemyTransition() == "2HatchMuta" || Spy::getEnemyTransition() == "3HatchMuta") {
+                for (auto &station : Stations::getStations(PlayerState::Self)) {
                     placement = stationNeedsPylon(station);
                     if (placement.isValid())
                         return true;
@@ -727,14 +641,14 @@ namespace McRave::Planning {
             }
 
             // Check if our main choke should get a Pylon for a Shield Battery
-            if (vis(Protoss_Pylon) == 1 && !BuildOrder::takeNatural() && (!Strategy::enemyRush() || !Players::vZ())) {
+            if (vis(Protoss_Pylon) == 1 && !BuildOrder::takeNatural() && (!Spy::enemyRush() || !Players::vZ())) {
                 placement = closestLocation(Protoss_Pylon, (Position)BWEB::Map::getMainChoke()->Center());
                 if (placement.isValid())
                     return true;
             }
 
             // Check if we are being busted, add an extra pylon to the defenses
-            if (Strategy::enemyBust() && Walls::getNaturalWall() && BuildOrder::isWallNat()) {
+            if (Spy::enemyBust() && Walls::getNaturalWall() && BuildOrder::isWallNat()) {
                 int cnt = 0;
                 TilePosition sum(0, 0);
                 TilePosition center(0, 0);
@@ -789,7 +703,7 @@ namespace McRave::Planning {
             }
 
             // HACK: Try to get a placement if we are being horror gated
-            if (Strategy::enemyProxy() && Util::getTime() < Time(5, 0) && !isDefensiveType(building) && !building.isResourceDepot())
+            if (Spy::enemyProxy() && Util::getTime() < Time(5, 00) && !isDefensiveType(building) && !building.isResourceDepot())
                 placement = Broodwar->getBuildLocation(building, BWEB::Map::getMainTile(), 16);
 
             return placement;
@@ -816,11 +730,11 @@ namespace McRave::Planning {
         void updatePlan()
         {
             // Wipe clean all queued buildings, store a cache of old buildings
-            map<shared_ptr<UnitInfo>, TilePosition> oldBuilders;
+            map<TilePosition, UnitInfo*> oldBuilders;
             for (auto &u : Units::getUnits(PlayerState::Self)) {
                 auto &unit = *u;
                 if (unit.getBuildPosition().isValid()) {
-                    oldBuilders[u] = unit.getBuildPosition();
+                    oldBuilders[unit.getBuildPosition()] = &unit;
                     unit.setBuildingType(UnitTypes::None);
                     unit.setBuildPosition(TilePositions::Invalid);
                 }
@@ -828,9 +742,7 @@ namespace McRave::Planning {
             buildingsPlanned.clear();
 
             // Add up how many more buildings of each type we need
-            for (auto &[b, count] : BuildOrder::getBuildQueue()) {
-                auto &building = b;
-
+            for (auto &[building, count] : BuildOrder::getBuildQueue()) {
                 int queuedCount = 0;
 
                 auto morphed = !building.whatBuilds().first.isWorker();
@@ -855,8 +767,6 @@ namespace McRave::Planning {
                     plannedGas += building.gasPrice() * (count - vis(building) - morphOffset);
                 }
 
-                Visuals::drawDebugText(building.c_str(), count - queuedCount + vis(building) + morphOffset);
-
                 if (morphed)
                     continue;
 
@@ -868,31 +778,63 @@ namespace McRave::Planning {
                     if (!here.isValid())
                         continue;
 
-                    //Visuals::drawBox(Position(here) + Position(4, 4), Position(here + building.tileSize()) - Position(4, 4), Colors::White);
+                    auto builder = getBuilder(building, center);
 
-                    auto builder = Util::getClosestUnitGround(center, PlayerState::Self, [&](auto &u) {
-                        if (u.getType().getRace() != building.getRace()
-                            || u.getBuildType() != None
-                            || u.unit()->getOrder() == Orders::ConstructingBuilding
-                            || !Workers::canAssignToBuild(u))
-                            return false;
-                        return true;
-                    });
+                    // Expired building attempt on current builder
+                    if (buildingTimer[here] <= Broodwar->getFrameCount()) {
+                        buildingTimer.erase(here);
+                    }
 
                     // Use old builder if we're not early game, as long as it's not stuck or was stuck recently
-                    if (builder && Util::getTime() > Time(3, 00)) {
-                        for (auto &[oldBuilder, oldHere] : oldBuilders) {
+                    else {
+                        for (auto &[oldHere, oldBuilder] : oldBuilders) {
                             if (oldHere == here && oldBuilder && Workers::canAssignToBuild(*oldBuilder))
                                 builder = oldBuilder;
                         }
                     }
 
+                    if (!builder)
+                        Visuals::drawBox(Position(here) + Position(4, 4), Position(here + building.tileSize()) - Position(4, 4), Colors::Red);
+
                     if (here.isValid() && builder && Workers::shouldMoveToBuild(*builder, here, building)) {
-                        //Visuals::drawLine(builder->getPosition(), center, Colors::White);
+                        Visuals::drawBox(Position(here) + Position(4, 4), Position(here + building.tileSize()) - Position(4, 4), Colors::White);
+                        Visuals::drawLine(builder->getPosition(), center, Colors::White);
                         builder->setBuildingType(building);
                         builder->setBuildPosition(here);
                         buildingsPlanned[here] = building;
+
+                        if (buildingTimer.find(here) == buildingTimer.end())
+                            buildingTimer[here] = Broodwar->getFrameCount() + int(BWEB::Map::getGroundDistance(builder->getPosition(), center) / builder->getSpeed()) + 200;
                     }
+                }
+            }
+        }
+
+        void updateReachable()
+        {
+            if (!BWEB::Map::getMainChoke()->Center() || !unreachablePositions.empty())
+                return;
+            auto start = Position(BWEB::Map::getMainChoke()->Center());
+
+            const auto reachable = [&](auto &pos) {
+                auto newPath = BWEB::Path(start, pos, Zerg_Drone);
+                newPath.generateJPS([&](const TilePosition &t) { return newPath.unitWalkable(t); });
+                return newPath.isReachable();
+            };
+
+            for (auto &block : BWEB::Blocks::getBlocks()) {
+                if (Terrain::inTerritory(PlayerState::Self, block.getCenter())) {
+                    if (!reachable(block.getCenter())) {
+                        for_each(block.getLargeTiles().begin(), block.getLargeTiles().end(), [&](auto &t) { unreachablePositions.push_back(t); });
+                        for_each(block.getMediumTiles().begin(), block.getMediumTiles().end(), [&](auto &t) { unreachablePositions.push_back(t); });
+                        for_each(block.getSmallTiles().begin(), block.getSmallTiles().end(), [&](auto &t) { unreachablePositions.push_back(t); });
+                    }
+                }
+            }
+            for (auto &wall : BWEB::Walls::getWalls()) {
+                for (auto &def : wall.second.getDefenses()) {
+                    if (!reachable(Position(def)))
+                        unreachablePositions.push_back(def);                    
                 }
             }
         }
@@ -943,12 +885,25 @@ namespace McRave::Planning {
         }
     }
 
+    void onUnitDestroy(Unit unit)
+    {
+        if (unit->getType().isBuilding())
+            unreachablePositions.clear();
+    }
+
+    void onUnitDiscover(Unit unit)
+    {
+        if (unit->getType().isBuilding())
+            unreachablePositions.clear();
+    }
+
     void onFrame()
     {
         plannedMineral = 0;
         plannedGas = 0;
         expansionPlanned = false;
 
+        updateReachable();
         validateDefenses();
         updateNextExpand();
         updatePlan();
@@ -956,16 +911,14 @@ namespace McRave::Planning {
 
     void onStart()
     {
-        // Initialize Blocks
         BWEB::Blocks::findBlocks();
-        BWEB::Pathfinding::clearCacheFully();
     }
 
     UnitType whatPlannedHere(TilePosition here)
     {
         auto itr = buildingsPlanned.find(here);
         if (itr != buildingsPlanned.end())
-            return itr->second;       
+            return itr->second;
 
         // Since Zerg buildings can morph from a colony, we need to differentiate which type we planned for when placing
         if (plannedGround.find(here) != plannedGround.end())
@@ -979,7 +932,7 @@ namespace McRave::Planning {
     bool overlapsPlan(UnitInfo& unit, Position here)
     {
         // If this is a defensive building and we don't have a plan for it here anymore
-        if (isDefensiveType(unit.getType()) && validDefenses.find(unit.getTilePosition()) == validDefenses.end())
+        if (isDefensiveType(unit.getType()) && unit.getPlayer() == Broodwar->self() && validDefenses.find(unit.getTilePosition()) == validDefenses.end())
             return true;
 
         // Check if there's a building queued there already
@@ -997,6 +950,67 @@ namespace McRave::Planning {
                 return true;
         }
         return false;
+    }
+
+    bool isDefensiveType(UnitType building)
+    {
+        return building == Protoss_Photon_Cannon
+            || building == Protoss_Shield_Battery
+            || building == Zerg_Creep_Colony
+            || building == Zerg_Sunken_Colony
+            || building == Zerg_Spore_Colony
+            || building == Zerg_Spire
+            || building == Terran_Missile_Turret
+            || building == Terran_Bunker;
+    }
+
+    bool isProductionType(UnitType building)
+    {
+        return building == Protoss_Gateway
+            || building == Protoss_Robotics_Facility
+            || building == Protoss_Stargate
+            || building == Terran_Barracks
+            || building == Terran_Factory
+            || building == Terran_Starport
+            || building == Zerg_Hatchery
+            || building == Zerg_Lair
+            || building == Zerg_Hive;
+    }
+
+    bool isTechType(UnitType building)
+    {
+        return building == Protoss_Forge
+            || building == Protoss_Cybernetics_Core
+            || building == Protoss_Robotics_Support_Bay
+            || building == Protoss_Observatory
+            || building == Protoss_Citadel_of_Adun
+            || building == Protoss_Templar_Archives
+            || building == Protoss_Fleet_Beacon
+            || building == Protoss_Arbiter_Tribunal
+            || building == Terran_Supply_Depot
+            || building == Terran_Engineering_Bay
+            || building == Terran_Academy
+            || building == Terran_Armory
+            || building == Terran_Science_Facility
+            || building == Zerg_Spawning_Pool
+            || building == Zerg_Evolution_Chamber
+            || building == Zerg_Hydralisk_Den
+            || building == Zerg_Spire
+            || building == Zerg_Queens_Nest
+            || building == Zerg_Defiler_Mound
+            || building == Zerg_Ultralisk_Cavern;
+    }
+
+    bool isWallType(UnitType building)
+    {
+        return building == Protoss_Forge
+            || building == Protoss_Gateway
+            || building == Protoss_Pylon
+            || building == Terran_Barracks
+            || building == Terran_Supply_Depot
+            || building == Zerg_Hydralisk_Den
+            || building == Zerg_Evolution_Chamber
+            || building == Zerg_Hatchery;
     }
 
     int getPlannedMineral() { return plannedMineral; }

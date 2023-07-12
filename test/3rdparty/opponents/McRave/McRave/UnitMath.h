@@ -24,6 +24,7 @@ namespace McRave::Math {
     double groundDamage(UnitInfo&);
     double airDamage(UnitInfo&);
     double moveSpeed(UnitInfo&);
+    double simRadius(UnitInfo&);
     int realisticMineralCost(BWAPI::UnitType);
     int realisticGasCost(BWAPI::UnitType);
     int stopAnimationFrames(BWAPI::UnitType);

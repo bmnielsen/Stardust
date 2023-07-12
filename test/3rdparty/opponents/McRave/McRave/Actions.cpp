@@ -8,7 +8,7 @@ namespace McRave::Actions {
 
     namespace {
 
-        bool draw = false;
+        bool draw = true;
 
         void drawActions()
         {
@@ -18,6 +18,11 @@ namespace McRave::Actions {
                     auto topLeft = action.pos - Position(48, 48);
                     auto botRight = action.pos + Position(48, 48);
                     Visuals::drawBox(topLeft, botRight, Colors::Blue);
+                }
+                for (auto &action : enemyActions) {
+                    auto topLeft = action.pos - Position(48, 48);
+                    auto botRight = action.pos + Position(48, 48);
+                    Visuals::drawBox(topLeft, botRight, Colors::Red);
                 }
             }
         }
@@ -75,8 +80,10 @@ namespace McRave::Actions {
                         Actions::addAction(unit.unit(), order.second, techUsed, PlayerState::Neutral);
                 }
 
-                if (unit.getType() == Terran_Vulture_Spider_Mine)
-                    addAction(unit.unit(), unit.getPosition(), TechTypes::Spider_Mines, PlayerState::Enemy);
+                if (unit.getType() == Terran_Vulture_Spider_Mine && unit.hasTarget())
+                    addAction(unit.unit(), unit.getPosition(), UnitTypes::Terran_Vulture_Spider_Mine, PlayerState::Enemy);
+                if (unit.getType() == Protoss_Scarab && unit.hasTarget())
+                    addAction(unit.unit(), unit.getPosition(), UnitTypes::Protoss_Scarab, PlayerState::Enemy);
             }
 
             // Check my Actions
@@ -147,6 +154,11 @@ namespace McRave::Actions {
         const auto checkDangers = [&](vector<Action>& actions) {
             for (auto &command : actions) {
 
+                if (!unit.isFlying() && (command.type == UnitTypes::Protoss_Scarab || command.type == UnitTypes::Terran_Vulture_Spider_Mine)) {
+                    if (circleOverlap(command, checkPositions, 64))
+                        return true;
+                }
+
                 if (command.tech == TechTypes::Psionic_Storm
                     || command.tech == TechTypes::Disruption_Web) {
 
@@ -169,7 +181,7 @@ namespace McRave::Actions {
             return false;
         };
 
-        return checkDangers(neutralActions);
+        return checkDangers(neutralActions) || checkDangers(enemyActions);
     }
 
     bool overlapsDetection(Unit unit, Position here, PlayerState player)

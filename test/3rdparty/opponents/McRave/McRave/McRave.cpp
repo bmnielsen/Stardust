@@ -23,9 +23,9 @@ void McRaveModule::onStart()
     Grids::onStart();
     Learning::onStart();
     Util::onStart();
-    Combat::onStart();
     Resources::onStart();
     Scouts::onStart();
+    Combat::onStart();
 
     Broodwar->enableFlag(Flag::UserInput);
     Broodwar->setCommandOptimizationLevel(0);
@@ -33,7 +33,6 @@ void McRaveModule::onStart()
     Broodwar->sendText("glhf");
     Broodwar->setLocalSpeed(Broodwar->getGameType() != BWAPI::GameTypes::Use_Map_Settings ? 0 : 42);
 
-    McRave::easyWrite("New game on " + Broodwar->mapName());
     BWEB::Pathfinding::clearCacheFully();
 }
 
@@ -56,6 +55,9 @@ void McRaveModule::onFrame()
     // Update ingame information
     Players::onFrame();
     Units::onFrame();
+    Roles::onFrame();
+    Targets::onFrame();
+    Pathing::onFrame();
     Grids::onFrame();
     Pylons::onFrame();
 
@@ -63,7 +65,7 @@ void McRaveModule::onFrame()
     Terrain::onFrame();
     Walls::onFrame();
     Resources::onFrame();
-    Strategy::onFrame();
+    Spy::onFrame();
     BuildOrder::onFrame();
     Stations::onFrame();
 
@@ -72,6 +74,7 @@ void McRaveModule::onFrame()
     Goals::onFrame();
     Support::onFrame();
     Scouts::onFrame();
+    Defender::onFrame();
     Combat::onFrame();
     Workers::onFrame();
     Transports::onFrame();
@@ -79,6 +82,7 @@ void McRaveModule::onFrame()
     Planning::onFrame();
     Buildings::onFrame();
     Production::onFrame();
+    Zones::onFrame();
 
     // Display information from this frame
     Visuals::onFrame();

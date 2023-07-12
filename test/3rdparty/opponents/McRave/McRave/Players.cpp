@@ -12,6 +12,7 @@ namespace McRave::Players
         map <PlayerState, map<UnitType, int>> allVisibleTypeCounts;
         map <PlayerState, map<UnitType, int>> allCompleteTypeCounts;
         map <PlayerState, map<UnitType, int>> allTotalTypeCounts;
+        map <PlayerState, Strength> allPlayerStrengths;
 
         void update(PlayerInfo& player)
         {
@@ -26,6 +27,7 @@ namespace McRave::Players
                 allCompleteTypeCounts[player.getPlayerState()][type]+=cnt;
             for (auto &[type, cnt] : player.getTotalTypeCounts())
                 allTotalTypeCounts[player.getPlayerState()][type]+=cnt;
+            allPlayerStrengths[player.getPlayerState()] += player.getStrength();
         }
     }
 
@@ -51,6 +53,7 @@ namespace McRave::Players
         allVisibleTypeCounts.clear();
         allCompleteTypeCounts.clear();
         allTotalTypeCounts.clear();
+        allPlayerStrengths.clear();
         raceCount.clear();
         for (auto &[_, player] : thePlayers)
             update(player);
@@ -58,15 +61,17 @@ namespace McRave::Players
 
     void storeUnit(Unit bwUnit)
     {
-        auto p = getPlayerInfo(bwUnit->getPlayer());
+        auto player = getPlayerInfo(bwUnit->getPlayer());
         auto info = make_shared<UnitInfo>(bwUnit);
 
+        // Unit already exists, no need to store
         if (Units::getUnitInfo(bwUnit))
             return;
 
+        // When a building starts, set the closest worker to no longer have a building
         if (bwUnit->getType().isBuilding() && bwUnit->getPlayer() == Broodwar->self()) {
             auto closestWorker = Util::getClosestUnit(bwUnit->getPosition(), PlayerState::Self, [&](auto &u) {
-                return u.getRole() == Role::Worker && (u.getType() != Terran_SCV || bwUnit->isCompleted()) && u.getBuildPosition() == bwUnit->getTilePosition();
+                return u->getRole() == Role::Worker && (u->getType() != Terran_SCV || bwUnit->isCompleted()) && u->getBuildPosition() == bwUnit->getTilePosition();
             });
             if (closestWorker) {
                 closestWorker->setBuildingType(None);
@@ -74,15 +79,13 @@ namespace McRave::Players
             }
         }
 
-        if (p) {
-
-            // Setup the UnitInfo and update
-            p->getUnits().insert(info);
+        // If a player exists that owns this unit, update the unit and total counts
+        if (player) {
+            player->getUnits().insert(info);
             info->update();
-            auto &counts = p->getTotalTypeCounts();
+            auto &counts = player->getTotalTypeCounts();
 
-            // Increase total counts
-            if (Broodwar->getFrameCount() == 0 || !p->isSelf() || (info->getType() != Zerg_Zergling && info->getType() != Zerg_Scourge))
+            if (Broodwar->getFrameCount() == 0 || !player->isSelf() || (info->getType() != Zerg_Zergling && info->getType() != Zerg_Scourge))
                 counts[info->getType()] += 1;
         }
     }
@@ -235,16 +238,6 @@ namespace McRave::Players
         return combined;
     }
 
-    Strength getStrength(PlayerState state)
-    {
-        Strength combined;
-        for (auto &[_, player] : thePlayers) {
-            if (player.getPlayerState() == state)
-                combined += player.getStrength();
-        }
-        return combined;
-    }
-
     PlayerInfo * getPlayerInfo(Player player)
     {
         for (auto &[p, info] : thePlayers) {
@@ -254,8 +247,12 @@ namespace McRave::Players
         return nullptr;
     }
 
+    Strength getStrength(PlayerState state) { return allPlayerStrengths[state]; }
     map <Player, PlayerInfo>& getPlayers() { return thePlayers; }
     bool vP() { return (thePlayers.size() == 3 && raceCount[Races::Protoss] > 0); }
     bool vT() { return (thePlayers.size() == 3 && raceCount[Races::Terran] > 0); }
     bool vZ() { return (thePlayers.size() == 3 && raceCount[Races::Zerg] > 0); }
+    bool vR() { return (thePlayers.size() == 3 && raceCount[Races::Unknown] > 0); }
+    bool vFFA() { return thePlayers.size() > 3 && (Broodwar->getGameType() == GameTypes::Free_For_All || Broodwar->getGameType() == GameTypes::Melee); }
+    bool vTVB() { return thePlayers.size() > 3 && Broodwar->getGameType() == GameTypes::Top_vs_Bottom; }
 }

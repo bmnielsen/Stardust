@@ -9,6 +9,7 @@ namespace McRave::Events
     {
         BWEB::Map::onUnitDiscover(unit);
         Players::storeUnit(unit);
+        Planning::onUnitDiscover(unit);
 
         if (unit->getType().isResourceDepot())
             Stations::storeStation(unit);
@@ -27,6 +28,7 @@ namespace McRave::Events
     {
         BWEB::Map::onUnitDestroy(unit);
         Players::removeUnit(unit);
+        Planning::onUnitDestroy(unit);
 
         if (unit->getType().isResourceDepot())
             Stations::removeStation(unit);
@@ -106,21 +108,12 @@ namespace McRave::Events
         }
 
         if (!notVisibleFully) {
+            unit.movedFlag = true;
             auto closestEnemy = Util::getClosestUnit(unit.getPosition(), PlayerState::Enemy, [&](auto &u) {
-                return u != unit && !u.getType().isWorker() && !u.getType().isBuilding() && !u.isFlying() && !BWAPI::Broodwar->isVisible(u.getTilePosition());
+                return *u != unit && !u->getType().isWorker() && !u->getType().isBuilding() && !u->isFlying() && !BWAPI::Broodwar->isVisible(u->getTilePosition());
             });
-            if (closestEnemy) {
-                unit.setPosition(closestEnemy->getPosition());
-                unit.setTilePosition(closestEnemy->getTilePosition());
-                unit.setWalkPosition(closestEnemy->getWalkPosition());
-                unit.movedFlag = true;
-            }
-            else {
-                unit.setPosition(BWAPI::Positions::Invalid);
-                unit.setTilePosition(BWAPI::TilePositions::Invalid);
-                unit.setWalkPosition(BWAPI::WalkPositions::Invalid);
-                unit.movedFlag = true;
-            }
+            closestEnemy ? unit.setAssumedLocation(closestEnemy->getPosition(), closestEnemy->getWalkPosition(), closestEnemy->getTilePosition()) :
+                           unit.setAssumedLocation(BWAPI::Positions::Invalid, BWAPI::WalkPositions::Invalid, BWAPI::TilePositions::Invalid);
         }
     }
 

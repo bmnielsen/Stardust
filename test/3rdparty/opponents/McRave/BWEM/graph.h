@@ -77,10 +77,8 @@ public:
     const Area *                        GetArea(BWAPI::TilePosition t) const;
     Area *                                GetArea(BWAPI::TilePosition t)    { return const_cast<Area *>(static_cast<const Graph &>(*this).GetArea(t)); }
 
-    const Area*							GetNearestArea(BWAPI::WalkPosition w) const;
-    Area *								GetNearestArea(BWAPI::WalkPosition w) { return const_cast<Area *>(static_cast<const Graph &>(*this).GetNearestArea(w)); }
-    const Area*							GetNearestArea(BWAPI::TilePosition t) const;
-    Area *								GetNearestArea(BWAPI::TilePosition t) { return const_cast<Area *>(static_cast<const Graph &>(*this).GetNearestArea(t)); }
+    template<class TPosition>const Area*GetNearestArea(TPosition p) const;
+    template<class TPosition> Area *    GetNearestArea(TPosition p)        { return const_cast<Area *>(static_cast<const Graph &>(*this).GetNearestArea(p)); }
 
 
     // Returns the list of all the ChokePoints in the Map.
@@ -133,6 +131,20 @@ private:
     const CPPath                        m_EmptyPath;
     int                                    m_baseCount;
 };
+
+
+template<class TPosition>
+const Area * Graph::GetNearestArea(TPosition p) const
+{
+    typedef typename TileOfPosition<TPosition>::type Tile_t;
+    if (const Area * area = GetArea(p)) return area;
+
+    p = GetMap()->BreadthFirstSearch(p,
+                    [this](const Tile_t & t, TPosition) { return t.AreaId() > 0; },    // findCond
+                    [](const Tile_t &,       TPosition) { return true; });            // visitCond
+
+    return GetArea(p);
+}
 
 
 Area * mainArea(MapImpl * pMap, BWAPI::TilePosition topLeft, BWAPI::TilePosition size);

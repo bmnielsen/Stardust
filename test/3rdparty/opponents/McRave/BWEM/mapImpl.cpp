@@ -13,7 +13,7 @@
 #include "bwapiExt.h"
 #include "winutils.h"
 
-#include "BaseFinder/BaseFinder.h"
+#include "BaseFinder\BaseFinder.h"
 
 
 using namespace BWAPI;

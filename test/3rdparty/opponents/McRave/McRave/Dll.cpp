@@ -1,4 +1,3 @@
-/*
 #include <BWAPI.h>
 #include <Windows.h>
 #include "Header.h"
@@ -20,4 +19,3 @@ extern "C" __declspec(dllexport) BWAPI::AIModule* newAIModule()
 {
     return new McRaveModule();
 }
-*/

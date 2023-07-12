@@ -24,7 +24,7 @@ namespace McRave::Math {
             double cnt = 0.0;
             for (auto &i : unit.unit()->getInterceptors()) {
                 if (i && !i->exists()) {
-                    auto interceptor = Units::getUnitInfo(i);
+                    auto &interceptor = Units::getUnitInfo(i);
                     if (interceptor)
                         cnt += interceptor->getMaxGroundStrength();
                 }
@@ -35,7 +35,7 @@ namespace McRave::Math {
         const auto dps = groundDPS(unit);
         const auto surv = log(survivability(unit));
         const auto eff = grdEffectiveness(unit);
-        const auto range = log(unit.getGroundRange() + 64.0);
+        const auto range = log(unit.getGroundRange() / 4.0 + 32.0);
         return dps * range * surv * eff;
     }
 
@@ -59,7 +59,7 @@ namespace McRave::Math {
             double cnt = 0.0;
             for (auto &i : unit.unit()->getInterceptors()) {
                 if (i && !i->exists()) {
-                    auto interceptor = Units::getUnitInfo(i);
+                    auto &interceptor = Units::getUnitInfo(i);
                     if (interceptor)
                         cnt += interceptor->getMaxAirStrength();
                 }
@@ -70,7 +70,7 @@ namespace McRave::Math {
         const auto dps = airDPS(unit);
         const auto surv = log(survivability(unit));
         const auto eff = airEffectiveness(unit);
-        const auto range = log(unit.getAirRange() + 64.0);
+        const auto range = log(unit.getAirRange() / 4.0 + 32.0);
         return dps * range * surv * eff;
     }
 
@@ -100,15 +100,15 @@ namespace McRave::Math {
         // Bunch of priority hacks
         if (unit.getType() == Terran_Vulture_Spider_Mine || unit.getType() == Terran_Science_Vessel || unit.getType() == Protoss_Arbiter || unit.getType() == Protoss_Carrier)
             return 15.0;
-        if (Strategy::enemyProxy() && unit.getType() == Protoss_Pylon)
+        if (Spy::enemyProxy() && unit.getType() == Protoss_Pylon)
             return Grids::getEGroundThreat(unit.getPosition()) == 0.0f ? 5.0 : 1.0;
 
         // HACK: Kill neutrals blocking geysers for Sparkle
         if (unit.getTilePosition().isValid()) {
             const auto area = mapBWEM.GetArea(unit.getTilePosition());
-            if (area && Terrain::isInAllyTerritory(unit.getTilePosition())) {
+            if (area && Terrain::inTerritory(PlayerState::Self, unit.getPosition())) {
                 for (auto &gas : area->Geysers()) {
-                    if (gas->TopLeft().getDistance(unit.getTilePosition()) < 2 && !unit.unit()->isInvincible())
+                    if (gas->TopLeft().getDistance(unit.getTilePosition()) < 2 && !unit.isInvincible())
                         return 10.0;
                 }
             }
@@ -197,8 +197,8 @@ namespace McRave::Math {
             return 1.25;
         if (unit.getType() == Protoss_High_Templar)
             return 2.00;
-        if (unit.getType() == Terran_Siege_Tank_Siege_Mode)
-            return 1.50;
+        if (unit.isSiegeTank())
+            return 2.00;
         if (unit.getType() == Terran_Valkyrie || unit.getType() == Zerg_Mutalisk)
             return 1.50;
         if (unit.getType() == Zerg_Lurker && Players::ZvT())
@@ -209,9 +209,9 @@ namespace McRave::Math {
     double grdEffectiveness(UnitInfo& unit)
     {
         auto &sizes = unit.getPlayer() == Broodwar->self() ? Units::getEnemyGrdSizes() : Units::getAllyGrdSizes();
-        auto &large = sizes[UnitSizeTypes::Large];
-        auto &medium = sizes[UnitSizeTypes::Medium];
-        auto &small = sizes[UnitSizeTypes::Small];
+        auto large = double(sizes[UnitSizeTypes::Large]);
+        auto medium = double(sizes[UnitSizeTypes::Medium]);
+        auto small = double(sizes[UnitSizeTypes::Small]);
         auto total = double(large + medium + small);
 
         if (total > 0.0) {
@@ -226,9 +226,9 @@ namespace McRave::Math {
     double airEffectiveness(UnitInfo& unit)
     {
         auto &sizes = unit.getPlayer() == Broodwar->self() ? Units::getEnemyAirSizes() : Units::getAllyAirSizes();
-        auto &large = sizes[UnitSizeTypes::Large];
-        auto &medium = sizes[UnitSizeTypes::Medium];
-        auto &small = sizes[UnitSizeTypes::Small];
+        auto large = double(sizes[UnitSizeTypes::Large]);
+        auto medium = double(sizes[UnitSizeTypes::Medium]);
+        auto small = double(sizes[UnitSizeTypes::Small]);
         auto total = double(large + medium + small);
 
         if (total > 0.0) {
@@ -316,7 +316,7 @@ namespace McRave::Math {
 
     double groundDamage(UnitInfo& unit)
     {
-        auto attackCount = max(unit.getType().airWeapon().damageFactor(), unit.getType().maxGroundHits());
+        auto attackCount = max(unit.getType().groundWeapon().damageFactor(), unit.getType().maxGroundHits());
         auto upLevel = unit.getPlayer()->getUpgradeLevel(unit.getType().groundWeapon().upgradeType());
 
         // TODO Check Reaver upgrade type functional here or if needed hardcoding
@@ -369,6 +369,55 @@ namespace McRave::Math {
         if (unit.isBurrowed())
             return 0.0;
         return speed;
+    }
+
+    double simRadius(UnitInfo& unit)
+    {
+        if (unit.getPlayer()->isEnemy(Broodwar->self()))
+            return 0.0;
+
+        if (unit.isFlying()) {
+            if (Players::getTotalCount(PlayerState::Enemy, Terran_Goliath) > 0)
+                return 352.0;
+            if (Players::getTotalCount(PlayerState::Enemy, Protoss_Photon_Cannon) > 0
+                || Players::getTotalCount(PlayerState::Enemy, Protoss_Carrier) > 0
+                || Players::getTotalCount(PlayerState::Enemy, Protoss_Arbiter) > 0
+                || Players::getTotalCount(PlayerState::Enemy, Protoss_Dragoon) > 0
+                || Players::getTotalCount(PlayerState::Enemy, Zerg_Spore_Colony) > 0)
+                return 320.0;
+            if (Players::getTotalCount(PlayerState::Enemy, Terran_Ghost) > 0
+                || Players::getTotalCount(PlayerState::Enemy, Terran_Valkyrie) > 0
+                || Players::getTotalCount(PlayerState::Enemy, Terran_Missile_Turret) > 0)
+                return 288.0;
+            return 256.0;
+        }
+
+        if (Players::getTotalCount(PlayerState::Enemy, Terran_Siege_Tank_Siege_Mode) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Terran_Siege_Tank_Tank_Mode) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Terran_Battlecruiser) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Protoss_Carrier) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Protoss_Reaver) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Protoss_Arbiter) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Zerg_Guardian) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Zerg_Defiler) > 0)
+            return 540.0 + Players::getSupply(PlayerState::Self, Races::None);
+        if (Players::getTotalCount(PlayerState::Enemy, Terran_Vulture) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Terran_Goliath) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Terran_Wraith) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Terran_Valkyrie) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Terran_Bunker) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Terran_Marine) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Protoss_Dragoon) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Protoss_Corsair) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Protoss_Scout) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Protoss_Photon_Cannon) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Zerg_Zergling) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Zerg_Hydralisk) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Zerg_Lurker) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Zerg_Mutalisk) > 0
+            || Players::getTotalCount(PlayerState::Enemy, Zerg_Sunken_Colony) > 0)
+            return 400.0 + Players::getSupply(PlayerState::Self, Races::None);
+        return 320.0 + Players::getSupply(PlayerState::Self, Races::None);
     }
 
     int stopAnimationFrames(UnitType unitType) {

@@ -17,7 +17,7 @@ namespace BWEB {
         BWAPI::TilePosition tile;
         BWAPI::Position center;
         std::set <BWAPI::TilePosition> smallTiles, mediumTiles, largeTiles;
-        BlockType type;
+        BlockType type = BlockType::None;
     public:
         Block() : w(0), h(0) {};
 

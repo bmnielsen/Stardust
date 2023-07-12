@@ -48,12 +48,12 @@ namespace McRave::Resources {
             // Update resource state
             if (resource.hasStation()) {
                 auto base = Util::getClosestUnit(resource.getPosition(), PlayerState::Self, [&](auto &u) {
-                    return u.getType().isResourceDepot() && u.getPosition() == resource.getStation()->getBase()->Center();
+                    return u->getType().isResourceDepot() && u->getPosition() == resource.getStation()->getBase()->Center();
                 });
 
                 resource.setResourceState(ResourceState::None);
                 if (base) {
-                    if (base->unit()->getRemainingBuildTime() < 300 || base->getType() == Zerg_Lair || base->getType() == Zerg_Hive || (resource.getType().isRefinery() && resource.unit()->getRemainingBuildTime() < 120))
+                    if (base->unit()->getRemainingBuildTime() < 150 || base->getType() == Zerg_Lair || base->getType() == Zerg_Hive || (resource.getType().isRefinery() && resource.unit()->getRemainingBuildTime() < 120))
                         resource.setResourceState(ResourceState::Mineable);
                     else
                         resource.setResourceState(ResourceState::Assignable);
@@ -66,8 +66,9 @@ namespace McRave::Resources {
             else if (resource.getType() == geyserType && resource.unit()->isCompleted() && resource.getResourceState() != ResourceState::None)
                 gassers += resource.getGathererCount();
 
+            auto trackSaturationAt = Players::ZvZ() ? 2 : 3;
             if (!resource.isBoulder()) {
-                if (resource.getResourceState() == ResourceState::Mineable || (resource.getResourceState() == ResourceState::Assignable && Stations::getMyStations().size() >= 3 && !Players::vP())) {
+                if (resource.getResourceState() == ResourceState::Mineable || (resource.getResourceState() == ResourceState::Assignable && int(Stations::getStations(PlayerState::Self).size()) >= trackSaturationAt)) {
                     resource.getType().isMineralField() ? mineralCount++ : gasCount++;
                     resource.getType().isMineralField() ? maxMin+=resource.getWorkerCap() : maxGas+=resource.getWorkerCap();
                 }
@@ -237,7 +238,7 @@ namespace McRave::Resources {
 
     void removeResource(Unit unit)
     {
-        auto resource = getResourceInfo(unit);
+        auto &resource = getResourceInfo(unit);
 
         if (resource) {
 

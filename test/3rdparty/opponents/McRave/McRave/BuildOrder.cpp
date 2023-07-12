@@ -7,6 +7,10 @@ using namespace BWAPI;
 using namespace UnitTypes;
 using namespace McRave::BuildOrder::All;
 
+#include "Builds/Zerg/ZergBuildOrder.h"
+#include "Builds/Protoss/ProtossBuildOrder.h"
+#include "Builds/Terran//TerranBuildOrder.h"
+
 namespace McRave::BuildOrder
 {
     namespace {
@@ -14,7 +18,6 @@ namespace McRave::BuildOrder
         void updateBuild()
         {
             // Set s for better build readability - TODO: better build order management
-            startCount = Broodwar->getStartLocations().size();
             buildQueue.clear();
             armyComposition.clear();
 
@@ -31,7 +34,9 @@ namespace McRave::BuildOrder
                 s = Players::getSupply(PlayerState::Self, Races::Terran);
                 Terran::opener();
                 Terran::tech();
+                Terran::composition();
                 Terran::situational();
+                Terran::unlocks();
             }
             if (Players::getSupply(PlayerState::Self, Races::Zerg) > 0) {
                 s = Players::getSupply(PlayerState::Self, Races::Zerg);
@@ -86,10 +91,10 @@ namespace McRave::BuildOrder
 
         // Estimate how long until a building finishes based on how far it is from the nearest worker
         auto closestBuilding = Util::getClosestUnit(BWEB::Map::getMainPosition(), PlayerState::Self, [&](auto &u) {
-            return u.getType() == t;
+            return u->getType() == t;
         });
         auto closestWorker = Util::getClosestUnit(BWEB::Map::getMainPosition(), PlayerState::Self, [&](auto &u) {
-            return u.getType() == Broodwar->self()->getRace().getWorker();
+            return u->getType() == Broodwar->self()->getRace().getWorker();
         });
 
         if (closestBuilding && closestWorker)
@@ -103,14 +108,14 @@ namespace McRave::BuildOrder
 
         // Estimate how long until a building finishes based on how far it is from the nearest worker
         auto closestBuilding = Util::getClosestUnit(BWEB::Map::getMainPosition(), PlayerState::Self, [&](auto &u) {
-            return u.getType() == t.whatResearches() && u.unit()->isResearching();
+            return u->getType() == t.whatResearches() && u->unit()->isResearching();
         });
         return closestBuilding != nullptr;
     }
 
     bool techComplete()
     {
-        if (Strategy::enemyInvis() && techUnit == Protoss_Observer)
+        if (Spy::enemyInvis() && techUnit == Protoss_Observer)
             return vis(Protoss_Robotics_Facility) > 0;
 
         // When 1 unit finishes
@@ -129,59 +134,14 @@ namespace McRave::BuildOrder
         if (techUnit == Zerg_Mutalisk || techUnit == Zerg_Hydralisk)
             return total(techUnit) >= 6;
         if (techUnit == Zerg_Lurker) {
-            auto vsMech = Strategy::getEnemyTransition() == "2Fact"
-                || Strategy::getEnemyTransition() == "1FactTanks"
-                || Strategy::getEnemyTransition() == "5FactGoliath";
+            auto vsMech = Spy::getEnemyTransition() == "2Fact"
+                || Spy::getEnemyTransition() == "1FactTanks"
+                || Spy::getEnemyTransition() == "5FactGoliath";
             return Broodwar->self()->hasResearched(TechTypes::Lurker_Aspect) || vsMech;
         }
 
         // When 1 unit is visible
         return vis(techUnit) > 0;
-    }
-
-    void checkExpand()
-    {
-        if (inOpeningBook)
-            return;
-
-        const auto baseType = Broodwar->self()->getRace().getResourceDepot();
-
-        if (Broodwar->self()->getRace() == Races::Zerg) {
-
-        }
-        else {
-            const auto availableMinerals = Broodwar->self()->minerals() - BuildOrder::getMinQueued();
-            expandDesired = (techUnit == None && Resources::isGasSaturated() && (Resources::isMineralSaturated() || com(baseType) >= 3) && (techSat || com(baseType) >= 3) && productionSat)
-                || (com(baseType) >= 2 && availableMinerals >= 800 && (Resources::isMineralSaturated() || Resources::isGasSaturated()));
-        }
-    }
-
-    void checkRamp()
-    {
-        if (inOpeningBook)
-            return;
-
-        const auto baseType = Broodwar->self()->getRace().getResourceDepot();
-
-        if (Broodwar->self()->getRace() == Races::Zerg) {
-
-        }
-        else {
-            const auto availableMinerals = Broodwar->self()->minerals() - BuildOrder::getMinQueued();
-            rampDesired = !productionSat && ((techUnit == None && availableMinerals >= 150 && (techSat || com(baseType) >= 3)) || availableMinerals >= 300);
-        }
-    }
-
-    bool shouldAddGas()
-    {
-        auto workerCount = com(Broodwar->self()->getRace().getWorker());
-        auto refineryCount = vis(Broodwar->self()->getRace().getRefinery());
-        auto workerUnlimitedGas = Players::ZvT() ? 40 : 50;
-
-        if (Broodwar->self()->getRace() == Races::Zerg)
-            return gasLimit > vis(Zerg_Extractor) * 3 && workerCount >= 10 && (Resources::isHalfMineralSaturated() || productionSat || workerCount >= workerUnlimitedGas || Players::ZvZ());
-        else
-            return ((Broodwar->self()->minerals() > 600 && Broodwar->self()->gas() < 200) || Resources::isMineralSaturated()) && workerCount >= 30;
     }
 
     double getCompositionPercentage(UnitType unit)
@@ -228,11 +188,11 @@ namespace McRave::BuildOrder
 
         // Z
         if (type == Zerg_Mutalisk)
-            ready = com(Zerg_Spire) > 0;
+            ready = vis(Zerg_Spire) > 0;
         if (type == Zerg_Hydralisk)
-            ready = com(Zerg_Hydralisk_Den) > 0;
+            ready = vis(Zerg_Hydralisk_Den) > 0;
         if (type == Zerg_Lurker)
-            ready = com(Zerg_Hydralisk_Den) > 0 && com(Zerg_Lair) > 0;
+            ready = vis(Zerg_Hydralisk_Den) > 0 && vis(Zerg_Lair) > 0;
 
         return ready;
     }
@@ -349,8 +309,7 @@ namespace McRave::BuildOrder
     set <UnitType>& getTechList() { return  techList; }
     set <UnitType>& getUnlockedList() { return  unlockedType; }
     int gasWorkerLimit() { return gasLimit; }
-    int getUnitLimit(UnitType type) { return unitLimits[type]; }
-    bool isWorkerCut() { return cutWorkers; }
+    int getUnitReservation(UnitType type) { return unitReservations[type]; }
     bool isUnitUnlocked(UnitType unit) { return unlockedType.find(unit) != unlockedType.end(); }
     bool isTechUnit(UnitType unit) { return techList.find(unit) != techList.end(); }
     bool isOpener() { return inOpeningBook; }
@@ -365,7 +324,6 @@ namespace McRave::BuildOrder
     bool isPressure() { return pressure; }
     bool isGasTrick() { return gasTrick; }
     bool isPlanEarly() { return planEarly; }
-    bool makeDefensesNow() { return defensesNow; }
     bool shouldScout() { return scout; }
     bool shouldExpand() { return expandDesired; }
     bool shouldRamp() { return rampDesired; }

@@ -148,6 +148,8 @@ namespace BWEB::Blocks
             // Protoss Block pieces
             if (Broodwar->self()->getRace() == Races::Protoss) {
                 if (height == 2) {
+                    if (width == 2)
+                        pieces ={ Piece::Small };
                     if (width == 5)
                         pieces ={ Piece::Small, Piece::Medium };
                 }
@@ -261,7 +263,7 @@ namespace BWEB::Blocks
         bool canAddBlock(const TilePosition here, const int width, const int height, multimap<TilePosition, Piece> pieces, BlockType type)
         {
             const auto blockWalkable = [&](const TilePosition &t) {
-                return (t.x < here.x || t.x > here.x + width || t.y < here.y || t.y > here.y + height) && !blockGrid[t.x][t.y];
+                return (t.x < here.x || t.x > here.x + width || t.y < here.y || t.y > here.y + height) && !blockGrid[t.x][t.y] && !BWEB::Map::isReserved(t);
             };
 
             const auto blockExists = [&](const TilePosition &t) {
@@ -298,22 +300,22 @@ namespace BWEB::Blocks
                 }
             }
 
-            // Check if this Block would not be reachable
-            for (auto &[tile, piece] : pieces) {
-                if (piece == Piece::Large && !productionReachable(tile))
-                    return false;
-            }
+            //// Check if this Block would not be reachable
+            //for (auto &[tile, piece] : pieces) {
+            //    if (piece == Piece::Large && !productionReachable(tile))
+            //        return false;
+            //}
 
-            // Check if placing a Block here will prevent other Blocks from being reachable
-            for (auto &block : allBlocks) {
-                if (Map::mapBWEM.GetArea(block.getTilePosition()) != Map::mapBWEM.GetArea(here))
-                    continue;
+            //// Check if placing a Block here will prevent other Blocks from being reachable
+            //for (auto &block : allBlocks) {
+            //    if (Map::mapBWEM.GetArea(block.getTilePosition()) != Map::mapBWEM.GetArea(here))
+            //        continue;
 
-                for (auto &large : block.getLargeTiles()) {
-                    if (!productionReachable(large))
-                        return false;
-                }
-            }
+            //    for (auto &large : block.getLargeTiles()) {
+            //        if (!productionReachable(large))
+            //            return false;
+            //    }
+            //}
 
             // Check if placing a Block here will prevent other Stations from being reachable
             if (type != BlockType::Proxy) {
@@ -527,7 +529,7 @@ namespace BWEB::Blocks
                         if (Broodwar->self()->getRace() == Races::Zerg) {
                             if (mediumCount + smallCount > 0/* && largeCount == 0*/)
                                 continue;
-                            if (piecePerArea[area].pieces[Piece::Large] + largeCount >= 4)
+                            if (piecePerArea[area].pieces[Piece::Large] + largeCount >= 6)
                                 continue;
                         }
 
@@ -662,20 +664,13 @@ namespace BWEB::Blocks
         findMainStartBlocks();
         findProxyBlock();
         findProductionBlocks();
+        Pathfinding::clearCacheFully();
     }
 
     void draw()
     {
         for (auto &block : allBlocks)
             block.draw();
-        //for (int x = 0; x < Broodwar->mapWidth(); x++) {
-        //    for (int y = 0; y < Broodwar->mapHeight(); y++) {
-        //        if (testGrid[x][y])
-        //            //Broodwar->drawBoxMap(Position(TilePosition(x, y)), Position(TilePosition(x, y)) + Position(32, 32), Colors::Cyan);
-        //            Broodwar->drawTextMap(Position(TilePosition(x, y)), "%d", testGrid[x][y]);
-        //    }
-        //}
-
     }
 
     vector<Block>& getBlocks() {
