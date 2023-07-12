@@ -477,17 +477,29 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::MidGame:
         {
-            // Have a couple of DTs on hand if we have a templar archives and the enemy hasn't built mobile detection
+            // Have one DT out on the map if we have a templar archives
+            // Two if the enemy doesn't have mobile detection
+            int desiredDarkTemplar = 0;
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Templar_Archives) > 0)
+            {
+                if (!Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observer) &&
+                    !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory))
+                {
+                    desiredDarkTemplar = 2;
+                }
+                else
+                {
+                    desiredDarkTemplar = 1;
+                }
+            }
             int dtCount = Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar);
-            if (Units::countAll(BWAPI::UnitTypes::Protoss_Templar_Archives) > 0 && dtCount < 2 &&
-                !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observer) &&
-                !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory))
+            if (desiredDarkTemplar > dtCount)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                          "SE-nodetect",
                                                                          BWAPI::UnitTypes::Protoss_Dark_Templar,
-                                                                         2 - dtCount,
-                                                                         2);
+                                                                         desiredDarkTemplar - dtCount,
+                                                                         -1);
             }
 
             // Baseline production is one combat unit for every 6 workers (approximately 3 units per mining base)
