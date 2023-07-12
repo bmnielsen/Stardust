@@ -59,4 +59,7 @@ public:
     // Gets a hard-coded wall for a start position
     // Used in cases where our automatic wall generation doesn't work for whatever reason
     virtual ForgeGatewayWall getWall(BWAPI::TilePosition startTile) { return {}; }
+
+    // Performs map-specific changes to the list of bases available on this map
+    virtual void modifyBases(std::vector<Base *> &bases) {}
 };

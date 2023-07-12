@@ -8,4 +8,6 @@ public:
     void addIslandAreas(std::set<const BWEM::Area *> &islandAreas) override;
 
     void modifyMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) override;
+
+    void modifyBases(std::vector<Base *> &bases) override;
 };

@@ -1043,6 +1043,7 @@ namespace Map
                 bases.push_back(newBase);
             }
         }
+        _mapSpecificOverride->modifyBases(bases);
         for (auto &base : bases)
         {
             if (base->isStartingBase())

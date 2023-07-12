@@ -9,6 +9,15 @@ namespace
             BWAPI::TilePosition(120,70),
             BWAPI::TilePosition(120,51),
     };
+
+    std::map<BWAPI::TilePosition, BWAPI::TilePosition> baseToNewLocation = {
+            {BWAPI::TilePosition(7, 116), BWAPI::TilePosition(7, 105)},
+            {BWAPI::TilePosition(35, 120), BWAPI::TilePosition(48, 120)},
+            {BWAPI::TilePosition(119, 73), BWAPI::TilePosition(119, 84)},
+            {BWAPI::TilePosition(119, 51), BWAPI::TilePosition(119, 40)},
+            {BWAPI::TilePosition(35, 5), BWAPI::TilePosition(48, 5)},
+            {BWAPI::TilePosition(7, 9), BWAPI::TilePosition(7, 20)}
+    };
 }
 
 // On Outsider, BWEM doesn't handle the blocking mineral fields, so the areas behind them can appear accessible
@@ -42,4 +51,22 @@ void Outsider::modifyMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *>
 
     areas.clear();
     areas.insert(mainArea);
+}
+
+void Outsider::modifyBases(std::vector<Base *> &bases)
+{
+    // We currently don't have the functionality to take the bases behind the blocking mineral lines in the outside ring
+    // So we convert them into mineral-only bases on the accessible side
+    for (auto &base : bases)
+    {
+        auto it = baseToNewLocation.find(base->getTilePosition());
+        if (it == baseToNewLocation.end()) continue;
+
+        base->island = false;
+        base->tile = it->second;
+        base->bwemArea = BWEM::Map::Instance().GetNearestArea(it->second);
+        base->geyserTiles.clear();
+        base->geyserUnits.clear();
+        base->analyzeMineralLine();
+    }
 }

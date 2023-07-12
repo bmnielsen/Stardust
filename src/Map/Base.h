@@ -7,6 +7,8 @@
 
 class Base
 {
+    friend class Outsider; // On Outsider we change the ring bases into mineral-onlies
+
 public:
 
     //enum class Owner { None, Me, Enemy, Ally };
@@ -29,7 +31,7 @@ public:
 
     [[nodiscard]] BWAPI::Position getPosition() const { return BWAPI::Position(tile) + BWAPI::Position(64, 48); }
 
-    [[nodiscard]] const BWEM::Area *getArea() const { return bwemBase->GetArea(); }
+    [[nodiscard]] const BWEM::Area *getArea() const { return bwemArea; }
 
     [[nodiscard]] size_t mineralPatchCount() const { return bwemBase->Minerals().size(); }
 
@@ -59,6 +61,7 @@ private:
 
     BWAPI::TilePosition tile;
     const BWEM::Base *bwemBase;
+    const BWEM::Area *bwemArea;
 
     std::vector<BWAPI::TilePosition> geyserTiles;
     mutable std::vector<BWAPI::Unit> geyserUnits;

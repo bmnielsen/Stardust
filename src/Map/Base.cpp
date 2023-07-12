@@ -71,6 +71,7 @@ Base::Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase)
         , blockingNeutral(getBlockingNeutral(_tile))
         , tile(_tile)
         , bwemBase(_bwemBase)
+        , bwemArea(_bwemBase->GetArea())
 {
     for (auto &geyser : _bwemBase->Geysers())
     {
@@ -160,6 +161,8 @@ int Base::minerals() const
 
 int Base::gas() const
 {
+    if (geyserTiles.empty()) return 0;
+
     int sum = 0;
     for (auto geyser : bwemBase->Geysers())
     {
@@ -200,6 +203,8 @@ bool Base::geyserRequiresFourWorkers(BWAPI::TilePosition geyserTile) const
 
 void Base::analyzeMineralLine()
 {
+    mineralLineTiles.clear();
+
     // Compute the approximate center of the mineral line
     if (mineralPatchCount() > 0)
     {
