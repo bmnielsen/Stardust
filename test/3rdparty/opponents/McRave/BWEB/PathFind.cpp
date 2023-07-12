@@ -119,7 +119,7 @@ namespace BWEB
 
     void Path::generateJPS(function <bool(const TilePosition&)> passedWalkable)
     {
-        auto &pathPoints = make_pair(source, target);
+        auto pathPoints = make_pair(source, target);
         auto &thisCached = pathCache[&passedWalkable];
 
         if (!target.isValid()

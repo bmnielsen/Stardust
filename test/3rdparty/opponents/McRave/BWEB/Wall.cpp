@@ -18,7 +18,6 @@ namespace BWEB {
         int failedPower = 0;
 
         int resourceGrid[256][256];
-        int testGrid[256][256];
         int existingDefenseGrid[256][256];
 
         int tilesWithinArea(BWEM::Area const * area, const TilePosition here, const int width, const int height)
@@ -826,47 +825,47 @@ namespace BWEB {
         map<int, vector<TilePosition>> wallPlacements;
 
         // Round to nearest pi/8 rads
-        auto nearestEight = int(round(chokeAngle / 0.3926991));
-        defenseAngle = nearestEight % 8;
+        auto nearestEight = int(round(chokeAngle / 0.785));
+        defenseAngle = nearestEight % 4;
 
         // 0/8
         if (defenseAngle == 0) {
-            wallPlacements[1] ={ {-6,-4}, {-4, -4}, {-2, -4}, {0, -4}, {2, -4}, {4, -4}, {6, -4}, {8, -4} };
-            wallPlacements[2] ={ {-6,-2}, {-4, -2}, {-2, -2}, {0, -2}, {2, -2}, {4, -2}, {6, -2}, {8, -2} };
-            wallPlacements[3] ={ {-6, 0}, {-4, 0}, {-2, 0}, {4, 0}, {6, 0}, {8, 0} };
-            wallPlacements[4] ={ {-6, 2}, {-4, 2}, {-2, 2}, {4, 2}, {6, 2}, {8, 2} };
+            wallPlacements[1] ={ {-6,-6}, {-4, -6}, {-2, -6}, {0, -6}, {2, -6}, {4, -6}, {6, -6}, {8, -6} };
+            wallPlacements[2] ={ {-6,-4}, {-4, -4}, {-2, -4}, {0, -4}, {2, -4}, {4, -4}, {6, -4}, {8, -4} };
+            wallPlacements[3] ={ {-6, -2}, {-4, -2}, {-2, -2}, {0, -2}, {2, -2}, {4, -2}, {6, -2}, {8, -2} };
+            wallPlacements[4] ={ {-6, 0}, {-4, 0}, {-2, 0}, {4, 0}, {6, 0}, {8, 0} };
         }
 
-        // pi/8
-        if (defenseAngle == 1 || defenseAngle == 7) {
-            wallPlacements[1] ={ {-6, -1}, {-4, -2}, {-2, -3}, {0, -4}, {2, -4}, {4, -5}, {6, -6}, {8, -7} };
-            wallPlacements[2] ={ {-6, 1}, {-4, 0}, {-2, -1}, {0, -2}, {2, -2}, {4, -3}, {6, -4}, {8, -5} };
-            wallPlacements[3] ={ {-6, 3}, {-4, 2}, {-2, 1}, {4, -1}, {6, -2}, {8, -3}, };
-            wallPlacements[4] ={ {-6, 5}, {-4, 4}, {-3, 3}, {4, 1}, {6, 0}, {8, -1} };
-        }
+        //// pi/8
+        //if (defenseAngle == 1 || defenseAngle == 7) {
+        //    wallPlacements[1] ={ {-6, -3}, {-4, -4}, {-2, -5}, {0, -6}, {2, -6}, {4, -7}, {6, -8}, {8, -9} };
+        //    wallPlacements[2] ={ {-6, -1}, {-4, -2}, {-2, -3}, {0, -4}, {2, -4}, {4, -5}, {6, -6}, {8, -7} };
+        //    wallPlacements[3] ={ {-6, 1}, {-4, 0}, {-2, -1}, {0, -2}, {2, -2}, {4, -3}, {6, -4}, {8, -5}, };
+        //    wallPlacements[4] ={ {-6, 3}, {-4, 2}, {-2, 1}, {4, -1}, {6, -2}, {8, -3} };
+        //}
 
         // pi/4
-        if (defenseAngle == 2 || defenseAngle == 6) {
-            wallPlacements[1] ={ {-6, 0}, {-4, -2}, {-2, -4}, {0, -6} };
-            wallPlacements[2] ={ {-6, 2}, {-4, 0}, {-2, -2}, {0, -4}, {2, -6} };
-            wallPlacements[3] ={ {-6, 4}, {-4, 2}, {-2, 0}, {0, -2}, {2, -4}, {4, -6} };
-            wallPlacements[4] ={ {-6, 6}, {-4, 4}, {-2, 2}, {2, -2}, {4, -4}, {6, -6} };
+        if (defenseAngle == 1 || defenseAngle == 3) {
+            wallPlacements[1] ={ {-8, 0}, {-6, -2}, {-4, -4}, {-2, -6}, {0, -8} };
+            wallPlacements[2] ={ {-8, 2}, {-6, 0}, {-4, -2}, {-2, -4}, {0, -6}, {2, -8} };
+            wallPlacements[3] ={ {-6, 2}, {-4, 0}, {-2, -2}, {0, -4}, {2, -6} };
+            wallPlacements[4] ={ {-6, 4}, {-4, 2}, {-2, 0}, {0, -2}, {2, -4}, {4, -6} };
         }
 
-        // 3pi/8
-        if (defenseAngle == 3 || defenseAngle == 5) {
-            wallPlacements[1] ={ {-4, 6}, {-4, 4}, {-4, 2}, {-4, 0}, {-3, -2}, {-2, -4}, {-1, -6} };
-            wallPlacements[2] ={ {-2, 6}, {-2, 4}, {-2, 2}, {-2, 0}, {-1, -2}, {0, -4}, {1, -6} };
-            wallPlacements[3] ={ {0, 5}, {0, 3}, {1, -2}, {2, -4}, {3, -6} };
-            wallPlacements[4] ={ {2, 5}, {2, 3}, {3, -2}, {4, -4}, {5, -6} };
-        }
+        //// 3pi/8
+        //if (defenseAngle == 3 || defenseAngle == 5) {
+        //    wallPlacements[1] ={ {-6, 6}, {-6, 4}, {-6, 2}, {-6, 0}, {-5, -2}, {-4, -4}, {-3, -6} };
+        //    wallPlacements[2] ={ {-4, 6}, {-4, 4}, {-4, 2}, {-4, 0}, {-3, -2}, {-2, -4}, {-1, -6} };
+        //    wallPlacements[3] ={ {-2, 6}, {-2, 4}, {-2, 2}, {-2, 0}, {-1, -2}, {0, -4}, {1, -6} };
+        //    wallPlacements[4] ={ {0, 5}, {0, 3}, {1, -2}, {2, -4}, {3, -6} };
+        //}
 
         // pi/2
-        if (defenseAngle == 4) {
-            wallPlacements[1] ={ {-4, 6}, {-4, 4}, {-4, 2}, {-4, 0}, {-4, -2}, {-4, -4}, {-4, -6} };
-            wallPlacements[2] ={ {-2, 6}, {-2, 4}, {-2, 2}, {-2, 0}, {-2, -2}, {-2, -4}, {-2, -6} };
-            wallPlacements[3] ={ {0, 7}, {0, 5}, {0, 3}, {0, -2}, {0, -4}, {0, -6} };
-            wallPlacements[4] ={ {2, 7}, {2, 5}, {2, 3}, {2, -2}, {2, -4}, {2, -6} };
+        if (defenseAngle == 2) {
+            wallPlacements[1] ={ {-6, 6}, {-6, 4}, {-6, 2}, {-6, 0}, {-6, -2}, {-6, -4}, {-6, -6} };
+            wallPlacements[2] ={ {-4, 6}, {-4, 4}, {-4, 2}, {-4, 0}, {-4, -2}, {-4, -4}, {-4, -6} };
+            wallPlacements[3] ={ {-2, 6}, {-2, 4}, {-2, 2}, {-2, 0}, {-2, -2}, {-2, -4}, {-2, -6} };
+            wallPlacements[4] ={ {0, 7}, {0, 5}, {0, 3}, {0, -2}, {0, -4}, {0, -6} };
         }
 
         // Flip them vertically / horizontally as needed
@@ -896,6 +895,7 @@ namespace BWEB {
             for (auto &placement : placements) {
                 auto tile = base->Location() + placement;
                 auto stationDefense = station->getDefenses().find(tile) != station->getDefenses().end();
+
                 if ((!Map::isReserved(tile, 2, 2) && Map::isPlaceable(defenseType, tile)) || stationDefense) {
                     defenses[i].insert(tile);
                     Map::addReserve(tile, 2, 2);
@@ -904,6 +904,7 @@ namespace BWEB {
                 }
             }
         }
+
 
         // Add station defenses to the set
         for (auto &defense : station->getDefenses())
@@ -1004,7 +1005,7 @@ namespace BWEB {
         // Returns how many visible ground defensive structures exist in this Walls defense locations
         int count = 0;
         for (auto &tile : defenses[0]) {
-            auto &type = Map::isUsed(tile);
+            auto type = Map::isUsed(tile);
             if (type == UnitTypes::Protoss_Photon_Cannon
                 || type == UnitTypes::Zerg_Sunken_Colony
                 || type == UnitTypes::Terran_Bunker)
@@ -1018,7 +1019,7 @@ namespace BWEB {
         // Returns how many visible air defensive structures exist in this Walls defense locations
         int count = 0;
         for (auto &tile : defenses[0]) {
-            auto &type = Map::isUsed(tile);
+            auto type = Map::isUsed(tile);
             if (type == UnitTypes::Protoss_Photon_Cannon
                 || type == UnitTypes::Zerg_Spore_Colony
                 || type == UnitTypes::Terran_Missile_Turret)
@@ -1096,15 +1097,6 @@ namespace BWEB {
 
 namespace BWEB::Walls {
 
-    Wall* createHardWall(multimap<UnitType, TilePosition>& buildings, const BWEM::Area * area, const BWEM::ChokePoint * choke)
-    {
-        for (auto &[type, tile] : buildings)
-            Map::addReserve(tile, type.tileWidth(), type.tileHeight());        
-        BWEB::Wall wall(area, choke, buildings);
-        walls.emplace(choke, wall);
-        return &walls.at(choke);
-    }
-
     Wall* createWall(vector<UnitType>& buildings, const BWEM::Area * area, const BWEM::ChokePoint * choke, const UnitType tightType, const vector<UnitType>& defenses, const bool openWall, const bool requireTight)
     {
         ofstream writeFile;
@@ -1113,9 +1105,9 @@ namespace BWEB::Walls {
         auto timeNow = chrono::system_clock::to_time_t(timePointNow);
 
         // Print the clock position of this Wall
-        auto clock = abs(round((Map::getAngle(make_pair(Map::mapBWEM.Center(), Position(area->Top()))) + 1.57) / 0.52));
-        if (Position(area->Top()).x < Map::mapBWEM.Center().x)
-            clock+= 6;
+        auto clock = (round((Map::getAngle(make_pair(Position(area->Top()), Map::mapBWEM.Center())) - 1.57) / 0.52));
+        if (clock < 0)
+            clock+=12;
 
         // Open the log file if desired and write information
         if (logInfo) {
@@ -1225,19 +1217,5 @@ namespace BWEB::Walls {
     {
         for (auto &[_, wall] : walls)
             wall.draw();
-
-
-        //return;
-        for (int x = 0; x < Broodwar->mapWidth(); x++) {
-            for (int y = 0; y < Broodwar->mapHeight(); y++) {
-                auto t = TilePosition(x, y);
-                if (testGrid[x][y] == 1)
-                    Broodwar->drawBoxMap(Position(t), Position(t) + Position(33, 33), Colors::Yellow);
-                if (testGrid[x][y] == 2)
-                    Broodwar->drawBoxMap(Position(t), Position(t) + Position(33, 33), Colors::Blue);
-                if (testGrid[x][y] == 3)
-                    Broodwar->drawBoxMap(Position(t), Position(t) + Position(33, 33), Colors::Green);
-            }
-        }
     }
 }

@@ -17,11 +17,11 @@ namespace McRave::Workers {
         {
             // If this station already has defenses, it's likely safe, just need to hide there
             vector<BWEB::Station *> safeStations;
-            if (unit.hasResource() && Stations::getGroundDefenseCount(unit.getResource().getStation()) > 0 && Util::getTime() > Time(6, 00))
-                safeStations.push_back(unit.getResource().getStation());
+            if (unit.hasResource() && Stations::getGroundDefenseCount(unit.getResource().lock()->getStation()) > 0 && Util::getTime() > Time(6, 00))
+                safeStations.push_back(unit.getResource().lock()->getStation());
 
             // Find safe stations to mine resources from
-            for (auto &station : Stations::getMyStations()) {
+            for (auto &station : Stations::getStations(PlayerState::Self)) {
                 auto closestNatural = BWEB::Stations::getClosestNaturalStation(station->getBase()->Location());
                 auto closestMain = BWEB::Stations::getClosestMainStation(station->getBase()->Location());
 
@@ -38,7 +38,7 @@ namespace McRave::Workers {
                     // If unit is far, we need to check if it's safe
                     auto threatPosition = Util::findPointOnPath(unit.getDestinationPath(), [&](Position p) {
                         return (unit.getType().isFlyer() ? Grids::getEAirThreat(p) > 0.0f : Grids::getEGroundThreat(p) > 0.0f) ||
-                            (unit.hasTarget() && p.getDistance(unit.getTarget().getPosition()) < unit.getTarget().getGroundReach());
+                            (unit.hasTarget() && p.getDistance(unit.getTarget().lock()->getPosition()) < unit.getTarget().lock()->getGroundReach());
                     });
 
                     // If JPS path is safe
@@ -49,33 +49,42 @@ namespace McRave::Workers {
             return safeStations;
         }
 
-        BWEB::Station * getTransferStation()
+        BWEB::Station * getTransferStation(UnitInfo& unit)
         {
             // Allow some drones to transfer early on - TODO: Move to StationManager
-            BWEB::Station * transferStation = nullptr;
-            if (Util::getTime() < Time(3, 30) && !Strategy::enemyRush() && vis(UnitTypes::Zerg_Drone) >= 9) {
-                for (auto &station : Stations::getMyStations()) {
+            if (Util::getTime() < Time(3, 30) && !Spy::enemyRush() && vis(UnitTypes::Zerg_Drone) >= 9) {
+                for (auto &station : Stations::getStations(PlayerState::Self)) {
                     int droneCount = 0;
 
                     for (auto &mineral : Resources::getMyMinerals()) {
                         if (mineral->hasStation() && mineral->getStation() == station)
                             droneCount += mineral->getGathererCount();
                     }
-                    if (droneCount < 2)
-                        transferStation = station;
+                    if (droneCount >= 2)
+                        continue;
+
+                    // Check if worker arrives in time when hatch completes
+                    auto closestHatch = Util::getClosestUnit(station->getBase()->Center(), PlayerState::Self, [&](auto &u) {
+                        return u->getType().isResourceDepot();
+                    });
+                    auto framesToArrive = unit.getPosition().getDistance(station->getBase()->Center()) / unit.getSpeed();
+                    auto frameCompletedAt = closestHatch->timeCompletesWhen().frames;
+
+                    if (Broodwar->getFrameCount() + framesToArrive + 48 > frameCompletedAt)
+                        return station;
                 }
             }
-            return transferStation;
+            return nullptr;
         }
 
         bool isBuildingSafe(UnitInfo& unit)
         {
             auto buildCenter = Position(unit.getBuildPosition()) + Position(unit.getBuildType().tileWidth() * 16, unit.getBuildType().tileHeight() * 16);
 
-            if (Util::getTime() < Time(2, 00))
+            if (Util::getTime() < Time(4, 00))
                 return true;
 
-            for (auto &t : unit.getTargetedBy()) {
+            for (auto &t : unit.getUnitsTargetingThis()) {
                 if (auto targeter = t.lock()) {
                     if (targeter->isThreatening())
                         return false;
@@ -84,13 +93,11 @@ namespace McRave::Workers {
 
             // If around defenders
             auto aroundDefenders = Util::getClosestUnit(unit.getPosition(), PlayerState::Self, [&](auto &u) {
-                if ((u.getRole() != Role::Combat && u.getRole() != Role::Defender) || u.getGlobalState() == GlobalState::Retreat)
+                if (u->getRole() != Role::Combat && u->getRole() != Role::Defender)
                     return false;
 
-                return (unit.isWithinBuildRange() && u.getPosition().getDistance(buildCenter) < u.getGroundReach())
-                    || (mapBWEM.GetArea(unit.getTilePosition()) == mapBWEM.GetArea(unit.getBuildPosition()) && u.getPosition().getDistance(buildCenter) < u.getGroundReach())
-                    || (unit.hasTarget() && u.getPosition().getDistance(unit.getTarget().getPosition()) < unit.getGroundRange())
-                    || (unit.hasTarget() && u.getPosition().getDistance(unit.getTarget().getPosition()) < unit.getPosition().getDistance(unit.getTarget().getPosition()));
+                return (unit.getPosition().getDistance(u->getPosition()) < u->getGroundReach() && u->getPosition().getDistance(buildCenter) < u->getGroundReach())
+                    || (mapBWEM.GetArea(unit.getTilePosition()) == mapBWEM.GetArea(unit.getBuildPosition()) && u->getPosition().getDistance(buildCenter) < u->getGroundReach());
             });
             if (aroundDefenders)
                 return true;
@@ -115,7 +122,7 @@ namespace McRave::Workers {
         {
             // Creates a path to the resource and verifies the resource is safe
             if (unit.hasResource()) {
-                BWEB::Path newPath(unit.getPosition(), unit.getResource().getStation()->getResourceCentroid(), unit.getType());
+                BWEB::Path newPath(unit.getPosition(), unit.getResource().lock()->getStation()->getResourceCentroid(), unit.getType());
                 const auto walkable = [&](const TilePosition &t) {
                     return newPath.terrainWalkable(t);
                 };
@@ -123,7 +130,7 @@ namespace McRave::Workers {
 
                 auto threatPosition = Util::findPointOnPath(unit.getDestinationPath(), [&](Position p) {
                     return (unit.getType().isFlyer() ? Grids::getEAirThreat(p) > 0.0f : Grids::getEGroundThreat(p) > 0.0f) ||
-                        (unit.hasTarget() && p.getDistance(unit.getTarget().getPosition()) < unit.getTarget().getGroundReach());
+                        (unit.hasTarget() && p.getDistance(unit.getTarget().lock()->getPosition()) < unit.getTarget().lock()->getGroundReach());
                 });
 
                 if (threatPosition)
@@ -137,13 +144,13 @@ namespace McRave::Workers {
         bool isResourceFlooded(UnitInfo& unit)
         {
             // Determine if we have over the work cap assigned
-            if (unit.hasResource() && unit.getPosition().getDistance(unit.getResource().getPosition()) < 64.0 && unit.getResource().getGathererCount() >= unit.getResource().getWorkerCap() + 1)
+            if (unit.hasResource() && unit.getPosition().getDistance(unit.getResource().lock()->getPosition()) < 64.0 && unit.getResource().lock()->getGathererCount() >= unit.getResource().lock()->getWorkerCap() + 1)
                 return true;
 
             // Determine if we have excess assigned resources with openings available at the current Station
-            if (unit.hasResource() && unit.getResource().getType().isMineralField()) {
+            if (unit.hasResource() && unit.getResource().lock()->getType().isMineralField()) {
                 for (auto &mineral : Resources::getMyMinerals()) {
-                    if (mineral->getStation() == unit.getResource().getStation() && mineral->getGathererCount() < unit.getResource().getGathererCount() - 1)
+                    if (mineral->getStation() == unit.getResource().lock()->getStation() && mineral->getGathererCount() < unit.getResource().lock()->getGathererCount() - 1)
                         return true;
                 }
             }
@@ -152,7 +159,7 @@ namespace McRave::Workers {
 
         bool isResourceThreatened(UnitInfo& unit)
         {
-            return (unit.hasResource() && unit.getResource().isThreatened());
+            return (unit.hasResource() && unit.getResource().lock()->isThreatened());
         }
 
         void updatePath(UnitInfo& unit)
@@ -160,11 +167,11 @@ namespace McRave::Workers {
             // Create a path
             if (unit.getDestination().isValid() && (unit.getDestinationPath().getTarget() != TilePosition(unit.getDestination()) || !unit.getDestinationPath().isReachable()) && (!mapBWEM.GetArea(TilePosition(unit.getPosition())) || !mapBWEM.GetArea(TilePosition(unit.getDestination())) || mapBWEM.GetArea(TilePosition(unit.getPosition()))->AccessibleFrom(mapBWEM.GetArea(TilePosition(unit.getDestination()))))) {
                 BWEB::Path newPath(unit.getPosition(), unit.getDestination(), unit.getType());
-                auto resourceTile = unit.hasResource() ? unit.getResource().getTilePosition() : TilePositions::Invalid;
-                auto resourceType = unit.hasResource() ? unit.getResource().getType() : UnitTypes::None;
+                auto resourceTile = unit.hasResource() ? unit.getResource().lock()->getTilePosition() : TilePositions::Invalid;
+                auto resourceType = unit.hasResource() ? unit.getResource().lock()->getType() : UnitTypes::None;
 
                 const auto resourceWalkable = [&](const TilePosition &tile) {
-                    return (unit.hasResource() && tile.x >= resourceTile.x && tile.x < resourceTile.x + resourceType.tileWidth() && tile.y >= resourceTile.y && tile.y < resourceTile.y + resourceType.tileHeight())
+                    return (unit.hasResource() && !unit.getBuildPosition().isValid() && tile.x >= resourceTile.x && tile.x < resourceTile.x + resourceType.tileWidth() && tile.y >= resourceTile.y && tile.y < resourceTile.y + resourceType.tileHeight())
                         || newPath.unitWalkable(tile);
                 };
                 newPath.generateJPS(resourceWalkable);
@@ -172,14 +179,16 @@ namespace McRave::Workers {
             }
 
             // Set destination to intermediate position along path
+            unit.setNavigation(unit.getDestination());
             if (unit.getDestinationPath().getTarget() == TilePosition(unit.getDestination())) {
                 auto newDestination = Util::findPointOnPath(unit.getDestinationPath(), [&](Position p) {
                     return p.getDistance(unit.getPosition()) >= 64.0;
                 });
 
                 if (newDestination.isValid())
-                    unit.setDestination(newDestination);
+                    unit.setNavigation(newDestination);
             }
+            //Visuals::drawPath(unit.getDestinationPath());
         }
 
         void updateDestination(UnitInfo& unit)
@@ -190,8 +199,8 @@ namespace McRave::Workers {
 
                 // Probes wants to try to place offcenter so the Probe doesn't have to reset collision on placement
                 if (unit.getType() == Protoss_Probe && unit.hasResource()) {
-                    center.x += unit.getResource().getPosition().x > center.x ? unit.getBuildType().dimensionRight() : -unit.getBuildType().dimensionLeft();
-                    center.y += unit.getResource().getPosition().y > center.y ? unit.getBuildType().dimensionDown() : -unit.getBuildType().dimensionUp();
+                    center.x += unit.getResource().lock()->getPosition().x > center.x ? unit.getBuildType().dimensionRight() : -unit.getBuildType().dimensionLeft();
+                    center.y += unit.getResource().lock()->getPosition().y > center.y ? unit.getBuildType().dimensionDown() : -unit.getBuildType().dimensionUp();
                 }
 
                 // Drone wants to be slightly offcenter to prevent a long animation before placing
@@ -205,34 +214,34 @@ namespace McRave::Workers {
 
             // If unit has a transport
             else if (unit.hasTransport())
-                unit.setDestination(unit.getTransport().getPosition());
+                unit.setDestination(unit.getTransport().lock()->getPosition());
 
             // If unit has a goal
             else if (unit.getGoal().isValid())
                 unit.setDestination(unit.getGoal());            
 
             // If unit has a resource
-            else if (unit.hasResource() && unit.getResource().getResourceState() == ResourceState::Mineable && unit.getPosition().getDistance(unit.getResource().getPosition()) > 96.0)
-                unit.setDestination(unit.getResource().getPosition());
+            else if (unit.hasResource() && unit.getResource().lock()->getResourceState() == ResourceState::Mineable && unit.getPosition().getDistance(unit.getResource().lock()->getPosition()) > 96.0)
+                unit.setDestination(unit.getResource().lock()->getPosition());
         }
 
         void updateResource(UnitInfo& unit)
         {
             // Get some information of the workers current assignment
-            const auto isGasunit =          unit.hasResource() && unit.getResource().getType().isRefinery();
-            const auto isMineralunit =      unit.hasResource() && unit.getResource().getType().isMineralField();
+            const auto isGasunit =          unit.hasResource() && unit.getResource().lock()->getType().isRefinery();
+            const auto isMineralunit =      unit.hasResource() && unit.getResource().lock()->getType().isMineralField();
             const auto resourceSafe =       isResourceSafe(unit);
             const auto threatened =         isResourceThreatened(unit);
             const auto excessAssigned =     isResourceFlooded(unit);
-            const auto transferStation =    getTransferStation();
-            const auto closestStation =     Stations::getClosestStationAir(PlayerState::Self, unit.getPosition());
+            const auto transferStation =    getTransferStation(unit);
+            const auto closestStation =     Stations::getClosestStationAir(unit.getPosition(), PlayerState::Self);
 
             // Check if unit needs a re-assignment
             const auto needGas =            unit.unit()->isCarryingMinerals() && !Resources::isGasSaturated() && isMineralunit && gasWorkers < BuildOrder::gasWorkerLimit();
             const auto needMinerals =       unit.unit()->isCarryingGas() && !Resources::isMineralSaturated() && isGasunit && gasWorkers > BuildOrder::gasWorkerLimit();
             const auto needNewAssignment =  !unit.hasResource() || needGas || needMinerals || threatened || (excessAssigned && !threatened) || (isMineralunit && transferStation);
             auto distBest =                 threatened ? 0.0 : DBL_MAX;
-            auto &oldResource =             unit.hasResource() ? unit.getResource().shared_from_this() : nullptr;
+            auto oldResource =              unit.hasResource() ? unit.getResource().lock() : nullptr;
 
             // Return if we dont need an assignment
             if (!needNewAssignment)
@@ -248,7 +257,7 @@ namespace McRave::Workers {
                     || resource.getType() == UnitTypes::Resource_Vespene_Geyser
                     || (resource.unit()->exists() && !resource.unit()->isCompleted())
                     || resource.getGathererCount() >= i
-                    || resource.getResourceState() != ResourceState::Mineable)
+                    || (resource.getResourceState() != ResourceState::Mineable && Stations::getMiningStationsCount() != 0))
                     return false;
                 return true;
             };
@@ -264,9 +273,9 @@ namespace McRave::Workers {
                         continue;
 
                     auto closestunit = Util::getClosestUnit(resource.getPosition(), PlayerState::Self, [&](auto &u) {
-                        return u.getRole() == Role::Worker && !u.getBuildPosition().isValid() && (!u.hasResource() || u.getResource().getType().isMineralField());
+                        return u->getRole() == Role::Worker && !u->getBuildPosition().isValid() && (!u->hasResource() || u->getResource().lock()->getType().isMineralField());
                     });
-                    if (closestunit && unit != closestunit)
+                    if (closestunit && unit != *closestunit)
                         continue;
 
                     auto dist = resource.getPosition().getDistance(unit.getPosition());
@@ -285,8 +294,8 @@ namespace McRave::Workers {
                         auto allowedGatherCount = threatened ? 50 : i;
 
                         if (!resourceReady(resource, allowedGatherCount)
-                            || (!safeStations.empty() && find(safeStations.begin(), safeStations.end(), resource.getStation()) == safeStations.end())
-                            || (closestStation && Stations::getSaturationRatio(closestStation) < 2.0 && resource.getStation() != closestStation)
+                            || (!transferStation && !safeStations.empty() && find(safeStations.begin(), safeStations.end(), resource.getStation()) == safeStations.end())
+                            || (!transferStation && closestStation && Stations::getSaturationRatio(closestStation) < 2.0 && resource.getStation() != closestStation)
                             || (transferStation && resource.getStation() != transferStation)
                             || resource.isThreatened())
                             continue;
@@ -302,7 +311,7 @@ namespace McRave::Workers {
                     }
 
                     // Don't check again if we assigned one
-                    if (unit.hasResource() && unit.getResource().shared_from_this() != oldResource && !threatened)
+                    if (unit.hasResource() && unit.getResource().lock() != oldResource && !threatened)
                         break;
                 }
             }
@@ -317,8 +326,8 @@ namespace McRave::Workers {
                 }
 
                 // Add next assignment
-                unit.getResource().getType().isMineralField() ? minWorkers++ : gasWorkers++;
-                unit.getResource().addTargetedBy(unit.weak_from_this());
+                unit.getResource().lock()->getType().isMineralField() ? minWorkers++ : gasWorkers++;
+                unit.getResource().lock()->addTargetedBy(unit.weak_from_this());
                 Resources::recheckSaturation();
             }
         }
@@ -335,7 +344,7 @@ namespace McRave::Workers {
             }
         }
 
-        constexpr tuple commands{ Command::misc, Command::attack, Command::click, Command::burrow, Command::returnResource, Command::build, Command::clearNeutral, Command::move, Command::kite, Command::gather };
+        constexpr tuple commands{ Command::misc, Command::attack, Command::click, Command::burrow, Command::returnResource, Command::build, Command::clearNeutral, Command::move, Command::gather };
         void updateDecision(UnitInfo& unit)
         {
             // Convert our commands to strings to display what the unit is doing for debugging
@@ -381,8 +390,8 @@ namespace McRave::Workers {
     }
 
     void removeUnit(UnitInfo& unit) {
-        unit.getResource().getType().isRefinery() ? gasWorkers-- : minWorkers--;
-        unit.getResource().removeTargetedBy(unit.weak_from_this());
+        unit.getResource().lock()->getType().isRefinery() ? gasWorkers-- : minWorkers--;
+        unit.getResource().lock()->removeTargetedBy(unit.weak_from_this());
         unit.setResource(nullptr);
     }
 
@@ -393,8 +402,8 @@ namespace McRave::Workers {
             || !unit.isHealthy()
             || unit.isStuck()
             || unit.wasStuckRecently()
-            || (unit.hasResource() && !unit.getResource().getType().isMineralField() && Util::getTime() < Time(10, 00))
-            || (unit.hasResource() && unit.getResource().isPocket()))
+            || (unit.hasResource() && !unit.getResource().lock()->getType().isMineralField() && Util::getTime() < Time(10, 00))
+            || (unit.hasResource() && unit.getResource().lock()->isPocket()))
             return false;
         return true;
     }

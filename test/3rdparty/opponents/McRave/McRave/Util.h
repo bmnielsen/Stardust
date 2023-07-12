@@ -16,7 +16,6 @@ namespace McRave::Util {
 
     BWAPI::Position clipLine(BWAPI::Position, BWAPI::Position);
     BWAPI::Position clipPosition(BWAPI::Position);
-    BWAPI::Position projectLine(std::pair<BWAPI::Position, BWAPI::Position>, BWAPI::Position);
 
     Time getTime();
 
@@ -24,30 +23,18 @@ namespace McRave::Util {
     void onFrame();
 
     template<typename F>
-    bool isBetweenC(F a, F b, F c) {
-        return a >= b && a <= c;
-    }
-
-    template<typename F>
-    bool isBetweenX(F a, F b, F c) {
-        return a > b && a < c;
-    }
-
-    template<typename F>
-    std::shared_ptr<UnitInfo> getClosestUnit(BWAPI::Position here, PlayerState player, F &&pred) {
+    UnitInfo* getClosestUnit(BWAPI::Position here, PlayerState player, F &&pred) {
         auto distBest = DBL_MAX;
         auto &units = Units::getUnits(player);
-        std::shared_ptr<UnitInfo> best = nullptr;
+        UnitInfo* best = nullptr;
 
         for (auto &u : units) {
-            auto &unit = *u;
-
-            if (!unit.unit() || !pred(unit))
+            if (!pred(u))
                 continue;
 
-            auto dist = here.getDistance(unit.getPosition());
+            auto dist = here.getDistance(u->getPosition());
             if (dist < distBest) {
-                best = u;
+                best = &*u;
                 distBest = dist;
             }
         }
@@ -55,20 +42,18 @@ namespace McRave::Util {
     }
 
     template<typename F>
-    std::shared_ptr<UnitInfo> getFurthestUnit(BWAPI::Position here, PlayerState player, F &&pred) {
+    UnitInfo*  getFurthestUnit(BWAPI::Position here, PlayerState player, F &&pred) {
         auto distBest = 0.0;
         auto &units = Units::getUnits(player);
-        std::shared_ptr<UnitInfo> best = nullptr;
+        UnitInfo* best = nullptr;
 
         for (auto &u : units) {
-            auto &unit = *u;
-
-            if (!unit.unit() || !pred(unit))
+            if (!pred(u))
                 continue;
 
-            auto dist = here.getDistance(unit.getPosition());
+            auto dist = here.getDistance(u->getPosition());
             if (dist > distBest) {
-                best = u;
+                best = &*u;
                 distBest = dist;
             }
         }
@@ -76,20 +61,18 @@ namespace McRave::Util {
     }
 
     template<typename F>
-    std::shared_ptr<UnitInfo> getClosestUnitGround(BWAPI::Position here, PlayerState player, F &&pred) {
+    UnitInfo* getClosestUnitGround(BWAPI::Position here, PlayerState player, F &&pred) {
         auto distBest = DBL_MAX;
         auto &units = Units::getUnits(player);
-        std::shared_ptr<UnitInfo> best = nullptr;
+        UnitInfo* best = nullptr;
 
         for (auto &u : units) {
-            auto &unit = *u;
-
-            if (!unit.unit() || !pred(unit))
+            if (!pred(u))
                 continue;
 
-            auto dist = BWEB::Map::getGroundDistance(here, unit.getPosition());
+            auto dist = BWEB::Map::getGroundDistance(here, u->getPosition());
             if (dist < distBest) {
-                best = u;
+                best = &*u;
                 distBest = dist;
             }
         }
@@ -97,20 +80,18 @@ namespace McRave::Util {
     }
 
     template<typename F>
-    std::shared_ptr<UnitInfo> getFurthestUnitGround(BWAPI::Position here, PlayerState player, F &&pred) {
+    UnitInfo* getFurthestUnitGround(BWAPI::Position here, PlayerState player, F &&pred) {
         auto distBest = 0.0;
         auto &units = Units::getUnits(player);
-        std::shared_ptr<UnitInfo> best = nullptr;
+        UnitInfo* best = nullptr;
 
         for (auto &u : units) {
-            auto &unit = *u;
-
-            if (!unit.unit() || !pred(unit))
+            if (!pred(u))
                 continue;
 
-            auto dist = BWEB::Map::getGroundDistance(here, unit.getPosition());
+            auto dist = BWEB::Map::getGroundDistance(here, u->getPosition());
             if (dist > distBest) {
-                best = u;
+                best = &*u;
                 distBest = dist;
             }
         }
@@ -231,4 +212,7 @@ namespace McRave::Util {
         }
         return returnVector;
     }
+
+    std::pair<double, BWAPI::Position> getClosestPointToRadiusAir(BWAPI::Position, BWAPI::Position, double);
+    std::pair<double, BWAPI::Position> getClosestPointToRadiusGround(BWAPI::Position, BWAPI::Position, double);
 }

@@ -3,5 +3,5 @@
 
 namespace McRave::Targets {
 
-    void getTarget(UnitInfo&);
+    void onFrame();
 }

@@ -3,39 +3,32 @@
 #include "bwem.h"
 #include "BWEB.h"
 
-#define STORM_LIMIT 2.0
-#define STASIS_LIMIT 4.0
-#define LOW_SHIELD_PERCENT_LIMIT 0.5
-#define LOW_MECH_PERCENT_LIMIT 0.25
-#define LOW_BIO_PERCENT_LIMIT 0.25
-#define MIN_THREAT 0.000001f
-#define MAX_SCARAB 5 + (BWAPI::Broodwar->self()->getUpgradeLevel(UpgradeTypes::Reaver_Capacity) * 5)
-#define MAX_INTERCEPTOR 4 + (BWAPI::Broodwar->self()->getUpgradeLevel(UpgradeTypes::Carrier_Capacity) * 4)
-
 namespace McRave
 {
     class UnitInfo;
     class ResourceInfo;
     class PlayerInfo;
 
-    static int distTest = 54;
-
-    struct Line {
-        double yInt;
-        double slope;
-        double y(int x) { return (slope * double(x)) + yInt; }
-        Line(double y, double s) {
-            yInt = y, slope = s;
-        }
-    };
+    /// Writes to a file, very slow function!
+    static void easyWrite(std::string& stuff)
+    {
+        std::ofstream writeFile;
+        writeFile.open("bwapi-data/write/McRave_Debug_Log.txt", std::ios::app);
+        writeFile << stuff << std::endl;
+    }
 
     struct Time {
         int minutes;
         int seconds;
         int frames;
+        Time(int f) {
+            frames = f;
+            minutes = int(double(f) / 1428.6);
+            seconds = int(double(f) / 23.81) % 60;
+        }
         Time(int m, int s) {
             minutes = m, seconds = s;
-            frames = ((m * 60) + s) * 24;
+            frames = int(23.81 * ((double(m) * 60.0) + double(s)));
         }
         Time() {
             minutes = 999;
@@ -109,6 +102,10 @@ namespace McRave
         }
     };
 
+    enum class ZoneType {
+        None, Engage, Retreat, Defend
+    };
+
     enum class GoalType {
         None, Attack, Contain, Explore, Escort, Defend
     };
@@ -126,11 +123,11 @@ namespace McRave
     };
 
     enum class GlobalState {
-        None, Attack, Retreat
+        None, Attack, Retreat, Hold
     };
 
     enum class LocalState {
-        None, Attack, Retreat
+        None, Attack, Retreat, Hold
     };
 
     enum class SimState {
@@ -140,6 +137,9 @@ namespace McRave
     enum class PlayerState {
         None, Self, Ally, Enemy, Neutral
     };
+
+
+    inline double logLookup16[1024]={};
 }
 
 #include "Horizon.h"
@@ -147,13 +147,15 @@ namespace McRave
 #include "Buildings.h"
 #include "BuildOrder.h"
 #include "Commands.h"
-#include "Combat.h"
+#include "Micro/Combat/Combat.h"
+#include "Defender.h"
 #include "Expansions.h"
 #include "Goals.h"
 #include "Grids.h"
 #include "Stations.h"
 #include "Workers.h"
 #include "Learning.h"
+#include "Pathing.h"
 #include "Planning.h"
 #include "PlayerInfo.h"
 #include "Players.h"
@@ -161,8 +163,9 @@ namespace McRave
 #include "Pylons.h"
 #include "ResourceInfo.h"
 #include "Resources.h"
+#include "Roles.h"
 #include "Scouts.h"
-#include "Strategy.h"
+#include "Spy/Spy.h"
 #include "Support.h"
 #include "Targeting.h"
 #include "Terrain.h"
@@ -173,36 +176,9 @@ namespace McRave
 #include "Util.h"
 #include "Visuals.h"
 #include "Walls.h"
+#include "Strategy/Zones/Zones.h"
 
 namespace
 {
     auto &mapBWEM = BWEM::Map::Instance();
-}
-
-// Has to be after the includes to prevent compiler error
-// TODO: Fix includes and move this up with the States
-namespace McRave {
-
-    /// Returns the self owned visible unit count of this UnitType
-    static int vis(BWAPI::UnitType t) {
-        return Players::getVisibleCount(PlayerState::Self, t);
-    }
-
-    /// Returns the self owned completed unit count of this UnitType
-    static int com(BWAPI::UnitType t) {
-        return Players::getCompleteCount(PlayerState::Self, t);
-    }
-
-    /// Returns the self total unit count of this UnitType
-    static int total(BWAPI::UnitType t) {
-        return Players::getTotalCount(PlayerState::Self, t);
-    }
-
-    /// Writes to a file, very slow function!
-    static void easyWrite(std::string& stuff)
-    {
-        std::ofstream writeFile;
-        writeFile.open("bwapi-data/write/McRave_Debug_Log.txt", std::ios::app);
-        writeFile << stuff << std::endl;
-    }
 }

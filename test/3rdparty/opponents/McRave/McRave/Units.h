@@ -12,7 +12,6 @@ namespace McRave::Units {
     BWAPI::Position getEnemyArmyCenter();
     double getImmThreat();
 
-    int getMyRoleCount(Role);
     int getMyVisible(BWAPI::UnitType);
     int getMyComplete(BWAPI::UnitType);
 

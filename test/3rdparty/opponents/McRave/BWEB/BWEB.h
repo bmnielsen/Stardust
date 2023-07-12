@@ -42,7 +42,7 @@ namespace BWEB::Map
     void removeUsed(BWAPI::TilePosition tile, int width, int height);
 
     /// <summary> Returns the first UnitType found in a section of BWAPI::TilePositions, if it is within BWEBs used grid. </summary>
-    BWAPI::UnitType isUsed(BWAPI::TilePosition here, int width = 1, int height = 1);
+    BWAPI::UnitType isUsed(const BWAPI::TilePosition& here, const int& width = 1, const int& height = 1);
 
     /// <summary> Returns true if a BWAPI::TilePosition is fully walkable. </summary>
     /// <param name="tile"> The BWAPI::TilePosition you want to check. </param>
@@ -54,11 +54,10 @@ namespace BWEB::Map
     /// <param name="tile"> The BWAPI::TilePosition you want to build on. </param>
     bool isPlaceable(BWAPI::UnitType type, BWAPI::TilePosition tile);
 
-    template <class T>
     /// <summary> Returns the estimated ground distance from one Position type to another Position type. </summary>
     /// <param name="start"> The first Position. </param>
     /// <param name="end"> The second Position. </param>
-    double getGroundDistance(T start, T end);
+    double getGroundDistance(BWAPI::Position start, BWAPI::Position end);
 
     /// Returns the closest BWAPI::Position that makes up the geometry of a BWEM::ChokePoint to another BWAPI::Position.
     BWAPI::Position getClosestChokeTile(const BWEM::ChokePoint *, BWAPI::Position);

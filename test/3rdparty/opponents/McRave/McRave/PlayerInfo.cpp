@@ -8,6 +8,7 @@ namespace McRave
 {
     namespace {
         map<Unit, UnitType> actualEggType; /// BWAPI issue #850
+        int extractorsLastFrame = 0;
     }
 
     void PlayerInfo::update()
@@ -24,11 +25,18 @@ namespace McRave
                 playerTechs.insert(tech);
         }
 
+        extractorsLastFrame = visibleTypeCounts[Zerg_Extractor];
+
         // Update player units
         raceSupply.clear();
         pStrength.clear();
         visibleTypeCounts.clear();
         completeTypeCounts.clear();
+
+        // Offset Zerg supply if an extractor is being made, since the drone is destroyed/created 1 frame off of an extractor creation/destruction
+        if (extractorsLastFrame != Broodwar->self()->visibleUnitCount(Zerg_Extractor))
+            raceSupply[Races::Zerg] += 2 * (Broodwar->self()->visibleUnitCount(Zerg_Extractor) - extractorsLastFrame);
+
         for (auto &u : units) {
             auto &unit = *u;
             auto type = unit.getType() == UnitTypes::Zerg_Egg ? unit.unit()->getBuildType() : unit.getType();
@@ -43,16 +51,11 @@ namespace McRave
 
             // Supply
             raceSupply[type.getRace()] += type.supplyRequired();
-            raceSupply[type.getRace()] += type == Zerg_Zergling || type == Zerg_Scourge;
+            raceSupply[type.getRace()] += !unit.isCompleted() && (type == Zerg_Zergling || type == Zerg_Scourge);
 
             // All supply
             raceSupply[Races::None] += type.supplyRequired();
-            raceSupply[Races::None] += type == Zerg_Zergling || type == Zerg_Scourge;
-
-            // Targets
-            unit.getTargetedBy().clear();
-            unit.setTarget(nullptr);
-            unit.borrowedPath = false;
+            raceSupply[Races::None] += !unit.isCompleted() && (type == Zerg_Zergling || type == Zerg_Scourge);
 
             // Counts
             int eggOffset = int(isSelf() && !unit.isCompleted() && (type == Zerg_Zergling || type == Zerg_Scourge));
@@ -81,18 +84,16 @@ namespace McRave
                 pStrength.groundToGround += unit.getVisibleGroundStrength();
             }
         }
-
-        // Supply has to be an even number and is rounded up - TODO: Check
-        for (auto &[race, supply] : raceSupply) {
-            if (supply % 2 == 1)
-                supply++;
-        }
+        
+        // Round up to nearest 2 (for actual Broodwar supply)
+        for (auto &supply : raceSupply)
+            supply.second += (supply.second % 2);
 
         // Set current allied status
         if (thisPlayer->getID() == BWAPI::Broodwar->self()->getID())
             pState = PlayerState::Self;
         else if (thisPlayer->isEnemy(BWAPI::Broodwar->self()))
-            pState = PlayerState::Enemy;
+            pState = PlayerState::Enemy;        
         else if (thisPlayer->isAlly(BWAPI::Broodwar->self()))
             pState = PlayerState::Ally;
         else

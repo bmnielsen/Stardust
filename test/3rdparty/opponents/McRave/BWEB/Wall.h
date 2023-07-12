@@ -71,21 +71,6 @@ namespace BWEB {
             cleanup();
         }
 
-        Wall(const BWEM::Area * _area, const BWEM::ChokePoint * _choke, std::multimap<BWAPI::UnitType, BWAPI::TilePosition> _buildings) {
-            area = _area;
-            choke = _choke;
-            valid = true;
-
-            for (auto &[type, tile] : _buildings) {
-                if (type == BWAPI::UnitTypes::Zerg_Sunken_Colony) {
-                    defenses[0].insert(tile);
-                    defenses[1].insert(tile);
-                }
-                else
-                    addToWallPieces(tile, type);
-            }
-        }
-
         /// <summary> Adds a piece at the TilePosition based on the UnitType. </summary>
         void addToWallPieces(BWAPI::TilePosition here, BWAPI::UnitType building) {
             if (building.tileWidth() >= 4)
@@ -97,7 +82,7 @@ namespace BWEB {
         }
 
         /// <summary> Returns the Station this wall is close to if one exists. </summary>
-        Station * getStation() { return station; }
+        Station* getStation() { return station; }
 
         /// <summary> Returns the Path out if one exists. </summary>
         Path& getPath() { return finalPath; }

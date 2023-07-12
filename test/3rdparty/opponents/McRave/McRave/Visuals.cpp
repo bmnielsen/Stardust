@@ -32,7 +32,7 @@ namespace McRave::Visuals {
         bool builds = true;
         bool bweb = false;
         bool sim = false;
-        bool paths = false;
+        bool paths = true;
         bool strengths = false;
         bool orders = false;
         bool local = false;
@@ -54,7 +54,7 @@ namespace McRave::Visuals {
             // Builds
             if (builds) {
                 Broodwar->drawTextScreen(432, 16, "%c%s: %c%s %s", Text::White, BuildOrder::getCurrentBuild().c_str(), Text::Grey, BuildOrder::getCurrentOpener().c_str(), BuildOrder::getCurrentTransition().c_str());
-                Broodwar->drawTextScreen(432, 26, "%c%s: %c%s %s", Text::White, Strategy::getEnemyBuild().c_str(), Text::Grey, Strategy::getEnemyOpener().c_str(), Strategy::getEnemyTransition().c_str());
+                Broodwar->drawTextScreen(432, 26, "%c%s: %c%s %s", Text::White, Spy::getEnemyBuild().c_str(), Text::Grey, Spy::getEnemyOpener().c_str(), Spy::getEnemyTransition().c_str());
                 Broodwar->drawTextScreen(160, 0, "%cExpanding", BuildOrder::shouldExpand() ? Text::White : Text::Grey);
                 Broodwar->drawTextScreen(160, 10, "%cRamping", BuildOrder::shouldRamp() ? Text::White : Text::Grey);
                 Broodwar->drawTextScreen(160, 20, "%cTeching", BuildOrder::getTechUnit() != UnitTypes::None ? Text::White : Text::Grey);
@@ -149,12 +149,12 @@ namespace McRave::Visuals {
 
                 if (targets) {
                     if (unit.hasTarget())
-                        Visuals::drawLine(unit.getTarget().getPosition(), unit.getPosition(), color);
+                        Visuals::drawLine(unit.getTarget().lock()->getPosition(), unit.getPosition(), color);
                 }
 
                 if (resources) {
                     if (unit.hasResource())
-                        Visuals::drawLine(unit.getResource().getPosition(), unit.getPosition(), color);
+                        Visuals::drawLine(unit.getResource().lock()->getPosition(), unit.getPosition(), color);
                 }
 
                 if (strengths) {
@@ -215,7 +215,7 @@ namespace McRave::Visuals {
 
                 if (targets) {
                     if (unit.hasTarget())
-                        Visuals::drawLine(unit.getTarget().getPosition(), unit.getPosition(), color);
+                        Visuals::drawLine(unit.getTarget().lock()->getPosition(), unit.getPosition(), color);
                 }
 
                 if (strengths) {
@@ -231,6 +231,15 @@ namespace McRave::Visuals {
                 }
             }
         }
+
+        void drawStations() 
+        {
+            for (auto &station : Stations::getStations(PlayerState::Self)) {
+                auto topLeft = Position(station->getBase()->Location());
+                Broodwar->drawTextMap(topLeft, "%d", Stations::needGroundDefenses(station));
+                Broodwar->drawTextMap(topLeft + Position(0,16), "%d", Stations::needAirDefenses(station));
+            }
+        }
     }
 
     void centerCameraOn(Position here)
@@ -243,6 +252,7 @@ namespace McRave::Visuals {
         drawInformation();
         drawAllyInfo();
         drawEnemyInfo();
+        drawStations();
     }
 
     void endPerfTest(string function)
@@ -285,6 +295,7 @@ namespace McRave::Visuals {
 
     void drawPath(BWEB::Path& path)
     {
+        return;
         int color = Broodwar->self()->getColor();
         if (paths && !path.getTiles().empty()) {
             TilePosition next = path.getSource();

@@ -17,42 +17,8 @@ namespace McRave::Units {
         map<UnitSizeType, int> enemyGrdSizes;
         map<UnitSizeType, int> allyAirSizes;
         map<UnitSizeType, int> enemyAirSizes;
-        map<Role, int> myRoles;
         double immThreat;
         Position enemyArmyCenter;
-
-        void updateRole(UnitInfo& unit)
-        {
-            // Don't assign a role to uncompleted units
-            if (!unit.unit()->isCompleted() && !unit.getType().isBuilding() && unit.getType() != Zerg_Egg) {
-                unit.setRole(Role::None);
-                return;
-            }
-
-            // Update default role
-            if (unit.getRole() == Role::None) {
-                if (unit.getType().isWorker())
-                    unit.setRole(Role::Worker);
-                else if ((unit.getType().isBuilding() && !unit.canAttackGround() && !unit.canAttackAir() && unit.getType() != Zerg_Creep_Colony) || unit.getType() == Zerg_Larva || unit.getType() == Zerg_Egg)
-                    unit.setRole(Role::Production);
-                else if (unit.getType().isBuilding() && (unit.canAttackGround() || unit.canAttackAir() || unit.getType() == Zerg_Creep_Colony))
-                    unit.setRole(Role::Defender);
-                else if ((unit.getType().isDetector() && !unit.getType().isBuilding()) || unit.getType() == Protoss_Arbiter)
-                    unit.setRole(Role::Support);
-                else if (unit.getType().spaceProvided() > 0)
-                    unit.setRole(Role::Transport);
-                else
-                    unit.setRole(Role::Combat);
-            } 
-
-            // Check if a worker morphed into a building
-            if (unit.getRole() == Role::Worker && unit.getType().isBuilding()) {
-                if (unit.getType().isBuilding() && !unit.canAttackGround() && !unit.canAttackAir() && unit.getType() != Zerg_Creep_Colony)
-                    unit.setRole(Role::Production);
-                else
-                    unit.setRole(Role::Defender);
-            }
-        }
 
         void updateEnemies()
         {
@@ -84,14 +50,18 @@ namespace McRave::Units {
                         Events::onUnitDisappear(unit);
 
                     // If a unit is threatening our position
-                    if (unit.isThreatening())
-                        immThreat += unit.getVisibleGroundStrength();                    
+                    if (unit.isThreatening() && !unit.getType().isWorker()) {
+                        immThreat += unit.getVisibleGroundStrength();
+                        unit.circle(Colors::Red);
+                    }
 
                     // Add to army center
                     if (unit.getPosition().isValid() && !unit.getType().isBuilding() && !unit.getType().isWorker() && !unit.movedFlag) {
                         enemyArmyCenter += unit.getPosition();
                         enemyArmyCount++;
                     }
+
+                    //Broodwar->drawTextMap(unit.getPosition(), "%.2f", unit.getPriority());
                 }
             }
 
@@ -115,7 +85,6 @@ namespace McRave::Units {
                     UnitInfo &unit = *u;
 
                     unit.update();
-                    updateRole(unit);
                 }
             }
         }
@@ -152,15 +121,12 @@ namespace McRave::Units {
             allyGrdSizes.clear();
             enemyGrdSizes.clear();
 
-            myRoles.clear();
-
             for (auto &p : Players::getPlayers()) {
                 PlayerInfo &player = p.second;
                 if (player.isSelf()) {
                     for (auto &u : player.getUnits()) {
                         UnitInfo &unit = *u;
 
-                        myRoles[unit.getRole()]++;
                         myUnits.insert(u);
                         if (unit.getRole() == Role::Combat)
                             unit.getType().isFlyer() ? allyAirSizes[unit.getType().size()]++ : allyGrdSizes[unit.getType().size()]++;
@@ -228,5 +194,4 @@ namespace McRave::Units {
     map<UnitSizeType, int>& getEnemyAirSizes() { return enemyAirSizes; }
     Position getEnemyArmyCenter() { return enemyArmyCenter; }
     double getImmThreat() { return immThreat; }
-    int getMyRoleCount(Role role) { return myRoles[role]; }
 }

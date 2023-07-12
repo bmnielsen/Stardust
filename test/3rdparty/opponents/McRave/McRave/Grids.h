@@ -27,15 +27,11 @@ namespace McRave::Grids
     int getVCollision(BWAPI::WalkPosition here);
     int getHCollision(BWAPI::WalkPosition here);
 
-    int getESplash(BWAPI::WalkPosition here);
-
     int getMobility(BWAPI::WalkPosition here);
     int getMobility(BWAPI::Position here);
 
     int lastVisibleFrame(BWAPI::TilePosition t);
     int lastVisitedFrame(BWAPI::WalkPosition w);
-
-    void addMovement(BWAPI::Position, UnitInfo&);
 
     bool hasCliffVision(BWAPI::TilePosition);
 }
