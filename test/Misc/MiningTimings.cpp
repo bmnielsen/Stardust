@@ -163,3 +163,278 @@ TEST(MiningTimings, OptimizeBoth)
 
     test.run();
 }
+
+TEST(MiningTimings, TestReturnOptimization)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.myModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
+    test.frameLimit = 5000;
+    test.expectWin = false;
+
+    test.onStartMine = []()
+    {
+        BWAPI::Broodwar->setLatCom(false);
+    };
+
+    int state = 0;
+    int leftMinerals = 0;
+    int arrivedDepot = 0;
+    int leftDepot = 0;
+    int arrivedMinerals = 0;
+    bool orderResetPending = false;
+
+    int reissueFrame = -1;
+
+    test.onFrameMine = [&]()
+    {
+        BWAPI::Unit probe;
+        BWAPI::Unit depot;
+        int lowestID = INT_MAX;
+        for (auto unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (unit->getType() == BWAPI::UnitTypes::Protoss_Nexus) depot = unit;
+            if (unit->getType() != BWAPI::UnitTypes::Protoss_Probe) continue;
+            if (unit->getID() < lowestID)
+            {
+                probe = unit;
+                lowestID = unit->getID();
+            }
+        }
+        if (!probe) return;
+        if (!depot) return;
+
+        BWAPI::Unit mineralPatch;
+        for (auto unit : BWAPI::Broodwar->getMinerals())
+        {
+            if (BWAPI::WalkPosition(unit->getPosition()) == BWAPI::WalkPosition(500, 38)) mineralPatch = unit;
+        }
+        if (!mineralPatch) return;
+
+        int depotDist = probe->getDistance(depot);
+        int mineralDist = probe->getDistance(mineralPatch);
+
+        switch (state)
+        {
+            case 0:
+                if (BWAPI::Broodwar->getFrameCount() == 35)
+                {
+                    probe->gather(mineralPatch);
+                    state = 1;
+                }
+                break;
+            case 1:
+                if (mineralDist == 0)
+                {
+                    int newArrivedMinerals = BWAPI::Broodwar->getFrameCount();
+
+                    if (arrivedMinerals > 0)
+                    {
+                        std::cout << BWAPI::Broodwar->getFrameCount()
+                            << ": Round trip = " << (newArrivedMinerals - arrivedMinerals)
+                            << "; excluding mining = " << (newArrivedMinerals - leftMinerals)
+                            << "; deliver minerals = " << (arrivedDepot - leftMinerals)
+                            << "; stopped at depot = " << (leftDepot - arrivedDepot)
+                            << "; travel to minerals = " << (newArrivedMinerals - leftDepot)
+                            << "; order reissued at " << ((!orderResetPending && reissueFrame > 0) ? reissueFrame : -1)
+                            << (orderResetPending ? "; order reset" : "")
+                            << std::endl;
+                    }
+
+                    state = 2;
+                    if (!orderResetPending) reissueFrame++;
+                    orderResetPending = false;
+                    arrivedMinerals = newArrivedMinerals;
+                }
+                break;
+            case 2:
+                if (mineralDist > 0)
+                {
+                    leftMinerals = BWAPI::Broodwar->getFrameCount();
+                    state = 3;
+
+                    if ((BWAPI::Broodwar->getFrameCount() - 8) % 150 > (150 - 30))
+                    {
+                        orderResetPending = true;
+                    }
+                }
+                break;
+            case 3:
+                if (depotDist == 0)
+                {
+                    arrivedDepot = BWAPI::Broodwar->getFrameCount();
+                    state = 4;
+                }
+                else if (!orderResetPending && reissueFrame > 0 && BWAPI::Broodwar->getFrameCount() == (leftMinerals + reissueFrame))
+                {
+                    probe->returnCargo();
+                }
+
+                break;
+            case 4:
+                if (depotDist > 0)
+                {
+                    leftDepot = BWAPI::Broodwar->getFrameCount();
+                    state = 1;
+                }
+                break;
+        }
+
+//        std::cout << std::fixed << std::showpoint << std::setprecision(4)
+//            << BWAPI::Broodwar->getFrameCount()
+//            << ": " << probe->getOrder()
+//            << "; pos=" << probe->getPosition()
+//            << "; distToMinerals=" << probe->getDistance(mineralPatch)
+//            << "; distToDepot=" << probe->getDistance(depot)
+//            << "; speed=" << std::sqrt(((probe->getVelocityX() * probe->getVelocityX()) + (probe->getVelocityY() * probe->getVelocityY())))
+//            << std::endl;
+    };
+
+    test.run();
+}
+
+TEST(MiningTimings, TestReturnOptimization2)
+{
+    BWTest test;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.myModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.map = Maps::GetOne("Fighting Spirit");
+    test.randomSeed = 42;
+    test.frameLimit = 5000;
+    test.expectWin = false;
+
+    test.onStartMine = []()
+    {
+        BWAPI::Broodwar->setLatCom(false);
+    };
+
+    int state = 0;
+    int leftMinerals = 0;
+    int arrivedDepot = 0;
+    int leftDepot = 0;
+    int arrivedMinerals = 0;
+    bool orderResetPending = false;
+
+    int reissueFrame = 14;
+
+    test.onFrameMine = [&]()
+    {
+        BWAPI::Unit probe;
+        BWAPI::Unit depot;
+        int lowestID = INT_MAX;
+        for (auto unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (unit->getType() == BWAPI::UnitTypes::Protoss_Nexus) depot = unit;
+            if (unit->getType() != BWAPI::UnitTypes::Protoss_Probe) continue;
+            if (unit->getID() < lowestID)
+            {
+                probe = unit;
+                lowestID = unit->getID();
+            }
+        }
+        if (!probe) return;
+        if (!depot) return;
+
+        BWAPI::Unit mineralPatch;
+        for (auto unit : BWAPI::Broodwar->getMinerals())
+        {
+            if (BWAPI::WalkPosition(unit->getPosition()) == BWAPI::WalkPosition(500, 38)) mineralPatch = unit;
+        }
+        if (!mineralPatch) return;
+
+        int depotDist = probe->getDistance(depot);
+        int mineralDist = probe->getDistance(mineralPatch);
+
+        switch (state)
+        {
+            case 0:
+                if (BWAPI::Broodwar->getFrameCount() == 35)
+                {
+                    probe->gather(mineralPatch);
+                    state = 1;
+                }
+                break;
+            case 1:
+                if (mineralDist == 0)
+                {
+                    int newArrivedMinerals = BWAPI::Broodwar->getFrameCount();
+
+                    if (arrivedMinerals > 0)
+                    {
+                        std::cout << BWAPI::Broodwar->getFrameCount()
+                            << ": Round trip = " << (newArrivedMinerals - arrivedMinerals)
+                            << "; excluding mining = " << (newArrivedMinerals - leftMinerals)
+                            << "; deliver minerals = " << (arrivedDepot - leftMinerals)
+                            << "; stopped at depot = " << (leftDepot - arrivedDepot)
+                            << "; travel to minerals = " << (newArrivedMinerals - leftDepot)
+                            << "; order reissued at " << ((!orderResetPending && reissueFrame > 0) ? reissueFrame : -1)
+                            << (orderResetPending ? "; order reset" : "")
+                            << std::endl;
+                    }
+
+                    state = 2;
+                    orderResetPending = false;
+                    arrivedMinerals = newArrivedMinerals;
+                }
+                break;
+            case 2:
+                if (mineralDist > 0)
+                {
+                    leftMinerals = BWAPI::Broodwar->getFrameCount();
+                    state = 3;
+
+                    if ((BWAPI::Broodwar->getFrameCount() - 8) % 150 > (150 - 30))
+                    {
+                        orderResetPending = true;
+                    }
+                }
+                break;
+            case 3:
+                if (depotDist == 0)
+                {
+                    arrivedDepot = BWAPI::Broodwar->getFrameCount();
+                    state = 4;
+                }
+                else if (!orderResetPending && reissueFrame > 0 && BWAPI::Broodwar->getFrameCount() == (leftMinerals + reissueFrame))
+                {
+                    probe->returnCargo();
+                }
+
+                break;
+            case 4:
+                if (depotDist > 0)
+                {
+                    leftDepot = BWAPI::Broodwar->getFrameCount();
+                    state = 1;
+                }
+                break;
+        }
+
+        std::cout << std::fixed << std::showpoint << std::setprecision(4)
+            << BWAPI::Broodwar->getFrameCount()
+            << ": " << probe->getOrder()
+            << "; pos=" << probe->getPosition()
+            << "; distToMinerals=" << probe->getDistance(mineralPatch)
+            << "; distToDepot=" << probe->getDistance(depot)
+            << "; speed=" << std::sqrt(((probe->getVelocityX() * probe->getVelocityX()) + (probe->getVelocityY() * probe->getVelocityY())))
+            << std::endl;
+    };
+
+    test.run();
+}
