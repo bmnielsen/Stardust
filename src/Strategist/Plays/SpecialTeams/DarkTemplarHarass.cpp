@@ -37,18 +37,53 @@ namespace
             bool hasCannon = false;
             for (const auto &cannon : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon))
             {
-                if (!cannon->completed && cannon->estimatedCompletionFrame < (currentFrame + 120))
+                if (!cannon->completed && cannon->estimatedCompletionFrame > (currentFrame + 120))
                 {
                     continue;
                 }
                 if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(cannon->lastPosition)) == base->getArea())
                 {
+#if DEBUG_UNIT_ORDERS
+                    CherryVis::log(unit->id) << "Discounting base @ " << BWAPI::WalkPosition(base->getPosition()) << " because of " << *cannon;
+#endif
                     hasCannon = true;
                     break;
                 }
             }
             if (hasCannon) continue;
-            if (!hasPathWithoutDetection(unit->lastPosition, base->getPosition())) continue;
+
+            bool hasObserver = false;
+            for (const auto &observer : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Observer))
+            {
+                // Don't go into the enemy main if they have an observer - we will get trapped
+                if (base == Map::getEnemyStartingMain())
+                {
+                    hasObserver = true;
+                    break;
+                }
+
+                // Don't count observers we haven't seen in a while
+                if (!observer->lastPositionValid || observer->lastSeen < (currentFrame - 120)) continue;
+
+                if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(observer->lastPosition)) == base->getArea() ||
+                    observer->getDistance(base->getPosition()) < 320)
+                {
+#if DEBUG_UNIT_ORDERS
+                    CherryVis::log(unit->id) << "Discounting base @ " << BWAPI::WalkPosition(base->getPosition()) << " because of " << *observer;
+#endif
+                    hasObserver = true;
+                    break;
+                }
+            }
+            if (hasObserver) continue;
+
+            if (!hasPathWithoutDetection(unit->lastPosition, base->getPosition()))
+            {
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(unit->id) << "Discounting base @ " << BWAPI::WalkPosition(base->getPosition()) << " because path has detection";
+#endif
+                continue;
+            }
 
             int workerCount = 0;
             for (const auto &worker : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Probe))
@@ -61,7 +96,7 @@ namespace
                 }
             }
 
-            harassableBases.push_back(std::make_pair(base, workerCount > 2));
+            harassableBases.emplace_back(base, workerCount > 2);
         }
 
         int bestDist = INT_MAX;
@@ -129,10 +164,12 @@ namespace
 
     void moveToBase(MyUnit &unit, Base *base)
     {
-        auto grid = PathFinding::getNavigationGrid(base->getPosition());
-        if (grid)
+        // TODO: Avoid detection / threats somehow
+
+        auto navigationGrid = PathFinding::getNavigationGrid(base->getPosition());
+        if (navigationGrid)
         {
-            auto node = (*grid)[unit->getTilePosition()];
+            auto node = (*navigationGrid)[unit->getTilePosition()];
             auto nextNode = node.nextNode;
             auto secondNode = nextNode ? nextNode->nextNode : nullptr;
             auto blockingPredicate = [&](const Unit &enemy)
@@ -149,7 +186,7 @@ namespace
                 // Consider it blocking if we are in a narrow choke, the enemy is in our attack range, and the enemy is closer to the goal
                 return Map::isInNarrowChoke(unit->getTilePosition())
                        && unit->isInOurWeaponRange(enemy)
-                       && (*grid)[enemy->getTilePosition()].cost <= node.cost;
+                       && (*navigationGrid)[enemy->getTilePosition()].cost <= node.cost;
             };
             auto target = getTarget(unit, Units::allEnemy(), false, 100, blockingPredicate);
             if (target)
@@ -167,6 +204,22 @@ namespace
 
     void executeUnit(MyUnit &unit)
     {
+        bool observerNearby = false;
+        for (const auto &observer : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Observer))
+        {
+            // Don't count observers we haven't seen in a while
+            if (!observer->lastPositionValid || observer->lastSeen < (currentFrame - 120)) continue;
+
+            if (unit->getDistance(observer) < 480)
+            {
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(unit->id) << "Nearby observer: " << *observer;
+#endif
+                observerNearby = true;
+                break;
+            }
+        }
+
         auto canKillBeforeCompletedPredicate = [&](const Unit &target)
         {
             if (target->completed) return false;
@@ -181,28 +234,32 @@ namespace
 
             return (currentFrame + framesToKill) < target->estimatedCompletionFrame;
         };
-        auto cannonTarget = getTarget(unit,
-                                      Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon),
-                                      false,
-                                      300,
-                                      canKillBeforeCompletedPredicate);
-        if (cannonTarget)
-        {
-#if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit->id) << "Attacking cannon " << *cannonTarget;
-#endif
-            unit->attackUnit(cannonTarget);
-            return;
-        }
 
-        auto workerTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Probe), false, 300);
-        if (workerTarget)
+        if (!observerNearby)
         {
+            auto cannonTarget = getTarget(unit,
+                                          Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon),
+                                          false,
+                                          300,
+                                          canKillBeforeCompletedPredicate);
+            if (cannonTarget)
+            {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit->id) << "Attacking worker " << *workerTarget;
+                CherryVis::log(unit->id) << "Attacking cannon " << *cannonTarget;
 #endif
-            unit->attackUnit(workerTarget);
-            return;
+                unit->attackUnit(cannonTarget);
+                return;
+            }
+
+            auto workerTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Probe), false, 300);
+            if (workerTarget)
+            {
+#if DEBUG_UNIT_ORDERS
+                CherryVis::log(unit->id) << "Attacking worker " << *workerTarget;
+#endif
+                unit->attackUnit(workerTarget);
+                return;
+            }
         }
 
         auto base = getBaseToHarass(unit);
@@ -221,22 +278,25 @@ namespace
         }
 
         // Prioritize completed nexuses, observatories we can kill before they complete, robo facilities, completed things, everything else
-        auto completedPredicate = [](const Unit &target)
+        if (!observerNearby)
         {
-            return target->completed;
-        };
-        auto otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Nexus), false, 500, completedPredicate);
-        if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Observatory), false, 500, canKillBeforeCompletedPredicate);
-        if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Robotics_Facility), false, 500);
-        if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemy(), false, INT_MAX, completedPredicate);
-        if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemy(), false);
-        if (otherTarget)
-        {
+            auto completedPredicate = [](const Unit &target)
+            {
+                return target->completed;
+            };
+            auto otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Nexus), false, 500, completedPredicate);
+            if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Observatory), false, 500, canKillBeforeCompletedPredicate);
+            if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Robotics_Facility), false, 500);
+            if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemy(), false, INT_MAX, completedPredicate);
+            if (!otherTarget) otherTarget = getTarget(unit, Units::allEnemy(), false);
+            if (otherTarget)
+            {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit->id) << "Attacking target " << *otherTarget;
+                CherryVis::log(unit->id) << "Attacking target " << *otherTarget;
 #endif
-            unit->attackUnit(otherTarget);
-            return;
+                unit->attackUnit(otherTarget);
+                return;
+            }
         }
 
         auto nextExpansions = Map::getUntakenExpansions(BWAPI::Broodwar->enemy());
