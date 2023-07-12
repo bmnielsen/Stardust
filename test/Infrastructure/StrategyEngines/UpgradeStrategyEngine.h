@@ -12,7 +12,7 @@ public:
     UpgradeStrategyEngine(UpgradeOrTechType upgradeOrTechType, int level = 1) : upgradeOrTechType(upgradeOrTechType), level(level) {}
 
 protected:
-    void initialize(std::vector<std::shared_ptr<Play>> &plays) override {}
+    void initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom) override {}
 
     void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override {}
 

@@ -10,7 +10,7 @@ namespace
 {
     class MacroOnlyStrategyEngine : public StrategyEngine
     {
-        void initialize(std::vector<std::shared_ptr<Play>> &plays) override {}
+        void initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom) override {}
 
         void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override {}
 
