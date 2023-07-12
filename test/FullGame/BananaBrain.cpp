@@ -117,7 +117,6 @@ TEST(BananaBrain, RunOne)
     test.opponentName = "BananaBrain";
     test.opponentRace = BWAPI::Races::Protoss;
     test.maps = Maps::Get("sscait");
-    test.frameLimit = 10000;
     test.opponentModule = [&]()
     {
         bbModule = new BananaBrain();
@@ -192,10 +191,47 @@ TEST(BananaBrain, BBS)
 {
     BWTest test;
     test.opponentRace = BWAPI::Races::Terran;
+    test.map = Maps::GetOne("Outsider");
+    test.randomSeed = 37141;
+    test.frameLimit = 8000;
     test.opponentModule = []()
     {
         auto bbModule = new BananaBrain();
         bbModule->strategyName = TerranStrategy::kTvP_BBS;
+        return bbModule;
+    };
+
+    test.run();
+}
+
+TEST(BananaBrain, BenzeneFFE9Gate)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.map = Maps::GetOne("Benzene");
+    test.randomSeed = 37141;
+    test.frameLimit = 10000;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ProtossStrategy::kPvP_99Gate;
+        return bbModule;
+    };
+
+    test.run();
+}
+
+TEST(BananaBrain, BenzeneFFEProxy9Gate)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.map = Maps::GetOne("Benzene");
+    test.randomSeed = 37141;
+    test.frameLimit = 10000;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ProtossStrategy::kPvP_99ProxyGate;
         return bbModule;
     };
 
@@ -242,9 +278,9 @@ TEST(BananaBrain, Robo)
 {
     BWTest test;
     test.opponentName = "BananaBrain";
-    test.map = Maps::GetOne("Fighting");
+    test.map = Maps::GetOne("Eclipse");
     test.randomSeed = 45417;
-    test.frameLimit = 15000;
+    test.frameLimit = 12000;
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
@@ -286,6 +322,22 @@ TEST(BananaBrain, NZCoreDt)
     {
         auto bbModule = new BananaBrain();
         bbModule->strategyName = ProtossStrategy::kPvP_NZCoreDt;
+        return bbModule;
+    };
+
+    test.run();
+}
+
+TEST(BananaBrain, Random)
+{
+    BWTest test;
+    test.opponentName = "BananaBrain";
+    test.opponentRace = BWAPI::Races::Random;
+    test.maps = Maps::Get("cog");
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+//        bbModule->strategyName = ProtossStrategy::kPvP_NZCore;
         return bbModule;
     };
 

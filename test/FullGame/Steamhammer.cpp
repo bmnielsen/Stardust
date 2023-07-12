@@ -10,7 +10,7 @@ TEST(Steamhammer, RunThirty)
     {
         BWTest test;
         test.opponentName = "Steamhammer";
-        test.opponentRace = BWAPI::Races::Zerg;
+        test.opponentRace = BWAPI::Races::Random;
         test.maps = Maps::Get("cog2022");
         test.opponentModule = []()
         {
@@ -342,7 +342,7 @@ TEST(Steamhammer, 11HatchTurtleLurker)
 {
     BWTest test;
     test.opponentName = "Steamhammer";
-    test.map = Maps::GetOne("Heartbreak Ridge");
+    test.map = Maps::GetOne("Outsider");
     test.randomSeed = 9020;
     test.opponentRace = BWAPI::Races::Zerg;
     test.opponentModule = []()
@@ -652,6 +652,42 @@ TEST(Steamhammer, SCVRush)
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
         Config::StardustTestStrategyName = "SCVRush";
+        return module;
+    };
+
+    test.run();
+}
+
+TEST(Steamhammer, MatchPointRandom)
+{
+    BWTest test;
+    test.opponentName = "Steamhammer";
+    test.opponentRace = BWAPI::Races::Random;
+    test.randomSeed = 63033;
+    test.map = Maps::GetOne("MatchPoint");
+    test.frameLimit = 10000;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "Sparkle 1HatchMuta";
+        return module;
+    };
+
+    test.run();
+}
+
+TEST(Steamhammer, NeoSylphidRandomProtoss)
+{
+    BWTest test;
+    test.opponentName = "Steamhammer";
+    test.opponentRace = BWAPI::Races::Random;
+    test.randomSeed = 89034;
+    test.map = Maps::GetOne("Sylphid");
+    test.frameLimit = 10000;
+    test.opponentModule = []()
+    {
+        auto module = new UAlbertaBot::UAlbertaBotModule();
+        Config::StardustTestStrategyName = "9-9Gate";
         return module;
     };
 
