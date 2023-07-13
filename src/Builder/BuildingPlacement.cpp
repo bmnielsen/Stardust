@@ -86,9 +86,7 @@ namespace BuildingPlacement
         {
             if (!forgeGatewayWall)
             {
-                forgeGatewayWall = std::make_unique<ForgeGatewayWall>(createForgeGatewayWall(
-                        BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran && BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss,
-                        Map::getMyMain()));
+                forgeGatewayWall = std::make_unique<ForgeGatewayWall>(createForgeGatewayWall(true, Map::getMyMain()));
 
                 if (forgeGatewayWall->isValid())
                 {

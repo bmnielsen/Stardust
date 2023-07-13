@@ -396,7 +396,16 @@ namespace BuildingPlacement
             {
                 for (int i = 0; i < building.tileWidth(); i++)
                 {
+#if DEBUG_PLACEMENT
+                    auto tile = BWAPI::TilePosition(x - i, y);
+                    auto result = tiles.insert(tile);
+                    if (result.second && tile.isValid() && buildable(building, tile))
+                    {
+                        Log::Debug() << building << " option at " << tile << ": blocked above " << BWAPI::TilePosition(x, y);
+                    }
+#else
                     tiles.insert(BWAPI::TilePosition(x - i, y));
+#endif
                 }
             }
 
@@ -406,7 +415,16 @@ namespace BuildingPlacement
             {
                 for (int i = 0; i < building.tileHeight(); i++)
                 {
+#if DEBUG_PLACEMENT
+                    auto tile = BWAPI::TilePosition(x, y - i);
+                    auto result = tiles.insert(tile);
+                    if (result.second && tile.isValid() && buildable(building, tile))
+                    {
+                        Log::Debug() << building << " option at " << tile << ": blocked on left " << BWAPI::TilePosition(x, y);
+                    }
+#else
                     tiles.insert(BWAPI::TilePosition(x, y - i));
+#endif
                 }
             }
 
@@ -418,7 +436,16 @@ namespace BuildingPlacement
                 int thisY = y - building.tileHeight() + 1;
                 for (int i = 0; i < building.tileWidth(); i++)
                 {
+#if DEBUG_PLACEMENT
+                    auto tile = BWAPI::TilePosition(x - i, thisY);
+                    auto result = tiles.insert(tile);
+                    if (result.second && tile.isValid() && buildable(building, tile))
+                    {
+                        Log::Debug() << building << " option at " << tile << ": blocked on bottom " << BWAPI::TilePosition(x, y);
+                    }
+#else
                     tiles.insert(BWAPI::TilePosition(x - i, thisY));
+#endif
                 }
             }
 
@@ -430,7 +457,16 @@ namespace BuildingPlacement
                 int thisX = x - building.tileWidth() + 1;
                 for (int i = 0; i < building.tileHeight(); i++)
                 {
+#if DEBUG_PLACEMENT
+                    auto tile = BWAPI::TilePosition(thisX, y - i);
+                    auto result = tiles.insert(tile);
+                    if (result.second && tile.isValid() && buildable(building, tile))
+                    {
+                        Log::Debug() << building << " option at " << tile << ": blocked on right " << BWAPI::TilePosition(x, y);
+                    }
+#else
                     tiles.insert(BWAPI::TilePosition(thisX, y - i));
+#endif
                 }
             }
 
@@ -439,13 +475,7 @@ namespace BuildingPlacement
             {
                 if (!tile.isValid()) continue;
                 if (!buildable(building, tile)) continue;
-
-#if DEBUG_PLACEMENT
-                auto result = buildingOptions.insert(tile);
-                if (result.second) Log::Debug() << building << " option at " << tile;
-#else
                 buildingOptions.insert(tile);
-#endif
             }
         }
 
