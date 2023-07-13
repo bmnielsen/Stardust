@@ -18,10 +18,7 @@ public:
         if (dragoon) movableUnitCallback(dragoon);
     }
 
-    void addUnit(const MyUnit &unit) override
-    {
-        dragoon = unit;
-    }
+    void addUnit(const MyUnit &unit) override;
 
     void removeUnit(const MyUnit &unit) override
     {
