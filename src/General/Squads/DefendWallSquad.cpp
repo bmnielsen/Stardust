@@ -2,6 +2,7 @@
 
 #include "BuildingPlacement.h"
 #include "Units.h"
+#include "UnitUtil.h"
 #include "Map.h"
 
 DefendWallSquad::DefendWallSquad()
@@ -18,11 +19,20 @@ DefendWallSquad::DefendWallSquad()
 
 void DefendWallSquad::execute(UnitCluster &cluster)
 {
+    auto combatUnitSeenRecentlyPredicate = [](const Unit &unit)
+    {
+        if (!unit->type.isBuilding() && unit->lastSeen < (currentFrame - 48)) return false;
+        if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (currentFrame - 120)) return false;
+        if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) return false;
+
+        return true;
+    };
+
     // Gather all enemy units in our main or natural area or close to the wall center
     std::set<Unit> enemyUnits;
-    Units::enemyInRadius(enemyUnits, targetPosition, 240);
-    for (const auto &area : Map::getMyMainAreas()) Units::enemyInArea(enemyUnits, area);
-    Units::enemyInArea(enemyUnits, Map::getMyNatural()->getArea());
+    Units::enemyInRadius(enemyUnits, targetPosition, 240, combatUnitSeenRecentlyPredicate);
+    for (const auto &area : Map::getMyMainAreas()) Units::enemyInArea(enemyUnits, area, combatUnitSeenRecentlyPredicate);
+    Units::enemyInArea(enemyUnits, Map::getMyNatural()->getArea(), combatUnitSeenRecentlyPredicate);
 
     // Remove enemy units that are outside and not close to the wall
     for (auto it = enemyUnits.begin(); it != enemyUnits.end(); )
