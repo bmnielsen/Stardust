@@ -139,23 +139,6 @@ namespace
                           + UnitUtil::BuildTime(unitType)
                           + lowestTravelTime;
 
-        // If our scout is still active, use scouted unit information as well
-        if (Map::getEnemyStartingMain() && !Strategist::isWorkerScoutComplete())
-        {
-            auto timings = Units::getEnemyUnitTimings(unitType);
-            if (timings.empty())
-            {
-                // Haven't seen a unit yet, compute the time if some completed now
-                arrivalTime = std::max(arrivalTime, currentFrame + lowestTravelTime);
-            }
-            else
-            {
-                // Base off of the time we saw the first unit and assume it was close to the enemy main
-                // If we didn't get a scout in the base early enough to see a unit, we would have overbuilt cannons anyway
-                arrivalTime = std::max(arrivalTime, timings.begin()->second + lowestTravelTime);
-            }
-        }
-
         CherryVis::setBoardValue("worstCaseEnemyArrival", (std::ostringstream() << arrivalTime).str());
 
         return arrivalTime;
