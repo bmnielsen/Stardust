@@ -278,8 +278,8 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 case ProtossStrategy::EarlyForge:
                 case ProtossStrategy::NoZealotCore:
                 case ProtossStrategy::OneZealotCore:
-                    break;
                 case ProtossStrategy::FastExpansion:
+                    break;
                 case ProtossStrategy::DragoonAllIn:
                 case ProtossStrategy::DarkTemplarRush:
                 case ProtossStrategy::EarlyRobo:
