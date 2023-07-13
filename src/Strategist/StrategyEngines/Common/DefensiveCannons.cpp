@@ -87,6 +87,7 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
         auto buildAtBase = [&buildCannonAt](Base *base, int count = 1)
         {
             if (!base || base->owner != BWAPI::Broodwar->self()) return;
+            if (!base->resourceDepot || !base->resourceDepot->completed) return;
 
             auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
             if (baseStaticDefenseLocations.isValid())
