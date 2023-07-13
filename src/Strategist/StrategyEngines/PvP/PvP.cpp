@@ -46,7 +46,7 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
 
         auto opening = Opponent::selectOpeningUCB1(
                 {
-                        OurStrategyNames[OurStrategy::EarlyGameDefense],
+//                        OurStrategyNames[OurStrategy::EarlyGameDefense],
                         OurStrategyNames[OurStrategy::ForgeExpandDT]
                 });
         if (opening == OurStrategyNames[OurStrategy::ForgeExpandDT] && BuildingPlacement::hasForgeGatewayWall())
@@ -125,8 +125,9 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         {
             case OurStrategy::ForgeExpandDT:
             {
-                // Attack when we have goon range
-                defendOurMain = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0);
+                // Attack when we have goon range and a completed DT
+                defendOurMain = (Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) == 0) ||
+                                (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0);
                 break;
             }
 
@@ -355,14 +356,14 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             // Get a DT at a timing that can be used to discourage a dragoon all-in
-            if (currentFrame < 10000 && Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) == 0)
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) == 0)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                         "SE",
                         BWAPI::UnitTypes::Protoss_Dark_Templar,
                         1,
                         1,
-                                                                         9000 - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar));
+                        9000 - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar));
             }
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
