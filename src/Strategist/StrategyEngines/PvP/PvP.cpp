@@ -335,6 +335,22 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1);
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
 
+            // Keep a single zealot once we have a gateway until we are ready for dragoons
+            if (zealotCount == 0 && Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) > 0
+                && Units::countAll(BWAPI::UnitTypes::Protoss_Gateway) > 0
+                && Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) == 0)
+            {
+                auto incompleteCyberCore = Units::allMineIncompleteOfType(BWAPI::UnitTypes::Protoss_Cybernetics_Core);
+                if (incompleteCyberCore.empty() || (*incompleteCyberCore.begin())->estimatedCompletionFrame > (currentFrame + 250))
+                {
+                    prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                             "SE",
+                                                                             BWAPI::UnitTypes::Protoss_Zealot,
+                                                                             1,
+                                                                             1);
+                }
+            }
+
             // Get a DT at a timing that can be used to discourage a dragoon all-in
             // We push back the timing if the enemy has already taken their natural
             auto dtTiming = 9000;
