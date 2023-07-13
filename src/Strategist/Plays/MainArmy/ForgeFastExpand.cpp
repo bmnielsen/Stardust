@@ -542,6 +542,9 @@ void ForgeFastExpand::update()
     auto &wall = BuildingPlacement::getForgeGatewayWall();
 
     // Update the current state
+#if INSTRUMENTATION_ENABLED
+    auto previousState = currentState;
+#endif
     switch (currentState)
     {
         case State::STATE_PYLON_PENDING:
@@ -634,6 +637,10 @@ void ForgeFastExpand::update()
             }
             break;
     }
+
+#if INSTRUMENTATION_ENABLED
+    if (currentState != previousState) CherryVis::log() << "ForgeFastExpand: State transition from " << previousState << " to " << currentState;
+#endif
 }
 
 void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)

@@ -35,4 +35,37 @@ private:
     State currentState;
     std::shared_ptr<DefendWallSquad> squad;
     std::unique_ptr<WorkerDefenseSquad> mainBaseWorkerDefenseSquad;
+
+    friend std::ostream &operator<<(std::ostream &out, const State &s)
+    {
+        switch (s)
+        {
+            case State::STATE_PYLON_PENDING:
+                out << "STATE_PYLON_PENDING";
+                break;
+            case State::STATE_FORGE_PENDING:
+                out << "STATE_FORGE_PENDING";
+                break;
+            case State::STATE_NEXUS_PENDING:
+                out << "STATE_NEXUS_PENDING";
+                break;
+            case State::STATE_GATEWAY_PENDING:
+                out << "STATE_GATEWAY_PENDING";
+                break;
+            case State::STATE_FINISHED:
+                out << "STATE_FINISHED";
+                break;
+            case State::STATE_ANTIFASTRUSHZERG:
+                out << "STATE_ANTIFASTRUSHZERG";
+                break;
+            case State::STATE_ANTIFASTRUSH_GATEWAY_PENDING:
+                out << "STATE_ANTIFASTRUSH_GATEWAY_PENDING";
+                break;
+            case State::STATE_ANTIFASTRUSH_NEXUS_PENDING:
+                out << "STATE_ANTIFASTRUSH_NEXUS_PENDING";
+                break;
+        }
+        return out;
+    };
+
 };
