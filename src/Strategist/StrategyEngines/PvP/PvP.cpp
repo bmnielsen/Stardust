@@ -335,14 +335,18 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1);
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
 
-            if (currentFrame < 10000 && Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) == 0)
+            // Get a DT at a timing that can be used to discourage a dragoon all-in
+            // We push back the timing if the enemy has already taken their natural
+            auto dtTiming = 9000;
+            if (Map::getEnemyBases().size() > 1) dtTiming = 10000;
+            if (currentFrame < dtTiming && Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) == 0)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                         "SE",
                         BWAPI::UnitTypes::Protoss_Dark_Templar,
                         1,
                         1,
-                        9000 - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar));
+                        dtTiming - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar));
             }
 
             break;
