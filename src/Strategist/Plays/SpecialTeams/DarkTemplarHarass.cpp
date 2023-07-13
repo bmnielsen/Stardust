@@ -101,17 +101,14 @@ namespace
 
         int bestDist = INT_MAX;
         Base *bestBase = nullptr;
-        bool bestBaseHasWorkers = false;
         for (auto base : harassableBases)
         {
-            if (bestBaseHasWorkers && !base.second) continue;
-
             int dist = unit->getDistance(base.first->getPosition());
-            if (dist < bestDist || (!bestBaseHasWorkers && base.second))
+            if (!base.second) dist *= 2; // Penalize bases without workers
+            if (dist < bestDist)
             {
                 bestDist = dist;
                 bestBase = base.first;
-                bestBaseHasWorkers = base.second;
             }
         }
 
