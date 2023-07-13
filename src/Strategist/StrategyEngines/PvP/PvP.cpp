@@ -336,7 +336,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
 
             // Keep a single zealot once we have a gateway until we are ready for dragoons
-            if (zealotCount == 0 && Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) > 0
+            if (zealotCount == 0
                 && Units::countAll(BWAPI::UnitTypes::Protoss_Gateway) > 0
                 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) == 0)
             {
