@@ -1,4 +1,4 @@
-#include "..\McRave.h"
+#include "../McRave.h"
 
 using namespace BWAPI;
 using namespace std;

@@ -1,4 +1,4 @@
-#include "..\McRave\McRave.h"
+#include "../McRave/McRave.h"
 
 using namespace BWAPI;
 using namespace std;
@@ -52,7 +52,7 @@ namespace McRave::Horizon {
         if (!unit.hasTarget())
             return;
 
-        auto &unitTarget = unit.getTarget().lock();
+        auto unitTarget = unit.getTarget().lock();
         const auto unitToEngage = unit.getSpeed() > 0.0 ? unit.getEngDist() / (24.0 * unit.getSpeed()) : 5.0;
         const auto simulationTime = unitToEngage + 5.0 + addPrepTime(unit);
         const auto targetDisplacement = unitToEngage * unitTarget->getSpeed() * 24.0;
@@ -63,7 +63,7 @@ namespace McRave::Horizon {
             if (!addToSim(enemy))
                 continue;
 
-            auto &enemyTarget =                 enemy.getTarget().lock();
+            auto enemyTarget =                 enemy.getTarget().lock();
             auto simRatio =                     0.0;
             const auto distTarget =             max(0.0, double(Util::boxDistance(enemy.getType(), enemy.getPosition(), unit.getType(), unit.getPosition())) - targetDisplacement);
             const auto distEngage =             max(0.0, double(Util::boxDistance(enemy.getType(), enemy.getPosition(), unit.getType(), unit.getEngagePosition())) - targetDisplacement);
@@ -111,7 +111,7 @@ namespace McRave::Horizon {
             if (!addToSim(self))
                 continue;
 
-            auto &selfTarget = self.getTarget().lock();
+            auto selfTarget = self.getTarget().lock();
             const auto range = max(self.getAirRange(), self.getGroundRange());
             const auto reach = max(self.getAirReach(), self.getGroundReach());
             const auto distance = double(Util::boxDistance(self.getType(), self.getPosition(), unitTarget->getType(), unitTarget->getPosition()));
@@ -137,7 +137,7 @@ namespace McRave::Horizon {
             if (!addToSim(ally))
                 continue;
 
-            auto &allyTarget = ally.getTarget().lock();
+            auto allyTarget = ally.getTarget().lock();
             const auto range = max(ally.getAirRange(), ally.getGroundRange());
             const auto reach = max(ally.getAirReach(), ally.getGroundReach());
             const auto distance = double(Util::boxDistance(ally.getType(), ally.getPosition(), unit.getType(), unitTarget->getPosition()));

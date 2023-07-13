@@ -662,7 +662,7 @@ namespace McRave::Command {
                 score = 1.0 / (dist);
 
             for (auto &c : unit.getAssignedCargo()) {
-                if (auto &cargo = c.lock()) {
+                if (auto cargo = c.lock()) {
 
                     // If we just dropped units, we need to make sure not to leave them
                     if (unit.getTransportState() == TransportState::Monitoring) {

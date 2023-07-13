@@ -445,7 +445,8 @@ namespace McRave::Scouts {
             }
         }
 
-        constexpr tuple commands{ Command::attack, Command::kite, Command::explore, Command::move };
+        constexpr tuple<bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&)>
+                commands{ Command::attack, Command::kite, Command::explore, Command::move };
         void updateDecision(UnitInfo& unit)
         {
             // Convert our commands to strings to display what the unit is doing for debugging

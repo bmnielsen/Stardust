@@ -33,7 +33,7 @@ namespace McRave::Planning {
 
         bool creepOrPowerReadyOnArrival(UnitType building, TilePosition here, UnitInfo& builder)
         {
-            const auto adjacentToHatch = [&](auto &hatch) {
+            const auto adjacentToHatch = [&](auto hatch) {
                 return (here.x - hatch.x >= -2 && here.x - hatch.x <= 4 && here.y - hatch.y >= -2 && here.y - hatch.y <= 3);
             };
 
@@ -816,7 +816,7 @@ namespace McRave::Planning {
                 return;
             auto start = Position(BWEB::Map::getMainChoke()->Center());
 
-            const auto reachable = [&](auto &pos) {
+            const auto reachable = [&](auto pos) {
                 auto newPath = BWEB::Path(start, pos, Zerg_Drone);
                 newPath.generateJPS([&](const TilePosition &t) { return newPath.unitWalkable(t); });
                 return newPath.isReachable();

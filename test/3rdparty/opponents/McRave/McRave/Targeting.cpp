@@ -62,8 +62,8 @@ namespace McRave::Targets {
             if (target.movedFlag)
                 return false;
 
-            auto &enemyStrength = Players::getStrength(PlayerState::Enemy);
-            auto &myStrength = Players::getStrength(PlayerState::Self);
+            auto enemyStrength = Players::getStrength(PlayerState::Enemy);
+            auto myStrength = Players::getStrength(PlayerState::Self);
 
             bool targetCanAttack = !unit.isHidden() && (((unit.getType().isFlyer() && target.getAirDamage() > 0.0) || (!unit.getType().isFlyer() && target.canAttackGround()) || (!unit.getType().isFlyer() && target.getType() == Terran_Vulture_Spider_Mine)));
             bool unitCanAttack = !target.isHidden() && ((target.isFlying() && unit.getAirDamage() > 0.0) || (!target.isFlying() && unit.canAttackGround()) || (unit.getType() == Protoss_Carrier));
@@ -473,7 +473,7 @@ namespace McRave::Targets {
 
             // Enemy units are assumed targets or order targets
             if (unit.getPlayer()->isEnemy(Broodwar->self())) {
-                auto &targetInfo = unit.unit()->getOrderTarget() ? Units::getUnitInfo(unit.unit()->getOrderTarget()) : nullptr;
+                auto targetInfo = unit.unit()->getOrderTarget() ? Units::getUnitInfo(unit.unit()->getOrderTarget()) : nullptr;
                 if (targetInfo) {
                     unit.setTarget(&*targetInfo);
                     targetInfo->getUnitsTargetingThis().push_back(unit.weak_from_this());

@@ -8,7 +8,7 @@ namespace McRave::Support {
 
     namespace {
 
-        constexpr tuple commands{ Command::misc, Command::special, Command::escort };
+        constexpr tuple<bool(*)(UnitInfo&),bool(*)(UnitInfo&),bool(*)(UnitInfo&)> commands{ Command::misc, Command::special, Command::escort };
 
         set<Position> assignedOverlords;
 

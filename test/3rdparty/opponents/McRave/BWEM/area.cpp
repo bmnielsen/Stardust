@@ -18,7 +18,7 @@
 #include "winutils.h"
 #include "bwapiExt.h"
 
-#include "BaseFinder\BaseFinder.h"
+#include "BaseFinder/BaseFinder.h"
 
 using namespace BWAPI;
 using namespace BWAPI::UnitTypes::Enum;

@@ -18,7 +18,7 @@ namespace McRave::Expansion {
             for (auto &station : BWEB::Stations::getStations()) {
                 auto& path = expansionNetwork[Terrain::getMyMain()][&station];
                 if (!path.getTiles().empty()) {
-                    auto danger = Util::findPointOnPath(path, [&](auto &p) {
+                    auto danger = Util::findPointOnPath(path, [&](const auto &p) {
                         return Terrain::inTerritory(PlayerState::Enemy, p);
                     });
 
@@ -48,7 +48,7 @@ namespace McRave::Expansion {
             blockingNeutrals.clear();
             for (auto &[station, path] : expansionNetwork[Terrain::getMyMain()]) {
                 Visuals::drawPath(path);
-                Util::testPointOnPath(path, [&](Position &p) {
+                Util::testPointOnPath(path, [&](const Position &p) {
                     auto type = BWEB::Map::isUsed(TilePosition(p));
                     if (type != UnitTypes::None) {
                         const auto closestNeutral = Util::getClosestUnit(p, PlayerState::Neutral, [&](auto &u) {

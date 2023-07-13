@@ -1,6 +1,8 @@
 #pragma once
 #include <BWAPI.h>
 
+using namespace BWAPI;
+
 namespace McRave::Util {
 
     const BWEM::ChokePoint * getClosestChokepoint(BWAPI::Position);

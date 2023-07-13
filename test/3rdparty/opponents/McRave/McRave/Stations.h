@@ -38,7 +38,7 @@ namespace McRave::Stations
 
     template<typename F>
     BWEB::Station* getClosestStationAir(BWAPI::Position here, PlayerState player, F &&pred) {
-        auto &list = getStations(player);
+        const auto &list = getStations(player);
         auto distBest = DBL_MAX;
         BWEB::Station * closestStation = nullptr;
         for (auto &station : list) {
@@ -59,7 +59,7 @@ namespace McRave::Stations
 
     template<typename F>
     BWEB::Station* getClosestStationGround(BWAPI::Position here, PlayerState player, F &&pred) {
-        auto &list = getStations(player);
+        const auto &list = getStations(player);
         auto distBest = DBL_MAX;
         BWEB::Station * closestStation = nullptr;
         for (auto &station : list) {

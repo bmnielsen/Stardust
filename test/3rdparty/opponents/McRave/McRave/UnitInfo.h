@@ -329,11 +329,11 @@ namespace McRave {
         void setSimState(SimState newState) { sState = newState; }
         void setGlobalState(GlobalState newState) { gState = newState; }
         void setLocalState(LocalState newState) { lState = newState; }
-        void setResource(ResourceInfo* unit) { unit ? resource = unit->weak_from_this() : resource.reset(); }
-        void setTransport(UnitInfo* unit) { unit ? transport = unit->weak_from_this() : transport.reset(); }
-        void setTarget(UnitInfo* unit) { unit ? target = unit->weak_from_this() : target.reset(); }
-        void setCommander(UnitInfo* unit) { unit ? commander = unit->weak_from_this() : commander.reset(); }
-        void setSimTarget(UnitInfo* unit) { unit ? simTarget = unit->weak_from_this() : simTarget.reset(); }
+        void setResource(ResourceInfo* unit) { if (unit) resource = unit->weak_from_this(); else resource.reset(); }
+        void setTransport(UnitInfo* unit) { if (unit) transport = unit->weak_from_this(); else transport.reset(); }
+        void setTarget(UnitInfo* unit) { if (unit) target = unit->weak_from_this(); else target.reset(); }
+        void setCommander(UnitInfo* unit) { if (unit) commander = unit->weak_from_this(); else commander.reset(); }
+        void setSimTarget(UnitInfo* unit) { if (unit) simTarget = unit->weak_from_this(); else simTarget.reset(); }
         void setRole(Role newRole) { role = newRole; }
         void setGoalType(GoalType newGoalType) { gType = newGoalType; }
         void setBuildingType(BWAPI::UnitType newType) { buildingType = newType; }

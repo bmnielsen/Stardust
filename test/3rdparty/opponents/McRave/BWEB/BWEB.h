@@ -1,5 +1,6 @@
 #pragma once
 #include <BWAPI.h>
+#include <cfloat>
 #include <bwem.h>
 #include "Block.h"
 #include "PathFind.h"
