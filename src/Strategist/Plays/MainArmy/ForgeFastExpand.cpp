@@ -490,6 +490,10 @@ namespace
         {
             baseFrame -= 500;
         }
+        else if (Strategist::isEnemyStrategy(PvP::ProtossStrategy::ZealotAllIn))
+        {
+            baseFrame += 500;
+        }
         else if (!Strategist::isEnemyStrategy(PvP::ProtossStrategy::ZealotRush) &&
             !Strategist::isEnemyStrategy(PvT::TerranStrategy::MarineRush))
         {
@@ -564,7 +568,7 @@ void ForgeFastExpand::update()
         case State::STATE_NEXUS_PENDING:
         {
             auto natural = Map::getMyNatural();
-            if (Strategist::getStrategyEngine()->isEnemyRushing())
+            if (Strategist::getStrategyEngine()->isEnemyRushing() || Strategist::isEnemyStrategy(PvP::ProtossStrategy::ZealotAllIn))
             {
                 Builder::cancelBase(natural);
 
@@ -588,7 +592,7 @@ void ForgeFastExpand::update()
         case State::STATE_GATEWAY_PENDING:
         {
             auto natural = Map::getMyNatural();
-            if (Strategist::getStrategyEngine()->isEnemyRushing())
+            if (Strategist::getStrategyEngine()->isEnemyRushing() || Strategist::isEnemyStrategy(PvP::ProtossStrategy::ZealotAllIn))
             {
                 Builder::cancelBase(natural);
 
