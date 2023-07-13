@@ -10,17 +10,15 @@
 
 #include <chrono>
 
-#if INSTRUMENTATION_ENABLED
-#define DEBUG_WRITE_SUBGOALS false
-#define OUTPUT_BUILD_QUEUE false
+#if INSTRUMENTATION_ENABLED_VERBOSE
+#define DEBUG_WRITE_SUBGOALS true
+#define OUTPUT_BUILD_QUEUE true
 #endif
 
 namespace Producer
 {
-#ifndef DEBUG
     namespace
     {
-#endif
         const double MINERALS_PER_WORKER_FRAME = 0.0465;
         const double GAS_PER_WORKER_FRAME = 0.071;
         const double MINERALS_PER_GAS_UNIT = 0.655;
@@ -2028,10 +2026,7 @@ namespace Producer
                 resolveResourceBlocks(*prerequisiteItems.begin(), emptyPrerequisites, true);
             }
         }
-
-#ifndef DEBUG
     }
-#endif
 
     void update()
     {
@@ -2090,6 +2085,14 @@ namespace Producer
             write(committedItems, (std::ostringstream() << "producergoal" << count).str());
 #endif
         }
+
+#if DEBUG_WRITE_SUBGOALS
+        std::vector<std::string> emptyValues;
+        for (; count < 30; count++)
+        {
+            CherryVis::setBoardListValue((std::ostringstream() << "producergoal" << count).str(), emptyValues);
+        }
+#endif
 
         if (!hasUnlimitedGasGoal)
         {
