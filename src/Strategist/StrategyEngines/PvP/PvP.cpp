@@ -328,13 +328,6 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     {
         case OurStrategy::ForgeExpandDT:
         {
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                       "SE",
-                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                       -1,
-                                                                       -1);
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
-
             // Keep a single zealot once we have a gateway until we are ready for dragoons
             if (zealotCount == 0
                 && Units::countAll(BWAPI::UnitTypes::Protoss_Gateway) > 0
@@ -351,20 +344,33 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 }
             }
 
+            // First dragoon is important
+            if (dragoonCount == 0)
+            {
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "SE",
+                                                                         BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                         1,
+                                                                         1);
+            }
+
             // Get a DT at a timing that can be used to discourage a dragoon all-in
-            // We push back the timing if the enemy has already taken their natural
-            auto dtTiming = 9000;
-            if (Map::getEnemyBases().size() > 1) dtTiming = 10000;
-            if (currentFrame < dtTiming && Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) == 0)
+            if (currentFrame < 10000 && Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) == 0)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                         "SE",
                         BWAPI::UnitTypes::Protoss_Dark_Templar,
                         1,
                         1,
-                        dtTiming - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar));
+                                                                         9000 - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Dark_Templar));
             }
 
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
             break;
         }
         case OurStrategy::EarlyGameDefense:
