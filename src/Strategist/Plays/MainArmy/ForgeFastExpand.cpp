@@ -122,7 +122,7 @@ namespace
                                                          wall.gapCenter,
                                                          unitType,
                                                          PathFinding::PathFindingOptions::Default,
-                                                         1.2,
+                                                         1.1,
                                                          INT_MAX);
             if (frames < lowestTravelTime) lowestTravelTime = frames;
         }
