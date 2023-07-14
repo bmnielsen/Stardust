@@ -131,6 +131,22 @@ void MyUnitImpl::resetMoveData()
     gridNode = nullptr;
 }
 
+bool MyUnitImpl::hasReachedNextChoke() const
+{
+    if (chokePath.empty()) return false;
+
+    // Wait until the unit is close enough to the current target
+    if (bwapiUnit->getDistance(currentlyMovingTowards) > 100) return false;
+
+    // If the current target is a narrow ramp, wait until we can see the high elevation tile
+    // We want to make sure we go up the ramp far enough to see anything potentially blocking the ramp
+    auto choke = Map::choke(*chokePath.begin());
+    if (choke->isNarrowChoke && choke->isRamp && !BWAPI::Broodwar->isVisible(choke->highElevationTile))
+        return false;
+
+    return true;
+}
+
 void MyUnitImpl::moveToNextWaypoint()
 {
     // Current grid node is close to the target (approx. 3 tiles away)
@@ -234,6 +250,15 @@ void MyUnitImpl::moveToNextWaypoint()
         }
     }
 
+    // Check if we have arrived at the waypoint
+    // This might happen if the move is being initiated while we are very close to the choke
+    if (hasReachedNextChoke())
+    {
+        chokePath.pop_front();
+        moveToNextWaypoint();
+        return;
+    }
+
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(id) << "Order: Moving towards next choke @ " << BWAPI::WalkPosition(currentlyMovingTowards);
 #endif
@@ -301,19 +326,8 @@ void MyUnitImpl::updateMoveWaypoints()
         // In all other cases fall through - we do not have a valid grid node so we are navigating using choke points
     }
 
-    // We have choke points we can use for navigation
-    if (!chokePath.empty())
+    if (hasReachedNextChoke())
     {
-        // Wait until the unit is close enough to the current target
-        if (bwapiUnit->getDistance(currentlyMovingTowards) > 100) return;
-
-        // If the current target is a narrow ramp, wait until we can see the high elevation tile
-        // We want to make sure we go up the ramp far enough to see anything potentially blocking the ramp
-        auto choke = Map::choke(*chokePath.begin());
-        if (choke->isNarrowChoke && choke->isRamp && !BWAPI::Broodwar->isVisible(choke->highElevationTile))
-            return;
-
-        // Move to the next waypoint
         chokePath.pop_front();
         moveToNextWaypoint();
         return;

@@ -140,6 +140,8 @@ protected:
 
     virtual void resetMoveData();
 
+    bool hasReachedNextChoke() const;
+
     void moveToNextWaypoint();
 
     void updateMoveWaypoints();
