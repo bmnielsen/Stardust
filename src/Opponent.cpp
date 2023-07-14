@@ -344,7 +344,7 @@ namespace Opponent
         return (double)wins / (double)(wins + losses);
     }
 
-    std::string selectOpeningUCB1(const std::set<std::string> &openings, double decayFactor)
+    std::string selectOpeningUCB1(const std::vector<std::string> &openings, double decayFactor)
     {
         // Gather wins, losses, reward, and potential for previous games
         // To account for the opponent changing strategies, we weight recent results above older ones using the decay factor
