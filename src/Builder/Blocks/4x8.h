@@ -9,6 +9,10 @@ public:
 
     [[nodiscard]] int height() const override { return 8; }
 
+    [[nodiscard]] bool allowLeftEdge() const override { return false; }
+
+    [[nodiscard]] bool allowRightEdge() const override { return false; }
+
     std::shared_ptr<Block> tryCreate(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvailability) override
     {
         if (place(tile, tileAvailability))
