@@ -774,6 +774,15 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         case State::STATE_ANTIFASTRUSH_NEXUS_PENDING:
         {
             buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, cannonFrame);
+            if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss && Units::countAll(BWAPI::UnitTypes::Protoss_Zealot) == 0)
+            {
+                prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(
+                        std::in_place_type<UnitProductionGoal>,
+                        label,
+                        BWAPI::UnitTypes::Protoss_Zealot,
+                        1,
+                        1);
+            }
             handleNonZergRush(prioritizedProductionGoals);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 16);
