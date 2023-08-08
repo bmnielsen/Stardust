@@ -34,6 +34,7 @@ namespace BuildingPlacement
         std::set<BWAPI::TilePosition> wallTiles;
         std::set<BWAPI::TilePosition> reservedTiles;
         std::set<BWAPI::WalkPosition> neutralWalkTiles;
+        std::set<BWAPI::TilePosition> mineralFieldTiles;
 
         // Struct used when generating and scoring all of the forge + gateway options
         struct ForgeGatewayWallOption
@@ -119,6 +120,18 @@ namespace BuildingPlacement
                 {
                     if (!buildableTile(BWAPI::TilePosition(x, y))) return false;
                 }
+            }
+
+            // Also consider it not buildable if it is flush against one of the natural mineral fields
+            for (int y = 0; y < type.tileHeight(); y++)
+            {
+                if (mineralFieldTiles.find(tile + BWAPI::TilePosition(-1, y)) != mineralFieldTiles.end()) return false;
+                if (mineralFieldTiles.find(tile + BWAPI::TilePosition(type.tileWidth(), y)) != mineralFieldTiles.end()) return false;
+            }
+            for (int x = 0; x < type.tileWidth(); x++)
+            {
+                if (mineralFieldTiles.find(tile + BWAPI::TilePosition(x, -1)) != mineralFieldTiles.end()) return false;
+                if (mineralFieldTiles.find(tile + BWAPI::TilePosition(x, type.tileHeight())) != mineralFieldTiles.end()) return false;
             }
 
             return true;
@@ -1059,6 +1072,13 @@ namespace BuildingPlacement
                     }
                 }
             }
+
+            mineralFieldTiles.clear();
+            for (auto unit : natural->mineralPatches())
+            {
+                mineralFieldTiles.insert(unit->getTilePosition());
+                mineralFieldTiles.insert(unit->getTilePosition() + BWAPI::TilePosition(1, 0));
+            }
         }
 
         bool overlapsNaturalArea(BWAPI::TilePosition tile, BWAPI::UnitType building)
@@ -1869,7 +1889,7 @@ namespace BuildingPlacement
                 break;
             }
 
-            // Step 5: Analyze the wall geo and remove cannons overlapping probe blocking positions
+            // Step 6: Analyze the wall geo and remove cannons overlapping probe blocking positions
             analyzeWallGeo(bestWall);
             for (auto it = bestWall.cannons.begin(); it != bestWall.cannons.end(); )
             {
@@ -1883,7 +1903,7 @@ namespace BuildingPlacement
                 }
             }
 
-            // Step 6: Find remaining cannon positions (up to 6 in total)
+            // Step 7: Find remaining cannon positions (up to 6 in total)
 
             // Find location closest to the wall that is behind it
             // Only return powered buildings
@@ -1934,13 +1954,19 @@ namespace BuildingPlacement
             return mapSpecificWall;
         }
 
+        // Initialize reserved tiles
+        // These are tiles in the natural we don't want to block
+        reservedTiles.clear();
+        addBuildingToReservedTiles(natural->getTilePosition(), BWAPI::UnitTypes::Protoss_Nexus);
+
+        // Initialize pathfinding tiles
+        initializePathfindingTiles();
+
+        // Initialize neutrals that can be used in the wall
+        initializeNeutrals();
+
         // Select possible locations for the pylon that are close to the choke and provide natural cannon locations
         generatePylonOptions();
-        if (pylonOptions.empty())
-        {
-            Log::Get() << "Wall cannot be created; no pylon options";
-            return {};
-        }
 
 #if DEBUG_PLACEMENT
         Log::Debug() << "Pylon options:";
@@ -1955,17 +1981,6 @@ namespace BuildingPlacement
             Log::Debug() << out.str();
         }
 #endif
-
-        // Initialize reserved tiles
-        // These are tiles in the natural we don't want to block
-        reservedTiles.clear();
-        addBuildingToReservedTiles(natural->getTilePosition(), BWAPI::UnitTypes::Protoss_Nexus);
-
-        // Initialize pathfinding tiles
-        initializePathfindingTiles();
-
-        // Initialize neutrals that can be used in the wall
-        initializeNeutrals();
 
         // Create the wall
 #if DEBUG_PLACEMENT
