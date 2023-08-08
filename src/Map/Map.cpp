@@ -4,10 +4,8 @@
 #include "MapSpecificOverrides/Plasma.h"
 #include "MapSpecificOverrides/Alchemist.h"
 #include "MapSpecificOverrides/Outsider.h"
-#include "MapSpecificOverrides/NeoMoonGlaive.h"
 #include "MapSpecificOverrides/Destination.h"
-#include "MapSpecificOverrides/Python.h"
-#include "MapSpecificOverrides/TauCross.h"
+#include "MapSpecificOverrides/EmpireOfTheSun.h"
 #include "MapSpecificOverrides/MatchPoint.h"
 
 #include "Units.h"
@@ -940,37 +938,23 @@ namespace Map
             Log::Get() << "Using map-specific override for Outsider";
             _mapSpecificOverride = new Outsider();
         }
-        else if (BWAPI::Broodwar->mapHash() == "c8386b87051f6773f6b2681b0e8318244aa086a6" ||
-                 BWAPI::Broodwar->mapHash() == "4236df9e8edaea4614833dd0bf66c11e6dcadcc2")
-        {
-            Log::Get() << "Using map-specific override for Neo Moon Glaive";
-            _mapSpecificOverride = new NeoMoonGlaive();
-        }
         else if (BWAPI::Broodwar->mapHash() == "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b" ||
                  BWAPI::Broodwar->mapHash() == "e39c1c81740a97a733d227e238bd11df734eaf96")
         {
             Log::Get() << "Using map-specific override for Destination";
             _mapSpecificOverride = new Destination();
         }
-        else if (BWAPI::Broodwar->mapHash() == "de2ada75fbc741cfa261ee467bf6416b10f9e301" ||
-                 BWAPI::Broodwar->mapHash() == "db1d92e08b7b45abefc6da1cee9a9978c98ac3eb" ||
-                 BWAPI::Broodwar->mapHash() == "86afe0f744865befb15f65d47865f9216edc37e5" ||
-                 BWAPI::Broodwar->mapHash() == "466be924200fc61188f59bdf6ddeb949b42f5091")
-        {
-            Log::Get() << "Using map-specific override for Python";
-            _mapSpecificOverride = new Python();
-        }
-        else if (BWAPI::Broodwar->mapHash() == "9bfc271360fa5bab3707a29e1326b84d0ff58911" ||
-                 BWAPI::Broodwar->mapHash() == "85f6d2a51c1437a7e6743402614879e476c54de7")
-        {
-            Log::Get() << "Using map-specific override for Tau Cross";
-            _mapSpecificOverride = new TauCross();
-        }
         else if (BWAPI::Broodwar->mapHash() == "0a41f144c6134a2204f3d47d57cf2afcd8430841" ||
                  BWAPI::Broodwar->mapHash() == "7e14d53b944b1365973f2d8768c75358c6b28a8f")
         {
             Log::Get() << "Using map-specific override for Match Point";
             _mapSpecificOverride = new MatchPoint();
+        }
+        else if (BWAPI::Broodwar->mapHash() == "a220d93efdf05a439b83546a579953c63c863ca7" ||
+                 BWAPI::Broodwar->mapHash() == "38b6307d283a5ebc084822a08f932600f7f13588")
+        {
+            Log::Get() << "Using map-specific override for Empire of the Sun";
+            _mapSpecificOverride = new EmpireOfTheSun();
         }
         else
         {

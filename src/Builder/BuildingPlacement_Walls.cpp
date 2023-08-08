@@ -1948,10 +1948,13 @@ namespace BuildingPlacement
 
         // Map-specific hard-coded walls
         auto mapSpecificWall = Map::mapSpecificOverride()->getWall(base->getTilePosition());
-        if (mapSpecificWall.isValid())
+        if (mapSpecificWall)
         {
-            analyzeWallGeo(mapSpecificWall);
-            return mapSpecificWall;
+            if (mapSpecificWall->isValid())
+            {
+                analyzeWallGeo(*mapSpecificWall);
+            }
+            return *mapSpecificWall;
         }
 
         // Initialize reserved tiles

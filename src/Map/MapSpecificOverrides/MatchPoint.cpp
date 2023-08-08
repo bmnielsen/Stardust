@@ -1,6 +1,6 @@
 #include "MatchPoint.h"
 
-ForgeGatewayWall MatchPoint::getWall(BWAPI::TilePosition startTile)
+std::optional<ForgeGatewayWall> MatchPoint::getWall(BWAPI::TilePosition startTile)
 {
     // BWEM doesn't generate a choke at the natural for Match Point, so we define the wall manually
     if (startTile.x != 100 || startTile.y != 14) return {};

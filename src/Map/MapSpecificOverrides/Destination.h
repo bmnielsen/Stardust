@@ -5,5 +5,5 @@
 class Destination : public MapSpecificOverride
 {
 public:
-    virtual ForgeGatewayWall getWall(BWAPI::TilePosition startTile) override;
+    virtual std::optional<ForgeGatewayWall> getWall(BWAPI::TilePosition startTile) override;
 };
