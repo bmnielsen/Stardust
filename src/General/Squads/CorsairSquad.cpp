@@ -9,7 +9,11 @@
 #include "DebugFlag_CombatSim.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
-#define DEBUG_CORSAIR_TARGET_SELECTION false
+#define CVIS_LOG_TARGET_SELECTION false
+#endif
+
+#if INSTRUMENTATION_ENABLED
+#define CVIS_BOARD_VALUE true
 #endif
 
 namespace
@@ -377,7 +381,7 @@ void CorsairSquad::execute()
     if (remainingClusters.empty())
     {
         ensureTargetPosition(Map::getEnemyStartingMain()->getPosition());
-#if CHERRYVIS_ENABLED
+#if CVIS_BOARD_VALUE
         CherryVis::setBoardValue("corsairs", "early-game-scout");
 #endif
         return;
@@ -393,21 +397,21 @@ void CorsairSquad::execute()
     {
         if (!unit->lastPositionValid)
         {
-#if DEBUG_CORSAIR_TARGET_SELECTION
+#if CVIS_LOG_TARGET_SELECTION
             CherryVis::log(unit->id) << "!LPV";
 #endif
             continue;
         }
         if (!unit->isFlying)
         {
-#if DEBUG_CORSAIR_TARGET_SELECTION
+#if CVIS_LOG_TARGET_SELECTION
             CherryVis::log(unit->id) << "!flying";
 #endif
             continue;
         }
         if (!unit->isAttackable())
         {
-#if DEBUG_CORSAIR_TARGET_SELECTION
+#if CVIS_LOG_TARGET_SELECTION
             CherryVis::log(unit->id) << "!attackable";
 #endif
             continue;
@@ -417,7 +421,7 @@ void CorsairSquad::execute()
         // 1 minute threshold for overlords, 5 seconds for all other targets
         if (unit->lastSeen < (currentFrame - (unit->type == BWAPI::UnitTypes::Zerg_Overlord ? 1440 : 120)))
         {
-#if DEBUG_CORSAIR_TARGET_SELECTION
+#if CVIS_LOG_TARGET_SELECTION
             CherryVis::log(unit->id) << "last seen " << (currentFrame - unit->lastSeen) << " ago";
 #endif
             continue;
@@ -435,7 +439,7 @@ void CorsairSquad::execute()
                     threatenedBases[base].insert(unit);
                     matched = true;
 
-#if DEBUG_CORSAIR_TARGET_SELECTION
+#if CVIS_LOG_TARGET_SELECTION
                     CherryVis::log(unit->id) << "threatening " << BWAPI::WalkPosition(base->getPosition());
 #endif
                     break;
@@ -445,7 +449,7 @@ void CorsairSquad::execute()
 
             combatTargets.insert(unit);
 
-#if DEBUG_CORSAIR_TARGET_SELECTION
+#if CVIS_LOG_TARGET_SELECTION
             CherryVis::log(unit->id) << "combat (ground)";
 #endif
             continue;
@@ -456,7 +460,7 @@ void CorsairSquad::execute()
         {
             combatTargets.insert(unit);
 
-#if DEBUG_CORSAIR_TARGET_SELECTION
+#if CVIS_LOG_TARGET_SELECTION
             CherryVis::log(unit->id) << "combat (air)";
 #endif
             continue;
@@ -467,14 +471,14 @@ void CorsairSquad::execute()
         if (threat == 0)
         {
             vulnerableNonCombatTargets.insert(unit);
-#if DEBUG_CORSAIR_TARGET_SELECTION
+#if CVIS_LOG_TARGET_SELECTION
             CherryVis::log(unit->id) << "vulnerable non-combat";
 #endif
         }
         else
         {
             nonCombatTargets.insert(std::make_pair(threat, unit));
-#if DEBUG_CORSAIR_TARGET_SELECTION
+#if CVIS_LOG_TARGET_SELECTION
             CherryVis::log(unit->id) << "non-combat, defended by " << threat;
 #endif
         }
@@ -530,7 +534,7 @@ void CorsairSquad::execute()
         targets = threatenedBases[bestBase];
         ensureTargetPosition(bestBase->getPosition());
 
-#if CHERRYVIS_ENABLED
+#if CVIS_BOARD_VALUE
         CherryVis::setBoardValue("corsairs", (std::ostringstream() << "defend-" << bestBase->getTilePosition()).str());
 #endif
 
@@ -546,7 +550,7 @@ void CorsairSquad::execute()
         targets = combatTargets;
         ensureTargetPosition((Map::getEnemyMain() ? Map::getEnemyMain() : Map::getMyMain())->getPosition());
 
-#if CHERRYVIS_ENABLED
+#if CVIS_BOARD_VALUE
         CherryVis::setBoardValue("corsairs", "attack-combat");
 #endif
     }
@@ -556,7 +560,7 @@ void CorsairSquad::execute()
         targets = vulnerableNonCombatTargets;
         ensureTargetPosition((Map::getEnemyMain() ? Map::getEnemyMain() : Map::getMyMain())->getPosition());
 
-#if CHERRYVIS_ENABLED
+#if CVIS_BOARD_VALUE
         CherryVis::setBoardValue("corsairs", "attack-vulnerable");
 #endif
     }
@@ -566,7 +570,7 @@ void CorsairSquad::execute()
         auto pos = leastScoutedEnemyBase()->getPosition();
         ensureTargetPosition(pos);
 
-#if CHERRYVIS_ENABLED
+#if CVIS_BOARD_VALUE
         CherryVis::setBoardValue("corsairs", (std::ostringstream() << "scout-" << leastScoutedEnemyBase()->getTilePosition()).str());
 #endif
 
@@ -581,7 +585,7 @@ void CorsairSquad::execute()
         targets.insert(nonCombatTargets.begin()->second);
         ensureTargetPosition(nonCombatTargets.begin()->second->lastPosition);
 
-#if CHERRYVIS_ENABLED
+#if CVIS_BOARD_VALUE
         CherryVis::setBoardValue("corsairs",
                                  (std::ostringstream() << "attack-noncombat-" << nonCombatTargets.begin()->second->getTilePosition()).str());
 #endif
@@ -615,7 +619,7 @@ void CorsairSquad::execute()
 
         ensureTargetPosition(pos);
 
-#if CHERRYVIS_ENABLED
+#if CVIS_BOARD_VALUE
         CherryVis::setBoardValue("corsairs", (std::ostringstream() << "wait-" << BWAPI::WalkPosition(pos)).str());
 #endif
 

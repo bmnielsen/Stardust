@@ -259,7 +259,7 @@ void StardustAIModule::onFrame()
     Units::issueOrders();
     Timer::checkpoint("Units::issueOrders");
 
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
     auto enemyNatural = Map::getEnemyStartingNatural();
     if (enemyNatural && enemyNatural->resourceDepot && enemyNatural->resourceDepot->bwapiUnit->isVisible()
         && enemyNatural->resourceDepot->health > 100)

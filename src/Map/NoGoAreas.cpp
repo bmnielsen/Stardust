@@ -2,6 +2,10 @@
 
 #include "Geo.h"
 
+#if INSTRUMENTATION_ENABLED
+#define CVIS_HEATMAPS true
+#endif
+
 namespace
 {
     struct NoGoAreaExpiry
@@ -32,7 +36,7 @@ namespace
     // Writes the tile no go areas to CherryVis
     void dumpNoGoAreaTiles()
     {
-#if CHERRYVIS_ENABLED
+#if CVIS_HEATMAPS
         // Dump to CherryVis
         std::vector<long> noGoAreaTilesCVis(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
         for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)

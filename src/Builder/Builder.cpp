@@ -9,6 +9,10 @@
 
 #include "DebugFlag_UnitOrders.h"
 
+#if INSTRUMENTATION_ENABLED
+#define CVIS_BOARD_VALUE true
+#endif
+
 namespace Builder
 {
     namespace
@@ -35,7 +39,7 @@ namespace Builder
                 // Return immediately if issuing the build command succeeded
                 if (building.builder->build(building.type, building.tile))
                 {
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
                     Log::Debug() << "Issued successful build command for builder " << building.builder->id << " to build " << building;
 #endif
 
@@ -43,7 +47,7 @@ namespace Builder
                     return;
                 }
 
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
                 Log::Debug() << "Builder " << building.builder->id << " could not build " << building << ": " << BWAPI::Broodwar->getLastError();
 #endif
 
@@ -92,7 +96,7 @@ namespace Builder
 
         void writeInstrumentation()
         {
-#if CHERRYVIS_ENABLED
+#if CVIS_BOARD_VALUE
             std::vector<std::string> values;
             values.reserve(pendingBuildings.size());
             for (auto &pendingBuilding : pendingBuildings)

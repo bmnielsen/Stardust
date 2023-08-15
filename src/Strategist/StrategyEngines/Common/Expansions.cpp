@@ -146,7 +146,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     }
 
     // Determines if we consider it safe to expand to a normal expansion
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
     std::string reasonUnsafe;
 #endif
     auto safeToExpand = [&]()
@@ -155,7 +155,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
         if (!mainArmyPlay)
         {
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
             reasonUnsafe = "No main army play";
 #endif
             return false;
@@ -163,7 +163,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         if (typeid(*mainArmyPlay) == typeid(MopUp)) return true;
         if (typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
         {
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
             reasonUnsafe = "Main army play is defensive";
 #endif
             return false;
@@ -173,7 +173,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         auto squad = mainArmyPlay->getSquad();
         if (!squad)
         {
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
             reasonUnsafe = "Main army play has no squad";
 #endif
             return false;
@@ -183,7 +183,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         auto vanguardCluster = squad->vanguardCluster();
         if (!vanguardCluster)
         {
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
             reasonUnsafe = "Main army play squad has no units";
 #endif
             return false;
@@ -192,7 +192,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         // Don't expand if the cluster has fewer than five units
         if (vanguardCluster->units.size() < 5)
         {
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
             reasonUnsafe = "Main army play vanguard cluster has fewer than 5 units";
 #endif
             return false;
@@ -207,7 +207,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
             || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
                 && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
         {
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
             reasonUnsafe = "Main army play vanguard cluster is moving or fleeing";
 #endif
             return false;
@@ -245,7 +245,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
                 if (excessMineralAssignments > 1)
                 {
                     takeExpansionPlay->status.complete = true;
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
                     Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition
                                << ": excess mineral assignments is now " << excessMineralAssignments;
 #endif
@@ -253,7 +253,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
                 if (!safe)
                 {
                     takeExpansionPlay->status.complete = true;
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
 
                     Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition
                                << ": no longer safe: " << reasonUnsafe;
@@ -262,7 +262,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
                 if (takeExpansionPlay->enemyValue > 4 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
                 {
                     takeExpansionPlay->status.complete = true;
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
 
                     Log::Get() << "Cancelled expansion to " << takeExpansionPlay->depotPosition
                                << ": enemy combat value at expansion exceeds 4 dragoon equivalent";
@@ -299,8 +299,12 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         if (closestIslandBase && closestIslandBaseDist < 2500 && safeToIslandExpand())
         {
             auto play = addIslandExpansionPlay(plays, closestIslandBase);
+#if LOGGING_ENABLED
             Log::Get() << "Queued island expansion to " << play->depotPosition;
+#endif
+#if CHERRYVIS_ENABLED
             CherryVis::log() << "Added TakeIslandExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
+#endif
             return;
         }
     }
@@ -360,8 +364,12 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         auto play = std::make_shared<TakeExpansion>(expansion, enemyValue);
         plays.emplace(plays.begin(), play);
 
+#if LOGGING_ENABLED
         Log::Get() << "Queued expansion to " << play->depotPosition;
+#endif
+#if CHERRYVIS_ENABLED
         CherryVis::log() << "Added TakeExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
+#endif
         break;
     }
 }
@@ -388,8 +396,12 @@ void StrategyEngine::takeNaturalExpansion(std::vector<std::shared_ptr<Play>> &pl
 
         if (!hasNaturalPlay)
         {
+#if LOGGING_ENABLED
             Log::Get() << "Added TakeExpansion play for natural to handle blocking enemy unit";
+#endif
+#if CHERRYVIS_ENABLED
             CherryVis::log() << "Added TakeExpansion play for natural to handle blocking enemy unit";
+#endif
 
             plays.emplace(plays.begin(), std::make_shared<TakeExpansion>(natural, 0));
         }
@@ -477,6 +489,10 @@ void StrategyEngine::takeExpansionWithShuttle(std::vector<std::shared_ptr<Play>>
 
     // Queue the play
     auto play = addIslandExpansionPlay(plays, baseToTake, false, transferWorkers);
+#if LOGGING_ENABLED
     Log::Get() << "Queued island expansion to " << play->depotPosition;
+#endif
+#if CHERRYVIS_ENABLED
     CherryVis::log() << "Added TakeIslandExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
+#endif
 }

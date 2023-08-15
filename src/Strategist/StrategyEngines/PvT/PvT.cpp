@@ -75,7 +75,9 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
     if (enemyStrategy != newEnemyStrategy)
     {
+#if LOGGING_ENABLED
         Log::Get() << "Enemy strategy changed from " << TerranStrategyNames[enemyStrategy] << " to " << TerranStrategyNames[newEnemyStrategy];
+#endif
 #if CHERRYVIS_ENABLED
         CherryVis::log() << "Enemy strategy changed from " << TerranStrategyNames[enemyStrategy] << " to " << TerranStrategyNames[newEnemyStrategy];
 #endif
@@ -87,7 +89,9 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
     if (ourStrategy != newStrategy)
     {
+#if LOGGING_ENABLED
         Log::Get() << "Our strategy changed from " << OurStrategyNames[ourStrategy] << " to " << OurStrategyNames[newStrategy];
+#endif
 #if CHERRYVIS_ENABLED
         CherryVis::log() << "Our strategy changed from " << OurStrategyNames[ourStrategy] << " to " << OurStrategyNames[newStrategy];
 #endif

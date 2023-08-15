@@ -74,7 +74,6 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
 
 void Grid::dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &data)
 {
-#if CHERRYVIS_ENABLED
     if (data.frameLastDumped >= data.frameLastUpdated) return;
 
     // Transpose the vector
@@ -90,7 +89,6 @@ void Grid::dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &
     CherryVis::addHeatmap(heatmapName, heatmapData, data.maxX, data.maxY);
 
     data.frameLastDumped = currentFrame;
-#endif
 }
 
 void Grid::unitCreated(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed, bool immobile)

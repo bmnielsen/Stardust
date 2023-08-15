@@ -14,6 +14,10 @@
 #include "Plays/SpecialTeams/DarkTemplarHarass.h"
 #include "Plays/SpecialTeams/ShuttleHarass.h"
 
+#if INSTRUMENTATION_ENABLED
+#define CVIS_BOARD_VALUES true
+#endif
+
 bool StrategyEngine::hasEnemyStolenOurGas()
 {
     return Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0 &&
@@ -165,7 +169,7 @@ bool StrategyEngine::handleIslandExpansionProduction(std::vector<std::shared_ptr
 {
     auto setCulling = [&plays](int requiredSupply)
     {
-#if CHERRYVIS_ENABLED
+#if CVIS_BOARD_VALUES
         CherryVis::setBoardValue("cull", (std::ostringstream() << std::max(0, requiredSupply)).str());
 #endif
 

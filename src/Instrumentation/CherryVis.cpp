@@ -337,6 +337,8 @@ namespace CherryVis
     void initialize()
     {
 #if CHERRYVIS_ENABLED
+        if (disabled) return;
+
         boardUpdatesFile = std::make_unique<DataFile>("board_updates", DataFileType::ObjectPerFrame);
         frameBoardUpdates = nlohmann::json::object();
         frameHasBoardUpdates = false;

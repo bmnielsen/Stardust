@@ -20,6 +20,10 @@
 
 #include "Plays/MainArmy/MopUp.h"
 
+#if INSTRUMENTATION_ENABLED
+#define CVIS_BOARD_VALUES true
+#endif
+
 /*
  * Broadly, the Strategist (via a StrategyEngine) decides on a prioritized list of plays to run, each of which can order
  * units from the producer and influence the organization and behaviour of its managed units. The StrategyEngine also
@@ -379,7 +383,7 @@ namespace Strategist
 
         void writeInstrumentation()
         {
-#if CHERRYVIS_ENABLED
+#if CVIS_BOARD_VALUES
             std::vector<std::string> values;
             values.reserve(plays.size());
             for (auto &play : plays)

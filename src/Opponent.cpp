@@ -389,7 +389,7 @@ namespace Opponent
             count++;
         }
 
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
         Log::Get() << "Previous opening results for past " << count << " games:";
         for (const auto &[opening, results] : resultsByOpening)
         {

@@ -9,7 +9,7 @@
 
 const double pi = 3.14159265358979323846;
 
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
 #define DEBUG_PLACEMENT false
 #endif
 

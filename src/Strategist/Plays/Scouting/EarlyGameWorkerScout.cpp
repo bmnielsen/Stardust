@@ -488,7 +488,7 @@ void EarlyGameWorkerScout::disband(const std::function<void(const MyUnit)> &remo
 
 void EarlyGameWorkerScout::hideUntil(int frame)
 {
-#if INSTRUMENTATION_ENABLED
+#if CHERRYVIS_ENABLED
     if (frame != hidingUntil)
     {
         CherryVis::log() << "Hiding worker scout until frame " << frame;

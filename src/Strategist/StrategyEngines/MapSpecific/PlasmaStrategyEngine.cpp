@@ -30,7 +30,9 @@ void PlasmaStrategyEngine::updatePlays(std::vector<std::shared_ptr<Play>> &plays
 
     if (enemyStrategy != newEnemyStrategy)
     {
+#if LOGGING_ENABLED
         Log::Get() << "Enemy strategy changed from " << EnemyStrategyNames[enemyStrategy] << " to " << EnemyStrategyNames[newEnemyStrategy];
+#endif
 #if CHERRYVIS_ENABLED
         CherryVis::log() << "Enemy strategy changed from " << EnemyStrategyNames[enemyStrategy] << " to " << EnemyStrategyNames[newEnemyStrategy];
 #endif

@@ -14,6 +14,10 @@
 
 #include "NoGoAreas.h"
 
+#if INSTRUMENTATION_ENABLED
+#define CVIS_HEATMAPS true
+#endif
+
 namespace Map
 {
     namespace
@@ -44,7 +48,7 @@ namespace Map
 
         std::vector<int> tileLastSeen;
 
-#if CHERRYVIS_ENABLED
+#if CVIS_HEATMAPS
         std::vector<long> power;
 #endif
 
@@ -552,7 +556,7 @@ namespace Map
                 }
             }
 
-#if CHERRYVIS_ENABLED
+#if CVIS_HEATMAPS
             // Dump to CherryVis
             std::vector<long> narrowChokeTilesCVis(mapWidth * mapHeight);
             for (int y = 0; y < mapHeight; y++)
@@ -600,7 +604,7 @@ namespace Map
                 }
             }
 
-#if CHERRYVIS_ENABLED
+#if CVIS_HEATMAPS
             // Dump to CherryVis
             std::vector<long> islandTilesCVis(mapWidth * mapHeight);
             for (int y = 0; y < mapHeight; y++)
@@ -663,7 +667,7 @@ namespace Map
                 }
             }
 
-#if CHERRYVIS_ENABLED
+#if CVIS_HEATMAPS
             // Dump to CherryVis
             std::vector<long> leafAreaTilesCVis(mapWidth * mapHeight);
             for (int y = 0; y < mapHeight; y++)
@@ -681,7 +685,7 @@ namespace Map
         // Dumps heatmaps for static map things like ground height
         void dumpStaticHeatmaps()
         {
-#if CHERRYVIS_ENABLED
+#if CVIS_HEATMAPS
             // Ground height is at tile resolution
             std::vector<long> groundHeight(mapWidth * mapHeight);
             for (int y = 0; y < mapHeight; y++)
@@ -901,7 +905,7 @@ namespace Map
 
         NoGoAreas::initialize();
 
-#if CHERRYVIS_ENABLED
+#if CVIS_HEATMAPS
         power.clear();
 #endif
         playerToPlayerBases.clear();
@@ -981,7 +985,7 @@ namespace Map
             if (left >= 0) borderingMineralPatch[left + neutral->getTilePosition().y * mapWidth] = true;
             if (right < mapWidth) borderingMineralPatch[right + neutral->getTilePosition().y * mapWidth] = true;
         }
-#if CHERRYVIS_ENABLED
+#if CVIS_HEATMAPS
         // Dump to CherryVis
         std::vector<long> borderingMineralPatchCVis(mapWidth * mapHeight);
         for (int y = 0; y < mapHeight; y++)
@@ -1493,7 +1497,7 @@ namespace Map
 
     void dumpPowerHeatmap()
     {
-#if CHERRYVIS_ENABLED
+#if CVIS_HEATMAPS
         std::vector<long> newPower(mapWidth * mapHeight, 0);
         for (int y = 0; y < mapHeight; y++)
         {

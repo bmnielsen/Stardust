@@ -391,7 +391,6 @@ void NavigationGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &ti
 
 void NavigationGrid::dumpHeatmap()
 {
-#if CHERRYVIS_ENABLED
     // Dump to CherryVis
     std::vector<long> costs(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
     for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
@@ -404,5 +403,4 @@ void NavigationGrid::dumpHeatmap()
     }
 
     CherryVis::addHeatmap((std::ostringstream() << "Navigation@" << goal).str(), costs, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
-#endif
 }

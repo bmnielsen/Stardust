@@ -12,6 +12,10 @@
 #include <Strategist/Plays/Defensive/DefendBase.h>
 #include "Strategies.h"
 
+#if INSTRUMENTATION_ENABLED
+#define CVIS_LOG_STATE_CHANGES true
+#endif
+
 /*
  * Our FFE play handles both performing the build order, defending the wall, and transitioning
  * into normal base defense if the wall is at any point determined to be indefensible.
@@ -546,7 +550,7 @@ void ForgeFastExpand::update()
     auto &wall = BuildingPlacement::getForgeGatewayWall();
 
     // Update the current state
-#if INSTRUMENTATION_ENABLED
+#if CVIS_LOG_STATE_CHANGES
     auto previousState = currentState;
 #endif
     switch (currentState)
@@ -642,7 +646,7 @@ void ForgeFastExpand::update()
             break;
     }
 
-#if INSTRUMENTATION_ENABLED
+#if CVIS_LOG_STATE_CHANGES
     if (currentState != previousState) CherryVis::log() << "ForgeFastExpand: State transition from " << previousState << " to " << currentState;
 #endif
 }

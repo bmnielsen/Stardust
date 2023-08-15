@@ -82,7 +82,9 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
     if (enemyStrategy != newEnemyStrategy)
     {
+#if LOGGING_ENABLED
         Log::Get() << "Enemy strategy changed from " << ZergStrategyNames[enemyStrategy] << " to " << ZergStrategyNames[newEnemyStrategy];
+#endif
 #if CHERRYVIS_ENABLED
         CherryVis::log() << "Enemy strategy changed from " << ZergStrategyNames[enemyStrategy] << " to " << ZergStrategyNames[newEnemyStrategy];
 #endif
@@ -94,7 +96,9 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
     if (ourStrategy != newStrategy)
     {
+#if LOGGING_ENABLED
         Log::Get() << "Our strategy changed from " << OurStrategyNames[ourStrategy] << " to " << OurStrategyNames[newStrategy];
+#endif
 #if CHERRYVIS_ENABLED
         CherryVis::log() << "Our strategy changed from " << OurStrategyNames[ourStrategy] << " to " << OurStrategyNames[newStrategy];
 #endif

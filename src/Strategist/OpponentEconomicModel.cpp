@@ -432,7 +432,7 @@ namespace OpponentEconomicModel
             int level = BWAPI::Broodwar->enemy()->getUpgradeLevel(type);
             if (level > currentLevel)
             {
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
                 Log::Get() << "Enemy has upgraded " << type << " to " << level;
 #endif
                 currentLevel = level;

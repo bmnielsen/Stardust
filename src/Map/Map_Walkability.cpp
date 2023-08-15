@@ -12,6 +12,7 @@
 #define DIR_SE 7
 
 #if INSTRUMENTATION_ENABLED
+#define CVIS_HEATMAPS true
 #define UNWALKABLE_DIRECTION_HEATMAP_ENABLED false
 #define DRAW_COLLISION_VECTORS false
 #endif
@@ -447,7 +448,7 @@ namespace Map
         dumpWalkability();
 
         // Terrain walkability is static, so dump it only at initialization
-#if CHERRYVIS_ENABLED
+#if CVIS_HEATMAPS
         std::vector<long> tileTerrainWalkabilityCVis(mapWidth * mapHeight);
         for (int y = 0; y < mapHeight; y++)
         {
@@ -464,7 +465,6 @@ namespace Map
     // Writes the tile walkability grid to CherryVis
     void dumpWalkability()
     {
-#if CHERRYVIS_ENABLED
 #if DRAW_COLLISION_VECTORS
         // Draw tile collision vectors on first frame only, as they are too intensive to draw every frame
         if (currentFrame == 0)
@@ -498,7 +498,7 @@ namespace Map
             }
         }
 #endif
-
+#if CVIS_HEATMAPS
         if (!tileWalkabilityUpdated) return;
 
         tileWalkabilityUpdated = false;
@@ -515,6 +515,52 @@ namespace Map
 
         CherryVis::addHeatmap("TileWalkable", tileWalkabilityCVis, mapWidth, mapHeight);
 
+        std::vector<long> tileDistanceToUnwalkableCVis(mapWidth * mapHeight);
+        for (int y = 0; y < mapHeight; y++)
+        {
+            for (int x = 0; x < mapWidth; x++)
+            {
+                tileDistanceToUnwalkableCVis[x + y * mapWidth] =
+                        tileDistanceToUnwalkable[x + y * mapWidth];
+            }
+        }
+
+        CherryVis::addHeatmap("TileDistToUnwalkable", tileDistanceToUnwalkableCVis, mapWidth, mapHeight);
+
+        std::vector<long> tileWalkableWidthCVis(mapWidth * mapHeight);
+        for (int y = 0; y < mapHeight; y++)
+        {
+            for (int x = 0; x < mapWidth; x++)
+            {
+                tileWalkableWidthCVis[x + y * mapWidth] =
+                        tileWalkableWidth[x + y * mapWidth];
+            }
+        }
+
+        CherryVis::addHeatmap("TileWalkableWidth", tileWalkableWidthCVis, mapWidth, mapHeight);
+
+        std::vector<long> tileCollisionVectorXCVis(mapWidth * mapHeight);
+        for (int y = 0; y < mapHeight; y++)
+        {
+            for (int x = 0; x < mapWidth; x++)
+            {
+                tileCollisionVectorXCVis[x + y * mapWidth] = tileCollisionVector[x + y * mapWidth].x;
+            }
+        }
+
+        CherryVis::addHeatmap("TileCollisionVectorX", tileCollisionVectorXCVis, mapWidth, mapHeight);
+
+        std::vector<long> tileCollisionVectorYCVis(mapWidth * mapHeight);
+        for (int y = 0; y < mapHeight; y++)
+        {
+            for (int x = 0; x < mapWidth; x++)
+            {
+                tileCollisionVectorYCVis[x + y * mapWidth] = tileCollisionVector[x + y * mapWidth].y;
+            }
+        }
+
+        CherryVis::addHeatmap("TileCollisionVectorY", tileCollisionVectorYCVis, mapWidth, mapHeight);
+#endif
 #if UNWALKABLE_DIRECTION_HEATMAP_ENABLED
         for (int dir = 0; dir < 8; dir++)
         {
@@ -563,53 +609,6 @@ namespace Map
 
             CherryVis::addHeatmap(key.str(), tileDistanceToUnwalkableDirectionsCVis, mapWidth, mapHeight);
         }
-#endif
-
-        std::vector<long> tileDistanceToUnwalkableCVis(mapWidth * mapHeight);
-        for (int y = 0; y < mapHeight; y++)
-        {
-            for (int x = 0; x < mapWidth; x++)
-            {
-                tileDistanceToUnwalkableCVis[x + y * mapWidth] =
-                        tileDistanceToUnwalkable[x + y * mapWidth];
-            }
-        }
-
-        CherryVis::addHeatmap("TileDistToUnwalkable", tileDistanceToUnwalkableCVis, mapWidth, mapHeight);
-
-        std::vector<long> tileWalkableWidthCVis(mapWidth * mapHeight);
-        for (int y = 0; y < mapHeight; y++)
-        {
-            for (int x = 0; x < mapWidth; x++)
-            {
-                tileWalkableWidthCVis[x + y * mapWidth] =
-                        tileWalkableWidth[x + y * mapWidth];
-            }
-        }
-
-        CherryVis::addHeatmap("TileWalkableWidth", tileWalkableWidthCVis, mapWidth, mapHeight);
-
-        std::vector<long> tileCollisionVectorXCVis(mapWidth * mapHeight);
-        for (int y = 0; y < mapHeight; y++)
-        {
-            for (int x = 0; x < mapWidth; x++)
-            {
-                tileCollisionVectorXCVis[x + y * mapWidth] = tileCollisionVector[x + y * mapWidth].x;
-            }
-        }
-
-        CherryVis::addHeatmap("TileCollisionVectorX", tileCollisionVectorXCVis, mapWidth, mapHeight);
-
-        std::vector<long> tileCollisionVectorYCVis(mapWidth * mapHeight);
-        for (int y = 0; y < mapHeight; y++)
-        {
-            for (int x = 0; x < mapWidth; x++)
-            {
-                tileCollisionVectorYCVis[x + y * mapWidth] = tileCollisionVector[x + y * mapWidth].y;
-            }
-        }
-
-        CherryVis::addHeatmap("TileCollisionVectorY", tileCollisionVectorYCVis, mapWidth, mapHeight);
 #endif
     }
 

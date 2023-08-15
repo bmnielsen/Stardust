@@ -13,7 +13,7 @@
 #include "DebugFlag_UnitOrders.h"
 
 #if INSTRUMENTATION_ENABLED
-#define DEBUG_WORKER_ASSIGNMENTS false
+#define CVIS_LOG_WORKER_ASSIGNMENTS true
 #endif
 
 namespace Workers
@@ -58,7 +58,7 @@ namespace Workers
             {
                 if (baseIt->second)
                 {
-#if CHERRYVIS_ENABLED
+#if CVIS_LOG_WORKER_ASSIGNMENTS
                     CherryVis::log(unit->id) << "Removed from base @ " << BWAPI::WalkPosition(baseIt->second->getPosition())
                                              << " (removeFromResource)";
 #endif
@@ -159,7 +159,7 @@ namespace Workers
                 if (bestWorker && bestPatch)
                 {
                     workerJob[bestWorker] = Job::Minerals;
-#if CHERRYVIS_ENABLED
+#if CVIS_LOG_WORKER_ASSIGNMENTS
                     CherryVis::log(bestWorker->id) << "Assigned to base @ " << BWAPI::WalkPosition(base->getPosition());
                     CherryVis::log(bestWorker->id) << "Assigned to Minerals";
 #endif
@@ -241,7 +241,7 @@ namespace Workers
             Job job = Job::None;
             if (bestBase)
             {
-#if CHERRYVIS_ENABLED
+#if CVIS_LOG_WORKER_ASSIGNMENTS
                 if (workerBase[unit] != bestBase)
                 {
                     CherryVis::log(unit->id) << "Assigned to base @ " << BWAPI::WalkPosition(bestBase->getPosition());
@@ -261,7 +261,7 @@ namespace Workers
                 }
             }
 
-#if CHERRYVIS_ENABLED
+#if CVIS_LOG_WORKER_ASSIGNMENTS
             if (workerJob[unit] != job)
             {
                 if (job == Job::Minerals)
@@ -488,7 +488,7 @@ namespace Workers
             if (!worker->completed) continue;
             if (workerJob[worker] == Job::Reserved)
             {
-#if DEBUG_WORKER_ASSIGNMENTS
+#if CVIS_LOG_WORKER_ASSIGNMENTS
                 CherryVis::log(worker->id) << "Assignment: reserved";
 #endif
                 continue;
@@ -500,7 +500,7 @@ namespace Workers
                 auto mineralPatch = workerMineralPatch[worker];
                 if (mineralPatch)
                 {
-#if DEBUG_WORKER_ASSIGNMENTS
+#if CVIS_LOG_WORKER_ASSIGNMENTS
                     CherryVis::log(worker->id) << "Assignment: mineral patch @ " << BWAPI::WalkPosition(mineralPatch->getPosition());
 #endif
 
@@ -512,7 +512,7 @@ namespace Workers
                 auto base = workerBase[worker];
                 if (base && availableMineralAssignmentsAtBase(base) <= 0)
                 {
-#if CHERRYVIS_ENABLED
+#if CVIS_LOG_WORKER_ASSIGNMENTS
                     CherryVis::log(worker->id) << "Removed from base @ " << BWAPI::WalkPosition(base->getPosition()) << " (mined out)";
 #endif
                     baseWorkers[base].erase(worker);
@@ -526,7 +526,7 @@ namespace Workers
                 auto refinery = workerRefinery[worker];
                 if (refinery && refinery->exists())
                 {
-#if DEBUG_WORKER_ASSIGNMENTS
+#if CVIS_LOG_WORKER_ASSIGNMENTS
                     CherryVis::log(worker->id) << "Assignment: refinery @ " << BWAPI::WalkPosition(refinery->getPosition());
 #endif
 
@@ -545,7 +545,7 @@ namespace Workers
                 {
                     if (base)
                     {
-#if CHERRYVIS_ENABLED
+#if CVIS_LOG_WORKER_ASSIGNMENTS
                         CherryVis::log(worker->id) << "Removed from base @ " << BWAPI::WalkPosition(base->getPosition()) << " (new base)";
 #endif
                         baseWorkers[base].erase(worker);
@@ -556,7 +556,7 @@ namespace Workers
                 // Maybe we have none
                 if (!base)
                 {
-#if DEBUG_WORKER_ASSIGNMENTS
+#if CVIS_LOG_WORKER_ASSIGNMENTS
                     CherryVis::log(worker->id) << "Assignment: no base available";
 #endif
 
@@ -572,7 +572,7 @@ namespace Workers
                     auto mineralPatch = assignMineralPatch(worker);
                     countMineralWorker(worker, mineralPatch);
 
-#if DEBUG_WORKER_ASSIGNMENTS
+#if CVIS_LOG_WORKER_ASSIGNMENTS
                     if (mineralPatch)
                     {
                         CherryVis::log(worker->id) << "Assignment: mineral patch @ " << BWAPI::WalkPosition(mineralPatch->getPosition());
@@ -588,7 +588,7 @@ namespace Workers
                     auto refinery = assignRefinery(worker);
                     countGasWorker(worker, refinery);
 
-#if DEBUG_WORKER_ASSIGNMENTS
+#if CVIS_LOG_WORKER_ASSIGNMENTS
                     if (refinery)
                     {
                         CherryVis::log(worker->id) << "Assignment: refinery @ " << BWAPI::WalkPosition(refinery->getPosition());

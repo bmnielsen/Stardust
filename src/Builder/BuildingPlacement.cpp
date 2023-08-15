@@ -45,6 +45,10 @@
 #include "Blocks/2x4.h"
 #include "Blocks/2x2.h"
 
+#if INSTRUMENTATION_ENABLED
+#define CVIS_HEATMAPS true
+#endif
+
 namespace BuildingPlacement
 {
     namespace
@@ -127,7 +131,7 @@ namespace BuildingPlacement
                         naturalDefenses.workerDefenseCannons = forgeGatewayWall->naturalCannons;
                     }
 
-#if CHERRYVIS_ENABLED
+#if CVIS_HEATMAPS
                     std::vector<long> wallHeatmap(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
                     forgeGatewayWall->addToHeatmap(wallHeatmap);
                     CherryVis::addHeatmap("Wall", wallHeatmap, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
@@ -1013,7 +1017,7 @@ namespace BuildingPlacement
 
         void dumpHeatmap()
         {
-#if CHERRYVIS_ENABLED
+#if CVIS_HEATMAPS
             // We dump a heatmap with the following values:
             // - No building: 0
             // - Large building: 2

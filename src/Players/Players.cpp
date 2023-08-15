@@ -160,7 +160,7 @@ namespace Players
 
     void setHasResearched(BWAPI::Player player, BWAPI::TechType type)
     {
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
         if (player == BWAPI::Broodwar->enemy() && !getUpgradeTracker(player)->hasResearched(type))
         {
             Log::Get() << "Enemy has researched " << type;

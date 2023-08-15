@@ -7,6 +7,10 @@
 #include "Geo.h"
 #include "UnitUtil.h"
 
+#if INSTRUMENTATION_ENABLED
+#define CVIS_BOARD_VALUES true
+#endif
+
 namespace
 {
     // Moves the scout, respecting its halt distance. Probably doesn't work well for non-flying units currently.
@@ -90,14 +94,14 @@ void ScoutEnemyExpos::update()
             }
         }
 
-#if INSTRUMENTATION_ENABLED
+#if CVIS_BOARD_VALUES
         CherryVis::setBoardValue("ScoutEnemyExpos_target", "(none)");
 #endif
 
         return;
     }
 
-#if INSTRUMENTATION_ENABLED
+#if CVIS_BOARD_VALUES
     CherryVis::setBoardValue("ScoutEnemyExpos_target", (std::ostringstream() << targetBase->getTilePosition()).str());
 #endif
 

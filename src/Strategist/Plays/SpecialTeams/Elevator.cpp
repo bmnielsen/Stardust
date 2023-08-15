@@ -10,6 +10,14 @@
 #include "Opponent.h"
 #include "UnitUtil.h"
 
+#if INSTRUMENTATION_ENABLED_VERBOSE
+#define CVIS_ELEVATORTILES_HEATMAP false
+#endif
+
+#if INSTRUMENTATION_ENABLED
+#define CVIS_LOG_ELEVATOR_STATE true
+#endif
+
 namespace
 {
     const int SHUTTLE_HALT_DISTANCE = UnitUtil::HaltDistance(BWAPI::UnitTypes::Protoss_Shuttle) + 16;
@@ -162,7 +170,7 @@ void Elevator::update()
     {
         if (setPositions())
         {
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
             Log::Get() << "Updated elevator tiles: " << dropPosition << ", " << pickupPosition;
 #endif
         }
@@ -170,7 +178,7 @@ void Elevator::update()
         {
             complete = true;
 
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
             Log::Get() << "No longer valid elevator tiles; cancelling elevator";
 #endif
         }
@@ -344,7 +352,7 @@ void Elevator::update()
         if (transferring.size() == 2)
         {
             pickingUp = false;
-#if CHERRYVIS_ENABLED
+#if CVIS_LOG_ELEVATOR_STATE
             CherryVis::log(shuttle->id) << "Elevator: Shuttle full, switching to drop-off state";
 #endif
         }
@@ -364,7 +372,7 @@ void Elevator::update()
             if (closestPickup && closestPickupDist < 64)
             {
                 pickup(shuttle, closestPickup);
-#if CHERRYVIS_ENABLED
+#if CVIS_LOG_ELEVATOR_STATE
                 CherryVis::log(shuttle->id) << "Elevator: Loading " << (*closestPickup);
 #endif
             }
@@ -372,14 +380,14 @@ void Elevator::update()
             {
                 // Transfer one unit if the next one is a long way away
                 pickingUp = false;
-#if CHERRYVIS_ENABLED
+#if CVIS_LOG_ELEVATOR_STATE
                 CherryVis::log(shuttle->id) << "Elevator: Next unit is far away, switching to drop-off state";
 #endif
             }
             else
             {
                 shuttleMove(shuttle, pickupPosition);
-#if CHERRYVIS_ENABLED
+#if CVIS_LOG_ELEVATOR_STATE
                 CherryVis::log(shuttle->id) << "Elevator: Waiting for unit to load";
 #endif
             }
@@ -391,14 +399,14 @@ void Elevator::update()
         {
             pickingUp = true;
             shuttleMove(shuttle, pickupPosition);
-#if CHERRYVIS_ENABLED
+#if CVIS_LOG_ELEVATOR_STATE
             CherryVis::log(shuttle->id) << "Elevator: Shuttle empty, switching to pickup state";
 #endif
         }
         else
         {
             drop(shuttle, dropPosition);
-#if CHERRYVIS_ENABLED
+#if CVIS_LOG_ELEVATOR_STATE
             CherryVis::log(shuttle->id) << "Elevator: Drop unit";
 #endif
         }
@@ -583,7 +591,7 @@ std::pair<BWAPI::TilePosition, BWAPI::TilePosition> Elevator::selectPositions(Ba
     }
     breakOuterLoop:;
 
-#if CHERRYVIS_ENABLED
+#if CVIS_ELEVATORTILES_HEATMAP
     // Dump to CherryVis if we found valid tiles
     if (baseTile.isValid() && mapTile.isValid())
     {
@@ -594,7 +602,7 @@ std::pair<BWAPI::TilePosition, BWAPI::TilePosition> Elevator::selectPositions(Ba
         CherryVis::addHeatmap("ElevatorTiles", elevatorCVis, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
     }
 #endif
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
     if (baseTile.isValid() && mapTile.isValid())
     {
         Log::Get() << "Selected elevator tiles: " << baseTile << ", " << mapTile;
