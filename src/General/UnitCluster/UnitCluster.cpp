@@ -283,7 +283,7 @@ std::string UnitCluster::getCurrentSubActivity() const
 
 void UnitCluster::addInstrumentation(nlohmann::json &clusterArray) const
 {
-#if INSTRUMENTATION_ENABLED
+#if INSTRUMENTATION_ENABLED_VERBOSE
     auto simResultToJson = [](const CombatSimResult& simResult, bool decision)
     {
         nlohmann::json result({

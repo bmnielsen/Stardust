@@ -263,7 +263,7 @@ void Squad::updateClusters()
     }
     if (currentVanguardCluster) currentVanguardCluster->isVanguardCluster = true;
 
-#if INSTRUMENTATION_ENABLED
+#if INSTRUMENTATION_ENABLED_VERBOSE
     for (const auto &cluster : clusters)
     {
         CherryVis::drawCircle(cluster->center.x, cluster->center.y, cluster->ballRadius, CherryVis::DrawColor::Teal);
@@ -409,7 +409,7 @@ void Squad::updateDetectionNeeds(std::set<Unit> &enemyUnits)
 
 void Squad::addInstrumentation(nlohmann::json &squadArray) const
 {
-#if INSTRUMENTATION_ENABLED
+#if INSTRUMENTATION_ENABLED_VERBOSE
     nlohmann::json clusterArray;
     for (auto &cluster : clusters) cluster->addInstrumentation(clusterArray);
 

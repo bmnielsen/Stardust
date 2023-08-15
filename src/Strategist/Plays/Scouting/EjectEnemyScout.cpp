@@ -3,7 +3,7 @@
 #include "Map.h"
 #include "Units.h"
 
-#if INSTRUMENTATION_ENABLED
+#if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_LOGGING true
 #endif
 

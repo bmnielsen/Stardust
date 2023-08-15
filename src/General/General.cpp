@@ -8,7 +8,7 @@
 #include "Map.h"
 #include "Units.h"
 
-#if INSTRUMENTATION_ENABLED
+#if INSTRUMENTATION_ENABLED_VERBOSE
 #include <nlohmann/json.hpp>
 #endif
 
@@ -193,7 +193,7 @@ namespace General
 
     void writeInstrumentation()
     {
-#if INSTRUMENTATION_ENABLED
+#if INSTRUMENTATION_ENABLED_VERBOSE
         nlohmann::json squadArray;
 
         std::set<std::string> squadLabels;

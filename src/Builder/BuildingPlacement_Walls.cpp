@@ -10,7 +10,7 @@
 const double pi = 3.14159265358979323846;
 
 #if INSTRUMENTATION_ENABLED
-#define DEBUG_PLACEMENT true
+#define DEBUG_PLACEMENT false
 #endif
 
 namespace BuildingPlacement

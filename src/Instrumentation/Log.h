@@ -6,7 +6,7 @@
 
 extern int currentFrame;
 
-#if INSTRUMENTATION_ENABLED
+#if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_LOGGING_ENABLED true
 #endif
 #endif
