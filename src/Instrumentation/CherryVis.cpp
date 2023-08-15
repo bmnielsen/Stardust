@@ -171,6 +171,12 @@ namespace CherryVis
                 }
             }
 
+            void flush()
+            {
+                if (count == 0) return;
+                stream->flush();
+            }
+
         private:
             std::string filename;
             DataFileType type;
@@ -524,6 +530,32 @@ namespace CherryVis
             frameBoardUpdates = nlohmann::json::object();
             frameHasBoardUpdates = false;
         }
+
+        // Flush data files every 500 frames
+        if (frame % 500 == 0)
+        {
+            for (auto &[heatmapName, heatmapFile] : heatmapNameToDataFile)
+            {
+                heatmapFile.flush();
+            }
+
+            boardUpdatesFile->flush();
+
+            for (auto &[unitId, drawCommandsFile] : unitIdToDrawCommandsFile)
+            {
+                drawCommandsFile.flush();
+            }
+
+            for (auto &[unitId, logFile] : unitIdToLogFile)
+            {
+                logFile.flush();
+            }
+
+            for (auto &[label, dataFile] : labelToDataFile)
+            {
+                dataFile.flush();
+            }
+        }
 #endif
     }
 
@@ -533,7 +565,7 @@ namespace CherryVis
         if (disabled) return;
 
         std::vector<nlohmann::json> heatmaps;
-        for (auto heatmapNameAndDataFile : heatmapNameToDataFile)
+        for (auto &heatmapNameAndDataFile : heatmapNameToDataFile)
         {
             heatmapNameAndDataFile.second.close();
 
