@@ -46,7 +46,7 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
 
         auto opening = Opponent::selectOpeningUCB1(
                 {
-//                        OurStrategyNames[OurStrategy::EarlyGameDefense],
+                        OurStrategyNames[OurStrategy::EarlyGameDefense],
                         OurStrategyNames[OurStrategy::ForgeExpandDT]
                 });
         if (opening == OurStrategyNames[OurStrategy::ForgeExpandDT] && BuildingPlacement::hasForgeGatewayWall())
