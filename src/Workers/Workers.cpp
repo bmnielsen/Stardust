@@ -15,6 +15,9 @@
 #if INSTRUMENTATION_ENABLED
 #define CVIS_LOG_WORKER_ASSIGNMENTS true
 #endif
+#if INSTRUMENTATION_ENABLED_VERBOSE
+#define CVIS_LOG_WORKER_ASSIGNMENTS_VERBOSE false
+#endif
 
 namespace Workers
 {
@@ -488,7 +491,7 @@ namespace Workers
             if (!worker->completed) continue;
             if (workerJob[worker] == Job::Reserved)
             {
-#if CVIS_LOG_WORKER_ASSIGNMENTS
+#if CVIS_LOG_WORKER_ASSIGNMENTS_VERBOSE
                 CherryVis::log(worker->id) << "Assignment: reserved";
 #endif
                 continue;
@@ -500,7 +503,7 @@ namespace Workers
                 auto mineralPatch = workerMineralPatch[worker];
                 if (mineralPatch)
                 {
-#if CVIS_LOG_WORKER_ASSIGNMENTS
+#if CVIS_LOG_WORKER_ASSIGNMENTS_VERBOSE
                     CherryVis::log(worker->id) << "Assignment: mineral patch @ " << BWAPI::WalkPosition(mineralPatch->getPosition());
 #endif
 
@@ -526,7 +529,7 @@ namespace Workers
                 auto refinery = workerRefinery[worker];
                 if (refinery && refinery->exists())
                 {
-#if CVIS_LOG_WORKER_ASSIGNMENTS
+#if CVIS_LOG_WORKER_ASSIGNMENTS_VERBOSE
                     CherryVis::log(worker->id) << "Assignment: refinery @ " << BWAPI::WalkPosition(refinery->getPosition());
 #endif
 
@@ -556,7 +559,7 @@ namespace Workers
                 // Maybe we have none
                 if (!base)
                 {
-#if CVIS_LOG_WORKER_ASSIGNMENTS
+#if CVIS_LOG_WORKER_ASSIGNMENTS_VERBOSE
                     CherryVis::log(worker->id) << "Assignment: no base available";
 #endif
 
@@ -577,10 +580,12 @@ namespace Workers
                     {
                         CherryVis::log(worker->id) << "Assignment: mineral patch @ " << BWAPI::WalkPosition(mineralPatch->getPosition());
                     }
+#if CVIS_LOG_WORKER_ASSIGNMENTS_VERBOSE
                     else
                     {
                         CherryVis::log(worker->id) << "Assignment: no mineral patch available";
                     }
+#endif
 #endif
                 }
                 else
@@ -593,10 +598,12 @@ namespace Workers
                     {
                         CherryVis::log(worker->id) << "Assignment: refinery @ " << BWAPI::WalkPosition(refinery->getPosition());
                     }
+#if CVIS_LOG_WORKER_ASSIGNMENTS_VERBOSE
                     else
                     {
                         CherryVis::log(worker->id) << "Assignment: no refinery available";
                     }
+#endif
 #endif
                 }
             }
