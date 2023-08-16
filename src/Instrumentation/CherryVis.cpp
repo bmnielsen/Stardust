@@ -4,8 +4,17 @@
 #include "Log.h"
 
 #include <utility>
-#include <zstdstream/zstdstream.hpp>
 #include <filesystem>
+
+#if INSTRUMENTATION_ENABLED_VERBOSE
+#include <zstdstream/zstdstream.hpp>
+#define STREAM zstd::ofstream
+#define FILE_EXTENSION ".json.zstd"
+#else
+#include <fstream>
+#define STREAM std::ofstream
+#define FILE_EXTENSION ".json"
+#endif
 #endif
 
 namespace CherryVis
@@ -185,7 +194,7 @@ namespace CherryVis
             int framesPerPartition;
             int currentPartition;
             int count;
-            zstd::ofstream *stream{};
+            STREAM *stream{};
 
             void createPart()
             {
@@ -200,11 +209,11 @@ namespace CherryVis
                         startFrame = (BWAPI::Broodwar->getFrameCount() / framesPerPartition) * framesPerPartition;
                         filenameBuilder << "_" << startFrame;
                     }
-                    filenameBuilder << ".json.zstd";
+                    filenameBuilder << FILE_EXTENSION;
 
                     parts.emplace_back(startFrame, filenameBuilder.str());
 
-                    stream = new zstd::ofstream("bwapi-data/write/cvis/" + filenameBuilder.str());
+                    stream = new STREAM("bwapi-data/write/cvis/" + filenameBuilder.str());
 
                     switch (type)
                     {
@@ -656,7 +665,7 @@ namespace CherryVis
 
         try
         {
-            zstd::ofstream traceFile("bwapi-data/write/cvis/trace.json");
+            STREAM traceFile((std::ostringstream() << "bwapi-data/write/cvis/trace" << FILE_EXTENSION).str());
             traceFile << trace.dump(-1, ' ', true);
             traceFile.close();
         }

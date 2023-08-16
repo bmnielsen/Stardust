@@ -38,10 +38,16 @@ def is_valid_replay(path):
     return os.path.splitext(path)[1] == '.rep'
 
 def get_cvis_file(cvis_path, file):
-    if ('.cvis' in os.path.basename(cvis_path)
+    if not ('.cvis' in os.path.basename(cvis_path)
       and os.path.isdir(cvis_path)):
-        return os.path.join(cvis_path, os.path.basename(file))
-    return None
+        return None
+
+    base_path = os.path.join(cvis_path, os.path.basename(file))
+
+    if os.path.isfile(base_path + '.zstd'):
+        return base_path + '.zstd'
+
+    return base_path
 
 def get_all_available_replays(pattern=''):
     if pattern == '':
@@ -95,6 +101,8 @@ def get_cvis(request):
     if file is None:
         raise Http404("No such file")
     fh = open(file, 'rb')
+    if not '.zstd' in file:
+        return FileResponse(fh)
     cctx = zstd.ZstdDecompressor()
     reader = cctx.stream_reader(fh)
     if not file.endswith('.zstd.stream'):

@@ -282,14 +282,14 @@ function cvis_init_with_data(path, init_data, config) {
     for (let unit_id of cvis_state.selected_units) {
       if (global_data.units_draw && global_data.units_draw[unit_id] && typeof global_data.units_draw[unit_id] === 'string') {
         global_data.units_draw[unit_id] =
-            await cvis_state.functions.load_cvis_json_file_async(cvis_state.cvis_path, "drawCommands_" + unit_id + ".json.zstd");
+            await cvis_state.functions.load_cvis_json_file_async(cvis_state.cvis_path, "drawCommands_" + unit_id + ".json");
       }
     }
 
     for (let unit of cvis_state.unitslist.tracked) {
       if (global_data.units_logs && global_data.units_logs[unit.unit_id] && typeof global_data.units_logs[unit.unit_id] === 'string') {
         global_data.units_logs[unit.unit_id] =
-            await cvis_state.functions.load_cvis_json_file_async(cvis_state.cvis_path, "logs_" + unit.unit_id + ".json.zstd");
+            await cvis_state.functions.load_cvis_json_file_async(cvis_state.cvis_path, "logs_" + unit.unit_id + ".json");
       }
     }
 
