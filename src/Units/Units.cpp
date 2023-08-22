@@ -32,6 +32,7 @@
 #define DEBUG_PRODUCINGBUILDING_STATUS false
 #define DEBUG_ENEMY_STATUS false
 #define DEBUG_PREDICTED_POSITIONS false
+#define DEBUG_RESOURCE_UPDATES true
 #endif
 
 #if INSTRUMENTATION_ENABLED
@@ -42,6 +43,8 @@ namespace Units
 {
     namespace
     {
+        std::map<BWAPI::TilePosition, Resource> tileToResource;
+
         std::unordered_set<MyUnit> myUnits;
         std::unordered_set<Unit> enemyUnits;
 
@@ -60,7 +63,65 @@ namespace Units
         std::set<BWAPI::UpgradeType> upgradesInProgress;
         std::set<BWAPI::TechType> researchInProgress;
 
-        void trackResearch(const BWAPI::Unit bwapiUnit)
+        void updateResource(const BWAPI::Unit &bwapiUnit, const Unit &refinery = nullptr)
+        {
+            auto it = tileToResource.find(bwapiUnit->getTilePosition());
+            if (it == tileToResource.end())
+            {
+#if LOGGING_ENABLED
+                Log::Get() << "ERROR: Resource not found for " << bwapiUnit->getType() << " @ " << bwapiUnit->getTilePosition();
+#endif
+                return;
+            }
+
+            if (refinery)
+            {
+#if DEBUG_RESOURCE_UPDATES
+                if (refinery != it->second->refinery)
+                {
+                    CherryVis::log(bwapiUnit->getID()) << "Attached refinery " << *refinery;
+                }
+#endif
+                it->second->refinery = refinery;
+
+                // Break out if the refinery is owned by another player, as we aren't supposed to have access to resource counts
+                if (refinery->player != BWAPI::Broodwar->self()) return;
+            }
+            else
+            {
+#if DEBUG_RESOURCE_UPDATES
+                if (it->second->refinery)
+                {
+                    CherryVis::log(bwapiUnit->getID()) << "Detached refinery " << *it->second->refinery;
+                }
+#endif
+                it->second->refinery = nullptr;
+            }
+
+#if DEBUG_RESOURCE_UPDATES
+            if (bwapiUnit->getResources() != it->second->currentAmount)
+            {
+                CherryVis::log(bwapiUnit->getID())
+                    << "Resources updated from " << it->second->currentAmount << " to " << bwapiUnit->getResources();
+            }
+#endif
+            it->second->currentAmount = bwapiUnit->getResources();
+        }
+
+        void resourceDestroyed(const BWAPI::TilePosition &tile)
+        {
+            auto it = tileToResource.find(tile);
+            if (it == tileToResource.end()) return;
+
+#if DEBUG_RESOURCE_UPDATES
+            CherryVis::log(it->second->id) << "Destroyed";
+#endif
+            it->second->destroyed = true;
+            it->second->currentAmount = 0;
+            tileToResource.erase(it);
+        }
+
+        void trackResearch(const BWAPI::Unit &bwapiUnit)
         {
             if (bwapiUnit->getPlayer() == BWAPI::Broodwar->self())
             {
@@ -505,6 +566,7 @@ namespace Units
 
     void initialize()
     {
+        tileToResource.clear();
         myUnits.clear();
         enemyUnits.clear();
         unitIdToMyUnit.clear();
@@ -530,6 +592,15 @@ namespace Units
         else
         {
             enemyUnitTimings[BWAPI::Broodwar->enemy()->getRace().getResourceDepot()].emplace_back(std::make_pair(0, INT_MAX));
+        }
+
+        // Initialize resources
+        for (auto bwapiUnit : BWAPI::Broodwar->getNeutralUnits())
+        {
+            if (bwapiUnit->getType().isMineralField() || bwapiUnit->getType() == BWAPI::UnitTypes::Resource_Vespene_Geyser)
+            {
+                tileToResource.emplace(bwapiUnit->getTilePosition(), std::make_shared<ResourceImpl>(bwapiUnit));
+            }
         }
     }
 
@@ -636,6 +707,11 @@ namespace Units
                 unit->update(bwapiUnit);
             }
 
+            if (bwapiUnit->getType().isRefinery())
+            {
+                updateResource(bwapiUnit, unit);
+            }
+
             if (bwapiUnit->isUpgrading())
             {
                 upgradesInProgress.insert(bwapiUnit->getUpgrade());
@@ -688,6 +764,10 @@ namespace Units
                 if (it->second->type == bwapiUnit->getType())
                 {
                     it->second->update(bwapiUnit);
+                    if (it->second->type.isRefinery())
+                    {
+                        updateResource(bwapiUnit, it->second);
+                    }
                     continue;
                 }
 
@@ -702,6 +782,11 @@ namespace Units
             unitIdToEnemyUnit.emplace(unit->id, unit);
 
             unitCreated(unit);
+
+            if (unit->type.isRefinery())
+            {
+                updateResource(bwapiUnit, unit);
+            }
 
             enemyUnitsByType[unit->type].insert(unit);
             trackEnemyUnitTimings(unit, !morphed);
@@ -754,11 +839,30 @@ namespace Units
             for (auto &unit : enemyUnits) updateOrderProcessTimer(unit);
         }
 
+        // Build a set of build tiles for mineral fields that should be visible
+        std::set<BWAPI::TilePosition> visibleMineralFieldTiles;
+        for (const auto &[tile, mineralField] : tileToResource)
+        {
+            if (!mineralField->isMinerals) continue;
+
+            if (BWAPI::Broodwar->isVisible(tile) && BWAPI::Broodwar->isVisible(tile + BWAPI::TilePosition(1, 0)))
+            {
+                visibleMineralFieldTiles.insert(tile);
+            }
+        }
+
         // Update visible neutral units to detect addons that have gone neutral or refineries that have become geysers
         destroyedEnemyUnits.clear();
         for (auto bwapiUnit : BWAPI::Broodwar->neutral()->getUnits())
         {
             if (!bwapiUnit->isVisible()) continue;
+
+            // Update resource counts
+            if (bwapiUnit->getType().isMineralField() || bwapiUnit->getType() == BWAPI::UnitTypes::Resource_Vespene_Geyser)
+            {
+                updateResource(bwapiUnit);
+                visibleMineralFieldTiles.erase(bwapiUnit->getTilePosition());
+            }
 
             auto it = unitIdToEnemyUnit.find(bwapiUnit->getID());
             if (it != unitIdToEnemyUnit.end())
@@ -797,6 +901,12 @@ namespace Units
         for (auto &unit : destroyedEnemyUnits)
         {
             enemyUnitDestroyed(unit);
+        }
+
+        // Mark mineral fields destroyed if we should be able to see them but they aren't there
+        for (const auto &mineralFieldTile : visibleMineralFieldTiles)
+        {
+            resourceDestroyed(mineralFieldTile);
         }
 
         assignEnemyUnitsToBases();
@@ -1064,15 +1174,15 @@ namespace Units
         }
     }
 
-    void onUnitDestroy(BWAPI::Unit unit)
+    void onUnitDestroy(BWAPI::Unit bwapiUnit)
     {
-        auto it = unitIdToMyUnit.find(unit->getID());
+        auto it = unitIdToMyUnit.find(bwapiUnit->getID());
         if (it != unitIdToMyUnit.end())
         {
             myUnitDestroyed(it->second);
         }
 
-        auto enemyIt = unitIdToEnemyUnit.find(unit->getID());
+        auto enemyIt = unitIdToEnemyUnit.find(bwapiUnit->getID());
         if (enemyIt != unitIdToEnemyUnit.end())
         {
             enemyUnitDestroyed(enemyIt->second);

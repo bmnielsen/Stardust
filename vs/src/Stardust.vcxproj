@@ -199,6 +199,7 @@
     <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyUnit_Move.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyUnit_Orders.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\MyUnit\MyWorker.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Units\Resource.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\Unit\Unit_Info.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\Unit\Unit_Update.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Units\Units.cpp" />

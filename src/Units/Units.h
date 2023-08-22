@@ -2,6 +2,7 @@
 
 #include "Common.h"
 
+#include "Resource.h"
 #include "MyUnit.h"
 #include "Unit.h"
 #include "UpgradeOrTechType.h"

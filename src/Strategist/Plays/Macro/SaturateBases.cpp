@@ -8,8 +8,8 @@
 
 void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    // Hard cap of 75 workers
-    if (Units::countAll(BWAPI::UnitTypes::Protoss_Probe) >= 75) return;
+    // Hard cap, defaults to 75 workers
+    if (Units::countAll(BWAPI::UnitTypes::Protoss_Probe) >= workerLimit) return;
 
     // On the first scan, gather all owned bases and how many workers they need
     std::vector<Base *> fullBases;

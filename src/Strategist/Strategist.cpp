@@ -386,7 +386,7 @@ namespace Strategist
 #if CVIS_BOARD_VALUES
             std::vector<std::string> values;
             values.reserve(plays.size());
-            for (auto &play : plays)
+            for (const auto &play : plays)
             {
                 values.emplace_back(play->label);
             }
