@@ -38,6 +38,7 @@
 
 #if INSTRUMENTATION_ENABLED
 #define DEBUG_ENEMY_TIMINGS false
+#define CVIS_LOG_ENEMY_UNIT_BASES true
 #endif
 
 namespace Units
@@ -263,10 +264,12 @@ namespace Units
         // pointer getting freed before we are finished working with it
         void enemyUnitDestroyed(Unit unit, bool morphed = false) // NOLINT(performance-unnecessary-value-param)
         {
+#if LOGGING_ENABLED
             if (unit->type.isBuilding() && !morphed)
             {
                 Log::Get() << "Enemy destroyed: " << *unit;
             }
+#endif
 
             unitDestroyed(unit);
 
@@ -276,8 +279,9 @@ namespace Units
             auto current = enemyUnitsToBase.find(unit);
             if (current != enemyUnitsToBase.end())
             {
+#if CVIS_LOG_ENEMY_UNIT_BASES
                 CherryVis::log(unit->id) << "Removed from base @ " << BWAPI::WalkPosition(current->second->getPosition());
-
+#endif
                 basesToEnemyUnits[current->second].erase(unit);
                 enemyUnitsToBase.erase(current);
             }
@@ -548,8 +552,9 @@ namespace Units
                 {
                     if (current->second == base) continue;
 
+#if CVIS_LOG_ENEMY_UNIT_BASES
                     CherryVis::log(unit->id) << "Removed from base @ " << BWAPI::WalkPosition(current->second->getPosition());
-
+#endif
                     basesToEnemyUnits[current->second].erase(unit);
                     enemyUnitsToBase.erase(current);
                 }
@@ -557,8 +562,9 @@ namespace Units
                 // Add to the new base if required
                 if (base)
                 {
+#if CVIS_LOG_ENEMY_UNIT_BASES
                     CherryVis::log(unit->id) << "Added to base @ " << BWAPI::WalkPosition(base->getPosition());
-
+#endif
                     basesToEnemyUnits[base].emplace(unit);
                     enemyUnitsToBase[unit] = base;
                 }
@@ -686,7 +692,7 @@ namespace Units
                 {
                     for (auto &base : Map::getMyBases())
                     {
-                        if (base->hasGeyserAt(unit->getTilePosition()))
+                        if (base->hasGeyserOrRefineryAt(unit->getTilePosition()))
                         {
                             if (!base->resourceDepot)
                             {
@@ -775,7 +781,7 @@ namespace Units
 
                 // The unit has morphed - for simplicity consider the old one as destroyed and the new one created
                 morphed = true;
-                enemyUnitDestroyed(it->second);
+                enemyUnitDestroyed(it->second, true);
             }
 
             auto unit = std::make_shared<UnitImpl>(bwapiUnit);
