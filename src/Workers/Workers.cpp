@@ -205,6 +205,8 @@ namespace Workers
                     hasNonPreferred = availableMineralAssignmentsAtBase(base) > 0;
                 }
 
+                if (!hasPreferred && !hasNonPreferred) continue;
+
                 int frames = PathFinding::ExpectedTravelTime(unit->lastPosition,
                                                              base->getPosition(),
                                                              unit->type,
