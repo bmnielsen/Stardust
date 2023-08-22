@@ -283,9 +283,9 @@ namespace OpponentEconomicModel
             auto base = Map::getEnemyStartingMain();
             if (base)
             {
-                for (auto &geyserTile : base->geyserLocations())
+                for (auto &geyserResource : base->geysersOrRefineries())
                 {
-                    geyserLastScouted = std::max(geyserLastScouted, Map::lastSeen(geyserTile));
+                    geyserLastScouted = std::max(geyserLastScouted, Map::lastSeen(geyserResource->tile));
                 }
             }
 

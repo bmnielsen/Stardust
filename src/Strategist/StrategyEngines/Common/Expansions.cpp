@@ -325,11 +325,11 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         int mineralOnlyBases = 0;
         for (const auto &base : Map::getMyBases())
         {
-            if (base->gas() > 0)
+            if (base->gas > 0)
             {
                 gasBases++;
             }
-            else if (base->minerals() > 1000)
+            else if (base->minerals > 1000)
             {
                 mineralOnlyBases++;
             }
@@ -343,7 +343,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     // Create a TakeExpansion play for the next expansion
     for (const auto &expansion : Map::getUntakenExpansions())
     {
-        if (!takeMineralOnly && expansion->gas() == 0) continue;
+        if (!takeMineralOnly && expansion->gas == 0) continue;
 
         // Don't take expansions that are blocked by the enemy and that we don't know how to unblock
         if (expansion->blockedByEnemy)

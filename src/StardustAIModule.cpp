@@ -61,7 +61,6 @@ namespace
     {
         Map::onUnitDestroy(unit);
         Units::onUnitDestroy(unit);
-        Workers::onUnitDestroy(unit);
     }
 }
 

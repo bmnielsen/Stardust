@@ -710,7 +710,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             auto main = Map::getMyMain();
             for (const auto &gasSteal : Units::allEnemyOfType(BWAPI::Broodwar->enemy()->getRace().getRefinery()))
             {
-                if (!main->hasGeyserAt(gasSteal->getTilePosition())) continue;
+                if (!main->hasGeyserOrRefineryAt(gasSteal->getTilePosition())) continue;
 
                 // Find the best cannon location
                 auto defenseLocations = BuildingPlacement::baseStaticDefenseLocations(main);

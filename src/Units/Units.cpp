@@ -15,6 +15,7 @@
 #include "OpponentEconomicModel.h"
 #include "Strategist.h"
 #include "Bullets.h"
+#include "Workers.h"
 
 #include "DebugFlag_GridUpdates.h"
 
@@ -118,6 +119,7 @@ namespace Units
 #endif
             it->second->destroyed = true;
             it->second->currentAmount = 0;
+            Workers::onMineralPatchDestroyed(it->second);
             tileToResource.erase(it);
         }
 
@@ -1369,6 +1371,28 @@ namespace Units
     {
         auto it = enemyUnitTimings.find(type);
         return it != enemyUnitTimings.end() && !it->second.empty();
+    }
+
+    Resource resourceAt(BWAPI::TilePosition tile)
+    {
+        auto it = tileToResource.find(tile);
+        if (it == tileToResource.end()) return nullptr;
+
+        return it->second;
+    }
+
+    std::vector<Resource> myCompletedRefineries()
+    {
+        std::vector<Resource> result;
+        for (auto &[tile, resource] : tileToResource)
+        {
+            if (resource->hasMyCompletedRefinery())
+            {
+                result.emplace_back(resource);
+            }
+        }
+
+        return result;
     }
 
     bool isBeingUpgradedOrResearched(UpgradeOrTechType type)

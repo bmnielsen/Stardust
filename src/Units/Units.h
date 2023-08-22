@@ -69,6 +69,10 @@ namespace Units
 
     bool hasEnemyBuilt(BWAPI::UnitType type);
 
+    Resource resourceAt(BWAPI::TilePosition tile);
+
+    std::vector<Resource> myCompletedRefineries();
+
     // TODO: This doesn't really fit here
     bool isBeingUpgradedOrResearched(UpgradeOrTechType type);
 }

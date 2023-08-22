@@ -164,7 +164,7 @@ namespace Map
             for (auto base : bases)
             {
                 if (base->getTilePosition() == startLocation) continue;
-                if (base->gas() == 0) continue;
+                if (base->gas == 0) continue;
 
                 int dist = PathFinding::GetGroundDistance(
                         startPosition,
@@ -252,10 +252,10 @@ namespace Map
                 int score = (distanceFromEnemy * 3) / 2 - distanceFromUs;
 
                 // Increase score based on available resources
-                score += base->minerals() / 100;
-                score += base->gas() / 50;
+                score += base->minerals / 100;
+                score += base->gas / 50;
 
-                scoredBases.emplace_back(std::make_tuple(score, base, island));
+                scoredBases.emplace_back(score, base, island);
             }
 
             if (scoredBases.empty()) return;
@@ -763,7 +763,7 @@ namespace Map
                     {
                         BWAPI::TilePosition here(x, y);
 
-                        if (base->workerDefenseRallyPatch && base->workerDefenseRallyPatch->getTilePosition() == here)
+                        if (base->workerDefenseRallyPatch && base->workerDefenseRallyPatch->tile == here)
                         {
                             mineralLineCvis[x + y * mapWidth] = 10;
                         }
@@ -801,11 +801,11 @@ namespace Map
                 setBaseTiles(base->getTilePosition(), BWAPI::UnitTypes::Protoss_Nexus.tileSize(), val);
                 for (const auto &patch : base->mineralPatches())
                 {
-                    setBaseTiles(patch->getInitialTilePosition(), BWAPI::UnitTypes::Resource_Mineral_Field.tileSize(), val);
+                    setBaseTiles(patch->tile, BWAPI::UnitTypes::Resource_Mineral_Field.tileSize(), val);
                 }
-                for (const auto &geyser : base->geysers())
+                for (const auto &geyser : base->geysersOrRefineries())
                 {
-                    setBaseTiles(geyser->getInitialTilePosition(), BWAPI::UnitTypes::Resource_Vespene_Geyser.tileSize(), val);
+                    setBaseTiles(geyser->tile, BWAPI::UnitTypes::Resource_Vespene_Geyser.tileSize(), val);
                 }
                 val += 20;
             }
@@ -1170,9 +1170,11 @@ namespace Map
             }
         }
 
-        // Update base scouting and resource depot
+        // Update bases, base scouting and resource depot
         for (auto &base : bases)
         {
+            base->update();
+
             // If the resource depot is killed, reset it
             if (base->resourceDepot && !base->resourceDepot->exists())
             {
@@ -1339,7 +1341,7 @@ namespace Map
         for (auto base : bases)
         {
             if (base->owner) continue;
-            if (base->gas() < 2000) continue;
+            if (base->gas < 2000) continue;
 
             int ourDist = PathFinding::GetGroundDistance(
                     base->getPosition(),

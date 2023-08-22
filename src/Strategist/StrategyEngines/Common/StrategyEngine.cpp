@@ -20,8 +20,15 @@
 
 bool StrategyEngine::hasEnemyStolenOurGas()
 {
-    return Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0 &&
-           Map::getMyMain()->geysers().empty();
+    for (const auto &geyserOrRefinery : Map::getMyMain()->geysersOrRefineries())
+    {
+        if (geyserOrRefinery->refinery && geyserOrRefinery->refinery->player != BWAPI::Broodwar->self())
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void StrategyEngine::handleGasStealProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
@@ -548,7 +555,7 @@ void StrategyEngine::reserveMineralsForExpansion(std::vector<std::pair<int, int>
     int totalMinerals = 0;
     for (const auto &base : Map::getMyBases())
     {
-        totalMinerals += base->minerals();
+        totalMinerals += base->minerals;
     }
 
     if (totalMinerals < 800)

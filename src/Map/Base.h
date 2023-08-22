@@ -2,6 +2,7 @@
 
 #include "Common.h"
 #include "Unit.h"
+#include "Resource.h"
 
 #include <bwem.h>
 
@@ -21,50 +22,47 @@ public:
     bool requiresMineralWalkFromEnemyStartLocations;    // Does this base require mineral walking for the enemy to reach it
     bool island;                                        // Whether this base is ground-connected to any main base
     BWAPI::Position mineralLineCenter;                  // Approximate center of the mineral line
-    BWAPI::Unit workerDefenseRallyPatch;                // Mineral patch where workers should rally when doing worker defense
+    Resource workerDefenseRallyPatch;                   // Mineral patch where workers should rally when doing worker defense
     std::set<BWAPI::TilePosition> mineralLineTiles;     // All tiles considered to be part of the mineral line
     BWAPI::Unit blockingNeutral;                        // A neutral unit that must be cleared before building the nexus
 
-    Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase);
+    int minerals;   // Current total count of minerals remaining
+    int gas;        // Current total count of gas remaining
+
+    Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase);
 
     [[nodiscard]] const BWAPI::TilePosition &getTilePosition() const { return tile; }
 
-    [[nodiscard]] BWAPI::Position getPosition() const { return BWAPI::Position(tile) + BWAPI::Position(64, 48); }
+    [[nodiscard]] BWAPI::Position getPosition() const { return center; }
 
     [[nodiscard]] const BWEM::Area *getArea() const { return bwemArea; }
 
-    [[nodiscard]] size_t mineralPatchCount() const { return bwemBase->Minerals().size(); }
+    [[nodiscard]] size_t mineralPatchCount() const { return _mineralPatches.size(); }
 
-    [[nodiscard]] size_t geyserCount() const { return geyserTiles.size(); }
+    [[nodiscard]] size_t geyserCount() const { return _geysersOrRefineries.size(); }
 
-    [[nodiscard]] const std::vector<BWAPI::TilePosition> &geyserLocations() const { return geyserTiles; }
+    [[nodiscard]] const std::vector<Resource> &mineralPatches() const { return _mineralPatches; }
 
-    [[nodiscard]] std::vector<BWAPI::Unit> mineralPatches() const;
-
-    [[nodiscard]] std::vector<BWAPI::Unit> geysers() const;
-
-    [[nodiscard]] std::vector<BWAPI::Unit> refineries() const;
-
-    [[nodiscard]] int minerals() const;
-
-    [[nodiscard]] int gas() const;
+    [[nodiscard]] const std::vector<Resource> &geysersOrRefineries() const { return _geysersOrRefineries; }
 
     [[nodiscard]] bool isStartingBase() const;
 
     [[nodiscard]] bool isInMineralLine(BWAPI::TilePosition pos) const;
 
-    [[nodiscard]] bool hasGeyserAt(BWAPI::TilePosition tile) const;
+    [[nodiscard]] bool hasGeyserOrRefineryAt(BWAPI::TilePosition geyserTopLeft) const;
 
-    [[nodiscard]] bool geyserRequiresFourWorkers(BWAPI::TilePosition geyserTile) const;
+    [[nodiscard]] bool gasRequiresFourWorkers(BWAPI::TilePosition geyserTopLeft) const;
+
+    void update();
 
 private:
 
     BWAPI::TilePosition tile;
-    const BWEM::Base *bwemBase;
+    BWAPI::Position center;
     const BWEM::Area *bwemArea;
 
-    std::vector<BWAPI::TilePosition> geyserTiles;
-    mutable std::vector<BWAPI::Unit> geyserUnits;
+    std::vector<Resource> _mineralPatches;
+    std::vector<Resource> _geysersOrRefineries;
 
     void analyzeMineralLine();
 };

@@ -198,8 +198,10 @@ namespace BuildingPlacement
 
                 // If the geyser is on the left, mark the top row and the row above it towards the nexus unbuildable
                 // Building something here will interfere with gas collection
-                for (auto &geyserTile : base->geyserLocations())
+                for (auto &geyserResource : base->geysersOrRefineries())
                 {
+                    auto geyserTile = geyserResource->tile;
+
                     if (geyserTile.x >= (base->getTilePosition().x - 2)) continue;
                     if (geyserTile.y < base->getTilePosition().y) continue;
                     if (geyserTile.y > (base->getTilePosition().y + 3)) continue;
@@ -363,9 +365,9 @@ namespace BuildingPlacement
                     {
                         auto pos = BWAPI::Position(tile) + BWAPI::Position(16, 16);
                         int score = pos.getApproxDistance(base->mineralLineCenter) * 4;
-                        if (!base->geysers().empty())
+                        if (!base->geysersOrRefineries().empty())
                         {
-                            score += pos.getApproxDistance((*base->geysers().begin())->getPosition());
+                            score += pos.getApproxDistance((*base->geysersOrRefineries().begin())->center);
                         }
                         if (mainChoke)
                         {
@@ -436,13 +438,13 @@ namespace BuildingPlacement
                 std::vector<BWAPI::TilePosition> cannons;
 
                 // Now place a cannon closest to each end
-                auto placeEnd = [&](BWAPI::Unit end)
+                auto placeEnd = [&](const Resource &end)
                 {
                     int minDist = INT_MAX;
                     BWAPI::TilePosition best = BWAPI::TilePositions::Invalid;
                     for (auto tile : positions)
                     {
-                        int dist = end->getPosition().getApproxDistance(BWAPI::Position(tile) + BWAPI::Position(16, 16));
+                        int dist = end->center.getApproxDistance(BWAPI::Position(tile) + BWAPI::Position(16, 16));
                         if (dist < minDist)
                         {
                             minDist = dist;
@@ -468,10 +470,10 @@ namespace BuildingPlacement
                     int geyserX = 0;
                     int geyserY = 0;
                     int geyserCount = 0;
-                    for (auto geyser : base->geysers())
+                    for (const auto &geyser : base->geysersOrRefineries())
                     {
-                        geyserX += geyser->getInitialPosition().x;
-                        geyserY += geyser->getInitialPosition().y;
+                        geyserX += geyser->center.x;
+                        geyserY += geyser->center.y;
                         geyserCount++;
                     }
                     auto geyserPos = geyserCount == 0
@@ -997,20 +999,13 @@ namespace BuildingPlacement
                     continue;
                 }
 
-                for (auto geyser : base->geysers())
+                for (const auto &geyser : base->geysersOrRefineries())
                 {
-                    auto tilePosition = geyser->getTilePosition();
-                    if (!tilePosition.isValid()) tilePosition = geyser->getInitialTilePosition();
-                    if (!tilePosition.isValid())
-                    {
-                        Log::Get() << "WARNING: Geyser at base " << base->getTilePosition() << " has invalid tile position";
-                        continue;
-                    }
-
-                    if (Builder::isPendingHere(tilePosition)) continue;
+                    if (geyser->refinery) continue;
+                    if (Builder::isPendingHere(geyser->tile)) continue;
 
                     // TODO: Order in some logical way
-                    _availableGeysers.emplace(Block::Location(tilePosition), 0, 0, 0);
+                    _availableGeysers.emplace(Block::Location(geyser->tile), 0, 0, 0);
                 }
             }
         }
@@ -1225,8 +1220,8 @@ namespace BuildingPlacement
         }
 
         // Prioritize main geyser first
-        if (Map::getMyMain()->hasGeyserAt(a.location.tile)) return true;
-        if (Map::getMyMain()->hasGeyserAt(b.location.tile)) return false;
+        if (Map::getMyMain()->hasGeyserOrRefineryAt(a.location.tile)) return true;
+        if (Map::getMyMain()->hasGeyserOrRefineryAt(b.location.tile)) return false;
 
         // Prioritize locations that will be powered first
         if (a.framesUntilPowered < b.framesUntilPowered) return true;
@@ -1330,16 +1325,16 @@ namespace BuildingPlacement
         return false;
     }
 
-    std::tuple<BWAPI::Unit, BWAPI::Unit, std::set<BWAPI::TilePosition>> initializeBaseDefenseAnalysis(Base *base)
+    std::tuple<Resource, Resource, std::set<BWAPI::TilePosition>> initializeBaseDefenseAnalysis(Base *base)
     {
         // Find the end mineral patches, which are the patches furthest away from each other
-        BWAPI::Unit end1, end2;
+        Resource end1, end2;
         {
             int maxDist = 0;
-            auto patches = base->mineralPatches();
-            for (auto first : patches)
+            auto &patches = base->mineralPatches();
+            for (const auto &first : patches)
             {
-                for (auto second : patches)
+                for (const auto &second : patches)
                 {
                     int dist = first->getDistance(second);
                     if (dist > maxDist)

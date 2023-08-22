@@ -52,7 +52,7 @@ void Alchemist::enemyStartingMainDetermined()
     {
         if (base == Map::getMyMain()) continue;
         if (base == Map::getEnemyStartingMain()) continue;
-        if (base->gas() == 0) continue;
+        if (base->gas == 0) continue;
 
         if (!pathGoesThroughChoke(base, Map::getMyMain(), Map::getMyMainChoke()))
         {

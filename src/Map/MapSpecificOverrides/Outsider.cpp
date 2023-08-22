@@ -65,8 +65,8 @@ void Outsider::modifyBases(std::vector<Base *> &bases)
         base->island = false;
         base->tile = it->second;
         base->bwemArea = BWEM::Map::Instance().GetNearestArea(it->second);
-        base->geyserTiles.clear();
-        base->geyserUnits.clear();
+        base->_geysersOrRefineries.clear();
+        base->update();
         base->analyzeMineralLine();
     }
 }

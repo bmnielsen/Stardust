@@ -10,7 +10,7 @@ namespace Workers
 
     void onUnitDestroy(const Unit &unit);
 
-    void onUnitDestroy(BWAPI::Unit unit);
+    void onMineralPatchDestroyed(const Resource &mineralPatch);
 
     void updateAssignments();
 

@@ -118,10 +118,10 @@ void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAn
         // We pick the patch that is furthest away, but closer to us than the enemy
         BWAPI::Unit furthestPatch = nullptr;
         int furthestPatchDist = 0;
-        for (auto patch : base->mineralPatches())
+        for (const auto &mineralPatch : base->mineralPatches())
         {
-            if (!patch->exists()) continue;
-            if (!patch->isVisible()) continue;
+            auto patch = mineralPatch->getBwapiUnitIfVisible();
+            if (!patch) continue;
 
             int dist = Geo::EdgeToEdgeDistance(worker->type, worker->lastPosition, patch->getType(), patch->getPosition());
             if (dist < 10) continue;

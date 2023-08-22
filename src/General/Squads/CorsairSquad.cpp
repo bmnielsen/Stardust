@@ -524,9 +524,9 @@ void CorsairSquad::execute()
         Base *bestBase = nullptr;
         for (auto &baseAndThreats : threatenedBases)
         {
-            if (baseAndThreats.first->minerals() > bestMinerals)
+            if (baseAndThreats.first->minerals > bestMinerals)
             {
-                bestMinerals = baseAndThreats.first->minerals();
+                bestMinerals = baseAndThreats.first->minerals;
                 bestBase = baseAndThreats.first;
             }
         }

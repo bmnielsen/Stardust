@@ -409,7 +409,7 @@ namespace Builder
         // Also cancel assimilator if it is building
         for (auto &pendingBuilding : pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Assimilator))
         {
-            if (base->hasGeyserAt(pendingBuilding->tile))
+            if (base->hasGeyserOrRefineryAt(pendingBuilding->tile))
             {
                 cancel(pendingBuilding->tile);
             }

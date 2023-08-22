@@ -6,7 +6,6 @@
 #include "Map.h"
 #include "NoGoAreas.h"
 #include "WorkerOrderTimer.h"
-#include "Geo.h"
 #include "Boids.h"
 #include "Strategist.h"
 
@@ -32,17 +31,17 @@ namespace Workers
         std::map<MyUnit, Job> workerJob;
         std::map<MyUnit, Base *> workerBase;
         std::map<Base *, std::set<MyUnit>> baseWorkers;
-        std::map<MyUnit, BWAPI::Unit> workerMineralPatch;
-        std::map<BWAPI::Unit, std::set<MyUnit>> mineralPatchWorkers;
-        std::map<MyUnit, BWAPI::Unit> workerRefinery;
-        std::map<BWAPI::Unit, std::set<MyUnit>> refineryWorkers;
+        std::map<MyUnit, Resource> workerMineralPatch;
+        std::map<Resource, std::set<MyUnit>> mineralPatchWorkers;
+        std::map<MyUnit, Resource> workerRefinery;
+        std::map<Resource, std::set<MyUnit>> refineryWorkers;
 
         int mineralWorkerCount;
         std::pair<int, int> gasWorkerCount;
 
         int desiredRefineryWorkers(Base *base, BWAPI::TilePosition refineryTile)
         {
-            if (base && base->geyserRequiresFourWorkers(refineryTile))
+            if (base && base->gasRequiresFourWorkers(refineryTile))
             {
                 return 4;
             }
@@ -53,8 +52,8 @@ namespace Workers
         // Removes a worker's base and mineral patch or gas assignments
         void removeFromResource(
                 const MyUnit &unit,
-                std::map<MyUnit, BWAPI::Unit> &workerAssignment,
-                std::map<BWAPI::Unit, std::set<MyUnit>> &resourceAssignment)
+                std::map<MyUnit, Resource> &workerAssignment,
+                std::map<Resource, std::set<MyUnit>> &resourceAssignment)
         {
             auto baseIt = workerBase.find(unit);
             if (baseIt != workerBase.end())
@@ -106,10 +105,10 @@ namespace Workers
             if (!base->resourceDepot) return 0;
 
             int count = 0;
-            for (auto refinery : base->refineries())
+            for (const auto &geyserOrRefinery : base->geysersOrRefineries())
             {
-                if (!refinery->isCompleted()) continue;
-                count += desiredRefineryWorkers(base, refinery->getInitialTilePosition());
+                if (!geyserOrRefinery->hasMyCompletedRefinery()) continue;
+                count += desiredRefineryWorkers(base, geyserOrRefinery->tile);
             }
             for (const auto &worker : baseWorkers[base])
             {
@@ -125,14 +124,15 @@ namespace Workers
 
             // Sort the mineral patches by proximity to the nexus
             auto mineralPatches = base->mineralPatches();
-            std::sort(mineralPatches.begin(), mineralPatches.end(), [&](const BWAPI::Unit &a, const BWAPI::Unit &b) -> bool
+            std::sort(mineralPatches.begin(), mineralPatches.end(), [&](const Resource &a, const Resource &b) -> bool
             {
-                return base->resourceDepot->bwapiUnit->getDistance(a) < base->resourceDepot->bwapiUnit->getDistance(b);
+                return a->getDistance(BWAPI::UnitTypes::Protoss_Nexus, base->getPosition()) <
+                    b->getDistance(BWAPI::UnitTypes::Protoss_Nexus, base->getPosition());
             });
 
             // We are only interested in the first four
             mineralPatches.resize(4);
-            std::set<BWAPI::Unit> availablePatches(mineralPatches.begin(), mineralPatches.end());
+            std::set<Resource> availablePatches(mineralPatches.begin(), mineralPatches.end());
 
             // Greedily take the closest matches until all probes are assigned
             // TODO: Should really be optimizing for 7th collection
@@ -140,7 +140,7 @@ namespace Workers
             {
                 int bestDist = INT_MAX;
                 MyUnit bestWorker = nullptr;
-                BWAPI::Unit bestPatch = nullptr;
+                Resource bestPatch = nullptr;
                 for (auto &worker : Units::allMine())
                 {
                     if (!worker->type.isWorker()) continue;
@@ -149,7 +149,7 @@ namespace Workers
 
                     for (auto &patch : availablePatches)
                     {
-                        int dist = worker->bwapiUnit->getDistance(patch);
+                        int dist = patch->getDistance(worker);
                         if (dist < bestDist)
                         {
                             bestDist = dist;
@@ -291,23 +291,20 @@ namespace Workers
 
         // Assign a worker to a mineral patch in its current base
         // We only call this when the worker is close to the base depot, so we can assume minimal pathing issues
-        BWAPI::Unit assignMineralPatch(const MyUnit &unit)
+        Resource assignMineralPatch(const MyUnit &unit)
         {
             if (!workerBase[unit]) return nullptr;
 
             int closestDist = INT_MAX;
             int furthestDist = 0;
-            BWAPI::Unit closest = nullptr;
-            BWAPI::Unit furthest = nullptr;
-            for (auto mineralPatch : workerBase[unit]->mineralPatches())
+            Resource closest = nullptr;
+            Resource furthest = nullptr;
+            for (const auto &mineralPatch : workerBase[unit]->mineralPatches())
             {
                 int workers = mineralPatchWorkers[mineralPatch].size();
                 if (workers >= 2) continue;
 
-                int dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Nexus,
-                                                   workerBase[unit]->getPosition(),
-                                                   mineralPatch->getType(),
-                                                   mineralPatch->getInitialPosition());
+                int dist = mineralPatch->getDistance(BWAPI::UnitTypes::Protoss_Nexus, workerBase[unit]->getPosition());
                 if (workers == 0 && dist < closestDist)
                 {
                     closestDist = dist;
@@ -320,7 +317,7 @@ namespace Workers
                 }
             }
 
-            BWAPI::Unit best = closest ? closest : furthest;
+            Resource best = closest ? closest : furthest;
             if (best)
             {
                 workerMineralPatch[unit] = best;
@@ -332,25 +329,24 @@ namespace Workers
 
         // Assign a worker to a refinery in its current base
         // We only call this when the worker is close to the base depot, so we can assume minimal pathing issues
-        BWAPI::Unit assignRefinery(const MyUnit &unit)
+        Resource assignRefinery(const MyUnit &unit)
         {
             if (!workerBase[unit]) return nullptr;
 
             int bestDist = INT_MAX;
-            BWAPI::Unit bestRefinery = nullptr;
-            for (auto refinery : workerBase[unit]->refineries())
+            Resource bestRefinery = nullptr;
+            for (const auto &geyserOrRefinery : workerBase[unit]->geysersOrRefineries())
             {
-                if (refinery->getPlayer() != BWAPI::Broodwar->self()) continue;
-                if (!refinery->isCompleted()) continue;
+                if (!geyserOrRefinery->hasMyCompletedRefinery()) continue;
 
-                int workers = refineryWorkers[refinery].size();
-                if (workers >= desiredRefineryWorkers(workerBase[unit], refinery->getInitialTilePosition())) continue;
+                int workers = refineryWorkers[geyserOrRefinery].size();
+                if (workers >= desiredRefineryWorkers(workerBase[unit], geyserOrRefinery->tile)) continue;
 
-                int dist = unit->bwapiUnit->getDistance(refinery);
+                int dist = geyserOrRefinery->getDistance(unit);
                 if (dist < bestDist)
                 {
                     bestDist = dist;
-                    bestRefinery = refinery;
+                    bestRefinery = geyserOrRefinery;
                 }
             }
 
@@ -372,18 +368,16 @@ namespace Workers
             {
                 if (!isAvailableForReassignment(worker, false)) continue;
 
-                for (auto refinery : BWAPI::Broodwar->self()->getUnits())
+                for (const auto &refinery : Units::myCompletedRefineries())
                 {
-                    if (refinery->getType() != BWAPI::Broodwar->self()->getRace().getRefinery()) continue;
-                    if (!refinery->isCompleted()) continue;
-                    if (refineryWorkers[refinery].size() >= desiredRefineryWorkers(workerBase[worker], refinery->getInitialTilePosition()))
+                    if (refineryWorkers[refinery].size() >= desiredRefineryWorkers(workerBase[worker], refinery->tile))
                     {
                         continue;
                     }
 
                     // TODO: Consider depleted geysers
 
-                    int dist = worker->bwapiUnit->getDistance(refinery);
+                    int dist = refinery->getDistance(worker);
                     if (dist < bestDist)
                     {
                         bestDist = dist;
@@ -436,42 +430,38 @@ namespace Workers
         }
     }
 
-    void onUnitDestroy(BWAPI::Unit unit)
+    void onMineralPatchDestroyed(const Resource &mineralPatch)
     {
-        // Handle resources mined out
-        if (unit->getType().isMineralField())
+        auto it = mineralPatchWorkers.find(mineralPatch);
+        if (it != mineralPatchWorkers.end())
         {
-            auto it = mineralPatchWorkers.find(unit);
-            if (it != mineralPatchWorkers.end())
+            for (auto &worker : it->second)
             {
-                for (auto &worker : it->second)
-                {
-                    workerMineralPatch.erase(worker);
-                }
-                mineralPatchWorkers.erase(it);
+                workerMineralPatch.erase(worker);
             }
+            mineralPatchWorkers.erase(it);
         }
     }
 
     void updateAssignments()
     {
         mineralWorkerCount = 0;
-        auto countMineralWorker = [](const MyUnit &worker, const BWAPI::Unit &mineralPatch)
+        auto countMineralWorker = [](const MyUnit &worker, const Resource &mineralPatch)
         {
             if (!mineralPatch) return;
-            if (!mineralPatch->exists()) return;
-            if (worker->bwapiUnit->getDistance(mineralPatch) > 200) return;
+            if (mineralPatch->destroyed) return;
+            if (mineralPatch->getDistance(worker) > 200) return;
 
             mineralWorkerCount++;
         };
         gasWorkerCount = std::make_pair(0, 0);
-        auto countGasWorker = [](const MyUnit &worker, const BWAPI::Unit &refinery)
+        auto countGasWorker = [](const MyUnit &worker, const Resource &refinery)
         {
             if (!refinery) return;
-            if (!refinery->exists()) return;
-            if (worker->bwapiUnit->getDistance(refinery) > 200) return;
+            if (!refinery->hasMyCompletedRefinery()) return;
+            if (refinery->getDistance(worker) > 200) return;
 
-            if (refinery->getResources() <= 0)
+            if (refinery->currentAmount <= 0)
             {
                 gasWorkerCount.second++;
             }
@@ -481,7 +471,7 @@ namespace Workers
             }
         };
 
-        // Special case on frame 0: try to optimize for earliest possible fifth mineral returned
+        // Special case on frame 0: try to optimize for earliest possible seventh mineral returned
         if (currentFrame == 0)
         {
             assignInitialMineralWorkers();
@@ -529,7 +519,7 @@ namespace Workers
             {
                 // If the worker is already assigned to a refinery, we don't need to do any more
                 auto refinery = workerRefinery[worker];
-                if (refinery && refinery->exists())
+                if (refinery && refinery->hasMyCompletedRefinery())
                 {
 #if CVIS_LOG_WORKER_ASSIGNMENTS_VERBOSE
                     CherryVis::log(worker->id) << "Assignment: refinery @ " << BWAPI::WalkPosition(refinery->getPosition());
@@ -580,7 +570,7 @@ namespace Workers
 #if CVIS_LOG_WORKER_ASSIGNMENTS
                     if (mineralPatch)
                     {
-                        CherryVis::log(worker->id) << "Assignment: mineral patch @ " << BWAPI::WalkPosition(mineralPatch->getPosition());
+                        CherryVis::log(worker->id) << "Assignment: " << *mineralPatch;
                     }
 #if CVIS_LOG_WORKER_ASSIGNMENTS_VERBOSE
                     else
@@ -598,7 +588,7 @@ namespace Workers
 #if CVIS_LOG_WORKER_ASSIGNMENTS
                     if (refinery)
                     {
-                        CherryVis::log(worker->id) << "Assignment: refinery @ " << BWAPI::WalkPosition(refinery->getPosition());
+                        CherryVis::log(worker->id) << "Assignment: " << *refinery;
                     }
 #if CVIS_LOG_WORKER_ASSIGNMENTS_VERBOSE
                     else
@@ -619,7 +609,7 @@ namespace Workers
         {
             if (refineryAndWorkers.second.size() <= 3) continue;
             excessGasWorkers++;
-            if (refineryAndWorkers.first->getResources() <= 0)
+            if (refineryAndWorkers.first->currentAmount <= 0)
             {
                 gasWorkerCount.second--;
             }
@@ -750,7 +740,9 @@ namespace Workers
                     auto mineralPatch = workerMineralPatch[worker];
                     if (mineralPatch)
                     {
-                        if (WorkerOrderTimer::optimizeMineralWorker(worker, mineralPatch)) continue;
+                        auto bwapiUnit = mineralPatch->getBwapiUnitIfVisible();
+
+                        if (bwapiUnit && WorkerOrderTimer::optimizeMineralWorker(worker, bwapiUnit)) continue;
 
                         // If the unit is currently mining, leave it alone
                         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
@@ -763,9 +755,9 @@ namespace Workers
                         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnMinerals) continue;
 
                         // If we don't have vision on the mineral patch, move towards it
-                        if (!mineralPatch->exists())
+                        if (!bwapiUnit)
                         {
-                            worker->moveTo(mineralPatch->getInitialPosition());
+                            worker->moveTo(mineralPatch->center);
                             continue;
                         }
 
@@ -786,10 +778,10 @@ namespace Workers
                         {
                             // Exception: If we are not at the patch yet, and our last command was sent a long time ago,
                             // we probably want to wait and allow our order timer optimization to send the command instead.
-                            int dist = worker->bwapiUnit->getDistance(mineralPatch);
+                            int dist = mineralPatch->getDistance(worker);
                             if (dist > 20 && worker->lastCommandFrame < (currentFrame - 20)) continue;
 
-                            worker->gather(mineralPatch);
+                            worker->gather(bwapiUnit);
                             continue;
                         }
 
@@ -798,24 +790,24 @@ namespace Workers
                             worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
                         {
                             if (worker->bwapiUnit->getOrderTarget() && worker->bwapiUnit->getOrderTarget()->getResources()
-                                && worker->bwapiUnit->getOrderTarget() != mineralPatch
+                                && worker->bwapiUnit->getOrderTarget() != bwapiUnit
                                 && worker->lastCommandFrame
                                    < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
                             {
-                                worker->gather(mineralPatch);
+                                worker->gather(bwapiUnit);
                             }
 
                             continue;
                         }
 
                         // Otherwise for all other orders click on the mineral patch
-                        worker->gather(mineralPatch);
+                        worker->gather(bwapiUnit);
                         continue;
                     }
 
                     // Handle gathering from an assigned refinery
                     auto refinery = workerRefinery[worker];
-                    if (refinery && refinery->exists() && worker->bwapiUnit->getDistance(refinery) < 500)
+                    if (refinery && refinery->hasMyCompletedRefinery() && refinery->getDistance(worker) < 500)
                     {
                         // If the unit is currently gathering, leave it alone
                         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToGas ||
@@ -828,8 +820,12 @@ namespace Workers
                         }
 
                         // Otherwise click on the refinery
-                        worker->gather(refinery);
-                        continue;
+                        auto bwapiUnit = refinery->getBwapiUnitIfVisible();
+                        if (bwapiUnit)
+                        {
+                            worker->gather(bwapiUnit);
+                            continue;
+                        }
                     }
 
                     // If the worker is a long way from its base, move towards it
@@ -1053,11 +1049,11 @@ namespace Workers
             if (!baseAndWorkers.first->resourceDepot) return 0;
 
             int gasAvailable = 0;
-            for (const auto &refinery : baseAndWorkers.first->refineries())
+            for (const auto &refinery : baseAndWorkers.first->geysersOrRefineries())
             {
-                if (refinery->isCompleted())
+                if (refinery->hasMyCompletedRefinery())
                 {
-                    gasAvailable += desiredRefineryWorkers(baseAndWorkers.first, refinery->getInitialTilePosition());
+                    gasAvailable += desiredRefineryWorkers(baseAndWorkers.first, refinery->tile);
                 }
             }
 

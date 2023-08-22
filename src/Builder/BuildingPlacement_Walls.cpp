@@ -221,7 +221,7 @@ namespace BuildingPlacement
                 std::set<BWAPI::TilePosition> cannons;
 
                 // Now place a cannon closest to each end
-                auto placeEnd = [&](BWAPI::Unit end)
+                auto placeEnd = [&](const Resource& end)
                 {
                     int minDist = INT_MAX;
                     BWAPI::TilePosition best = BWAPI::TilePositions::Invalid;
@@ -229,7 +229,7 @@ namespace BuildingPlacement
                     {
                         if (!UnitUtil::Powers(pylon, tile, BWAPI::UnitTypes::Protoss_Photon_Cannon)) continue;
 
-                        int dist = end->getPosition().getApproxDistance(BWAPI::Position(tile) + BWAPI::Position(16, 16));
+                        int dist = end->center.getApproxDistance(BWAPI::Position(tile) + BWAPI::Position(16, 16));
                         if (dist < minDist)
                         {
                             minDist = dist;
@@ -1074,10 +1074,10 @@ namespace BuildingPlacement
             }
 
             mineralFieldTiles.clear();
-            for (auto unit : natural->mineralPatches())
+            for (const auto &mineralPatch : natural->mineralPatches())
             {
-                mineralFieldTiles.insert(unit->getTilePosition());
-                mineralFieldTiles.insert(unit->getTilePosition() + BWAPI::TilePosition(1, 0));
+                mineralFieldTiles.insert(mineralPatch->tile);
+                mineralFieldTiles.insert(mineralPatch->tile + BWAPI::TilePosition(1, 0));
             }
         }
 

@@ -2,6 +2,7 @@
 
 #include "Geo.h"
 #include "PathFinding.h"
+#include "Units.h"
 
 namespace
 {
@@ -37,47 +38,56 @@ namespace
 
         return nullptr;
     }
-
-    BWAPI::Unit findGeyser(BWAPI::TilePosition tile)
-    {
-        for (auto unit : BWAPI::Broodwar->getAllUnits())
-        {
-            if (unit->getTilePosition() != tile) continue;
-            if (unit->getType().isRefinery() || unit->getType() == BWAPI::UnitTypes::Resource_Vespene_Geyser)
-            {
-                return unit;
-            }
-        }
-        for (auto unit : BWAPI::Broodwar->getStaticGeysers())
-        {
-            if (unit->getTilePosition() == tile) return unit;
-        }
-
-//        Log::Get() << "WARNING: Unable to find geyser or refinery @ " << tile;
-
-        return nullptr;
-    }
 }
 
-Base::Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase)
+Base::Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase)
         : owner(nullptr)
         , resourceDepot(nullptr)
         , ownedSince(-1)
         , lastScouted(-1)
         , blockedByEnemy(false)
         , requiresMineralWalkFromEnemyStartLocations(false)
-        , island(true)
+        , island(true) // set to false later where appropriate
         , workerDefenseRallyPatch(nullptr)
-        , blockingNeutral(getBlockingNeutral(_tile))
-        , tile(_tile)
-        , bwemBase(_bwemBase)
-        , bwemArea(_bwemBase->GetArea())
+        , blockingNeutral(getBlockingNeutral(tile))
+        , minerals(0)
+        , gas(0)
+        , tile(tile)
+        , center(BWAPI::Position(tile) + BWAPI::Position(64, 48))
+        , bwemArea(bwemBase->GetArea())
 {
-    for (auto &geyser : _bwemBase->Geysers())
+    for (const auto &mineralPatch : bwemBase->Minerals())
     {
-        geyserTiles.push_back(geyser->Unit()->getInitialTilePosition());
-        geyserUnits.push_back(geyser->Unit());
+        auto resource = Units::resourceAt(mineralPatch->TopLeft());
+        if (resource)
+        {
+            _mineralPatches.emplace_back(resource);
+        }
+#if LOGGING_ENABLED
+        else
+        {
+            Log::Get() << "ERROR: Cannot find our resource unit for mineral field @ " << mineralPatch->TopLeft();
+        }
+#endif
     }
+
+    for (const auto &geyser : bwemBase->Geysers())
+    {
+        auto resource = Units::resourceAt(geyser->TopLeft());
+        if (resource)
+        {
+            _geysersOrRefineries.emplace_back(resource);
+        }
+#if LOGGING_ENABLED
+        else
+        {
+            Log::Get() << "ERROR: Cannot find our resource unit for geyser @ " << geyser->TopLeft();
+        }
+#endif
+    }
+
+    // Call update to set the minerals and gas counts
+    update();
 
     analyzeMineralLine();
 
@@ -89,87 +99,6 @@ Base::Base(BWAPI::TilePosition _tile, const BWEM::Base *_bwemBase)
             break;
         }
     }
-}
-
-std::vector<BWAPI::Unit> Base::mineralPatches() const
-{
-    std::vector<BWAPI::Unit> result;
-    for (auto mineral : bwemBase->Minerals())
-    {
-        result.push_back(mineral->Unit());
-    }
-
-    return result;
-}
-
-std::vector<BWAPI::Unit> Base::geysers() const
-{
-    std::vector<BWAPI::Unit> result;
-    for (size_t i = 0; i < geyserUnits.size(); i++)
-    {
-        if (!geyserUnits[i] ||
-            (geyserUnits[i]->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser &&
-             !geyserUnits[i]->getType().isRefinery()))
-        {
-            geyserUnits[i] = findGeyser(geyserTiles[i]);
-            if (!geyserUnits[i]) continue;
-        }
-
-        if (geyserUnits[i]->getType().isRefinery())
-        {
-            continue;
-        }
-
-        result.push_back(geyserUnits[i]);
-    }
-
-    return result;
-}
-
-std::vector<BWAPI::Unit> Base::refineries() const
-{
-    std::vector<BWAPI::Unit> result;
-    for (size_t i = 0; i < geyserUnits.size(); i++)
-    {
-        if (!geyserUnits[i] ||
-            (geyserUnits[i]->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser &&
-             !geyserUnits[i]->getType().isRefinery()))
-        {
-            geyserUnits[i] = findGeyser(geyserTiles[i]);
-            if (!geyserUnits[i]) continue;
-        }
-
-        if (geyserUnits[i]->getType().isRefinery() && geyserUnits[i]->getPlayer() == BWAPI::Broodwar->self())
-        {
-            result.push_back(geyserUnits[i]);
-        }
-    }
-
-    return result;
-}
-
-int Base::minerals() const
-{
-    int sum = 0;
-    for (auto mineral : bwemBase->Minerals())
-    {
-        sum += mineral->Amount();
-    }
-
-    return sum;
-}
-
-int Base::gas() const
-{
-    if (geyserTiles.empty()) return 0;
-
-    int sum = 0;
-    for (auto geyser : bwemBase->Geysers())
-    {
-        sum += geyser->Amount();
-    }
-
-    return sum;
 }
 
 bool Base::isStartingBase() const
@@ -185,20 +114,45 @@ bool Base::isInMineralLine(BWAPI::TilePosition pos) const
     return mineralLineTiles.find(pos) != mineralLineTiles.end();
 }
 
-bool Base::hasGeyserAt(BWAPI::TilePosition pos) const
+bool Base::hasGeyserOrRefineryAt(BWAPI::TilePosition geyserTopLeft) const
 {
-    for (const auto &geyserTile : geyserTiles)
+    for (const auto &geyserOrRefinery : _geysersOrRefineries)
     {
-        if (pos == geyserTile) return true;
+        if (geyserTopLeft == geyserOrRefinery->tile) return true;
     }
     return false;
 }
 
-bool Base::geyserRequiresFourWorkers(BWAPI::TilePosition geyserTile) const
+bool Base::gasRequiresFourWorkers(BWAPI::TilePosition geyserTopLeft) const
 {
-    if (!hasGeyserAt(geyserTile)) return false;
+    if (!hasGeyserOrRefineryAt(geyserTopLeft)) return false;
 
-    return (geyserTile.y - tile.y) > 5;
+    return (geyserTopLeft.y - tile.y) > 5;
+}
+
+void Base::update()
+{
+    // Count total minerals available and remove destroyed minerals
+    minerals = 0;
+    for (auto it = _mineralPatches.begin(); it != _mineralPatches.end(); )
+    {
+        if ((*it)->destroyed)
+        {
+            it = _mineralPatches.erase(it);
+        }
+        else
+        {
+            minerals += (*it)->currentAmount;
+            it++;
+        }
+    }
+
+    // Count total gas available
+    gas = 0;
+    for (const auto &geyserOrRefinery : _geysersOrRefineries)
+    {
+        gas += geyserOrRefinery->currentAmount;
+    }
 }
 
 void Base::analyzeMineralLine()
@@ -210,10 +164,10 @@ void Base::analyzeMineralLine()
     {
         int x = 0;
         int y = 0;
-        for (auto mineral : bwemBase->Minerals())
+        for (const auto &mineral : _mineralPatches)
         {
-            x += mineral->Unit()->getPosition().x;
-            y += mineral->Unit()->getPosition().y;
+            x += mineral->center.x;
+            y += mineral->center.y;
         }
 
         mineralLineCenter = (getPosition() + BWAPI::Position(x / mineralPatchCount(), y / mineralPatchCount()) * 2) / 3;
@@ -249,21 +203,21 @@ void Base::analyzeMineralLine()
                 }
             }
         };
-        for (auto mineralPatch : mineralPatches())
+        for (const auto &mineralPatch : _mineralPatches)
         {
-            handleTile(mineralPatch->getInitialTilePosition());
-            handleTile(mineralPatch->getInitialTilePosition() + BWAPI::TilePosition(1, 0));
+            handleTile(mineralPatch->tile);
+            handleTile(mineralPatch->tile + BWAPI::TilePosition(1, 0));
         }
-        for (auto geyserTile : geyserTiles)
+        for (const auto &geyser : _geysersOrRefineries)
         {
-            handleTile(geyserTile);
-            handleTile(geyserTile + BWAPI::TilePosition(1, 0));
-            handleTile(geyserTile + BWAPI::TilePosition(2, 0));
-            handleTile(geyserTile + BWAPI::TilePosition(3, 0));
-            handleTile(geyserTile + BWAPI::TilePosition(0, 1));
-            handleTile(geyserTile + BWAPI::TilePosition(1, 1));
-            handleTile(geyserTile + BWAPI::TilePosition(2, 1));
-            handleTile(geyserTile + BWAPI::TilePosition(3, 1));
+            handleTile(geyser->tile);
+            handleTile(geyser->tile + BWAPI::TilePosition(1, 0));
+            handleTile(geyser->tile + BWAPI::TilePosition(2, 0));
+            handleTile(geyser->tile + BWAPI::TilePosition(3, 0));
+            handleTile(geyser->tile + BWAPI::TilePosition(0, 1));
+            handleTile(geyser->tile + BWAPI::TilePosition(1, 1));
+            handleTile(geyser->tile + BWAPI::TilePosition(2, 1));
+            handleTile(geyser->tile + BWAPI::TilePosition(3, 1));
         }
     }
 
@@ -271,7 +225,7 @@ void Base::analyzeMineralLine()
     {
         // Start with the closest patch to the mineral line center
         int closestPatchDist = INT_MAX;
-        for (auto mineralPatch : mineralPatches())
+        for (const auto &mineralPatch : _mineralPatches)
         {
             int dist = mineralPatch->getDistance(mineralLineCenter);
             if (dist < closestPatchDist)
@@ -284,21 +238,13 @@ void Base::analyzeMineralLine()
         // Now try to get a neighbouring mineral patch that is further away from the depot
         if (workerDefenseRallyPatch)
         {
-            int currentDist = Geo::EdgeToEdgeDistance(
-                    BWAPI::UnitTypes::Protoss_Nexus,
-                    getPosition(),
-                    BWAPI::UnitTypes::Resource_Mineral_Field,
-                    workerDefenseRallyPatch->getPosition());
-            for (auto mineralPatch : mineralPatches())
+            int currentDist = workerDefenseRallyPatch->getDistance(BWAPI::UnitTypes::Protoss_Nexus, center);
+            for (const auto &mineralPatch : mineralPatches())
             {
                 if (mineralPatch == workerDefenseRallyPatch) continue;
                 if (mineralPatch->getDistance(workerDefenseRallyPatch) > 0) continue;
 
-                int dist = Geo::EdgeToEdgeDistance(
-                        BWAPI::UnitTypes::Protoss_Nexus,
-                        getPosition(),
-                        BWAPI::UnitTypes::Resource_Mineral_Field,
-                        mineralPatch->getPosition());
+                int dist = mineralPatch->getDistance(BWAPI::UnitTypes::Protoss_Nexus, center);
                 if (dist > currentDist)
                 {
                     workerDefenseRallyPatch = mineralPatch;
