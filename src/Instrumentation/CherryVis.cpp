@@ -594,7 +594,6 @@ namespace CherryVis
         }
 
         nlohmann::json trace = {
-                {"board_updates",    boardUpdatesFile->parts[0].filename},
                 {"units_updates",    unitIdToFrameToUnitUpdate},
                 {"units_logs",       nlohmann::json::object()},
                 {"units_draw",       nlohmann::json::object()},
@@ -602,6 +601,14 @@ namespace CherryVis
         };
 
         boardUpdatesFile->close();
+        if (boardUpdatesFile->parts.empty())
+        {
+            trace["board_updates"] = "";
+        }
+        else
+        {
+            trace["board_updates"] = boardUpdatesFile->parts[0].filename;
+        }
 
 #if IS_OPENBW
         trace["unit_ids"] = unitIds;
