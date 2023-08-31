@@ -8,11 +8,18 @@
 #define OUTPUT_GRID_TIMING false
 #endif
 
-#define COST_STRAIGHT 30
-#define COST_DIAGONAL 42
+#if INSTRUMENTATION_ENABLED_VERBOSE
+#define VALIDATE_GRIDS_AFTER_EACH_UPDATE true
+#endif
+
+#define COST_STRAIGHT 32
+#define COST_DIAGONAL 45
 
 namespace
 {
+    int mapWidth;
+    int mapHeight;
+    
     bool walkableAndNotMineralLine(int x, int y)
     {
         return Map::isWalkable(x, y) && !Map::isInOwnMineralLine(x, y);
@@ -24,13 +31,22 @@ namespace
     }
 }
 
+namespace NavigationGridGlobals
+{
+    void initialize()
+    {
+        mapWidth = BWAPI::Broodwar->mapWidth();
+        mapHeight = BWAPI::Broodwar->mapHeight();
+    }
+}
+
 NavigationGrid::NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize) : goal(goal)
 {
     // Create each grid cell with its x,y coordinates
-    grid.reserve(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-    for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+    grid.reserve(mapWidth * mapHeight);
+    for (int y = 0; y < mapHeight; y++)
     {
-        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        for (int x = 0; x < mapWidth; x++)
         {
             grid.emplace_back(x, y);
         }
@@ -69,32 +85,32 @@ NavigationGrid::NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goa
 
 NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::Position pos)
 {
-    return grid[(pos.x >> 5U) + (pos.y >> 5U) * BWAPI::Broodwar->mapWidth()];
+    return grid[(pos.x >> 5U) + (pos.y >> 5U) * mapWidth];
 }
 
 const NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::Position pos) const
 {
-    return grid[(pos.x >> 5U) + (pos.y >> 5U) * BWAPI::Broodwar->mapWidth()];
+    return grid[(pos.x >> 5U) + (pos.y >> 5U) * mapWidth];
 }
 
 NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::WalkPosition pos)
 {
-    return grid[(pos.x >> 2U) + (pos.y >> 2U) * BWAPI::Broodwar->mapWidth()];
+    return grid[(pos.x >> 2U) + (pos.y >> 2U) * mapWidth];
 }
 
 const NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::WalkPosition pos) const
 {
-    return grid[(pos.x >> 2U) + (pos.y >> 2U) * BWAPI::Broodwar->mapWidth()];
+    return grid[(pos.x >> 2U) + (pos.y >> 2U) * mapWidth];
 }
 
 NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::TilePosition pos)
 {
-    return grid[pos.x + pos.y * BWAPI::Broodwar->mapWidth()];
+    return grid[pos.x + pos.y * mapWidth];
 }
 
 const NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::TilePosition pos) const
 {
-    return grid[pos.x + pos.y * BWAPI::Broodwar->mapWidth()];
+    return grid[pos.x + pos.y * mapWidth];
 }
 
 void NavigationGrid::update()
@@ -109,12 +125,12 @@ void NavigationGrid::update()
     {
         // Check validity of the tile
         // Since we are using unsigned shorts, we don't need to worry about <0 (they will wrap to be larger than the map)
-        if (x >= BWAPI::Broodwar->mapWidth() || y >= BWAPI::Broodwar->mapHeight())
+        if (x >= mapWidth || y >= mapHeight)
         {
             return;
         }
 
-        auto &node = grid[x + y * BWAPI::Broodwar->mapWidth()];
+        auto &node = grid[x + y * mapWidth];
 
         // Compute the cost of this node
         auto cost = current->cost + (direction % 2 == 1 ? COST_DIAGONAL : COST_STRAIGHT);
@@ -225,6 +241,58 @@ void NavigationGrid::update()
 #if NAVIGATION_HEATMAP_ENABLED
     dumpHeatmap();
 #endif
+
+#if VALIDATE_GRIDS_AFTER_EACH_UPDATE
+    for (int y = 0; y < mapHeight; y++)
+    {
+        for (int x = 0; x < mapWidth; x++)
+        {
+            auto &node = grid[x + y * mapWidth];
+
+            if (node.cost > 0 && node.cost < USHRT_MAX && !node.nextNode)
+            {
+                Log::Get() << "ERROR: Node with no next node " << node;
+                return;
+            }
+
+            if (node.cost == 0 && node.nextNode)
+            {
+                Log::Get() << "ERROR: Goal node with next node " << node;
+                return;
+            }
+
+            if (node.nextNode)
+            {
+                int costDiff = node.cost - node.nextNode->cost;
+                if (costDiff != COST_STRAIGHT && costDiff != COST_DIAGONAL)
+                {
+                    Log::Get() << "ERROR: Invalid cost from " << node << " to " << node.nextNode << ": " << costDiff;
+                    return;
+                }
+            }
+
+            auto current = node.nextNode;
+            int i = 0;
+            while (current != nullptr && i < 5)
+            {
+                if (current == &node)
+                {
+                    Log::Get() << "ERROR: Loop between " << node << " and " << *current;
+                    return;
+                }
+
+                if (!Map::isWalkable(current->x, current->y))
+                {
+                    Log::Get() << "ERROR: Path from " << node << " goes through unwalkable tile " << *current;
+                    return;
+                }
+
+                current = current->nextNode;
+                i++;
+            }
+        }
+    }
+#endif
 }
 
 void NavigationGrid::addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size)
@@ -265,24 +333,24 @@ void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles
     std::queue<GridNode *> queue;
     for (const auto &tile : tiles)
     {
-        auto &node = grid[tile.x + tile.y * BWAPI::Broodwar->mapWidth()];
+        auto &node = grid[tile.x + tile.y * mapWidth];
         queue.push(&node);
     }
 
     std::vector<GridNode *> bordering;
     auto addBordering = [&](unsigned short x, unsigned short y)
     {
-        if (x >= BWAPI::Broodwar->mapWidth() || y >= BWAPI::Broodwar->mapHeight())
+        if (x >= mapWidth || y >= mapHeight)
         {
             return;
         }
 
-        bordering.push_back(&grid[x + y * BWAPI::Broodwar->mapWidth()]);
+        bordering.push_back(&grid[x + y * mapWidth]);
     };
 
     auto visit = [&](NavigationGrid::GridNode *current, unsigned short x, unsigned short y)
     {
-        auto &node = grid[x + y * BWAPI::Broodwar->mapWidth()];
+        auto &node = grid[x + y * mapWidth];
 
         node.cost = USHRT_MAX;
         node.nextNode = nullptr;
@@ -350,17 +418,17 @@ void NavigationGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &ti
     std::vector<GridNode *> bordering;
     auto addBordering = [&](unsigned short x, unsigned short y)
     {
-        if (x >= BWAPI::Broodwar->mapWidth() || y >= BWAPI::Broodwar->mapHeight())
+        if (x >= mapWidth || y >= mapHeight)
         {
             return;
         }
 
-        bordering.push_back(&grid[x + y * BWAPI::Broodwar->mapWidth()]);
+        bordering.push_back(&grid[x + y * mapWidth]);
     };
 
     auto visit = [&](unsigned short x, unsigned short y)
     {
-        auto &node = grid[x + y * BWAPI::Broodwar->mapWidth()];
+        auto &node = grid[x + y * mapWidth];
 
         node.cost = USHRT_MAX;
         node.nextNode = nullptr;
@@ -392,15 +460,15 @@ void NavigationGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &ti
 void NavigationGrid::dumpHeatmap()
 {
     // Dump to CherryVis
-    std::vector<long> costs(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
-    for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+    std::vector<long> costs(mapWidth * mapHeight);
+    for (int y = 0; y < mapHeight; y++)
     {
-        for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+        for (int x = 0; x < mapWidth; x++)
         {
-            auto cost = grid[x + y * BWAPI::Broodwar->mapWidth()].cost;
-            costs[x + y * BWAPI::Broodwar->mapWidth()] = cost == USHRT_MAX ? 0 : cost;
+            auto cost = grid[x + y * mapWidth].cost;
+            costs[x + y * mapWidth] = cost == USHRT_MAX ? 0 : cost;
         }
     }
 
-    CherryVis::addHeatmap((std::ostringstream() << "Navigation@" << goal).str(), costs, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+    CherryVis::addHeatmap((std::ostringstream() << "Navigation@" << goal).str(), costs, mapWidth, mapHeight);
 }

@@ -21,6 +21,8 @@ namespace PathFinding
 
     void initializeGrids()
     {
+        NavigationGridGlobals::initialize();
+
         for (auto base : Map::allBases())
         {
             createNavigationGrid(BWAPI::TilePosition(base->getPosition()), BWAPI::UnitTypes::Protoss_Nexus.tileSize());

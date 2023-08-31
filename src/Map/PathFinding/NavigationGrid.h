@@ -3,6 +3,11 @@
 #include "Common.h"
 #include <queue>
 
+namespace NavigationGridGlobals
+{
+    void initialize();
+}
+
 class NavigationGrid
 {
 public:
