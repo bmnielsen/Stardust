@@ -299,7 +299,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     updateDefendBasePlays(plays);
     updateSpecialTeamsPlays(plays);
     defaultExpansions(plays);
-    scoutExpos(plays, 15000);
+    scoutExpos(plays, 12000);
 }
 
 void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,

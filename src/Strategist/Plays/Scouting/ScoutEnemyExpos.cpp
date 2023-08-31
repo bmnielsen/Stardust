@@ -13,9 +13,11 @@
 
 namespace
 {
-    // Moves the scout, respecting its halt distance. Probably doesn't work well for non-flying units currently.
+    // Moves the scout. For flying units, respects its halt distance.
     void scoutMove(const MyUnit &scout, BWAPI::Position pos)
     {
+        if (!scout->isFlying) scout->moveTo(pos);
+
         // Always move towards a position at least halt distance away
         auto scaledVector = Geo::ScaleVector(pos - scout->lastPosition, UnitUtil::HaltDistance(scout->type) + 16);
 
@@ -29,7 +31,11 @@ namespace
 void ScoutEnemyExpos::update()
 {
     // Clear the scout if it is dead
-    if (scout && !scout->exists()) scout = nullptr;
+    if (scout && !scout->exists())
+    {
+        if (scout->type.isWorker()) workerScoutHasDied = true;
+        scout = nullptr;
+    }
 
     // Clear the target base if it has been scouted
     if (targetBase && (targetBase->owner != nullptr || (currentFrame - targetBase->lastScouted) < 1000))
@@ -56,12 +62,30 @@ void ScoutEnemyExpos::update()
 
             double score = (double) framesSinceScouted / (double) scoreFactor;
 
-            if (scout)
+            int dist;
+            if (scout && scout->isFlying)
             {
-                int dist = scout->getDistance(base->getPosition());
-                if (dist == -1) return;
-                score /= ((double) dist / 2000.0);
+                dist = scout->getDistance(base->getPosition());
             }
+            else if (scout)
+            {
+                dist = PathFinding::GetGroundDistance(scout->lastPosition,
+                                                      base->getPosition(),
+                                                      scout->type,
+                                                      PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+            }
+            else
+            {
+                dist = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(),
+                                                      base->getPosition(),
+                                                      BWAPI::UnitTypes::Protoss_Probe,
+                                                      PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+            }
+
+            // This effectively skips island expansions until we have an observer to scout with
+            if (dist == -1) return;
+
+            score /= ((double) dist / 2000.0);
 
             if (score > bestScore)
             {
@@ -114,10 +138,28 @@ void ScoutEnemyExpos::update()
         status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Observer, targetBase->getPosition());
     }
 
+    // Request a worker scout if we have no scout and we haven't had a worker scout die on us before
+    if (!scout && !workerScoutHasDied)
+    {
+        scout = Workers::getClosestReassignableWorker(targetBase->getPosition(), false);
+        if (scout)
+        {
+            Workers::reserveWorker(scout);
+        }
+    }
+
     // If we don't have a scout, clear the target base for next time
     if (!scout)
     {
         targetBase = nullptr;
+        return;
+    }
+
+    // Worker scouts just move to the target
+    // TODO: Threat-aware pathing
+    if (!scout->isFlying)
+    {
+        scout->moveTo(targetBase->getPosition());
         return;
     }
 

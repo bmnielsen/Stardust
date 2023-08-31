@@ -9,7 +9,9 @@ public:
             : Play("ScoutEnemyExpos")
             , scout(nullptr)
             , targetBase(nullptr)
-            , usingSearchPath(true) {}
+            , usingSearchPath(true)
+            , workerScoutHasDied(false)
+            {}
 
     void update() override;
 
@@ -26,4 +28,5 @@ private:
     MyUnit scout;
     Base *targetBase;
     bool usingSearchPath;
+    bool workerScoutHasDied;
 };
