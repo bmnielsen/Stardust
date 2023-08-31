@@ -152,13 +152,13 @@ namespace Log
             log->open(logFileName("Stardust_log"), std::ofstream::trunc);
         }
 
-        return LogWrapper(log, isOutputtingToConsole);
+        return {log, isOutputtingToConsole};
     }
 
     LogWrapper Debug()
     {
 #if DEBUG_LOGGING_ENABLED
-        if (!isDebugLogging) return LogWrapper(nullptr, false);
+        if (!isDebugLogging) return {nullptr, false};
 
         if (!debugLog)
         {
@@ -166,7 +166,7 @@ namespace Log
             debugLog->open(logFileName("Stardust_debug"), std::ofstream::trunc);
         }
 
-        return LogWrapper(debugLog, false);
+        return {debugLog, false};
 #else
         return LogWrapper(nullptr, false);
 #endif
@@ -175,7 +175,7 @@ namespace Log
     LogWrapper Csv(const std::string &name)
     {
 #if DEBUG_LOGGING_ENABLED
-        if (!isDebugLogging) return LogWrapper(nullptr, false);
+        if (!isDebugLogging) return {nullptr, false};
 
         if (!csvFiles[name])
         {
@@ -183,7 +183,7 @@ namespace Log
             csvFiles[name]->open(logFileName(name, true), std::ofstream::trunc);
         }
 
-        return LogWrapper(csvFiles[name], false, true);
+        return {csvFiles[name], false, true};
 #else
         return LogWrapper(nullptr, false);
 #endif

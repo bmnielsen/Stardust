@@ -14,13 +14,13 @@ namespace
         BWAPI::Bullet bullet;
         Unit unit;
 
-        NoGoAreaExpiry(int framesToExpiry) : frame(currentFrame + framesToExpiry), bullet(nullptr), unit(nullptr) {}
+        explicit NoGoAreaExpiry(int framesToExpiry) : frame(currentFrame + framesToExpiry), bullet(nullptr), unit(nullptr) {}
 
-        NoGoAreaExpiry(BWAPI::Bullet bullet) : frame(-1), bullet(bullet), unit(nullptr) {}
+        explicit NoGoAreaExpiry(BWAPI::Bullet bullet) : frame(-1), bullet(bullet), unit(nullptr) {}
 
-        NoGoAreaExpiry(Unit unit) : frame(-1), bullet(nullptr), unit(unit) {}
+        explicit NoGoAreaExpiry(Unit unit) : frame(-1), bullet(nullptr), unit(std::move(unit)) {}
 
-        bool isExpired()
+        [[nodiscard]] bool isExpired() const
         {
             if (frame != -1) return currentFrame >= frame;
             if (bullet) return !bullet->exists();
@@ -226,35 +226,35 @@ namespace NoGoAreas
     {
         auto tiles = generateCircle(origin, radius);
         add(tiles);
-        noGoAreasWithExpiration.emplace_back(std::make_pair(std::move(tiles), expireFrames));
+        noGoAreasWithExpiration.emplace_back(std::move(tiles), expireFrames);
     }
 
-    void addCircle(BWAPI::Position origin, int radius, Unit unit)
+    void addCircle(BWAPI::Position origin, int radius, const Unit &unit)
     {
         auto tiles = generateCircle(origin, radius);
         add(tiles);
-        noGoAreasWithExpiration.emplace_back(std::make_pair(std::move(tiles), unit));
+        noGoAreasWithExpiration.emplace_back(std::move(tiles), unit);
     }
 
     void addCircle(BWAPI::Position origin, int radius, BWAPI::Bullet bullet)
     {
         auto tiles = generateCircle(origin, radius);
         add(tiles);
-        noGoAreasWithExpiration.emplace_back(std::make_pair(std::move(tiles), bullet));
+        noGoAreasWithExpiration.emplace_back(std::move(tiles), bullet);
     }
 
     void addDirectedBox(BWAPI::Position origin, BWAPI::Position target, int width, int expireFrames)
     {
         auto tiles = generateDirectedBox(origin, target, width);
         add(tiles);
-        noGoAreasWithExpiration.emplace_back(std::make_pair(std::move(tiles), expireFrames));
+        noGoAreasWithExpiration.emplace_back(std::move(tiles), expireFrames);
     }
 
     void addDirectedBox(BWAPI::Position origin, BWAPI::Position target, int width, BWAPI::Bullet bullet)
     {
         auto tiles = generateDirectedBox(origin, target, width);
         add(tiles);
-        noGoAreasWithExpiration.emplace_back(std::make_pair(std::move(tiles), bullet));
+        noGoAreasWithExpiration.emplace_back(std::move(tiles), bullet);
     }
 
     bool isNoGo(BWAPI::TilePosition pos)
@@ -267,7 +267,7 @@ namespace NoGoAreas
         return noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()] > 0;
     }
 
-    void onUnitCreate(Unit unit)
+    void onUnitCreate(const Unit &unit)
     {
         if (unit->type == BWAPI::UnitTypes::Terran_Nuclear_Missile)
         {

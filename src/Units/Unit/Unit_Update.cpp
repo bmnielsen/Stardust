@@ -89,6 +89,7 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , lastAngle(unit->getAngle())
         , beingManufacturedOrCarried(false)
         , frameLastMoved(currentFrame)
+        , offsetToVanguardUnit(0)
         , simPosition(unit->getPosition())
         , simPositionValid(true)
         , predictedPositionsUpdated(false)
@@ -222,7 +223,7 @@ void UnitImpl::update(BWAPI::Unit unit)
                 lastSeenAttacking = currentFrame;
                 orderProcessTimer = 0;
             }
-            else if (cooldown > 0 && orderProcessTimer == 0 && lastTarget && lastTarget->exists() && lastTarget->lastPositionValid
+            else if (orderProcessTimer == 0 && lastTarget && lastTarget->exists() && lastTarget->lastPositionValid
                 && getDistance(lastTarget) < range(lastTarget))
             {
                 orderProcessTimer = cooldown;

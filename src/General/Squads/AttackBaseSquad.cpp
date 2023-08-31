@@ -386,7 +386,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     // Find the closest reinforcements to our army
     // Here reinforcements are defined as a cluster further away from the target position that is moving
     double closestReinforcements = 0.0;
-    int totalReinforcements = 0;
+    size_t totalReinforcements = 0;
     for (auto &other : clusters)
     {
         if (other->center == cluster.center) continue;

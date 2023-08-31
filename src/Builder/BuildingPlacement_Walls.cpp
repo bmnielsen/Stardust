@@ -282,7 +282,7 @@ namespace BuildingPlacement
 
         bool hasPathWithBuilding(BWAPI::TilePosition tile,
                                  BWAPI::TilePosition size,
-                                 int maxPathLength = 0,
+                                 size_t maxPathLength = 0,
                                  BWAPI::TilePosition alternateStartTile = BWAPI::TilePositions::Invalid)
         {
             auto startTile = pathfindingStartTile;
@@ -1368,7 +1368,7 @@ namespace BuildingPlacement
             }
         }
 
-        BWAPI::TilePosition getPylonPlacementFromPylonOptions(const ForgeGatewayWall &wall, int optimalPathLength)
+        BWAPI::TilePosition getPylonPlacementFromPylonOptions(const ForgeGatewayWall &wall, size_t optimalPathLength)
         {
             BWAPI::Position forgeCenter = BWAPI::Position(wall.forge) + BWAPI::Position(BWAPI::UnitTypes::Protoss_Forge.tileWidth() * 16,
                                                                                         BWAPI::UnitTypes::Protoss_Forge.tileHeight() * 16);
@@ -1432,7 +1432,7 @@ namespace BuildingPlacement
             return BWAPI::TilePositions::Invalid;
         }
 
-        BWAPI::TilePosition getPylonPlacement(const ForgeGatewayWall &wall, int optimalPathLength)
+        BWAPI::TilePosition getPylonPlacement(const ForgeGatewayWall &wall, size_t optimalPathLength)
         {
             BWAPI::Position forgeCenter = BWAPI::Position(wall.forge) + BWAPI::Position(BWAPI::UnitTypes::Protoss_Forge.tileWidth() * 16,
                                                                                         BWAPI::UnitTypes::Protoss_Forge.tileHeight() * 16);
@@ -1525,8 +1525,8 @@ namespace BuildingPlacement
         }
 
         ForgeGatewayWallOption getBestWallOption(std::vector<ForgeGatewayWallOption> &wallOptions,
-                                                 int optimalPathLength,
-                                                 BWAPI::TilePosition (*pylonPlacer)(const ForgeGatewayWall &, int))
+                                                 size_t optimalPathLength,
+                                                 BWAPI::TilePosition (*pylonPlacer)(const ForgeGatewayWall &, size_t))
         {
             auto &bwemMap = BWEM::Map::Instance();
             ForgeGatewayWallOption bestWallOption;
@@ -1610,18 +1610,15 @@ namespace BuildingPlacement
 
         bool overlapsProbeBlockingLocation(ForgeGatewayWall &wall, BWAPI::TilePosition tile, BWAPI::UnitType type)
         {
-            for (const auto &probe : wall.probeBlockingPositions)
-            {
-                if (Geo::Overlaps(BWAPI::TilePosition(probe), 1, 1, tile, type.tileWidth(), type.tileHeight()))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return std::any_of(wall.probeBlockingPositions.begin(),
+                               wall.probeBlockingPositions.end(),
+                               [&tile, &type](const auto &probeBlockingPosition)
+                               {
+                                   return Geo::Overlaps(BWAPI::TilePosition(probeBlockingPosition), 1, 1, tile, type.tileWidth(), type.tileHeight());
+                               });
         }
 
-        BWAPI::TilePosition getCannonPlacement(ForgeGatewayWall &wall, int optimalPathLength, std::set<BWAPI::TilePosition> &unusedNaturalCannons)
+        BWAPI::TilePosition getCannonPlacement(ForgeGatewayWall &wall, size_t optimalPathLength, std::set<BWAPI::TilePosition> &unusedNaturalCannons)
         {
             BWAPI::Position forgeCenter = BWAPI::Position(wall.forge) + (BWAPI::Position(BWAPI::UnitTypes::Protoss_Forge.tileSize()) / 2);
             BWAPI::Position gatewayCenter = BWAPI::Position(wall.gateway) + (BWAPI::Position(BWAPI::UnitTypes::Protoss_Gateway.tileSize()) / 2);
@@ -1744,7 +1741,7 @@ namespace BuildingPlacement
             wallTiles.clear();
 
             // Initialize pathfinding
-            int optimalPathLength = PathFinding::Search(pathfindingStartTile, pathfindingEndTile).size();
+            size_t optimalPathLength = PathFinding::Search(pathfindingStartTile, pathfindingEndTile).size();
 #if DEBUG_PLACEMENT
             Log::Debug() << "Pathfinding between " << pathfindingStartTile << " and " << pathfindingEndTile << ", initial length "
                          << optimalPathLength;
@@ -1911,7 +1908,7 @@ namespace BuildingPlacement
             // Prefer a location that doesn't leave space around it
             // Allow using the natural cannons
 
-            for (int n = bestWall.cannons.size(); n < 6; n++)
+            for (auto n = bestWall.cannons.size(); n < 6; n++)
             {
                 BWAPI::TilePosition cannon = getCannonPlacement(bestWall, optimalPathLength, unusedNaturalCannons);
                 if (!cannon.isValid()) break;

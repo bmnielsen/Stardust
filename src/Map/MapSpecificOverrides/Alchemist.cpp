@@ -37,12 +37,10 @@ void Alchemist::enemyStartingMainDetermined()
                                                         natural->getPosition(),
                                                         BWAPI::UnitTypes::Protoss_Dragoon,
                                                         PathFinding::PathFindingOptions::UseNearestBWEMArea);
-        for (auto pathChoke : chokePath)
+        return std::any_of(chokePath.begin(), chokePath.end(), [&choke](const auto &bwemChoke)
         {
-            if (Map::choke(pathChoke) == choke) return true;
-        }
-
-        return false;
+            return Map::choke(bwemChoke) == choke;
+        });
     };
     int ownNaturalDist = INT_MAX;
     Base *ownNatural = nullptr;

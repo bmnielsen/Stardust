@@ -90,13 +90,13 @@ namespace Workers
             if (!base || base->owner != BWAPI::Broodwar->self()) return 0;
             if (!base->resourceDepot) return 0;
 
-            int count = base->mineralPatchCount() * 2;
+            size_t count = base->mineralPatchCount() * 2;
             for (const auto &worker : baseWorkers[base])
             {
                 if (workerJob[worker] == Job::Minerals) count--;
             }
 
-            return count;
+            return (int)count;
         }
 
         int availableGasAssignmentsAtBase(Base *base)
@@ -301,7 +301,7 @@ namespace Workers
             Resource furthest = nullptr;
             for (const auto &mineralPatch : workerBase[unit]->mineralPatches())
             {
-                int workers = mineralPatchWorkers[mineralPatch].size();
+                size_t workers = mineralPatchWorkers[mineralPatch].size();
                 if (workers >= 2) continue;
 
                 int dist = mineralPatch->getDistance(BWAPI::UnitTypes::Protoss_Nexus, workerBase[unit]->getPosition());
@@ -339,7 +339,7 @@ namespace Workers
             {
                 if (!geyserOrRefinery->hasMyCompletedRefinery()) continue;
 
-                int workers = refineryWorkers[geyserOrRefinery].size();
+                size_t workers = refineryWorkers[geyserOrRefinery].size();
                 if (workers >= desiredRefineryWorkers(workerBase[unit], geyserOrRefinery->tile)) continue;
 
                 int dist = geyserOrRefinery->getDistance(unit);
@@ -1104,16 +1104,16 @@ namespace Workers
 
     int reassignableGasWorkers()
     {
-        auto result = 0;
+        size_t result = 0;
         for (auto &baseAndWorkers : baseWorkers)
         {
             if (!baseAndWorkers.first || baseAndWorkers.first->owner != BWAPI::Broodwar->self()) continue;
             if (!baseAndWorkers.first->resourceDepot) return 0;
 
-            int mineralsAvailable = baseAndWorkers.first->mineralPatchCount() * 2;
+            size_t mineralsAvailable = baseAndWorkers.first->mineralPatchCount() * 2;
             if (mineralsAvailable == 0) continue;
 
-            int gasWorkersAvailable = 0;
+            size_t gasWorkersAvailable = 0;
             for (const auto &worker : baseAndWorkers.second)
             {
                 if (workerJob[worker] == Job::Gas) gasWorkersAvailable++;
@@ -1123,7 +1123,7 @@ namespace Workers
             result += std::min(mineralsAvailable, gasWorkersAvailable);
         }
 
-        return result;
+        return (int)result;
     }
 
     int idleWorkerCount()

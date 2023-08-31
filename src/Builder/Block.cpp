@@ -35,7 +35,7 @@ bool Block::tilesReserved(BWAPI::TilePosition tile, BWAPI::TilePosition size, bo
 
     if (permanent)
     {
-        permanentTileReservations.emplace_back(std::make_pair(tile, size));
+        permanentTileReservations.emplace_back(tile, size);
     }
 
     return true;
@@ -63,7 +63,7 @@ bool Block::tilesFreed(BWAPI::TilePosition tile, BWAPI::TilePosition size)
     return true;
 }
 
-bool Block::place(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvailability)
+bool Block::place(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvailability) const
 {
     auto checkTile = [&](int tileX, int tileY)
     {
@@ -115,7 +115,7 @@ bool Block::place(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvail
 
 bool Block::placeStartBlock(std::vector<BWAPI::TilePosition> &usedTiles,
                             std::vector<BWAPI::TilePosition> &borderTiles,
-                            std::vector<unsigned int> &tileAvailability)
+                            std::vector<unsigned int> &tileAvailability) const
 {
     // Tiles around the start position are not checked for availability
     std::set<BWAPI::TilePosition> ignoreAvailability;

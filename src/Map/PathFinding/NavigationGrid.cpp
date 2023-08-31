@@ -58,8 +58,8 @@ NavigationGrid::NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goa
 
         auto &node = (*this)[tile];
         node.cost = 0;
-        nodeQueue.push(std::make_tuple(COST_STRAIGHT, &node, false));
-        nodeQueue.push(std::make_tuple(COST_DIAGONAL, &node, true));
+        nodeQueue.emplace(COST_STRAIGHT, &node, false);
+        nodeQueue.emplace(COST_DIAGONAL, &node, true);
     };
 
     if (goalSize.isValid())
@@ -200,8 +200,8 @@ void NavigationGrid::update()
         // Queue the node if it is walkable
         if (walkableAndNotMineralLine(x, y))
         {
-            nodeQueue.push(std::make_tuple(node.cost + COST_STRAIGHT, &node, false));
-            nodeQueue.push(std::make_tuple(node.cost + COST_DIAGONAL, &node, true));
+            nodeQueue.emplace(node.cost + COST_STRAIGHT, &node, false);
+            nodeQueue.emplace(node.cost + COST_DIAGONAL, &node, true);
         }
     };
 
@@ -389,8 +389,8 @@ void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles
     {
         if (borderingNode->nextNode)
         {
-            nodeQueue.push(std::make_tuple(borderingNode->cost + COST_STRAIGHT, borderingNode, false));
-            nodeQueue.push(std::make_tuple(borderingNode->cost + COST_DIAGONAL, borderingNode, true));
+            nodeQueue.emplace(borderingNode->cost + COST_STRAIGHT, borderingNode, false);
+            nodeQueue.emplace(borderingNode->cost + COST_DIAGONAL, borderingNode, true);
         }
     }
 }
@@ -451,8 +451,8 @@ void NavigationGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &ti
     {
         if (node->nextNode)
         {
-            nodeQueue.push(std::make_tuple(node->cost + COST_STRAIGHT, node, false));
-            nodeQueue.push(std::make_tuple(node->cost + COST_DIAGONAL, node, true));
+            nodeQueue.emplace(node->cost + COST_STRAIGHT, node, false);
+            nodeQueue.emplace(node->cost + COST_DIAGONAL, node, true);
         }
     }
 }

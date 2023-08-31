@@ -1,3 +1,5 @@
+#include <ranges>
+
 #include "MyUnit.h"
 
 #include "PathFinding.h"
@@ -369,9 +371,9 @@ void MyUnitImpl::resetGrid()
         // If that failed, try to get a grid to the furthest choke we can
         if (!grid)
         {
-            for (auto it = chokePath.rbegin(); it != chokePath.rend(); it++)
+            for (auto &bwemChoke : std::ranges::reverse_view(chokePath))
             {
-                grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(Map::choke(*it)->center));
+                grid = PathFinding::getNavigationGrid(BWAPI::TilePosition(Map::choke(bwemChoke)->center));
 
                 // Don't use a grid if the current node is invalid or if the goal is very close
                 if (grid)

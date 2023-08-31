@@ -33,11 +33,11 @@ public:
 
                 if (tileX == blockTile.x - 1 || tileY == blockTile.y - 1 || tileX == blockTile.x + 8 || tileY == blockTile.y + 7)
                 {
-                    borderTiles.emplace_back(BWAPI::TilePosition(tileX, tileY));
+                    borderTiles.emplace_back(tileX, tileY);
                 }
                 else
                 {
-                    usedTiles.emplace_back(BWAPI::TilePosition(tileX, tileY));
+                    usedTiles.emplace_back(tileX, tileY);
                 }
             }
         }

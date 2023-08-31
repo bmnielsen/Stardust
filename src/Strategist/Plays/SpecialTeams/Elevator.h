@@ -6,7 +6,7 @@
 class Elevator : public Play
 {
 public:
-    Elevator(bool fromOurMain = false, BWAPI::UnitType unitType = BWAPI::UnitTypes::Protoss_Dragoon);
+    explicit Elevator(bool fromOurMain = false, BWAPI::UnitType unitType = BWAPI::UnitTypes::Protoss_Dragoon);
 
     void update() override;
 

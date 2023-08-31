@@ -296,7 +296,7 @@ void StrategyEngine::cancelTrainingUnits(std::map<int, std::vector<ProductionGoa
         if (trainingQueue.empty()) continue;
         if (*trainingQueue.begin() != type) continue;
         if (producer->bwapiUnit->getRemainingTrainTime() < remainingTrainingTimeThreshold) continue;
-        cancellableProducers.emplace_back(std::make_pair(producer, producer->bwapiUnit->getRemainingTrainTime()));
+        cancellableProducers.emplace_back(producer, producer->bwapiUnit->getRemainingTrainTime());
     }
     for (const auto &producer : Units::allMineIncompleteOfType(type.whatBuilds().first))
     {
@@ -560,6 +560,6 @@ void StrategyEngine::reserveMineralsForExpansion(std::vector<std::pair<int, int>
 
     if (totalMinerals < 800)
     {
-        mineralReservations.emplace_back(std::make_pair(400, 0));
+        mineralReservations.emplace_back(400, 0);
     }
 }

@@ -148,13 +148,10 @@ namespace
                 }
             }
 
-            for (auto current : positionsToCheck)
+            return std::all_of(positionsToCheck.begin(), positionsToCheck.end(), [&enemyUnit](const auto &positionToCheck)
             {
-                if (!Geo::Walkable(enemyUnit, current))
-                    return false;
-            }
-
-            return true;
+                return Geo::Walkable(enemyUnit, positionToCheck);
+            });
         };
 
         return
@@ -366,7 +363,7 @@ void Choke::analyzeNarrowChoke()
 
                 if (bordersUnwalkable)
                 {
-                    queue.emplace_back(std::make_pair(here, addedPosition ? 0 : (current.second + 1)));
+                    queue.emplace_back(here, addedPosition ? 0 : (current.second + 1));
                 }
             };
             visitNeighbour(1, 0);
@@ -626,10 +623,10 @@ void Choke::analyzeNarrowChoke()
 
         [[nodiscard]] bool isWalkable() const
         {
-            return BWAPI::Broodwar->isWalkable((x << 1U), (y << 1U)) &&
-                   BWAPI::Broodwar->isWalkable((x << 1U) + 1, (y << 1U)) &&
-                   BWAPI::Broodwar->isWalkable((x << 1U), (y << 1U) + 1) &&
-                   BWAPI::Broodwar->isWalkable((x << 1U) + 1, (y << 1U) + 1);
+            return BWAPI::Broodwar->isWalkable((int)(x << 1U), (int)(y << 1U)) &&
+                   BWAPI::Broodwar->isWalkable((int)(x << 1U) + 1, (int)(y << 1U)) &&
+                   BWAPI::Broodwar->isWalkable((int)(x << 1U), (int)(y << 1U) + 1) &&
+                   BWAPI::Broodwar->isWalkable((int)(x << 1U) + 1, (int)(y << 1U) + 1);
         }
 
         [[nodiscard]] unsigned int index() const
@@ -639,7 +636,7 @@ void Choke::analyzeNarrowChoke()
 
         [[nodiscard]] BWAPI::TilePosition toTilePosition() const
         {
-            return BWAPI::TilePosition(x >> 1U, y >> 1U);
+            return {(int)(x >> 1U), (int)(y >> 1U)};
         }
     };
 
@@ -658,7 +655,7 @@ void Choke::analyzeNarrowChoke()
             if (visited[tile.index()]) return;
 
             visited[tile.index()] = true;
-            (tile.isWalkable() ? queue : unwalkableQueue).emplace_back(std::make_pair(side, tile));
+            (tile.isWalkable() ? queue : unwalkableQueue).emplace_back(side, tile);
             chokeTiles.insert(tile.toTilePosition());
         };
 
@@ -682,7 +679,7 @@ void Choke::analyzeNarrowChoke()
     auto centerTile = HalfTile(center);
     if (!visited[centerTile.index()])
     {
-        queue.emplace_front(std::make_pair(0, centerTile));
+        queue.emplace_front(0, centerTile);
     }
 
     // Now flood-fill
@@ -698,12 +695,12 @@ void Choke::analyzeNarrowChoke()
         {
             if (next.isWalkable())
             {
-                queue.emplace_front(std::make_pair(tile.first, next));
+                queue.emplace_front(tile.first, next);
             }
         }
         else
         {
-            ((tile.second.isWalkable() && next.isWalkable()) ? queue : unwalkableQueue).emplace_back(std::make_pair(tile.first, next));
+            ((tile.second.isWalkable() && next.isWalkable()) ? queue : unwalkableQueue).emplace_back(tile.first, next);
         }
 
         if (tileSide[tile.second.index()] == 0)

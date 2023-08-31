@@ -217,7 +217,7 @@ void AntiCannonRush::update()
 
         for (auto &workerAttacker : workerAttackers)
         {
-            unitsAndTargets.emplace_back(std::make_pair(workerAttacker, worker));
+            unitsAndTargets.emplace_back(workerAttacker, worker);
         }
     }
     else
@@ -247,7 +247,7 @@ void AntiCannonRush::update()
 
         for (auto &cannonAttacker : cannonAndAttackers.second)
         {
-            unitsAndTargets.emplace_back(std::make_pair(cannonAttacker, cannon));
+            unitsAndTargets.emplace_back(cannonAttacker, cannon);
         }
     }
 

@@ -1,6 +1,5 @@
 #include "WorkerDefenseSquad.h"
 
-#include "UnitUtil.h"
 #include "Workers.h"
 #include "Geo.h"
 #include "BuildingPlacement.h"
@@ -66,7 +65,7 @@ std::vector<std::pair<MyUnit, Unit>> WorkerDefenseSquad::selectTargets(std::set<
             continue;
         }
 
-        result.emplace_back(std::make_pair(worker, target));
+        result.emplace_back(worker, target);
         it++;
     }
 
@@ -79,7 +78,7 @@ std::vector<std::pair<MyUnit, Unit>> WorkerDefenseSquad::selectTargets(std::set<
         {
             Workers::reserveWorker(worker);
             units.push_back(worker);
-            result.emplace_back(std::make_pair(worker, target));
+            result.emplace_back(worker, target);
         }
     }
 

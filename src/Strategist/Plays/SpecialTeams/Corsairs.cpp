@@ -1,7 +1,6 @@
 #include "Corsairs.h"
 
 #include "Map.h"
-#include "Units.h"
 #include "Players.h"
 
 Corsairs::Corsairs(): Play("Corsairs"), squad(std::make_shared<CorsairSquad>())

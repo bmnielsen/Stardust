@@ -101,10 +101,10 @@ namespace Geo
             std::swap(min, max);
 
         if (min <= (max >> 2U))
-            return max;
+            return (int)max;
 
         unsigned int minCalc = (3 * min) >> 3U;
-        return (minCalc >> 5U) + minCalc + max - (max >> 4U) - (max >> 6U);
+        return (int)((minCalc >> 5U) + minCalc + max - (max >> 4U) - (max >> 6U));
     }
 
     int EdgeToEdgeDistance(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter)

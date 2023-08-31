@@ -6,7 +6,7 @@
 class SaturateBases : public Play
 {
 public:
-    SaturateBases(int workerLimit = 75) : Play("SaturateBases"), workerLimit(workerLimit) {}
+    explicit SaturateBases(int workerLimit = 75) : Play("SaturateBases"), workerLimit(workerLimit) {}
 
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 

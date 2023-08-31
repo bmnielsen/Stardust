@@ -334,7 +334,7 @@ bool Squad::empty() const
 
 int Squad::combatUnitCount() const
 {
-    return unitToCluster.size();
+    return (int)unitToCluster.size();
 }
 
 std::map<BWAPI::UnitType, int> Squad::getUnitCountByType() const
@@ -360,12 +360,10 @@ std::map<BWAPI::UnitType, int> Squad::getUnitCountByType() const
 
 bool Squad::hasClusterWithActivity(UnitCluster::Activity activity) const
 {
-    for (const auto &cluster : clusters)
+    return std::any_of(clusters.begin(), clusters.end(), [&activity](const auto &cluster)
     {
-        if (cluster->currentActivity == activity) return true;
-    }
-
-    return false;
+        return cluster->currentActivity == activity;
+    });
 }
 
 std::shared_ptr<UnitCluster> Squad::vanguardCluster(int *distToTargetPosition) const

@@ -198,7 +198,7 @@ namespace Map
 
                 auto line = [&changed](int x, int deltaX, int y, int deltaY, int dir)
                 {
-                    short current = 0;
+                    unsigned short current = 0;
 
                     // Initialize the current value to the previous tile
                     int prevX = x - deltaX;
@@ -223,7 +223,7 @@ namespace Map
 
                         tileDistanceToUnwalkableDirections[((x + y * mapWidth) << 3) + dir] = current;
 
-                        changed.emplace(std::make_pair(x, y));
+                        changed.emplace(x, y);
 
                         x += deltaX;
                         y += deltaY;
@@ -303,7 +303,7 @@ namespace Map
 
                         tileDistanceToUnwalkableDirections[((x + y * mapWidth) << 3) + dir] = current;
 
-                        changed.emplace(std::make_pair(x, y));
+                        changed.emplace(x, y);
 
                         x += deltaX;
                         y += deltaY;

@@ -1,5 +1,6 @@
 #include "Producer.h"
 
+#include <ranges>
 #include <utility>
 #include "Strategist.h"
 #include "Units.h"
@@ -974,20 +975,20 @@ namespace Producer
             // Precompute the frame stops and how much of the resource we need at each one
             std::vector<std::pair<int, int>> frameStopsAndResourceNeeded;
             frameStopsAndResourceNeeded.emplace_back(0, prerequisiteCost + itemCost);
-            for (auto prerequisiteIt = prerequisiteItems.rbegin(); prerequisiteIt != prerequisiteItems.rend(); prerequisiteIt++)
+            for (const auto &prerequisiteItem : std::ranges::reverse_view(prerequisiteItems))
             {
-                int cost = isMinerals ? (*prerequisiteIt)->mineralPrice() : (*prerequisiteIt)->gasPrice();
+                int cost = isMinerals ? prerequisiteItem->mineralPrice() : prerequisiteItem->gasPrice();
                 if (cost > 0)
                 {
-                    frameStopsAndResourceNeeded.emplace_back(item.startFrame - (*prerequisiteIt)->startFrame, prerequisiteCost);
+                    frameStopsAndResourceNeeded.emplace_back(item.startFrame - prerequisiteItem->startFrame, prerequisiteCost);
                     prerequisiteCost -= cost;
 
                     if (includeGasCostInMinerals)
                     {
-                        prerequisiteCost -= (int) (MINERALS_PER_GAS_UNIT * (double) (*prerequisiteIt)->gasPrice());
+                        prerequisiteCost -= (int) (MINERALS_PER_GAS_UNIT * (double) prerequisiteItem->gasPrice());
 
                         // Include the price of the assimilator with the cybernetics core
-                        if ((*prerequisiteIt)->isPrerequisite && (*prerequisiteIt)->is(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
+                        if (prerequisiteItem->isPrerequisite && prerequisiteItem->is(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
                         {
                             prerequisiteCost -= BWAPI::UnitTypes::Protoss_Assimilator.mineralPrice();
                         }
@@ -1095,12 +1096,12 @@ namespace Producer
             int prerequisiteCostRemaining = prerequisiteCost;
             std::vector<std::pair<int, int>> frameStopsAndGasNeeded;
             frameStopsAndGasNeeded.emplace_back(0, prerequisiteCostRemaining + item.gasPrice());
-            for (auto prerequisiteIt = prerequisiteItems.rbegin(); prerequisiteIt != prerequisiteItems.rend(); prerequisiteIt++)
+            for (const auto &prerequisiteItem : std::ranges::reverse_view(prerequisiteItems))
             {
-                int cost = (*prerequisiteIt)->gasPrice();
+                int cost = prerequisiteItem->gasPrice();
                 if (cost > 0)
                 {
-                    frameStopsAndGasNeeded.emplace_back(item.startFrame - (*prerequisiteIt)->startFrame, prerequisiteCostRemaining);
+                    frameStopsAndGasNeeded.emplace_back(item.startFrame - prerequisiteItem->startFrame, prerequisiteCostRemaining);
                     prerequisiteCostRemaining -= cost;
                 }
             }
@@ -2126,18 +2127,18 @@ namespace Producer
         if (totalSupply[0] >= 400 && supply[0] <= 4)
         {
             // Count the gateways we already have
-            int gateways = Units::countCompleted(BWAPI::UnitTypes::Protoss_Gateway) +
-                           Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Gateway).size();
+            size_t gateways = Units::countCompleted(BWAPI::UnitTypes::Protoss_Gateway) +
+                              Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Gateway).size();
 
             // Build up to 25 gateways, but keep 2 build locations reserved for other types of buildings
             // We might have a need to build air units or tech later on in the game
-            unsigned long desiredGateways =
+            size_t desiredGateways =
                     std::min(25 - gateways,
-                             (int)buildLocations[BuildingPlacement::Neighbourhood::AllMyBases][BWAPI::UnitTypes::Protoss_Gateway.tileWidth()].size()
+                             buildLocations[BuildingPlacement::Neighbourhood::AllMyBases][BWAPI::UnitTypes::Protoss_Gateway.tileWidth()].size()
                              - 2);
 
             // Scale up to 25 gateways as our bank allows
-            for (int gateway = gateways + 1; gateway <= gateways + desiredGateways; gateway++)
+            for (int gateway = (int)gateways + 1; gateway <= gateways + desiredGateways; gateway++)
             {
                 int requiredMinerals = gateway * BWAPI::UnitTypes::Protoss_Dragoon.mineralPrice() + BWAPI::UnitTypes::Protoss_Gateway.mineralPrice();
                 int requiredGas = gateway * BWAPI::UnitTypes::Protoss_Dragoon.gasPrice() + BWAPI::UnitTypes::Protoss_Gateway.gasPrice();

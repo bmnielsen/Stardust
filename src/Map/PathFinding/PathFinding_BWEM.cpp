@@ -210,7 +210,7 @@ namespace PathFinding
         // Adjust the start and end positions based on the options
         auto adjustedStart = adjustForBWEMPathFinding(start, options);
         auto adjustedEnd = adjustForBWEMPathFinding(end, options);
-        if (adjustedStart == BWAPI::Positions::Invalid || adjustedEnd == BWAPI::Positions::Invalid) return BWEM::CPPath();
+        if (adjustedStart == BWAPI::Positions::Invalid || adjustedEnd == BWAPI::Positions::Invalid) return {};
 
         // Start with the BWEM path
         auto &bwemPath = BWEM::Map::Instance().GetPath(adjustedStart, adjustedEnd, pathLength);

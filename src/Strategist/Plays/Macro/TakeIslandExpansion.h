@@ -6,7 +6,7 @@
 class TakeIslandExpansion : public TakeExpansion
 {
 public:
-    TakeIslandExpansion(Base *base, bool canCancel = true, bool transferWorkers = true);
+    explicit TakeIslandExpansion(Base *base, bool canCancel = true, bool transferWorkers = true);
 
     void update() override;
 

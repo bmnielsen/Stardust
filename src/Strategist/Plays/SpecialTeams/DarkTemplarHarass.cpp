@@ -16,14 +16,13 @@ namespace
                                                         end,
                                                         BWAPI::UnitTypes::Protoss_Dark_Templar,
                                                         PathFinding::PathFindingOptions::UseNearestBWEMArea);
-        for (auto bwemChoke : chokePath)
+        return std::all_of(chokePath.begin(), chokePath.end(), [&grid](const auto &bwemChoke)
         {
             auto choke = Map::choke(bwemChoke);
-            if (choke->width > 300) continue;
+            if (choke->width > 300) return true;
             if (grid.detection(choke->center) > 0) return false;
-        }
-
-        return true;
+            return true;
+        });
     }
 
     Base *getBaseToHarass(MyUnit &unit)

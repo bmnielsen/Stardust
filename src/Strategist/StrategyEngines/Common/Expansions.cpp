@@ -129,7 +129,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     {
         // Expand if we have no bases with more than 3 available mineral assignments
         // Adjust by the number of pending expansions to avoid instability when a build worker is reserved for the expansion
-        int availableMineralAssignmentsThreshold = 3 + takeExpansionPlays.size();
+        int availableMineralAssignmentsThreshold = 3 + (int)takeExpansionPlays.size();
 
         // If the enemy is contained, boost the threshold
         // This is for now only applied to terran, since we can lose games against protoss and zerg by overexpanding

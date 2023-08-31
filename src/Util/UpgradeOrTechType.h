@@ -12,23 +12,23 @@ public:
 
     UpgradeOrTechType(BWAPI::TechType techType) : upgradeType(BWAPI::UpgradeTypes::None), techType(techType) {}
 
-    bool isTechType() const { return techType != BWAPI::TechTypes::None; }
+    [[nodiscard]] bool isTechType() const { return techType != BWAPI::TechTypes::None; }
 
-    int mineralPrice() const;
+    [[nodiscard]] int mineralPrice() const;
 
-    int gasPrice() const;
+    [[nodiscard]] int gasPrice() const;
 
-    int upgradeOrResearchTime() const;
+    [[nodiscard]] int upgradeOrResearchTime() const;
 
-    BWAPI::UnitType whatUpgradesOrResearches() const;
+    [[nodiscard]] BWAPI::UnitType whatUpgradesOrResearches() const;
 
-    BWAPI::UnitType whatsRequired() const;
+    [[nodiscard]] BWAPI::UnitType whatsRequired() const;
 
-    int currentLevel() const;
+    [[nodiscard]] int currentLevel() const;
 
-    int maxLevel() const;
+    [[nodiscard]] int maxLevel() const;
 
-    bool operator==(const UpgradeOrTechType &other);
+    bool operator==(const UpgradeOrTechType &other) const;
 };
 
 std::ostream &operator<<(std::ostream &os, const UpgradeOrTechType &type);

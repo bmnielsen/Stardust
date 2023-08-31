@@ -64,11 +64,11 @@ void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
     for (auto &clusterAndRequiredWorkers : baseClusters)
     {
         // Balance the production amongst the bases
-        int desiredProductionPerBase = clusterAndRequiredWorkers.second / clusterAndRequiredWorkers.first.size();
-        int remainder = clusterAndRequiredWorkers.second % clusterAndRequiredWorkers.first.size();
+        size_t desiredProductionPerBase = clusterAndRequiredWorkers.second / clusterAndRequiredWorkers.first.size();
+        size_t remainder = clusterAndRequiredWorkers.second % clusterAndRequiredWorkers.first.size();
         for (auto &base : clusterAndRequiredWorkers.first)
         {
-            int count = desiredProductionPerBase;
+            size_t count = desiredProductionPerBase;
             if (remainder > 0)
             {
                 count++;

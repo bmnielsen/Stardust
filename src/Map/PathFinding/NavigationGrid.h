@@ -35,9 +35,9 @@ public:
             return os;
         }
 
-        BWAPI::Position center() const
+        [[nodiscard]] BWAPI::Position center() const
         {
-            return BWAPI::Position((x << 5U) + 16, (y << 5U) + 16);
+            return {(x << 5U) + 16, (y << 5U) + 16};
         }
     };
 

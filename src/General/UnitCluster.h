@@ -49,7 +49,7 @@ public:
 
     std::set<MyUnit>::iterator removeUnit(std::set<MyUnit>::iterator unitIt, BWAPI::Position targetPosition);
 
-    bool hasUnitType(BWAPI::UnitType type) const;
+    [[nodiscard]] bool hasUnitType(BWAPI::UnitType type) const;
 
     void updatePositions(BWAPI::Position targetPosition);
 

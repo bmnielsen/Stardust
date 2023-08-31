@@ -53,11 +53,11 @@ public:
     virtual std::shared_ptr<Block> tryCreate(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvailability) = 0;
 
 protected:
-    bool place(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvailability);
+    bool place(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvailability) const;
 
     bool placeStartBlock(std::vector<BWAPI::TilePosition> &usedTiles,
                          std::vector<BWAPI::TilePosition> &borderTiles,
-                         std::vector<unsigned int> &tileAvailability);
+                         std::vector<unsigned int> &tileAvailability) const;
 
     virtual void placeLocations() = 0;
 

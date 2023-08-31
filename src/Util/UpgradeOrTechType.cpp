@@ -70,7 +70,7 @@ int UpgradeOrTechType::maxLevel() const
     return upgradeType.maxRepeats();
 }
 
-bool UpgradeOrTechType::operator==(const UpgradeOrTechType &other)
+bool UpgradeOrTechType::operator==(const UpgradeOrTechType &other) const
 {
     return upgradeType == other.upgradeType && techType == other.techType;
 }

@@ -239,12 +239,10 @@ void Elevator::update()
 
     auto isTransferredUnitUnderAttack = [&]()
     {
-        for (auto &unit : transferred)
+        return std::any_of(transferred.begin(), transferred.end(), [](const auto &unit)
         {
-            if (unit->isBeingAttacked()) return true;
-        }
-
-        return false;
+            return unit->isBeingAttacked();
+        });
     };
 
     // Move transferred units to the squad if:
@@ -470,7 +468,7 @@ void Elevator::addUnit(const MyUnit &unit)
 void Elevator::removeUnit(const MyUnit &unit)
 {
     if (shuttle == unit) shuttle = nullptr;
-    count -= transferQueue.erase(unit);
+    count -= (int)transferQueue.erase(unit);
     transferring.erase(unit);
     transferred.erase(unit);
 
@@ -535,7 +533,7 @@ std::pair<BWAPI::TilePosition, BWAPI::TilePosition> Elevator::selectPositions(Ba
                 if (!validElevatorPosition(edgePosition)) continue;
 
                 auto pos = BWAPI::Position(edgePosition) + BWAPI::Position(16, 16);
-                int score = pos.getApproxDistance(base->getPosition()) * chokes.size() * 2;
+                int score = pos.getApproxDistance(base->getPosition()) * (int)chokes.size() * 2;
                 for (auto &choke : chokes)
                 {
                     score += pos.getApproxDistance(choke->center);

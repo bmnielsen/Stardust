@@ -373,7 +373,7 @@ namespace BuildingPlacement
                         {
                             score += (mainChoke->center.getApproxDistance(pos) - chokeToMineralLineDist) * 2;
                         }
-                        tilesAndScore.emplace_back(std::make_pair(score, tile));
+                        tilesAndScore.emplace_back(score, tile);
                     }
                     std::sort(tilesAndScore.begin(), tilesAndScore.end());
 

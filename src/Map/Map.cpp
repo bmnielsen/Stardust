@@ -1,5 +1,7 @@
 #include "Map.h"
 
+#include <ranges>
+
 #include "MapSpecificOverrides/Fortress.h"
 #include "MapSpecificOverrides/Plasma.h"
 #include "MapSpecificOverrides/Alchemist.h"
@@ -83,9 +85,9 @@ namespace Map
                     PathFinding::PathFindingOptions::UseNearestBWEMArea);
             if (path.empty()) return nullptr;
 
-            for (auto it = path.rbegin(); it != path.rend(); it++)
+            for (auto &bwemChoke : std::ranges::reverse_view(path))
             {
-                auto c = choke(*it);
+                auto c = choke(bwemChoke);
                 if (c->isRamp) return c;
             }
 

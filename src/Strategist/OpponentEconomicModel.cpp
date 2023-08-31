@@ -1,5 +1,7 @@
 #include "OpponentEconomicModel.h"
 
+#include <ranges>
+
 #include "Map.h"
 #include "UnitUtil.h"
 #include "UpgradeOrTechType.h"
@@ -313,7 +315,7 @@ namespace OpponentEconomicModel
             }
 
             int startFrame = frame - UnitUtil::BuildTime(type);
-            prerequisites.emplace_back(std::make_pair(startFrame, type));
+            prerequisites.emplace_back(startFrame, type);
 
             return getPrerequisites(prerequisites, type, startFrame);
         }
@@ -436,7 +438,7 @@ namespace OpponentEconomicModel
                 Log::Get() << "Enemy has upgraded " << type << " to " << level;
 #endif
                 currentLevel = level;
-                research.emplace_back(std::make_pair(type, currentFrame - type.upgradeTime(level)));
+                research.emplace_back(type, currentFrame - type.upgradeTime(level));
                 changedThisFrame = true;
 
 #if OUTPUT_BUILD_ORDER
@@ -529,11 +531,11 @@ namespace OpponentEconomicModel
             std::vector<std::pair<int, int>> gasFrames;
             for (const auto &unit : allUnits)
             {
-                if (unit->gasPrice > 5) gasFrames.emplace_back(std::make_pair(unit->creationFrame, unit->gasPrice));
+                if (unit->gasPrice > 5) gasFrames.emplace_back(unit->creationFrame, unit->gasPrice);
             }
             for (const auto &[upgradeOrTechType, frame] : research)
             {
-                if (upgradeOrTechType.gasPrice() > 5) gasFrames.emplace_back(std::make_pair(frame, upgradeOrTechType.gasPrice()));
+                if (upgradeOrTechType.gasPrice() > 5) gasFrames.emplace_back(frame, upgradeOrTechType.gasPrice());
             }
             std::sort(gasFrames.begin(), gasFrames.end());
 
@@ -1075,7 +1077,7 @@ namespace OpponentEconomicModel
 
         int startFrame = frameStarted;
         if (startFrame == -1) startFrame = currentFrame - type.researchTime();
-        research.emplace_back(std::make_pair(type, startFrame));
+        research.emplace_back(type, startFrame);
     }
 
     void opponentUpgraded(BWAPI::UpgradeType type, int level, int frameStarted)
@@ -1085,7 +1087,7 @@ namespace OpponentEconomicModel
         changedThisFrame = true;
 
         currentUpgradeLevels[type] = level;
-        research.emplace_back(std::make_pair(type, frameStarted));
+        research.emplace_back(type, frameStarted);
     }
 
     std::pair<int, int> worstCaseUnitCount(BWAPI::UnitType type, int frame)
@@ -1435,11 +1437,11 @@ namespace OpponentEconomicModel
         // Compute the frame stops and how much of the resource we need at each one
         std::vector<std::tuple<int, int, int>> frameStopsAndResourcesNeeded;
         frameStopsAndResourcesNeeded.emplace_back(0, totalMineralCost + mineralPrice, totalGasCost + gasPrice);
-        for (auto it = prerequisites.rbegin(); it != prerequisites.rend(); it++)
+        for (auto &prerequisite : std::ranges::reverse_view(prerequisites))
         {
-            frameStopsAndResourcesNeeded.emplace_back(it->first, totalMineralCost, totalGasCost);
-            totalMineralCost -= it->second.mineralPrice();
-            totalGasCost -= it->second.gasPrice();
+            frameStopsAndResourcesNeeded.emplace_back(prerequisite.first, totalMineralCost, totalGasCost);
+            totalMineralCost -= prerequisite.second.mineralPrice();
+            totalGasCost -= prerequisite.second.gasPrice();
         }
 
         // Find the frame where we can meet resource requirements at all frame stops

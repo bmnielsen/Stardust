@@ -81,18 +81,18 @@ namespace
 
         // Determine how many tanks we want to hit, based on the total energy of our arbiters
         // The more energy we have, the more tanks we want to hit with one cast
-        int minimumTargets = 4;
-        if (totalEnergy > 200)
-        {
-            minimumTargets = 3;
-        }
-        else if (totalEnergy > 300)
+        long minimumTargets = 4;
+        if (totalEnergy > 300)
         {
             minimumTargets = 2;
         }
+        else if (totalEnergy > 200)
+        {
+            minimumTargets = 3;
+        }
 
         BWAPI::Position best = BWAPI::Positions::Invalid;
-        int bestValue = minimumTargets - 1;
+        long bestValue = minimumTargets - 1;
         int bestDist = INT_MAX;
         for (int tileY = arbiter->tilePositionY - stasisRange; tileY <= arbiter->tilePositionY + stasisRange; tileY++)
         {

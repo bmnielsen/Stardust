@@ -338,7 +338,7 @@ void ElevatorRush::addUnit(const MyUnit &unit)
 void ElevatorRush::removeUnit(const MyUnit &unit)
 {
     if (shuttle == unit) shuttle = nullptr;
-    count -= transferQueue.erase(unit);
+    count -= (int)transferQueue.erase(unit);
     transferring.erase(unit);
     transferred.erase(unit);
 

@@ -12,7 +12,7 @@
 class MapSpecificOverride
 {
 public:
-    virtual ~MapSpecificOverride() {}
+    virtual ~MapSpecificOverride() = default;
 
     virtual bool hasMineralWalking() { return false; }
 

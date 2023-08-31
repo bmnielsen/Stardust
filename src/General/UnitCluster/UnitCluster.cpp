@@ -54,18 +54,18 @@ void UnitCluster::absorbCluster(const std::shared_ptr<UnitCluster> &other, BWAPI
     units.insert(other->units.begin(), other->units.end());
     area += other->area;
     ballRadius = (int) sqrt((double) area / pi);
-    lineRadius = 16 * units.size();
+    lineRadius = 16 * (int)units.size();
 
     // Recompute the center
     if (units.empty()) return; // should never happen, but guard against divide-by-zero
-    int sumX = 0;
-    int sumY = 0;
+    size_t sumX = 0;
+    size_t sumY = 0;
     for (auto &unit : units)
     {
         sumX += unit->lastPosition.x;
         sumY += unit->lastPosition.y;
     }
-    center = BWAPI::Position(sumX / units.size(), sumY / units.size());
+    center = BWAPI::Position((int)(sumX / units.size()), (int)(sumY / units.size()));
 }
 
 void UnitCluster::addUnit(const MyUnit &unit)
@@ -75,8 +75,8 @@ void UnitCluster::addUnit(const MyUnit &unit)
     units.insert(unit);
 
     center = BWAPI::Position(
-            ((center.x * (units.size() - 1)) + unit->lastPosition.x) / units.size(),
-            ((center.y * (units.size() - 1)) + unit->lastPosition.y) / units.size());
+            ((center.x * ((int)units.size() - 1)) + unit->lastPosition.x) / (int)units.size(),
+            ((center.y * ((int)units.size() - 1)) + unit->lastPosition.y) / (int)units.size());
 
     area += unit->type.width() * unit->type.height();
 
@@ -87,7 +87,7 @@ void UnitCluster::addUnit(const MyUnit &unit)
 
 std::set<MyUnit>::iterator UnitCluster::removeUnit(std::set<MyUnit>::iterator unitIt, BWAPI::Position targetPosition)
 {
-    auto unit = *unitIt;
+    auto unit = *unitIt; // NOLINT(performance-unnecessary-copy-initialization) - copied on purpose as it is deleted in the next line
 
     auto newUnitIt = units.erase(unitIt);
     area -= unit->type.width() * unit->type.height();
@@ -102,8 +102,8 @@ std::set<MyUnit>::iterator UnitCluster::removeUnit(std::set<MyUnit>::iterator un
     else
     {
         center = BWAPI::Position(
-                ((center.x * (units.size() + 1)) - unit->lastPosition.x) / units.size(),
-                ((center.y * (units.size() + 1)) - unit->lastPosition.y) / units.size());
+                ((center.x * ((int)units.size() + 1)) - unit->lastPosition.x) / (int)units.size(),
+                ((center.y * ((int)units.size() + 1)) - unit->lastPosition.y) / (int)units.size());
     }
 
     return newUnitIt;
@@ -111,17 +111,16 @@ std::set<MyUnit>::iterator UnitCluster::removeUnit(std::set<MyUnit>::iterator un
 
 bool UnitCluster::hasUnitType(BWAPI::UnitType type) const
 {
-    for (auto &unit : units)
+    return std::any_of(units.begin(), units.end(), [&type](const auto &unit)
     {
-        if (unit->type == type) return true;
-    }
-    return false;
+        return unit->type == type;
+    });
 }
 
 void UnitCluster::updatePositions(BWAPI::Position targetPosition)
 {
-    int sumX = 0;
-    int sumY = 0;
+    size_t sumX = 0;
+    size_t sumY = 0;
 
     // Start by pruning dead units and recomputing unit distances and the cluster center position
     int minGroundDistance = INT_MAX;
@@ -165,11 +164,11 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     }
 
     ballRadius = (int) sqrt((double) area / pi);
-    lineRadius = 16 * units.size();
+    lineRadius = 16 * (int)units.size();
 
     if (units.empty()) return;
 
-    center = BWAPI::Position(sumX / units.size(), sumY / units.size());
+    center = BWAPI::Position((int)(sumX / units.size()), (int)(sumY / units.size()));
 
     // Now determine which unit is our vanguard unit
     // This is generally the unit closest to the target position, but if more than one unit is at approximately the

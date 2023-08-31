@@ -346,7 +346,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             }
 #endif
 
-            result.emplace_back(std::make_pair(unit, target ? target->unit : nullptr));
+            result.emplace_back(unit, target ? target->unit : nullptr);
             continue;
         }
 
@@ -473,7 +473,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             }
 
             // This is a suitable target
-            filteredTargets.emplace_back(std::make_pair(&target, distToRange));
+            filteredTargets.emplace_back(&target, distToRange);
 
             if (target.priority > 7) hasNonBuilding = true;
         }
@@ -595,7 +595,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             // Melee units get an extra bonus, as they have a more difficult time getting around blocking things
             if (targetDist <= range)
             {
-                score += (isRanged ? 64.0 : 160.0);
+                score += (isRanged ? 64 : 160);
             }
 
             // Give a bonus to injured targets
@@ -757,7 +757,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             {
                 bestTarget->dealDamage(unit);
             }
-            result.emplace_back(std::make_pair(attacker.unit, bestTarget->unit));
+            result.emplace_back(attacker.unit, bestTarget->unit);
 
 #if DEBUG_TARGETING
             dbg << "\n Selected target: " << *bestTarget->unit;
@@ -774,7 +774,7 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         }
         else
         {
-            result.emplace_back(std::make_pair(attacker.unit, nullptr));
+            result.emplace_back(attacker.unit, nullptr);
 
 #if DEBUG_TARGETING
             dbg << "\n No target";

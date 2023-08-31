@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <filesystem>
+#include <ranges>
 
 #include <nlohmann.h>
 
@@ -285,17 +286,17 @@ namespace Opponent
         int result = INT_MAX;
 
         int count = 0;
-        for (auto it = previousGames.rbegin(); it != previousGames.rend(); it++)
+        for (auto &previousGame : std::ranges::reverse_view(previousGames))
         {
             if (count >= maxCount) break;
 
             try
             {
-                auto valIt = it->find(key);
+                auto valIt = previousGame.find(key);
 
                 // If we hit a record where this data point isn't recorded, this means it was played by a previous version of the bot
                 // Apply the minimum game count restriction and return
-                if (valIt == it->end())
+                if (valIt == previousGame.end())
                 {
                     if (count < minCount) return defaultNoData;
                     return result;
@@ -320,14 +321,14 @@ namespace Opponent
         int losses = 0;
 
         int count = 0;
-        for (auto it = previousGames.rbegin(); it != previousGames.rend(); it++)
+        for (auto &previousGame : std::ranges::reverse_view(previousGames))
         {
             if (count >= maxCount) break;
 
             try
             {
-                auto valIt = it->find("won");
-                if (valIt != it->end())
+                auto valIt = previousGame.find("won");
+                if (valIt != previousGame.end())
                 {
                     (valIt->get<bool>() ? wins : losses)++;
                 }
@@ -352,22 +353,22 @@ namespace Opponent
         std::map<std::string, std::tuple<int, int, double, double>> resultsByOpening;
         double totalPotential = 0.0;
         int count = 0;
-        for (auto gameIt = previousGames.rbegin(); gameIt != previousGames.rend(); gameIt++)
+        for (auto &previousGame : std::ranges::reverse_view(previousGames))
         {
             try
             {
-                auto wonIt = gameIt->find("won");
-                if (wonIt == gameIt->end()) continue;
+                auto wonIt = previousGame.find("won");
+                if (wonIt == previousGame.end()) continue;
                 auto won = wonIt->get<bool>();
 
-                auto myStrategiesIt = gameIt->find("myStrategy");
-                if (myStrategiesIt == gameIt->end()) continue;
+                auto myStrategiesIt = previousGame.find("myStrategy");
+                if (myStrategiesIt == previousGame.end()) continue;
                 auto initialStrategy = (*myStrategiesIt)[0];
                 if (initialStrategy[0] != 0) continue;
 
                 auto &[wins, losses, reward, potential] = resultsByOpening[initialStrategy[1]];
 
-                double thisPotential = (isPreviousGameOnThisMap(*gameIt) ? 2.0 : 1.0);
+                double thisPotential = (isPreviousGameOnThisMap(previousGame) ? 2.0 : 1.0);
                 thisPotential *= std::exp(decayFactor * -1 * (count + 1));
                 potential += thisPotential;
                 totalPotential += thisPotential;

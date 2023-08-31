@@ -269,7 +269,7 @@ void UnitCluster::holdChoke(Choke *choke,
             }
         }
 
-        unitsAndMoveTargets.emplace_back(std::make_tuple(myUnit, distDiff, targetPos));
+        unitsAndMoveTargets.emplace_back(myUnit, distDiff, targetPos);
     }
 
     // Now execute move orders
@@ -289,7 +289,7 @@ void UnitCluster::holdChoke(Choke *choke,
             if (distDiff > 0)
             {
                 // Use the grid node to get to the choke center
-                NavigationGrid::GridNode *currentNode = nullptr;
+                NavigationGrid::GridNode *currentNode;
                 NavigationGrid::GridNode *nextNode = nullptr;
                 if (targetPos == choke->center)
                 {

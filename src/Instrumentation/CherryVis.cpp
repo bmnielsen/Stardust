@@ -416,7 +416,7 @@ namespace CherryVis
         if (frame == 0) frame = 1;
 
 #if IS_OPENBW
-        unitIds.emplace_back(std::make_pair(unit->getID(), unit->getBWID()));
+        unitIds.emplace_back(unit->getID(), unit->getBWID());
 #else
         frameToUnitsFirstSeen[std::to_string(frame)].push_back({
                                                                        {"id",   unit->getID()},
@@ -453,14 +453,14 @@ namespace CherryVis
             sum += val;
         }
 
-        double mean = (double)sum / data.size();
+        double mean = (double)sum / (double)data.size();
         double variance = 0.0;
         for (long val : data)
         {
-            double diff = val - mean;
+            double diff = (double)val - mean;
             variance += diff * diff;
         }
-        double stddev = std::sqrt(variance / data.size());
+        double stddev = std::sqrt(variance / (double)data.size());
 
         nlohmann::json frameData = {
                 {"data",           data},

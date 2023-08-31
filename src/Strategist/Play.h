@@ -50,8 +50,8 @@ struct PlayUnitRequirement
             , position(position)
             , distanceLimit(INT_MAX)
             , allowFromVanguardCluster(allowFromVanguardCluster)
-            , allowFailingGridNodePredicate(false)
-            , gridNodePredicate(nullptr) {}
+            , allowFailingGridNodePredicate(allowFailingGridNodePredicate)
+            , gridNodePredicate(std::move(gridNodePredicate)) {}
 };
 
 struct PlayStatus

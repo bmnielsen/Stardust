@@ -65,7 +65,7 @@ void StrategyEngine::buildDefensiveCannons(std::map<int, std::vector<ProductionG
 
     // Check if we have a cannon at our choke
     auto cannonLocations = BuildingPlacement::mainChokeCannonLocations();
-    MyUnit chokeCannon = nullptr;
+    MyUnit chokeCannon;
     if (cannonLocations.first != BWAPI::TilePositions::Invalid)
     {
         chokeCannon = Units::myBuildingAt(cannonLocations.second);
@@ -130,9 +130,8 @@ bool StrategyEngine::hasCannonAtWall()
         return unit->completed;
     };
     if (!completedUnit(wall.pylon)) return false;
-    for (const auto &cannonTile : wall.cannons)
-    {
-        if (completedUnit(cannonTile)) return true;
-    }
-    return false;
+
+    return std::any_of(wall.cannons.begin(), wall.cannons.end(), [&completedUnit](const auto &cannonTile){
+        return completedUnit(cannonTile);
+    });
 }

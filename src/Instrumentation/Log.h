@@ -2,9 +2,9 @@
 
 #include <BWAPI.h>
 
-#if LOGGING_ENABLED
-
 extern int currentFrame;
+
+#if LOGGING_ENABLED
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_LOGGING_ENABLED true

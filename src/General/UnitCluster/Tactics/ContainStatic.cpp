@@ -96,7 +96,7 @@ void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
             }
         }
 
-        unitsAndTargetsAndThreats.emplace_back(std::make_tuple(myUnit, unitAndTarget.second, threat));
+        unitsAndTargetsAndThreats.emplace_back(myUnit, unitAndTarget.second, threat);
         anyInRangeOfStaticDefense = anyInRangeOfStaticDefense || staticDefenseThreat;
     }
 

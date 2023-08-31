@@ -116,11 +116,10 @@ bool Base::isInMineralLine(BWAPI::TilePosition pos) const
 
 bool Base::hasGeyserOrRefineryAt(BWAPI::TilePosition geyserTopLeft) const
 {
-    for (const auto &geyserOrRefinery : _geysersOrRefineries)
+    return std::any_of(_geysersOrRefineries.begin(), _geysersOrRefineries.end(), [&geyserTopLeft](const auto &geyserOrRefinery)
     {
-        if (geyserTopLeft == geyserOrRefinery->tile) return true;
-    }
-    return false;
+        return geyserTopLeft == geyserOrRefinery->tile;
+    });
 }
 
 bool Base::gasRequiresFourWorkers(BWAPI::TilePosition geyserTopLeft) const
@@ -162,15 +161,15 @@ void Base::analyzeMineralLine()
     // Compute the approximate center of the mineral line
     if (mineralPatchCount() > 0)
     {
-        int x = 0;
-        int y = 0;
+        size_t x = 0;
+        size_t y = 0;
         for (const auto &mineral : _mineralPatches)
         {
             x += mineral->center.x;
             y += mineral->center.y;
         }
 
-        mineralLineCenter = (getPosition() + BWAPI::Position(x / mineralPatchCount(), y / mineralPatchCount()) * 2) / 3;
+        mineralLineCenter = (getPosition() + BWAPI::Position((int)(x / mineralPatchCount()), (int)(y / mineralPatchCount())) * 2) / 3;
     }
     else
     {

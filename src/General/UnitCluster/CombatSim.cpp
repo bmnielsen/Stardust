@@ -103,7 +103,7 @@ namespace
                 .setFlying(unit->isFlying)
 
                         // For this next section, we have modified FAP to allow taking the upgraded values instead of the upgrade levels
-                .setSpeed(Players::unitTopSpeed(unit->player, unit->type))
+                .setSpeed((float)Players::unitTopSpeed(unit->player, unit->type))
                 .setArmor(Players::unitArmor(unit->player, unit->type))
                 .setGroundCooldown(Players::unitGroundCooldown(unit->player, unit->type))
                 .setGroundDamage(unit->groundDamage())

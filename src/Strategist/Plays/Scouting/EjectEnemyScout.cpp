@@ -14,15 +14,11 @@ namespace
         if (!unit->lastPositionValid) return false;
 
         auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition));
-        for (const auto &mainArea : Map::getMyMainAreas())
+        auto &mainAreas = Map::getMyMainAreas();
+        return std::any_of(mainAreas.begin(), mainAreas.end(), [&area](const auto &mainArea)
         {
-            if (area == mainArea)
-            {
-                return true;
-            }
-        }
-
-        return false;
+            return area == mainArea;
+        });
     }
 }
 

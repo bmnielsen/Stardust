@@ -8,7 +8,7 @@ class MainArmyPlay : public Play
 public:
     explicit MainArmyPlay(std::string label) : Play(std::move(label)) {};
 
-    virtual bool isDefensive() const = 0;
+    [[nodiscard]] virtual bool isDefensive() const = 0;
 
     [[nodiscard]] bool receivesUnassignedUnits() const override { return true; }
 

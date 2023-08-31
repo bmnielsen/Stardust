@@ -239,7 +239,7 @@ namespace Builder
         }
     }
 
-    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, MyUnit builder, int startFrame)
+    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, const MyUnit &builder, int startFrame)
     {
         // Sanity check that we don't already have a pending building overlapping the tile
         // This happens if the producer orders two buildings on the same frame where one is using a build location converted from the other
@@ -418,12 +418,10 @@ namespace Builder
 
     bool isPendingHere(BWAPI::TilePosition tile)
     {
-        for (const auto &building : pendingBuildings)
+        return std::any_of(pendingBuildings.begin(), pendingBuildings.end(), [&tile](const auto &pendingBuilding)
         {
-            if (building->tile == tile) return true;
-        }
-
-        return false;
+            return pendingBuilding->tile == tile;
+        });
     }
 
     Building *pendingHere(BWAPI::TilePosition tile)

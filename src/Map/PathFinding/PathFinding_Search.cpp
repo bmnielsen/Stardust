@@ -102,7 +102,6 @@ namespace PathFinding
             parents[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] = node.tile;
         };
 
-        nextID = 0;
         nodeQueue.emplace(start, 0, startDist);
         parents[start.x + start.y * BWAPI::Broodwar->mapWidth()] = BWAPI::TilePositions::Invalid;
         while (!nodeQueue.empty())

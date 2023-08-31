@@ -38,7 +38,7 @@ namespace
             }
             else
             {
-                filteredUnitsAndTargets.emplace_back(std::make_pair(pair.first, nullptr));
+                filteredUnitsAndTargets.emplace_back(pair.first, nullptr);
             }
         }
         for (auto &unit : enemyUnits)
@@ -281,15 +281,10 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
 {
     auto staticDefense = [&enemyUnits]()
     {
-        for (const auto &unit : enemyUnits)
+        return std::any_of(enemyUnits.begin(), enemyUnits.end(), [](const auto &unit)
         {
-            if (unit->isStaticGroundDefense())
-            {
-                return true;
-            }
-        }
-
-        return false;
+            return unit->isStaticGroundDefense();
+        });
     };
 
     // First choose which regrouping mode we want to use

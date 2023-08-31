@@ -15,7 +15,7 @@ namespace Builder
 
     void issueOrders();
 
-    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, MyUnit builder, int startFrame = 0);
+    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, const MyUnit &builder, int startFrame = 0);
 
     void cancel(BWAPI::TilePosition tile);
 

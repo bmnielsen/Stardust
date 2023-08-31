@@ -251,7 +251,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
                 if (newEnemyStrategy == ProtossStrategy::DragoonAllIn)
                 {
-                    strategy = isDTExpandFeasible() ? OurStrategy::DTExpand : OurStrategy::Normal;;
+                    strategy = isDTExpandFeasible() ? OurStrategy::DTExpand : OurStrategy::Normal;
                     continue;
                 }
 

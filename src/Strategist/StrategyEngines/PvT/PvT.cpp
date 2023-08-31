@@ -14,7 +14,6 @@
 #include "Plays/MainArmy/ForgeFastExpand.h"
 #include "Plays/Scouting/EarlyGameWorkerScout.h"
 #include "Plays/Scouting/EjectEnemyScout.h"
-#include "Plays/SpecialTeams/CarrierHarass.h"
 #include "Plays/SpecialTeams/Elevator.h"
 #include "Plays/SpecialTeams/ElevatorRush.h"
 

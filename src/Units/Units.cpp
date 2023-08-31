@@ -15,7 +15,6 @@
 #include "OpponentEconomicModel.h"
 #include "Strategist.h"
 #include "Bullets.h"
-#include "Workers.h"
 
 #include "DebugFlag_GridUpdates.h"
 
@@ -1345,12 +1344,12 @@ namespace Units
 
     int countCompleted(BWAPI::UnitType type)
     {
-        return myCompletedUnitsByType[type].size();
+        return (int)myCompletedUnitsByType[type].size();
     }
 
     int countIncomplete(BWAPI::UnitType type)
     {
-        return myIncompleteUnitsByType[type].size();
+        return (int)myIncompleteUnitsByType[type].size();
     }
 
     std::map<BWAPI::UnitType, int> countIncompleteByType()
@@ -1358,14 +1357,14 @@ namespace Units
         std::map<BWAPI::UnitType, int> result;
         for (auto &typeAndUnits : myIncompleteUnitsByType)
         {
-            result[typeAndUnits.first] = typeAndUnits.second.size();
+            result[typeAndUnits.first] = (int)typeAndUnits.second.size();
         }
         return result;
     }
 
     int countEnemy(BWAPI::UnitType type)
     {
-        return enemyUnitsByType[type].size();
+        return (int)enemyUnitsByType[type].size();
     }
 
     std::vector<std::pair<int, int>> &getEnemyUnitTimings(BWAPI::UnitType type)

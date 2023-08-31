@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 project(BWEM)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 
 include_directories(include)
 
