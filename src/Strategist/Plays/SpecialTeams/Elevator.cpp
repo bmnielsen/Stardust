@@ -448,7 +448,7 @@ bool Elevator::canReassignUnit(const MyUnit &unit) const
     if (unit == shuttle) return false;
 
     // Allow other units to be reassigned only if they are in the transfer queue
-    return transferQueue.find(unit) != transferQueue.end();
+    return transferQueue.contains(unit);
 }
 
 void Elevator::addUnit(const MyUnit &unit)
@@ -579,7 +579,7 @@ std::pair<BWAPI::TilePosition, BWAPI::TilePosition> Elevator::selectPositions(Ba
             if (edgeTileArea == edgePositionsToArea.end()) continue;
 
             // Must not be in one of our avoid areas
-            if (avoidAreas.find(edgeTileArea->second) != avoidAreas.end()) continue;
+            if (avoidAreas.contains(edgeTileArea->second)) continue;
 
             // We have a match
             baseTile = tile.tile;

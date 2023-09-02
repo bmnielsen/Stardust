@@ -149,7 +149,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 for (const auto &unit : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Dark_Templar))
                 {
                     auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition));
-                    if (mainAreas.find(area) == mainAreas.end()) dtCount++;
+                    if (!mainAreas.contains(area)) dtCount++;
                 }
 
                 defendOurMain = dtCount < 2;
@@ -215,7 +215,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                             if (choke && choke->center.getApproxDistance(pos) < 320) return true;
 
                             auto mainAreas = Map::getMyMainAreas();
-                            return mainAreas.find(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(pos))) != mainAreas.end();
+                            return mainAreas.contains(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(pos)));
                         };
 
                         if (inMain(vanguard->center) || (vanguard->vanguard && inMain(vanguard->vanguard->lastPosition)))

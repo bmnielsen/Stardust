@@ -433,8 +433,7 @@ void CorsairSquad::execute()
             bool matched = false;
             for (auto base : Map::getMyBases())
             {
-                auto &enemiesAtBase = Units::enemyAtBase(base);
-                if (enemiesAtBase.find(unit) != enemiesAtBase.end())
+                if (Units::enemyAtBase(base).contains(unit))
                 {
                     threatenedBases[base].insert(unit);
                     matched = true;

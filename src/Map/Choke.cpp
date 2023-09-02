@@ -286,7 +286,7 @@ void Choke::analyzeNarrowChoke()
         auto visit = [&](std::pair<BWAPI::WalkPosition, int> current)
         {
             auto &pos = current.first;
-            if (visited.find(pos) != visited.end()) return;
+            if (visited.contains(pos)) return;
 
             // Skip nodes that haven't had a position added in 8 or more steps
             // But don't add to the visited set, as we might get here again from a valid path
@@ -304,7 +304,7 @@ void Choke::analyzeNarrowChoke()
                 if (!isValidAndWalkable(pos.x + dx, pos.y + dy)) return;
 
                 auto here = BWAPI::WalkPosition(pos.x + dx, pos.y + dy);
-                if (visited.find(here) != visited.end()) return;
+                if (visited.contains(here)) return;
 
                 bool bordersUnwalkable = false;
                 bool addedPosition = false;
@@ -839,10 +839,10 @@ void Choke::computeNarrowRampHighGroundPosition()
             if (pos.x % 32 > 0 && pos.x % 32 < 31 && pos.y % 32 > 0 && pos.y % 32 < 31) continue;
             if (!BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos))) continue;
             if (BWAPI::Broodwar->getGroundHeight(BWAPI::TilePosition(pos)) != highGroundElevation) continue;
-            if (lowGroundTiles.find(BWAPI::TilePosition(pos + BWAPI::Position(1, 0))) == lowGroundTiles.end() &&
-                lowGroundTiles.find(BWAPI::TilePosition(pos + BWAPI::Position(-1, 0))) == lowGroundTiles.end() &&
-                lowGroundTiles.find(BWAPI::TilePosition(pos + BWAPI::Position(0, 1))) == lowGroundTiles.end() &&
-                lowGroundTiles.find(BWAPI::TilePosition(pos + BWAPI::Position(0, -1))) == lowGroundTiles.end())
+            if (!lowGroundTiles.contains(BWAPI::TilePosition(pos + BWAPI::Position(1, 0))) &&
+                !lowGroundTiles.contains(BWAPI::TilePosition(pos + BWAPI::Position(-1, 0))) &&
+                !lowGroundTiles.contains(BWAPI::TilePosition(pos + BWAPI::Position(0, 1))) &&
+                !lowGroundTiles.contains(BWAPI::TilePosition(pos + BWAPI::Position(0, -1))))
                 continue;
             if (!inChokeCenter(pos)) continue;
 

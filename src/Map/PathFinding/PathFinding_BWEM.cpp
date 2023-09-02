@@ -153,7 +153,7 @@ namespace PathFinding
                 nodeQueue.pop();
 
                 // If already has a parent, continue
-                if (parentMap.find(current.choke) != parentMap.end()) continue;
+                if (parentMap.contains(current.choke)) continue;
 
                 // Set parent
                 parentMap[current.choke] = current.parent;
@@ -170,7 +170,7 @@ namespace PathFinding
                 // Add valid connected chokes we haven't visited yet
                 for (auto choke : current.toArea->ChokePoints())
                 {
-                    if (validChoke(choke, unitType.width(), unitType.isWorker()) && parentMap.find(choke) == parentMap.end())
+                    if (validChoke(choke, unitType.width(), unitType.isWorker()) && !parentMap.contains(choke))
                         nodeQueue.emplace(
                                 choke,
                                 current.dist + BWAPI::Position(choke->Center()).getApproxDistance(BWAPI::Position(current.choke->Center())),

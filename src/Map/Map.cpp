@@ -598,7 +598,7 @@ namespace Map
                     auto area = BWEM::Map::Instance().GetArea(here);
                     if (area)
                     {
-                        if (islandAreas.find(area) != islandAreas.end())
+                        if (islandAreas.contains(area))
                         {
                             islandTiles[here.x + here.y * mapWidth] = true;
                         }
@@ -661,7 +661,7 @@ namespace Map
                     auto area = BWEM::Map::Instance().GetArea(here);
                     if (area)
                     {
-                        if (leafAreas.find(area) != leafAreas.end())
+                        if (leafAreas.contains(area))
                         {
                             leafAreaTiles[here.x + here.y * mapWidth] = true;
                         }
@@ -749,7 +749,7 @@ namespace Map
             {
                 for (int x = 0; x < mapWidth; x++)
                 {
-                    edgeTiles[x + y * mapWidth] = edgePositionsToArea.find(BWAPI::TilePosition(x, y)) == edgePositionsToArea.end() ? 0 : 100;
+                    edgeTiles[x + y * mapWidth] = ((!edgePositionsToArea.contains(BWAPI::TilePosition(x, y))) ? 0 : 100);
                 }
             }
 
@@ -1008,7 +1008,7 @@ namespace Map
         {
             for (const BWEM::ChokePoint *choke : area.ChokePoints())
             {
-                if (chokes.find(choke) == chokes.end())
+                if (!chokes.contains(choke))
                     chokes.emplace(choke, new Choke(choke));
             }
         }

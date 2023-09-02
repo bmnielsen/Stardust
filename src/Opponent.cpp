@@ -266,7 +266,7 @@ namespace Opponent
 
     bool isGameValueSet(const std::string &key)
     {
-        return setKeys.find(key) != setKeys.end();
+        return setKeys.contains(key);
     }
 
     void addMyStrategyChange(const std::string &strategy)

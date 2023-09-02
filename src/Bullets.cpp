@@ -159,7 +159,7 @@ namespace Bullets
 
     bool dealsDamageAfterDelay(BWAPI::BulletType type)
     {
-        return delayedDamageBulletUnits.find(type) != delayedDamageBulletUnits.end();
+        return delayedDamageBulletUnits.contains(type);
     }
 
     int upcomingDamage(BWAPI::Bullet bullet)

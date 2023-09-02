@@ -29,7 +29,7 @@ namespace
             if (enemyUnit->type.isResourceDepot()) continue; // Don't count expansions
 
             auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(enemyUnit->lastPosition));
-            if (accessibleAreas.find(area) != accessibleAreas.end()) return true;
+            if (accessibleAreas.contains(area)) return true;
         }
 
         return false;

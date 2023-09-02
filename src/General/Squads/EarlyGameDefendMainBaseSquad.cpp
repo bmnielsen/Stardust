@@ -14,8 +14,7 @@ namespace
         auto choke = Map::getMyMainChoke();
         if (choke && choke->center.getApproxDistance(pos) < 320) return true;
 
-        auto mainAreas = Map::getMyMainAreas();
-        return mainAreas.find(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(pos))) != mainAreas.end();
+        return Map::getMyMainAreas().contains(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(pos)));
     }
 
     bool addEnemyUnits(std::set<Unit> &enemyUnits, Choke *choke, BWAPI::Position clusterCenter = BWAPI::Positions::Invalid, int clusterRadius = -1)

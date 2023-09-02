@@ -619,7 +619,7 @@ namespace Producer
                 if (!unitType) continue;
 
                 // There's already an item of this type in this goal's queue
-                if (seen.find(*unitType) != seen.end())
+                if (seen.contains(*unitType))
                 {
                     it = goalItems.erase(it);
                     continue;

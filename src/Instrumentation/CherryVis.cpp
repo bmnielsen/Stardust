@@ -379,7 +379,7 @@ namespace CherryVis
 #if CHERRYVIS_ENABLED
         if (disabled) return;
 
-        if (boardKeyToLastValue.find(key) == boardKeyToLastValue.end() ||
+        if (!boardKeyToLastValue.contains(key) ||
             boardKeyToLastValue[key] != value)
         {
             boardKeyToLastValue.insert_or_assign(key, value);
@@ -616,7 +616,7 @@ namespace CherryVis
         trace["units_first_seen"] = frameToUnitsFirstSeen;
 #endif
 
-        if (unitIdToDrawCommandsFile.find(-1) == unitIdToDrawCommandsFile.end())
+        if (!unitIdToDrawCommandsFile.contains(-1))
         {
             trace["draw_commands"] = nlohmann::json::array();
         }
@@ -636,7 +636,7 @@ namespace CherryVis
         }
         trace["units_draw"] = unitIdToDrawCommandsFilePath;
 
-        if (unitIdToLogFile.find(-1) == unitIdToLogFile.end())
+        if (!unitIdToLogFile.contains(-1))
         {
             trace["logs"] = nlohmann::json::array();
         }

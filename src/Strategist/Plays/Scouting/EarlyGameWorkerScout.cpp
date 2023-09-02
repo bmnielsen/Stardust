@@ -715,7 +715,7 @@ void EarlyGameWorkerScout::scoutEnemyBase()
     BWAPI::Position targetPos;
 
     // If we are outside the scout areas, use the navigation grid
-    if (scoutAreas.find(BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(scout.unit->lastPosition))) == scoutAreas.end())
+    if (!scoutAreas.contains(BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(scout.unit->lastPosition))))
     {
         // Move directly if there is no enemy threat or a ranged threat
         if (!hasThreat || hasRangedThreat)
@@ -751,7 +751,7 @@ void EarlyGameWorkerScout::scoutEnemyBase()
         auto avoidThreatTiles = [&](BWAPI::TilePosition tile)
         {
             if (!Map::isWalkable(tile)) return false;
-            if (scoutAreas.find(BWEM::Map::Instance().GetNearestArea(tile)) == scoutAreas.end())
+            if (!scoutAreas.contains(BWEM::Map::Instance().GetNearestArea(tile)))
             {
                 return false;
             }

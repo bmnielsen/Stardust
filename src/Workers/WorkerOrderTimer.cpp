@@ -188,7 +188,7 @@ namespace WorkerOrderTimer
 
         // Check if this worker is at an optimal position to resend the gather order
         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals &&
-            optimalOrderPositions.find(currentPositionAndVelocity) != optimalOrderPositions.end())
+            optimalOrderPositions.contains(currentPositionAndVelocity))
         {
             worker->gather(resource);
             positionHistory.emplace(std::make_pair(currentFrame, currentPositionAndVelocity));

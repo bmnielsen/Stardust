@@ -38,8 +38,7 @@ void DefendWallSquad::execute(UnitCluster &cluster)
     for (auto it = enemyUnits.begin(); it != enemyUnits.end(); )
     {
         auto tile = (*it)->getTilePosition();
-        if (wall.tilesOutsideWall.find(tile) != wall.tilesOutsideWall.end() &&
-            wall.tilesOutsideButCloseToWall.find(tile) == wall.tilesOutsideButCloseToWall.end())
+        if (wall.tilesOutsideWall.contains(tile) && !wall.tilesOutsideButCloseToWall.contains(tile))
         {
             it = enemyUnits.erase(it);
         }
@@ -58,7 +57,7 @@ void DefendWallSquad::execute(UnitCluster &cluster)
         bool unitOutsideWall = false;
         for (const auto &unit : cluster.units)
         {
-            if (wall.tilesOutsideWall.find(unit->getTilePosition()) == wall.tilesOutsideWall.end()) continue;
+            if (!wall.tilesOutsideWall.contains(unit->getTilePosition())) continue;
             unitOutsideWall = true;
             break;
         }

@@ -354,7 +354,7 @@ namespace OpponentEconomicModel
             std::set<BWAPI::UnitType> seenTypes;
             for (auto it = prerequisites.begin(); it != prerequisites.end(); )
             {
-                if (seenTypes.find(it->second) != seenTypes.end())
+                if (seenTypes.contains(it->second))
                 {
                     it = prerequisites.erase(it);
                 }
@@ -526,7 +526,7 @@ namespace OpponentEconomicModel
 
         // If we haven't seen an assimilator, check if we know when the enemy must have gotten it at the latest
         int overrideGasTiming = -1;
-        if (observedUnitsByType.find(BWAPI::UnitTypes::Protoss_Assimilator) == observedUnitsByType.end())
+        if (!observedUnitsByType.contains(BWAPI::UnitTypes::Protoss_Assimilator))
         {
             std::vector<std::pair<int, int>> gasFrames;
             for (const auto &unit : allUnits)
@@ -625,7 +625,7 @@ namespace OpponentEconomicModel
         for (const auto &unit : allUnits)
         {
             // Determine when this unit type can be started
-            if (prerequisitesAvailableByType.find(unit->type) == prerequisitesAvailableByType.end())
+            if (!prerequisitesAvailableByType.contains(unit->type))
             {
                 if (unit->creationFrameKnown)
                 {
@@ -1019,7 +1019,7 @@ namespace OpponentEconomicModel
         observedUnitsById[id] = observedUnit;
         observedUnits.insert(observedUnit);
         observedUnitsByType[type].insert(observedUnit);
-        if (firstOfTypeCreated.find(type) == firstOfTypeCreated.end())
+        if (!firstOfTypeCreated.contains(type))
         {
             firstOfTypeCreated[type] = estimatedCreationFrame;
         }

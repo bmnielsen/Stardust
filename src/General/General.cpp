@@ -82,8 +82,7 @@ namespace General
 
             // Determine the base the cannon belongs to
             Base *base = nullptr;
-            auto mainAreas = Map::getMyMainAreas();
-            if (mainAreas.find(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(cannon->lastPosition))) != mainAreas.end())
+            if (Map::getMyMainAreas().contains(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(cannon->lastPosition))))
             {
                 base = Map::getMyMain();
             }

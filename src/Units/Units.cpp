@@ -1404,9 +1404,9 @@ namespace Units
     {
         if (type.isTechType())
         {
-            return researchInProgress.find(type.techType) != researchInProgress.end();
+            return researchInProgress.contains(type.techType);
         }
 
-        return upgradesInProgress.find(type.upgradeType) != upgradesInProgress.end();
+        return upgradesInProgress.contains(type.upgradeType);
     }
 }

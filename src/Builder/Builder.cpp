@@ -84,7 +84,7 @@ namespace Builder
             // When the builder has no more buildings in its queue, release it back to Workers, unless it is reserved
             if (builderQueue.empty())
             {
-                if (reservedBuilders.find(builder) == reservedBuilders.end())
+                if (!reservedBuilders.contains(builder))
                 {
                     CherryVis::log(builder->id) << "Releasing from non-mining duties (builder queue empty)";
                     Workers::releaseWorker(builder);
@@ -344,7 +344,7 @@ namespace Builder
         for (auto &reservedBuilder : reservedBuilders)
         {
             // Don't consider this again if it already has a queue
-            if (builderQueues.find(reservedBuilder) != builderQueues.end()) continue;
+            if (builderQueues.contains(reservedBuilder)) continue;
 
             int expectedTravelTime = PathFinding::ExpectedTravelTime(reservedBuilder->lastPosition,
                                                                      buildPosition,

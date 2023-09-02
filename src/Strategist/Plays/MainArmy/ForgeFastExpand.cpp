@@ -44,7 +44,7 @@ namespace
             if (!unit->type.isBuilding()) continue;
             if (unit->isFlying) continue;
 
-            if (mainAndNaturalAreas.find(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition))) != mainAndNaturalAreas.end())
+            if (mainAndNaturalAreas.contains(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition))))
             {
                 Log::Get() << "Proxy detected behind our wall";
                 return true;

@@ -166,7 +166,7 @@ namespace
             mainAndNaturalAreas.insert(natural->getArea());
         }
 
-        return mainAndNaturalAreas.find(area) != mainAndNaturalAreas.end();
+        return mainAndNaturalAreas.contains(area);
     }
 
     struct Target

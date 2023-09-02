@@ -146,7 +146,7 @@ void UnitCluster::containStatic(std::set<Unit> &enemyUnits,
                 {
                     if (!choke->isNarrowChoke) continue;
                     if (myUnit->getDistance(choke->center) > 640) continue;
-                    if (choke->chokeTiles.find(myUnit->getTilePosition()) != choke->chokeTiles.end())
+                    if (choke->chokeTiles.contains(myUnit->getTilePosition()))
                     {
                         insideChoke = choke;
                     }

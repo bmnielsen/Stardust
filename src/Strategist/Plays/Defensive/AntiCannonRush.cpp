@@ -80,7 +80,7 @@ AntiCannonRush::AntiCannonRush()
 
             BWAPI::TilePosition here(x, y);
             if (BWAPI::Broodwar->getGroundHeight(here) != referenceHeight) continue;
-            if (areas.find(BWEM::Map::Instance().GetArea(here)) == areas.end()) continue;
+            if (!areas.contains(BWEM::Map::Instance().GetArea(here))) continue;
 
             tilesToScout.push_back(here);
         }
@@ -129,7 +129,7 @@ void AntiCannonRush::update()
             continue;
         }
 
-        if (areas.find(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition))) == areas.end()) continue;
+        if (!areas.contains(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)))) continue;
 
         if (unit->type.isWorker())
         {
@@ -151,7 +151,7 @@ void AntiCannonRush::update()
         }
         else if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
         {
-            if (cannonsAndAttackers.find(unit) == cannonsAndAttackers.end())
+            if (!cannonsAndAttackers.contains(unit))
             {
                 cannonsAndAttackers[unit] = {};
                 builtCannon = true;

@@ -111,7 +111,7 @@ bool Base::isStartingBase() const
 
 bool Base::isInMineralLine(BWAPI::TilePosition pos) const
 {
-    return mineralLineTiles.find(pos) != mineralLineTiles.end();
+    return mineralLineTiles.contains(pos);
 }
 
 bool Base::hasGeyserOrRefineryAt(BWAPI::TilePosition geyserTopLeft) const

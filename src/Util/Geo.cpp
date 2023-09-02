@@ -279,7 +279,7 @@ namespace Geo
 
             if (!pos.isValid()) continue;
             if (!BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos))) continue;
-            if (added.find(pos) != added.end()) continue;
+            if (added.contains(pos)) continue;
 
             result.push_back(pos);
             added.insert(pos);
@@ -299,7 +299,7 @@ namespace Geo
                     start.y + (int) std::round(((double) distStop / distTotal) * ydiff));
 
             if (!pos.isValid()) continue;
-            if (added.find(pos) != added.end()) continue;
+            if (added.contains(pos)) continue;
 
             result.push_back(pos);
             added.insert(pos);
@@ -319,7 +319,7 @@ namespace Geo
                     start.y + (int) std::round(((double) distStop / distTotal) * ydiff));
 
             if (!pos.isValid()) continue;
-            if (added.find(pos) != added.end()) continue;
+            if (added.contains(pos)) continue;
 
             result.push_back(pos);
             added.insert(pos);

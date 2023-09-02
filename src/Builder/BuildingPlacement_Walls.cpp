@@ -103,8 +103,8 @@ namespace BuildingPlacement
         {
             return tile.isValid() &&
                    Map::isWalkable(tile) &&
-                   reservedTiles.find(tile) == reservedTiles.end() &&
-                   wallTiles.find(tile) == wallTiles.end();
+                   !reservedTiles.contains(tile) &&
+                   !wallTiles.contains(tile);
         }
 
         bool buildableTile(BWAPI::TilePosition tile)
@@ -125,13 +125,13 @@ namespace BuildingPlacement
             // Also consider it not buildable if it is flush against one of the natural mineral fields
             for (int y = 0; y < type.tileHeight(); y++)
             {
-                if (mineralFieldTiles.find(tile + BWAPI::TilePosition(-1, y)) != mineralFieldTiles.end()) return false;
-                if (mineralFieldTiles.find(tile + BWAPI::TilePosition(type.tileWidth(), y)) != mineralFieldTiles.end()) return false;
+                if (mineralFieldTiles.contains(tile + BWAPI::TilePosition(-1, y))) return false;
+                if (mineralFieldTiles.contains(tile + BWAPI::TilePosition(type.tileWidth(), y))) return false;
             }
             for (int x = 0; x < type.tileWidth(); x++)
             {
-                if (mineralFieldTiles.find(tile + BWAPI::TilePosition(x, -1)) != mineralFieldTiles.end()) return false;
-                if (mineralFieldTiles.find(tile + BWAPI::TilePosition(x, type.tileHeight())) != mineralFieldTiles.end()) return false;
+                if (mineralFieldTiles.contains(tile + BWAPI::TilePosition(x, -1))) return false;
+                if (mineralFieldTiles.contains(tile + BWAPI::TilePosition(x, type.tileHeight()))) return false;
             }
 
             return true;
@@ -293,7 +293,7 @@ namespace BuildingPlacement
 
             auto validPathfindingTile = [](BWAPI::TilePosition tile)
             {
-                return walkableTile(tile) && natural->mineralLineTiles.find(tile) == natural->mineralLineTiles.end();
+                return walkableTile(tile) && !natural->mineralLineTiles.contains(tile);
             };
 
             addWallTiles(tile, size);
@@ -333,7 +333,7 @@ namespace BuildingPlacement
                 for (int y = 1; y <= toleranceAbove; y++)
                 {
                     BWAPI::WalkPosition walk(start.x + x, start.y - y);
-                    if (!walk.isValid() || !BWAPI::Broodwar->isWalkable(walk) || neutralWalkTiles.find(walk) != neutralWalkTiles.end()) return false;
+                    if (!walk.isValid() || !BWAPI::Broodwar->isWalkable(walk) || neutralWalkTiles.contains(walk)) return false;
                 }
             }
 
@@ -350,7 +350,7 @@ namespace BuildingPlacement
                 for (int y = 1; y <= toleranceBelow; y++)
                 {
                     BWAPI::WalkPosition walk(start.x + x, start.y + 3 + y);
-                    if (!walk.isValid() || !BWAPI::Broodwar->isWalkable(walk) || neutralWalkTiles.find(walk) != neutralWalkTiles.end()) return false;
+                    if (!walk.isValid() || !BWAPI::Broodwar->isWalkable(walk) || neutralWalkTiles.contains(walk)) return false;
                 }
             }
 
@@ -367,7 +367,7 @@ namespace BuildingPlacement
                 for (int x = 1; x <= toleranceLeft; x++)
                 {
                     BWAPI::WalkPosition walk(start.x - x, start.y + y);
-                    if (!walk.isValid() || !BWAPI::Broodwar->isWalkable(walk) || neutralWalkTiles.find(walk) != neutralWalkTiles.end()) return false;
+                    if (!walk.isValid() || !BWAPI::Broodwar->isWalkable(walk) || neutralWalkTiles.contains(walk)) return false;
                 }
             }
 
@@ -384,7 +384,7 @@ namespace BuildingPlacement
                 for (int x = 1; x <= toleranceRight; x++)
                 {
                     BWAPI::WalkPosition walk(start.x + 3 + x, start.y + y);
-                    if (!walk.isValid() || !BWAPI::Broodwar->isWalkable(walk) || neutralWalkTiles.find(walk) != neutralWalkTiles.end()) return false;
+                    if (!walk.isValid() || !BWAPI::Broodwar->isWalkable(walk) || neutralWalkTiles.contains(walk)) return false;
                 }
             }
 
@@ -678,9 +678,9 @@ namespace BuildingPlacement
             auto walkablePos = [&unwalkablePositions](BWAPI::Position pos)
             {
                 if (!pos.isValid()) return false;
-                if (unwalkablePositions.find(pos) != unwalkablePositions.end()) return false;
+                if (unwalkablePositions.contains(pos)) return false;
                 auto walk = BWAPI::WalkPosition(pos);
-                if (neutralWalkTiles.find(walk) != neutralWalkTiles.end()) return false;
+                if (neutralWalkTiles.contains(walk)) return false;
                 if (!BWAPI::Broodwar->isWalkable(walk)) return false;
                 return true;
             };
@@ -777,7 +777,7 @@ namespace BuildingPlacement
                 auto visited = wall.tilesInsideWall;
                 auto visit = [&](BWAPI::TilePosition tile)
                 {
-                    if (visited.find(tile) != visited.end()) return;
+                    if (visited.contains(tile)) return;
                     visited.insert(tile);
 
                     if (!tile.isValid()) return;
@@ -806,7 +806,7 @@ namespace BuildingPlacement
             {
                 if (!tile.isValid()) return false;
                 if (!Map::isWalkable(tile)) return false;
-                return wall.tilesInsideWall.find(tile) == wall.tilesInsideWall.end();
+                return !wall.tilesInsideWall.contains(tile);
             };
             auto markOutsideBuildingEdge = [&wall, &outside](BWAPI::UnitType type, BWAPI::TilePosition tile)
             {
@@ -829,7 +829,7 @@ namespace BuildingPlacement
                     for (int y = tile.y; y < (tile.y + type.tileHeight()); y++)
                     {
                         BWAPI::TilePosition here(x, y);
-                        if (wall.tilesOutsideWall.find(here) != wall.tilesOutsideWall.end())
+                        if (wall.tilesOutsideWall.contains(here))
                         {
                             wall.tilesInsideWall.erase(here);
                         }
@@ -861,13 +861,13 @@ namespace BuildingPlacement
                 std::set<BWAPI::TilePosition> visited;
                 auto visit = [&](BWAPI::TilePosition tile, int dist)
                 {
-                    if (visited.find(tile) != visited.end()) return;
+                    if (visited.contains(tile)) return;
                     visited.insert(tile);
 
                     if (!tile.isValid()) return;
                     if (!Map::isWalkable(tile)) return;
 
-                    if (wall.tilesInsideWall.find(tile) != wall.tilesInsideWall.end()) return;
+                    if (wall.tilesInsideWall.contains(tile)) return;
 
                     wall.tilesOutsideWall.insert(tile);
                     if (dist < 3)
@@ -930,7 +930,7 @@ namespace BuildingPlacement
             for (const auto &tile : tiles)
             {
                 if (!tile.isValid() || !Map::isWalkable(tile)) continue;
-                if (wallTiles.find(tile) != wallTiles.end()) continue;
+                if (wallTiles.contains(tile)) continue;
 
                 result = tile;
                 break;
@@ -1122,7 +1122,7 @@ namespace BuildingPlacement
             {
                 auto walkable = [](BWAPI::WalkPosition pos)
                 {
-                    return pos.isValid() && BWAPI::Broodwar->isWalkable(pos) && neutralWalkTiles.find(pos) == neutralWalkTiles.end();
+                    return pos.isValid() && BWAPI::Broodwar->isWalkable(pos) && !neutralWalkTiles.contains(pos);
                 };
 
                 for (int walkX = 0; walkX < 4; walkX++)
@@ -1639,7 +1639,7 @@ namespace BuildingPlacement
                     BWAPI::TilePosition tile(x, y);
 
                     // Natural cannons come "pre-validated"
-                    bool prevalidated = (unusedNaturalCannons.find(tile) != unusedNaturalCannons.end());
+                    bool prevalidated = unusedNaturalCannons.contains(tile);
 
                     BWAPI::Position cannonCenter = BWAPI::Position(BWAPI::TilePosition(x, y)) + BWAPI::Position(32, 32);
                     BWAPI::TilePosition spawn;

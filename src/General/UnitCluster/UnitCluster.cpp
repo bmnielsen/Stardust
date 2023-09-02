@@ -70,7 +70,7 @@ void UnitCluster::absorbCluster(const std::shared_ptr<UnitCluster> &other, BWAPI
 
 void UnitCluster::addUnit(const MyUnit &unit)
 {
-    if (units.find(unit) != units.end()) return;
+    if (units.contains(unit)) return;
 
     units.insert(unit);
 

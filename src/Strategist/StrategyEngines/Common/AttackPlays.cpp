@@ -126,7 +126,7 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
         if (enemyStartingMain && enemyStartingMain->owner == BWAPI::Broodwar->enemy() && !base->resourceDepot)
         {
             auto enemyMainAreas = Map::getStartingBaseAreas(enemyStartingMain);
-            if (enemyMainAreas.find(base->getArea()) != enemyMainAreas.end())
+            if (enemyMainAreas.contains(base->getArea()))
             {
                 continue;
             }

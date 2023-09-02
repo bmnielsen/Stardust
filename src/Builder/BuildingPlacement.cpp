@@ -353,7 +353,7 @@ namespace BuildingPlacement
             for (auto &base : Map::allBases())
             {
                 // Main has its locations handled by the start block
-                if (base == Map::getMyMain() && baseStaticDefenses.find(base) != baseStaticDefenses.end())
+                if (base == Map::getMyMain() && baseStaticDefenses.contains(base))
                 {
                     auto &mainDefenses = baseStaticDefenses[base];
 
@@ -607,9 +607,11 @@ namespace BuildingPlacement
                 for (auto &block : blocks)
                 {
                     // Ignore non-main-base
-                    auto it = neighbourhoodAreas[Neighbourhood::MainBase].find(
-                            BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center())));
-                    if (it == neighbourhoodAreas[Neighbourhood::MainBase].end()) continue;
+                    if (!neighbourhoodAreas[Neighbourhood::MainBase].contains(
+                            BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center()))))
+                    {
+                        continue;
+                    }
 
                     mainBlocks.push_back(block);
 
@@ -715,9 +717,11 @@ namespace BuildingPlacement
                         if (dist > closestDist) continue;
 
                         // Ensure it is in the main area
-                        auto it = neighbourhoodAreas[Neighbourhood::MainBase].find(
-                                BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(here) + BWAPI::WalkPosition(4, 4)));
-                        if (it == neighbourhoodAreas[Neighbourhood::MainBase].end()) continue;
+                        if (!neighbourhoodAreas[Neighbourhood::MainBase].contains(
+                                BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(here) + BWAPI::WalkPosition(4, 4))))
+                        {
+                            continue;
+                        }
 
                         // Ensure it can fit here
                         if (isUnbuildableOrReserved(here)) continue;
@@ -862,15 +866,14 @@ namespace BuildingPlacement
                 for (auto &neighbourhood : ALL_NEIGHBOURHOODS)
                 {
                     // Make sure we don't die if we for some reason have an unconfigured neighbourhood
-                    if (neighbourhoodAreas.find(neighbourhood) == neighbourhoodAreas.end()) continue;
+                    if (!neighbourhoodAreas.contains(neighbourhood)) continue;
 
                     auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center()));
 
                     // Check if this block fits in this neighbourhood
+                    if (!neighbourhoodAreas[neighbourhood].contains(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center()))))
                     {
-                        auto it = neighbourhoodAreas[neighbourhood].find(
-                                BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center())));
-                        if (it == neighbourhoodAreas[neighbourhood].end()) continue;
+                        continue;
                     }
 
                     // Get the origin and exit
@@ -1290,7 +1293,7 @@ namespace BuildingPlacement
 
         // Return true when we don't know where a neighbourhood is
         // Otherwise we might lock up completely if we ask for a location in an uninitialized neighbourhood
-        if (neighbourhoodAreas.find(neighbourhood) == neighbourhoodAreas.end()) return true;
+        if (!neighbourhoodAreas.contains(neighbourhood)) return true;
 
         // Find the block containing the build tile
         for (auto &block : blocks)
@@ -1301,8 +1304,7 @@ namespace BuildingPlacement
             if (buildTile.y >= (block->topLeft.y + block->height())) continue;
 
             auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(block->center()));
-            auto it = neighbourhoodAreas[neighbourhood].find(area);
-            return it != neighbourhoodAreas[neighbourhood].end();
+            return neighbourhoodAreas[neighbourhood].contains(area);
         }
 
         // Check if the tile is a nexus

@@ -325,7 +325,7 @@ namespace Strategist
             auto vanguardArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(vanguardCluster->vanguard
                                                                                          ? vanguardCluster->vanguard->lastPosition
                                                                                          : vanguardCluster->center));
-            if (enemyMainAreas.find(vanguardArea) == enemyMainAreas.end() &&
+            if (!enemyMainAreas.contains(vanguardArea) &&
                 (vanguardDist > 1000 || (vanguardCluster->currentSubActivity != UnitCluster::SubActivity::ContainChoke
                                          && vanguardCluster->currentSubActivity != UnitCluster::SubActivity::ContainStaticDefense)))
             {
@@ -345,7 +345,7 @@ namespace Strategist
                 auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition));
                 if (!area) continue;
 
-                if (enemyMainAreas.find(area) != enemyMainAreas.end()) continue;
+                if (enemyMainAreas.contains(area)) continue;
 
                 // Allow units close to our vanguard cluster, since these are units that might be contained but just on the other side of the choke
                 if (unit->getDistance(vanguardCluster->center) < 640) continue;
@@ -596,8 +596,7 @@ namespace Strategist
         auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(vanguard->vanguard ? vanguard->vanguard->lastPosition : vanguard->center));
         if (!area) return false;
 
-        auto mainAreas = Map::getMyMainAreas();
-        return mainAreas.find(area) != mainAreas.end();
+        return Map::getMyMainAreas().contains(area);
     }
 
     double pressure()
