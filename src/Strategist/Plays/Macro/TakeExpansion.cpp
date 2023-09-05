@@ -185,7 +185,7 @@ void TakeExpansion::update()
         }
 
         // If we have detection on all of the depot's tiles, clear the base being blocked by enemy
-        auto detectionGrid = Players::grid(BWAPI::Broodwar->self());
+        auto &detectionGrid = Players::grid(BWAPI::Broodwar->self());
         bool allDetected = true;
         for (int y = depotPosition.y; y < depotPosition.y + 3; y++)
         {

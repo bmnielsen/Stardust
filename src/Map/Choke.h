@@ -7,6 +7,9 @@
 class Choke
 {
 public:
+    Choke (const Choke&) = delete;
+    Choke &operator=(const Choke&) = delete;
+
     explicit Choke(const BWEM::ChokePoint *_choke);
 
     const BWEM::ChokePoint *choke;

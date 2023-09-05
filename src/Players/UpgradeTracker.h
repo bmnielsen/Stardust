@@ -7,6 +7,9 @@ class Grid;
 class UpgradeTracker
 {
 public:
+    UpgradeTracker (const UpgradeTracker&) = delete;
+    UpgradeTracker &operator=(const UpgradeTracker&) = delete;
+
     explicit UpgradeTracker(BWAPI::Player player) : player(player) {}
 
     // Updates the items that have been queried previously

@@ -185,7 +185,7 @@ namespace
         auto grid = PathFinding::getNavigationGrid(enemyMain->getPosition());
         if (!grid) return false;
 
-        auto node = (*grid)[mainChoke->center];
+        auto &node = (*grid)[mainChoke->center];
         return node.nextNode == nullptr;
     }
 

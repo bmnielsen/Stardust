@@ -8,8 +8,14 @@
 class Grid
 {
 public:
+    Grid (const Grid&) = delete;
+    Grid &operator=(const Grid&) = delete;
+
     struct GridData
     {
+        GridData (const GridData&) = delete;
+        GridData &operator=(const GridData&) = delete;
+
         std::vector<long> data;
 
         int maxX;

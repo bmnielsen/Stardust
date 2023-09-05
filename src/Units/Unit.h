@@ -43,6 +43,8 @@ struct UpcomingAttack
 class UnitImpl
 {
 public:
+    UnitImpl (const UnitImpl&) = delete;
+    UnitImpl &operator=(const UnitImpl&) = delete;
 
     BWAPI::Unit bwapiUnit;              // Reference to the unit
     BWAPI::Player player;               // Player owning the unit

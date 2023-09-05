@@ -139,7 +139,7 @@ bool UnitCluster::moveAsBall(BWAPI::Position targetPosition, std::set<MyUnit> &b
 
 #if DEBUG_UNIT_BOIDS
         std::ostringstream nodes;
-        auto node = (*grid)[unit->getTilePosition()];
+        auto &node = (*grid)[unit->getTilePosition()];
         if (node.nextNode)
         {
             nodes << "; nodes=[" << BWAPI::WalkPosition(node.nextNode->center());

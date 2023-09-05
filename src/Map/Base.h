@@ -11,6 +11,8 @@ class Base
     friend class Outsider; // On Outsider we change the ring bases into mineral-onlies
 
 public:
+    Base (const Base&) = delete;
+    Base &operator=(const Base&) = delete;
 
     //enum class Owner { None, Me, Enemy, Ally };
 

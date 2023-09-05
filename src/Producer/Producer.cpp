@@ -2056,7 +2056,7 @@ namespace Producer
         // Transferring workers onto gas is handled in the producer logic
         bool hasUnlimitedGasGoal = false;
         int availableGas = BWAPI::Broodwar->self()->gas();
-        for (auto goal : Strategist::currentProductionGoals())
+        for (auto &goal : Strategist::currentProductionGoals())
         {
             if (auto unitProductionGoal = std::get_if<UnitProductionGoal>(&goal))
             {

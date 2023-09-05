@@ -165,7 +165,7 @@ namespace
         auto navigationGrid = PathFinding::getNavigationGrid(base->getPosition());
         if (navigationGrid)
         {
-            auto node = (*navigationGrid)[unit->getTilePosition()];
+            auto &node = (*navigationGrid)[unit->getTilePosition()];
             auto nextNode = node.nextNode;
             auto secondNode = nextNode ? nextNode->nextNode : nullptr;
             auto blockingPredicate = [&](const Unit &enemy)

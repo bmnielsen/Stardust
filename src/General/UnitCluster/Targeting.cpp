@@ -226,7 +226,7 @@ namespace
         auto grid = PathFinding::getNavigationGrid(targetBase->getPosition());
         if (!grid) return true;
 
-        auto node = (*grid)[vanguard->lastPosition];
+        auto &node = (*grid)[vanguard->lastPosition];
         return node.nextNode != nullptr;
     }
 }
