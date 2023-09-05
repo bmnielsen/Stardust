@@ -22,19 +22,19 @@ namespace NoGoAreas
     void removeBox(BWAPI::TilePosition topLeft, BWAPI::TilePosition size);
 
     // Adds a circular no-go area from the given point with the given radius, that expires after the given number of frames
-    void addCircle(BWAPI::Position origin, int radius, int expireFrames);
+    void addCircle(BWAPI::Position origin, unsigned short radius, int expireFrames);
 
     // Adds a circular no-go area from the given point with the given radius, that expires when the given bullet no longer exists
-    void addCircle(BWAPI::Position origin, int radius, BWAPI::Bullet bullet);
+    void addCircle(BWAPI::Position origin, unsigned short radius, BWAPI::Bullet bullet);
 
     // Adds a circular no-go area from the given point with the given radius, that expires when the given unit no longer exists
-    void addCircle(BWAPI::Position origin, int radius, const Unit &unit);
+    void addCircle(BWAPI::Position origin, unsigned short radius, const Unit &unit);
 
     // Adds a box from the origin to the target with the given width. that expires after the given number of frames
-    void addDirectedBox(BWAPI::Position origin, BWAPI::Position target, int width, int expireFrames);
+    void addDirectedBox(BWAPI::Position origin, BWAPI::Position target, unsigned short width, int expireFrames);
 
     // Adds a box from the origin to the target with the given width. that expires after the given bullet no longer exists
-    void addDirectedBox(BWAPI::Position origin, BWAPI::Position target, int width, BWAPI::Bullet bullet);
+    void addDirectedBox(BWAPI::Position origin, BWAPI::Position target, unsigned short width, BWAPI::Bullet bullet);
 
     void onUnitCreate(const Unit &unit);
 

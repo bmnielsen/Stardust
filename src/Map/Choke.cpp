@@ -641,9 +641,9 @@ void Choke::analyzeNarrowChoke()
     };
 
     // Initialize the queue by tracing each end of the choke
-    std::deque<std::pair<int, HalfTile>> queue;
-    std::deque<std::pair<int, HalfTile>> unwalkableQueue;
-    auto addHalfTilesBetween = [&](BWAPI::Position start, BWAPI::Position end, int side)
+    std::deque<std::pair<signed char, HalfTile>> queue;
+    std::deque<std::pair<signed char, HalfTile>> unwalkableQueue;
+    auto addHalfTilesBetween = [&](BWAPI::Position start, BWAPI::Position end, signed char side)
     {
         auto addPosition = [&](BWAPI::Position pos)
         {
@@ -683,7 +683,7 @@ void Choke::analyzeNarrowChoke()
     }
 
     // Now flood-fill
-    auto visit = [&](std::pair<int, HalfTile> &tile, int x, int y)
+    auto visit = [&](std::pair<signed char, HalfTile> &tile, int x, int y)
     {
         auto next = HalfTile(tile.second.x + x, tile.second.y + y);
 

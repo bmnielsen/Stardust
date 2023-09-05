@@ -28,10 +28,10 @@ namespace
         }
     };
 
-    std::vector<int> noGoAreaTiles;
+    std::vector<short> noGoAreaTiles;
     bool noGoAreaTilesUpdated;
     std::vector<std::pair<std::set<BWAPI::TilePosition>, NoGoAreaExpiry>> noGoAreasWithExpiration;
-    std::map<int, std::set<BWAPI::TilePosition>> tilesInRadiusCache;
+    std::map<unsigned short, std::set<BWAPI::TilePosition>> tilesInRadiusCache;
 
     // Writes the tile no go areas to CherryVis
     void dumpNoGoAreaTiles()
@@ -71,7 +71,7 @@ namespace
         noGoAreaTilesUpdated = true;
     }
 
-    std::set<BWAPI::TilePosition> generateCircle(BWAPI::Position origin, int radius)
+    std::set<BWAPI::TilePosition> generateCircle(BWAPI::Position origin, unsigned short radius)
     {
         std::set<BWAPI::TilePosition> &positions = tilesInRadiusCache[radius];
 
@@ -101,7 +101,7 @@ namespace
         return result;
     }
 
-    std::set<BWAPI::TilePosition> generateDirectedBox(BWAPI::Position origin, BWAPI::Position target, int width)
+    std::set<BWAPI::TilePosition> generateDirectedBox(BWAPI::Position origin, BWAPI::Position target, unsigned int width)
     {
         int length = origin.getApproxDistance(target);
         auto scaledVector = Geo::ScaleVector(target - origin, 16);
@@ -222,7 +222,7 @@ namespace NoGoAreas
         noGoAreaTilesUpdated = true;
     }
 
-    void addCircle(BWAPI::Position origin, int radius, int expireFrames)
+    void addCircle(BWAPI::Position origin, unsigned short radius, int expireFrames)
     {
         auto tiles = generateCircle(origin, radius);
         add(tiles);

@@ -19,11 +19,11 @@ namespace FAP
 
     struct ChokeGeometry
     {
-        std::vector<int> &tileSide;
+        std::vector<signed char> &tileSide;
         std::vector<BWAPI::Position> forward;
         std::vector<BWAPI::Position> backwardVector;
 
-        ChokeGeometry(std::vector<int> &tileSide,
+        ChokeGeometry(std::vector<signed char> &tileSide,
                       BWAPI::Position end1Center,
                       BWAPI::Position end2Center,
                       BWAPI::Position end1Exit,
@@ -83,7 +83,7 @@ namespace FAP
         /**
          * \brief Sets that this battle is happening through a choke and configures the choke geometry
          */
-        void setChokeGeometry(std::vector<int> &tileSide,
+        void setChokeGeometry(std::vector<signed char> &tileSide,
                               BWAPI::Position end1Center,
                               BWAPI::Position end2Center,
                               BWAPI::Position end1Exit,
@@ -259,7 +259,7 @@ namespace FAP
     }
 
     template<typename UnitExtension>
-    void FastAPproximation<UnitExtension>::setChokeGeometry(std::vector<int> &tileSide,
+    void FastAPproximation<UnitExtension>::setChokeGeometry(std::vector<signed char> &tileSide,
                                                             BWAPI::Position end1Center,
                                                             BWAPI::Position end2Center,
                                                             BWAPI::Position end1Exit,
