@@ -361,6 +361,8 @@ namespace Workers
 
         void assignGasWorker()
         {
+            auto myCompletedRefineries = Units::myCompletedRefineries();
+
             // Find worker closest to an available refinery
             int bestDist = INT_MAX;
             MyUnit bestWorker = nullptr;
@@ -368,7 +370,7 @@ namespace Workers
             {
                 if (!isAvailableForReassignment(worker, false)) continue;
 
-                for (const auto &refinery : Units::myCompletedRefineries())
+                for (const auto &refinery : myCompletedRefineries)
                 {
                     if (refineryWorkers[refinery].size() >= desiredRefineryWorkers(workerBase[worker], refinery->tile))
                     {
