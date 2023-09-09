@@ -11,16 +11,20 @@ std::map<PvU::OurStrategy, std::string> PvU::OurStrategyNames = {
         {OurStrategy::ForgeFastExpand, "ForgeFastExpand"}
 };
 
-void PvU::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom)
+void PvU::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom, const std::string &openingOverride)
 {
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
 
-    auto opening = Opponent::selectOpeningUCB1(
-            {
-                OurStrategyNames[OurStrategy::ForgeFastExpand],
-                OurStrategyNames[OurStrategy::TwoGateZealots]
-            });
+    std::string opening = openingOverride;
+    if (opening.empty())
+    {
+        opening = Opponent::selectOpeningUCB1(
+                {
+                        OurStrategyNames[OurStrategy::ForgeFastExpand],
+                        OurStrategyNames[OurStrategy::TwoGateZealots]
+                });
+    }
     if (opening == OurStrategyNames[OurStrategy::ForgeFastExpand] && BuildingPlacement::hasForgeGatewayWall())
     {
         plays.emplace_back(std::make_shared<ForgeFastExpand>());

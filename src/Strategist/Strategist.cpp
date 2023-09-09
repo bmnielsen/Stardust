@@ -65,7 +65,7 @@ namespace Strategist
                 }
             }
 
-            engine->initialize(plays, transitioningFromRandom);
+            engine->initialize(plays, transitioningFromRandom, "");
         }
 
         void updateUnitAssignments()
@@ -650,9 +650,10 @@ namespace Strategist
         plays = std::move(openingPlays);
     }
 
-    void setStrategyEngine(std::unique_ptr<StrategyEngine> strategyEngine)
+    void setStrategyEngine(std::unique_ptr<StrategyEngine> strategyEngine, const std::string &opening)
     {
         engine = std::move(strategyEngine);
+        engine->initialize(plays, false, opening);
     }
 
     StrategyEngine *getStrategyEngine()

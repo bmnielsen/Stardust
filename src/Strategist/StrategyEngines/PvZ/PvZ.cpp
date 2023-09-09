@@ -34,7 +34,7 @@ namespace
     }
 }
 
-void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom)
+void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom, const std::string &openingOverride)
 {
     if (transitioningFromRandom)
     {
@@ -54,11 +54,15 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         plays.emplace_back(std::make_shared<EjectEnemyScout>());
         plays.emplace_back(std::make_shared<Corsairs>());
 
-        auto opening = Opponent::selectOpeningUCB1(
-                {
-                        OurStrategyNames[OurStrategy::SairSpeedlot],
-                        OurStrategyNames[OurStrategy::EarlyGameDefense]
-                });
+        std::string opening = openingOverride;
+        if (opening.empty())
+        {
+            opening = Opponent::selectOpeningUCB1(
+                    {
+                            OurStrategyNames[OurStrategy::SairSpeedlot],
+                            OurStrategyNames[OurStrategy::EarlyGameDefense]
+                    });
+        }
         if (opening == OurStrategyNames[OurStrategy::SairSpeedlot] && BuildingPlacement::hasForgeGatewayWall())
         {
             plays.emplace_back(std::make_shared<ForgeFastExpand>());

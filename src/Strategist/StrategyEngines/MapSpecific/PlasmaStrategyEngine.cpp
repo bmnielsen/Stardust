@@ -15,7 +15,7 @@ namespace
     std::map<BWAPI::UnitType, int> emptyUnitCountMap;
 }
 
-void PlasmaStrategyEngine::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom)
+void PlasmaStrategyEngine::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom, const std::string &openingOverride)
 {
     if (transitioningFromRandom) return;
 

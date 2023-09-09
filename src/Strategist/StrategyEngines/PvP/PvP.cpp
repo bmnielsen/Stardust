@@ -27,7 +27,7 @@ namespace
     std::map<BWAPI::UnitType, int> emptyUnitCountMap;
 }
 
-void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom)
+void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom, const std::string &openingOverride)
 {
     if (transitioningFromRandom)
     {
@@ -44,11 +44,15 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
         plays.emplace_back(std::make_shared<EjectEnemyScout>());
 
-        auto opening = Opponent::selectOpeningUCB1(
-                {
-                        OurStrategyNames[OurStrategy::EarlyGameDefense],
-                        OurStrategyNames[OurStrategy::ForgeExpandDT]
-                });
+        std::string opening = openingOverride;
+        if (opening.empty())
+        {
+            opening = Opponent::selectOpeningUCB1(
+                    {
+                            OurStrategyNames[OurStrategy::EarlyGameDefense],
+                            OurStrategyNames[OurStrategy::ForgeExpandDT]
+                    });
+        }
         if (opening == OurStrategyNames[OurStrategy::ForgeExpandDT] && BuildingPlacement::hasForgeGatewayWall())
         {
             plays.emplace_back(std::make_shared<ForgeFastExpand>());
