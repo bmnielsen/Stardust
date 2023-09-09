@@ -45,6 +45,17 @@ namespace
         return secondTimings.size() < secondCount || firstTimings[firstCount - 1].first <= secondTimings[secondCount - 1].first;
     }
 
+//    int frameDiff(BWAPI::UnitType firstType, BWAPI::UnitType secondType, int firstCount = 1, int secondCount = 1)
+//    {
+//        auto &firstTimings = Units::getEnemyUnitTimings(firstType);
+//        if (firstTimings.size() < firstCount) return 0;
+//
+//        auto &secondTimings = Units::getEnemyUnitTimings(firstType);
+//        if (secondTimings.size() < secondCount) return currentFrame - firstTimings[firstCount - 1].first;
+//
+//        return secondTimings[secondCount - 1].first - firstTimings[firstCount - 1].first;
+//    }
+
     bool isWorkerRush()
     {
         if (currentFrame >= 6000) return false;
@@ -85,10 +96,28 @@ namespace
 
     bool isZerglingAllIn()
     {
+        // Suspect ling all-in if the enemy gets gas without a lair
+        if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Extractor) && !Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lair))
+        {
+            auto &gasTimings = Units::getEnemyUnitTimings(BWAPI::UnitTypes::Zerg_Extractor);
+            auto gasCompleted = gasTimings.begin()->first + UnitUtil::BuildTime(BWAPI::UnitTypes::Zerg_Extractor);
+
+            // Get the earliest frame we scouted one of the enemy's known hatcheries
+            int earliestFrame = INT_MAX;
+            for (auto &hatch : Units::allEnemyOfType(BWAPI::UnitTypes::Zerg_Hatchery))
+            {
+                int lastSeen = Map::lastSeen(BWAPI::TilePosition(hatch->lastPosition));
+                earliestFrame = std::min(earliestFrame, lastSeen);
+            }
+
+            // Expect lair to have been started less than 1000 frames after gas completion
+            if ((earliestFrame - gasCompleted) > 1000) return true;
+        }
+
         // Expect a ling all-in if the enemy builds two in-base hatches on a low worker count
         if (currentFrame < 5000 &&
             Units::countEnemy(BWAPI::UnitTypes::Zerg_Spawning_Pool) > 0 &&
-            Units::countEnemy(BWAPI::UnitTypes::Zerg_Hatchery) > 2 &&
+            Units::countEnemy(BWAPI::UnitTypes::Zerg_Hatchery) > 1 &&
             Units::countEnemy(BWAPI::UnitTypes::Zerg_Drone) < 15 &&
             !Map::getEnemyStartingNatural()->owner)
         {

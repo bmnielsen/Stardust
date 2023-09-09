@@ -36,7 +36,7 @@
 #endif
 
 #if INSTRUMENTATION_ENABLED
-#define DEBUG_ENEMY_TIMINGS false
+#define DEBUG_ENEMY_TIMINGS true
 #define CVIS_LOG_ENEMY_UNIT_BASES true
 #endif
 
