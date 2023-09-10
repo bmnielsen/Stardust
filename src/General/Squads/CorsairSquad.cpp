@@ -5,6 +5,7 @@
 #include "UnitUtil.h"
 #include "Geo.h"
 #include "Strategist.h"
+#include "Workers.h"
 
 #include "DebugFlag_CombatSim.h"
 
@@ -341,7 +342,10 @@ void CorsairSquad::execute()
     auto remainingClusters = clusters;
 
     // Check if we need to do an early-game scout
-    if (Strategist::isWorkerScoutComplete() && currentFrame < 11000)
+    if (Strategist::isWorkerScoutComplete() && currentFrame < 11000
+        && !Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Scourge)
+        && !Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Hydralisk)
+        && !Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Mutalisk))
     {
         Base *baseToScout = nullptr;
 
@@ -395,13 +399,6 @@ void CorsairSquad::execute()
     std::set<std::pair<long, Unit>> nonCombatTargets;
     for (auto &unit : Units::allEnemy())
     {
-        if (!unit->lastPositionValid)
-        {
-#if CVIS_LOG_TARGET_SELECTION
-            CherryVis::log(unit->id) << "!LPV";
-#endif
-            continue;
-        }
         if (!unit->isFlying)
         {
 #if CVIS_LOG_TARGET_SELECTION
@@ -418,8 +415,14 @@ void CorsairSquad::execute()
         }
 
         // Ignore targets that haven't been seen recently
-        // 1 minute threshold for overlords, 5 seconds for all other targets
-        if (unit->lastSeen < (currentFrame - (unit->type == BWAPI::UnitTypes::Zerg_Overlord ? 1440 : 120)))
+        // 1 minute threshold for overlords with last position valid, 30 seconds for overlords with last position invalid,
+        // 5 seconds for all other targets
+        int lastSeenThreshold = 120;
+        if (unit->type == BWAPI::UnitTypes::Zerg_Overlord)
+        {
+            lastSeenThreshold = (unit->lastPositionValid ? 1440 : 720);
+        }
+        if (unit->lastSeen < (currentFrame - lastSeenThreshold))
         {
 #if CVIS_LOG_TARGET_SELECTION
             CherryVis::log(unit->id) << "last seen " << (currentFrame - unit->lastSeen) << " ago";
@@ -518,16 +521,21 @@ void CorsairSquad::execute()
     std::set<Unit> targets;
     if (!threatenedBases.empty())
     {
-        // Pick the base that has the most minerals
-        int bestMinerals = -1;
+        // Pick the base that has the most workers
+        size_t bestWorkers = 0;
         Base *bestBase = nullptr;
         for (auto &baseAndThreats : threatenedBases)
         {
-            if (baseAndThreats.first->minerals > bestMinerals)
+            auto workerCount = Workers::getBaseWorkerCount(baseAndThreats.first);
+            if (workerCount > bestWorkers)
             {
-                bestMinerals = baseAndThreats.first->minerals;
+                bestWorkers = workerCount;
                 bestBase = baseAndThreats.first;
             }
+        }
+        if (!bestBase)
+        {
+            bestBase = threatenedBases.begin()->first;
         }
 
         targets = threatenedBases[bestBase];
@@ -656,11 +664,19 @@ void CorsairSquad::clusterAttack(UnitCluster &cluster, std::set<Unit> &targets)
         return;
     }
 
-    // Run combat sim
+    // Add nearby ground units that can shoot at us
+    auto groundThreat = [](const Unit &unit)
+    {
+        if (unit->isFlying) return false;
+        if (unit->immobile) return false;
+        return unit->canAttackAir();
+    };
     std::set<Unit> enemyUnits = targets;
     int radius = 640;
     if (cluster.vanguard) radius += cluster.vanguard->getDistance(cluster.center);
-    Units::enemyInRadius(enemyUnits, cluster.center, radius);
+    Units::enemyInRadius(enemyUnits, cluster.center, radius, groundThreat);
+
+    // Run combat sim
     auto simResult = cluster.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors);
 
     // Determine if we should attack

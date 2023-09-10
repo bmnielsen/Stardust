@@ -21,6 +21,8 @@ namespace Workers
 
     MyUnit getClosestReassignableWorker(BWAPI::Position position, bool allowCarryMinerals, int *bestTravelTime = nullptr);
 
+    size_t getBaseWorkerCount(Base *base);
+
     std::vector<MyUnit> getBaseWorkers(Base *base);
 
     int baseMineralWorkerCount(Base *base);

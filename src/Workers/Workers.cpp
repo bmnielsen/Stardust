@@ -934,6 +934,14 @@ namespace Workers
         return bestWorker;
     }
 
+    size_t getBaseWorkerCount(Base *base)
+    {
+        auto baseAndWorkersIt = baseWorkers.find(base);
+        if (baseAndWorkersIt == baseWorkers.end()) return 0;
+
+        return baseAndWorkersIt->second.size();
+    }
+
     std::vector<MyUnit> getBaseWorkers(Base *base)
     {
         std::vector<MyUnit> result;
