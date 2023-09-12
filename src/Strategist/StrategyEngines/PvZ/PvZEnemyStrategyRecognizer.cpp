@@ -118,10 +118,10 @@ namespace
         if (currentFrame < 5000 &&
             Units::countEnemy(BWAPI::UnitTypes::Zerg_Spawning_Pool) > 0 &&
             Units::countEnemy(BWAPI::UnitTypes::Zerg_Hatchery) > 1 &&
-            Units::countEnemy(BWAPI::UnitTypes::Zerg_Drone) < 15 &&
-            !Map::getEnemyStartingNatural()->owner)
+            Units::countEnemy(BWAPI::UnitTypes::Zerg_Drone) < 15)
         {
-            return true;
+            auto enemyNatural = Map::getEnemyStartingNatural();
+            if (enemyNatural && !enemyNatural->owner) return true;
         }
 
         if (currentFrame < 6000)
