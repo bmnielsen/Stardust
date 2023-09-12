@@ -211,7 +211,11 @@ namespace
         {
             if (!unit->completed) continue;
             if (!UnitUtil::IsCombatUnit(unit->type)) continue;
-            if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+            if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+            {
+                int dist = unit->getDistance(natural->getPosition());
+                if (dist > 200) continue;
+            }
 
             ourValue += CombatSim::unitValue(unit);
         }

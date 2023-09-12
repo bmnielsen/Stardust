@@ -27,6 +27,30 @@
 
 namespace
 {
+    bool isValidBuilding(const Unit& unit)
+    {
+        if (!unit->lastPositionValid) return false;
+        if (!unit->type.isBuilding()) return false;
+        if (unit->isFlying) return false;
+        return true;
+    }
+
+    bool nexusPositionBlocked()
+    {
+        auto nexusPosition = Map::getMyNatural()->getTilePosition();
+        for (const auto &unit : Units::allEnemy())
+        {
+            if (!isValidBuilding(unit)) continue;
+
+            if (Geo::Overlaps(nexusPosition, 4, 3, unit->getTilePosition(), unit->type.tileWidth(), unit->type.tileHeight()))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     bool proxyBehindOurWall()
     {
         if (!Strategist::isEnemyStrategy(PvP::ProtossStrategy::ProxyRush) &&
@@ -40,9 +64,7 @@ namespace
 
         for (const auto &unit : Units::allEnemy())
         {
-            if (!unit->lastPositionValid) continue;
-            if (!unit->type.isBuilding()) continue;
-            if (unit->isFlying) continue;
+            if (!isValidBuilding(unit)) continue;
 
             if (mainAndNaturalAreas.contains(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition))))
             {
@@ -572,6 +594,11 @@ void ForgeFastExpand::update()
         case State::STATE_NEXUS_PENDING:
         {
             auto natural = Map::getMyNatural();
+            if (natural->resourceDepot && natural->owner == BWAPI::Broodwar->self())
+            {
+                currentState = State::STATE_GATEWAY_PENDING;
+                break;
+            }
             if (Strategist::getStrategyEngine()->isEnemyRushing() || Strategist::isEnemyStrategy(PvP::ProtossStrategy::ZealotAllIn))
             {
                 Builder::cancelBase(natural);
@@ -585,11 +612,15 @@ void ForgeFastExpand::update()
                 {
                     currentState = State::STATE_ANTIFASTRUSH_GATEWAY_PENDING;
                 }
+                break;
             }
-            if (natural->resourceDepot && natural->owner == BWAPI::Broodwar->self())
+            if (nexusPositionBlocked())
             {
-                currentState = State::STATE_GATEWAY_PENDING;
+                Log::Get() << "Nexus position blocked; building gateway first";
+                currentState = State::STATE_ANTIFASTRUSH_GATEWAY_PENDING;
+                break;
             }
+
             break;
         }
 
@@ -666,6 +697,13 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
     std::vector<BWAPI::TilePosition> cannonPlacementsAvailable;
     int currentCannons = currentWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable);
 
+    int desiredCannons = 2;
+    if (nexusPositionBlocked())
+    {
+        desiredCannons = 3;
+        cannonFrame = currentFrame;
+    }
+
     switch (currentState)
     {
         case State::STATE_PYLON_PENDING:
@@ -676,14 +714,14 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
                 addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Pylon, wall.pylon);
             }
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Forge, wall.forge);
-            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2, cannonFrame, PRIORITY_DEPOTS);
+            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, desiredCannons, cannonFrame, PRIORITY_DEPOTS);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             break;
         }
         case State::STATE_NEXUS_PENDING:
         {
-            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, cannonFrame);
+            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, desiredCannons - currentCannons, cannonFrame);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 14);
@@ -691,48 +729,20 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         }
         case State::STATE_GATEWAY_PENDING:
         {
-            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, cannonFrame);
+            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, desiredCannons - currentCannons, cannonFrame);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway);
             moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 14);
             break;
         }
         case State::STATE_FINISHED:
         {
-            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, cannonFrame);
+            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, desiredCannons - currentCannons, cannonFrame);
 
             // Handle additional cannons based on enemy strategy
             handleMutaRush(prioritizedProductionGoals);
             handleZerglingAllIn(prioritizedProductionGoals);
             handleHydraBust(prioritizedProductionGoals);
             handleNonZergRush(prioritizedProductionGoals);
-
-            // If the enemy did a gas steal, build a cannon in our main to kill it
-            auto main = Map::getMyMain();
-            for (const auto &gasSteal : Units::allEnemyOfType(BWAPI::Broodwar->enemy()->getRace().getRefinery()))
-            {
-                if (!main->hasGeyserOrRefineryAt(gasSteal->getTilePosition())) continue;
-
-                // Find the best cannon location
-                auto defenseLocations = BuildingPlacement::baseStaticDefenseLocations(main);
-                if (!defenseLocations.powerPylon.isValid()) break;
-
-                auto pylon = Units::myBuildingAt(defenseLocations.powerPylon);
-                if (!pylon || !pylon->completed) break;
-
-                for (const auto cannonLocation : defenseLocations.workerDefenseCannons)
-                {
-                    auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                                                        BWAPI::Position(cannonLocation) + BWAPI::Position(32, 32),
-                                                        gasSteal->type,
-                                                        gasSteal->lastPosition);
-                    if (dist > (BWAPI::UnitTypes::Protoss_Photon_Cannon.groundWeapon().maxRange() - 16)) continue;
-
-                    if (Units::myBuildingAt(cannonLocation)) break;
-                    addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Photon_Cannon, cannonLocation, 0, PRIORITY_BASEDEFENSE);
-                }
-
-                break;
-            }
 
             break;
         }
@@ -769,7 +779,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         }
         case State::STATE_ANTIFASTRUSH_GATEWAY_PENDING:
         {
-            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, cannonFrame);
+            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, desiredCannons - currentCannons, cannonFrame);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Gateway, wall.gateway, 0, PRIORITY_EMERGENCY);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 16);
@@ -777,7 +787,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         }
         case State::STATE_ANTIFASTRUSH_NEXUS_PENDING:
         {
-            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, 2 - currentCannons, cannonFrame);
+            buildWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable, desiredCannons - currentCannons, cannonFrame);
             if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss && Units::countAll(BWAPI::UnitTypes::Protoss_Zealot) == 0)
             {
                 prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(
@@ -787,9 +797,43 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
                         1,
                         1);
             }
+            handleMutaRush(prioritizedProductionGoals);
+            handleZerglingAllIn(prioritizedProductionGoals);
+            handleHydraBust(prioritizedProductionGoals);
             handleNonZergRush(prioritizedProductionGoals);
             addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Nexus, Map::getMyNatural()->getTilePosition());
             moveWorkerProductionToLowerPriority(prioritizedProductionGoals, 16);
+            break;
+        }
+    }
+
+    // If the enemy did a gas steal, build a cannon in our main to kill it
+    if (currentState == State::STATE_FINISHED || currentState == State::STATE_ANTIFASTRUSH_NEXUS_PENDING)
+    {
+        auto main = Map::getMyMain();
+        for (const auto &gasSteal : Units::allEnemyOfType(BWAPI::Broodwar->enemy()->getRace().getRefinery()))
+        {
+            if (!main->hasGeyserOrRefineryAt(gasSteal->getTilePosition())) continue;
+
+            // Find the best cannon location
+            auto defenseLocations = BuildingPlacement::baseStaticDefenseLocations(main);
+            if (!defenseLocations.powerPylon.isValid()) break;
+
+            auto pylon = Units::myBuildingAt(defenseLocations.powerPylon);
+            if (!pylon || !pylon->completed) break;
+
+            for (const auto cannonLocation : defenseLocations.workerDefenseCannons)
+            {
+                auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                                    BWAPI::Position(cannonLocation) + BWAPI::Position(32, 32),
+                                                    gasSteal->type,
+                                                    gasSteal->lastPosition);
+                if (dist > (BWAPI::UnitTypes::Protoss_Photon_Cannon.groundWeapon().maxRange() - 16)) continue;
+
+                if (Units::myBuildingAt(cannonLocation)) break;
+                addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Photon_Cannon, cannonLocation, 0, PRIORITY_BASEDEFENSE);
+            }
+
             break;
         }
     }
