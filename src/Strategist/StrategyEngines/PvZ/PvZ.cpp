@@ -60,7 +60,7 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
             opening = Opponent::selectOpeningUCB1(
                     {
                             OurStrategyNames[OurStrategy::SairSpeedlot],
-                            OurStrategyNames[OurStrategy::EarlyGameDefense]
+//                            OurStrategyNames[OurStrategy::EarlyGameDefense]
                     });
         }
         if (opening == OurStrategyNames[OurStrategy::SairSpeedlot] && BuildingPlacement::hasForgeGatewayWall())
