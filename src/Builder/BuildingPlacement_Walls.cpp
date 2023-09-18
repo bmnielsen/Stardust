@@ -1258,12 +1258,18 @@ namespace BuildingPlacement
 
                             BWAPI::TilePosition tile(x, y);
                             if (!tile.isValid()) continue;
-                            if (center(tile).getDistance(end1Center) > center(tile).getDistance(end2Center)) continue;
+
+                            auto forgeCenter = BWAPI::Position(tile) + BWAPI::Position(48, 32);
+                            auto gatewayCenter = BWAPI::Position(tile) + BWAPI::Position(64, 48);
+                            auto forgeOK = (forgeCenter.getDistance(end1Center) < (0.8 * forgeCenter.getDistance(end2Center)));
+                            auto gateOK = (gatewayCenter.getDistance(end1Center) < (0.8 * gatewayCenter.getDistance(end2Center)));
+                            if (!forgeOK && !gateOK) continue;
+
                             processEndGeo(tile, end1Geo);
                             if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
-                            addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end1ForgeOptions, tight);
-                            addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end1GatewayOptions, tight);
+                            if (forgeOK) addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end1ForgeOptions, tight);
+                            if (gateOK) addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end1GatewayOptions, tight);
                         }
 
                         // Find options on right side
@@ -1273,12 +1279,18 @@ namespace BuildingPlacement
 
                             BWAPI::TilePosition tile(x, y);
                             if (!tile.isValid()) continue;
-                            if (center(tile).getDistance(end2Center) > center(tile).getDistance(end1Center)) continue;
+
+                            auto forgeCenter = BWAPI::Position(tile) + BWAPI::Position(48, 32);
+                            auto gatewayCenter = BWAPI::Position(tile) + BWAPI::Position(64, 48);
+                            auto forgeOK = (forgeCenter.getDistance(end2Center) < (0.8 * forgeCenter.getDistance(end1Center)));
+                            auto gateOK = (gatewayCenter.getDistance(end2Center) < (0.8 * gatewayCenter.getDistance(end1Center)));
+                            if (!forgeOK && !gateOK) continue;
+
                             processEndGeo(tile, end2Geo);
                             if (BWAPI::Broodwar->getGroundHeight(tile) != elevation) continue;
 
-                            addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end2ForgeOptions, tight);
-                            addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end2GatewayOptions, tight);
+                            if (forgeOK) addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Forge, end2ForgeOptions, tight);
+                            if (gateOK) addBuildingOption(x, y, BWAPI::UnitTypes::Protoss_Gateway, end2GatewayOptions, tight);
                         }
                     }
                 }
