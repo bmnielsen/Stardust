@@ -10,6 +10,7 @@ namespace Config
 {
     std::string StardustTestStrategyName = "";
     bool StardustTestForceGasSteal = false;
+    bool StardustTestForceNoGasSteal = false;
 
     namespace ConfigFile
     {

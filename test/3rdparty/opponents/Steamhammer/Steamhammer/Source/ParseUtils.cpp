@@ -182,6 +182,12 @@ void ParseUtils::ParseConfigFile(const std::string & filename)
         Config::Skills::RandomGasStealRate = 1.0;
     }
 
+    if (Config::StardustTestForceNoGasSteal)
+    {
+        Config::Skills::AutoGasSteal = false;
+        Config::Skills::RandomGasStealRate = 0.0;
+    }
+
     // Are we running under SCHNAIL?
     {
         // Do this in braces so the stream object gets destroyed right away.
