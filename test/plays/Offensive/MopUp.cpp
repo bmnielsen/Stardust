@@ -9,7 +9,7 @@ namespace
 {
     class HidePylonStrategyEngine : public StrategyEngine
     {
-        void initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom) override {}
+        void initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom, const std::string &openingOverride) override {}
 
         void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override {}
 
