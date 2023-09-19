@@ -60,13 +60,14 @@ TEST(BananaBrain, RunThirty)
         BananaBrain* bbModule;
         test.maps = Maps::Get("cog2022");
         test.opponentRace = BWAPI::Races::Protoss;
-        test.frameLimit = 12000;
+        test.frameLimit = 8000;
         test.opponentModule = [&]()
         {
             bbModule = new BananaBrain();
             bbModule->strategyName = randomOpening();
             bbModule->strategyName = randomZealotOpening();
             bbModule->strategyName = randomOpening();
+            bbModule->strategyName = ProtossStrategy::kPvP_ZZCore;
             return bbModule;
         };
         test.onStartOpponent = [&]()
@@ -322,6 +323,24 @@ TEST(BananaBrain, NZCoreDt)
     {
         auto bbModule = new BananaBrain();
         bbModule->strategyName = ProtossStrategy::kPvP_NZCoreDt;
+        return bbModule;
+    };
+
+    test.run();
+}
+
+TEST(BananaBrain, ZZCore)
+{
+    BWTest test;
+    test.opponentName = "BananaBrain";
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.map = Maps::GetOne("MatchPoint");
+    test.randomSeed = 11329;
+    test.frameLimit = 8000;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ProtossStrategy::kPvP_ZZCore;
         return bbModule;
     };
 

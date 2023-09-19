@@ -1,6 +1,8 @@
 #include "BWTest.h"
 #include "UAlbertaBotModule.h"
 #include "BuildingPlacement.h"
+#include "Strategist.h"
+#include "StrategyEngines/PvZ.h"
 
 TEST(Steamhammer, RunThirty)
 {
@@ -245,7 +247,7 @@ TEST(Steamhammer, 9PoolSpeed)
 {
     BWTest test;
     test.opponentName = "Steamhammer";
-    test.map = Maps::GetOne("Python");
+    test.map = Maps::GetOne("Spirit");
     test.randomSeed = 30841;
     test.opponentRace = BWAPI::Races::Zerg;
     test.frameLimit = 10000;
@@ -253,7 +255,12 @@ TEST(Steamhammer, 9PoolSpeed)
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
         Config::StardustTestStrategyName = "9PoolSpeed";
+        Config::StardustTestForceGasSteal = false;
         return module;
+    };
+    test.onStartMine = []()
+    {
+        Strategist::setStrategyEngine(std::make_unique<PvZ>(), "SairSpeedlot");
     };
 
     test.run();

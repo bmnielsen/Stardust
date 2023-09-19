@@ -140,6 +140,7 @@ TEST(McRave, PoolHatch_Overpool_2HatchMuta)
     test.opponentRace = BWAPI::Races::Zerg;
     test.map = Maps::GetOne("Heartbreak");
     test.randomSeed = 20126;
+    test.frameLimit = 16000;
     test.opponentModule = [&]()
     {
         mcraveModule = new McRaveModule();

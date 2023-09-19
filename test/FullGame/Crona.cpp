@@ -2,6 +2,42 @@
 #include "BananaBrain.h"
 #include "StardustAIModule.h"
 
+
+namespace
+{
+    template<typename It>
+    It randomElement(It start, It end)
+    {
+        std::mt19937 rng((std::random_device()) ());
+        std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
+        std::advance(start, dis(rng));
+        return start;
+    }
+
+    std::string randomOpening()
+    {
+        std::vector<std::string> openings = {
+                ZergStrategy::kZvP_5Pool,
+                ZergStrategy::kZvP_2HatchLing ,
+                ZergStrategy::kZvP_3HatchLing ,
+                ZergStrategy::kZvP_9HatchLing ,
+                ZergStrategy::kZvP_10HatchLing,
+                ZergStrategy::kZvP_2HatchMuta ,
+                ZergStrategy::kZvP_3HatchMuta ,
+                ZergStrategy::kZvP_2HatchHydra,
+                ZergStrategy::kZvP_9734,
+                ZergStrategy::kZvP_10PoolLurker,
+                ZergStrategy::kZvP_3HatchLurker,
+                ZergStrategy::kZvP_NeoSauron,
+                ZergStrategy::kZvP_4HatchBeforeGas,
+                ZergStrategy::kZvP_5HatchBeforeGas,
+                ZergStrategy::kZvP_6Hatch
+        };
+
+        return *randomElement(openings.begin(), openings.end());
+    }
+}
+
 TEST(Crona, RunThirty)
 {
     int count = 0;
@@ -11,14 +47,18 @@ TEST(Crona, RunThirty)
         BWTest test;
         BananaBrain* bbModule;
         test.opponentName = "Crona";
-        test.maps = Maps::Get("sscait");
+        test.maps = Maps::Get("cog2022");
         test.opponentRace = BWAPI::Races::Zerg;
+        test.frameLimit = 10000;
         test.opponentModule = [&]()
         {
             bbModule = new BananaBrain();
-            bbModule->strategyName = ZergStrategy::kZvP_5Pool;
+            bbModule->strategyName = randomOpening();
+            bbModule->strategyName = ZergStrategy::kZvP_2HatchLing;
+//            bbModule->strategyName = ZergStrategy::kZvP_5Pool;
             return bbModule;
         };
+
         test.onStartOpponent = [&]()
         {
             std::cout << "Crona strategy: " << bbModule->strategyName << std::endl;
@@ -124,6 +164,42 @@ TEST(Crona, 5Pool)
     {
         auto bbModule = new BananaBrain();
         bbModule->strategyName = ZergStrategy::kZvP_5Pool;
+        return bbModule;
+    };
+
+    test.run();
+}
+
+TEST(Crona, 2HatchLing)
+{
+    BWTest test;
+    test.opponentName = "Crona";
+    test.map = Maps::GetOne("Spirit");
+    test.frameLimit = 6000;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.randomSeed = 40356;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ZergStrategy::kZvP_2HatchLing;
+        return bbModule;
+    };
+
+    test.run();
+}
+
+TEST(Crona, 3HatchLing)
+{
+    BWTest test;
+    test.opponentName = "Crona";
+    test.map = Maps::GetOne("Spirit");
+    test.frameLimit = 6000;
+    test.opponentRace = BWAPI::Races::Zerg;
+    test.randomSeed = 40356;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = ZergStrategy::kZvP_3HatchLing;
         return bbModule;
     };
 
