@@ -280,10 +280,7 @@ namespace BuildingPlacement
             }
         }
 
-        bool hasPathWithBuilding(BWAPI::TilePosition tile,
-                                 BWAPI::TilePosition size,
-                                 size_t maxPathLength = 0,
-                                 BWAPI::TilePosition alternateStartTile = BWAPI::TilePositions::Invalid)
+        size_t pathLength(BWAPI::TilePosition alternateStartTile = BWAPI::TilePositions::Invalid)
         {
             auto startTile = pathfindingStartTile;
             if (alternateStartTile != BWAPI::TilePositions::Invalid)
@@ -296,12 +293,20 @@ namespace BuildingPlacement
                 return walkableTile(tile) && !natural->mineralLineTiles.contains(tile);
             };
 
+            return PathFinding::Search(startTile, pathfindingEndTile, validPathfindingTile).size();
+        }
+
+        bool hasPathWithBuilding(BWAPI::TilePosition tile,
+                                 BWAPI::TilePosition size,
+                                 size_t maxPathLength = 0,
+                                 BWAPI::TilePosition alternateStartTile = BWAPI::TilePositions::Invalid)
+        {
             addWallTiles(tile, size);
-            auto path = PathFinding::Search(startTile, pathfindingEndTile, validPathfindingTile);
+            auto length = pathLength(alternateStartTile);
             removeWallTiles(tile, size);
 
-            if (path.empty()) return false;
-            if (maxPathLength > 0 && (int)path.size() > maxPathLength) return false;
+            if (length == 0) return false;
+            if (maxPathLength > 0 && (int)length > maxPathLength) return false;
 
             return true;
         }
@@ -1480,8 +1485,12 @@ namespace BuildingPlacement
                     if (!buildable(BWAPI::UnitTypes::Protoss_Pylon, tile)) continue;
 
                     BWAPI::Position pylonCenter = BWAPI::Position(BWAPI::TilePosition(x, y)) + BWAPI::Position(32, 32);
-                    if (sideOfLine(forgeCenter, gatewayCenter, pylonCenter) != natSideOfForgeGatewayLine
-                        && sideOfLine(wall.gapEnd1, wall.gapEnd2, pylonCenter) != natSideOfGapLine)
+                    BWAPI::Position pylonTopLeftWithBuffer = BWAPI::Position(BWAPI::TilePosition(x, y)) + BWAPI::Position(-8, -8);
+                    BWAPI::Position pylonBottomRightWithBuffer = BWAPI::Position(BWAPI::TilePosition(x + 2, y + 2)) + BWAPI::Position(8, 8);
+                    if ((sideOfLine(forgeCenter, gatewayCenter, pylonTopLeftWithBuffer) != natSideOfForgeGatewayLine
+                         || sideOfLine(forgeCenter, gatewayCenter, pylonBottomRightWithBuffer) != natSideOfForgeGatewayLine)
+                        && (sideOfLine(wall.gapEnd1, wall.gapEnd2, pylonTopLeftWithBuffer) != natSideOfGapLine
+                            || sideOfLine(wall.gapEnd1, wall.gapEnd2, pylonBottomRightWithBuffer) != natSideOfGapLine))
                     {
         #if DEBUG_PLACEMENT
                         Log::Debug() << "Pylon " << tile << " rejected for being on the wrong side of the line";
@@ -1540,11 +1549,8 @@ namespace BuildingPlacement
                                                  size_t optimalPathLength,
                                                  BWAPI::TilePosition (*pylonPlacer)(const ForgeGatewayWall &, size_t))
         {
-            auto &bwemMap = BWEM::Map::Instance();
             ForgeGatewayWallOption bestWallOption;
 
-            BWAPI::Position mapCenter = bwemMap.Center();
-            BWAPI::Position startTileCenter = BWAPI::Position(pathfindingStartTile) + BWAPI::Position(16, 16);
             BWAPI::Position natCenter = natural->getPosition();
 
             double bestWallQuality = DBL_MAX;
@@ -1553,6 +1559,11 @@ namespace BuildingPlacement
 
             for (auto const &wall : wallOptions)
             {
+#if DEBUG_PLACEMENT
+                Log::Debug() << "Starting scoring forge=" << wall.forge << ";gateway=" << wall.gateway
+                             << ";gapc=" << BWAPI::TilePosition(wall.gapCenter);
+#endif
+
                 // Check if there is a pylon location
                 addWallTiles(wall.forge, BWAPI::UnitTypes::Protoss_Forge.tileSize());
                 addWallTiles(wall.gateway, BWAPI::UnitTypes::Protoss_Gateway.tileSize());
@@ -1568,10 +1579,9 @@ namespace BuildingPlacement
                 BWAPI::Position forgeCenter = BWAPI::Position(wall.forge) + (BWAPI::Position(BWAPI::UnitTypes::Protoss_Forge.tileSize()) / 2);
                 BWAPI::Position gatewayCenter = BWAPI::Position(wall.gateway) + (BWAPI::Position(BWAPI::UnitTypes::Protoss_Gateway.tileSize()) / 2);
 
-                // Prefer walls where the door is closer to our start tile
-                // Includes a small factor of the distance to the map center to encourage shorter paths from the door to the rest of the map
-                // Rounded to half-tile resolution
-                int distChoke = (int)std::floor((wall.gapCenter.getDistance(startTileCenter) + log(wall.gapCenter.getDistance(mapCenter))) / 16.0);
+                // Prefer walls that create a longer path
+                auto distIncrease = pathLength() - optimalPathLength;
+                if (distIncrease < 0) continue; // Shouldn't be possible, but guard for it just in case
 
                 // Prefer walls that are slightly crooked, so we get better cannon placements
                 // For walls where the forge and gateway are touching, measure this by comparing the slope of the wall building centers to the slope of the gap, rounded to 15 degree increments
@@ -1589,7 +1599,11 @@ namespace BuildingPlacement
                 }
 
                 // Combine the gap size and the previous two values into a measure of wall quality
-                double wallQuality = wall.gapSize * distChoke * (1.0 + std::abs(2 - straightness) / 2.0);
+                // Distance increase is capped at 10 tiles and scaled to a factor of 0.8 - 1.2
+                // Straightness target is 2, above or below cause the final result to increase
+                double wallQuality = wall.gapSize
+                    * (0.8 + 0.4 * (std::max(0.0, 10.0 - (double)distIncrease) / 10.0))
+                    * (1.0 + std::abs(2 - straightness) / 2.0);
 
                 // Compute the centroid of the wall buildings
                 // If the other scores are equal, we prefer a centroid farther away from the natural
@@ -1600,7 +1614,7 @@ namespace BuildingPlacement
 
 #if DEBUG_PLACEMENT
                 Log::Debug() << "Considering forge=" << wall.forge << ";gateway=" << wall.gateway << ";gapc=" << BWAPI::TilePosition(wall.gapCenter)
-                             << ";gapw=" << wall.gapSize << ";dchoke=" << distChoke << ";straightness=" << straightness << ";qualityFactor="
+                             << ";gapw=" << wall.gapSize << ";dinc=" << distIncrease << ";straightness=" << straightness << ";qualityFactor="
                              << wallQuality << ";dcentroid=" << distCentroidNat;
 #endif
 
@@ -1753,7 +1767,7 @@ namespace BuildingPlacement
             wallTiles.clear();
 
             // Initialize pathfinding
-            size_t optimalPathLength = PathFinding::Search(pathfindingStartTile, pathfindingEndTile).size();
+            size_t optimalPathLength = pathLength();
 #if DEBUG_PLACEMENT
             Log::Debug() << "Pathfinding between " << pathfindingStartTile << " and " << pathfindingEndTile << ", initial length "
                          << optimalPathLength;
