@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.24)
 project(Locutus)
 
+set(CMAKE_CXX_STANDARD 17)
+
 file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR}/Locutus/Source/*.cpp)
 file(GLOB_RECURSE BOSS_SRC_FILES ${PROJECT_SOURCE_DIR}/BOSS/source/*.cpp)
 file(GLOB_RECURSE BWTA_SRC_FILES ${PROJECT_SOURCE_DIR}/BWTA/src/*.cpp)

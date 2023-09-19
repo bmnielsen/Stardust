@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.24)
 project(tests)
 
+set(CMAKE_CXX_STANDARD 23)
+
 add_subdirectory(3rdparty/googletest)
 add_subdirectory(3rdparty/opponents/Steamhammer)
 add_subdirectory(3rdparty/opponents/Locutus)
@@ -38,6 +40,10 @@ add_executable(tests ${SRC_FILES})
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(tests PUBLIC DEBUG=1)
+endif()
+
+if (CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined,leak -fsanitize-recover=address,undefined,leak -g")
 endif()
 
 target_link_libraries(tests gtest gtest_main BWAPI BWAPILIB Stardust Steamhammer Locutus Iron BananaBrain SAIDA McRave)
