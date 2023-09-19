@@ -76,7 +76,7 @@ TEST(PathFindingSearch, FindPath_Profiling)
 
     test.onStartMine = []()
     {
-        auto grid = Players::grid(BWAPI::Broodwar->enemy());
+        auto &grid = Players::grid(BWAPI::Broodwar->enemy());
         auto avoidThreatTiles = [&grid](BWAPI::TilePosition tile)
         {
             return grid.airThreat((tile.x << 2U) + 2, (tile.y << 2U) + 2) == 0 &&

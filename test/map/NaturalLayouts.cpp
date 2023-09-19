@@ -101,23 +101,24 @@ TEST(NaturalLayouts, AnalyzeAll)
                     continue;
                 }
 
-                auto geyserTiles = natural->geyserLocations();
-                if (geyserTiles.empty())
+                if (natural->geyserCount() == 0)
                 {
                     continue;
                 }
 
+                auto &geysers = natural->geysersOrRefineries();
+
                 auto chokes = Map::getStartingBaseChokes(base);
 
                 std::cout << "Natural @ " << natural->getTilePosition() << std::endl;
-                std::cout << "Geyser: " << direction(natural->getTilePosition(), BWAPI::Position(*geyserTiles.begin() + BWAPI::TilePosition(2, 1)), true) << std::endl;
+                std::cout << "Geyser: " << direction(natural->getTilePosition(), BWAPI::Position((*geysers.begin())->tile + BWAPI::TilePosition(2, 1)), true) << std::endl;
                 std::cout << "Minerals: " << direction(natural->getTilePosition(), natural->mineralLineCenter) << std::endl;
                 std::cout << "Choke: " << direction(natural->getTilePosition(), chokes.second->center, true) << std::endl;
 
                 std::ostringstream builder;
                 builder << "min " << direction(natural->getTilePosition(), natural->mineralLineCenter);
                 builder << "; ";
-                builder << "gas " << direction(natural->getTilePosition(), BWAPI::Position(*geyserTiles.begin() + BWAPI::TilePosition(2, 1)), true);
+                builder << "gas " << direction(natural->getTilePosition(), BWAPI::Position((*geysers.begin())->tile + BWAPI::TilePosition(2, 1)), true);
                 builder << "; ";
                 builder << "choke " << direction(natural->getTilePosition(), chokes.second->center, true);
 

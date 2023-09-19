@@ -11,7 +11,9 @@
 
 namespace
 {
-    void generateWalls(int startLocationX = -1, int startLocationY = -1)
+    void generateWalls(int startLocationX = -1,
+                       int startLocationY = -1,
+                       std::vector<ForgeGatewayWall> *walls = nullptr)
     {
         std::vector<long> wallHeatmap(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight(), 0);
 
@@ -26,6 +28,8 @@ namespace
                 std::cout << base->getTilePosition() << ": " << wall << std::endl;
 
                 wall.addToHeatmap(wallHeatmap);
+
+                if (walls) walls->push_back(wall);
             }
             else
             {
@@ -34,6 +38,147 @@ namespace
         }
 
         CherryVis::addHeatmap("Wall", wallHeatmap, BWAPI::Broodwar->mapWidth(), BWAPI::Broodwar->mapHeight());
+    }
+
+    void createWallBuildings(const ForgeGatewayWall &wall)
+    {
+        auto getNearestBase = [&wall]()
+        {
+            Base *bestBase = nullptr;
+            int bestDist = INT_MAX;
+            for (auto base : Map::allBases())
+            {
+                int dist = wall.gapCenter.getApproxDistance(base->getPosition());
+                if (dist < bestDist)
+                {
+                    bestBase = base;
+                    bestDist = dist;
+                }
+            }
+            return bestBase;
+        };
+
+        if (currentFrame == 10)
+        {
+            auto natural = getNearestBase();
+
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, natural->getPosition());
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, wall.gapCenter);
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, BWAPI::Position(wall.pylon));
+
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->enemy(),
+                                        BWAPI::UnitTypes::Zerg_Overlord,
+                                        BWAPI::Position(BWAPI::Broodwar->self()->getStartLocation()) + BWAPI::Position(64, 48));
+        }
+
+        if (currentFrame == 20)
+        {
+            auto natural = getNearestBase();
+
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Nexus,
+                                        Geo::CenterOfUnit(natural->getTilePosition(), BWAPI::UnitTypes::Protoss_Nexus));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Pylon,
+                                        Geo::CenterOfUnit(wall.pylon, BWAPI::UnitTypes::Protoss_Pylon));
+
+            if (wall.naturalCannons.empty())
+            {
+                auto defensivePositions = BuildingPlacement::baseStaticDefenseLocations(natural);
+                if (defensivePositions.isValid() && defensivePositions.powerPylon != wall.pylon)
+                {
+                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                                BWAPI::UnitTypes::Protoss_Pylon,
+                                                Geo::CenterOfUnit(defensivePositions.powerPylon, BWAPI::UnitTypes::Protoss_Pylon));
+                }
+            }
+        }
+
+        if (currentFrame == 30)
+        {
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Forge,
+                                        Geo::CenterOfUnit(wall.forge, BWAPI::UnitTypes::Protoss_Forge));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Gateway,
+                                        Geo::CenterOfUnit(wall.gateway, BWAPI::UnitTypes::Protoss_Gateway));
+        }
+
+        if (currentFrame == 40)
+        {
+            for (auto pos : wall.probeBlockingPositions)
+            {
+                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Probe, pos);
+            }
+        }
+
+        if (currentFrame == 50)
+        {
+            auto natural = getNearestBase();
+
+            for (auto cannon : wall.cannons)
+            {
+                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                            BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                            Geo::CenterOfUnit(cannon, BWAPI::UnitTypes::Protoss_Photon_Cannon));
+            }
+            for (auto cannon : wall.naturalCannons)
+            {
+                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                            BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                            Geo::CenterOfUnit(cannon, BWAPI::UnitTypes::Protoss_Photon_Cannon));
+            }
+            if (wall.naturalCannons.empty())
+            {
+                auto defensivePositions = BuildingPlacement::baseStaticDefenseLocations(natural);
+                if (defensivePositions.isValid())
+                {
+                    for (auto cannon : defensivePositions.workerDefenseCannons)
+                    {
+                        BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                                    BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                                    Geo::CenterOfUnit(cannon, BWAPI::UnitTypes::Protoss_Photon_Cannon));
+                    }
+                }
+            }
+
+        }
+    }
+
+    void configureBuildWallsTest(BWTest &test)
+    {
+        test.opponentModule = []()
+        {
+            return new DoNothingModule();
+        };
+        test.frameLimit = 100;
+        test.expectWin = false;
+        test.onStartMine = []()
+        {
+            Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+        };
+
+        std::vector<ForgeGatewayWall> walls;
+
+        test.onFrameMine = [&walls]() {
+            if (currentFrame == 0)
+            {
+                generateWalls(-1, -1, &walls);
+            }
+
+            for (auto &wall : walls)
+            {
+                for (const auto &probe : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
+                {
+                    if (!wall.probeBlockingPositions.contains(probe->lastPosition)) continue;
+
+                    Workers::reserveWorker(probe);
+                    probe->stop();
+                }
+
+                createWallBuildings(wall);
+            }
+        };
     }
 
     void configureLingTightTest(BWTest &test)
@@ -78,64 +223,7 @@ namespace
                 probe->stop();
             }
 
-            if (currentFrame == 10)
-            {
-                auto natural = Map::getMyNatural();
-
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, natural->getPosition());
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, wall.gapCenter);
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, BWAPI::Position(wall.pylon));
-
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->enemy(),
-                                            BWAPI::UnitTypes::Zerg_Overlord,
-                                            BWAPI::Position(BWAPI::Broodwar->self()->getStartLocation()) + BWAPI::Position(64, 48));
-            }
-
-            if (currentFrame == 20)
-            {
-                auto natural = Map::getMyNatural();
-
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                            BWAPI::UnitTypes::Protoss_Nexus,
-                                            Geo::CenterOfUnit(natural->getTilePosition(), BWAPI::UnitTypes::Protoss_Nexus));
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                            BWAPI::UnitTypes::Protoss_Pylon,
-                                            Geo::CenterOfUnit(wall.pylon, BWAPI::UnitTypes::Protoss_Pylon));
-            }
-
-            if (currentFrame == 30)
-            {
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                            BWAPI::UnitTypes::Protoss_Forge,
-                                            Geo::CenterOfUnit(wall.forge, BWAPI::UnitTypes::Protoss_Forge));
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                            BWAPI::UnitTypes::Protoss_Gateway,
-                                            Geo::CenterOfUnit(wall.gateway, BWAPI::UnitTypes::Protoss_Gateway));
-            }
-
-            if (currentFrame == 40)
-            {
-                for (auto pos : wall.probeBlockingPositions)
-                {
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Probe, pos);
-                }
-            }
-
-            if (currentFrame == 50)
-            {
-                for (auto cannon : wall.cannons)
-                {
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                                                Geo::CenterOfUnit(cannon, BWAPI::UnitTypes::Protoss_Photon_Cannon));
-                }
-                for (auto cannon : wall.naturalCannons)
-                {
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                                                Geo::CenterOfUnit(cannon, BWAPI::UnitTypes::Protoss_Photon_Cannon));
-                }
-            }
+            createWallBuildings(wall);
 
             if (currentFrame == 60)
             {
@@ -264,6 +352,15 @@ TEST(ForgeGatewayWalls, AllCOG)
     });
 }
 
+TEST(ForgeGatewayWalls, AllAIIDE)
+{
+    Maps::RunOnEach(Maps::Get("aiide2023"), [](BWTest test)
+    {
+        configureBuildWallsTest(test);
+        test.run();
+    });
+}
+
 TEST(ForgeGatewayWalls, LingTightAllSSCAIT)
 {
     Maps::RunOnEachStartLocation(Maps::Get("sscai"), [](BWTest test)
@@ -280,6 +377,26 @@ TEST(ForgeGatewayWalls, LingTightAllCOG)
         configureLingTightTest(test);
         test.run();
     });
+}
+
+TEST(ForgeGatewayWalls, PamirPlateau)
+{
+    BWTest test;
+    test.randomSeed = 1617;
+    test.map = Maps::GetOne("Pamir");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.onFrameMine = []() {
+        if (currentFrame == 0)
+        {
+            generateWalls(117, 6);
+        }
+    };
+    test.run();
 }
 
 TEST(ForgeGatewayWalls, NeoSylphid2)
@@ -317,6 +434,26 @@ TEST(ForgeGatewayWalls, Eclipse)
         if (currentFrame == 0)
         {
             generateWalls(116, 7);
+        }
+    };
+    test.run();
+}
+
+TEST(ForgeGatewayWalls, EmpireOfTheSun)
+{
+    BWTest test;
+    test.randomSeed = 1617;
+    test.map = Maps::GetOne("Empire");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.onFrameMine = []() {
+        if (currentFrame == 0)
+        {
+            generateWalls();
         }
     };
     test.run();
@@ -497,6 +634,64 @@ TEST(ForgeGatewayWalls, Python)
         if (currentFrame == 0)
         {
             generateWalls();
+        }
+    };
+    test.run();
+}
+
+TEST(ForgeGatewayWalls, Heartbreak9)
+{
+    BWTest test;
+    test.randomSeed = 1617;
+    test.map = Maps::GetOne("Heartbreak");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.onFrameMine = []() {
+        if (currentFrame == 0)
+        {
+            generateWalls(7, 37);
+        }
+    };
+    test.run();
+}
+
+TEST(ForgeGatewayWalls, GrandLine1)
+{
+    BWTest test;
+    test.map = Maps::GetOne("GrandLine");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.onFrameMine = []() {
+        if (currentFrame == 0)
+        {
+            generateWalls(117, 6);
+        }
+    };
+    test.run();
+}
+
+TEST(ForgeGatewayWalls, Allegro1)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Allegro");
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 10;
+    test.expectWin = false;
+    test.onFrameMine = []() {
+        if (currentFrame == 0)
+        {
+            generateWalls(117, 6);
         }
     };
     test.run();
