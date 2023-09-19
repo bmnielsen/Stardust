@@ -1,6 +1,7 @@
 #include "BWTest.h"
 #include "DoNothingModule.h"
 
+#include "Units.h"
 #include "Map.h"
 #include "PathFinding.h"
 
@@ -8,6 +9,9 @@ namespace
 {
     bool validateGrid(NavigationGrid &grid)
     {
+        int minCostDiff = INT_MAX;
+        int maxCostDiff = 0;
+
         for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
         {
             for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
@@ -36,10 +40,17 @@ namespace
                 }
                 */
 
-                if (node.nextNode && node.cost <= node.nextNode->cost)
+                if (node.nextNode)
                 {
-                    std::cout << BWAPI::Broodwar->getFrameCount() << ": Non-decreasing cost " << node << std::endl;
-                    return false;
+                    int costDiff = node.cost - node.nextNode->cost;
+                    if (costDiff <= 0)
+                    {
+                        std::cout << BWAPI::Broodwar->getFrameCount() << ": Non-decreasing cost " << node << std::endl;
+                        return false;
+                    }
+
+                    if (costDiff < minCostDiff) minCostDiff = costDiff;
+                    if (costDiff > maxCostDiff) maxCostDiff = costDiff;
                 }
 
                 auto current = node.nextNode;
@@ -64,6 +75,8 @@ namespace
                 }
             }
         }
+
+        std::cout << BWAPI::Broodwar->getFrameCount() << ": minCostDelta=" << minCostDiff << "; maxCostDelta=" << maxCostDiff << std::endl;
 
         return true;
     }
@@ -91,6 +104,7 @@ namespace
         test.onStartMine = [&grid, goal]()
         {
             CherryVis::initialize();
+            Units::initialize();
             Map::initialize();
 
             grid = new NavigationGrid(goal, BWAPI::UnitTypes::Protoss_Nexus.tileSize());
