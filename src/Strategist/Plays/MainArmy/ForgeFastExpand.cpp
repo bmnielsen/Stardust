@@ -808,7 +808,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
         }
     }
 
-    // If the enemy did a gas steal, build a cannon in our main to kill it
+    // If the enemy did a gas steal, build two cannons in our main to kill it
     if (currentState == State::STATE_FINISHED || currentState == State::STATE_ANTIFASTRUSH_NEXUS_PENDING)
     {
         auto main = Map::getMyMain();
@@ -818,21 +818,30 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
 
             // Find the best cannon location
             auto defenseLocations = BuildingPlacement::baseStaticDefenseLocations(main);
-            if (!defenseLocations.powerPylon.isValid()) break;
+            if (!defenseLocations.isValid()) break;
 
             auto pylon = Units::myBuildingAt(defenseLocations.powerPylon);
-            if (!pylon || !pylon->completed) break;
+            if (!pylon)
+            {
+                addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Pylon, defenseLocations.powerPylon, 0, PRIORITY_BASEDEFENSE);
+            }
 
+            int count = 0;
             for (const auto cannonLocation : defenseLocations.workerDefenseCannons)
             {
+                if (count >= 2) break;
+
                 auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Photon_Cannon,
                                                     BWAPI::Position(cannonLocation) + BWAPI::Position(32, 32),
                                                     gasSteal->type,
                                                     gasSteal->lastPosition);
                 if (dist > (BWAPI::UnitTypes::Protoss_Photon_Cannon.groundWeapon().maxRange() - 16)) continue;
 
-                if (Units::myBuildingAt(cannonLocation)) break;
-                addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Photon_Cannon, cannonLocation, 0, PRIORITY_BASEDEFENSE);
+                if (!Units::myBuildingAt(cannonLocation))
+                {
+                    addBuildingToGoals(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Photon_Cannon, cannonLocation, 0, PRIORITY_BASEDEFENSE);
+                }
+                count++;
             }
 
             break;
