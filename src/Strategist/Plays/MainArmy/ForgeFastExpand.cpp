@@ -698,9 +698,10 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
     int currentCannons = currentWallCannons(prioritizedProductionGoals, cannonPlacementsAvailable);
 
     int desiredCannons = 2;
-    if (nexusPositionBlocked())
+
+    bool nexusBlocked = nexusPositionBlocked();
+    if (nexusBlocked)
     {
-        desiredCannons = 3;
         cannonFrame = currentFrame;
     }
 
@@ -835,6 +836,32 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
             }
 
             break;
+        }
+    }
+
+    // If the enemy has blocked our natural nexus position, build one of the natural defense cannons
+    if (nexusBlocked)
+    {
+        auto naturalDefensePositions = BuildingPlacement::baseStaticDefenseLocations(Map::getMyNatural());
+        if (naturalDefensePositions.isValid())
+        {
+            if (!Units::myBuildingAt(naturalDefensePositions.powerPylon))
+            {
+                addBuildingToGoals(prioritizedProductionGoals,
+                                   BWAPI::UnitTypes::Protoss_Pylon,
+                                   naturalDefensePositions.powerPylon,
+                                   0,
+                                   PRIORITY_EMERGENCY);
+            }
+            else if (!Units::myBuildingAt(*naturalDefensePositions.workerDefenseCannons.begin()) &&
+                Units::countAll(BWAPI::UnitTypes::Protoss_Forge) > 0)
+            {
+                addBuildingToGoals(prioritizedProductionGoals,
+                                   BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                   *naturalDefensePositions.workerDefenseCannons.begin(),
+                                   0,
+                                   PRIORITY_EMERGENCY);
+            }
         }
     }
 }
