@@ -1121,6 +1121,7 @@ namespace Map
 
             if (!startingLocation->natural) continue;
             if (!startingLocation->mainChoke) continue;
+            if (_mapSpecificOverride->hasBackdoorNatural()) continue;
 
             for (const auto &area : BWEM::Map::Instance().Areas())
             {
