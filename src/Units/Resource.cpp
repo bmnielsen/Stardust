@@ -9,6 +9,7 @@ ResourceImpl::ResourceImpl(BWAPI::Unit unit)
     , center(unit->getPosition())
     , initialAmount(unit->getResources())
     , currentAmount(unit->getResources())
+    , seenLastFrame(false)
     , destroyed(false)
 {}
 

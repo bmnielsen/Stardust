@@ -19,6 +19,7 @@ public:
     int initialAmount;
     int currentAmount;
 
+    bool seenLastFrame; // For tracking when mineral fields are mined out and removed
     bool destroyed; // For mineral fields, when they are mined out and removed
     Unit refinery;  // For geysers, the refinery unit a player has built on it
 

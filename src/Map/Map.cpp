@@ -2,14 +2,21 @@
 
 #include <ranges>
 
-#include "MapSpecificOverrides/Fortress.h"
-#include "MapSpecificOverrides/Plasma.h"
 #include "MapSpecificOverrides/Alchemist.h"
-#include "MapSpecificOverrides/Outsider.h"
+#include "MapSpecificOverrides/Arcadia.h"
+#include "MapSpecificOverrides/Colosseum.h"
+#include "MapSpecificOverrides/CrossingField.h"
 #include "MapSpecificOverrides/Destination.h"
 #include "MapSpecificOverrides/EmpireOfTheSun.h"
+#include "MapSpecificOverrides/Fortress.h"
+#include "MapSpecificOverrides/GodsGarden.h"
+#include "MapSpecificOverrides/JudgmentDay.h"
+#include "MapSpecificOverrides/Katrina.h"
 #include "MapSpecificOverrides/MatchPoint.h"
+#include "MapSpecificOverrides/Outsider.h"
+#include "MapSpecificOverrides/Plasma.h"
 
+#include "StartingLocation.h"
 #include "Units.h"
 #include "PathFinding.h"
 #include "Geo.h"
@@ -31,7 +38,7 @@ namespace Map
 
         MapSpecificOverride *_mapSpecificOverride;
         std::vector<Base *> bases;
-        std::vector<Base *> startingLocationBases;
+        std::vector<std::unique_ptr<StartingLocation>> startingLocations;
 
         std::map<const BWEM::ChokePoint *, Choke *> chokes;
         int _minChokeWidth;
@@ -163,7 +170,7 @@ namespace Map
             // Get the closest base
             Base *bestNatural = nullptr;
             int bestDist = INT_MAX;
-            for (auto base : bases)
+            for (auto &base : bases)
             {
                 if (base->getTilePosition() == startLocation) continue;
                 if (base->gas == 0) continue;
@@ -217,7 +224,7 @@ namespace Map
             auto enemyBases = getEnemyBases(player);
 
             std::vector<std::tuple<int, Base *, bool>> scoredBases;
-            for (auto base : bases)
+            for (auto &base : bases)
             {
                 // Skip bases that are already taken
                 // We consider any based owned by a different player than us to be taken
@@ -348,10 +355,17 @@ namespace Map
                 if (!ownerBases.startingMain && base->isStartingBase())
                 {
                     ownerBases.startingMain = base;
-                    ownerBases.startingNatural = getNaturalForStartLocation(base->getTilePosition());
-                    ownerBases.startingMainChoke = computeMainChoke(base, ownerBases.startingNatural);
-                    ownerBases.startingNaturalChoke = computeNaturalChoke(base, ownerBases.startingNatural, ownerBases.startingMainChoke);
                     ownerBases.main = base;
+
+                    for (auto &startingLocation : startingLocations)
+                    {
+                        if (startingLocation->main != base) continue;
+
+                        ownerBases.startingNatural = startingLocation->natural;
+                        ownerBases.startingMainChoke = startingLocation->mainChoke;
+                        ownerBases.startingNaturalChoke = startingLocation->naturalChoke;
+                        break;
+                    }
 
                     if (owner == BWAPI::Broodwar->enemy())
                     {
@@ -436,8 +450,10 @@ namespace Map
             auto &playerBases = playerToPlayerBases[unit->player];
             if (!playerBases.startingMain)
             {
-                for (auto startingLocationBase : startingLocationBases)
+                for (auto &startingLocation : startingLocations)
                 {
+                    auto &startingLocationBase = startingLocation->main;
+
                     if (startingLocationBase->owner) continue;
 
                     int dist = PathFinding::GetGroundDistance(
@@ -451,12 +467,11 @@ namespace Map
                         break;
                     }
 
-                    auto natural = getNaturalForStartLocation(startingLocationBase->getTilePosition());
-                    if (natural)
+                    if (startingLocation->natural)
                     {
                         int naturalDist = PathFinding::GetGroundDistance(
                                 unit->lastPosition,
-                                natural->getPosition(),
+                                startingLocation->natural->getPosition(),
                                 BWAPI::UnitTypes::Protoss_Probe,
                                 PathFinding::PathFindingOptions::UseNearestBWEMArea);
                         if (naturalDist != -1 && naturalDist < 640)
@@ -888,7 +903,7 @@ namespace Map
         {
             delete *it;
         }
-        startingLocationBases.clear();
+        startingLocations.clear();
         for (auto it = chokes.begin(); it != chokes.end(); it = chokes.erase(it))
         {
             delete it->second;
@@ -961,6 +976,42 @@ namespace Map
         {
             Log::Get() << "Using map-specific override for Empire of the Sun";
             _mapSpecificOverride = new EmpireOfTheSun();
+        }
+        else if (BWAPI::Broodwar->mapHash() == "442e456721c94fd085ecd10230542960d57928d9" ||
+                 BWAPI::Broodwar->mapHash() == "83cc5c3944a80915a68190d7b87714d8c0cf8a2f")
+        {
+            Log::Get() << "Using map-specific override for Arcadia";
+            _mapSpecificOverride = new Arcadia();
+        }
+        else if (BWAPI::Broodwar->mapHash() == "bde51d09a2ad733db9e5492354798045db2ced3e" ||
+                 BWAPI::Broodwar->mapHash() == "699c33ca1ff8f486d93b288371e57db49a0c403f")
+        {
+            Log::Get() << "Using map-specific override for Colosseum";
+            _mapSpecificOverride = new Colosseum();
+        }
+        else if (BWAPI::Broodwar->mapHash() == "97944269ea55365d13c310f46c9337f5e873dc6c" ||
+                 BWAPI::Broodwar->mapHash() == "a8fff0bad1956dba03e234744f2e12f7941a8f8a")
+        {
+            Log::Get() << "Using map-specific override for CrossingField";
+            _mapSpecificOverride = new CrossingField();
+        }
+        else if (BWAPI::Broodwar->mapHash() == "2acb8e8cc2ec9b0911a73f2f29dcce424862dddd" ||
+                 BWAPI::Broodwar->mapHash() == "0d592ab56bd5c9230444e48177f150e58fce0a91")
+        {
+            Log::Get() << "Using map-specific override for GodsGarden";
+            _mapSpecificOverride = new GodsGarden();
+        }
+        else if (BWAPI::Broodwar->mapHash() == "2f69eaa1a73bb743934d55e7ea12186fe340e656" ||
+                 BWAPI::Broodwar->mapHash() == "a19d3ed890c2919c81a9aff55732d3f602a3323e")
+        {
+            Log::Get() << "Using map-specific override for JudgmentDay";
+            _mapSpecificOverride = new JudgmentDay();
+        }
+        else if (BWAPI::Broodwar->mapHash() == "444b805a88f971c6b2c5f8d2a467de3c1fb2f001" ||
+                 BWAPI::Broodwar->mapHash() == "625b16a3a6c861bc6c2f91b709329edb7e8e28aa")
+        {
+            Log::Get() << "Using map-specific override for Katrina";
+            _mapSpecificOverride = new Katrina();
         }
         else
         {
@@ -1038,7 +1089,14 @@ namespace Map
         {
             if (base->isStartingBase())
             {
-                startingLocationBases.push_back(base);
+                auto natural = getNaturalForStartLocation(base->getTilePosition());
+                auto mainChoke = computeMainChoke(base, natural);
+                auto naturalChoke = computeNaturalChoke(base, natural, mainChoke);
+
+                auto startingLocation = std::make_unique<StartingLocation>(base, natural, mainChoke, naturalChoke);
+                _mapSpecificOverride->modifyStartingLocation(startingLocation);
+
+                startingLocations.emplace_back(std::move(startingLocation));
                 if (base->getTilePosition() == BWAPI::Broodwar->self()->getStartLocation())
                 {
                     setBaseOwner(base, BWAPI::Broodwar->self());
@@ -1053,19 +1111,16 @@ namespace Map
         }
 
         // Compute areas for all starting location bases
-        for (auto &base : startingLocationBases)
+        for (auto &startingLocation : startingLocations)
         {
             // Initialize with the base area
-            startingBaseAreas[base].insert(base->getArea());
+            startingBaseAreas[startingLocation->main].insert(startingLocation->main->getArea());
 
             // Add any areas where the path to the natural goes through the main choke
             // TODO: Doesn't work for Alchemist 3 o'clock where we don't have a main choke or natural
 
-            auto natural = getNaturalForStartLocation(base->getTilePosition());
-            if (!natural) continue;
-
-            auto mainChoke = computeMainChoke(base, natural);
-            if (!mainChoke) continue;
+            if (!startingLocation->natural) continue;
+            if (!startingLocation->mainChoke) continue;
 
             for (const auto &area : BWEM::Map::Instance().Areas())
             {
@@ -1074,18 +1129,18 @@ namespace Map
                 bool hasMainChoke = false;
                 for (const auto &choke : PathFinding::GetChokePointPath(
                         BWAPI::Position(area.Top()),
-                        natural->getPosition(),
+                        startingLocation->natural->getPosition(),
                         BWAPI::UnitTypes::Protoss_Dragoon,
                         PathFinding::PathFindingOptions::UseNearestBWEMArea))
                 {
-                    if (choke == mainChoke->choke)
+                    if (choke == startingLocation->mainChoke->choke)
                     {
                         hasMainChoke = true;
                         break;
                     }
                 }
 
-                if (hasMainChoke) startingBaseAreas[base].insert(&area);
+                if (hasMainChoke) startingBaseAreas[startingLocation->main].insert(&area);
             }
         }
 
@@ -1269,7 +1324,7 @@ namespace Map
     std::set<Base *> getEnemyBases(BWAPI::Player player)
     {
         std::set<Base *> result;
-        for (auto base : bases)
+        for (auto &base : bases)
         {
             if (!base->owner) continue;
             if (base->owner->isEnemy(player)) result.insert(base);
@@ -1340,7 +1395,7 @@ namespace Map
 
         Base *best = nullptr;
         int bestScore = -1;
-        for (auto base : bases)
+        for (auto &base : bases)
         {
             if (base->owner) continue;
             if (base->gas < 2000) continue;
@@ -1396,17 +1451,22 @@ namespace Map
 
     std::vector<Base *> allStartingLocations()
     {
-        return startingLocationBases;
+        std::vector<Base *> result;
+        for (auto &startingLocation : startingLocations)
+        {
+            result.push_back(startingLocation->main);
+        }
+        return result;
     }
 
     std::set<Base *> unscoutedStartingLocations()
     {
         std::set<Base *> result;
-        for (auto base : startingLocationBases)
+        for (auto &startingLocation : startingLocations)
         {
-            if (base->lastScouted >= 0) continue;
+            if (startingLocation->main->lastScouted >= 0) continue;
 
-            result.insert(base);
+            result.insert(startingLocation->main);
         }
 
         return result;
@@ -1421,6 +1481,22 @@ namespace Map
             result.push_back(pair.second);
         }
         return result;
+    }
+
+    Choke *chokeNear(BWAPI::Position pos, int maxDistance)
+    {
+        int bestDist = maxDistance + 1;
+        Choke *best = nullptr;
+        for (auto &[_, choke] : chokes)
+        {
+            int dist = choke->center.getApproxDistance(pos);
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                best = choke;
+            }
+        }
+        return best;
     }
 
     Choke *choke(const BWEM::ChokePoint *bwemChoke)
@@ -1478,15 +1554,26 @@ namespace Map
 
     Base *getStartingBaseNatural(Base *base)
     {
-        return getNaturalForStartLocation(base->getTilePosition());
+        for (auto &startingLocation : startingLocations)
+        {
+            if (startingLocation->main != base) continue;
+
+            return startingLocation->natural;
+        }
+
+        return nullptr;
     }
 
     std::pair<Choke*, Choke*> getStartingBaseChokes(Base *base)
     {
-        auto natural = getNaturalForStartLocation(base->getTilePosition());
-        auto mainChoke = computeMainChoke(base, natural);
-        auto naturalChoke = computeNaturalChoke(base, natural, mainChoke);
-        return std::make_pair(mainChoke, naturalChoke);
+        for (auto &startingLocation : startingLocations)
+        {
+            if (startingLocation->main != base) continue;
+
+            return std::make_pair(startingLocation->mainChoke, startingLocation->naturalChoke);
+        }
+
+        return std::make_pair<Choke *, Choke *>(nullptr, nullptr);
     }
 
     std::map<const BWEM::Area *, std::set<BWAPI::TilePosition>> &getAreasToEdgePositions()

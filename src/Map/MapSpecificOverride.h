@@ -5,6 +5,7 @@
 #include <optional>
 
 #include "Choke.h"
+#include "StartingLocation.h"
 #include "UnitCluster.h"
 #include "StrategyEngine.h"
 #include "ForgeGatewayWall.h"
@@ -63,4 +64,9 @@ public:
 
     // Performs map-specific changes to the list of bases available on this map
     virtual void modifyBases(std::vector<Base *> &bases) {}
+
+    // Performs map-specific changes to starting location data, like its natural and chokes
+    virtual void modifyStartingLocation(std::unique_ptr<StartingLocation> &startingLocation) {}
+
+    virtual Base *naturalForWallPlacement(Base *main) { return nullptr; }
 };

@@ -125,8 +125,14 @@
     <ClCompile Include="$(SolutionDir)\..\src\Map\Map.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\Map_Walkability.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Alchemist.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Arcadia.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Colosseum.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\CrossingField.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Destination.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Fortress.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\GodsGarden.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\JudgmentDay.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Katrina.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\MatchPoint.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\NeoMoonGlaive.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Outsider.cpp" />

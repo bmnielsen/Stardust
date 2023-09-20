@@ -33,6 +33,8 @@ public:
 
     Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase);
 
+    Base(BWAPI::TilePosition tile, const BWEM::Area *bwemArea, std::vector<Resource> mineralPatches, std::vector<Resource> geysers);
+
     [[nodiscard]] const BWAPI::TilePosition &getTilePosition() const { return tile; }
 
     [[nodiscard]] BWAPI::Position getPosition() const { return center; }

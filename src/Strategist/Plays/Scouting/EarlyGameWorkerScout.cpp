@@ -611,7 +611,7 @@ void EarlyGameWorkerScout::scoutEnemyBase()
     }
 
     // Mark the play completed if the scout dies
-    if (!scout.unit->exists())
+    if (!scout.unit || !scout.unit->exists())
     {
         if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
             Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::MonitoringEnemyChoke)

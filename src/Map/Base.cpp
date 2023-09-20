@@ -101,6 +101,39 @@ Base::Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase)
     }
 }
 
+Base::Base(BWAPI::TilePosition tile, const BWEM::Area *bwemArea, std::vector<Resource> mineralPatches, std::vector<Resource> geysers)
+        : owner(nullptr)
+        , resourceDepot(nullptr)
+        , ownedSince(-1)
+        , lastScouted(-1)
+        , blockedByEnemy(false)
+        , requiresMineralWalkFromEnemyStartLocations(false)
+        , island(true) // set to false later where appropriate
+        , workerDefenseRallyPatch(nullptr)
+        , blockingNeutral(getBlockingNeutral(tile))
+        , minerals(0)
+        , gas(0)
+        , tile(tile)
+        , center(BWAPI::Position(tile) + BWAPI::Position(64, 48))
+        , bwemArea(bwemArea)
+        , _mineralPatches(std::move(mineralPatches))
+        , _geysersOrRefineries(std::move(geysers))
+{
+    // Call update to set the minerals and gas counts
+    update();
+
+    analyzeMineralLine();
+
+    for (auto startLocationTile : BWAPI::Broodwar->getStartLocations())
+    {
+        if (PathFinding::GetGroundDistance(BWAPI::Position(tile), BWAPI::Position(startLocationTile), BWAPI::UnitTypes::Protoss_Probe) != -1)
+        {
+            island = false;
+            break;
+        }
+    }
+}
+
 bool Base::isStartingBase() const
 {
     return std::find(

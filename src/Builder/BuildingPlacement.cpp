@@ -126,7 +126,9 @@ namespace BuildingPlacement
 
                     if (!forgeGatewayWall->naturalCannons.empty())
                     {
-                        auto &naturalDefenses = baseStaticDefenses[Map::getMyNatural()];
+                        auto natural = Map::mapSpecificOverride()->naturalForWallPlacement(Map::getMyMain());
+                        if (!natural) natural = Map::getMyNatural();
+                        auto &naturalDefenses = baseStaticDefenses[natural];
                         naturalDefenses.powerPylon = forgeGatewayWall->pylon;
                         naturalDefenses.workerDefenseCannons = forgeGatewayWall->naturalCannons;
                     }

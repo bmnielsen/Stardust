@@ -73,6 +73,9 @@ namespace Map
 
     std::vector<Choke *> allChokes();
 
+    // Gets the choke with the center nearest the given position, up to maxDistance away.
+    Choke *chokeNear(BWAPI::Position pos, int maxDistance = 160);
+
     Choke *choke(const BWEM::ChokePoint *bwemChoke);
 
     Choke *getMyMainChoke();

@@ -854,7 +854,15 @@ namespace Units
 
             if (BWAPI::Broodwar->isVisible(tile) && BWAPI::Broodwar->isVisible(tile + BWAPI::TilePosition(1, 0)))
             {
-                visibleMineralFieldTiles.insert(tile);
+                if (mineralField->seenLastFrame)
+                {
+                    visibleMineralFieldTiles.insert(tile);
+                }
+                mineralField->seenLastFrame = true;
+            }
+            else
+            {
+                mineralField->seenLastFrame = false;
             }
         }
 

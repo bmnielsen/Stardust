@@ -10,7 +10,7 @@
 const double pi = 3.14159265358979323846;
 
 #if LOGGING_ENABLED
-#define DEBUG_PLACEMENT false
+#define DEBUG_PLACEMENT true
 #endif
 
 namespace BuildingPlacement
@@ -280,6 +280,11 @@ namespace BuildingPlacement
             }
         }
 
+        bool validPathfindingTile(BWAPI::TilePosition tile)
+        {
+            return walkableTile(tile) && !natural->mineralLineTiles.contains(tile);
+        }
+
         size_t pathLength(BWAPI::TilePosition alternateStartTile = BWAPI::TilePositions::Invalid)
         {
             auto startTile = pathfindingStartTile;
@@ -287,11 +292,6 @@ namespace BuildingPlacement
             {
                 startTile = alternateStartTile;
             }
-
-            auto validPathfindingTile = [](BWAPI::TilePosition tile)
-            {
-                return walkableTile(tile) && !natural->mineralLineTiles.contains(tile);
-            };
 
             return PathFinding::Search(startTile, pathfindingEndTile, validPathfindingTile).size();
         }
@@ -986,6 +986,7 @@ namespace BuildingPlacement
                 {
                     BWAPI::TilePosition tile(x, y);
                     if (!tile.isValid()) continue;
+                    if (!validPathfindingTile(tile)) continue;
 
                     auto area = bwemMap.GetArea(tile);
                     if (area && area != naturalArea)
@@ -1374,6 +1375,13 @@ namespace BuildingPlacement
             auto it = wallOptions.begin();
             for (; it != wallOptions.end();)
             {
+#if DEBUG_PLACEMENT
+                if (it->gapCenter != BWAPI::Positions::Invalid && it->gapSize > maxGapSize)
+                {
+                    Log::Debug() << "Rejected wall forge " << it->forge << ", gateway " << it->gateway
+                                 << ", gapSize " << it->gapSize << " > " << maxGapSize;
+                }
+#endif
                 if (it->gapCenter == BWAPI::Positions::Invalid || it->gapSize > maxGapSize)
                 {
                     it = wallOptions.erase(it);
@@ -1802,7 +1810,17 @@ namespace BuildingPlacement
                                 maxGapSize);
 
             // Return if we have no valid wall
-            if (wallOptions.empty()) return {};
+            if (wallOptions.empty())
+            {
+#if DEBUG_PLACEMENT
+                Log::Debug() << "No wall options generated";
+#endif
+                return {};
+            }
+
+#if DEBUG_PLACEMENT
+            Log::Debug() << "Generated " << wallOptions.size() << " wall options";
+#endif
 
             auto pylonPlacer = &getPylonPlacementFromPylonOptions;
 
@@ -1959,15 +1977,32 @@ namespace BuildingPlacement
 #endif
 
         // Ensure we have the ability to make a wall
-        natural = Map::getStartingBaseNatural(base);
         auto chokes = Map::getStartingBaseChokes(base);
         mainChoke = chokes.first;
         naturalChoke = chokes.second;
+
+        if (mainChoke == naturalChoke)
+        {
+            natural = base;
+        }
+        else
+        {
+            natural = Map::mapSpecificOverride()->naturalForWallPlacement(base);
+            if (!natural) natural = Map::getStartingBaseNatural(base);
+        }
+
         if (!natural || !mainChoke || !naturalChoke)
         {
             Log::Get() << "Wall cannot be created; missing natural, main choke, or natural choke";
             return {};
         }
+
+#if DEBUG_PLACEMENT
+        Log::Debug() << "Main @ " << Map::getMyMain()->getTilePosition();
+        Log::Debug() << "Natural @ " << natural->getTilePosition();
+        Log::Debug() << "Main choke @ " << BWAPI::TilePosition(mainChoke->center);
+        Log::Debug() << "Natural choke @ " << BWAPI::TilePosition(naturalChoke->center);
+#endif
 
         // Map-specific hard-coded walls
         auto mapSpecificWall = Map::mapSpecificOverride()->getWall(base->getTilePosition());
@@ -1977,6 +2012,9 @@ namespace BuildingPlacement
             {
                 analyzeWallGeo(*mapSpecificWall);
             }
+#if DEBUG_PLACEMENT
+            Log::Debug() << "Using map-specific wall: " << (*mapSpecificWall);
+#endif
             return *mapSpecificWall;
         }
 
