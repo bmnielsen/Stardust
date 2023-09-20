@@ -24,6 +24,11 @@ DefendMyMain::DefendMyMain()
 
 void DefendMyMain::update()
 {
+    if (reservedGasStealAttacker && !reservedGasStealAttacker->exists())
+    {
+        reservedGasStealAttacker = nullptr;
+    }
+    
     // Get enemy combat units in our base
     std::set<Unit> enemyCombatUnits;
     std::set<Unit> enemyWorkers;
