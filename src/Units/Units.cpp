@@ -244,6 +244,10 @@ namespace Units
             BuildingPlacement::onUnitDestroy(unit);
 
             unit->bwapiUnit = nullptr; // Signals to all holding a copy of the pointer that this unit is dead
+
+#if CHERRYVIS_ENABLED
+            CherryVis::log(unit->id) << "Destroyed";
+#endif
         }
 
         void myUnitDestroyed(const MyUnit &unit)
