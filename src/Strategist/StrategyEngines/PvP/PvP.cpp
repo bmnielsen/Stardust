@@ -186,9 +186,9 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     break;
                 }
 
-                // Use a defend play if we are doing a 3 gate robo or the enemy has dark templar and our army has no observers
+                // Use a defend play if we are doing a 3 gate robo or the main army needs detection and doesn't have any observers
                 if ((ourStrategy == OurStrategy::ThreeGateRobo && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0)
-                    || (Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0 && mainArmyPlay->getSquad()->getDetectors().empty()))
+                    || (mainArmyPlay->getSquad()->needsDetection() && mainArmyPlay->getSquad()->getDetectors().empty()))
                 {
                     defendOurMain = true;
                     break;
