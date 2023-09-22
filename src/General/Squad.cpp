@@ -407,7 +407,6 @@ void Squad::updateDetectionNeeds(std::set<Unit> &enemyUnits)
 
 void Squad::addInstrumentation(nlohmann::json &squadArray) const
 {
-#if INSTRUMENTATION_ENABLED_VERBOSE
     nlohmann::json clusterArray;
     for (auto &cluster : clusters) cluster->addInstrumentation(clusterArray);
 
@@ -421,5 +420,4 @@ void Squad::addInstrumentation(nlohmann::json &squadArray) const
         {"count_arbiters", arbiters.size()},
         {"clusters", clusterArray}
     });
-#endif
 }
