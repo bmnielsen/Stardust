@@ -159,3 +159,10 @@ std::optional<ForgeGatewayWall> Colosseum::getWall(BWAPI::TilePosition startTile
 
     return ForgeGatewayWall{};
 }
+
+Base *Colosseum::naturalForWallPlacement(Base *main)
+{
+    // The main is the closest base to the wall
+
+    return main;
+}

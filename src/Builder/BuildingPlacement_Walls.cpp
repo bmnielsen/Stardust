@@ -797,7 +797,7 @@ namespace BuildingPlacement
                     queue.emplace(tile.x, tile.y - 1);
                     queue.emplace(tile.x, tile.y + 1);
                 };
-                queue.push(natural->getTilePosition());
+                queue.push(natural->getTilePosition() + BWAPI::TilePosition(-1, -1));
                 while (!queue.empty())
                 {
                     auto current = queue.front();

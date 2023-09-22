@@ -12,4 +12,6 @@ public:
     void modifyStartingLocation(std::unique_ptr<StartingLocation> &startingLocation) override;
 
     std::optional<ForgeGatewayWall> getWall(BWAPI::TilePosition startTile) override;
+
+    Base *naturalForWallPlacement(Base *main) override;
 };
