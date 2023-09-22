@@ -146,7 +146,7 @@ std::optional<ForgeGatewayWall> Colosseum::getWall(BWAPI::TilePosition startTile
         result.gateway = BWAPI::TilePosition(101, 99);
         result.cannons.emplace_back(104, 102);
         result.cannons.emplace_back(105, 100);
-        result.cannons.emplace_back(106, 100);
+        result.cannons.emplace_back(107, 100);
         result.cannons.emplace_back(103, 104);
         result.cannons.emplace_back(105, 104);
         result.cannons.emplace_back(108, 102);
