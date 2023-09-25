@@ -140,6 +140,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             if (count < requiredUnitCount || (requireDragoon && !hasDragoon)) return false;
 
             // If the enemy has done a sneak attack recently, don't leave our base until we have built defensive cannons
+            if (isFFE()) return true; // only relevant for non-FFE builds
             if (currentFrame > 10000) return true; // only relevant in early game
             if (enemyHasOurNatural()) return true; // exception if the enemy has our natural
             auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
@@ -174,9 +175,14 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             }
             case OurStrategy::SairSpeedlot:
             {
-                // Attack when we have +1 and speed
-                defendOurMain = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) == 0 ||
-                                 BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Leg_Enhancements) == 0);
+                // Attack when we have +1 and speed or 6 corsairs and an army
+                defendOurMain = true;
+                if ((BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) > 0 &&
+                     BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Leg_Enhancements) > 0)
+                    || (Units::countCompleted(BWAPI::UnitTypes::Protoss_Corsair) > 5 && canTransitionToAttack(5, false)))
+                {
+                    defendOurMain = false;
+                }
 
                 break;
             }
@@ -438,6 +444,9 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::SairSpeedlot:
         {
+            bool isEnemyMutaBuild = (enemyStrategy == ZergStrategy::MutaRush) ||
+                                    Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 5;
+
             int corsairs = std::max(7 - corsairCount, desiredCorsairs());
 
             // First sair is prioritized highest
@@ -461,9 +470,15 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                              1);
             }
 
-            upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, 1, PRIORITY_NORMAL);
-            upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Air_Weapons, 1, PRIORITY_NORMAL);
-            upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, 1, PRIORITY_NORMAL);
+            if (!isEnemyMutaBuild || corsairs > 4)
+            {
+                upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, 1, PRIORITY_NORMAL);
+                upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Air_Weapons, 1, PRIORITY_NORMAL);
+            }
+            if (!isEnemyMutaBuild)
+            {
+                upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, 1, PRIORITY_NORMAL);
+            }
 
             if (corsairs > 0)
             {
@@ -471,7 +486,16 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                            "SE",
                                                                            BWAPI::UnitTypes::Protoss_Corsair,
                                                                            corsairs,
-                                                                           ((enemyStrategy == ZergStrategy::MutaRush) ? 2 : 1));
+                                                                           (isEnemyMutaBuild ? 2 : 1));
+            }
+
+            if (isEnemyMutaBuild)
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           "SE",
+                                                                           BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                           -1,
+                                                                           -1);
             }
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,

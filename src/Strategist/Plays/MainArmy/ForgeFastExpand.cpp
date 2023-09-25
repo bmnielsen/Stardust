@@ -505,8 +505,8 @@ namespace
             }
             return earliestArrivalFrame;
         };
-        buildBaseDefenseCannons(Map::getMyMain(), prioritizedProductionGoals, 2, frameForPosition(Map::getMyMain()->getPosition()));
-        buildBaseDefenseCannons(Map::getMyNatural(), prioritizedProductionGoals, 1, frameForPosition(Map::getMyNatural()->getPosition()));
+        buildBaseDefenseCannons(Map::getMyMain(), prioritizedProductionGoals, 3, frameForPosition(Map::getMyMain()->getPosition()));
+        buildBaseDefenseCannons(Map::getMyNatural(), prioritizedProductionGoals, 2, frameForPosition(Map::getMyNatural()->getPosition()));
 
         // Add a second cannon at the wall
         std::vector<BWAPI::TilePosition> cannonPlacementsAvailable;
