@@ -136,20 +136,46 @@ namespace
             }
         }
 
-        // Get travel time from the enemy base
-        auto &wall = BuildingPlacement::getForgeGatewayWall();
-        int lowestTravelTime = INT_MAX;
+        // Get travel time from the closest producer we have seen
+        // If the enemy has not yet been scouted, we use the closest possible base position
+        std::vector<std::pair<BWAPI::Position, int>> producers;
+
+        auto producerType = BWAPI::UnitTypes::Zerg_Hatchery;
+        if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Protoss) producerType = BWAPI::UnitTypes::Protoss_Gateway;
+        if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran) producerType = BWAPI::UnitTypes::Terran_Barracks;
+        for (const auto &unit : Units::allEnemyOfType(producerType))
+        {
+            producers.emplace_back(unit->lastPosition,
+                                   unit->completed ? 0 : std::max(unit->estimatedCompletionFrame
+                                                                  - std::max(builderStartFrame + UnitUtil::BuildTime(builderType), currentFrame),
+                                                                  0));
+        }
+
         for (auto &base : Map::allStartingLocations())
         {
             if (base == Map::getMyMain()) continue;
-            if (Map::getEnemyStartingMain() && base != Map::getEnemyStartingMain()) continue;
+            if (Map::getEnemyStartingMain())
+            {
+                if (base != Map::getEnemyStartingMain()) continue;
+            }
+            else if (base->lastScouted > -1)
+            {
+                continue;
+            }
 
-            int frames = PathFinding::ExpectedTravelTime(base->getPosition(),
-                                                         wall.gapCenter,
-                                                         unitType,
-                                                         PathFinding::PathFindingOptions::Default,
-                                                         1.1,
-                                                         INT_MAX);
+            producers.emplace_back(base->getPosition(), 0);
+        }
+
+        auto &wall = BuildingPlacement::getForgeGatewayWall();
+        int lowestTravelTime = INT_MAX;
+        for (auto &[pos, extraFrames] : producers)
+        {
+            int frames = extraFrames + PathFinding::ExpectedTravelTime(pos,
+                                                                       wall.gapCenter,
+                                                                       unitType,
+                                                                       PathFinding::PathFindingOptions::Default,
+                                                                       1.1,
+                                                                       INT_MAX);
             if (frames < lowestTravelTime) lowestTravelTime = frames;
         }
 
