@@ -575,20 +575,24 @@ void EarlyGameWorkerScout::scoutEnemyBase()
     // If we still have two scouts, release one
     if (secondScout.unit)
     {
-        if (!secondScout.reserved)
+        if (!secondScout.reserved || !secondScout.unit->exists())
         {
             secondScout.unit = nullptr;
         }
         else
         {
             // Swap if the second scout found the base
-            if (secondScout.targetBase == Map::getEnemyStartingMain())
+            if (!scout.unit || !scout.unit->exists() ||
+                secondScout.unit->getDistance(Map::getEnemyStartingMain()->getPosition()) <
+                scout.unit->getDistance(Map::getEnemyStartingMain()->getPosition()))
             {
-                CherryVis::log(scout.unit->id) << "Releasing from non-mining duties (other scout takes over)";
-                Workers::releaseWorker(scout.unit);
+                if (scout.unit && scout.unit->exists())
+                {
+                    CherryVis::log(scout.unit->id) << "Releasing from non-mining duties (other scout takes over)";
+                    Workers::releaseWorker(scout.unit);
+                }
 
                 scout.unit = secondScout.unit;
-                scout.targetBase = secondScout.targetBase;
                 scout.closestDistanceToTargetBase = secondScout.closestDistanceToTargetBase;
                 scout.lastDistanceToTargetBase = secondScout.lastDistanceToTargetBase;
                 scout.lastForwardMotionFrame = secondScout.lastForwardMotionFrame;
@@ -626,6 +630,8 @@ void EarlyGameWorkerScout::scoutEnemyBase()
         status.complete = true;
         return;
     }
+
+    scout.targetBase = Map::getEnemyStartingMain();
 
     // Determine when the scout has seen most of the highest-priority tiles
     if (Strategist::getWorkerScoutStatus() != Strategist::WorkerScoutStatus::EnemyBaseScouted &&
