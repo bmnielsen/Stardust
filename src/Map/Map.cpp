@@ -7,7 +7,6 @@
 #include "MapSpecificOverrides/Colosseum.h"
 #include "MapSpecificOverrides/CrossingField.h"
 #include "MapSpecificOverrides/Destination.h"
-#include "MapSpecificOverrides/EmpireOfTheSun.h"
 #include "MapSpecificOverrides/Fortress.h"
 #include "MapSpecificOverrides/GodsGarden.h"
 #include "MapSpecificOverrides/JudgmentDay.h"
@@ -970,12 +969,6 @@ namespace Map
         {
             Log::Get() << "Using map-specific override for Match Point";
             _mapSpecificOverride = new MatchPoint();
-        }
-        else if (BWAPI::Broodwar->mapHash() == "a220d93efdf05a439b83546a579953c63c863ca7" ||
-                 BWAPI::Broodwar->mapHash() == "38b6307d283a5ebc084822a08f932600f7f13588")
-        {
-            Log::Get() << "Using map-specific override for Empire of the Sun";
-            _mapSpecificOverride = new EmpireOfTheSun();
         }
         else if (BWAPI::Broodwar->mapHash() == "442e456721c94fd085ecd10230542960d57928d9" ||
                  BWAPI::Broodwar->mapHash() == "83cc5c3944a80915a68190d7b87714d8c0cf8a2f")
