@@ -286,7 +286,7 @@ namespace
                                  std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                  int count,
                                  int frame,
-                                 int priority = PRIORITY_BASEDEFENSE)
+                                 int priority = PRIORITY_EMERGENCY)
     {
         if (!base) return 0;
 
@@ -803,7 +803,7 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
                 break;
             }
 
-            int powerFrame = buildBaseDefenseCannons(Map::getMyMain(), prioritizedProductionGoals, 2, 0, PRIORITY_EMERGENCY);
+            int powerFrame = buildBaseDefenseCannons(Map::getMyMain(), prioritizedProductionGoals, 2, 0);
 
             if (defenseLocations.startBlockCannon.isValid() && !Units::myBuildingAt(defenseLocations.startBlockCannon))
             {
