@@ -32,7 +32,10 @@ void DefendWallSquad::execute(UnitCluster &cluster)
     std::set<Unit> enemyUnits;
     Units::enemyInRadius(enemyUnits, targetPosition, 240, combatUnitSeenRecentlyPredicate);
     for (const auto &area : Map::getMyMainAreas()) Units::enemyInArea(enemyUnits, area, combatUnitSeenRecentlyPredicate);
-    Units::enemyInArea(enemyUnits, Map::getMyNatural()->getArea(), combatUnitSeenRecentlyPredicate);
+
+    auto natural = Map::mapSpecificOverride()->naturalForWallPlacement(Map::getMyMain());
+    if (!natural) natural = Map::getMyNatural();
+    if (natural) Units::enemyInArea(enemyUnits, natural->getArea(), combatUnitSeenRecentlyPredicate);
 
     // Remove enemy units that are outside and not close to the wall
     for (auto it = enemyUnits.begin(); it != enemyUnits.end(); )

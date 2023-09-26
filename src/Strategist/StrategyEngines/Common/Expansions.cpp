@@ -80,11 +80,11 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         auto squad = mainArmyPlay->getSquad();
         if (!squad) return false;
 
-        // Ensure the vanguard cluster is at least 20 tiles away from our natural
+        // Ensure the vanguard cluster is at least 20 tiles away from our natural, or main if map has a backdoor natural
         auto vanguardCluster = squad->vanguardCluster();
         if (!vanguardCluster) return false;
 
-        auto natural = Map::getMyNatural();
+        auto natural = Map::mapSpecificOverride()->hasBackdoorNatural() ? Map::getMyMain() : Map::getMyNatural();
         if (natural && vanguardCluster->vanguard)
         {
             int naturalDist = PathFinding::GetGroundDistance(natural->getPosition(), vanguardCluster->vanguard->lastPosition);

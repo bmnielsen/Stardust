@@ -174,6 +174,7 @@ namespace
     bool isSunkenContain(bool currentlySunkenContain = false)
     {
         if (!currentlySunkenContain && currentFrame > 8000) return false;
+        if (Map::mapSpecificOverride()->hasBackdoorNatural()) return false;
 
         // Sunken contain if the enemy owns our natural and has us outnumbered
         auto natural = Map::getMyNatural();

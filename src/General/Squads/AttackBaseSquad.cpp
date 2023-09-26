@@ -13,6 +13,7 @@ namespace
     bool pushedBackToNatural(UnitCluster &cluster, int threshold, int *pDist = nullptr)
     {
         if (!cluster.isVanguardCluster) return false;
+        if (Map::mapSpecificOverride()->hasBackdoorNatural()) return false;
 
         auto natural = Map::getMyNatural();
         if (!natural || natural->owner != BWAPI::Broodwar->self() || !natural->resourceDepot || !natural->resourceDepot->completed) return false;

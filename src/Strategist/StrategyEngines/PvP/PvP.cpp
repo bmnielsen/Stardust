@@ -208,7 +208,8 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 // Transition to a defend squad if our attack squad has been pushed back into our main and we haven't yet taken our natural
                 auto natural = Map::getMyNatural();
                 if (typeid(*mainArmyPlay) == typeid(AttackEnemyBase)
-                    && (!natural || natural->owner != BWAPI::Broodwar->self() || !natural->resourceDepot || !natural->resourceDepot->completed))
+                    && (!natural || natural->owner != BWAPI::Broodwar->self() || !natural->resourceDepot || !natural->resourceDepot->completed
+                        || Map::mapSpecificOverride()->hasBackdoorNatural()))
                 {
                     if (vanguard->currentActivity == UnitCluster::Activity::Regrouping &&
                         vanguard->currentSubActivity == UnitCluster::SubActivity::Flee)
@@ -605,6 +606,12 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     {
         if (natural->resourceDepot && !natural->resourceDepot->completed)
         {
+            // Never cancel a backdoor natural
+            if (Map::mapSpecificOverride()->hasBackdoorNatural())
+            {
+                CherryVis::setBoardValue("natural", "incomplete-backdoor");
+                return;
+            }
             underConstruction = true;
         }
         else

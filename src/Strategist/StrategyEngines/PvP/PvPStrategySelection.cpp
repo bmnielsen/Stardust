@@ -92,6 +92,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
     auto isDTExpandFeasible = [&]()
     {
         if (enemyStrategy == ProtossStrategy::DarkTemplarRush) return false;
+        if (Map::mapSpecificOverride()->hasBackdoorNatural()) return false;
 
         auto frameCutoff = getPlay<HiddenBase>(plays) == nullptr ? 9000 : 10500;
         if (ourStrategy != OurStrategy::DTExpand && currentFrame > frameCutoff) return false;

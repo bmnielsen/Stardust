@@ -296,7 +296,8 @@ int DefendBase::desiredCannons()
     }
 
     // Always get one cannon outside our main if the enemy has at least one DT, they can quickly sneak in and kill our workers
-    if (base != Map::getMyMain() && Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
+    if (base != Map::getMyMain() && (base != Map::getMyNatural() || Map::mapSpecificOverride()->hasBackdoorNatural())
+        && Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
     {
         neededCannons = std::min(1, neededCannons);
     }
