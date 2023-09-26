@@ -328,8 +328,19 @@ void ShuttleHarass::update()
         }
 
         // If we are in the drop phase, drop loaded cargo on the target
-        auto firstTargetIt = cargoAndTargets.find(*cargo.begin());
-        if (!cargo.empty() && firstTargetIt != cargoAndTargets.end() && firstTargetIt->second->exists())
+        Unit firstTarget = nullptr;
+        auto firstTargetExists = [&]()
+        {
+            if (cargo.empty()) return false;
+            auto firstTargetIt = cargoAndTargets.find(*cargo.begin());
+            if (firstTargetIt == cargoAndTargets.end()) return false;
+            if (!firstTargetIt->second) return false;
+            if (!firstTargetIt->second->exists()) return false;
+
+            firstTarget = firstTargetIt->second;
+            return true;
+        };
+        if (!cargo.empty() && firstTargetExists())
         {
             // If all of our cargo is dropped, clear it and fall through to get new cargo
             if (std::all_of(cargo.begin(), cargo.end(), [](const MyUnit& unit){ return !unit->bwapiUnit->isLoaded(); }))
@@ -341,15 +352,13 @@ void ShuttleHarass::update()
             }
             else
             {
-                auto target = firstTargetIt->second;
-
                 // Drop loaded units on the target
-                auto distToTarget = shuttle->getDistance(target);
+                auto distToTarget = shuttle->getDistance(firstTarget);
                 if (distToTarget > 16)
                 {
-                    moveAvoidingThreats(grid, shuttle, target->lastPosition);
+                    moveAvoidingThreats(grid, shuttle, firstTarget->lastPosition);
 #if DEBUG_UNIT_ORDERS
-                    CherryVis::log(shuttle->id) << "Cargo loaded; moving to target " << BWAPI::WalkPosition(target->lastPosition);
+                    CherryVis::log(shuttle->id) << "Cargo loaded; moving to target " << BWAPI::WalkPosition(firstTarget->lastPosition);
 #endif
                 }
                 else
@@ -363,7 +372,7 @@ void ShuttleHarass::update()
                         }
                     }
 #if DEBUG_UNIT_ORDERS
-                    CherryVis::log(shuttle->id) << "Cargo loaded; unloading on target " << BWAPI::WalkPosition(target->lastPosition);
+                    CherryVis::log(shuttle->id) << "Cargo loaded; unloading on target " << BWAPI::WalkPosition(firstTarget->lastPosition);
 #endif
                 }
                 continue;
