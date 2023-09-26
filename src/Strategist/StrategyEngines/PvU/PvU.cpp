@@ -13,6 +13,8 @@ std::map<PvU::OurStrategy, std::string> PvU::OurStrategyNames = {
 
 void PvU::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom, const std::string &openingOverride)
 {
+    if (!openingOverride.empty()) plays.clear();
+
     plays.emplace_back(std::make_shared<SaturateBases>());
     plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
 

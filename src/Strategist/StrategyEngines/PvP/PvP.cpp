@@ -29,6 +29,8 @@ namespace
 
 void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom, const std::string &openingOverride)
 {
+    if (!openingOverride.empty()) plays.clear();
+
     if (transitioningFromRandom)
     {
         plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<EjectEnemyScout>());
