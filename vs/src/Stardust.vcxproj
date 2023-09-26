@@ -134,11 +134,8 @@
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\JudgmentDay.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Katrina.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\MatchPoint.cpp" />
-    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\NeoMoonGlaive.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Outsider.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Plasma.cpp" />
-    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\Python.cpp" />
-    <ClCompile Include="$(SolutionDir)\..\src\Map\MapSpecificOverrides\TauCross.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\NoGoAreas.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\NavigationGrid.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Map\PathFinding\PathFinding.cpp" />
