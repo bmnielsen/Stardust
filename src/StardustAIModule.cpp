@@ -159,6 +159,7 @@ void StardustAIModule::onFrame()
 #ifdef FRAME_LIMIT
     if (currentFrame > FRAME_LIMIT)
     {
+        gameFinished = true;
         BWAPI::Broodwar->leaveGame();
         return;
     }
@@ -173,7 +174,6 @@ void StardustAIModule::onFrame()
             && currentFrame > 100)
         {
             Log::Get() << "Opponent has left the game";
-            BWAPI::Broodwar->sendText("gg");
             gameFinished = true;
             return;
         }
@@ -282,6 +282,51 @@ void StardustAIModule::onFrame()
         }
     }
 #endif
+
+    // Surrender logic
+    if (enableSurrender)
+    {
+        // Surrender if the following is true:
+        // - We have no workers left and no money / depot to create a new one
+        // - We have no mobile combat units
+        // - There is at least one enemy combat unit in our main base
+        if (Units::countAll(BWAPI::UnitTypes::Protoss_Probe) == 0 &&
+            (Units::countAll(BWAPI::UnitTypes::Protoss_Nexus) == 0 || BWAPI::Broodwar->self()->minerals() < 50))
+        {
+            bool weHaveAMobileCombatUnit = false;
+            for (auto &unit : Units::allMine())
+            {
+                if (!unit->canAttackGround()) continue;
+                if (!unit->type.canMove()) continue;
+                weHaveAMobileCombatUnit = true;
+                break;
+            }
+
+            if (!weHaveAMobileCombatUnit)
+            {
+                bool enemyInBase = false;
+                for (auto &base : Map::getMyBases())
+                {
+                    if (enemyInBase) break;
+                    for (auto &unit : Units::enemyAtBase(base))
+                    {
+                        if (!unit->canAttackGround()) continue;
+                        if (unit->type.isWorker()) continue;
+                        enemyInBase = true;
+                        break;
+                    }
+                }
+
+                if (enemyInBase)
+                {
+                    Log::Get() << "Surrendering";
+                    BWAPI::Broodwar->sendText("gg");
+                    gameFinished = true;
+                    BWAPI::Broodwar->leaveGame();
+                }
+            }
+        }
+    }
 
     // Instrumentation
     NoGoAreas::writeInstrumentation();

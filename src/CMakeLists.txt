@@ -25,6 +25,10 @@ file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR} *.cpp)
 
 add_library(Stardust SHARED ${SRC_FILES})
 
+IF (VS_HUMAN)
+    target_compile_definitions(Stardust PUBLIC VS_HUMAN=true)
+ENDIF (VS_HUMAN)
+
 if (CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(Stardust PUBLIC DEBUG=1)
 endif ()

@@ -3,6 +3,8 @@ project(Stardust)
 
 set(CMAKE_CXX_STANDARD 20)
 
+option(VS_HUMAN "Vs. Human Build" OFF)
+
 IF(MSVC)
     option(TOURNAMENT_BUILD "Tournament build" OFF)
 

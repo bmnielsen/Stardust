@@ -14,6 +14,13 @@ public:
     // Used for getting stable pointers in the case of crashes
     unsigned long moduleBaseAddress = 0;
 
+    // Whether to surrender when losing is inevitable
+#if VS_HUMAN
+    bool enableSurrender = true;
+#else
+    bool enableSurrender = false;
+#endif
+
     void onStart() override;
 
     void onEnd(bool isWinner) override;
