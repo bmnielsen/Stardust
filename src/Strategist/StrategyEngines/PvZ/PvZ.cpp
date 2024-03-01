@@ -59,15 +59,11 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         std::string opening = openingOverride;
         if (opening.empty())
         {
-#if VS_HUMAN
-            opening = OurStrategyNames[OurStrategy::SairSpeedlot];
-#else
             opening = Opponent::selectOpeningUCB1(
                     {
                             OurStrategyNames[OurStrategy::SairSpeedlot],
                             OurStrategyNames[OurStrategy::EarlyGameDefense]
                     });
-#endif
         }
         if (opening == OurStrategyNames[OurStrategy::SairSpeedlot] && BuildingPlacement::hasForgeGatewayWall())
         {
