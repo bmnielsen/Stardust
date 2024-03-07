@@ -50,7 +50,7 @@ ELSE (MSVC)
     target_compile_definitions(Stardust PUBLIC IS_OPENBW=true)
 
     if (CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined,leak -fsanitize-recover=address,undefined,leak -g")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fsanitize-recover=address,undefined -g")
     endif()
 
     if (CMAKE_BUILD_TYPE MATCHES Release)
