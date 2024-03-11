@@ -28,7 +28,7 @@ namespace
 
     bool allowDiagonalConnectionThrough(int x, int y)
     {
-        return walkableAndNotMineralLine(x, y) || Map::mapSpecificOverride()->allowDiagonalPathingThrough(x, y);
+        return Map::isWalkable(x, y) || Map::mapSpecificOverride()->allowDiagonalPathingThrough(x, y);
     }
 }
 
@@ -145,7 +145,7 @@ void NavigationGrid::update()
         if (node.cost <= cost) return;
 
         // Don't allow a diagonal connection from a walkable tile through a blocked tile
-        if (direction % 2 == 1 && walkableAndNotMineralLine(x, y) &&
+        if (direction % 2 == 1 && Map::isWalkable(x, y) &&
             (!allowDiagonalConnectionThrough(x, current->y) || !allowDiagonalConnectionThrough(current->x, y)))
         {
             return;
@@ -288,6 +288,12 @@ void NavigationGrid::update()
                 if (costDiff != COST_STRAIGHT && costDiff != COST_DIAGONAL)
                 {
                     Log::Get() << "ERROR: Grid-" << goal << ": Invalid cost from " << node << " to " << (*node.nextNode) << ": " << costDiff;
+                    return;
+                }
+                if (costDiff == COST_DIAGONAL && Map::isWalkable(x, y) &&
+                    (!allowDiagonalConnectionThrough(node.nextNode->x, y) || !allowDiagonalConnectionThrough(x, node.nextNode->y)))
+                {
+                    Log::Get() << "ERROR: Grid-" << goal << ": Diagonal path through blocked tile from " << node << " to " << (*node.nextNode);
                     return;
                 }
             }
