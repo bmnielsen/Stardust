@@ -266,13 +266,13 @@ void NavigationGrid::update()
                 int costDiff = node.cost - node.nextNode->cost;
                 if (costDiff <= 0)
                 {
-                    Log::Get() << "ERROR: Non-decreasing cost from " << node << " to " << node.nextNode << ": " << costDiff;
+                    Log::Get() << "ERROR: Non-decreasing cost from " << node << " to " << (*node.nextNode) << ": " << costDiff;
                 }
-//                if (costDiff != COST_STRAIGHT && costDiff != COST_DIAGONAL)
-//                {
-//                    Log::Get() << "ERROR: Invalid cost from " << node << " to " << node.nextNode << ": " << costDiff;
-//                    return;
-//                }
+                if (costDiff != COST_STRAIGHT && costDiff != COST_DIAGONAL)
+                {
+                    Log::Get() << "ERROR: Invalid cost from " << node << " to " << (*node.nextNode) << ": " << costDiff;
+                    return;
+                }
             }
 
             auto current = node.nextNode;
