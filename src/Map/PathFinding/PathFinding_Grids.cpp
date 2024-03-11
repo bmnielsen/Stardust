@@ -3,7 +3,7 @@
 #include "Map.h"
 
 #if INSTRUMENTATION_ENABLED
-#define OUTPUT_GRID_TIMING true
+#define OUTPUT_GRID_TIMING false
 #endif
 
 namespace PathFinding
