@@ -144,8 +144,12 @@ void NavigationGrid::update()
         // If the node already has a lower cost, we don't need to consider it
         if (node.cost <= cost) return;
 
-        // Don't allow diagonal connections through blocked tiles
-        if (direction % 2 == 1 && (!allowDiagonalConnectionThrough(x, current->y) || !allowDiagonalConnectionThrough(current->x, y))) return;
+        // Don't allow a diagonal connection from a walkable tile through a blocked tile
+        if (direction % 2 == 1 && walkableAndNotMineralLine(x, y) &&
+            (!allowDiagonalConnectionThrough(x, current->y) || !allowDiagonalConnectionThrough(current->x, y)))
+        {
+            return;
+        }
 
         // Make the connection if it isn't already done
         node.cost = cost;
