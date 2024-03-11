@@ -185,6 +185,14 @@ namespace PathFinding
 
     int GetGroundDistance(BWAPI::Position start, BWAPI::Position end, BWAPI::UnitType unitType, PathFindingOptions options)
     {
+        // Use grid cost if we have one, regardless of input options
+        auto grid = getNavigationGrid(end);
+        if (grid)
+        {
+            auto cost = (*grid)[start].cost;
+            if (cost < USHRT_MAX) return cost;
+        }
+
         // Adjust the start and end positions based on the options
         auto adjustedStart = adjustForBWEMPathFinding(start, options);
         auto adjustedEnd = adjustForBWEMPathFinding(end, options);
