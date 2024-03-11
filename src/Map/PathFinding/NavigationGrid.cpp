@@ -10,6 +10,7 @@
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define VALIDATE_GRIDS_AFTER_EACH_UPDATE true
+#define DEBUG_LOG_UPDATES false
 #endif
 
 #define COST_STRAIGHT 32
@@ -117,6 +118,10 @@ void NavigationGrid::update()
 {
     if (nodeQueue.empty()) return;
 
+#if DEBUG_LOG_UPDATES
+    Log::Debug() << "Grid-" << goal << ": Updating grid";
+#endif
+
 #if OUTPUT_GRID_TIMING
     auto start = std::chrono::high_resolution_clock::now();
 #endif
@@ -200,6 +205,10 @@ void NavigationGrid::update()
         // Queue the node if it is walkable
         if (walkableAndNotMineralLine(x, y))
         {
+#if DEBUG_LOG_UPDATES
+            Log::Debug() << "Grid-" << goal << ": Queueing " << node;
+#endif
+
             nodeQueue.emplace(node.cost + COST_STRAIGHT, &node, false);
             nodeQueue.emplace(node.cost + COST_DIAGONAL, &node, true);
         }
@@ -213,6 +222,10 @@ void NavigationGrid::update()
         auto node = std::get<1>(current);
 
         if (!walkableAndNotMineralLine(node->x, node->y) || node->cost == USHRT_MAX) continue;
+
+#if DEBUG_LOG_UPDATES
+        Log::Debug() << "Grid-" << goal << ": Processing " << *node << "; diag=" << std::get<2>(current);
+#endif
 
         // Boolean controls whether we are considering diagonal edges or straight edges
         if (std::get<2>(current))
@@ -251,13 +264,13 @@ void NavigationGrid::update()
 
             if (node.cost > 0 && node.cost < USHRT_MAX && !node.nextNode)
             {
-                Log::Get() << "ERROR: Node with no next node " << node;
+                Log::Get() << "ERROR: Grid-" << goal << ": Node with no next node " << node;
                 return;
             }
 
             if (node.cost == 0 && node.nextNode)
             {
-                Log::Get() << "ERROR: Goal node with next node " << node;
+                Log::Get() << "ERROR: Grid-" << goal << ": Goal node with next node " << node;
                 return;
             }
 
@@ -266,11 +279,11 @@ void NavigationGrid::update()
                 int costDiff = node.cost - node.nextNode->cost;
                 if (costDiff <= 0)
                 {
-                    Log::Get() << "ERROR: Non-decreasing cost from " << node << " to " << (*node.nextNode) << ": " << costDiff;
+                    Log::Get() << "ERROR: Grid-" << goal << ": Non-decreasing cost from " << node << " to " << (*node.nextNode) << ": " << costDiff;
                 }
                 if (costDiff != COST_STRAIGHT && costDiff != COST_DIAGONAL)
                 {
-                    Log::Get() << "ERROR: Invalid cost from " << node << " to " << (*node.nextNode) << ": " << costDiff;
+                    Log::Get() << "ERROR: Grid-" << goal << ": Invalid cost from " << node << " to " << (*node.nextNode) << ": " << costDiff;
                     return;
                 }
             }
@@ -281,13 +294,13 @@ void NavigationGrid::update()
             {
                 if (current == &node)
                 {
-                    Log::Get() << "ERROR: Loop between " << node << " and " << *current;
+                    Log::Get() << "ERROR: Grid-" << goal << ": Loop between " << node << " and " << *current;
                     return;
                 }
 
                 if (!Map::isWalkable(current->x, current->y))
                 {
-                    Log::Get() << "ERROR: Path from " << node << " goes through unwalkable tile " << *current;
+                    Log::Get() << "ERROR: Grid-" << goal << ": Path from " << node << " goes through unwalkable tile " << *current;
                     return;
                 }
 
@@ -301,6 +314,10 @@ void NavigationGrid::update()
 
 void NavigationGrid::addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size)
 {
+#if DEBUG_LOG_UPDATES
+    Log::Debug() << "Grid-" << goal << ": addBlockingObject(" << tile << "," << size << ")";
+#endif
+
     std::set<BWAPI::TilePosition> tiles;
     for (int x = tile.x; x < tile.x + size.x; x++)
     {
@@ -393,6 +410,10 @@ void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles
     {
         if (borderingNode->nextNode)
         {
+#if DEBUG_LOG_UPDATES
+            Log::Debug() << "Grid-" << goal << ": addBlocking, enqueued " << borderingNode->tile;
+#endif
+
             nodeQueue.emplace(borderingNode->cost + COST_STRAIGHT, borderingNode, false);
             nodeQueue.emplace(borderingNode->cost + COST_DIAGONAL, borderingNode, true);
         }
@@ -401,6 +422,10 @@ void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles
 
 void NavigationGrid::removeBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size)
 {
+#if DEBUG_LOG_UPDATES
+    Log::Debug() << "Grid-" << goal << ": removeBlockingObject(" << tile << "," << size << ")";
+#endif
+
     std::set<BWAPI::TilePosition> tiles;
     for (int x = tile.x; x < tile.x + size.x; x++)
     {
@@ -455,6 +480,10 @@ void NavigationGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &ti
     {
         if (node->nextNode)
         {
+#if DEBUG_LOG_UPDATES
+            Log::Debug() << "Grid-" << goal << ": removeBlocking, enqueued " << node->tile;
+#endif
+
             nodeQueue.emplace(node->cost + COST_STRAIGHT, node, false);
             nodeQueue.emplace(node->cost + COST_DIAGONAL, node, true);
         }
