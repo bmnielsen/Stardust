@@ -244,9 +244,8 @@ namespace CherryVis
 
 #if IS_OPENBW
         std::vector<std::pair<int, int>> unitIds;
-#else
-        std::unordered_map<std::string, std::vector<nlohmann::json>> frameToUnitsFirstSeen;
 #endif
+        std::unordered_map<std::string, std::vector<nlohmann::json>> frameToUnitsFirstSeen;
         std::unordered_map<std::string, std::unordered_map<std::string, nlohmann::json>> unitIdToFrameToUnitUpdate;
 
         std::map<int, DataFile> unitIdToLogFile;
@@ -355,9 +354,8 @@ namespace CherryVis
         boardListToLastCount.clear();
 #if IS_OPENBW
         unitIds.clear();
-#else
-        frameToUnitsFirstSeen.clear();
 #endif
+        frameToUnitsFirstSeen.clear();
         unitIdToFrameToUnitUpdate.clear();
         unitIdToLogFile.clear();
         unitIdToDrawCommandsFile.clear();
@@ -417,15 +415,13 @@ namespace CherryVis
 
 #if IS_OPENBW
         unitIds.emplace_back(unit->getID(), unit->getBWID());
-#else
+#endif
         frameToUnitsFirstSeen[std::to_string(frame)].push_back({
                                                                        {"id",   unit->getID()},
                                                                        {"type", unit->getType().getID()},
                                                                        {"x",    unit->getPosition().x},
                                                                        {"y",    unit->getPosition().y}
                                                                });
-
-#endif
 
         unitIdToFrameToUnitUpdate[std::to_string(unit->getID())][std::to_string(frame)] = {
                 {"type", unit->getType().getID()}
@@ -612,9 +608,8 @@ namespace CherryVis
 
 #if IS_OPENBW
         trace["unit_ids"] = unitIds;
-#else
-        trace["units_first_seen"] = frameToUnitsFirstSeen;
 #endif
+        trace["units_first_seen"] = frameToUnitsFirstSeen;
 
         if (!unitIdToDrawCommandsFile.contains(-1))
         {

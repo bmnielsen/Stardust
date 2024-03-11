@@ -40,6 +40,10 @@ function cvis_dbg_match_units(global_data, cvis_state) {
         cvis_state.id2bw[unit_id_pair[0]] = unit_id_pair[1];
         cvis_state.bw2id[unit_id_pair[1]] = unit_id_pair[0];
       }
+      // But we still want to record the first seen frame
+      $.each(all_units_to_match, function(_, first_seen_infos) {
+        cvis_state.units_first_seen_frame[first_seen_infos.id] = first_seen_infos.frame;
+      });
       cvis_state.units_matching.skipped = true;
     } else if (all_units_to_match.length === 0) {
       cvis_state.units_matching.skipped = true;
