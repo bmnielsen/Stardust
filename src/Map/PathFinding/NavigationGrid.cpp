@@ -116,6 +116,7 @@ const NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::TilePosition p
 
 void NavigationGrid::update()
 {
+    updateBlockingTiles();
     if (nodeQueue.empty()) return;
 
 #if DEBUG_LOG_UPDATES
@@ -328,6 +329,53 @@ void NavigationGrid::addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosi
     Log::Debug() << "Grid-" << goal << ": addBlockingObject(" << tile << "," << size << ")";
 #endif
 
+    for (int x = tile.x; x < tile.x + size.x; x++)
+    {
+        for (int y = tile.y; y < tile.y + size.y; y++)
+        {
+            pendingBlockingTiles.insert(BWAPI::TilePosition(x, y));
+        }
+    }
+
+    // Add tiles that have diagonal connections through a corner of the object
+    auto addCornerTile = [&](int toX, int toY, unsigned int direction)
+    {
+        if (toX < 0) return;
+        if (toX >= mapWidth) return;
+        if (toY < 0) return;
+        if (toY >= mapHeight) return;
+
+        auto &node = grid[toX + toY * mapWidth];
+        if (node.prevNodes & (1U << direction))
+        {
+#if DEBUG_LOG_UPDATES
+            Log::Debug() << "Grid-" << goal << ": Added corner tile " << BWAPI::TilePosition(toX, toY) << " for direction " << direction;
+#endif
+
+            pendingBlockingTiles.insert(BWAPI::TilePosition(toX, toY));
+        }
+    };
+    addCornerTile(tile.x, tile.y - 1, 1); // up-right, top-left corner
+    addCornerTile(tile.x + size.x, tile.y + size.y - 1, 1); // up-right, bottom-right corner
+    addCornerTile(tile.x + size.x - 1, tile.y - 1, 3); // up-left, top-right corner
+    addCornerTile(tile.x - 1, tile.y + size.y - 1, 3); // up-left, bottom-left corner
+    addCornerTile(tile.x + size.x, tile.y, 5); // down-right, top-right corner
+    addCornerTile(tile.x, tile.y + size.y, 5); // down-right, bottom-left corner
+    addCornerTile(tile.x - 1, tile.y, 7); // down-left, top-left corner
+    addCornerTile(tile.x + size.x - 1, tile.y + size.y, 7); // down-left, bottom-right corner
+}
+
+void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
+{
+    pendingBlockingTiles.insert(tiles.begin(), tiles.end());
+}
+
+void NavigationGrid::removeBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size)
+{
+#if DEBUG_LOG_UPDATES
+    Log::Debug() << "Grid-" << goal << ": removeBlockingObject(" << tile << "," << size << ")";
+#endif
+
     std::set<BWAPI::TilePosition> tiles;
     for (int x = tile.x; x < tile.x + size.x; x++)
     {
@@ -337,38 +385,16 @@ void NavigationGrid::addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosi
         }
     }
 
-    // Add tiles that might have diagonal connections through the corner of the building
-    auto addCornerTile = [&](int offsetX, int offsetY)
-    {
-        auto here = tile + BWAPI::TilePosition(offsetX, offsetY);
-        if (here.isValid()) tiles.insert(here);
-    };
-    addCornerTile(0, -1);
-    addCornerTile(size.x - 1, -1);
-    addCornerTile(size.x, 0);
-    addCornerTile(size.x, size.y - 1);
-    addCornerTile(size.x - 1, size.y);
-    addCornerTile(0, size.y);
-    addCornerTile(-1, size.y - 1);
-    addCornerTile(-1, 0);
-
-    addBlockingTiles(tiles);
+    removeBlockingTiles(tiles);
 }
 
-void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
+void NavigationGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
 {
-    // First, invalidate every path that goes through the tiles
-    // Then push all still-valid tiles bordering an invalidated tile to the update queue
-    // When the grid is updated, all of the invalidated tiles will receive a new path from these bordering tiles
+    // Reset the cost of all nodes corresponding to the blocking tiles being removed
+    // While doing this, gather tiles that potentially border these blocking tiles
+    // Finally add the valid border tiles to the update queue
 
-    std::queue<GridNode *> queue;
-    for (const auto &tile : tiles)
-    {
-        auto &node = grid[tile.x + tile.y * mapWidth];
-        queue.push(&node);
-    }
-
-    std::vector<GridNode *> bordering;
+    std::set<GridNode *> bordering;
     auto addBordering = [&](unsigned short x, unsigned short y)
     {
         if (x >= mapWidth || y >= mapHeight)
@@ -376,7 +402,72 @@ void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles
             return;
         }
 
-        bordering.push_back(&grid[x + y * mapWidth]);
+        bordering.insert(&grid[x + y * mapWidth]);
+    };
+
+    auto visit = [&](unsigned short x, unsigned short y)
+    {
+        auto &node = grid[x + y * mapWidth];
+
+        node.cost = USHRT_MAX;
+        node.nextNode = nullptr;
+
+        addBordering(x + 1, y);
+        addBordering(x - 1, y);
+        addBordering(x, y + 1);
+        addBordering(x, y - 1);
+        addBordering(x - 1, y - 1);
+        addBordering(x + 1, y - 1);
+        addBordering(x - 1, y + 1);
+        addBordering(x + 1, y + 1);
+    };
+    for (const auto &tile : tiles)
+    {
+        visit(tile.x, tile.y);
+    }
+
+    for (auto node : bordering)
+    {
+        if (node->nextNode)
+        {
+#if DEBUG_LOG_UPDATES
+            Log::Debug() << "Grid-" << goal << ": removeBlocking, enqueued " << node->tile;
+#endif
+
+            nodeQueue.emplace(node->cost + COST_STRAIGHT, node, false);
+            nodeQueue.emplace(node->cost + COST_DIAGONAL, node, true);
+        }
+    }
+}
+
+void NavigationGrid::updateBlockingTiles()
+{
+    if (pendingBlockingTiles.empty()) return;
+
+#if DEBUG_LOG_UPDATES
+    Log::Debug() << "Grid-" << goal << ": Updating blocking tiles";
+#endif
+
+    // First, invalidate every path that goes through the tiles
+    // Then push all still-valid tiles bordering an invalidated tile to the update queue
+    // When the grid is updated, all of the invalidated tiles will receive a new path from these bordering tiles
+
+    std::queue<GridNode *> queue;
+    for (const auto &tile : pendingBlockingTiles)
+    {
+        auto &node = grid[tile.x + tile.y * mapWidth];
+        queue.push(&node);
+    }
+
+    std::set<GridNode *> bordering;
+    auto addBordering = [&](unsigned short x, unsigned short y)
+    {
+        if (x >= mapWidth || y >= mapHeight)
+        {
+            return;
+        }
+
+        bordering.insert(&grid[x + y * mapWidth]);
     };
 
     auto visit = [&](NavigationGrid::GridNode *current, unsigned short x, unsigned short y)
@@ -421,83 +512,15 @@ void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles
         if (borderingNode->nextNode)
         {
 #if DEBUG_LOG_UPDATES
-            Log::Debug() << "Grid-" << goal << ": addBlocking, enqueued " << borderingNode->tile;
+            Log::Debug() << "Grid-" << goal << ": updateBlockingTiles, enqueued " << borderingNode->tile;
 #endif
 
             nodeQueue.emplace(borderingNode->cost + COST_STRAIGHT, borderingNode, false);
             nodeQueue.emplace(borderingNode->cost + COST_DIAGONAL, borderingNode, true);
         }
     }
-}
 
-void NavigationGrid::removeBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size)
-{
-#if DEBUG_LOG_UPDATES
-    Log::Debug() << "Grid-" << goal << ": removeBlockingObject(" << tile << "," << size << ")";
-#endif
-
-    std::set<BWAPI::TilePosition> tiles;
-    for (int x = tile.x; x < tile.x + size.x; x++)
-    {
-        for (int y = tile.y; y < tile.y + size.y; y++)
-        {
-            tiles.insert(BWAPI::TilePosition(x, y));
-        }
-    }
-
-    removeBlockingTiles(tiles);
-}
-
-void NavigationGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
-{
-    // Reset the cost of all nodes corresponding to the blocking tiles being removed
-    // While doing this, gather tiles that potentially border these blocking tiles
-    // Finally add the valid border tiles to the update queue
-
-    std::vector<GridNode *> bordering;
-    auto addBordering = [&](unsigned short x, unsigned short y)
-    {
-        if (x >= mapWidth || y >= mapHeight)
-        {
-            return;
-        }
-
-        bordering.push_back(&grid[x + y * mapWidth]);
-    };
-
-    auto visit = [&](unsigned short x, unsigned short y)
-    {
-        auto &node = grid[x + y * mapWidth];
-
-        node.cost = USHRT_MAX;
-        node.nextNode = nullptr;
-
-        addBordering(x + 1, y);
-        addBordering(x - 1, y);
-        addBordering(x, y + 1);
-        addBordering(x, y - 1);
-        addBordering(x - 1, y - 1);
-        addBordering(x + 1, y - 1);
-        addBordering(x - 1, y + 1);
-        addBordering(x + 1, y + 1);
-    };
-    for (const auto &tile : tiles)
-    {
-        visit(tile.x, tile.y);
-    }
-
-    for (auto node : bordering)
-    {
-        if (node->nextNode)
-        {
-#if DEBUG_LOG_UPDATES
-            Log::Debug() << "Grid-" << goal << ": removeBlocking, enqueued " << node->tile;
-#endif
-
-            nodeQueue.emplace(node->cost + COST_STRAIGHT, node, false);
-            nodeQueue.emplace(node->cost + COST_DIAGONAL, node, true);
-        }
-    }
+    pendingBlockingTiles.clear();
 }
 
 void NavigationGrid::dumpHeatmap()

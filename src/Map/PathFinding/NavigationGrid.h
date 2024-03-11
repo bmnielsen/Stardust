@@ -80,6 +80,8 @@ public:
 private:
     std::vector<GridNode> grid;
     std::priority_queue<QueueItem, std::vector<QueueItem>, QueueItemComparator> nodeQueue;
+    std::set<BWAPI::TilePosition> pendingBlockingTiles;
 
+    void updateBlockingTiles();
     void dumpHeatmap();
 };
