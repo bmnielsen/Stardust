@@ -57,10 +57,11 @@ namespace BuildingPlacement
 
     enum class Neighbourhood
     {
-        MainBase,
-        AllMyBases,
-        HiddenBase
-    }; // TODO: Add proxy, etc.
+        MainBase = 0,
+        AllMyBases = 1,
+        HiddenBase = 2
+    };
+    const int NEIGHBOURHOOD_COUNT = 3;
 
     struct BaseStaticDefenseLocations
     {
@@ -85,7 +86,7 @@ namespace BuildingPlacement
 
     void update();
 
-    std::map<Neighbourhood, std::map<int, BuildLocationSet>> &getBuildLocations();
+    std::array<std::array<BuildLocationSet, 5>, NEIGHBOURHOOD_COUNT> &getBuildLocations();
 
     BuildLocationSet &availableGeysers();
 

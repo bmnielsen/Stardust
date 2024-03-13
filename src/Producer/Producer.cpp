@@ -31,7 +31,7 @@ namespace Producer
         std::vector<short> totalSupply;
         std::multiset<int> framesWithReassignableMineralWorker;
         int reassignedMineralWorkersAtStartFrame;
-        std::map<BuildingPlacement::Neighbourhood, std::map<int, BuildingPlacement::BuildLocationSet>> buildLocations;
+        std::array<std::array<BuildingPlacement::BuildLocationSet, 5>, BuildingPlacement::NEIGHBOURHOOD_COUNT> buildLocations;
         BuildingPlacement::BuildLocationSet availableGeysers;
 
         const BuildingPlacement::BuildLocation InvalidBuildLocation(Block::Location(BWAPI::TilePositions::Invalid), 0, 0, 0);
@@ -677,12 +677,12 @@ namespace Producer
             auto fixedNeighbourhood = std::get_if<BuildingPlacement::Neighbourhood>(&pylon.location);
             auto neighbourhood = fixedNeighbourhood ? *fixedNeighbourhood : BuildingPlacement::Neighbourhood::AllMyBases;
 
-            auto &pylonLocations = buildLocations[neighbourhood][2];
+            auto &pylonLocations = buildLocations[to_underlying(neighbourhood)][2];
             if (pylonLocations.empty()) return;
 
             // All else being equal, try to keep two of each location type powered
-            int desiredMedium = std::max(0, 2 - (int) buildLocations[neighbourhood][3].size());
-            int desiredLarge = std::max(0, 2 - (int) buildLocations[neighbourhood][4].size());
+            int desiredMedium = std::max(0, 2 - (int) buildLocations[to_underlying(neighbourhood)][3].size());
+            int desiredLarge = std::max(0, 2 - (int) buildLocations[to_underlying(neighbourhood)][4].size());
 
             // Find the first pylon that meets the requirements
 
@@ -756,7 +756,7 @@ namespace Producer
 
                 auto locationNeighbourhood = std::get_if<BuildingPlacement::Neighbourhood>(&item.location);
                 auto neighbourhood = locationNeighbourhood ? *locationNeighbourhood : BuildingPlacement::Neighbourhood::AllMyBases;
-                auto &locations = buildLocations[neighbourhood][unitType->tileWidth()];
+                auto &locations = buildLocations[to_underlying(neighbourhood)][unitType->tileWidth()];
 
                 // Get the frame when the next available build location will be powered
                 int availableAt = INT_MAX;
@@ -852,14 +852,14 @@ namespace Producer
                     // Might make sense to move the build location stuff after minerals, etc. too
                     for (auto &poweredBuildLocation : pylon->buildLocation.powersMedium)
                     {
-                        buildLocations[neighbourhood][3].emplace(poweredBuildLocation.location,
+                        buildLocations[to_underlying(neighbourhood)][3].emplace(poweredBuildLocation.location,
                                                                  poweredBuildLocation.builderFrames,
                                                                  pylon->completionFrame,
                                                                  poweredBuildLocation.distanceToExit);
                     }
                     for (auto &poweredBuildLocation : pylon->buildLocation.powersLarge)
                     {
-                        buildLocations[neighbourhood][4].emplace(poweredBuildLocation.location,
+                        buildLocations[to_underlying(neighbourhood)][4].emplace(poweredBuildLocation.location,
                                                                  poweredBuildLocation.builderFrames,
                                                                  pylon->completionFrame,
                                                                  poweredBuildLocation.distanceToExit);
@@ -2142,7 +2142,7 @@ namespace Producer
             // We might have a need to build air units or tech later on in the game
             size_t desiredGateways =
                     std::min(25 - gateways,
-                             buildLocations[BuildingPlacement::Neighbourhood::AllMyBases][BWAPI::UnitTypes::Protoss_Gateway.tileWidth()].size()
+                             buildLocations[to_underlying(BuildingPlacement::Neighbourhood::AllMyBases)][BWAPI::UnitTypes::Protoss_Gateway.tileWidth()].size()
                              - 2);
 
             // Scale up to 25 gateways as our bank allows
