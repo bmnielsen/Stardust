@@ -31,7 +31,7 @@ namespace Producer
         std::vector<short> totalSupply;
         std::multiset<int> framesWithReassignableMineralWorker;
         int reassignedMineralWorkersAtStartFrame;
-        std::array<std::array<BuildingPlacement::BuildLocationSet, 5>, BuildingPlacement::NEIGHBOURHOOD_COUNT> buildLocations;
+        BuildingPlacement::BuildLocations buildLocations;
         BuildingPlacement::BuildLocationSet availableGeysers;
 
         const BuildingPlacement::BuildLocation InvalidBuildLocation(Block::Location(BWAPI::TilePositions::Invalid), 0, 0, 0);
@@ -850,19 +850,33 @@ namespace Producer
                     // TODO: The powered after times are wrong here, as the pylon may get moved later
                     // Should perhaps look for available build locations within the committed pylon set instead
                     // Might make sense to move the build location stuff after minerals, etc. too
-                    for (auto &poweredBuildLocation : pylon->buildLocation.powersMedium)
+                    if (!pylon->buildLocation.powersMedium.empty())
                     {
-                        buildLocations[to_underlying(neighbourhood)][3].emplace(poweredBuildLocation.location,
-                                                                 poweredBuildLocation.builderFrames,
-                                                                 pylon->completionFrame,
-                                                                 poweredBuildLocation.distanceToExit);
+                        for (auto &poweredBuildLocation : pylon->buildLocation.powersMedium)
+                        {
+                            buildLocations[to_underlying(neighbourhood)][3].emplace_back(
+                                    poweredBuildLocation.location,
+                                    poweredBuildLocation.builderFrames,
+                                    pylon->completionFrame,
+                                    poweredBuildLocation.distanceToExit);
+                        }
+                        std::sort(buildLocations[to_underlying(neighbourhood)][3].begin(),
+                                  buildLocations[to_underlying(neighbourhood)][3].end(),
+                                  BuildingPlacement::BuildLocationCmp());
                     }
-                    for (auto &poweredBuildLocation : pylon->buildLocation.powersLarge)
+                    if (!pylon->buildLocation.powersLarge.empty())
                     {
-                        buildLocations[to_underlying(neighbourhood)][4].emplace(poweredBuildLocation.location,
-                                                                 poweredBuildLocation.builderFrames,
-                                                                 pylon->completionFrame,
-                                                                 poweredBuildLocation.distanceToExit);
+                        for (auto &poweredBuildLocation : pylon->buildLocation.powersLarge)
+                        {
+                            buildLocations[to_underlying(neighbourhood)][4].emplace_back(
+                                    poweredBuildLocation.location,
+                                    poweredBuildLocation.builderFrames,
+                                    pylon->completionFrame,
+                                    poweredBuildLocation.distanceToExit);
+                        }
+                        std::sort(buildLocations[to_underlying(neighbourhood)][4].begin(),
+                                  buildLocations[to_underlying(neighbourhood)][4].end(),
+                                  BuildingPlacement::BuildLocationCmp());
                     }
                 }
 

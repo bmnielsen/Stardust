@@ -79,7 +79,7 @@ namespace BuildingPlacement
         std::map<Neighbourhood, std::set<const BWEM::Area *>> neighbourhoodAreas;
         std::map<const BWEM::Area *, BWAPI::Position> areaOrigins;
         std::map<const BWEM::Area *, BWAPI::Position> areaExits;
-        std::array<std::array<BuildLocationSet, 5>, NEIGHBOURHOOD_COUNT> availableBuildLocations;
+        BuildLocations availableBuildLocations;
 
         bool buildAwayFromExit;
         Base *hiddenBase;
@@ -816,7 +816,7 @@ namespace BuildingPlacement
         // Rebuilds the map of available build locations
         void updateAvailableBuildLocations()
         {
-            std::array<std::array<BuildLocationSet, 5>, NEIGHBOURHOOD_COUNT> result;
+            BuildLocations result;
 
             // Gather our pending pylons
             auto pendingPylons = Builder::pendingBuildingsOfType(BWAPI::UnitTypes::Protoss_Pylon);
@@ -909,27 +909,29 @@ namespace BuildingPlacement
                         {
                             for (auto &location : unpoweredMedium)
                             {
-                                pylon.powersMedium.emplace(location,
-                                                           builderFrames(origin, location.tile, BWAPI::UnitTypes::Protoss_Forge),
-                                                           0,
-                                                           distanceToExit(neighbourhood, exit, location.tile, BWAPI::UnitTypes::Protoss_Forge),
-                                                           true);
+                                pylon.powersMedium.emplace_back(
+                                        location,
+                                        builderFrames(origin, location.tile, BWAPI::UnitTypes::Protoss_Forge),
+                                        0,
+                                        distanceToExit(neighbourhood, exit, location.tile, BWAPI::UnitTypes::Protoss_Forge),
+                                        true);
                             }
                             for (auto &location : unpoweredLarge)
                             {
-                                pylon.powersLarge.emplace(location,
-                                                          builderFrames(origin, location.tile, BWAPI::UnitTypes::Protoss_Gateway),
-                                                          0,
-                                                          distanceToExit(neighbourhood, exit, location.tile, BWAPI::UnitTypes::Protoss_Gateway));
+                                pylon.powersLarge.emplace_back(
+                                        location,
+                                        builderFrames(origin, location.tile, BWAPI::UnitTypes::Protoss_Gateway),
+                                        0,
+                                        distanceToExit(neighbourhood, exit, location.tile, BWAPI::UnitTypes::Protoss_Gateway));
                             }
                         }
 
-                        result[to_underlying(neighbourhood)][2].insert(pylon);
+                        result[to_underlying(neighbourhood)][2].emplace_back(pylon);
                     }
 
                     for (auto &tileAndPoweredAt : poweredMedium)
                     {
-                        result[to_underlying(neighbourhood)][3].emplace(
+                        result[to_underlying(neighbourhood)][3].emplace_back(
                                 std::get<0>(tileAndPoweredAt),
                                 builderFrames(origin, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Forge),
                                 std::get<1>(tileAndPoweredAt),
@@ -939,12 +941,20 @@ namespace BuildingPlacement
 
                     for (auto &tileAndPoweredAt : poweredLarge)
                     {
-                        result[to_underlying(neighbourhood)][4].emplace(
+                        result[to_underlying(neighbourhood)][4].emplace_back(
                                 std::get<0>(tileAndPoweredAt),
                                 builderFrames(origin, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Gateway),
                                 std::get<1>(tileAndPoweredAt),
                                 distanceToExit(neighbourhood, exit, std::get<0>(tileAndPoweredAt).tile, BWAPI::UnitTypes::Protoss_Gateway));
                     }
+                }
+            }
+
+            for (int neighbourhoodIdx=0; neighbourhoodIdx<NEIGHBOURHOOD_COUNT; neighbourhoodIdx++)
+            {
+                for (int size = 2; size <= 4; size++)
+                {
+                    std::sort(result[neighbourhoodIdx][size].begin(), result[neighbourhoodIdx][size].end(), BuildLocationCmp());
                 }
             }
 
@@ -963,27 +973,23 @@ namespace BuildingPlacement
                 {
                     auto &locations = neighbourhoodLocations[size];
 
-                    std::vector<BuildLocation> updatedLocations;
-                    for (auto it = locations.begin(); it != locations.end();)
+                    bool anythingUpdated = false;
+                    for (auto &location : locations)
                     {
-                        if (it->framesUntilPowered > 0)
+                        if (location.framesUntilPowered > 0)
                         {
-                            updatedLocations.push_back(*it);
-                            updatedLocations.rbegin()->framesUntilPowered = poweredAfter(
-                                    it->location.tile,
+                            anythingUpdated = true;
+                            location.framesUntilPowered = poweredAfter(
+                                    location.location.tile,
                                     size == 3 ? BWAPI::UnitTypes::Protoss_Forge : BWAPI::UnitTypes::Protoss_Gateway,
                                     pendingPylons);
-                            it = locations.erase(it);
-                        }
-                        else
-                        {
-                            it++;
                         }
                     }
 
-                    locations.insert(
-                            std::make_move_iterator(updatedLocations.begin()),
-                            std::make_move_iterator(updatedLocations.end()));
+                    if (anythingUpdated)
+                    {
+                        std::sort(locations.begin(), locations.end(), BuildLocationCmp());
+                    }
                 }
             }
         }
@@ -1009,7 +1015,7 @@ namespace BuildingPlacement
                     if (Builder::isPendingHere(geyser->tile)) continue;
 
                     // TODO: Order in some logical way
-                    _availableGeysers.emplace(Block::Location(geyser->tile), 0, 0, 0);
+                    _availableGeysers.emplace_back(Block::Location(geyser->tile), 0, 0, 0);
                 }
             }
         }
@@ -1198,7 +1204,7 @@ namespace BuildingPlacement
         updateAvailableGeysers();
     }
 
-    std::array<std::array<BuildLocationSet, 5>, NEIGHBOURHOOD_COUNT> &getBuildLocations()
+    BuildLocations &getBuildLocations()
     {
         return availableBuildLocations;
     }

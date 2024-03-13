@@ -27,25 +27,34 @@
 
 namespace BuildingPlacement
 {
+    enum class Neighbourhood
+    {
+        MainBase = 0,
+        AllMyBases = 1,
+        HiddenBase = 2,
+    };
+    const int NEIGHBOURHOOD_COUNT = 3;
+
     struct BuildLocation;
+
+    typedef std::vector<BuildLocation> BuildLocationSet;
+    typedef std::array<std::array<BuildLocationSet, 5>, NEIGHBOURHOOD_COUNT> BuildLocations;
 
     struct BuildLocationCmp
     {
         bool operator()(const BuildLocation &a, const BuildLocation &b) const;
     };
 
-    typedef std::set<BuildLocation, BuildLocationCmp> BuildLocationSet;
-
     // Small struct to hold data about a build location
     struct BuildLocation
     {
         Block::Location location;
-        int builderFrames;         // Approximately how many frames the builder will take to get to this location
-        int framesUntilPowered;    // Approximately how many frames will elapse before this position is powered
-        int distanceToExit;        // Approximate ground distance from this build location to the neighbourhood exit
-        bool isTech;               // Whether this build location is for a tech building
-        BuildLocationSet powersMedium;          // For a pylon, what medium build locations would be powered by it
-        BuildLocationSet powersLarge;           // For a pylon, what large build locations would be powered by it
+        int builderFrames;             // Approximately how many frames the builder will take to get to this location
+        int framesUntilPowered;        // Approximately how many frames will elapse before this position is powered
+        int distanceToExit;            // Approximate ground distance from this build location to the neighbourhood exit
+        bool isTech;                   // Whether this build location is for a tech building
+        BuildLocationSet powersMedium; // For a pylon, what medium build locations would be powered by it
+        BuildLocationSet powersLarge;  // For a pylon, what large build locations would be powered by it
 
         BuildLocation(Block::Location location, int builderFrames, int framesUntilPowered, int distanceToExit, bool isTech = false)
                 : location(location)
@@ -54,14 +63,6 @@ namespace BuildingPlacement
                 , distanceToExit(distanceToExit)
                 , isTech(isTech) {}
     };
-
-    enum class Neighbourhood
-    {
-        MainBase = 0,
-        AllMyBases = 1,
-        HiddenBase = 2
-    };
-    const int NEIGHBOURHOOD_COUNT = 3;
 
     struct BaseStaticDefenseLocations
     {
@@ -86,7 +87,7 @@ namespace BuildingPlacement
 
     void update();
 
-    std::array<std::array<BuildLocationSet, 5>, NEIGHBOURHOOD_COUNT> &getBuildLocations();
+    BuildLocations &getBuildLocations();
 
     BuildLocationSet &availableGeysers();
 
