@@ -19,6 +19,7 @@
 #include "Units.h"
 #include "PathFinding.h"
 #include "Geo.h"
+#include "Opponent.h"
 
 #include "NoGoAreas.h"
 
@@ -485,6 +486,8 @@ namespace Map
 
         bool checkCreep(Base *base)
         {
+            if (!Opponent::canBeRace(BWAPI::Races::Zerg)) return false;
+
             for (int x = -8; x <= 11; x++)
             {
                 if (x == 0) x = 4;
@@ -492,9 +495,10 @@ namespace Map
                 {
                     if (y == 0) y = 2;
 
-                    BWAPI::TilePosition tile = {base->getTilePosition().x + x, base->getTilePosition().y + y};
-                    if (!tile.isValid()) continue;
-                    if (BWAPI::Broodwar->hasCreep(tile))
+                    int tileX = base->getTilePosition().x + x;
+                    int tileY = base->getTilePosition().y + y;
+                    if (tileX < 0 || tileX >= mapWidth || tileY < 0 || tileY >= mapHeight) continue;
+                    if (BWAPI::Broodwar->hasCreep(tileX, tileY))
                     {
                         return true;
                     }
@@ -1264,11 +1268,8 @@ namespace Map
                         tileLastSeen[tile.x + 1 + (tile.y + 1) * mapWidth],
                         tileLastSeen[tile.x + 2 + (tile.y + 1) * mapWidth]);
 
-                // If the enemy could be zerg, check for creep
-                if ((base->ownedSince == -1 || base->ownedSince < (currentFrame - 2500)) &&
-                    BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran &&
-                    BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss &&
-                    checkCreep(base))
+                // Check for creep
+                if ((base->ownedSince == -1 || base->ownedSince < (currentFrame - 2500)) && checkCreep(base))
                 {
                     setBaseOwner(base, BWAPI::Broodwar->enemy());
                 }

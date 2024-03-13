@@ -16,6 +16,8 @@ namespace Opponent
 
     bool hasRaceJustBeenDetermined();
 
+    bool canBeRace(BWAPI::Race race);
+
     void setGameValue(const std::string &key, int value);
 
     void incrementGameValue(const std::string &key, int delta = 1);

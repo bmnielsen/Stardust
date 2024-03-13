@@ -227,6 +227,11 @@ namespace Opponent
         return true;
     }
 
+    bool canBeRace(BWAPI::Race race)
+    {
+        return raceUnknown || BWAPI::Broodwar->enemy()->getRace() == race;
+    }
+
     void setGameValue(const std::string &key, int value)
     {
 #if CHERRYVIS_ENABLED
