@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <filesystem>
+#include "Units.h"
 
 namespace WorkerOrderTimer
 {
@@ -42,7 +43,7 @@ namespace WorkerOrderTimer
                    (a.position == b.position && a.velocityX == b.velocityX && a.velocityY < b.velocityY);
         }
 
-        std::map<BWAPI::Unit, std::set<PositionAndVelocity>> resourceToOptimalOrderPositions;
+        std::map<Resource, std::set<PositionAndVelocity>> resourceToOptimalOrderPositions;
         std::map<MyUnit, std::map<int, PositionAndVelocity>> workerPositionHistory;
 
         std::string resourceOptimalOrderPositionsFilename(bool writing = false)
@@ -98,13 +99,6 @@ namespace WorkerOrderTimer
         {
             try
             {
-                // Build a map of all mineral patches by tile position
-                std::map<BWAPI::TilePosition, BWAPI::Unit> tileToResource;
-                for (auto mineralPatch : BWAPI::Broodwar->getMinerals())
-                {
-                    tileToResource[mineralPatch->getTilePosition()] = mineralPatch;
-                }
-
                 // Read and parse each position
                 while (true)
                 {
@@ -112,10 +106,10 @@ namespace WorkerOrderTimer
                     if (line.size() != 6) break;
 
                     BWAPI::TilePosition tile(line[0], line[1]);
-                    auto resourceIt = tileToResource.find(tile);
-                    if (resourceIt != tileToResource.end())
+                    auto resource = Units::resourceAt(tile);
+                    if (resource)
                     {
-                        resourceToOptimalOrderPositions[resourceIt->second].emplace(BWAPI::Position(line[2], line[3]), line[4], line[5]);
+                        resourceToOptimalOrderPositions[resource].emplace(BWAPI::Position(line[2], line[3]), line[4], line[5]);
                     }
                 }
             }
@@ -135,8 +129,8 @@ namespace WorkerOrderTimer
         {
             for (auto &optimalOrderPosition : resourceAndOptimalOrderPositions.second)
             {
-                file << resourceAndOptimalOrderPositions.first->getInitialTilePosition().x << ","
-                     << resourceAndOptimalOrderPositions.first->getInitialTilePosition().y << ","
+                file << resourceAndOptimalOrderPositions.first->tile.x << ","
+                     << resourceAndOptimalOrderPositions.first->tile.y << ","
                      << optimalOrderPosition << "\n";
             }
         }
@@ -149,10 +143,10 @@ namespace WorkerOrderTimer
         // TODO: At some point track the order timers to see if we can predict their reset values
     }
 
-    bool optimizeMineralWorker(const MyUnit &worker, BWAPI::Unit resource)
+    bool optimizeMineralWorker(const MyUnit &worker, const Resource &resource)
     {
         // Break out early if the distance is larger than we need to worry about
-        auto dist = worker->bwapiUnit->getDistance(resource);
+        auto dist = resource->getDistance(worker);
         if (dist > 100) return false;
 
         auto &positionHistory = workerPositionHistory[worker];
@@ -187,16 +181,20 @@ namespace WorkerOrderTimer
         PositionAndVelocity currentPositionAndVelocity(worker);
 
         // Check if this worker is at an optimal position to resend the gather order
+        bool resent = false;
         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals &&
             optimalOrderPositions.contains(currentPositionAndVelocity))
         {
-            worker->gather(resource);
-            positionHistory.emplace(std::make_pair(currentFrame, currentPositionAndVelocity));
-            return true;
+            auto bwapiUnit = resource->getBwapiUnitIfVisible();
+            if (bwapiUnit)
+            {
+                worker->gather(resource->getBwapiUnitIfVisible());
+                resent = true;
+            }
         }
 
         // Record the worker's position
         positionHistory.emplace(std::make_pair(currentFrame, currentPositionAndVelocity));
-        return false;
+        return resent;
     }
 }

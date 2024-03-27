@@ -2,6 +2,7 @@
 
 #include "Common.h"
 #include "MyUnit.h"
+#include "Resource.h"
 
 namespace WorkerOrderTimer
 {
@@ -12,5 +13,5 @@ namespace WorkerOrderTimer
     void update();
 
     // Resends gather orders to optimize the worker order timer. Returns whether an order was sent to the worker.
-    bool optimizeMineralWorker(const MyUnit &worker, BWAPI::Unit resource);
+    bool optimizeMineralWorker(const MyUnit &worker, const Resource &resource);
 }

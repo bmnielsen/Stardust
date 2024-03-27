@@ -742,9 +742,7 @@ namespace Workers
                     auto mineralPatch = workerMineralPatch[worker];
                     if (mineralPatch)
                     {
-                        auto bwapiUnit = mineralPatch->getBwapiUnitIfVisible();
-
-                        if (bwapiUnit && WorkerOrderTimer::optimizeMineralWorker(worker, bwapiUnit)) continue;
+                        if (WorkerOrderTimer::optimizeMineralWorker(worker, mineralPatch)) continue;
 
                         // If the unit is currently mining, leave it alone
                         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
@@ -757,6 +755,7 @@ namespace Workers
                         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnMinerals) continue;
 
                         // If we don't have vision on the mineral patch, move towards it
+                        auto bwapiUnit = mineralPatch->getBwapiUnitIfVisible();
                         if (!bwapiUnit)
                         {
                             worker->moveTo(mineralPatch->center);
