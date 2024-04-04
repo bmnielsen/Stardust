@@ -3,6 +3,12 @@
 #include <fstream>
 #include <filesystem>
 #include "Units.h"
+#include "Workers.h"
+#include "Map.h"
+
+#if INSTRUMENTATION_ENABLED
+#define TRACK_MINING_EFFICIENCY true
+#endif
 
 namespace WorkerOrderTimer
 {
@@ -45,6 +51,20 @@ namespace WorkerOrderTimer
 
         std::map<Resource, std::set<PositionAndVelocity>> resourceToOptimalOrderPositions;
         std::map<MyUnit, std::map<int, PositionAndVelocity>> workerPositionHistory;
+
+#if TRACK_MINING_EFFICIENCY
+        // This map records statistics of mining efficiency for each patch
+        // At each frame a resource has at least one worker assigned to it, a value is written:
+        // 0 = one worker assigned, worker is moving to minerals
+        // 1 = one worker assigned, worker is waiting to mine
+        // 2 = one worker assigned, worker is mining
+        // 3 = one worker assigned, worker is moving to return cargo
+        // 4 = one worker assigned, worker is waiting to return cargo
+        // 10 = two workers assigned, a worker is mining
+        // 11 = two workers assigned, one worker is returning cargo, other worker is moving to minerals
+        // 12 = two workers assigned, one worker is returning cargo, other worker is waiting to mine
+        std::map<Resource, std::vector<std::pair<int, int>>> resourceToMiningStatus;
+#endif
 
         std::string resourceOptimalOrderPositionsFilename(bool writing = false)
         {
@@ -91,6 +111,10 @@ namespace WorkerOrderTimer
     {
         resourceToOptimalOrderPositions.clear();
         workerPositionHistory.clear();
+
+#if TRACK_MINING_EFFICIENCY
+        resourceToMiningStatus.clear();
+#endif
 
         // Attempt to open a CSV file storing the optimal positions found in previous matches on this map
         std::ifstream file;
@@ -140,7 +164,119 @@ namespace WorkerOrderTimer
 
     void update()
     {
-        // TODO: At some point track the order timers to see if we can predict their reset values
+#if TRACK_MINING_EFFICIENCY
+        for (auto &[patch, workers] : Workers::mineralsAndAssignedWorkers())
+        {
+            if (!patch || workers.empty() || workers.size() > 2) continue;
+
+            Base *closestBase = nullptr;
+            auto closestBaseDist = INT_MAX;
+            for (auto &base : Map::getMyBases())
+            {
+                auto dist = patch->getDistance(base->getPosition());
+                if (dist < closestBaseDist)
+                {
+                    closestBase = base;
+                    closestBaseDist = dist;
+                }
+            }
+            if (!closestBase || !closestBase->resourceDepot || !closestBase->resourceDepot->exists()) continue;
+            auto &depot = closestBase->resourceDepot;
+
+            auto &miningStatus = resourceToMiningStatus[patch];
+
+            // Initialize status to be the same as the last status, or -1 if there is no last status
+            int status = -1;
+            if (!miningStatus.empty())
+            {
+                auto &[lastStatus, frame] = *miningStatus.rbegin();
+                if (frame == (currentFrame - 1))
+                {
+                    status = lastStatus;
+                }
+            }
+
+            // Treat one vs. two assigned worker cases separately
+            if (workers.size() == 1)
+            {
+                auto &worker = *workers.begin();
+                auto distPatch = patch->getDistance(worker);
+                auto distDepot = depot->getDistance(worker);
+
+                CherryVis::log(worker->id) << distPatch << ":" << distDepot
+                    << "; " << worker->bwapiUnit->getOrder()
+                    << "; " << worker->bwapiUnit->isCarryingMinerals();
+
+                if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals)
+                {
+                    status = 0;
+                }
+                else if (distPatch == 0 && (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals
+                                            || worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals))
+                {
+                    status = 1;
+                }
+                else if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
+                {
+                    status = 2;
+                }
+                else if (distDepot > 0 && worker->bwapiUnit->isCarryingMinerals())
+                {
+                    status = 3;
+                }
+                else if (distDepot == 0 && worker->bwapiUnit->isCarryingMinerals())
+                {
+                    status = 4;
+                }
+            }
+            else
+            {
+                auto &workerA = *workers.begin();
+                auto &workerB = *workers.rbegin();
+                auto distPatchA = patch->getDistance(workerA);
+                auto distPatchB = patch->getDistance(workerB);
+                auto distDepotA = depot->getDistance(workerA);
+                auto distDepotB = depot->getDistance(workerB);
+
+                CherryVis::log(workerA->id) << distPatchA << ":" << distDepotA
+                                           << "; " << workerA->bwapiUnit->getOrder()
+                                           << "; " << workerA->bwapiUnit->isCarryingMinerals();
+                CherryVis::log(workerB->id) << distPatchB << ":" << distDepotB
+                                           << "; " << workerB->bwapiUnit->getOrder()
+                                           << "; " << workerB->bwapiUnit->isCarryingMinerals();
+
+                if (workerA->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
+                    workerB->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
+                {
+                    status = 10;
+                }
+                else if (workerA->bwapiUnit->isCarryingMinerals() != workerB->bwapiUnit->isCarryingMinerals())
+                {
+                    auto &otherWorker = (workerA->bwapiUnit->isCarryingMinerals() ? workerB : workerA);
+                    auto distPatch = patch->getDistance(otherWorker);
+                    if (distPatch > 0)
+                    {
+                        status = 11;
+                    }
+                    else
+                    {
+                        status = 12;
+                    }
+                }
+                else
+                {
+                    status = -1;
+                }
+            }
+
+            CherryVis::log(patch->id) << status;
+
+            if (status != -1)
+            {
+                miningStatus.emplace_back(status, currentFrame);
+            }
+        }
+#endif
     }
 
     bool optimizeMineralWorker(const MyUnit &worker, const Resource &resource)
@@ -196,5 +332,12 @@ namespace WorkerOrderTimer
         // Record the worker's position
         positionHistory.emplace(std::make_pair(currentFrame, currentPositionAndVelocity));
         return resent;
+    }
+
+    void writeInstrumentation()
+    {
+#if TRACK_MINING_EFFICIENCY
+
+#endif
     }
 }

@@ -50,4 +50,6 @@ namespace Workers
     int reassignableGasWorkers();
 
     int idleWorkerCount();
+
+    std::map<Resource, std::set<MyUnit>> &mineralsAndAssignedWorkers();
 }

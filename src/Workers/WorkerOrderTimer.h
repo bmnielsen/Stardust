@@ -14,4 +14,6 @@ namespace WorkerOrderTimer
 
     // Resends gather orders to optimize the worker order timer. Returns whether an order was sent to the worker.
     bool optimizeMineralWorker(const MyUnit &worker, const Resource &resource);
+
+    void writeInstrumentation();
 }

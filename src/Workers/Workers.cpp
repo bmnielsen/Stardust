@@ -1147,4 +1147,9 @@ namespace Workers
         }
         return count;
     }
+
+    std::map<Resource, std::set<MyUnit>> &mineralsAndAssignedWorkers()
+    {
+        return mineralPatchWorkers;
+    }
 }
