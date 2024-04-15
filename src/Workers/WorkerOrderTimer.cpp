@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <filesystem>
+#include <ranges>
 #include "Units.h"
 #include "Workers.h"
 #include "Map.h"
@@ -60,6 +61,7 @@ namespace WorkerOrderTimer
         // 2 = one worker assigned, worker is mining
         // 3 = one worker assigned, worker is moving to return cargo
         // 4 = one worker assigned, worker is waiting to return cargo
+        // 5 = one worker assigned, worker is waiting to move from depot
         // 10 = two workers assigned, a worker is mining
         // 11 = two workers assigned, one worker is returning cargo, other worker is moving to minerals
         // 12 = two workers assigned, one worker is returning cargo, other worker is waiting to mine
@@ -209,7 +211,14 @@ namespace WorkerOrderTimer
 
                 if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals)
                 {
-                    status = 0;
+                    if (distDepot == 0)
+                    {
+                        status = 5;
+                    }
+                    else
+                    {
+                        status = 0;
+                    }
                 }
                 else if (distPatch == 0 && (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals
                                             || worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals))
@@ -337,7 +346,80 @@ namespace WorkerOrderTimer
     void writeInstrumentation()
     {
 #if TRACK_MINING_EFFICIENCY
+        // For each patch, detect incorrect mining behaviour and draw
+        // For the single-worker case, incorrect behaviour means:
+        // - Waiting for more than one frame to mine, unless there has been an order timer reset
+        // - Waiting for more frames than needed after an order timer reset
+        // - Taking a longer path back to the depot
+        // For the two-worker case, incorrect behaviour means:
+        // - Waiting for more than one frame to mine when there has not been an order timer reset
+        // - Waiting for more than the maximum expected number of frames to mine when there has been an order timer reset
+        // - Second worker not being ready to mine?
+        int framesSinceLastOrderTimerReset = (currentFrame - 8) % 150;
+        for (auto &[patch, miningStatus] : resourceToMiningStatus)
+        {
+            // Get the status and how many frames it has been stable
+            int currentStatus = -1;
+            int statusFrames = 0;
+            for (auto &[status, frame] : std::ranges::reverse_view(miningStatus)) {
+                if (frame != (currentFrame - statusFrames)) break;
+                if (statusFrames == 0)
+                {
+                    currentStatus = status;
+                }
+                else if (status != currentStatus)
+                {
+                    break;
+                }
+                statusFrames++;
+            }
+            if (statusFrames == 0) continue;
 
+            // Check for an inefficiency based on the status
+            bool inefficiency = false;
+            switch (currentStatus)
+            {
+                // These cases do not matter
+                case 0:
+                case 2:
+                case 3:
+                case 4:
+                case 10:
+                case 11:
+                case 12:
+                default:
+                    break;
+
+                // Single worker waiting too long to mine
+                case 1:
+                {
+                    if (statusFrames > 1 && framesSinceLastOrderTimerReset > -1)
+                    {
+                        inefficiency = true;
+                        CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
+                            << ": worker waited too many frames to start mining";
+                    }
+                    break;
+                }
+
+                // Single worker waiting too long to leave the depot
+                case 5:
+                {
+                    if (statusFrames > 6)
+                    {
+                        inefficiency = true;
+                        CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
+                                         << ": worker waited too many frames to leave depot";
+                    }
+                    break;
+                }
+            }
+
+            if (inefficiency)
+            {
+                CherryVis::drawCircle(patch->center.x, patch->center.y, 32, CherryVis::DrawColor::Red);
+            }
+        }
 #endif
     }
 }
