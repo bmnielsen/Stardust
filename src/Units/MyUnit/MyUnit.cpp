@@ -13,6 +13,7 @@ MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         , energy(unit->getEnergy())
         , lastCastFrame(-1)
         , completionFrame(unit->isCompleted() ? currentFrame : -1)
+        , carryingResource(unit->isCarryingMinerals() || unit->isCarryingGas())
         , issuedOrderThisFrame(false)
         , moveCommand(nullptr)
         , targetPosition(BWAPI::Positions::Invalid)
@@ -114,6 +115,22 @@ void MyUnitImpl::update(BWAPI::Unit unit)
     {
         Log::Get() << "Cancelling dying " << type << " @ " << getTilePosition();
         bwapiUnit->cancelConstruction();
+    }
+
+    // Set order process timer for gathering workers
+    // We know the order process timer is 0 when the worker starts mining, finishes mining, and delivers the resource
+    if (type.isWorker())
+    {
+        if (carryingResource != (bwapiUnit->isCarryingMinerals() || bwapiUnit->isCarryingGas()))
+        {
+            carryingResource = (bwapiUnit->isCarryingMinerals() || bwapiUnit->isCarryingGas());
+            orderProcessTimer = 0;
+        }
+        else if (bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals && bwapiUnit->getOrderTimer() == 75 &&
+                 (BWAPI::Broodwar->getFrameCount() - 8) % 150 != 0)
+        {
+            orderProcessTimer = 8;
+        }
     }
 }
 

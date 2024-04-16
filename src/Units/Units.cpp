@@ -33,6 +33,7 @@
 #define DEBUG_ENEMY_STATUS false
 #define DEBUG_PREDICTED_POSITIONS false
 #define DEBUG_RESOURCE_UPDATES true
+#define DEBUG_ORDER_TIMERS false
 #endif
 
 #if INSTRUMENTATION_ENABLED
@@ -620,6 +621,26 @@ namespace Units
         upgradesInProgress.clear();
         researchInProgress.clear();
 
+        // Start by updating the order timers
+        // Unit update may reset these later in the frame if something has been observed that reveals the order timer
+        // Order timers reset to unknown values every 150 frames starting on frame 8
+        auto updateOrderProcessTimer =
+                ((BWAPI::Broodwar->getFrameCount() - 8) % 150 == 0)
+                ? [](const Unit &unit) { unit->orderProcessTimer = -1; }
+                : [](const Unit &unit)
+                    {
+                        if (unit->orderProcessTimer > 0)
+                        {
+                            unit->orderProcessTimer--;
+                        }
+                        else if (unit->orderProcessTimer == 0)
+                        {
+                            unit->orderProcessTimer = 8;
+                        }
+                    };
+        for (auto &unit : myUnits) updateOrderProcessTimer(unit);
+        for (auto &unit : enemyUnits) updateOrderProcessTimer(unit);
+
         auto ignoreUnit = [](BWAPI::Unit bwapiUnit)
         {
             return bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Interceptor ||
@@ -825,29 +846,6 @@ namespace Units
         for (auto &unit : destroyedEnemyUnits)
         {
             enemyUnitDestroyed(unit);
-        }
-
-        // Update the order timers
-        if ((BWAPI::Broodwar->getFrameCount() - 8) % 150 == 0)
-        {
-            for (auto &unit : myUnits) unit->orderProcessTimer = -1;
-            for (auto &unit : enemyUnits) unit->orderProcessTimer = -1;
-        }
-        else
-        {
-            auto updateOrderProcessTimer = [](auto &unit)
-            {
-                if (unit->orderProcessTimer > 0)
-                {
-                    unit->orderProcessTimer--;
-                }
-                else if (unit->orderProcessTimer == 0)
-                {
-                    unit->orderProcessTimer = 8;
-                }
-            };
-            for (auto &unit : myUnits) updateOrderProcessTimer(unit);
-            for (auto &unit : enemyUnits) updateOrderProcessTimer(unit);
         }
 
         // Build a set of build tiles for mineral fields that should be visible
@@ -1182,6 +1180,11 @@ namespace Units
             values.emplace_back(timings.str());
         }
         CherryVis::setBoardListValue("enemyUnitTimings", values);
+#endif
+
+#if DEBUG_ORDER_TIMERS
+        for (auto &unit : myUnits) CherryVis::log(unit->id) << "Order timer: " << unit->orderProcessTimer;
+        for (auto &unit : enemyUnits) CherryVis::log(unit->id) << "Order timer: " << unit->orderProcessTimer;
 #endif
     }
 
