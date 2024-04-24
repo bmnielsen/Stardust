@@ -19,4 +19,6 @@ namespace WorkerOrderTimer
     bool optimizeReturn(const MyUnit &worker, const Resource &resource, const Unit &depot);
 
     void writeInstrumentation();
+
+    double getEfficiency();
 }

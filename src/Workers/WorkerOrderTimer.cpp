@@ -427,4 +427,61 @@ namespace WorkerOrderTimer
         }
 #endif
     }
+
+    double getEfficiency()
+    {
+#if TRACK_MINING_EFFICIENCY
+        // Counts the number of frames each patch was mined and not mined, aligned to when a worker arrives at the patch
+        int framesMined = 0;
+        int framesNotMined = 0;
+        for (auto &[patch, miningStatus] : resourceToMiningStatus)
+        {
+            // Find last frame where the patch was about to be mined
+            int lastFrame = -1;
+            for (auto &[status, frame] : std::ranges::reverse_view(miningStatus)) {
+                if (status == 1)
+                {
+                    lastFrame = frame;
+                    break;
+                }
+            }
+            if (lastFrame == -1) continue;
+
+            // Loop all frames and count
+            bool foundFirstFrame = false;
+            for (auto &[status, frame] : miningStatus)
+            {
+                if (frame >= lastFrame) break;
+
+                if (!foundFirstFrame)
+                {
+                    if (status == 1)
+                    {
+                        foundFirstFrame = true;
+                    }
+                    else
+                    {
+                        continue;
+                    }
+                }
+
+                if (status >= 10) continue;
+
+                if (status == 2)
+                {
+                    framesMined++;
+                }
+                else
+                {
+                    framesNotMined++;
+                }
+            }
+        }
+
+        if (framesMined == 0 && framesNotMined == 0) return 0.0;
+        return (double)framesMined / (double)(framesMined + framesNotMined);
+#else
+        return 0.0;
+#endif
+    }
 }
