@@ -288,7 +288,7 @@ namespace WorkerOrderTimer
 #endif
     }
 
-    bool optimizeMineralWorker(const MyUnit &worker, const Resource &resource)
+    bool optimizeStartOfMining(const MyUnit &worker, const Resource &resource)
     {
         // Break out early if the distance is larger than we need to worry about
         auto dist = resource->getDistance(worker);
@@ -333,7 +333,7 @@ namespace WorkerOrderTimer
             auto bwapiUnit = resource->getBwapiUnitIfVisible();
             if (bwapiUnit)
             {
-                worker->gather(resource->getBwapiUnitIfVisible());
+                worker->gather(bwapiUnit);
                 resent = true;
             }
         }
@@ -341,6 +341,11 @@ namespace WorkerOrderTimer
         // Record the worker's position
         positionHistory.emplace(std::make_pair(currentFrame, currentPositionAndVelocity));
         return resent;
+    }
+
+    bool optimizeReturn(const MyUnit &worker, const Resource &resource, const Unit &depot)
+    {
+        return false;
     }
 
     void writeInstrumentation()

@@ -706,9 +706,18 @@ namespace Workers
                                         worker->moveTo(closestBase->getPosition());
                                     }
                                     else if (worker->bwapiUnit->getOrder() != BWAPI::Orders::ReturnMinerals &&
-                                             worker->bwapiUnit->getOrder() != BWAPI::Orders::ReturnGas)
+                                             worker->bwapiUnit->getOrder() != BWAPI::Orders::ReturnGas &&
+                                             worker->lastCommandFrame > (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
                                     {
                                         worker->rightClick(closestBase->resourceDepot->bwapiUnit);
+                                    }
+                                    else if (worker->bwapiUnit->isCarryingMinerals())
+                                    {
+                                        auto mineralPatch = workerMineralPatch[worker];
+                                        if (mineralPatch)
+                                        {
+                                            WorkerOrderTimer::optimizeReturn(worker, mineralPatch, closestBase->resourceDepot);
+                                        }
                                     }
                                     continue;
                                 }
@@ -731,6 +740,22 @@ namespace Workers
                             worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnGas ||
                             worker->bwapiUnit->getOrder() == BWAPI::Orders::ResetCollision)
                         {
+                            // Potentially optimize the return if we are returning minerals
+                            if (worker->bwapiUnit->isCarryingMinerals())
+                            {
+                                auto mineralPatch = workerMineralPatch[worker];
+                                if (mineralPatch)
+                                {
+                                    WorkerOrderTimer::optimizeReturn(worker, mineralPatch, base->resourceDepot);
+                                }
+                            }
+
+                            continue;
+                        }
+
+                        // Leave it alone if we have just ordered it to do something, as that indicates we are trying to optimize
+                        if (worker->lastCommandFrame > (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+                        {
                             continue;
                         }
 
@@ -742,7 +767,7 @@ namespace Workers
                     auto mineralPatch = workerMineralPatch[worker];
                     if (mineralPatch)
                     {
-                        if (WorkerOrderTimer::optimizeMineralWorker(worker, mineralPatch)) continue;
+                        if (WorkerOrderTimer::optimizeStartOfMining(worker, mineralPatch)) continue;
 
                         // If the unit is currently mining, leave it alone
                         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
