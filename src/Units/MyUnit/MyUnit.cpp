@@ -14,6 +14,7 @@ MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         , lastCastFrame(-1)
         , completionFrame(unit->isCompleted() ? currentFrame : -1)
         , carryingResource(unit->isCarryingMinerals() || unit->isCarryingGas())
+        , lastDeliveredResource(-1)
         , issuedOrderThisFrame(false)
         , moveCommand(nullptr)
         , targetPosition(BWAPI::Positions::Invalid)
@@ -125,6 +126,7 @@ void MyUnitImpl::update(BWAPI::Unit unit)
         {
             carryingResource = (bwapiUnit->isCarryingMinerals() || bwapiUnit->isCarryingGas());
             orderProcessTimer = 0;
+            if (!carryingResource) lastDeliveredResource = currentFrame;
         }
         else if (bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals && bwapiUnit->getOrderTimer() == 75 &&
                  (BWAPI::Broodwar->getFrameCount() - 8) % 150 != 0)

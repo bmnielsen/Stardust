@@ -290,6 +290,18 @@ namespace WorkerOrderTimer
 
     bool optimizeStartOfMining(const MyUnit &worker, const Resource &resource)
     {
+        // Send a gather command when the worker has just delivered cargo
+        // Occasionally from some patches a worker will wait an extra order timer round for no apparent reason, and this short-circuits that
+        if (worker->lastDeliveredResource == currentFrame)
+        {
+            auto bwapiUnit = resource->getBwapiUnitIfVisible();
+            if (bwapiUnit)
+            {
+                worker->gather(bwapiUnit);
+                return true;
+            }
+        }
+
         // Break out early if the distance is larger than we need to worry about
         auto dist = resource->getDistance(worker);
         if (dist > 100) return false;
