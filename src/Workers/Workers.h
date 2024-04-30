@@ -34,7 +34,7 @@ namespace Workers
     void releaseWorker(const MyUnit &unit);
 
     // How many mineral patches are currently available for assignment
-    int availableMineralAssignments(Base *base = nullptr);
+    int availableMineralAssignments(Base *base = nullptr, int workersPerPatch = 2);
 
     // How many gas slots are currently available for assignment
     int availableGasAssignments(Base *base = nullptr);

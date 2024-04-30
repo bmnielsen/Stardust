@@ -85,12 +85,12 @@ namespace Workers
             removeFromResource(unit, workerRefinery, refineryWorkers);
         }
 
-        int availableMineralAssignmentsAtBase(Base *base)
+        int availableMineralAssignmentsAtBase(Base *base, int workersPerPatch = 2)
         {
             if (!base || base->owner != BWAPI::Broodwar->self()) return 0;
             if (!base->resourceDepot) return 0;
 
-            size_t count = base->mineralPatchCount() * 2;
+            size_t count = base->mineralPatchCount() * workersPerPatch;
             for (const auto &worker : baseWorkers[base])
             {
                 if (workerJob[worker] == Job::Minerals) count--;
@@ -1032,14 +1032,14 @@ namespace Workers
         CherryVis::log(unit->id) << "Released from non-mining duties";
     }
 
-    int availableMineralAssignments(Base *base)
+    int availableMineralAssignments(Base *base, int workersPerPatch)
     {
-        if (base) return availableMineralAssignmentsAtBase(base);
+        if (base) return availableMineralAssignmentsAtBase(base, workersPerPatch);
 
         int count = 0;
         for (auto &myBase : Map::getMyBases())
         {
-            count += availableMineralAssignmentsAtBase(myBase);
+            count += availableMineralAssignmentsAtBase(myBase, workersPerPatch);
         }
 
         return count;
