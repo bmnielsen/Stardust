@@ -22,34 +22,6 @@ namespace WorkerOrderTimer
         };
         std::string dataWritePath = "bwapi-data/write/";
 
-        struct PositionAndVelocity
-        {
-            BWAPI::Position position;
-            int velocityX;
-            int velocityY;
-
-            PositionAndVelocity(BWAPI::Position position, int velocityX, int velocityY)
-                    : position(position), velocityX(velocityX), velocityY(velocityY) {}
-
-            explicit PositionAndVelocity(const MyUnit &unit)
-                    : position(unit->lastPosition)
-                    , velocityX((int) (unit->bwapiUnit->getVelocityX() * 100.0))
-                    , velocityY((int) (unit->bwapiUnit->getVelocityY() * 100.0)) {}
-        };
-
-        std::ostream &operator<<(std::ostream &out, const PositionAndVelocity &p)
-        {
-            out << p.position.x << "," << p.position.y << "," << p.velocityX << "," << p.velocityY;
-            return out;
-        }
-
-        inline bool operator<(const PositionAndVelocity &a, const PositionAndVelocity &b)
-        {
-            return (a.position < b.position) ||
-                   (a.position == b.position && a.velocityX < b.velocityX) ||
-                   (a.position == b.position && a.velocityX == b.velocityX && a.velocityY < b.velocityY);
-        }
-
         std::map<Resource, std::set<PositionAndVelocity>> resourceToOptimalOrderPositions;
         std::map<MyUnit, std::map<int, PositionAndVelocity>> workerPositionHistory;
 
@@ -335,7 +307,7 @@ namespace WorkerOrderTimer
             return false;
         }
 
-        PositionAndVelocity currentPositionAndVelocity(worker);
+        PositionAndVelocity currentPositionAndVelocity(worker->bwapiUnit);
 
         // Check if this worker is at an optimal position to resend the gather order
         bool resent = false;
