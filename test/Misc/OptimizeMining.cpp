@@ -11,129 +11,108 @@
 
 namespace
 {
-    class OptimizeTimingsModule : public DoNothingModule
+    const std::string dataBasePath = "/Users/bmnielsen/BW/mining-timings/";
+
+    void writePatchesFile(BWTest &test)
     {
-        // States of optimization
-        // 0 - Initial state before first return from patch
-        // 1 -
-        // 1 - Finding all possible stable paths and recording optimal resend positions
-
-        int state;
-        BWAPI::Unit depot;
-        std::vector<BWAPI::Unit> patchesToOptimize;
-
-    public:
-        OptimizeTimingsModule() : state(0), depot(nullptr) {}
-
-        void onStart() override
-        {
-            // Store reference to our depot
-            for (auto unit : BWAPI::Broodwar->self()->getUnits())
-            {
-                if (unit->getType().isResourceDepot()) depot = unit;
-            }
-
-            // Get all of the patches to optimize
-            for (auto unit : BWAPI::Broodwar->getNeutralUnits())
-            {
-                if (!unit->getType().isMineralField()) continue;
-
-                int dist = unit->getDistance(depot);
-                if (dist > 300) continue;
-
-                patchesToOptimize.push_back(unit);
-            }
-        }
-
-        void onFrame() override
-        {
-        }
-    };
-
-    void runOptimizeTest(BWTest &test)
-    {
-
-        test.opponentRace = BWAPI::Races::Zerg;
-        test.opponentModule = []()
+        test.opponentModule = test.myModule = []()
         {
             return new DoNothingModule();
         };
-        test.myModule = []()
-        {
-            return new OptimizeTimingsModule();
-        };
-        test.frameLimit = 25000;
+        test.frameLimit = 10;
         test.expectWin = false;
+        test.writeReplay = false;
 
         test.onStartMine = []()
         {
-            Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+            std::ofstream file;
+            file.open((std::ostringstream() << dataBasePath << BWAPI::Broodwar->mapHash() << "_patches.csv").str(), std::ofstream::trunc);
+            file << "Patch Tile X;Patch Tile Y\n";
 
-            std::vector<std::shared_ptr<Play>> openingPlays;
-
-            // Create a saturate bases play that initially only adds 1 worker per patch
-            saturateBasesPlay = std::make_shared<SaturateBases>();
-            saturateBasesPlay->setWorkersPerPatch(1);
-            openingPlays.emplace_back(saturateBasesPlay);
-
-            // Create a dummy main army play since one is needed
-            openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(Map::getMyMain()));
-
-            Strategist::setOpening(openingPlays);
-        };
-
-        test.onFrameMine = [&saturateBasesPlay]()
-        {
-            // Create a couple of pylons to not interrupt mining
-            if (currentFrame == 1 || currentFrame == 5)
+            for (auto unit : BWAPI::Broodwar->getNeutralUnits())
             {
-                auto &pylonLocations = BuildingPlacement::getBuildLocations()[to_underlying(BuildingPlacement::Neighbourhood::AllMyBases)][2];
-                int built = 0;
-                for (auto &location : pylonLocations)
-                {
-                    if (built == 2) break;
+                if (!unit->getType().isMineralField()) continue;
+                if (unit->getInitialResources() < 200) continue;
 
-                    int dist = Map::getMyMain()->resourceDepot->getDistance(BWAPI::Position(location.location.tile) + BWAPI::Position(32, 32));
-                    if (dist < 200) continue;
-
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                ((currentFrame == 1) ? BWAPI::UnitTypes::Protoss_Observer : BWAPI::UnitTypes::Protoss_Pylon),
-                                                Geo::CenterOfUnit(location.location.tile, BWAPI::UnitTypes::Protoss_Pylon));
-                    built++;
-                }
+                file << unit->getInitialTilePosition().x
+                     << ";" << unit->getInitialTilePosition().y
+                     << "\n";
             }
 
-            // After letting us run with one worker per patch for a while, go to two workers per patch
-            if (currentFrame == 7000)
-            {
-                saturateBasesPlay->setWorkersPerPatch(2);
-            }
-        };
-
-        test.onEndMine = [](bool)
-        {
-            std::cout << "Mining efficiency: " << WorkerOrderTimer::getEfficiency() << std::endl;
+            file.close();
         };
 
         test.run();
     }
+
+    std::vector<std::string> readCsvLine(std::istream &str)
+    {
+        std::vector<std::string> result;
+        try
+        {
+            std::string line;
+            std::getline(str, line);
+
+            std::stringstream lineStream(line);
+            std::string cell;
+
+            while (std::getline(lineStream, cell, ';'))
+            {
+                result.push_back(cell);
+            }
+        }
+        catch (std::exception &ex)
+        {
+            std::cout << "Exception reading CSV line: " << ex.what() << std::endl;
+        }
+        return result;
+    }
+
+    void optimizeAllPatches(BWTest &test)
+    {
+        std::vector<BWAPI::TilePosition> patches;
+
+        // Try to load the patch coordinates
+        std::ifstream file;
+        file.open((std::ostringstream() << dataBasePath << test.map->openbwHash << "_patches.csv").str());
+        if (!file.good())
+        {
+            std::cout << "No patches available for " << test.map->filename << std::endl;
+            return;
+        }
+        try
+        {
+            readCsvLine(file); // Header row; ignored
+            while (true)
+            {
+                auto line = readCsvLine(file);
+                if (line.size() != 2) break;
+
+                patches.emplace_back(std::stoi(line[0]), std::stoi(line[1]));
+            }
+        }
+        catch (std::exception &ex)
+        {
+            std::cout << "Exception caught attempting to read patch locations: " << ex.what() << std::endl;
+            return;
+        }
+
+        std::cout << "Read " << patches.size() << " patches to optimize" << std::endl;
+    }
 }
 
-TEST(MiningEfficiency, FightingSpirit)
+TEST(OptimizeMining, WritePatchesFiles_AllSSCAIT)
 {
-    BWTest test;
-    test.map = Maps::GetOne("Fighting Spirit");
-
-    test.randomSeed = 42;
-    runEfficiencyTest(test);
+    Maps::RunOnEach(Maps::Get("sscai"), [](BWTest test)
+    {
+        writePatchesFile(test);
+    });
 }
 
-
-/*
-
-Initial: Mining efficiency: 0.526316
-After resend of gather immediately after delivery: 0.527495
-
-
-
- */
+TEST(OptimizeMining, OptimizeAllPatches_AllSSCAIT)
+{
+    Maps::RunOnEach(Maps::Get("sscai"), [](BWTest test)
+    {
+        optimizeAllPatches(test);
+    });
+}
