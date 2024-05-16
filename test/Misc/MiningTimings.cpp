@@ -316,7 +316,7 @@ TEST(MiningTimings, TestReturnOptimization2)
     test.opponentRace = BWAPI::Races::Zerg;
     test.map = Maps::GetOne("Fighting Spirit");
     test.randomSeed = 42;
-    test.frameLimit = 5000;
+    test.frameLimit = 500;
     test.expectWin = false;
 
     test.onStartMine = []()
@@ -332,6 +332,7 @@ TEST(MiningTimings, TestReturnOptimization2)
     bool orderResetPending = false;
 
     int reissueFrame = 14;
+    int gatherFrame = 0;
 
     test.onFrameMine = [&]()
     {
@@ -413,7 +414,13 @@ TEST(MiningTimings, TestReturnOptimization2)
                 }
                 else if (!orderResetPending && reissueFrame > 0 && BWAPI::Broodwar->getFrameCount() == (leftMinerals + reissueFrame))
                 {
-                    probe->returnCargo();
+                    std::cout << "Issued return cargo" << std::endl;
+                    probe->rightClick(depot);
+                }
+                else if (!orderResetPending && gatherFrame > 0 && BWAPI::Broodwar->getFrameCount() == (leftMinerals + gatherFrame))
+                {
+                    std::cout << "Issued gather" << std::endl;
+                    probe->gather(mineralPatch);
                 }
 
                 break;
@@ -433,6 +440,7 @@ TEST(MiningTimings, TestReturnOptimization2)
             << "; distToMinerals=" << probe->getDistance(mineralPatch)
             << "; distToDepot=" << probe->getDistance(depot)
             << "; speed=" << std::sqrt(((probe->getVelocityX() * probe->getVelocityX()) + (probe->getVelocityY() * probe->getVelocityY())))
+            << "; carrying=" << probe->isCarryingMinerals()
             << std::endl;
     };
 
