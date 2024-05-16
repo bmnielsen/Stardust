@@ -383,7 +383,9 @@ namespace McRave::Goals {
 
             // Assign an Overlord to each Wall
             if (!Players::vT()) {
-                for (auto &[_, wall] : BWEB::Walls::getWalls()) {
+                for (auto &[_, _wall] : BWEB::Walls::getWalls()) {
+                    auto &wall = _wall;
+
                     if (!Terrain::inTerritory(PlayerState::Self, wall.getArea()))
                         continue;
 

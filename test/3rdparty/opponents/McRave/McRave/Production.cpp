@@ -738,7 +738,9 @@ namespace McRave::Production {
                 // Find a station that we should morph at based on the UnitType we want.
                 auto produced = false;
                 multimap<double, BWEB::Station*> stations;
-                for (auto &[val, station] : Stations::getStationsBySaturation()) {
+                for (auto &[val, _station] : Stations::getStationsBySaturation()) {
+                    auto &station = _station;
+
                     auto saturation = bestType.isWorker() ? val : 1.0 / val;
                     auto larvaCount = count_if(Units::getUnits(PlayerState::Self).begin(), Units::getUnits(PlayerState::Self).end(), [&](auto &u) {
                         auto &unit = *u;

@@ -119,7 +119,9 @@ namespace McRave::Pathing {
                 });
 
                 // Assign closest targeter
-                for (auto &[pos, dist] : surroundPositions) {
+                for (auto &[_pos, dist] : surroundPositions) {
+                    auto &pos = _pos;
+
                     auto closestTargeter = Util::getClosestUnit(pos, PlayerState::Self, [&](auto &u) {
                         return u->hasTarget()
                             && find(allowedTypes.begin(), allowedTypes.end(), u->getType()) != allowedTypes.end()

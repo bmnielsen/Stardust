@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 project(tests)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 
 add_subdirectory(3rdparty/googletest)
 add_subdirectory(3rdparty/opponents/Steamhammer)
@@ -43,7 +43,7 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
 endif()
 
 if (CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined,leak -fsanitize-recover=address,undefined,leak -g")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fsanitize-recover=address,undefined -g")
 endif()
 
 target_link_libraries(tests gtest gtest_main BWAPI BWAPILIB Stardust Steamhammer Locutus Iron BananaBrain SAIDA McRave)
