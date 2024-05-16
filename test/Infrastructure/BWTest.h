@@ -81,3 +81,5 @@ private:
 
     void runGame(bool opponent);
 };
+
+void addBananaBrainModule(BWTest &test);

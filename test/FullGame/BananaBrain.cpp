@@ -49,6 +49,28 @@ namespace
     }
 }
 
+void addBananaBrainModule(BWTest &test)
+{
+    BananaBrain* bbModule;
+    test.opponentModule = [&]()
+    {
+        bbModule = new BananaBrain();
+        return bbModule;
+    };
+    test.onStartOpponent = [&]()
+    {
+        std::cout << "BananaBrain strategy: " << bbModule->strategyName << std::endl;
+        if (test.sharedMemory)
+        {
+            strncpy(test.sharedMemory,
+                    bbModule->strategyName.c_str(),
+                    std::min(255UL, bbModule->strategyName.size()));
+        }
+
+        std::cout.setstate(std::ios_base::failbit);
+    };
+}
+
 TEST(BananaBrain, RunThirty)
 {
     int count = 0;
