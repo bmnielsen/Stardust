@@ -42,11 +42,11 @@ namespace
 
     void createWallBuildings(const ForgeGatewayWall &wall)
     {
-        auto getNearestBase = [&wall]()
+        auto getNatural = [&wall]()
         {
             Base *bestBase = nullptr;
             int bestDist = INT_MAX;
-            for (auto base : Map::allBases())
+            for (auto base : Map::allStartingLocations())
             {
                 int dist = wall.gapCenter.getApproxDistance(base->getPosition());
                 if (dist < bestDist)
@@ -55,12 +55,15 @@ namespace
                     bestDist = dist;
                 }
             }
-            return bestBase;
+
+            auto natural = Map::mapSpecificOverride()->naturalForWallPlacement(bestBase);
+            if (!natural) natural = Map::getStartingBaseNatural(bestBase);
+            return natural;
         };
 
         if (currentFrame == 10)
         {
-            auto natural = getNearestBase();
+            auto natural = getNatural();
 
             BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, natural->getPosition());
             BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, wall.gapCenter);
@@ -73,7 +76,7 @@ namespace
 
         if (currentFrame == 20)
         {
-            auto natural = getNearestBase();
+            auto natural = getNatural();
 
             BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
                                         BWAPI::UnitTypes::Protoss_Nexus,
@@ -114,7 +117,7 @@ namespace
 
         if (currentFrame == 50)
         {
-            auto natural = getNearestBase();
+            auto natural = getNatural();
 
             for (auto cannon : wall.cannons)
             {
@@ -141,11 +144,10 @@ namespace
                     }
                 }
             }
-
         }
     }
 
-    void configureBuildWallsTest(BWTest &test)
+    void configureBuildWallsTest(BWTest &test, std::vector<ForgeGatewayWall> &walls)
     {
         test.opponentModule = []()
         {
@@ -157,8 +159,6 @@ namespace
         {
             Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
         };
-
-        std::vector<ForgeGatewayWall> walls;
 
         test.onFrameMine = [&walls]() {
             if (currentFrame == 0)
@@ -356,7 +356,8 @@ TEST(ForgeGatewayWalls, AllAIIDE)
 {
     Maps::RunOnEach(Maps::Get("aiide2023"), [](BWTest test)
     {
-        configureBuildWallsTest(test);
+        std::vector<ForgeGatewayWall> walls;
+        configureBuildWallsTest(test, walls);
         test.run();
     });
 }
@@ -379,11 +380,11 @@ TEST(ForgeGatewayWalls, LingTightAllCOG)
     });
 }
 
-TEST(ForgeGatewayWalls, PamirPlateau)
+TEST(ForgeGatewayWalls, Jade)
 {
     BWTest test;
     test.randomSeed = 1617;
-    test.map = Maps::GetOne("Pamir");
+    test.map = Maps::GetOne("NeoJade");
     test.opponentModule = []()
     {
         return new DoNothingModule();
@@ -393,360 +394,8 @@ TEST(ForgeGatewayWalls, PamirPlateau)
     test.onFrameMine = []() {
         if (currentFrame == 0)
         {
-            generateWalls(117, 6);
+            generateWalls(117, 117);
         }
     };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, NeoSylphid2)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("NeoSylphid2");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls(7, 91);
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, Eclipse)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("Eclipse");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls(116, 7);
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, EmpireOfTheSun)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("Empire");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls();
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, Outsider)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("Outsider");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls(96, 7);
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, MatchPoint)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("Match");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls(100, 14);
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, Benzene)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("Benzene");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls();
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, TauCross)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("Tau");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls(117, 9);
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, Andromeda5)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("Andromeda");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls(117, 119);
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, Andromeda1)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("Andromeda");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls(117, 7);
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, NeoMoonGlaive)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("Glaive");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls();
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, Destination)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("Destination");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls();
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, Python)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("Python");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls();
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, Heartbreak9)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("Heartbreak");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls(7, 37);
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, GrandLine1)
-{
-    BWTest test;
-    test.map = Maps::GetOne("GrandLine");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls(117, 6);
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, Allegro1)
-{
-    BWTest test;
-    test.map = Maps::GetOne("Allegro");
-    test.opponentModule = []()
-    {
-        return new DoNothingModule();
-    };
-    test.frameLimit = 10;
-    test.expectWin = false;
-    test.onFrameMine = []() {
-        if (currentFrame == 0)
-        {
-            generateWalls(117, 6);
-        }
-    };
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, Andromeda1b)
-{
-    BWTest test;
-    test.randomSeed = 1617;
-    test.map = Maps::GetOne("Andromeda");
-    configureLingTightTest(test);
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, LingTightHeartbreak)
-{
-    BWTest test;
-    test.randomSeed = 30202;
-    test.map = Maps::GetOne("Heartbreak");
-    configureLingTightTest(test);
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, LingTightAndromeda)
-{
-    BWTest test;
-    test.randomSeed = 32598;
-    test.map = Maps::GetOne("Andromeda");
-    configureLingTightTest(test);
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, LingTightIcarus)
-{
-    BWTest test;
-    test.randomSeed = 23125;
-    test.map = Maps::GetOne("Icarus");
-    configureLingTightTest(test);
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, LingTightMoonGlaive12)
-{
-    BWTest test;
-    test.randomSeed = 31337;
-    test.map = Maps::GetOne("Glaive");
-    configureLingTightTest(test);
-    test.run();
-}
-
-TEST(ForgeGatewayWalls, LingTightTau6)
-{
-    BWTest test;
-    test.randomSeed = 65763;
-    test.map = Maps::GetOne("Tau");
-    configureLingTightTest(test);
     test.run();
 }
