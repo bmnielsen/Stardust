@@ -9,8 +9,8 @@ namespace
 {
     bool validateGrid(NavigationGrid &grid)
     {
-        int minCostDiff = INT_MAX;
-        int maxCostDiff = 0;
+        int minCostDiff = 32;
+        int maxCostDiff = 45;
 
         for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
         {
@@ -106,6 +106,7 @@ namespace
             CherryVis::initialize();
             Units::initialize();
             Map::initialize();
+            PathFinding::initializeGrids();
 
             grid = new NavigationGrid(goal, BWAPI::UnitTypes::Protoss_Nexus.tileSize());
             EXPECT_TRUE(validateGrid(*grid));
@@ -246,7 +247,11 @@ TEST(UpdateNavigationGrid, ManyBuildings)
         if (BWAPI::Broodwar->getFrameCount() == 33) removeBuilding(grid, BWAPI::UnitTypes::Zerg_Creep_Colony, BWAPI::TilePosition(117, 110));
         if (BWAPI::Broodwar->getFrameCount() == 34) removeBuilding(grid, BWAPI::UnitTypes::Zerg_Hydralisk_Den, BWAPI::TilePosition(113, 115));
 
-        if (BWAPI::Broodwar->getFrameCount() == 40) grid->update();
+        if (BWAPI::Broodwar->getFrameCount() == 40)
+        {
+            grid->update();
+            EXPECT_TRUE(validateGrid(*grid));
+        }
 
         CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
     };
