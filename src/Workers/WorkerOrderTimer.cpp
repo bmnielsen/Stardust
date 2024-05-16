@@ -183,7 +183,7 @@ namespace WorkerOrderTimer
 
                 if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals)
                 {
-                    if (distDepot == 0)
+                    if (distDepot == 0 && currentFrame > 100)
                     {
                         status = 5;
                     }
@@ -330,6 +330,31 @@ namespace WorkerOrderTimer
     bool optimizeReturn(const MyUnit &worker, const Resource &resource, const Unit &depot)
     {
         return false;
+
+        // Resend the gather order when the resources are delivered
+        int dist = worker->getDistance(depot);
+        if (dist > 0) return false;
+
+        if (worker->orderProcessTimer == -1)
+        {
+            CherryVis::log(worker->id) << "Can't predict delivery time";
+        }
+        else
+        {
+            CherryVis::log(worker->id) << "Expect delivery in " << (worker->orderProcessTimer + 1) << " frames";
+            if ((worker->orderProcessTimer + 1) == BWAPI::Broodwar->getRemainingLatencyFrames())
+            {
+                auto bwapiUnit = resource->getBwapiUnitIfVisible();
+                if (bwapiUnit)
+                {
+                    CherryVis::log() << "Resent order to " << BWAPI::WalkPosition(worker->lastPosition);
+                    worker->gather(bwapiUnit);
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     void writeInstrumentation()
@@ -340,6 +365,7 @@ namespace WorkerOrderTimer
         // - Waiting for more than one frame to mine, unless there has been an order timer reset
         // - Waiting for more frames than needed after an order timer reset
         // - Taking a longer path back to the depot
+        // - Waiting too long to leave the depot
         // For the two-worker case, incorrect behaviour means:
         // - Waiting for more than one frame to mine when there has not been an order timer reset
         // - Waiting for more than the maximum expected number of frames to mine when there has been an order timer reset
@@ -382,19 +408,28 @@ namespace WorkerOrderTimer
                 // Single worker waiting too long to mine
                 case 1:
                 {
-                    if (statusFrames > 1 && framesSinceLastOrderTimerReset > -1)
+                    if (statusFrames > 1)
                     {
-                        inefficiency = true;
-                        CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
-                            << ": worker waited too many frames to start mining";
+                        if (framesSinceLastOrderTimerReset > 8)
+                        {
+                            inefficiency = true;
+                            CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
+                                             << ": worker waited too many frames to start mining (no reset)";
+                        }
+                        else if (statusFrames > (8 - framesSinceLastOrderTimerReset))
+                        {
+                            inefficiency = true;
+                            CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
+                                             << ": worker waited too many frames to start mining (reset)";
+                        }
                     }
                     break;
                 }
 
-                // Single worker waiting too long to leave the depot
+                // Single worker taking long path to depot or waiting too long to leave the depot
                 case 5:
                 {
-                    if (statusFrames > 6)
+                    if (statusFrames > 10)
                     {
                         inefficiency = true;
                         CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
@@ -416,54 +451,63 @@ namespace WorkerOrderTimer
     {
 #if TRACK_MINING_EFFICIENCY
         // Counts the number of frames each patch was mined and not mined, aligned to when a worker arrives at the patch
-        int framesMined = 0;
-        int framesNotMined = 0;
-        for (auto &[patch, miningStatus] : resourceToMiningStatus)
+        auto computeEfficiency = [](int waitState, int mineState)
         {
-            // Find last frame where the patch was about to be mined
-            int lastFrame = -1;
-            for (auto &[status, frame] : std::ranges::reverse_view(miningStatus)) {
-                if (status == 1)
-                {
-                    lastFrame = frame;
-                    break;
-                }
-            }
-            if (lastFrame == -1) continue;
-
-            // Loop all frames and count
-            bool foundFirstFrame = false;
-            for (auto &[status, frame] : miningStatus)
+            int framesMined = 0;
+            int framesNotMined = 0;
+            for (auto &[patch, miningStatus] : resourceToMiningStatus)
             {
-                if (frame >= lastFrame) break;
-
-                if (!foundFirstFrame)
-                {
-                    if (status == 1)
+                // Find last frame where the patch was about to be mined
+                int lastFrame = -1;
+                for (auto &[status, frame] : std::ranges::reverse_view(miningStatus)) {
+                    if (status == waitState)
                     {
-                        foundFirstFrame = true;
+                        lastFrame = frame;
+                        break;
+                    }
+                }
+                if (lastFrame == -1) continue;
+
+                // Loop all frames and count
+                bool foundFirstFrame = false;
+                for (auto &[status, frame] : miningStatus)
+                {
+                    if (frame >= lastFrame) break;
+
+                    if (!foundFirstFrame)
+                    {
+                        if (status == waitState)
+                        {
+                            foundFirstFrame = true;
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+
+                    // Don't count single worker statuses in double worker counts and vice versa
+                    if ((status >= 10) != (mineState >= 10)) continue;
+
+                    if (status == mineState)
+                    {
+                        framesMined++;
                     }
                     else
                     {
-                        continue;
+                        framesNotMined++;
                     }
                 }
-
-                if (status >= 10) continue;
-
-                if (status == 2)
-                {
-                    framesMined++;
-                }
-                else
-                {
-                    framesNotMined++;
-                }
             }
-        }
 
-        if (framesMined == 0 && framesNotMined == 0) return 0.0;
-        return (double)framesMined / (double)(framesMined + framesNotMined);
+            if (framesMined == 0 && framesNotMined == 0) return 0.0;
+            return (double)framesMined / (double)(framesMined + framesNotMined);
+        };
+
+        double singleWorkerEfficiency = computeEfficiency(1, 2);
+//        double doubleWorkerEfficiency = computeEfficiency(12, 10);
+
+        return singleWorkerEfficiency;
 #else
         return 0.0;
 #endif
