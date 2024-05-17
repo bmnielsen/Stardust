@@ -4,7 +4,7 @@ AI for StarCraft: Brood War
 ## About
 Stardust is written in C++ and uses [BWAPI](https://github.com/bwapi/bwapi) to play 1v1 Melee games of StarCraft: Brood War. Stardust plays as the Protoss race.
 
-To see Stardust play, check out the [SSCAIT ladder and live stream](https://sscaitournament.com/) and the [BASIL ladder](https://basil.bytekeeper.org/).
+To see Stardust play against other bots, [BASIL ladder](https://basil.bytekeeper.org/).
 
 Stardust is mostly optimized for AI vs. AI tournaments, but if you want to play against it, check out [SCHNAIL](https://schnail.com/).
 
