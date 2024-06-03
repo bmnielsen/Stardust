@@ -1,12 +1,10 @@
 #include "BWTest.h"
 #include "DoNothingModule.h"
-#include "DoNothingStrategyEngine.h"
 
-#include "Map.h"
-#include "Strategist.h"
-#include "TestMainArmyAttackBasePlay.h"
-#include "Plays/Macro/SaturateBases.h"
-#include "WorkerOrderTimer.h"
+#include <bwem.h>
+
+#include "Log.h"
+#include "CherryVis.h"
 #include "Geo.h"
 
 namespace
@@ -68,16 +66,273 @@ namespace
         return result;
     }
 
+    BWAPI::Unit getPatchUnit(BWAPI::TilePosition patchTile)
+    {
+        if (patchTile == BWAPI::TilePositions::Invalid) return nullptr;
+
+        for (auto &unit : BWAPI::Broodwar->getStaticNeutralUnits())
+        {
+            if (unit->getInitialTilePosition() == patchTile) return unit;
+        }
+
+        return nullptr;
+    }
+
+    BWAPI::Unit getDepotUnit(BWAPI::TilePosition depotTile)
+    {
+        if (depotTile == BWAPI::TilePositions::Invalid) return nullptr;
+
+        for (auto &unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (unit->getTilePosition() == depotTile) return unit;
+        }
+
+        return nullptr;
+    }
+
     class OptimizePatchModule : public DoNothingModule
     {
         BWAPI::TilePosition patchTile;
+        BWAPI::TilePosition depotTile;
+
+        int state;
+        int lastStateChange;
+        std::vector<BWAPI::Position> probeStartingPositions;
+        BWAPI::Unit probe;
 
     public:
-        OptimizePatchModule(BWAPI::TilePosition patchTile) : patchTile(patchTile) {}
+        explicit OptimizePatchModule(BWAPI::TilePosition patchTile)
+                : patchTile(patchTile)
+                , depotTile(BWAPI::TilePositions::Invalid)
+                , state(0)
+                , lastStateChange(0)
+                , probe(nullptr)
+        {}
+
+        void onStart() override
+        {
+            Log::initialize();
+            Log::SetDebug(true);
+            Log::SetOutputToConsole(true);
+            CherryVis::initialize();
+            CherryVis::setBoardValue("state", "initializing");
+
+            BWEM::Map::ResetInstance();
+            BWEM::Map::Instance().Initialize(BWAPI::BroodwarPtr);
+            BWEM::Map::Instance().EnableAutomaticPathAnalysis();
+            BWEM::Map::Instance().FindBasesForStartingLocations();
+
+            auto patch = getPatchUnit(patchTile);
+            if (!patch)
+            {
+                Log::Get() << "ERROR: Could not get patch unit";
+                return;
+            }
+
+            int bestDist = INT_MAX;
+            for (const auto &area : BWEM::Map::Instance().Areas())
+            {
+                for (const auto &base : area.Bases())
+                {
+                    int dist = base.Center().getApproxDistance(patch->getPosition());
+                    if (dist < bestDist)
+                    {
+                        depotTile = base.Location();
+                        bestDist = dist;
+                    }
+                }
+            }
+
+            if (depotTile == BWAPI::TilePositions::Invalid)
+            {
+                Log::Get() << "ERROR: Could not get depot tile";
+                return;
+            }
+
+            auto depotCenter = BWAPI::Position(depotTile) + BWAPI::Position(64, 48);
+
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, patch->getPosition());
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Observer,
+                                        depotCenter);
+
+            // Kill our starting workers so they can't get in the way
+            for (auto unit : BWAPI::Broodwar->self()->getUnits())
+            {
+                if (unit->getType().isWorker())
+                {
+                    BWAPI::Broodwar->killUnit(unit);
+                }
+            }
+
+            // Generate all positions we want to start mining from
+            // The "face" of the mineral patch in play is the one between the two closest corners
+            auto corners = {BWAPI::Position(patchTile),
+                            BWAPI::Position(patchTile) + BWAPI::Position(63, 0),
+                            BWAPI::Position(patchTile) + BWAPI::Position(0, 31),
+                            BWAPI::Position(patchTile) + BWAPI::Position(63, 31)};
+            BWAPI::Position closest = BWAPI::Positions::Invalid;
+            BWAPI::Position nextClosest = BWAPI::Positions::Invalid;
+            int closestDist = INT_MAX;
+            int nextClosestDist = INT_MAX;
+            for (const auto &corner : corners)
+            {
+                int dist = Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Nexus, depotCenter, corner);
+                if (dist < closestDist)
+                {
+                    nextClosestDist = closestDist;
+                    nextClosest = closest;
+
+                    closestDist = dist;
+                    closest = corner;
+                }
+                else if (dist < nextClosestDist)
+                {
+                    nextClosestDist = dist;
+                    nextClosest = corner;
+                }
+            }
+
+            if (closest.x == nextClosest.x)
+            {
+                for (int y = std::min(closest.y, nextClosest.y); y <= std::max(closest.y, nextClosest.y); y++)
+                {
+                    probeStartingPositions.emplace_back((BWAPI::Position(depotTile).x > closest.x) ? (closest.x + 11) : (closest.x - 11), y);
+                }
+            }
+            else
+            {
+                for (int x = std::min(closest.x, nextClosest.x); x <= std::max(closest.x, nextClosest.x); x++)
+                {
+                    probeStartingPositions.emplace_back(x, (BWAPI::Position(depotTile).y > closest.y) ? (closest.y + 11) : (closest.y - 11));
+                }
+            }
+
+            for (auto &pos : probeStartingPositions)
+            {
+                CherryVis::log() << "Starting position @ " << BWAPI::WalkPosition(pos) << "; " << pos;
+            }
+        }
 
         void onFrame() override
         {
+            currentFrame++;
 
+            auto patch = getPatchUnit(patchTile);
+            if (!patch || !depotTile.isValid() || probeStartingPositions.empty())
+            {
+                if (!patch)
+                {
+                    Log::Get() << "Complete; patch unit not available";
+                }
+                else if (!depotTile.isValid())
+                {
+                    Log::Get() << "Complete; depot tile not available";
+                }
+                else
+                {
+                    Log::Get() << "Complete; no more probe starting positions";
+                }
+                BWAPI::Broodwar->leaveGame();
+                CherryVis::frameEnd(currentFrame);
+                return;
+            }
+
+            auto depot = getDepotUnit(depotTile);
+            if (!depot)
+            {
+                CherryVis::setBoardValue("status", "creating-depot");
+                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                            BWAPI::UnitTypes::Protoss_Nexus,
+                                            Geo::CenterOfUnit(depotTile, BWAPI::UnitTypes::Protoss_Nexus));
+                CherryVis::frameEnd(currentFrame);
+                return;
+            }
+
+            auto currentStartingPosition = *probeStartingPositions.rbegin();
+
+            switch (state)
+            {
+                case 0:
+                {
+                    CherryVis::setBoardValue("status", "creating-probe");
+
+                    CherryVis::log() << "Creating probe @ " << BWAPI::WalkPosition(currentStartingPosition) << "; "
+                                     << currentStartingPosition;
+
+                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Probe, currentStartingPosition);
+                    state = 1;
+                    lastStateChange = currentFrame;
+                    break;
+                }
+                case 1:
+                {
+                    CherryVis::setBoardValue("status", "detecting-probe");
+
+                    // If it took too long to create the probe, this position is probably blocked
+                    if ((currentFrame - lastStateChange) > 10)
+                    {
+                        CherryVis::log() << "Gave up creating probe @ " << BWAPI::WalkPosition(currentStartingPosition) << "; "
+                                         << currentStartingPosition;
+
+                        state = 100;
+                        lastStateChange = currentFrame;
+                        break;
+                    }
+
+                    for (auto &unit : BWAPI::Broodwar->self()->getUnits())
+                    {
+                        if (unit->getType() == BWAPI::UnitTypes::Protoss_Probe)
+                        {
+                            CherryVis::log() << "Detected new probe @ " << BWAPI::WalkPosition(unit->getPosition()) << "; " << unit->getPosition();
+
+                            probe = unit;
+                            state = 2;
+                            lastStateChange = currentFrame;
+                        }
+                    }
+                }
+                case 2:
+                {
+                    CherryVis::setBoardValue("status", "waiting-to-kill-probe");
+                    if ((currentFrame - lastStateChange) > 50)
+                    {
+                        BWAPI::Broodwar->killUnit(probe);
+                        probe = nullptr;
+
+                        state = 100;
+                        lastStateChange = currentFrame;
+                        break;
+                    }
+
+                    break;
+                }
+                case 100:
+                {
+                    CherryVis::setBoardValue("status", "resetting-for-next-probe");
+                    if ((currentFrame - lastStateChange) > 10)
+                    {
+                        probeStartingPositions.pop_back();
+                        state = 0;
+                        lastStateChange = currentFrame;
+                        break;
+                    }
+
+                    break;
+                }
+            }
+
+            CherryVis::frameEnd(currentFrame);
+        }
+
+        void onEnd(bool isWinner) override
+        {
+            CherryVis::gameEnd();
+        }
+
+        void onUnitCreate(BWAPI::Unit unit) override
+        {
+            CherryVis::unitFirstSeen(unit);
         }
     };
 
@@ -95,7 +350,11 @@ namespace
 
             for (auto depot : BWAPI::Broodwar->self()->getUnits())
             {
-                if (!depot->getType().isResourceDepot()) continue;
+                if (!depot->getType().isResourceDepot())
+                {
+                    BWAPI::Broodwar->killUnit(depot);
+                    continue;
+                }
 
                 if (BWAPI::Broodwar->getFrameCount() == 10)
                 {
