@@ -103,25 +103,28 @@ namespace
         std::vector<BWAPI::Position> returnPath;
     };
 
+    struct PatchInfo
+    {
+        BWAPI::TilePosition depotTile;
+        std::vector<BWAPI::Position> probeStartingPositions;
+        std::map<BWAPI::Position, std::vector<MiningPath>> startingPositionToMiningPaths;
+    };
+
     class OptimizePatchModule : public DoNothingModule
     {
-        BWAPI::TilePosition patchTile;
-        BWAPI::TilePosition depotTile;
-
         int state;
         int lastStateChange;
-        std::vector<BWAPI::Position> probeStartingPositions;
         BWAPI::Unit probe;
 
-        std::map<BWAPI::Position, std::vector<MiningPath>> startingPositionToMiningPaths;
+        std::vector<BWAPI::TilePosition> patchTiles;
+        std::map<BWAPI::TilePosition, PatchInfo> tileToPatchInfo;
 
     public:
-        explicit OptimizePatchModule(BWAPI::TilePosition patchTile)
-                : patchTile(patchTile)
-                , depotTile(BWAPI::TilePositions::Invalid)
-                , state(0)
+        explicit OptimizePatchModule(const std::vector<BWAPI::TilePosition> &patchTiles)
+                : state(0)
                 , lastStateChange(0)
                 , probe(nullptr)
+                , patchTiles(patchTiles)
         {}
 
         void onStart() override
@@ -137,40 +140,6 @@ namespace
             BWEM::Map::Instance().EnableAutomaticPathAnalysis();
             BWEM::Map::Instance().FindBasesForStartingLocations();
 
-            auto patch = getPatchUnit(patchTile);
-            if (!patch)
-            {
-                Log::Get() << "ERROR: Could not get patch unit";
-                return;
-            }
-
-            int bestDist = INT_MAX;
-            for (const auto &area : BWEM::Map::Instance().Areas())
-            {
-                for (const auto &base : area.Bases())
-                {
-                    int dist = base.Center().getApproxDistance(patch->getPosition());
-                    if (dist < bestDist)
-                    {
-                        depotTile = base.Location();
-                        bestDist = dist;
-                    }
-                }
-            }
-
-            if (depotTile == BWAPI::TilePositions::Invalid)
-            {
-                Log::Get() << "ERROR: Could not get depot tile";
-                return;
-            }
-
-            auto depotCenter = BWAPI::Position(depotTile) + BWAPI::Position(64, 48);
-
-            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, patch->getPosition());
-            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                        BWAPI::UnitTypes::Protoss_Observer,
-                                        depotCenter);
-
             // Kill our starting workers so they can't get in the way
             for (auto unit : BWAPI::Broodwar->self()->getUnits())
             {
@@ -180,88 +149,148 @@ namespace
                 }
             }
 
-            // Generate all positions we want to start mining from
-            // The "face" of the mineral patch in play is the one between the two closest corners
-            auto corners = {BWAPI::Position(patchTile),
-                            BWAPI::Position(patchTile) + BWAPI::Position(63, 0),
-                            BWAPI::Position(patchTile) + BWAPI::Position(0, 31),
-                            BWAPI::Position(patchTile) + BWAPI::Position(63, 31)};
-            BWAPI::Position closest = BWAPI::Positions::Invalid;
-            BWAPI::Position nextClosest = BWAPI::Positions::Invalid;
-            int closestDist = INT_MAX;
-            int nextClosestDist = INT_MAX;
-            for (const auto &corner : corners)
-            {
-                int dist = Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Nexus, depotCenter, corner);
-                if (dist < closestDist)
-                {
-                    nextClosestDist = closestDist;
-                    nextClosest = closest;
+            std::set<BWAPI::Position> depotCenters;
 
-                    closestDist = dist;
-                    closest = corner;
-                }
-                else if (dist < nextClosestDist)
+            for (const auto &patchTile : patchTiles)
+            {
+                auto patch = getPatchUnit(patchTile);
+                if (!patch)
                 {
-                    nextClosestDist = dist;
-                    nextClosest = corner;
+                    Log::Get() << "ERROR: Could not get patch unit for patch @ " << patchTile;
+                    continue;
                 }
+
+                BWAPI::TilePosition depotTile = BWAPI::TilePositions::Invalid;
+                int bestDist = INT_MAX;
+                for (const auto &area : BWEM::Map::Instance().Areas())
+                {
+                    for (const auto &base : area.Bases())
+                    {
+                        int dist = base.Center().getApproxDistance(patch->getPosition());
+                        if (dist < bestDist)
+                        {
+                            depotTile = base.Location();
+                            bestDist = dist;
+                        }
+                    }
+                }
+
+                if (depotTile == BWAPI::TilePositions::Invalid)
+                {
+                    Log::Get() << "ERROR: Could not get depot tile for patch @ " << patchTile;
+                    continue;
+                }
+
+                auto depotCenter = BWAPI::Position(depotTile) + BWAPI::Position(64, 48);
+                depotCenters.insert(depotCenter);
+
+                // Generate all positions we want to start mining from
+                // The "face" of the mineral patch in play is the one between the two closest corners
+                auto corners = {BWAPI::Position(patchTile),
+                                BWAPI::Position(patchTile) + BWAPI::Position(63, 0),
+                                BWAPI::Position(patchTile) + BWAPI::Position(0, 31),
+                                BWAPI::Position(patchTile) + BWAPI::Position(63, 31)};
+                BWAPI::Position closest = BWAPI::Positions::Invalid;
+                BWAPI::Position nextClosest = BWAPI::Positions::Invalid;
+                int closestDist = INT_MAX;
+                int nextClosestDist = INT_MAX;
+                for (const auto &corner : corners)
+                {
+                    int dist = Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Nexus, depotCenter, corner);
+                    if (dist < closestDist)
+                    {
+                        nextClosestDist = closestDist;
+                        nextClosest = closest;
+
+                        closestDist = dist;
+                        closest = corner;
+                    }
+                    else if (dist < nextClosestDist)
+                    {
+                        nextClosestDist = dist;
+                        nextClosest = corner;
+                    }
+                }
+
+                std::vector<BWAPI::Position> probeStartingPositions;
+                if (closest.x == nextClosest.x)
+                {
+                    for (int y = std::min(closest.y, nextClosest.y) - 12; y <= std::max(closest.y, nextClosest.y) + 12; y+=4)
+                    {
+                        auto pos = BWAPI::Position((BWAPI::Position(depotTile).x > closest.x) ? (closest.x + 12) : (closest.x - 12), y);
+                        if (pos.isValid()) probeStartingPositions.emplace_back(pos);
+                    }
+                }
+                else
+                {
+                    for (int x = std::min(closest.x, nextClosest.x) - 12; x <= std::max(closest.x, nextClosest.x) + 12; x+=4)
+                    {
+                        auto pos = BWAPI::Position(x, (BWAPI::Position(depotTile).y > closest.y) ? (closest.y + 12) : (closest.y - 12));
+                        if (pos.isValid()) probeStartingPositions.emplace_back(pos);
+                    }
+                }
+
+                tileToPatchInfo.emplace(patchTile, PatchInfo{depotTile, probeStartingPositions});
             }
 
-            if (closest.x == nextClosest.x)
+            for (const auto &depotCenter : depotCenters)
             {
-                for (int y = std::min(closest.y, nextClosest.y) - 12; y <= std::max(closest.y, nextClosest.y) + 12; y++)
-                {
-                    auto pos = BWAPI::Position((BWAPI::Position(depotTile).x > closest.x) ? (closest.x + 12) : (closest.x - 12), y);
-                    if (pos.isValid()) probeStartingPositions.emplace_back(pos);
-                }
-            }
-            else
-            {
-                for (int x = std::min(closest.x, nextClosest.x) - 12; x <= std::max(closest.x, nextClosest.x) + 12; x++)
-                {
-                    auto pos = BWAPI::Position(x, (BWAPI::Position(depotTile).y > closest.y) ? (closest.y + 12) : (closest.y - 12));
-                    if (pos.isValid()) probeStartingPositions.emplace_back(pos);
-                }
+                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, depotCenter);
             }
         }
 
         void onFrame() override
         {
+            if (state == -1) return;
+
             currentFrame++;
 
-            auto patch = getPatchUnit(patchTile);
-            if (!patch || !depotTile.isValid() || probeStartingPositions.empty())
+            if (patchTiles.empty())
             {
-                if (!patch)
-                {
-                    Log::Get() << "Complete; patch unit not available";
-                }
-                else if (!depotTile.isValid())
-                {
-                    Log::Get() << "Complete; depot tile not available";
-                }
-                else
-                {
-                    Log::Get() << "Complete; no more probe starting positions";
-                }
+                Log::Get() << "Complete; no more patches to analyze";
+
+                // TODO Analyze and dump results
+
                 BWAPI::Broodwar->leaveGame();
+                CherryVis::frameEnd(currentFrame);
+                state = -1;
+                return;
+            }
+
+            auto &patchTile = *patchTiles.rbegin();
+
+            auto patch = getPatchUnit(patchTile);
+            if (!patch)
+            {
+                Log::Get() << "ERROR: Patch unit for " << patchTile << " not available";
+                patchTiles.pop_back();
                 CherryVis::frameEnd(currentFrame);
                 return;
             }
 
-            auto depot = getDepotUnit(depotTile);
+            auto &patchInfo = tileToPatchInfo[patchTile];
+            auto depot = getDepotUnit(patchInfo.depotTile);
             if (!depot)
             {
                 CherryVis::setBoardValue("status", "creating-depot");
                 BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
                                             BWAPI::UnitTypes::Protoss_Nexus,
-                                            Geo::CenterOfUnit(depotTile, BWAPI::UnitTypes::Protoss_Nexus));
+                                            Geo::CenterOfUnit(patchInfo.depotTile, BWAPI::UnitTypes::Protoss_Nexus));
                 CherryVis::frameEnd(currentFrame);
                 return;
             }
 
-            auto currentStartingPosition = *probeStartingPositions.rbegin();
+            auto &probeStartingPositions = patchInfo.probeStartingPositions;
+            auto &startingPositionToMiningPaths = patchInfo.startingPositionToMiningPaths;
+
+            if (probeStartingPositions.empty())
+            {
+                patchTiles.pop_back();
+                CherryVis::frameEnd(currentFrame);
+                return;
+            }
+
+            auto &currentStartingPosition = *probeStartingPositions.rbegin();
 
             auto setState = [&](int toState)
             {
@@ -412,11 +441,47 @@ namespace
         }
     };
 
-    void optimizePatch(BWTest &test, BWAPI::TilePosition patch)
+    void optimizeAllPatches(BWTest &test)
     {
-        test.myModule = [&patch]()
+        test.opponentModule = []()
         {
-            return new OptimizePatchModule(patch);
+            return new DoNothingModule();
+        };
+        test.opponentRace = BWAPI::Races::Protoss;
+        test.frameLimit = 1000000;
+        test.expectWin = false;
+        test.writeReplay = true;
+
+        std::vector<BWAPI::TilePosition> patches;
+
+        // Try to load the patch coordinates
+        std::ifstream file;
+        file.open((std::ostringstream() << dataBasePath << test.map->openbwHash << "_patches.csv").str());
+        if (!file.good())
+        {
+            std::cout << "No patches available for " << test.map->filename << std::endl;
+            return;
+        }
+        try
+        {
+            readCsvLine(file); // Header row; ignored
+            while (true)
+            {
+                auto line = readCsvLine(file);
+                if (line.size() != 2) break;
+
+                patches.emplace_back(std::stoi(line[0]), std::stoi(line[1]));
+            }
+        }
+        catch (std::exception &ex)
+        {
+            std::cout << "Exception caught attempting to read patch locations: " << ex.what() << std::endl;
+            return;
+        }
+
+        test.myModule = [&patches]()
+        {
+            return new OptimizePatchModule(patches);
         };
 
         // Remove the enemy's depot so we can test patches at that location
@@ -487,51 +552,6 @@ namespace
         };
 
         test.run();
-    }
-
-    void optimizeAllPatches(BWTest &test)
-    {
-        test.opponentModule = []()
-        {
-            return new DoNothingModule();
-        };
-        test.opponentRace = BWAPI::Races::Protoss;
-        test.frameLimit = 100000;
-        test.expectWin = false;
-        test.writeReplay = true;
-
-        std::vector<BWAPI::TilePosition> patches;
-
-        // Try to load the patch coordinates
-        std::ifstream file;
-        file.open((std::ostringstream() << dataBasePath << test.map->openbwHash << "_patches.csv").str());
-        if (!file.good())
-        {
-            std::cout << "No patches available for " << test.map->filename << std::endl;
-            return;
-        }
-        try
-        {
-            readCsvLine(file); // Header row; ignored
-            while (true)
-            {
-                auto line = readCsvLine(file);
-                if (line.size() != 2) break;
-
-                patches.emplace_back(std::stoi(line[0]), std::stoi(line[1]));
-            }
-        }
-        catch (std::exception &ex)
-        {
-            std::cout << "Exception caught attempting to read patch locations: " << ex.what() << std::endl;
-            return;
-        }
-
-        for (const auto &patch : patches)
-        {
-            optimizePatch(test, patch);
-            return;
-        }
     }
 }
 
