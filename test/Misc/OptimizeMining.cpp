@@ -185,49 +185,46 @@ namespace
                 depotCenters.insert(depotCenter);
 
                 // Generate all positions we want to start mining from
-                // The "face" of the mineral patch in play is the one between the two closest corners
-                auto corners = {BWAPI::Position(patchTile),
-                                BWAPI::Position(patchTile) + BWAPI::Position(63, 0),
-                                BWAPI::Position(patchTile) + BWAPI::Position(0, 31),
-                                BWAPI::Position(patchTile) + BWAPI::Position(63, 31)};
-                BWAPI::Position closest = BWAPI::Positions::Invalid;
-                BWAPI::Position nextClosest = BWAPI::Positions::Invalid;
-                int closestDist = INT_MAX;
-                int nextClosestDist = INT_MAX;
-                for (const auto &corner : corners)
-                {
-                    int dist = Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Nexus, depotCenter, corner);
-                    if (dist < closestDist)
-                    {
-                        nextClosestDist = closestDist;
-                        nextClosest = closest;
 
-                        closestDist = dist;
-                        closest = corner;
-                    }
-                    else if (dist < nextClosestDist)
-                    {
-                        nextClosestDist = dist;
-                        nextClosest = corner;
-                    }
-                }
+                auto topLeft = BWAPI::Position(patchTile) + BWAPI::Position(-12, -12);
+                auto topRight = BWAPI::Position(patchTile) + BWAPI::Position(75, -12);
+                auto bottomLeft = BWAPI::Position(patchTile) + BWAPI::Position(-12, 44);
+                auto bottomRight = BWAPI::Position(patchTile) + BWAPI::Position(76, 44);
+                auto center = BWAPI::Position(patchTile) + BWAPI::Position(32, 16);
+
+                bool left = (patchTile.x < (depotTile.x - 1));
+                bool hmid = !left && (patchTile.x < (depotTile.x + 4));
+                bool right = !left && !hmid;
+                bool top = (patchTile.y < depotTile.y);
+                bool vmid = !top && (patchTile.y < (depotTile.y + 3));
+                bool bottom = !top && !vmid;
 
                 std::vector<BWAPI::Position> probeStartingPositions;
-                if (closest.x == nextClosest.x)
+                auto addPosition = [&probeStartingPositions](int x, int y)
                 {
-                    for (int y = std::min(closest.y, nextClosest.y) - 12; y <= std::max(closest.y, nextClosest.y) + 12; y+=4)
+                    auto pos = BWAPI::Position(x, y);
+                    if (pos.isValid())
                     {
-                        auto pos = BWAPI::Position((BWAPI::Position(depotTile).x > closest.x) ? (closest.x + 12) : (closest.x - 12), y);
-                        if (pos.isValid()) probeStartingPositions.emplace_back(pos);
+                        probeStartingPositions.emplace_back(pos);
                     }
+                };
+
+                if (left)
+                {
+                    for (int y = topRight.y; y <= bottomRight.y; y += 4) addPosition(topRight.x, y);
+                    if (top) for (int x = center.x; x < bottomRight.x; x += 4) addPosition(x, bottomRight.y);
+                    if (bottom) for (int x = center.x; x < topRight.x; x += 4) addPosition(x, topRight.y);
+                }
+                else if (right)
+                {
+                    for (int y = topLeft.y; y <= bottomLeft.y; y += 4) addPosition(topLeft.x, y);
+                    if (top) for (int x = center.x; x > bottomLeft.x; x -= 4) addPosition(x, bottomLeft.y);
+                    if (bottom) for (int x = center.x; x > topLeft.x; x -= 4) addPosition(x, topLeft.y);
                 }
                 else
                 {
-                    for (int x = std::min(closest.x, nextClosest.x) - 12; x <= std::max(closest.x, nextClosest.x) + 12; x+=4)
-                    {
-                        auto pos = BWAPI::Position(x, (BWAPI::Position(depotTile).y > closest.y) ? (closest.y + 12) : (closest.y - 12));
-                        if (pos.isValid()) probeStartingPositions.emplace_back(pos);
-                    }
+                    if (top) for (int x = bottomLeft.x; x < bottomRight.x; x += 4) addPosition(x, bottomRight.y);
+                    if (bottom) for (int x = topLeft.x; x < topRight.x; x += 4) addPosition(x, topLeft.y);
                 }
 
                 tileToPatchInfo.emplace(patchTile, PatchInfo{depotTile, probeStartingPositions});
@@ -487,12 +484,9 @@ namespace
         // Remove the enemy's depot so we can test patches at that location
         test.onFrameOpponent = []()
         {
-            if (BWAPI::Broodwar->getFrameCount() == 1)
+            for (auto worker : BWAPI::Broodwar->self()->getUnits())
             {
-                for (auto worker : BWAPI::Broodwar->self()->getUnits())
-                {
-                    if (worker->getType().isWorker()) BWAPI::Broodwar->killUnit(worker);
-                }
+                if (worker->getType().isWorker()) BWAPI::Broodwar->killUnit(worker);
             }
 
             if (BWAPI::Broodwar->getFrameCount() == 10)
