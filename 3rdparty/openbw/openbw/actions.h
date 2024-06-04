@@ -1330,6 +1330,9 @@ struct action_functions: state_functions {
 			} else if (subtype == 2) {
 				int value = r.template get<int32_t>();
 				set_unit_energy(target, fp8::integer(value));
+			} else if (subtype == 3) {
+				int value = r.template get<int32_t>();
+				set_unit_resources(target, value);
 			} else error("unknown ext cheat unit subtype %d", subtype);
 		} else if (type == 1) {
 			int subtype = r.template get<uint8_t>();

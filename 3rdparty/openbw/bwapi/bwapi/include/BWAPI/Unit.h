@@ -2577,6 +2577,7 @@ namespace BWAPI
     virtual void setHitPoints(int value) = 0;
     virtual void setShields(int value) = 0;
     virtual void setEnergy(int value) = 0;
+    virtual void setResources(int value) = 0;
 
     ///@}
   };

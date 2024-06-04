@@ -2294,6 +2294,17 @@ void Unit::setEnergy(int value)
   impl->game_setup_helper.input_action(w.data(), w.size());
 }
 
+void Unit::setResources(int value)
+{
+  bwgame::sync_functions::dynamic_writer<> w;
+  w.template put<uint8_t>(210);
+  w.template put<uint8_t>(0);
+  w.template put<uint8_t>(3);
+  w.template put<uint16_t>(impl->funcs.get_unit_id(u).raw_value);
+  w.template put<int32_t>(value);
+  impl->game_setup_helper.input_action(w.data(), w.size());
+}
+
 
 Bullet::operator bool() const
 {

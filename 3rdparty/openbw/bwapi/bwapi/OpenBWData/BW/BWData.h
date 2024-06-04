@@ -417,6 +417,7 @@ struct Unit {
   void setHitPoints(int value);
   void setShields(int value);
   void setEnergy(int value);
+  void setResources(int value);
 };
 
 struct Bullet {

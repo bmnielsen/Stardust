@@ -231,4 +231,9 @@ namespace BWAPI
   {
     bwunit.setEnergy(value);
   }
+
+  void UnitImpl::setResources(int value)
+  {
+    bwunit.setResources(value);
+  }
 };
