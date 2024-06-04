@@ -346,57 +346,67 @@ namespace
         // Remove the enemy's depot so we can test patches at that location
         test.onFrameOpponent = []()
         {
-            if (BWAPI::Broodwar->getFrameCount() != 5 && BWAPI::Broodwar->getFrameCount() != 10) return;
-
-            for (auto depot : BWAPI::Broodwar->self()->getUnits())
+            if (BWAPI::Broodwar->getFrameCount() == 1)
             {
-                if (!depot->getType().isResourceDepot())
+                for (auto worker : BWAPI::Broodwar->self()->getUnits())
                 {
-                    BWAPI::Broodwar->killUnit(depot);
-                    continue;
+                    if (worker->getType().isWorker()) BWAPI::Broodwar->killUnit(worker);
                 }
+            }
 
-                if (BWAPI::Broodwar->getFrameCount() == 10)
+            if (BWAPI::Broodwar->getFrameCount() == 10)
+            {
+                for (auto depot : BWAPI::Broodwar->self()->getUnits())
                 {
-                    BWAPI::Broodwar->removeUnit(depot);
-                    return;
-                }
+                    if (!depot->getType().isResourceDepot())
+                    {
+                        continue;
+                    }
 
-                int totalX = 0;
-                int totalY = 0;
-                int count = 0;
-                for (auto mineral : BWAPI::Broodwar->getNeutralUnits())
-                {
-                    if (!mineral->getType().isMineralField()) continue;
-                    if (depot->getDistance(mineral) > 320) continue;
-                    totalX += mineral->getPosition().x;
-                    totalY += mineral->getPosition().y;
-                    count++;
-                }
+                    int totalX = 0;
+                    int totalY = 0;
+                    int count = 0;
+                    for (auto mineral : BWAPI::Broodwar->getNeutralUnits())
+                    {
+                        if (!mineral->getType().isMineralField()) continue;
+                        if (depot->getDistance(mineral) > 320) continue;
+                        totalX += mineral->getPosition().x;
+                        totalY += mineral->getPosition().y;
+                        count++;
+                    }
 
-                auto diffX = (totalX / count) - depot->getPosition().x;
-                auto diffY = (totalY / count) - depot->getPosition().y;
-                BWAPI::TilePosition pylon;
-                if (diffX > 0 && diffY > 0)
-                {
-                    pylon = depot->getTilePosition() + BWAPI::TilePosition(0, 3);
-                }
-                else if (diffX > 0 && diffY < 0)
-                {
-                    pylon = depot->getTilePosition() + BWAPI::TilePosition(-2, 0);
-                }
-                else if (diffX < 0 && diffY < 0)
-                {
-                    pylon = depot->getTilePosition() + BWAPI::TilePosition(4, 1);
-                }
-                else
-                {
-                    pylon = depot->getTilePosition() + BWAPI::TilePosition(2, -2);
-                }
+                    auto diffX = (totalX / count) - depot->getPosition().x;
+                    auto diffY = (totalY / count) - depot->getPosition().y;
+                    BWAPI::TilePosition pylon;
+                    if (diffX > 0 && diffY > 0)
+                    {
+                        pylon = depot->getTilePosition() + BWAPI::TilePosition(0, 3);
+                    }
+                    else if (diffX > 0 && diffY < 0)
+                    {
+                        pylon = depot->getTilePosition() + BWAPI::TilePosition(-2, 0);
+                    }
+                    else if (diffX < 0 && diffY < 0)
+                    {
+                        pylon = depot->getTilePosition() + BWAPI::TilePosition(4, 1);
+                    }
+                    else
+                    {
+                        pylon = depot->getTilePosition() + BWAPI::TilePosition(2, -2);
+                    }
 
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                            BWAPI::UnitTypes::Protoss_Pylon,
-                                            Geo::CenterOfUnit(pylon, BWAPI::UnitTypes::Protoss_Pylon));
+                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                                BWAPI::UnitTypes::Protoss_Pylon,
+                                                Geo::CenterOfUnit(pylon, BWAPI::UnitTypes::Protoss_Pylon));
+                }
+            }
+
+            if (BWAPI::Broodwar->getFrameCount() == 20)
+            {
+                for (auto depot : BWAPI::Broodwar->self()->getUnits())
+                {
+                    if (depot->getType().isResourceDepot()) BWAPI::Broodwar->killUnit(depot);
+                }
             }
         };
 
