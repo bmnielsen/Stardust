@@ -100,6 +100,8 @@ namespace
         std::vector<BWAPI::Position> probeStartingPositions;
         BWAPI::Unit probe;
 
+        std::vector<std::vector<BWAPI::Position>> gatherPaths;
+
     public:
         explicit OptimizePatchModule(BWAPI::TilePosition patchTile)
                 : patchTile(patchTile)
@@ -292,27 +294,82 @@ namespace
                             CherryVis::log() << "Detected new probe @ " << BWAPI::WalkPosition(unit->getPosition()) << "; " << unit->getPosition();
 
                             probe = unit;
+
+                            if (unit->getPosition() != currentStartingPosition)
+                            {
+                                CherryVis::log() << "Wrong position, assume this starting position is blocked";
+                                setState(100);
+                                break;
+                            }
+
                             setState(2);
+                            break;
                         }
                     }
+
+                    break;
                 }
                 case 2:
                 {
-                    CherryVis::setBoardValue("status", "waiting-to-kill-probe");
-                    if ((currentFrame - lastStateChange) > 50)
-                    {
-                        BWAPI::Broodwar->killUnit(probe);
-                        probe = nullptr;
+                    CherryVis::setBoardValue("status", "init-measuring-gather-paths");
 
+                    probe->gather(patch);
+                    gatherPaths.clear();
+
+                    setState(3);
+                    break;
+                }
+                case 3:
+                {
+                    CherryVis::setBoardValue("status", "measure-gather-paths-mine");
+
+                    if (!gatherPaths.empty())
+                    {
+                        auto &gatherPath = *gatherPaths.rbegin();
+                        if (probe->getPosition() != *gatherPath.rbegin())
+                        {
+                            gatherPath.push_back(probe->getPosition());
+                        }
+                    }
+
+                    if (gatherPaths.size() == 5 && probe->getDistance(patch) == 0)
+                    {
                         setState(100);
+                        break;
+                    }
+
+                    if (probe->isCarryingMinerals())
+                    {
+                        patch->setResources(patch->getInitialResources());
+                        gatherPaths.push_back({probe->getPosition()});
+                        setState(4);
                         break;
                     }
 
                     break;
                 }
+                case 4:
+                {
+                    auto &gatherPath = *gatherPaths.rbegin();
+                    if (probe->getPosition() != *gatherPath.rbegin())
+                    {
+                        gatherPath.push_back(probe->getPosition());
+                    }
+
+                    if (!probe->isCarryingMinerals()) setState(3);
+
+                    break;
+                }
                 case 100:
                 {
-                    CherryVis::setBoardValue("status", "resetting-for-next-probe");
+                    CherryVis::setBoardValue("status", "resetting");
+
+                    if (probe)
+                    {
+                        BWAPI::Broodwar->killUnit(probe);
+                        probe = nullptr;
+                    }
+
                     if ((currentFrame - lastStateChange) > 10)
                     {
                         probeStartingPositions.pop_back();
@@ -422,7 +479,7 @@ namespace
             return new DoNothingModule();
         };
         test.opponentRace = BWAPI::Races::Protoss;
-        test.frameLimit = 15000;
+        test.frameLimit = 100000;
         test.expectWin = false;
         test.writeReplay = true;
 
