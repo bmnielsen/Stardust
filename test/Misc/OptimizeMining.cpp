@@ -90,6 +90,19 @@ namespace
         return nullptr;
     }
 
+    struct MiningPath
+    {
+        explicit MiningPath(BWAPI::Position gatherPosition) : gatherPosition(gatherPosition), returnPosition(BWAPI::Positions::Invalid)
+        {
+            returnPath.emplace_back(gatherPosition);
+        }
+
+        BWAPI::Position gatherPosition;
+        BWAPI::Position returnPosition;
+        std::vector<BWAPI::Position> gatherPath;
+        std::vector<BWAPI::Position> returnPath;
+    };
+
     class OptimizePatchModule : public DoNothingModule
     {
         BWAPI::TilePosition patchTile;
@@ -100,7 +113,7 @@ namespace
         std::vector<BWAPI::Position> probeStartingPositions;
         BWAPI::Unit probe;
 
-        std::vector<std::vector<BWAPI::Position>> gatherPaths;
+        std::map<BWAPI::Position, std::vector<MiningPath>> startingPositionToMiningPaths;
 
     public:
         explicit OptimizePatchModule(BWAPI::TilePosition patchTile)
@@ -197,22 +210,19 @@ namespace
 
             if (closest.x == nextClosest.x)
             {
-                for (int y = std::min(closest.y, nextClosest.y); y <= std::max(closest.y, nextClosest.y); y++)
+                for (int y = std::min(closest.y, nextClosest.y) - 12; y <= std::max(closest.y, nextClosest.y) + 12; y++)
                 {
-                    probeStartingPositions.emplace_back((BWAPI::Position(depotTile).x > closest.x) ? (closest.x + 12) : (closest.x - 12), y);
+                    auto pos = BWAPI::Position((BWAPI::Position(depotTile).x > closest.x) ? (closest.x + 12) : (closest.x - 12), y);
+                    if (pos.isValid()) probeStartingPositions.emplace_back(pos);
                 }
             }
             else
             {
-                for (int x = std::min(closest.x, nextClosest.x); x <= std::max(closest.x, nextClosest.x); x++)
+                for (int x = std::min(closest.x, nextClosest.x) - 12; x <= std::max(closest.x, nextClosest.x) + 12; x++)
                 {
-                    probeStartingPositions.emplace_back(x, (BWAPI::Position(depotTile).y > closest.y) ? (closest.y + 12) : (closest.y - 12));
+                    auto pos = BWAPI::Position(x, (BWAPI::Position(depotTile).y > closest.y) ? (closest.y + 12) : (closest.y - 12));
+                    if (pos.isValid()) probeStartingPositions.emplace_back(pos);
                 }
-            }
-
-            for (auto &pos : probeStartingPositions)
-            {
-                CherryVis::log() << "Starting position @ " << BWAPI::WalkPosition(pos) << "; " << pos;
             }
         }
 
@@ -314,7 +324,7 @@ namespace
                     CherryVis::setBoardValue("status", "init-measuring-gather-paths");
 
                     probe->gather(patch);
-                    gatherPaths.clear();
+                    startingPositionToMiningPaths.emplace(currentStartingPosition, std::vector<MiningPath>());
 
                     setState(3);
                     break;
@@ -323,16 +333,18 @@ namespace
                 {
                     CherryVis::setBoardValue("status", "measure-gather-paths-mine");
 
-                    if (!gatherPaths.empty())
+                    auto &miningPaths = startingPositionToMiningPaths[currentStartingPosition];
+
+                    if (!miningPaths.empty())
                     {
-                        auto &gatherPath = *gatherPaths.rbegin();
-                        if (probe->getPosition() != *gatherPath.rbegin())
+                        auto &gatherPath = (*miningPaths.rbegin()).gatherPath;
+                        if (probe->getDistance(patch) != 0 || probe->getPosition() != *gatherPath.rbegin())
                         {
-                            gatherPath.push_back(probe->getPosition());
+                            gatherPath.emplace_back(probe->getPosition());
                         }
                     }
 
-                    if (gatherPaths.size() == 5 && probe->getDistance(patch) == 0)
+                    if (miningPaths.size() == 5 && probe->getDistance(patch) == 0)
                     {
                         setState(100);
                         break;
@@ -341,7 +353,7 @@ namespace
                     if (probe->isCarryingMinerals())
                     {
                         patch->setResources(patch->getInitialResources());
-                        gatherPaths.push_back({probe->getPosition()});
+                        miningPaths.emplace_back(probe->getPosition());
                         setState(4);
                         break;
                     }
@@ -350,10 +362,15 @@ namespace
                 }
                 case 4:
                 {
-                    auto &gatherPath = *gatherPaths.rbegin();
-                    if (probe->getPosition() != *gatherPath.rbegin())
+                    auto &miningPaths = startingPositionToMiningPaths[currentStartingPosition];
+                    auto &returnPath = (*miningPaths.rbegin()).returnPath;
+                    if (probe->getDistance(depot) != 0 || probe->getPosition() != *returnPath.rbegin())
                     {
-                        gatherPath.push_back(probe->getPosition());
+                        returnPath.push_back(probe->getPosition());
+                        if (probe->getDistance(depot) == 0)
+                        {
+                            (*miningPaths.rbegin()).returnPosition = probe->getPosition();
+                        }
                     }
 
                     if (!probe->isCarryingMinerals()) setState(3);
