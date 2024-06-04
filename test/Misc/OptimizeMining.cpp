@@ -197,14 +197,14 @@ namespace
             {
                 for (int y = std::min(closest.y, nextClosest.y); y <= std::max(closest.y, nextClosest.y); y++)
                 {
-                    probeStartingPositions.emplace_back((BWAPI::Position(depotTile).x > closest.x) ? (closest.x + 11) : (closest.x - 11), y);
+                    probeStartingPositions.emplace_back((BWAPI::Position(depotTile).x > closest.x) ? (closest.x + 12) : (closest.x - 12), y);
                 }
             }
             else
             {
                 for (int x = std::min(closest.x, nextClosest.x); x <= std::max(closest.x, nextClosest.x); x++)
                 {
-                    probeStartingPositions.emplace_back(x, (BWAPI::Position(depotTile).y > closest.y) ? (closest.y + 11) : (closest.y - 11));
+                    probeStartingPositions.emplace_back(x, (BWAPI::Position(depotTile).y > closest.y) ? (closest.y + 12) : (closest.y - 12));
                 }
             }
 
@@ -251,6 +251,12 @@ namespace
 
             auto currentStartingPosition = *probeStartingPositions.rbegin();
 
+            auto setState = [&](int toState)
+            {
+                state = toState;
+                lastStateChange = currentFrame;
+            };
+
             switch (state)
             {
                 case 0:
@@ -261,8 +267,8 @@ namespace
                                      << currentStartingPosition;
 
                     BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Probe, currentStartingPosition);
-                    state = 1;
-                    lastStateChange = currentFrame;
+
+                    setState(1);
                     break;
                 }
                 case 1:
@@ -275,8 +281,7 @@ namespace
                         CherryVis::log() << "Gave up creating probe @ " << BWAPI::WalkPosition(currentStartingPosition) << "; "
                                          << currentStartingPosition;
 
-                        state = 100;
-                        lastStateChange = currentFrame;
+                        setState(100);
                         break;
                     }
 
@@ -287,8 +292,7 @@ namespace
                             CherryVis::log() << "Detected new probe @ " << BWAPI::WalkPosition(unit->getPosition()) << "; " << unit->getPosition();
 
                             probe = unit;
-                            state = 2;
-                            lastStateChange = currentFrame;
+                            setState(2);
                         }
                     }
                 }
@@ -300,8 +304,7 @@ namespace
                         BWAPI::Broodwar->killUnit(probe);
                         probe = nullptr;
 
-                        state = 100;
-                        lastStateChange = currentFrame;
+                        setState(100);
                         break;
                     }
 
@@ -313,8 +316,7 @@ namespace
                     if ((currentFrame - lastStateChange) > 10)
                     {
                         probeStartingPositions.pop_back();
-                        state = 0;
-                        lastStateChange = currentFrame;
+                        setState(0);
                         break;
                     }
 
