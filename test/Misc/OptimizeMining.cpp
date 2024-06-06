@@ -101,6 +101,33 @@ namespace
         BWAPI::Position returnPosition;
         std::vector<BWAPI::Position> gatherPath;
         std::vector<BWAPI::Position> returnPath;
+
+        // Adapted from https://stackoverflow.com/questions/20511347/a-good-hash-function-for-a-vector/72073933#72073933
+        uint32_t hash()
+        {
+            uint32_t seed = gatherPath.size() + returnPath.size() + 2;
+            
+            auto addNumber = [&seed](uint32_t x)
+            {
+                x = ((x >> 16) ^ x) * 0x45d9f3b;
+                x = ((x >> 16) ^ x) * 0x45d9f3b;
+                x = (x >> 16) ^ x;
+                seed ^= x + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            };
+
+            auto addPosition = [&addNumber](const BWAPI::Position &pos)
+            {
+                addNumber(pos.x);
+                addNumber(pos.y);
+            };
+
+            addPosition(gatherPosition);
+            addPosition(returnPosition);
+            for (const auto &pos : gatherPath) addPosition(pos);
+            for (const auto &pos : returnPath) addPosition(pos);
+
+            return seed;
+        }
     };
 
     struct PatchInfo
