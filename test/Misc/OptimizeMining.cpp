@@ -92,7 +92,11 @@ namespace
 
     struct MiningPath
     {
-        explicit MiningPath(BWAPI::Position gatherPosition) : gatherPosition(gatherPosition), returnPosition(BWAPI::Positions::Invalid)
+        explicit MiningPath(BWAPI::Position gatherPosition)
+            : gatherPosition(gatherPosition)
+            , returnPosition(BWAPI::Positions::Invalid)
+            , hasCachedHash(false)
+            , cachedHash(0)
         {
             returnPath.emplace_back(gatherPosition);
         }
@@ -101,10 +105,14 @@ namespace
         BWAPI::Position returnPosition;
         std::vector<BWAPI::Position> gatherPath;
         std::vector<BWAPI::Position> returnPath;
+        bool hasCachedHash;
+        uint32_t cachedHash;
 
         // Adapted from https://stackoverflow.com/questions/20511347/a-good-hash-function-for-a-vector/72073933#72073933
         uint32_t hash()
         {
+            if (hasCachedHash) return cachedHash;
+
             uint32_t seed = gatherPath.size() + returnPath.size() + 2;
 
             auto addNumber = [&seed](uint32_t x)
@@ -126,15 +134,89 @@ namespace
             for (const auto &pos : gatherPath) addPosition(pos);
             for (const auto &pos : returnPath) addPosition(pos);
 
+            cachedHash = seed;
+            hasCachedHash = true;
             return seed;
+        }
+    };
+
+    struct StartingPositionInfo
+    {
+        BWAPI::TilePosition patchTile;
+        BWAPI::Position startingPosition;
+        std::vector<MiningPath> miningPaths;
+
+        bool stable = false;
+        size_t shortestLength = INT_MAX;
+        size_t longestLength = 0;
+
+        void finalize()
+        {
+            if (miningPaths.size() != 5)
+            {
+                Log::Get() << "ERROR: Start position " << startingPosition << " only has " << miningPaths.size() << " mining paths";
+                return;
+            }
+
+            // We look at the last three mining paths where we assume the path should have stabilized
+            for (int i = 2; i < 5; i++)
+            {
+                size_t length = miningPaths[i].gatherPath.size() + miningPaths[i].returnPath.size();
+                if (length < shortestLength) shortestLength = length;
+                if (length > longestLength) longestLength = length;
+            }
+
+            stable = (miningPaths[2].hash() == miningPaths[3].hash() && miningPaths[2].hash() == miningPaths[4].hash());
+
+            if (!stable)
+            {
+                CherryVis::log() << "Path unstable: shortest=" << shortestLength << "; longest=" << longestLength;
+            }
         }
     };
 
     struct PatchInfo
     {
+        BWAPI::TilePosition patchTile;
         BWAPI::TilePosition depotTile;
         std::vector<BWAPI::Position> probeStartingPositions;
-        std::map<BWAPI::Position, std::vector<MiningPath>> startingPositionToMiningPaths;
+        std::map<BWAPI::Position, StartingPositionInfo> startingPositionInfos;
+
+        void dumpResults()
+        {
+            int countStable = 0;
+            int countUnstable = 0;
+            std::vector<BWAPI::Position> unstableStartPositions;
+            std::vector<std::pair<BWAPI::Position, size_t>> stableStartPositionsWithLength;
+            size_t bestLength = INT_MAX;
+            for (auto &[startingPosition, startingPositionInfo] : startingPositionInfos)
+            {
+                if (startingPositionInfo.stable)
+                {
+                    countStable++;
+                    stableStartPositionsWithLength.emplace_back(startingPosition, startingPositionInfo.shortestLength);
+                    if (startingPositionInfo.shortestLength < bestLength) bestLength = startingPositionInfo.shortestLength;
+                }
+                else
+                {
+                    countUnstable++;
+                    unstableStartPositions.push_back(startingPosition);
+                }
+            }
+
+            std::vector<std::pair<BWAPI::Position, size_t>> pathsExceedingLength;
+            std::copy_if(
+                    stableStartPositionsWithLength.begin(),
+                    stableStartPositionsWithLength.end(),
+                    std::back_inserter(pathsExceedingLength),
+                    [&bestLength](const auto &posAndLength){ return posAndLength.second > bestLength; });
+
+            Log::Get() << "Patch " << patchTile << " results:"
+                << "\nStable paths: " << countStable
+                << "\nUnstable paths: " << countUnstable
+                << "\nBest length: " << bestLength
+                << "\nStable paths exceeding length: " << pathsExceedingLength.size();
+        }
     };
 
     class OptimizePatchModule : public DoNothingModule
@@ -268,7 +350,7 @@ namespace
                     if (bottom) for (int x = topLeft.x; x < topRight.x; x += 4) addPosition(x, topLeft.y);
                 }
 
-                tileToPatchInfo.emplace(patchTile, PatchInfo{depotTile, probeStartingPositions});
+                tileToPatchInfo.emplace(patchTile, PatchInfo{patchTile, depotTile, probeStartingPositions});
             }
 
             // Create an observer at each depot location so we have vision when we want to create it later
@@ -322,10 +404,9 @@ namespace
             }
 
             auto &probeStartingPositions = patchInfo.probeStartingPositions;
-            auto &startingPositionToMiningPaths = patchInfo.startingPositionToMiningPaths;
-
             if (probeStartingPositions.empty())
             {
+                patchInfo.dumpResults();
                 Log::Get() << "Finished analyzing " << patchTile << "; " << (patchTiles.size() - 1) << " remaining";
                 patchTiles.pop_back();
                 CherryVis::frameEnd(currentFrame);
@@ -333,6 +414,13 @@ namespace
             }
 
             auto &currentStartingPosition = *probeStartingPositions.rbegin();
+            auto startingPositionInfoIt = patchInfo.startingPositionInfos.find(currentStartingPosition);
+            if (startingPositionInfoIt == patchInfo.startingPositionInfos.end())
+            {
+                startingPositionInfoIt = patchInfo.startingPositionInfos.emplace(currentStartingPosition,
+                                                                                 StartingPositionInfo{patchTile, currentStartingPosition}).first;
+            }
+            auto &startingPositionInfo = startingPositionInfoIt->second;
 
             auto setState = [&](int toState)
             {
@@ -346,8 +434,7 @@ namespace
                 {
                     CherryVis::setBoardValue("status", "creating-probe");
 
-                    CherryVis::log() << "Creating probe @ " << BWAPI::WalkPosition(currentStartingPosition) << "; "
-                                     << currentStartingPosition;
+                    CherryVis::log() << "Starting case " << patchTile << " : " << currentStartingPosition;
 
                     BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Probe, currentStartingPosition);
 
@@ -372,8 +459,6 @@ namespace
                     {
                         if (unit->getType() == BWAPI::UnitTypes::Protoss_Probe)
                         {
-                            CherryVis::log() << "Detected new probe @ " << BWAPI::WalkPosition(unit->getPosition()) << "; " << unit->getPosition();
-
                             probe = unit;
 
                             if (unit->getPosition() != currentStartingPosition)
@@ -395,7 +480,6 @@ namespace
                     CherryVis::setBoardValue("status", "init-measuring-gather-paths");
 
                     probe->gather(patch);
-                    startingPositionToMiningPaths.emplace(currentStartingPosition, std::vector<MiningPath>());
 
                     setState(3);
                     break;
@@ -404,7 +488,7 @@ namespace
                 {
                     CherryVis::setBoardValue("status", "measure-gather-paths-mine");
 
-                    auto &miningPaths = startingPositionToMiningPaths[currentStartingPosition];
+                    auto &miningPaths = startingPositionInfo.miningPaths;
 
                     if (!miningPaths.empty())
                     {
@@ -433,7 +517,7 @@ namespace
                 }
                 case 4:
                 {
-                    auto &miningPaths = startingPositionToMiningPaths[currentStartingPosition];
+                    auto &miningPaths = startingPositionInfo.miningPaths;
                     auto &returnPath = (*miningPaths.rbegin()).returnPath;
                     if (probe->getDistance(depot) != 0 || probe->getPosition() != *returnPath.rbegin())
                     {
@@ -460,6 +544,7 @@ namespace
 
                     if ((currentFrame - lastStateChange) > 10)
                     {
+                        startingPositionInfo.finalize();
                         probeStartingPositions.pop_back();
                         setState(0);
                         break;
@@ -490,7 +575,7 @@ namespace
             return new DoNothingModule();
         };
         test.opponentRace = BWAPI::Races::Protoss;
-        test.frameLimit = 1000000;
+        test.frameLimit = 100000;
         test.expectWin = false;
         test.writeReplay = true;
 
