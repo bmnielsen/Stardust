@@ -106,7 +106,7 @@ namespace
         uint32_t hash()
         {
             uint32_t seed = gatherPath.size() + returnPath.size() + 2;
-            
+
             auto addNumber = [&seed](uint32_t x)
             {
                 x = ((x >> 16) ^ x) * 0x45d9f3b;
@@ -176,6 +176,20 @@ namespace
                 }
             }
 
+            // Generate a set of all blocked positions
+            std::set<std::pair<int, int>> blockedPositions;
+            for (const auto &patchTile : patchTiles)
+            {
+                auto pos = BWAPI::Position(patchTile);
+                for (int x = pos.x - 11; x < pos.x + 75; x++)
+                {
+                    for (int y = pos.y - 11; y < pos.y + 43; y++)
+                    {
+                        blockedPositions.emplace(x, y);
+                    }
+                }
+            }
+
             std::set<BWAPI::Position> depotCenters;
 
             for (const auto &patchTile : patchTiles)
@@ -215,8 +229,8 @@ namespace
 
                 auto topLeft = BWAPI::Position(patchTile) + BWAPI::Position(-12, -12);
                 auto topRight = BWAPI::Position(patchTile) + BWAPI::Position(75, -12);
-                auto bottomLeft = BWAPI::Position(patchTile) + BWAPI::Position(-12, 44);
-                auto bottomRight = BWAPI::Position(patchTile) + BWAPI::Position(76, 44);
+                auto bottomLeft = BWAPI::Position(patchTile) + BWAPI::Position(-12, 43);
+                auto bottomRight = BWAPI::Position(patchTile) + BWAPI::Position(75, 43);
                 auto center = BWAPI::Position(patchTile) + BWAPI::Position(32, 16);
 
                 bool left = (patchTile.x < (depotTile.x - 1));
@@ -227,10 +241,10 @@ namespace
                 bool bottom = !top && !vmid;
 
                 std::vector<BWAPI::Position> probeStartingPositions;
-                auto addPosition = [&probeStartingPositions](int x, int y)
+                auto addPosition = [&probeStartingPositions, &blockedPositions](int x, int y)
                 {
                     auto pos = BWAPI::Position(x, y);
-                    if (pos.isValid())
+                    if (pos.isValid() && !blockedPositions.contains(std::make_pair(x, y)))
                     {
                         probeStartingPositions.emplace_back(pos);
                     }
@@ -257,10 +271,13 @@ namespace
                 tileToPatchInfo.emplace(patchTile, PatchInfo{depotTile, probeStartingPositions});
             }
 
+            // Create an observer at each depot location so we have vision when we want to create it later
             for (const auto &depotCenter : depotCenters)
             {
                 BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, depotCenter);
             }
+
+            Log::Get() << "Initialized test; ready to optimize " << patchTiles.size() << " patches";
         }
 
         void onFrame() override
@@ -309,6 +326,7 @@ namespace
 
             if (probeStartingPositions.empty())
             {
+                Log::Get() << "Finished analyzing " << patchTile << "; " << (patchTiles.size() - 1) << " remaining";
                 patchTiles.pop_back();
                 CherryVis::frameEnd(currentFrame);
                 return;
