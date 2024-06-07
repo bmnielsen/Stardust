@@ -140,6 +140,27 @@ namespace
         }
     };
 
+    std::ostream &operator<<(std::ostream &os, const MiningPath &path)
+    {
+        auto outputPositionVector = [&os](const std::vector<BWAPI::Position> &positions)
+        {
+            std::string separator = "";
+            for (const auto &pos : positions)
+            {
+                os << separator << pos;
+                separator = ",";
+            }
+        };
+
+        os << "Start: " << path.gatherPosition << "; End: " << path.returnPosition;
+        os << "\nReturn: ";
+        outputPositionVector(path.returnPath);
+        os << "\nGather: ";
+        outputPositionVector(path.gatherPath);
+
+        return os;
+    }
+
     struct StartingPositionInfo
     {
         BWAPI::TilePosition patchTile;
@@ -171,6 +192,19 @@ namespace
             if (!stable)
             {
                 CherryVis::log() << "Path unstable: shortest=" << shortestLength << "; longest=" << longestLength;
+                if (longestLength > shortestLength)
+                {
+                    int shortest;
+                    int longest;
+                    for (int i = 2; i < 5; i++)
+                    {
+                        size_t length = miningPaths[i].gatherPath.size() + miningPaths[i].returnPath.size();
+                        if (length == shortestLength) shortest = i;
+                        if (length == longestLength) longest = i;
+                    }
+                    CherryVis::log() << "Shortest path (" << shortest << "): \n" << miningPaths[shortest];
+                    CherryVis::log() << "Longest path (" << longest << "): \n" << miningPaths[longest];
+                }
             }
         }
     };
@@ -505,6 +539,19 @@ namespace
                         break;
                     }
 
+                    // If the order timer might reset while the probe is returning minerals, resend the order
+                    // Otherwise we may see "random" deliveries that maintain speed and skew the results
+                    if (probe->getOrder() == BWAPI::Orders::MiningMinerals)
+                    {
+                        CherryVis::log(probe->getID()) << probe->getOrderTimer() << " - " << (150 - ((BWAPI::Broodwar->getFrameCount() - 8) % 150));
+
+                        int framesToReset = (150 - ((BWAPI::Broodwar->getFrameCount() - 8) % 150));
+                        if (framesToReset >= probe->getOrderTimer() && (framesToReset - probe->getOrderTimer()) < 70)
+                        {
+                            probe->gather(patch);
+                        }
+                    }
+
                     if (probe->isCarryingMinerals())
                     {
                         patch->setResources(patch->getInitialResources());
@@ -575,7 +622,7 @@ namespace
             return new DoNothingModule();
         };
         test.opponentRace = BWAPI::Races::Protoss;
-        test.frameLimit = 100000;
+        test.frameLimit = 10000000;
         test.expectWin = false;
         test.writeReplay = true;
 
