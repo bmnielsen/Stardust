@@ -30,10 +30,7 @@ namespace
         bool positionEquals(const BWAPI::Unit &unit) const
         {
             return x == unit->getPosition().x
-                   && y == unit->getPosition().y
-                   && abs(dx - int(unit->getVelocityX() * 100.0)) <= 1
-                   && abs(dy - int(unit->getVelocityY() * 100.0)) <= 1
-                   && abs(heading - int(unit->getAngle() * 100.0)) <= 1;
+                   && y == unit->getPosition().y;
         }
     };
 
