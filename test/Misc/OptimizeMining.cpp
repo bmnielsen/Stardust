@@ -11,6 +11,44 @@ namespace
 {
     const std::string dataBasePath = "/Users/bmnielsen/BW/mining-timings/";
 
+    struct PositionAndVelocity
+    {
+        explicit PositionAndVelocity(const BWAPI::Unit &unit)
+                : x(unit->getPosition().x)
+                , y(unit->getPosition().y)
+                , dx(int(unit->getVelocityX() * 1000.0))
+                , dy(int(unit->getVelocityY() * 1000.0))
+                , heading(int(unit->getAngle() * 1000.0))
+        {}
+
+        int x;
+        int y;
+        int dx;
+        int dy;
+        int heading;
+
+        bool positionEquals(const BWAPI::Unit &unit) const
+        {
+            return x == unit->getPosition().x
+                   && y == unit->getPosition().y
+                   && abs(dx - int(unit->getVelocityX() * 100.0)) <= 1
+                   && abs(dy - int(unit->getVelocityY() * 100.0)) <= 1
+                   && abs(heading - int(unit->getAngle() * 100.0)) <= 1;
+        }
+    };
+
+    std::ostream &operator<<(std::ostream &os, const PositionAndVelocity &positionAndVelocity)
+    {
+        os << "(x=" << positionAndVelocity.x
+           << ",y=" << positionAndVelocity.y
+           << ",dx=" << positionAndVelocity.dx
+           << ",dy=" << positionAndVelocity.dy
+           << ",h=" << positionAndVelocity.heading
+           << ")";
+
+        return os;
+    }
+
     void writePatchesFile(BWTest &test)
     {
         test.opponentModule = test.myModule = []()
@@ -92,19 +130,19 @@ namespace
 
     struct MiningPath
     {
-        explicit MiningPath(BWAPI::Position gatherPosition)
-            : gatherPosition(gatherPosition)
+        explicit MiningPath(const BWAPI::Unit &probe)
+            : gatherPosition(probe->getPosition())
             , returnPosition(BWAPI::Positions::Invalid)
             , hasCachedHash(false)
             , cachedHash(0)
         {
-            returnPath.emplace_back(gatherPosition);
+            returnPath.emplace_back(probe);
         }
 
         BWAPI::Position gatherPosition;
         BWAPI::Position returnPosition;
-        std::vector<BWAPI::Position> gatherPath;
-        std::vector<BWAPI::Position> returnPath;
+        std::vector<PositionAndVelocity> gatherPath;
+        std::vector<PositionAndVelocity> returnPath;
         bool hasCachedHash;
         uint32_t cachedHash;
 
@@ -128,11 +166,19 @@ namespace
                 addNumber(pos.x);
                 addNumber(pos.y);
             };
+            auto addPositionAndVelocity = [&addNumber](const PositionAndVelocity &pos)
+            {
+                addNumber(pos.x);
+                addNumber(pos.y);
+                addNumber(pos.dx);
+                addNumber(pos.dy);
+                addNumber(pos.heading);
+            };
 
             addPosition(gatherPosition);
             addPosition(returnPosition);
-            for (const auto &pos : gatherPath) addPosition(pos);
-            for (const auto &pos : returnPath) addPosition(pos);
+            for (const auto &pos : gatherPath) addPositionAndVelocity(pos);
+            for (const auto &pos : returnPath) addPositionAndVelocity(pos);
 
             cachedHash = seed;
             hasCachedHash = true;
@@ -142,7 +188,7 @@ namespace
 
     std::ostream &operator<<(std::ostream &os, const MiningPath &path)
     {
-        auto outputPositionVector = [&os](const std::vector<BWAPI::Position> &positions)
+        auto outputPositionVector = [&os](const std::vector<PositionAndVelocity> &positions)
         {
             std::string separator = "";
             for (const auto &pos : positions)
@@ -527,9 +573,9 @@ namespace
                     if (!miningPaths.empty())
                     {
                         auto &gatherPath = (*miningPaths.rbegin()).gatherPath;
-                        if (probe->getDistance(patch) != 0 || probe->getPosition() != *gatherPath.rbegin())
+                        if (probe->getDistance(patch) != 0 || !gatherPath.rbegin()->positionEquals(probe))
                         {
-                            gatherPath.emplace_back(probe->getPosition());
+                            gatherPath.emplace_back(probe);
                         }
                     }
 
@@ -555,7 +601,7 @@ namespace
                     if (probe->isCarryingMinerals())
                     {
                         patch->setResources(patch->getInitialResources());
-                        miningPaths.emplace_back(probe->getPosition());
+                        miningPaths.emplace_back(probe);
                         setState(4);
                         break;
                     }
@@ -566,9 +612,9 @@ namespace
                 {
                     auto &miningPaths = startingPositionInfo.miningPaths;
                     auto &returnPath = (*miningPaths.rbegin()).returnPath;
-                    if (probe->getDistance(depot) != 0 || probe->getPosition() != *returnPath.rbegin())
+                    if (probe->getDistance(depot) != 0 || !returnPath.rbegin()->positionEquals(probe))
                     {
-                        returnPath.push_back(probe->getPosition());
+                        returnPath.emplace_back(probe);
                         if (probe->getDistance(depot) == 0)
                         {
                             (*miningPaths.rbegin()).returnPosition = probe->getPosition();
@@ -622,7 +668,7 @@ namespace
             return new DoNothingModule();
         };
         test.opponentRace = BWAPI::Races::Protoss;
-        test.frameLimit = 10000000;
+        test.frameLimit = 30000;
         test.expectWin = false;
         test.writeReplay = true;
 
