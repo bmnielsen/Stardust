@@ -7,6 +7,8 @@
 #include "CherryVis.h"
 #include "Geo.h"
 
+#define START_POSITION_STEPS 1
+
 namespace
 {
     const std::string dataBasePath = "/Users/bmnielsen/BW/mining-timings/";
@@ -34,6 +36,7 @@ namespace
         }
     };
 
+#if LOGGING_ENABLED
     std::ostream &operator<<(std::ostream &os, const PositionAndVelocity &positionAndVelocity)
     {
         os << "(x=" << positionAndVelocity.x
@@ -45,6 +48,7 @@ namespace
 
         return os;
     }
+#endif
 
     void writePatchesFile(BWTest &test)
     {
@@ -183,6 +187,7 @@ namespace
         }
     };
 
+#if LOGGING_ENABLED
     std::ostream &operator<<(std::ostream &os, const MiningPath &path)
     {
         auto outputPositionVector = [&os](const std::vector<PositionAndVelocity> &positions)
@@ -203,6 +208,7 @@ namespace
 
         return os;
     }
+#endif
 
     struct StartingPositionInfo
     {
@@ -259,13 +265,14 @@ namespace
         std::vector<BWAPI::Position> probeStartingPositions;
         std::map<BWAPI::Position, StartingPositionInfo> startingPositionInfos;
 
-        void dumpResults()
+        void dumpResults(const std::string &dataFileSuffix, int batch)
         {
             int countStable = 0;
             int countUnstable = 0;
             std::vector<BWAPI::Position> unstableStartPositions;
             std::vector<std::pair<BWAPI::Position, size_t>> stableStartPositionsWithLength;
             size_t bestLength = INT_MAX;
+            std::set<int> stablePaths;
             for (auto &[startingPosition, startingPositionInfo] : startingPositionInfos)
             {
                 if (startingPositionInfo.stable)
@@ -273,6 +280,7 @@ namespace
                     countStable++;
                     stableStartPositionsWithLength.emplace_back(startingPosition, startingPositionInfo.shortestLength);
                     if (startingPositionInfo.shortestLength < bestLength) bestLength = startingPositionInfo.shortestLength;
+                    stablePaths.emplace(startingPositionInfo.miningPaths.rbegin()->hash());
                 }
                 else
                 {
@@ -290,9 +298,24 @@ namespace
 
             Log::Get() << "Patch " << patchTile << " results:"
                 << "\nStable paths: " << countStable
+                << "\nUnique stable paths: " << stablePaths.size()
                 << "\nUnstable paths: " << countUnstable
                 << "\nBest length: " << bestLength
                 << "\nStable paths exceeding length: " << pathsExceedingLength.size();
+
+            std::ofstream file;
+            file.open((std::ostringstream() << dataBasePath << BWAPI::Broodwar->mapHash() << "_" << dataFileSuffix << ".csv").str(),
+                      std::ofstream::app);
+            file << patchTile.x
+                 << ";" << patchTile.y
+                 << ";" << batch
+                 << ";" << countStable
+                 << ";" << stablePaths.size()
+                 << ";" << countUnstable
+                 << ";" << bestLength
+                 << ";" << pathsExceedingLength.size()
+                 << "\n";
+            file.close();
         }
     };
 
@@ -305,16 +328,23 @@ namespace
         std::vector<BWAPI::TilePosition> patchTiles;
         std::map<BWAPI::TilePosition, PatchInfo> tileToPatchInfo;
 
+        std::string dataFileSuffix;
+        int batch;
+
     public:
-        explicit OptimizePatchModule(const std::vector<BWAPI::TilePosition> &patchTiles)
+        explicit OptimizePatchModule(const std::vector<BWAPI::TilePosition> &patchTiles, const std::string &dataFileSuffix, int batch)
                 : state(0)
                 , lastStateChange(0)
                 , probe(nullptr)
                 , patchTiles(patchTiles)
+                , dataFileSuffix(dataFileSuffix)
+                , batch(batch)
         {}
 
         void onStart() override
         {
+            currentFrame = 0;
+
             Log::initialize();
             Log::SetDebug(true);
             Log::SetOutputToConsole(true);
@@ -337,9 +367,11 @@ namespace
 
             // Generate a set of all blocked positions
             std::set<std::pair<int, int>> blockedPositions;
-            for (const auto &patchTile : patchTiles)
+            for (const auto mineral : BWAPI::Broodwar->getStaticNeutralUnits())
             {
-                auto pos = BWAPI::Position(patchTile);
+                if (!mineral->getType().isMineralField()) continue;
+
+                auto pos = BWAPI::Position(mineral->getInitialTilePosition());
                 for (int x = pos.x - 11; x < pos.x + 75; x++)
                 {
                     for (int y = pos.y - 11; y < pos.y + 43; y++)
@@ -411,20 +443,20 @@ namespace
 
                 if (left)
                 {
-                    for (int y = topRight.y; y <= bottomRight.y; y += 4) addPosition(topRight.x, y);
-                    if (top) for (int x = center.x; x < bottomRight.x; x += 4) addPosition(x, bottomRight.y);
-                    if (bottom) for (int x = center.x; x < topRight.x; x += 4) addPosition(x, topRight.y);
+                    for (int y = topRight.y; y <= bottomRight.y; y += START_POSITION_STEPS) addPosition(topRight.x, y);
+                    if (top) for (int x = center.x; x < bottomRight.x; x += START_POSITION_STEPS) addPosition(x, bottomRight.y);
+                    if (bottom) for (int x = center.x; x < topRight.x; x += START_POSITION_STEPS) addPosition(x, topRight.y);
                 }
                 else if (right)
                 {
-                    for (int y = topLeft.y; y <= bottomLeft.y; y += 4) addPosition(topLeft.x, y);
-                    if (top) for (int x = center.x; x > bottomLeft.x; x -= 4) addPosition(x, bottomLeft.y);
-                    if (bottom) for (int x = center.x; x > topLeft.x; x -= 4) addPosition(x, topLeft.y);
+                    for (int y = topLeft.y; y <= bottomLeft.y; y += START_POSITION_STEPS) addPosition(topLeft.x, y);
+                    if (top) for (int x = center.x; x > bottomLeft.x; x -= START_POSITION_STEPS) addPosition(x, bottomLeft.y);
+                    if (bottom) for (int x = center.x; x > topLeft.x; x -= START_POSITION_STEPS) addPosition(x, topLeft.y);
                 }
                 else
                 {
-                    if (top) for (int x = bottomLeft.x; x < bottomRight.x; x += 4) addPosition(x, bottomRight.y);
-                    if (bottom) for (int x = topLeft.x; x < topRight.x; x += 4) addPosition(x, topLeft.y);
+                    if (top) for (int x = bottomLeft.x; x < bottomRight.x; x += START_POSITION_STEPS) addPosition(x, bottomRight.y);
+                    if (bottom) for (int x = topLeft.x; x < topRight.x; x += START_POSITION_STEPS) addPosition(x, topLeft.y);
                 }
 
                 tileToPatchInfo.emplace(patchTile, PatchInfo{patchTile, depotTile, probeStartingPositions});
@@ -436,7 +468,7 @@ namespace
                 BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, depotCenter);
             }
 
-            Log::Get() << "Initialized test; ready to optimize " << patchTiles.size() << " patches";
+            Log::Get() << "Initialized test; ready to optimize " << patchTiles.size() << " patch(es)";
         }
 
         void onFrame() override
@@ -483,7 +515,7 @@ namespace
             auto &probeStartingPositions = patchInfo.probeStartingPositions;
             if (probeStartingPositions.empty())
             {
-                patchInfo.dumpResults();
+                patchInfo.dumpResults(dataFileSuffix, batch);
                 Log::Get() << "Finished analyzing " << patchTile << "; " << (patchTiles.size() - 1) << " remaining";
                 patchTiles.pop_back();
                 CherryVis::frameEnd(currentFrame);
@@ -660,112 +692,182 @@ namespace
 
     void optimizeAllPatches(BWTest &test)
     {
-        test.opponentModule = []()
-        {
-            return new DoNothingModule();
-        };
-        test.opponentRace = BWAPI::Races::Protoss;
-        test.frameLimit = 30000;
-        test.expectWin = false;
-        test.writeReplay = true;
-
+        // Load all patches
         std::vector<BWAPI::TilePosition> patches;
-
-        // Try to load the patch coordinates
-        std::ifstream file;
-        file.open((std::ostringstream() << dataBasePath << test.map->openbwHash << "_patches.csv").str());
-        if (!file.good())
         {
-            std::cout << "No patches available for " << test.map->filename << std::endl;
-            return;
-        }
-        try
-        {
-            readCsvLine(file); // Header row; ignored
-            while (true)
+            std::ifstream file;
+            file.open((std::ostringstream() << dataBasePath << test.map->openbwHash << "_patches.csv").str());
+            if (!file.good())
             {
-                auto line = readCsvLine(file);
-                if (line.size() != 2) break;
-
-                patches.emplace_back(std::stoi(line[0]), std::stoi(line[1]));
+                std::cout << "No patches available for " << test.map->filename << std::endl;
+                return;
             }
-        }
-        catch (std::exception &ex)
-        {
-            std::cout << "Exception caught attempting to read patch locations: " << ex.what() << std::endl;
-            return;
-        }
-
-        test.myModule = [&patches]()
-        {
-            return new OptimizePatchModule(patches);
-        };
-
-        // Remove the enemy's depot so we can test patches at that location
-        test.onFrameOpponent = []()
-        {
-            for (auto worker : BWAPI::Broodwar->self()->getUnits())
+            try
             {
-                if (worker->getType().isWorker()) BWAPI::Broodwar->killUnit(worker);
-            }
-
-            if (BWAPI::Broodwar->getFrameCount() == 10)
-            {
-                for (auto depot : BWAPI::Broodwar->self()->getUnits())
+                readCsvLine(file); // Header row; ignored
+                while (true)
                 {
-                    if (!depot->getType().isResourceDepot())
-                    {
-                        continue;
-                    }
+                    auto line = readCsvLine(file);
+                    if (line.size() != 2) break;
 
-                    int totalX = 0;
-                    int totalY = 0;
-                    int count = 0;
-                    for (auto mineral : BWAPI::Broodwar->getNeutralUnits())
-                    {
-                        if (!mineral->getType().isMineralField()) continue;
-                        if (depot->getDistance(mineral) > 320) continue;
-                        totalX += mineral->getPosition().x;
-                        totalY += mineral->getPosition().y;
-                        count++;
-                    }
-
-                    auto diffX = (totalX / count) - depot->getPosition().x;
-                    auto diffY = (totalY / count) - depot->getPosition().y;
-                    BWAPI::TilePosition pylon;
-                    if (diffX > 0 && diffY > 0)
-                    {
-                        pylon = depot->getTilePosition() + BWAPI::TilePosition(0, 3);
-                    }
-                    else if (diffX > 0 && diffY < 0)
-                    {
-                        pylon = depot->getTilePosition() + BWAPI::TilePosition(-2, 0);
-                    }
-                    else if (diffX < 0 && diffY < 0)
-                    {
-                        pylon = depot->getTilePosition() + BWAPI::TilePosition(4, 1);
-                    }
-                    else
-                    {
-                        pylon = depot->getTilePosition() + BWAPI::TilePosition(2, -2);
-                    }
-
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                BWAPI::UnitTypes::Protoss_Pylon,
-                                                Geo::CenterOfUnit(pylon, BWAPI::UnitTypes::Protoss_Pylon));
+                    patches.emplace_back(std::stoi(line[0]), std::stoi(line[1]));
                 }
             }
-
-            if (BWAPI::Broodwar->getFrameCount() == 20)
+            catch (std::exception &ex)
             {
-                for (auto depot : BWAPI::Broodwar->self()->getUnits())
+                std::cout << "Exception caught attempting to read patch locations: " << ex.what() << std::endl;
+                return;
+            }
+            file.close();
+        }
+
+        // Clear the output file
+        {
+            std::ofstream file;
+            file.open((std::ostringstream() << dataBasePath << test.map->openbwHash << "_patchstats.csv").str(),
+                      std::ofstream::trunc);
+            file << "Patch Tile X;Patch Tile Y;Batch;Stable Paths;Unique Stable Paths;Unstable Paths;Best Length;Stable Paths Exceeding Length\n";
+            file.close();
+        }
+
+        // Repeatedly run until all patches have been analyzed
+        int batch = 0;
+        std::string baseReplayName = test.replayName;
+        do
+        {
+            batch++;
+            
+            test.opponentModule = []()
+            {
+                return new DoNothingModule();
+            };
+            test.opponentRace = BWAPI::Races::Protoss;
+            test.frameLimit = 500000;
+            test.timeLimit = 600;
+            test.expectWin = false;
+            test.writeReplay = true;
+
+            std::ostringstream replayName;
+            replayName << baseReplayName;
+            replayName << "_batch_" << batch;
+            test.replayName = replayName.str();
+
+            test.myModule = [&patches, &batch]()
+            {
+                std::vector<BWAPI::TilePosition> slice(
+                        patches.begin(),
+                        patches.begin() + std::min((size_t)5, patches.size())
+                );
+                return new OptimizePatchModule(slice, "patchstats", batch);
+            };
+
+            // Remove the enemy's depot so we can test patches at that location
+            test.onFrameOpponent = []()
+            {
+                for (auto worker : BWAPI::Broodwar->self()->getUnits())
                 {
-                    if (depot->getType().isResourceDepot()) BWAPI::Broodwar->killUnit(depot);
+                    if (worker->getType().isWorker()) BWAPI::Broodwar->killUnit(worker);
+                }
+
+                if (BWAPI::Broodwar->getFrameCount() == 10)
+                {
+                    for (auto depot : BWAPI::Broodwar->self()->getUnits())
+                    {
+                        if (!depot->getType().isResourceDepot())
+                        {
+                            continue;
+                        }
+
+                        int totalX = 0;
+                        int totalY = 0;
+                        int count = 0;
+                        for (auto mineral : BWAPI::Broodwar->getNeutralUnits())
+                        {
+                            if (!mineral->getType().isMineralField()) continue;
+                            if (depot->getDistance(mineral) > 320) continue;
+                            totalX += mineral->getPosition().x;
+                            totalY += mineral->getPosition().y;
+                            count++;
+                        }
+
+                        auto diffX = (totalX / count) - depot->getPosition().x;
+                        auto diffY = (totalY / count) - depot->getPosition().y;
+                        BWAPI::TilePosition pylon;
+                        if (diffX > 0 && diffY > 0)
+                        {
+                            pylon = depot->getTilePosition() + BWAPI::TilePosition(0, 3);
+                        }
+                        else if (diffX > 0 && diffY < 0)
+                        {
+                            pylon = depot->getTilePosition() + BWAPI::TilePosition(-2, 0);
+                        }
+                        else if (diffX < 0 && diffY < 0)
+                        {
+                            pylon = depot->getTilePosition() + BWAPI::TilePosition(4, 1);
+                        }
+                        else
+                        {
+                            pylon = depot->getTilePosition() + BWAPI::TilePosition(2, -2);
+                        }
+
+                        BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                                    BWAPI::UnitTypes::Protoss_Pylon,
+                                                    Geo::CenterOfUnit(pylon, BWAPI::UnitTypes::Protoss_Pylon));
+                    }
+                }
+
+                if (BWAPI::Broodwar->getFrameCount() == 20)
+                {
+                    for (auto depot : BWAPI::Broodwar->self()->getUnits())
+                    {
+                        if (depot->getType().isResourceDepot()) BWAPI::Broodwar->killUnit(depot);
+                    }
+                }
+            };
+
+            std::cout << "Starting analysis game with " << patches.size() << " patch(es) remaining" << std::endl;
+            test.run();
+
+            // Remove patches that have been analyzed
+            std::set<BWAPI::TilePosition> analyzedPatches;
+            {
+                std::ifstream file;
+                file.open((std::ostringstream() << dataBasePath << test.map->openbwHash << "_patchstats.csv").str());
+                if (!file.good())
+                {
+                    std::cout << "No patch stats available for " << test.map->filename << std::endl;
+                    return;
+                }
+                try
+                {
+                    readCsvLine(file); // Header row; ignored
+                    while (true)
+                    {
+                        auto line = readCsvLine(file);
+                        if (line.size() < 2) break;
+
+                        analyzedPatches.emplace(std::stoi(line[0]), std::stoi(line[1]));
+                    }
+                }
+                catch (std::exception &ex)
+                {
+                    std::cout << "Exception caught attempting to read patch stats: " << ex.what() << std::endl;
+                    return;
+                }
+                file.close();
+            }
+            for (auto it = patches.begin(); it != patches.end(); )
+            {
+                if (analyzedPatches.contains(*it))
+                {
+                    it = patches.erase(it);
+                }
+                else
+                {
+                    it++;
                 }
             }
-        };
-
-        test.run();
+        } while (!patches.empty());
     }
 }
 
