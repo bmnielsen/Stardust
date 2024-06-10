@@ -1,6 +1,7 @@
 #include "BWTest.h"
 #include "DoNothingModule.h"
 
+#include <ranges>
 #include <bwem.h>
 
 #include "Log.h"
@@ -210,6 +211,18 @@ namespace
     }
 #endif
 
+    std::ostream &operator<<(std::ostream &os, const std::vector<BWAPI::Position> &positions)
+    {
+        std::string separator = "";
+        for (const auto &pos : positions)
+        {
+            os << separator << pos;
+            separator = ",";
+        }
+
+        return os;
+    }
+
     struct StartingPositionInfo
     {
         BWAPI::TilePosition patchTile;
@@ -217,6 +230,7 @@ namespace
         std::vector<MiningPath> miningPaths;
 
         bool stable = false;
+        bool twoCycleStable = false;
         size_t shortestLength = INT_MAX;
         size_t longestLength = 0;
 
@@ -243,6 +257,7 @@ namespace
                 CherryVis::log() << "Path unstable: shortest=" << shortestLength << "; longest=" << longestLength;
                 if (longestLength > shortestLength)
                 {
+                    // Output the indexes of the shortest and longest paths
                     int shortest;
                     int longest;
                     for (int i = 2; i < 5; i++)
@@ -253,6 +268,11 @@ namespace
                     }
                     CherryVis::log() << "Shortest path (" << shortest << "): \n" << miningPaths[shortest];
                     CherryVis::log() << "Longest path (" << longest << "): \n" << miningPaths[longest];
+                }
+
+                if (miningPaths[1].hash() == miningPaths[3].hash() && miningPaths[2].hash() == miningPaths[4].hash())
+                {
+                    twoCycleStable = true;
                 }
             }
         }
@@ -269,6 +289,7 @@ namespace
         {
             int countStable = 0;
             int countUnstable = 0;
+            int countTwoCycleStable = 0;
             std::vector<BWAPI::Position> unstableStartPositions;
             std::vector<std::pair<BWAPI::Position, size_t>> stableStartPositionsWithLength;
             size_t bestLength = INT_MAX;
@@ -286,20 +307,25 @@ namespace
                 {
                     countUnstable++;
                     unstableStartPositions.push_back(startingPosition);
+
+                    if (startingPositionInfo.twoCycleStable)
+                    {
+                        countTwoCycleStable++;
+                    }
                 }
             }
 
-            std::vector<std::pair<BWAPI::Position, size_t>> pathsExceedingLength;
-            std::copy_if(
-                    stableStartPositionsWithLength.begin(),
-                    stableStartPositionsWithLength.end(),
-                    std::back_inserter(pathsExceedingLength),
-                    [&bestLength](const auto &posAndLength){ return posAndLength.second > bestLength; });
+            std::vector<BWAPI::Position> pathsExceedingLength;
+            auto result = stableStartPositionsWithLength
+                    | std::views::filter([&bestLength](const auto &posAndLength){ return posAndLength.second > bestLength; })
+                    | std::views::transform([](const auto &posAndLength){ return posAndLength.first; });
+            std::ranges::copy(result, std::back_inserter(pathsExceedingLength));
 
             Log::Get() << "Patch " << patchTile << " results:"
                 << "\nStable paths: " << countStable
                 << "\nUnique stable paths: " << stablePaths.size()
                 << "\nUnstable paths: " << countUnstable
+                << "\nTwo-cycle stable paths: " << countTwoCycleStable
                 << "\nBest length: " << bestLength
                 << "\nStable paths exceeding length: " << pathsExceedingLength.size();
 
@@ -312,8 +338,11 @@ namespace
                  << ";" << countStable
                  << ";" << stablePaths.size()
                  << ";" << countUnstable
+                 << ";" << countTwoCycleStable
                  << ";" << bestLength
                  << ";" << pathsExceedingLength.size()
+                 << ";" << unstableStartPositions
+                 << ";" << pathsExceedingLength
                  << "\n";
             file.close();
         }
@@ -726,7 +755,7 @@ namespace
             std::ofstream file;
             file.open((std::ostringstream() << dataBasePath << test.map->openbwHash << "_patchstats.csv").str(),
                       std::ofstream::trunc);
-            file << "Patch Tile X;Patch Tile Y;Batch;Stable Paths;Unique Stable Paths;Unstable Paths;Best Length;Stable Paths Exceeding Length\n";
+            file << "Patch Tile X;Patch Tile Y;Batch;Stable Paths;Unique Stable Paths;Unstable Paths;Two-Cycle Stable Paths;Best Length;Stable Paths Exceeding Length;Unstable Start Positions;Start Positions Exceeded Length\n";
             file.close();
         }
 
