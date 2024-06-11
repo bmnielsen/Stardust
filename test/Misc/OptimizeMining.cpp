@@ -30,10 +30,15 @@ namespace
         int dy;
         int heading;
 
-        bool positionEquals(const BWAPI::Unit &unit) const
+        [[nodiscard]] bool positionEquals(const BWAPI::Unit &unit) const
         {
             return x == unit->getPosition().x
                    && y == unit->getPosition().y;
+        }
+
+        [[nodiscard]] bool equals(const PositionAndVelocity &other) const
+        {
+            return x == other.x && y == other.y && dx == other.dx && dy == other.dy && heading == other.heading;
         }
     };
 
@@ -231,6 +236,7 @@ namespace
 
         bool stable = false;
         bool twoCycleStable = false;
+        int unstableType = 0; // 1 = extra time wait after return; 2 = extra time wait after gather; 3 = single extra frame; 4 = same length
         size_t shortestLength = INT_MAX;
         size_t longestLength = 0;
 
@@ -257,7 +263,7 @@ namespace
                 CherryVis::log() << "Path unstable: shortest=" << shortestLength << "; longest=" << longestLength;
                 if (longestLength > shortestLength)
                 {
-                    // Output the indexes of the shortest and longest paths
+                    // Get the indexes of the shortest and longest paths
                     int shortest;
                     int longest;
                     for (int i = 2; i < 5; i++)
@@ -266,8 +272,32 @@ namespace
                         if (length == shortestLength) shortest = i;
                         if (length == longestLength) longest = i;
                     }
+                    if (longestLength - shortestLength == 1)
+                    {
+                        unstableType = 3;
+                        CherryVis::log() << "One frame difference";
+                    }
+                    else if (longestLength - shortestLength == 11)
+                    {
+                        if (miningPaths[longest].gatherPath.begin()->equals(*(miningPaths[longest].gatherPath.begin() + 8)))
+                        {
+                            unstableType = 1;
+                            CherryVis::log() << "Delay after return";
+                        }
+                        else if (miningPaths[longest].returnPath.begin()->equals(*(miningPaths[longest].returnPath.begin() + 8)))
+                        {
+                            unstableType = 2;
+                            CherryVis::log() << "Delay after gather";
+                        }
+                    }
+
                     CherryVis::log() << "Shortest path (" << shortest << "): \n" << miningPaths[shortest];
                     CherryVis::log() << "Longest path (" << longest << "): \n" << miningPaths[longest];
+                }
+                else
+                {
+                    unstableType = 4;
+                    CherryVis::log() << "Same length";
                 }
 
                 if (miningPaths[1].hash() == miningPaths[3].hash() && miningPaths[2].hash() == miningPaths[4].hash())
@@ -290,6 +320,11 @@ namespace
             int countStable = 0;
             int countUnstable = 0;
             int countTwoCycleStable = 0;
+            int countUnstableReturnWait = 0;
+            int countUnstableGatherWait = 0;
+            int countUnstableOneFrame = 0;
+            int countUnstableSameLength = 0;
+            int countUnstableOther = 0;
             std::vector<BWAPI::Position> unstableStartPositions;
             std::vector<std::pair<BWAPI::Position, size_t>> stableStartPositionsWithLength;
             size_t bestLength = INT_MAX;
@@ -308,6 +343,25 @@ namespace
                     countUnstable++;
                     unstableStartPositions.push_back(startingPosition);
 
+                    switch (startingPositionInfo.unstableType)
+                    {
+                        case 0:
+                            countUnstableOther++;
+                            break;
+                        case 1:
+                            countUnstableReturnWait++;
+                            break;
+                        case 2:
+                            countUnstableGatherWait++;
+                            break;
+                        case 3:
+                            countUnstableOneFrame++;
+                            break;
+                        case 4:
+                            countUnstableSameLength++;
+                            break;
+                    }
+
                     if (startingPositionInfo.twoCycleStable)
                     {
                         countTwoCycleStable++;
@@ -325,6 +379,11 @@ namespace
                 << "\nStable paths: " << countStable
                 << "\nUnique stable paths: " << stablePaths.size()
                 << "\nUnstable paths: " << countUnstable
+                << "\nUnstable extra time after return: " << countUnstableReturnWait
+                << "\nUnstable extra time after gather: " << countUnstableGatherWait
+                << "\nUnstable one frame longer: " << countUnstableOneFrame
+                << "\nUnstable same length: " << countUnstableSameLength
+                << "\nUnstable other: " << countUnstableOther
                 << "\nTwo-cycle stable paths: " << countTwoCycleStable
                 << "\nBest length: " << bestLength
                 << "\nStable paths exceeding length: " << pathsExceedingLength.size();
@@ -338,6 +397,11 @@ namespace
                  << ";" << countStable
                  << ";" << stablePaths.size()
                  << ";" << countUnstable
+                 << ";" << countUnstableReturnWait
+                 << ";" << countUnstableGatherWait
+                 << ";" << countUnstableOneFrame
+                 << ";" << countUnstableSameLength
+                 << ";" << countUnstableOther
                  << ";" << countTwoCycleStable
                  << ";" << bestLength
                  << ";" << pathsExceedingLength.size()
@@ -540,6 +604,9 @@ namespace
                 CherryVis::frameEnd(currentFrame);
                 return;
             }
+
+            // Give initial workers time to be killed
+            if (currentFrame < 10) return;
 
             auto &probeStartingPositions = patchInfo.probeStartingPositions;
             if (probeStartingPositions.empty())
@@ -755,7 +822,7 @@ namespace
             std::ofstream file;
             file.open((std::ostringstream() << dataBasePath << test.map->openbwHash << "_patchstats.csv").str(),
                       std::ofstream::trunc);
-            file << "Patch Tile X;Patch Tile Y;Batch;Stable Paths;Unique Stable Paths;Unstable Paths;Two-Cycle Stable Paths;Best Length;Stable Paths Exceeding Length;Unstable Start Positions;Start Positions Exceeded Length\n";
+            file << "Patch Tile X;Patch Tile Y;Batch;Stable Paths;Unique Stable Paths;Unstable Paths;Unstable Wait After Return;Unstable Wait After Gather;Unstable One Frame;Unstable Same Length;Unstable Other;Two-Cycle Stable Paths;Best Length;Stable Paths Exceeding Length;Unstable Start Positions;Start Positions Exceeded Length\n";
             file.close();
         }
 
