@@ -141,7 +141,11 @@ namespace
             : gatherPosition(probe->getPosition())
             , returnPosition(BWAPI::Positions::Invalid)
             , hasCachedHash(false)
+            , hasCachedGatherHash(false)
+            , hasCachedReturnHash(false)
             , cachedHash(0)
+            , cachedGatherHash(0)
+            , cachedReturnHash(0)
         {
             returnPath.emplace_back(probe);
         }
@@ -151,7 +155,11 @@ namespace
         std::vector<PositionAndVelocity> gatherPath;
         std::vector<PositionAndVelocity> returnPath;
         bool hasCachedHash;
+        bool hasCachedGatherHash;
+        bool hasCachedReturnHash;
         uint32_t cachedHash;
+        uint32_t cachedGatherHash;
+        uint32_t cachedReturnHash;
 
         // Adapted from https://stackoverflow.com/questions/20511347/a-good-hash-function-for-a-vector/72073933#72073933
         uint32_t hash()
@@ -159,37 +167,60 @@ namespace
             if (hasCachedHash) return cachedHash;
 
             uint32_t seed = gatherPath.size() + returnPath.size() + 2;
-
-            auto addNumber = [&seed](uint32_t x)
-            {
-                x = ((x >> 16) ^ x) * 0x45d9f3b;
-                x = ((x >> 16) ^ x) * 0x45d9f3b;
-                x = (x >> 16) ^ x;
-                seed ^= x + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            };
-
-            auto addPosition = [&addNumber](const BWAPI::Position &pos)
-            {
-                addNumber(pos.x);
-                addNumber(pos.y);
-            };
-            auto addPositionAndVelocity = [&addNumber](const PositionAndVelocity &pos)
-            {
-                addNumber(pos.x);
-                addNumber(pos.y);
-                addNumber(pos.dx);
-                addNumber(pos.dy);
-                addNumber(pos.heading);
-            };
-
-            addPosition(gatherPosition);
-            addPosition(returnPosition);
-            for (const auto &pos : gatherPath) addPositionAndVelocity(pos);
-            for (const auto &pos : returnPath) addPositionAndVelocity(pos);
+            addPosition(gatherPosition, seed);
+            addPosition(returnPosition, seed);
+            for (const auto &pos : gatherPath) addPositionAndVelocity(pos, seed);
+            for (const auto &pos : returnPath) addPositionAndVelocity(pos, seed);
 
             cachedHash = seed;
             hasCachedHash = true;
             return seed;
+        }
+        uint32_t gatherHash()
+        {
+            if (hasCachedGatherHash) return cachedGatherHash;
+
+            uint32_t seed = gatherPath.size();
+            for (const auto &pos : gatherPath) addPositionAndVelocity(pos, seed);
+
+            cachedGatherHash = seed;
+            hasCachedGatherHash = true;
+            return seed;
+        }
+        uint32_t returnHash()
+        {
+            if (hasCachedReturnHash) return cachedReturnHash;
+
+            uint32_t seed = returnPath.size();
+            for (const auto &pos : returnPath) addPositionAndVelocity(pos, seed);
+
+            cachedReturnHash = seed;
+            hasCachedReturnHash = true;
+            return seed;
+        }
+
+    private:
+        void addNumber(uint32_t x, uint32_t &seed)
+        {
+            x = ((x >> 16) ^ x) * 0x45d9f3b;
+            x = ((x >> 16) ^ x) * 0x45d9f3b;
+            x = (x >> 16) ^ x;
+            seed ^= x + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+
+        void addPosition(const BWAPI::Position &pos, uint32_t &seed)
+        {
+            addNumber(pos.x, seed);
+            addNumber(pos.y, seed);
+        }
+
+        void addPositionAndVelocity(const PositionAndVelocity &pos, uint32_t &seed)
+        {
+            addNumber(pos.x, seed);
+            addNumber(pos.y, seed);
+            addNumber(pos.dx, seed);
+            addNumber(pos.dy, seed);
+            addNumber(pos.heading, seed);
         }
     };
 
@@ -236,7 +267,7 @@ namespace
 
         bool stable = false;
         bool twoCycleStable = false;
-        int unstableType = 0; // 1 = extra time wait after return; 2 = extra time wait after gather; 3 = single extra frame; 4 = same length
+        int unstableType = 0; // 1 = extra time wait after return; 2 = extra time wait after gather; 3 = single extra frame; 4 = same length; 5 = last two stable
         size_t shortestLength = INT_MAX;
         size_t longestLength = 0;
 
@@ -290,6 +321,10 @@ namespace
                             CherryVis::log() << "Delay after gather";
                         }
                     }
+                    else if (miningPaths[3].hash() == miningPaths[4].hash())
+                    {
+                        unstableType = 5;
+                    }
 
                     CherryVis::log() << "Shortest path (" << shortest << "): \n" << miningPaths[shortest];
                     CherryVis::log() << "Longest path (" << longest << "): \n" << miningPaths[longest];
@@ -315,7 +350,7 @@ namespace
         std::vector<BWAPI::Position> probeStartingPositions;
         std::map<BWAPI::Position, StartingPositionInfo> startingPositionInfos;
 
-        void dumpResults(const std::string &dataFileSuffix, int batch)
+        void dumpResults(int batch)
         {
             int countStable = 0;
             int countUnstable = 0;
@@ -324,11 +359,14 @@ namespace
             int countUnstableGatherWait = 0;
             int countUnstableOneFrame = 0;
             int countUnstableSameLength = 0;
+            int countUnstableSameLastTwo = 0;
             int countUnstableOther = 0;
             std::vector<BWAPI::Position> unstableStartPositions;
             std::vector<std::pair<BWAPI::Position, size_t>> stableStartPositionsWithLength;
             size_t bestLength = INT_MAX;
             std::set<int> stablePaths;
+            std::map<uint32_t, std::pair<BWAPI::Position, size_t>> uniqueGatherPaths;
+            std::map<uint32_t, std::pair<BWAPI::Position, size_t>> uniqueReturnPaths;
             for (auto &[startingPosition, startingPositionInfo] : startingPositionInfos)
             {
                 if (startingPositionInfo.stable)
@@ -360,12 +398,21 @@ namespace
                         case 4:
                             countUnstableSameLength++;
                             break;
+                        case 5:
+                            countUnstableSameLastTwo++;
+                            break;
                     }
 
                     if (startingPositionInfo.twoCycleStable)
                     {
                         countTwoCycleStable++;
                     }
+                }
+
+                for (size_t i = 0; i < startingPositionInfo.miningPaths.size(); i++)
+                {
+                    uniqueGatherPaths[startingPositionInfo.miningPaths[i].gatherHash()] = std::make_pair(startingPosition, i);
+                    uniqueReturnPaths[startingPositionInfo.miningPaths[i].returnHash()] = std::make_pair(startingPosition, i);
                 }
             }
 
@@ -383,32 +430,75 @@ namespace
                 << "\nUnstable extra time after gather: " << countUnstableGatherWait
                 << "\nUnstable one frame longer: " << countUnstableOneFrame
                 << "\nUnstable same length: " << countUnstableSameLength
+                << "\nUnstable same last two: " << countUnstableSameLastTwo
                 << "\nUnstable other: " << countUnstableOther
                 << "\nTwo-cycle stable paths: " << countTwoCycleStable
                 << "\nBest length: " << bestLength
                 << "\nStable paths exceeding length: " << pathsExceedingLength.size();
 
-            std::ofstream file;
-            file.open((std::ostringstream() << dataBasePath << BWAPI::Broodwar->mapHash() << "_" << dataFileSuffix << ".csv").str(),
-                      std::ofstream::app);
-            file << patchTile.x
-                 << ";" << patchTile.y
-                 << ";" << batch
-                 << ";" << countStable
-                 << ";" << stablePaths.size()
-                 << ";" << countUnstable
-                 << ";" << countUnstableReturnWait
-                 << ";" << countUnstableGatherWait
-                 << ";" << countUnstableOneFrame
-                 << ";" << countUnstableSameLength
-                 << ";" << countUnstableOther
-                 << ";" << countTwoCycleStable
-                 << ";" << bestLength
-                 << ";" << pathsExceedingLength.size()
-                 << ";" << unstableStartPositions
-                 << ";" << pathsExceedingLength
-                 << "\n";
-            file.close();
+            {
+                std::ofstream file;
+                file.open((std::ostringstream() << dataBasePath << BWAPI::Broodwar->mapHash() << "_patchstats.csv").str(),
+                          std::ofstream::app);
+                file << patchTile.x
+                     << ";" << patchTile.y
+                     << ";" << batch
+                     << ";" << countStable
+                     << ";" << stablePaths.size()
+                     << ";" << countUnstable
+                     << ";" << countUnstableReturnWait
+                     << ";" << countUnstableGatherWait
+                     << ";" << countUnstableOneFrame
+                     << ";" << countUnstableSameLength
+                     << ";" << countUnstableSameLastTwo
+                     << ";" << countUnstableOther
+                     << ";" << countTwoCycleStable
+                     << ";" << bestLength
+                     << ";" << pathsExceedingLength.size()
+                     << ";" << unstableStartPositions
+                     << ";" << pathsExceedingLength
+                     << "\n";
+                file.close();
+            }
+
+            {
+                std::ofstream file;
+                file.open((std::ostringstream() << dataBasePath << BWAPI::Broodwar->mapHash() << "_patchgatherpaths.csv").str(),
+                          std::ofstream::app);
+                for (const auto &[hash, startingPositionAndIteration] : uniqueGatherPaths)
+                {
+                    file << patchTile.x
+                         << ";" << patchTile.y
+                         << ";" << batch
+                         << ";" << hash
+                         << ";" << startingPositionAndIteration.first
+                         << ";" << startingPositionAndIteration.second
+                         << ";"
+                         << startingPositionInfos[startingPositionAndIteration.first].miningPaths[startingPositionAndIteration.second].gatherPath.size()
+                         << "\n";
+                }
+                file.close();
+
+            }
+
+            {
+                std::ofstream file;
+                file.open((std::ostringstream() << dataBasePath << BWAPI::Broodwar->mapHash() << "_patchreturnpaths.csv").str(),
+                          std::ofstream::app);
+                for (const auto &[hash, startingPositionAndIteration] : uniqueReturnPaths)
+                {
+                    file << patchTile.x
+                         << ";" << patchTile.y
+                         << ";" << batch
+                         << ";" << hash
+                         << ";" << startingPositionAndIteration.first
+                         << ";" << startingPositionAndIteration.second
+                         << ";"
+                         << startingPositionInfos[startingPositionAndIteration.first].miningPaths[startingPositionAndIteration.second].returnPath.size()
+                         << "\n";
+                }
+                file.close();
+            }
         }
     };
 
@@ -421,16 +511,14 @@ namespace
         std::vector<BWAPI::TilePosition> patchTiles;
         std::map<BWAPI::TilePosition, PatchInfo> tileToPatchInfo;
 
-        std::string dataFileSuffix;
         int batch;
 
     public:
-        explicit OptimizePatchModule(const std::vector<BWAPI::TilePosition> &patchTiles, const std::string &dataFileSuffix, int batch)
+        explicit OptimizePatchModule(const std::vector<BWAPI::TilePosition> &patchTiles, int batch)
                 : state(0)
                 , lastStateChange(0)
                 , probe(nullptr)
                 , patchTiles(patchTiles)
-                , dataFileSuffix(dataFileSuffix)
                 , batch(batch)
         {}
 
@@ -465,6 +553,7 @@ namespace
                 if (!mineral->getType().isMineralField()) continue;
 
                 auto pos = BWAPI::Position(mineral->getInitialTilePosition());
+                auto otherPos = mineral->getPosition() + BWAPI::Position(-mineral->getType().dimensionLeft(), -mineral->getType().dimensionUp());
                 for (int x = pos.x - 11; x < pos.x + 75; x++)
                 {
                     for (int y = pos.y - 11; y < pos.y + 43; y++)
@@ -611,7 +700,7 @@ namespace
             auto &probeStartingPositions = patchInfo.probeStartingPositions;
             if (probeStartingPositions.empty())
             {
-                patchInfo.dumpResults(dataFileSuffix, batch);
+                patchInfo.dumpResults(batch);
                 Log::Get() << "Finished analyzing " << patchTile << "; " << (patchTiles.size() - 1) << " remaining";
                 patchTiles.pop_back();
                 CherryVis::frameEnd(currentFrame);
@@ -817,12 +906,26 @@ namespace
             file.close();
         }
 
-        // Clear the output file
+        // Clear the output files
         {
             std::ofstream file;
             file.open((std::ostringstream() << dataBasePath << test.map->openbwHash << "_patchstats.csv").str(),
                       std::ofstream::trunc);
-            file << "Patch Tile X;Patch Tile Y;Batch;Stable Paths;Unique Stable Paths;Unstable Paths;Unstable Wait After Return;Unstable Wait After Gather;Unstable One Frame;Unstable Same Length;Unstable Other;Two-Cycle Stable Paths;Best Length;Stable Paths Exceeding Length;Unstable Start Positions;Start Positions Exceeded Length\n";
+            file << "Patch Tile X;Patch Tile Y;Batch;Stable Paths;Unique Stable Paths;Unstable Paths;Unstable Wait After Return;Unstable Wait After Gather;Unstable One Frame;Unstable Same Length;Unstable Same Last Two;Unstable Other;Two-Cycle Stable Paths;Best Length;Stable Paths Exceeding Length;Unstable Start Positions;Start Positions Exceeded Length\n";
+            file.close();
+        }
+        {
+            std::ofstream file;
+            file.open((std::ostringstream() << dataBasePath << test.map->openbwHash << "_patchgatherpaths.csv").str(),
+                      std::ofstream::trunc);
+            file << "Patch Tile X;Patch Tile Y;Batch;Path Hash;Starting Position;Iteration;Length\n";
+            file.close();
+        }
+        {
+            std::ofstream file;
+            file.open((std::ostringstream() << dataBasePath << test.map->openbwHash << "_patchreturnpaths.csv").str(),
+                      std::ofstream::trunc);
+            file << "Patch Tile X;Patch Tile Y;Batch;Path Hash;Starting Position;Iteration;Length\n";
             file.close();
         }
 
@@ -854,7 +957,7 @@ namespace
                         patches.begin(),
                         patches.begin() + std::min((size_t)5, patches.size())
                 );
-                return new OptimizePatchModule(slice, "patchstats", batch);
+                return new OptimizePatchModule(slice, batch);
             };
 
             // Remove the enemy's depot so we can test patches at that location
