@@ -345,8 +345,12 @@ namespace
 
     struct PatchInfo
     {
+        PatchInfo(BWAPI::TilePosition patchTile, const std::vector<BWAPI::Position> &probeStartingPositions)
+            : patchTile(patchTile)
+            , probeStartingPositions(probeStartingPositions)
+        {}
+
         BWAPI::TilePosition patchTile;
-        BWAPI::TilePosition depotTile;
         std::vector<BWAPI::Position> probeStartingPositions;
         std::map<BWAPI::Position, StartingPositionInfo> startingPositionInfos;
 
@@ -369,6 +373,8 @@ namespace
             std::map<uint32_t, std::pair<BWAPI::Position, size_t>> uniqueReturnPaths;
             for (auto &[startingPosition, startingPositionInfo] : startingPositionInfos)
             {
+                if (startingPositionInfo.miningPaths.size() != 5) continue;
+
                 if (startingPositionInfo.stable)
                 {
                     countStable++;
@@ -502,24 +508,214 @@ namespace
         }
     };
 
-    class OptimizePatchModule : public DoNothingModule
+    struct Depot
     {
+        explicit Depot(BWAPI::TilePosition tile)
+            : tile(tile)
+            , center(BWAPI::Position(tile) + BWAPI::Position(64, 48))
+            , state(0)
+            , lastStateChange(0)
+            , worker(nullptr)
+        {}
+
+        BWAPI::TilePosition tile;
+        BWAPI::Position center;
+        std::vector<PatchInfo> patches;
+
         int state;
         int lastStateChange;
-        BWAPI::Unit probe;
+        BWAPI::Unit worker;
 
+        void onFrame(int batch)
+        {
+            auto &patchInfo = *patches.rbegin();
+            auto &patchTile = patchInfo.patchTile;
+
+            auto patch = getPatchUnit(patchTile);
+            if (!patch)
+            {
+                Log::Get() << "ERROR: Patch unit for " << patchTile << " not available";
+                patches.pop_back();
+                CherryVis::frameEnd(currentFrame);
+                return;
+            }
+
+            auto depot = getDepotUnit(tile);
+            if (!depot)
+            {
+                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Nexus, center);
+                return;
+            }
+
+            auto &probeStartingPositions = patchInfo.probeStartingPositions;
+            if (probeStartingPositions.empty())
+            {
+                patchInfo.dumpResults(batch);
+                patches.pop_back();
+                return;
+            }
+
+            auto &currentStartingPosition = *probeStartingPositions.rbegin();
+            auto startingPositionInfoIt = patchInfo.startingPositionInfos.find(currentStartingPosition);
+            if (startingPositionInfoIt == patchInfo.startingPositionInfos.end())
+            {
+                startingPositionInfoIt = patchInfo.startingPositionInfos.emplace(currentStartingPosition,
+                                                                                 StartingPositionInfo{patchTile, currentStartingPosition}).first;
+            }
+            auto &startingPositionInfo = startingPositionInfoIt->second;
+
+            auto setState = [&](int toState)
+            {
+                state = toState;
+                lastStateChange = currentFrame;
+            };
+
+            switch (state)
+            {
+                case 0:
+                {
+                    CherryVis::log() << "Case " << patchTile << ":" << currentStartingPosition << ": starting";
+
+                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Probe, currentStartingPosition);
+
+                    setState(1);
+                    break;
+                }
+                case 1:
+                {
+                    // If it took too long to create the worker, this position is probably blocked
+                    if ((currentFrame - lastStateChange) > 10)
+                    {
+                        CherryVis::log() << "Case " << patchTile << ":" << currentStartingPosition << ": gave up creating worker";
+
+                        setState(100);
+                        break;
+                    }
+
+                    for (auto &unit : BWAPI::Broodwar->self()->getUnits())
+                    {
+                        if (!unit->getType().isWorker()) continue;
+
+                        int dist = unit->getDistance(depot);
+                        if (dist > 400) continue;
+
+                        worker = unit;
+
+                        if (unit->getPosition() != currentStartingPosition)
+                        {
+                            CherryVis::log() << "Case " << patchTile << ":" << currentStartingPosition << ": wrong position "
+                                             << unit->getPosition() << "; assume this starting position is blocked";
+                            setState(100);
+                            break;
+                        }
+
+                        setState(2);
+                        break;
+                    }
+
+                    break;
+                }
+                case 2:
+                {
+                    worker->gather(patch);
+
+                    setState(3);
+                    break;
+                }
+                case 3:
+                {
+                    auto &miningPaths = startingPositionInfo.miningPaths;
+
+                    if (!miningPaths.empty())
+                    {
+                        auto &gatherPath = (*miningPaths.rbegin()).gatherPath;
+                        if (worker->getDistance(patch) != 0 || !gatherPath.rbegin()->positionEquals(worker))
+                        {
+                            gatherPath.emplace_back(worker);
+                        }
+                    }
+
+                    if (miningPaths.size() == 5 && worker->getDistance(patch) == 0)
+                    {
+                        setState(100);
+                        break;
+                    }
+
+                    // If the order timer might reset while the worker is returning minerals, resend the order
+                    // Otherwise we may see "random" deliveries that maintain speed and skew the results
+                    if (worker->getOrder() == BWAPI::Orders::MiningMinerals)
+                    {
+                        CherryVis::log(worker->getID()) << worker->getOrderTimer() << " - " << (150 - ((BWAPI::Broodwar->getFrameCount() - 8) % 150));
+
+                        int framesToReset = (150 - ((BWAPI::Broodwar->getFrameCount() - 8) % 150));
+                        if (framesToReset >= worker->getOrderTimer() && (framesToReset - worker->getOrderTimer()) < 70)
+                        {
+                            worker->gather(patch);
+                        }
+                    }
+
+                    if (worker->isCarryingMinerals())
+                    {
+                        patch->setResources(patch->getInitialResources());
+                        miningPaths.emplace_back(worker);
+                        setState(4);
+                        break;
+                    }
+
+                    break;
+                }
+                case 4:
+                {
+                    auto &miningPaths = startingPositionInfo.miningPaths;
+                    auto &returnPath = (*miningPaths.rbegin()).returnPath;
+                    if (worker->getDistance(depot) != 0 || !returnPath.rbegin()->positionEquals(worker))
+                    {
+                        returnPath.emplace_back(worker);
+                        if (worker->getDistance(depot) == 0)
+                        {
+                            (*miningPaths.rbegin()).returnPosition = worker->getPosition();
+                        }
+                    }
+
+                    if (!worker->isCarryingMinerals()) setState(3);
+
+                    break;
+                }
+                case 100:
+                {
+                    if (worker)
+                    {
+                        BWAPI::Broodwar->killUnit(worker);
+                        worker = nullptr;
+                    }
+
+                    if ((currentFrame - lastStateChange) > 10)
+                    {
+                        startingPositionInfo.finalize();
+                        probeStartingPositions.pop_back();
+                        setState(0);
+                        break;
+                    }
+
+                    break;
+                }
+            }
+        }
+    };
+
+    class OptimizePatchModule : public DoNothingModule
+    {
         std::vector<BWAPI::TilePosition> patchTiles;
-        std::map<BWAPI::TilePosition, PatchInfo> tileToPatchInfo;
-
         int batch;
+        int patchesPerDepot;
+
+        std::vector<Depot> depots;
 
     public:
-        explicit OptimizePatchModule(const std::vector<BWAPI::TilePosition> &patchTiles, int batch)
-                : state(0)
-                , lastStateChange(0)
-                , probe(nullptr)
-                , patchTiles(patchTiles)
+        explicit OptimizePatchModule(const std::vector<BWAPI::TilePosition> &patchTiles, int batch, int patchesPerDepot)
+                : patchTiles(patchTiles)
                 , batch(batch)
+                , patchesPerDepot(patchesPerDepot)
         {}
 
         void onStart() override
@@ -530,7 +726,6 @@ namespace
             Log::SetDebug(true);
             Log::SetOutputToConsole(true);
             CherryVis::initialize();
-            CherryVis::setBoardValue("state", "initializing");
 
             BWEM::Map::ResetInstance();
             BWEM::Map::Instance().Initialize(BWAPI::BroodwarPtr);
@@ -553,7 +748,6 @@ namespace
                 if (!mineral->getType().isMineralField()) continue;
 
                 auto pos = BWAPI::Position(mineral->getInitialTilePosition());
-                auto otherPos = mineral->getPosition() + BWAPI::Position(-mineral->getType().dimensionLeft(), -mineral->getType().dimensionUp());
                 for (int x = pos.x - 11; x < pos.x + 75; x++)
                 {
                     for (int y = pos.y - 11; y < pos.y + 43; y++)
@@ -563,8 +757,15 @@ namespace
                 }
             }
 
-            std::set<BWAPI::Position> depotCenters;
-
+            // Match all patches to depots
+            auto getOrAddDepot = [this](BWAPI::TilePosition tile) -> Depot&
+            {
+                for (auto &depot : depots)
+                {
+                    if (depot.tile == tile) return depot;
+                }
+                return depots.emplace_back(tile);
+            };
             for (const auto &patchTile : patchTiles)
             {
                 auto patch = getPatchUnit(patchTile);
@@ -595,8 +796,9 @@ namespace
                     continue;
                 }
 
-                auto depotCenter = BWAPI::Position(depotTile) + BWAPI::Position(64, 48);
-                depotCenters.insert(depotCenter);
+                auto &depot = getOrAddDepot(depotTile);
+
+                if (depot.patches.size() >= patchesPerDepot) continue;
 
                 // Generate all positions we want to start mining from
 
@@ -641,13 +843,13 @@ namespace
                     if (bottom) for (int x = topLeft.x; x < topRight.x; x += START_POSITION_STEPS) addPosition(x, topLeft.y);
                 }
 
-                tileToPatchInfo.emplace(patchTile, PatchInfo{patchTile, depotTile, probeStartingPositions});
+                depot.patches.emplace_back(patchTile, probeStartingPositions);
             }
 
-            // Create an observer at each depot location so we have vision when we want to create it later
-            for (const auto &depotCenter : depotCenters)
+            // Create an observer at each depot location so we have vision when we want to create them later
+            for (const auto &depot : depots)
             {
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, depotCenter);
+                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, depot.center);
             }
 
             Log::Get() << "Initialized test; ready to optimize " << patchTiles.size() << " patch(es)";
@@ -655,209 +857,28 @@ namespace
 
         void onFrame() override
         {
-            if (state == -1) return;
-
             currentFrame++;
-
-            if (patchTiles.empty())
-            {
-                Log::Get() << "Complete; no more patches to analyze";
-
-                // TODO Analyze and dump results
-
-                BWAPI::Broodwar->leaveGame();
-                CherryVis::frameEnd(currentFrame);
-                state = -1;
-                return;
-            }
-
-            auto &patchTile = *patchTiles.rbegin();
-
-            auto patch = getPatchUnit(patchTile);
-            if (!patch)
-            {
-                Log::Get() << "ERROR: Patch unit for " << patchTile << " not available";
-                patchTiles.pop_back();
-                CherryVis::frameEnd(currentFrame);
-                return;
-            }
-
-            auto &patchInfo = tileToPatchInfo[patchTile];
-            auto depot = getDepotUnit(patchInfo.depotTile);
-            if (!depot)
-            {
-                CherryVis::setBoardValue("status", "creating-depot");
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                            BWAPI::UnitTypes::Protoss_Nexus,
-                                            Geo::CenterOfUnit(patchInfo.depotTile, BWAPI::UnitTypes::Protoss_Nexus));
-                CherryVis::frameEnd(currentFrame);
-                return;
-            }
 
             // Give initial workers time to be killed
             if (currentFrame < 10) return;
 
-            auto &probeStartingPositions = patchInfo.probeStartingPositions;
-            if (probeStartingPositions.empty())
+            if (depots.empty())
             {
-                patchInfo.dumpResults(batch);
-                Log::Get() << "Finished analyzing " << patchTile << "; " << (patchTiles.size() - 1) << " remaining";
-                patchTiles.pop_back();
+                BWAPI::Broodwar->leaveGame();
                 CherryVis::frameEnd(currentFrame);
                 return;
             }
 
-            auto &currentStartingPosition = *probeStartingPositions.rbegin();
-            auto startingPositionInfoIt = patchInfo.startingPositionInfos.find(currentStartingPosition);
-            if (startingPositionInfoIt == patchInfo.startingPositionInfos.end())
+            for (auto it = depots.begin(); it != depots.end();)
             {
-                startingPositionInfoIt = patchInfo.startingPositionInfos.emplace(currentStartingPosition,
-                                                                                 StartingPositionInfo{patchTile, currentStartingPosition}).first;
-            }
-            auto &startingPositionInfo = startingPositionInfoIt->second;
-
-            auto setState = [&](int toState)
-            {
-                state = toState;
-                lastStateChange = currentFrame;
-            };
-
-            switch (state)
-            {
-                case 0:
+                if (it->patches.empty())
                 {
-                    CherryVis::setBoardValue("status", "creating-probe");
-
-                    CherryVis::log() << "Starting case " << patchTile << " : " << currentStartingPosition;
-
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Probe, currentStartingPosition);
-
-                    setState(1);
-                    break;
+                    it = depots.erase(it);
                 }
-                case 1:
+                else
                 {
-                    CherryVis::setBoardValue("status", "detecting-probe");
-
-                    // If it took too long to create the probe, this position is probably blocked
-                    if ((currentFrame - lastStateChange) > 10)
-                    {
-                        CherryVis::log() << "Gave up creating probe @ " << BWAPI::WalkPosition(currentStartingPosition) << "; "
-                                         << currentStartingPosition;
-
-                        setState(100);
-                        break;
-                    }
-
-                    for (auto &unit : BWAPI::Broodwar->self()->getUnits())
-                    {
-                        if (unit->getType() == BWAPI::UnitTypes::Protoss_Probe)
-                        {
-                            probe = unit;
-
-                            if (unit->getPosition() != currentStartingPosition)
-                            {
-                                CherryVis::log() << "Wrong position, assume this starting position is blocked";
-                                setState(100);
-                                break;
-                            }
-
-                            setState(2);
-                            break;
-                        }
-                    }
-
-                    break;
-                }
-                case 2:
-                {
-                    CherryVis::setBoardValue("status", "init-measuring-gather-paths");
-
-                    probe->gather(patch);
-
-                    setState(3);
-                    break;
-                }
-                case 3:
-                {
-                    CherryVis::setBoardValue("status", "measure-gather-paths-mine");
-
-                    auto &miningPaths = startingPositionInfo.miningPaths;
-
-                    if (!miningPaths.empty())
-                    {
-                        auto &gatherPath = (*miningPaths.rbegin()).gatherPath;
-                        if (probe->getDistance(patch) != 0 || !gatherPath.rbegin()->positionEquals(probe))
-                        {
-                            gatherPath.emplace_back(probe);
-                        }
-                    }
-
-                    if (miningPaths.size() == 5 && probe->getDistance(patch) == 0)
-                    {
-                        setState(100);
-                        break;
-                    }
-
-                    // If the order timer might reset while the probe is returning minerals, resend the order
-                    // Otherwise we may see "random" deliveries that maintain speed and skew the results
-                    if (probe->getOrder() == BWAPI::Orders::MiningMinerals)
-                    {
-                        CherryVis::log(probe->getID()) << probe->getOrderTimer() << " - " << (150 - ((BWAPI::Broodwar->getFrameCount() - 8) % 150));
-
-                        int framesToReset = (150 - ((BWAPI::Broodwar->getFrameCount() - 8) % 150));
-                        if (framesToReset >= probe->getOrderTimer() && (framesToReset - probe->getOrderTimer()) < 70)
-                        {
-                            probe->gather(patch);
-                        }
-                    }
-
-                    if (probe->isCarryingMinerals())
-                    {
-                        patch->setResources(patch->getInitialResources());
-                        miningPaths.emplace_back(probe);
-                        setState(4);
-                        break;
-                    }
-
-                    break;
-                }
-                case 4:
-                {
-                    auto &miningPaths = startingPositionInfo.miningPaths;
-                    auto &returnPath = (*miningPaths.rbegin()).returnPath;
-                    if (probe->getDistance(depot) != 0 || !returnPath.rbegin()->positionEquals(probe))
-                    {
-                        returnPath.emplace_back(probe);
-                        if (probe->getDistance(depot) == 0)
-                        {
-                            (*miningPaths.rbegin()).returnPosition = probe->getPosition();
-                        }
-                    }
-
-                    if (!probe->isCarryingMinerals()) setState(3);
-
-                    break;
-                }
-                case 100:
-                {
-                    CherryVis::setBoardValue("status", "resetting");
-
-                    if (probe)
-                    {
-                        BWAPI::Broodwar->killUnit(probe);
-                        probe = nullptr;
-                    }
-
-                    if ((currentFrame - lastStateChange) > 10)
-                    {
-                        startingPositionInfo.finalize();
-                        probeStartingPositions.pop_back();
-                        setState(0);
-                        break;
-                    }
-
-                    break;
+                    it->onFrame(batch);
+                    it++;
                 }
             }
 
@@ -941,7 +962,7 @@ namespace
                 return new DoNothingModule();
             };
             test.opponentRace = BWAPI::Races::Protoss;
-            test.frameLimit = 500000;
+            test.frameLimit = 200000;
             test.timeLimit = 600;
             test.expectWin = false;
             test.writeReplay = true;
@@ -953,11 +974,8 @@ namespace
 
             test.myModule = [&patches, &batch]()
             {
-                std::vector<BWAPI::TilePosition> slice(
-                        patches.begin(),
-                        patches.begin() + std::min((size_t)5, patches.size())
-                );
-                return new OptimizePatchModule(slice, batch);
+                // Configured to analyze two patches per depot per batch
+                return new OptimizePatchModule(patches, batch, 2);
             };
 
             // Remove the enemy's depot so we can test patches at that location
