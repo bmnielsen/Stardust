@@ -743,16 +743,32 @@ namespace
 
             // Generate a set of all blocked positions
             std::set<std::pair<int, int>> blockedPositions;
-            for (const auto mineral : BWAPI::Broodwar->getStaticNeutralUnits())
+            auto addBlockedAroundBox = [&blockedPositions](BWAPI::Position topLeft, BWAPI::Position size)
             {
-                if (!mineral->getType().isMineralField()) continue;
-
-                auto pos = BWAPI::Position(mineral->getInitialTilePosition());
-                for (int x = pos.x - 11; x < pos.x + 75; x++)
+                for (int x = topLeft.x - 11; x < topLeft.x + size.x + 11; x++)
                 {
-                    for (int y = pos.y - 11; y < pos.y + 43; y++)
+                    for (int y = topLeft.y - 11; y < topLeft.y + size.y + 11; y++)
                     {
                         blockedPositions.emplace(x, y);
+                    }
+                }
+            };
+            for (const auto unit : BWAPI::Broodwar->getStaticNeutralUnits())
+            {
+                if (!unit->getType().isMineralField() && unit->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser) continue;
+
+                addBlockedAroundBox(BWAPI::Position(unit->getInitialTilePosition()), BWAPI::Position(unit->getType().tileSize()));
+
+                auto walkPos = BWAPI::WalkPosition(unit->getInitialTilePosition());
+                auto walkSize = BWAPI::WalkPosition(unit->getType().tileSize());
+                for (int walkX = walkPos.x - 3; walkX < walkPos.x + walkSize.x + 3; walkX++)
+                {
+                    for (int walkY = walkPos.y - 3; walkY < walkPos.y + walkSize.y + 3; walkY++)
+                    {
+                        auto hereWalk = BWAPI::WalkPosition(walkX, walkY);
+                        if (!hereWalk.isValid()) continue;
+                        if (BWAPI::Broodwar->isWalkable(hereWalk)) continue;
+                        addBlockedAroundBox(BWAPI::Position(hereWalk), BWAPI::Position(8, 8));
                     }
                 }
             }
@@ -1042,7 +1058,7 @@ namespace
                 }
             };
 
-            std::cout << "Starting analysis game with " << patches.size() << " patch(es) remaining" << std::endl;
+            std::cout << "Starting analysis game " << batch << " with " << patches.size() << " patch(es) remaining" << std::endl;
             test.run();
 
             // Remove patches that have been analyzed
