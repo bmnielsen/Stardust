@@ -288,10 +288,7 @@ void PatchAnalysis::onFrame(int batch, const std::string &dataBasePath)
         {
             auto &miningPaths = startingPosition.miningPaths;
             auto &returnPath = (*miningPaths.rbegin()).returnPath;
-            if (worker->getDistance(depot) != 0 || !returnPath.rbegin()->positionEquals(worker))
-            {
-                returnPath.emplace_back(worker);
-            }
+            returnPath.emplace_back(worker);
 
             if (!worker->isCarryingMinerals()) setState(3);
 
