@@ -439,7 +439,7 @@ void PatchAnalysis::dumpResults(int batch, const std::string &dataBasePath)
 
             for (size_t i = 0; i < pathAnalysis.paths.size(); i++)
             {
-                if (!uniquePaths.contains(pathAnalysis.paths[i].hash()))
+                if (i == 0 || !uniquePaths.contains(pathAnalysis.paths[i].hash()))
                 {
                     uniquePaths[pathAnalysis.paths[i].hash()] = std::make_pair(startingPosition, i);
                 }
