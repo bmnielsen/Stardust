@@ -330,7 +330,7 @@ void PatchAnalysis::clearOutputFiles(const std::string &dataBasePath, const std:
             std::ofstream file;
             file.open((std::ostringstream() << dataBasePath << mapHash << "_patch" << type << "paths.csv").str(),
                       std::ofstream::trunc);
-            file << "Patch Tile X;Patch Tile Y;Batch;Path Hash;Starting Position;Iteration;Length\n";
+            file << "Patch Tile X;Patch Tile Y;Batch;Path Hash;Starting Position;Iteration;Length;Path\n";
             file.close();
         }
     };
@@ -498,8 +498,8 @@ void PatchAnalysis::dumpResults(int batch, const std::string &dataBasePath)
                      << ";" << hash
                      << ";" << startingPositionAndIteration.first
                      << ";" << startingPositionAndIteration.second
-                     << ";"
-                     << startingPositionPaths[startingPositionAndIteration.first].paths[startingPositionAndIteration.second].size()
+                     << ";" << startingPositionPaths[startingPositionAndIteration.first].paths[startingPositionAndIteration.second].size()
+                     << ";" << startingPositionPaths[startingPositionAndIteration.first].paths[startingPositionAndIteration.second]
                      << "\n";
             }
             file.close();
