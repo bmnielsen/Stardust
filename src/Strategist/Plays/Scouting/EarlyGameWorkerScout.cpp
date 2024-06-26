@@ -31,17 +31,18 @@ namespace
     std::vector<long> lastScoutTilesCvis;
 #endif
 
-    MyUnit getScoutAfterBuilding(BWAPI::UnitType buildingType, int buildingCount, const MyUnit &existingScout = nullptr)
+    MyWorker getScoutAfterBuilding(BWAPI::UnitType buildingType, int buildingCount, const MyWorker &existingScout = nullptr)
     {
         // If a building of the required type already exists, this play is being added late
         // This happens vs. random when the play is re-initialized once the enemy race is known
         // In this case grab our furthest worker from the main base, as it is likely to have already been our scout
         if (Units::countAll(buildingType) >= buildingCount)
         {
-            MyUnit bestWorker = nullptr;
+            MyWorker bestWorker = nullptr;
             int bestDist = 0;
-            for (const auto &worker : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
+            for (const auto &unit : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
             {
+                auto worker = std::static_pointer_cast<MyWorkerImpl>(unit);
                 if (existingScout && existingScout->id == worker->id) continue;
 
                 int dist = PathFinding::GetGroundDistance(worker->lastPosition,

@@ -20,7 +20,7 @@
 
 // These defines configure a per-frame summary of various unit type's orders, commands, etc.
 #if INSTRUMENTATION_ENABLED_VERBOSE
-#define DEBUG_PROBE_STATUS false
+#define DEBUG_PROBE_STATUS true
 #define DEBUG_ZEALOT_STATUS false
 #define DEBUG_DRAGOON_STATUS false
 #define DEBUG_DT_STATUS false
@@ -670,7 +670,7 @@ namespace Units
             {
                 if (bwapiUnit->getType().isWorker())
                 {
-                    unit = std::make_shared<MyWorker>(bwapiUnit);
+                    unit = std::make_shared<MyWorkerImpl>(bwapiUnit);
                     unit->created();
                 }
                 else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Dragoon)
@@ -1112,10 +1112,23 @@ namespace Units
             {
                 debug << "\n";
 
-                auto myDragoon = std::dynamic_pointer_cast<MyDragoon>(unit);
+                auto myDragoon = std::static_pointer_cast<MyDragoon>(unit);
                 debug << "lstatk=" << myDragoon->getLastAttackStartedAt();
                 debug << ";nxtatk=" << myDragoon->getNextAttackPredictedAt();
                 debug << ";stkf=" << myDragoon->getPotentiallyStuckSince();
+            }
+
+            if (unit->type.isWorker())
+            {
+                debug << "\n";
+
+                auto myWorker = std::static_pointer_cast<MyWorkerImpl>(unit);
+                debug << "(x=" << unit->lastPosition.x
+                   << " y=" << unit->lastPosition.y
+                   << " dx=" << myWorker->horizontalKiloSpeed
+                   << " dy=" << myWorker->verticalKiloSpeed
+                   << " h=" << myWorker->kiloHeading
+                   << ")";
             }
 
             if (unit->type.isBuilding() && unit->type.canProduce())

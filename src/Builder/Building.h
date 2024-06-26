@@ -2,6 +2,7 @@
 
 #include "Common.h"
 #include "MyUnit.h"
+#include "MyWorker.h"
 
 // Used to store data about buildings that are either under construction or about to be constructed
 class Building
@@ -10,7 +11,7 @@ public:
     BWAPI::UnitType type;               // The type of the building
     BWAPI::TilePosition tile;           // The position of the building
     MyUnit unit;                        // The building itself
-    MyUnit builder;                     // The unit that will build the building
+    MyWorker builder;                     // The unit that will build the building
     int desiredStartFrame;              // The desired start frame given by the producer
     int buildCommandSuccessFrames;      // Number of frames in which a successful build command was issued
     int buildCommandFailureFrames;      // Number of frames in which a failed build command was issued
@@ -21,7 +22,7 @@ public:
     // Constructor
     // We always decide on the position and builder unit before storing the building
     // If something happens to invalidate them before the building is started, we will create a new building
-    Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyUnit builder, int desiredStartFrame);
+    Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyWorker builder, int desiredStartFrame);
 
     void constructionStarted(MyUnit unit);
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Play.h"
+#include "MyWorker.h"
 
 class AntiCannonRush : public Play
 {
@@ -18,14 +19,14 @@ public:
                  const std::function<void(const MyUnit)> &movableUnitCallback) override;
 
 protected:
-    MyUnit scout;
+    MyWorker scout;
     std::vector<BWAPI::TilePosition> tilesToScout;
 
     bool builtPylon;
     bool builtCannon;
 
-    std::set<MyUnit> workerAttackers;
-    std::map<Unit, std::set<MyUnit>> cannonsAndAttackers;
+    std::set<MyWorker> workerAttackers;
+    std::map<Unit, std::set<MyWorker>> cannonsAndAttackers;
 
     BWAPI::TilePosition getNextScoutTile();
 };

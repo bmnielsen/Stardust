@@ -23,7 +23,7 @@ namespace WorkerOrderTimer
         std::string dataWritePath = "bwapi-data/write/";
 
         std::map<Resource, std::set<PositionAndVelocity>> resourceToOptimalOrderPositions;
-        std::map<MyUnit, std::map<int, PositionAndVelocity>> workerPositionHistory;
+        std::map<MyWorker, std::map<int, PositionAndVelocity>> workerPositionHistory;
 
 #if TRACK_MINING_EFFICIENCY
         // This map records statistics of mining efficiency for each patch
@@ -260,7 +260,7 @@ namespace WorkerOrderTimer
 #endif
     }
 
-    bool optimizeStartOfMining(const MyUnit &worker, const Resource &resource)
+    bool optimizeStartOfMining(const MyWorker &worker, const Resource &resource)
     {
         // Send a gather command when the worker has just delivered cargo
         // Occasionally from some patches a worker will wait an extra order timer round for no apparent reason, and this short-circuits that
@@ -327,7 +327,7 @@ namespace WorkerOrderTimer
         return resent;
     }
 
-    bool optimizeReturn(const MyUnit &worker, const Resource &resource, const Unit &depot)
+    bool optimizeReturn(const MyWorker &worker, const Resource &resource, const Unit &depot)
     {
         return false;
 

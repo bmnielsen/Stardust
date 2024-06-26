@@ -6,6 +6,7 @@
 #include "Players.h"
 #include "Geo.h"
 #include "UnitUtil.h"
+#include "MyWorker.h"
 
 #if INSTRUMENTATION_ENABLED
 #define CVIS_BOARD_VALUES true
@@ -109,7 +110,7 @@ void ScoutEnemyExpos::update()
         {
             if (scout->type.isWorker())
             {
-                Workers::releaseWorker(scout);
+                Workers::releaseWorker(std::static_pointer_cast<MyWorkerImpl>(scout));
                 scout = nullptr;
             }
             else
@@ -141,10 +142,11 @@ void ScoutEnemyExpos::update()
     // Request a worker scout if we have no scout and we haven't had a worker scout die on us before
     if (!scout && !workerScoutHasDied)
     {
-        scout = Workers::getClosestReassignableWorker(targetBase->getPosition(), false);
-        if (scout)
+        auto worker = Workers::getClosestReassignableWorker(targetBase->getPosition(), false);
+        if (worker)
         {
-            Workers::reserveWorker(scout);
+            Workers::reserveWorker(worker);
+            scout = worker;
         }
     }
 
@@ -274,7 +276,7 @@ void ScoutEnemyExpos::disband(const std::function<void(const MyUnit)> &removedUn
     {
         if (scout->type.isWorker())
         {
-            Workers::releaseWorker(scout);
+            Workers::releaseWorker(std::static_pointer_cast<MyWorkerImpl>(scout));
         }
         else
         {
@@ -287,7 +289,7 @@ void ScoutEnemyExpos::addUnit(const MyUnit &unit)
 {
     if (scout && scout->type.isWorker())
     {
-        Workers::releaseWorker(scout);
+        Workers::releaseWorker(std::static_pointer_cast<MyWorkerImpl>(scout));
     }
 
     scout = unit;

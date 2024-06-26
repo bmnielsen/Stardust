@@ -2,7 +2,7 @@
 
 #include "Common.h"
 #include "Base.h"
-#include "MyUnit.h"
+#include "MyWorker.h"
 
 namespace Workers
 {
@@ -17,21 +17,21 @@ namespace Workers
     void issueOrders();
 
     // Whether the given worker unit can currently be reassigned to non-gathering duties
-    bool isAvailableForReassignment(const MyUnit &unit, bool allowCarryMinerals);
+    bool isAvailableForReassignment(const MyWorker &unit, bool allowCarryMinerals);
 
-    MyUnit getClosestReassignableWorker(BWAPI::Position position, bool allowCarryMinerals, int *bestTravelTime = nullptr);
+    MyWorker getClosestReassignableWorker(BWAPI::Position position, bool allowCarryMinerals, int *bestTravelTime = nullptr);
 
     size_t getBaseWorkerCount(Base *base);
 
-    std::vector<MyUnit> getBaseWorkers(Base *base);
+    std::vector<MyWorker> getBaseWorkers(Base *base);
 
     int baseMineralWorkerCount(Base *base);
 
-    void reserveBaseWorkers(std::vector<MyUnit> &workers, Base *base);
+    void reserveBaseWorkers(std::vector<MyWorker> &workers, Base *base);
 
-    void reserveWorker(const MyUnit &unit);
+    void reserveWorker(const MyWorker &unit);
 
-    void releaseWorker(const MyUnit &unit);
+    void releaseWorker(const MyWorker &unit);
 
     // How many mineral patches are currently available for assignment
     int availableMineralAssignments(Base *base = nullptr, int workersPerPatch = 2);
@@ -51,5 +51,5 @@ namespace Workers
 
     int idleWorkerCount();
 
-    std::map<Resource, std::set<MyUnit>> &mineralsAndAssignedWorkers();
+    std::map<Resource, std::set<MyWorker>> &mineralsAndAssignedWorkers();
 }

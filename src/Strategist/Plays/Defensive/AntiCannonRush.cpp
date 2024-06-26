@@ -29,7 +29,7 @@
 
 namespace
 {
-    void clearDead(std::set<MyUnit> &workers)
+    void clearDead(std::set<MyWorker> &workers)
     {
         for (auto it = workers.begin(); it != workers.end();)
         {
@@ -44,7 +44,7 @@ namespace
         }
     }
 
-    void releaseAll(std::set<MyUnit> &workers)
+    void releaseAll(std::set<MyWorker> &workers)
     {
         for (auto &worker : workers)
         {

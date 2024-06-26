@@ -19,8 +19,6 @@ public:
     int energy;                         // Estimated energy of the unit
     int lastCastFrame;                  // Last frame the unit cast some kind of energy-using spell
     int completionFrame;                // Actual completion frame, -1 until complete
-    int carryingResource;               // Whether the unit is carrying a resource
-    int lastDeliveredResource;          // Frame when the unit last delivered a resource
 
     explicit MyUnitImpl(BWAPI::Unit unit);
 

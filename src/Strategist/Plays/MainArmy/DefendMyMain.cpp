@@ -124,7 +124,7 @@ void DefendMyMain::update()
         if (reservedGasStealAttacker) reservedGasStealAttacker->attackUnit(gasSteal);
         for (auto &worker : reservedWorkerGasStealAttackers)
         {
-            worker->attackUnit(gasSteal);
+            std::static_pointer_cast<MyUnitImpl>(worker)->attackUnit(gasSteal);
         }
     }
     else

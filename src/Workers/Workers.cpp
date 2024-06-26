@@ -28,13 +28,13 @@ namespace Workers
         };
 
         int _desiredGasWorkerDelta;
-        std::map<MyUnit, Job> workerJob;
-        std::map<MyUnit, Base *> workerBase;
-        std::map<Base *, std::set<MyUnit>> baseWorkers;
-        std::map<MyUnit, Resource> workerMineralPatch;
-        std::map<Resource, std::set<MyUnit>> mineralPatchWorkers;
-        std::map<MyUnit, Resource> workerRefinery;
-        std::map<Resource, std::set<MyUnit>> refineryWorkers;
+        std::map<MyWorker, Job> workerJob;
+        std::map<MyWorker, Base *> workerBase;
+        std::map<Base *, std::set<MyWorker>> baseWorkers;
+        std::map<MyWorker, Resource> workerMineralPatch;
+        std::map<Resource, std::set<MyWorker>> mineralPatchWorkers;
+        std::map<MyWorker, Resource> workerRefinery;
+        std::map<Resource, std::set<MyWorker>> refineryWorkers;
 
         int mineralWorkerCount;
         std::pair<int, int> gasWorkerCount;
@@ -51,9 +51,9 @@ namespace Workers
 
         // Removes a worker's base and mineral patch or gas assignments
         void removeFromResource(
-                const MyUnit &unit,
-                std::map<MyUnit, Resource> &workerAssignment,
-                std::map<Resource, std::set<MyUnit>> &resourceAssignment)
+                const MyWorker &unit,
+                std::map<MyWorker, Resource> &workerAssignment,
+                std::map<Resource, std::set<MyWorker>> &resourceAssignment)
         {
             auto baseIt = workerBase.find(unit);
             if (baseIt != workerBase.end())
@@ -78,7 +78,7 @@ namespace Workers
         }
 
         // Cleans up data maps when a worker is lost
-        void workerLost(const MyUnit &unit)
+        void workerLost(const MyWorker &unit)
         {
             workerJob.erase(unit);
             removeFromResource(unit, workerMineralPatch, mineralPatchWorkers);
@@ -139,11 +139,13 @@ namespace Workers
             for (int i = 0; i < 4; i++)
             {
                 int bestDist = INT_MAX;
-                MyUnit bestWorker = nullptr;
+                MyWorker bestWorker = nullptr;
                 Resource bestPatch = nullptr;
-                for (auto &worker : Units::allMine())
+                for (auto &unit : Units::allMine())
                 {
-                    if (!worker->type.isWorker()) continue;
+                    if (!unit->type.isWorker()) continue;
+
+                    auto worker = std::static_pointer_cast<MyWorkerImpl>(unit);
                     if (!worker->completed) continue;
                     if (workerMineralPatch[worker]) continue;
 
@@ -177,7 +179,7 @@ namespace Workers
         }
 
         // Assign a worker to the closest base with either free mineral or gas assignments depending on job
-        Base *assignBaseAndJob(const MyUnit &unit, Job preferredJob)
+        Base *assignBaseAndJob(const MyWorker &unit, Job preferredJob)
         {
             // TODO: Prioritize empty bases over nearly-full bases
 
@@ -291,7 +293,7 @@ namespace Workers
 
         // Assign a worker to a mineral patch in its current base
         // We only call this when the worker is close to the base depot, so we can assume minimal pathing issues
-        Resource assignMineralPatch(const MyUnit &unit)
+        Resource assignMineralPatch(const MyWorker &unit)
         {
             if (!workerBase[unit]) return nullptr;
 
@@ -329,7 +331,7 @@ namespace Workers
 
         // Assign a worker to a refinery in its current base
         // We only call this when the worker is close to the base depot, so we can assume minimal pathing issues
-        Resource assignRefinery(const MyUnit &unit)
+        Resource assignRefinery(const MyWorker &unit)
         {
             if (!workerBase[unit]) return nullptr;
 
@@ -365,9 +367,12 @@ namespace Workers
 
             // Find worker closest to an available refinery
             int bestDist = INT_MAX;
-            MyUnit bestWorker = nullptr;
-            for (const auto &worker : Units::allMine())
+            MyWorker bestWorker = nullptr;
+            for (const auto &unit : Units::allMine())
             {
+                if (!unit->type.isWorker()) continue;
+
+                auto worker = std::static_pointer_cast<MyWorkerImpl>(unit);
                 if (!isAvailableForReassignment(worker, false)) continue;
 
                 for (const auto &refinery : myCompletedRefineries)
@@ -428,7 +433,8 @@ namespace Workers
         // Handle lost workers
         if (unit->type.isWorker() && unit->player == BWAPI::Broodwar->self())
         {
-            workerLost(Units::mine(unit->bwapiUnit));
+            auto worker = std::static_pointer_cast<MyWorkerImpl>(unit);
+            workerLost(worker);
         }
     }
 
@@ -448,7 +454,7 @@ namespace Workers
     void updateAssignments()
     {
         mineralWorkerCount = 0;
-        auto countMineralWorker = [](const MyUnit &worker, const Resource &mineralPatch)
+        auto countMineralWorker = [](const MyWorker &worker, const Resource &mineralPatch)
         {
             if (!mineralPatch) return;
             if (mineralPatch->destroyed) return;
@@ -457,7 +463,7 @@ namespace Workers
             mineralWorkerCount++;
         };
         gasWorkerCount = std::make_pair(0, 0);
-        auto countGasWorker = [](const MyUnit &worker, const Resource &refinery)
+        auto countGasWorker = [](const MyWorker &worker, const Resource &refinery)
         {
             if (!refinery) return;
             if (!refinery->hasMyCompletedRefinery()) return;
@@ -479,9 +485,11 @@ namespace Workers
             assignInitialMineralWorkers();
         }
 
-        for (auto &worker : Units::allMine())
+        for (auto &unit : Units::allMine())
         {
-            if (!worker->type.isWorker()) continue;
+            if (!unit->type.isWorker()) continue;
+            auto worker = std::static_pointer_cast<MyWorkerImpl>(unit);
+
             if (!worker->completed) continue;
             if (workerJob[worker] == Job::Reserved)
             {
@@ -788,7 +796,7 @@ namespace Workers
                         }
 
                         // Check if another worker is currently mining this patch
-                        MyUnit otherWorker = nullptr;
+                        MyWorker otherWorker = nullptr;
                         for (const auto &unit : mineralPatchWorkers[mineralPatch])
                         {
                             if (unit != worker)
@@ -898,7 +906,7 @@ namespace Workers
         }
     }
 
-    bool isAvailableForReassignment(const MyUnit &unit, bool allowCarryMinerals)
+    bool isAvailableForReassignment(const MyWorker &unit, bool allowCarryMinerals)
     {
         if (!unit || !unit->exists() || !unit->completed || !unit->type.isWorker()) return false;
 
@@ -915,42 +923,45 @@ namespace Workers
         return false;
     }
 
-    MyUnit getClosestReassignableWorker(BWAPI::Position position, bool allowCarryMinerals, int *bestTravelTime)
+    MyWorker getClosestReassignableWorker(BWAPI::Position position, bool allowCarryMinerals, int *bestTravelTime)
     {
         int bestTime = INT_MAX;
         int bestScore = INT_MAX;
-        MyUnit bestWorker = nullptr;
+        MyWorker bestWorker = nullptr;
         for (auto &unit : Units::allMine())
         {
-            if (!isAvailableForReassignment(unit, allowCarryMinerals)) continue;
+            if (!unit->type.isWorker()) continue;
+            auto worker = std::static_pointer_cast<MyWorkerImpl>(unit);
+
+            if (!isAvailableForReassignment(worker, allowCarryMinerals)) continue;
 
             int travelTime =
-                    PathFinding::ExpectedTravelTime(unit->lastPosition,
+                    PathFinding::ExpectedTravelTime(worker->lastPosition,
                                                     position,
-                                                    unit->type,
+                                                    worker->type,
                                                     PathFinding::PathFindingOptions::UseNearestBWEMArea,
                                                     -1);
 
             // Disallow carrying minerals in all cases if the travel time is excessive
             // Rationale: we might be sending the unit to build something at another base and we want to return minerals first
-            if (travelTime > 100 && unit->bwapiUnit->isCarryingMinerals()) continue;
+            if (travelTime > 100 && worker->bwapiUnit->isCarryingMinerals()) continue;
 
             // If the unit is currently mining, penalize it by 3 seconds to encourage selecting other workers
             int score = travelTime;
-            if (unit->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
-                unit->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
+            if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
+                                                                               worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
             {
                 score += 72;
             }
 
             // If the unit is currently unassigned, give it a 4 second bonus to encourage selecting it
-            if (workerJob[unit] == Job::None) score -= 96;
+            if (workerJob[worker] == Job::None) score -= 96;
 
             if (travelTime != -1 && score < bestScore)
             {
                 bestTime = travelTime;
                 bestScore = score;
-                bestWorker = unit;
+                bestWorker = worker;
             }
         }
 
@@ -966,9 +977,9 @@ namespace Workers
         return baseAndWorkersIt->second.size();
     }
 
-    std::vector<MyUnit> getBaseWorkers(Base *base)
+    std::vector<MyWorker> getBaseWorkers(Base *base)
     {
-        std::vector<MyUnit> result;
+        std::vector<MyWorker> result;
 
         auto baseAndWorkersIt = baseWorkers.find(base);
         if (baseAndWorkersIt == baseWorkers.end()) return result;
@@ -996,7 +1007,7 @@ namespace Workers
         return result;
     }
 
-    void reserveBaseWorkers(std::vector<MyUnit> &workers, Base *base)
+    void reserveBaseWorkers(std::vector<MyWorker> &workers, Base *base)
     {
         auto baseAndWorkersIt = baseWorkers.find(base);
         if (baseAndWorkersIt == baseWorkers.end()) return;
@@ -1012,7 +1023,7 @@ namespace Workers
         }
     }
 
-    void reserveWorker(const MyUnit &unit)
+    void reserveWorker(const MyWorker &unit)
     {
         if (!unit || !unit->exists() || !unit->type.isWorker() || !unit->completed) return;
 
@@ -1024,7 +1035,7 @@ namespace Workers
         CherryVis::log(unit->id) << "Reserved for non-mining duties";
     }
 
-    void releaseWorker(const MyUnit &unit)
+    void releaseWorker(const MyWorker &unit)
     {
         if (!unit || !unit->exists() || !unit->type.isWorker() || !unit->completed || workerJob[unit] != Job::Reserved) return;
 
@@ -1173,7 +1184,7 @@ namespace Workers
         return count;
     }
 
-    std::map<Resource, std::set<MyUnit>> &mineralsAndAssignedWorkers()
+    std::map<Resource, std::set<MyWorker>> &mineralsAndAssignedWorkers()
     {
         return mineralPatchWorkers;
     }

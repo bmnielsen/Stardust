@@ -41,7 +41,7 @@ TEST(MovingShot, ProbeVsSCV)
                 if (unit->getDistance(BWAPI::Position(BWAPI::TilePosition(69, 20))) < 600)
                 {
                     probe = unit;
-                    Workers::reserveWorker(probe);
+                    Workers::reserveWorker(std::static_pointer_cast<MyWorkerImpl>(unit));
                     break;
                 }
             }
@@ -147,7 +147,7 @@ TEST(MovingShot, ProbeVsProbe)
                 if (unit->getDistance(BWAPI::Position(BWAPI::TilePosition(69, 20))) < 600)
                 {
                     probe = unit;
-                    Workers::reserveWorker(probe);
+                    Workers::reserveWorker(std::static_pointer_cast<MyWorkerImpl>(unit));
                     break;
                 }
             }
@@ -253,7 +253,7 @@ TEST(MovingShot, ProbeVsZealot)
                 if (unit->getDistance(BWAPI::Position(BWAPI::TilePosition(69, 20))) < 600)
                 {
                     probe = unit;
-                    Workers::reserveWorker(probe);
+                    Workers::reserveWorker(std::static_pointer_cast<MyWorkerImpl>(unit));
                     break;
                 }
             }

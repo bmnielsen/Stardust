@@ -81,7 +81,7 @@ TEST(Plasma, WalkAllChokes)
                 if (unit->type == BWAPI::UnitTypes::Protoss_Probe)
                 {
                     Log::Get() << "Reserved worker " << *unit;
-                    Workers::reserveWorker(unit);
+                    Workers::reserveWorker(std::static_pointer_cast<MyWorkerImpl>(unit));
                     worker = unit;
                     break;
                 }

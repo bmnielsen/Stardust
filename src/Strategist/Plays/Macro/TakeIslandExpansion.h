@@ -1,6 +1,7 @@
 #pragma once
 
 #include "TakeExpansion.h"
+#include "MyWorker.h"
 
 // Takes the next expansion.
 class TakeIslandExpansion : public TakeExpansion
@@ -27,5 +28,5 @@ private:
     bool canCancel;
     MyUnit shuttle;
     int workerTransferState; // 0 = picking up workers, 1 = unloading workers, 2 = done
-    std::vector<MyUnit> workerTransfer;
+    std::vector<MyWorker> workerTransfer;
 };

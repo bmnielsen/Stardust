@@ -2,6 +2,7 @@
 
 #include "MainArmyPlay.h"
 #include "Squads/EarlyGameDefendMainBaseSquad.h"
+#include "MyWorker.h"
 
 class DefendMyMain : public MainArmyPlay
 {
@@ -28,5 +29,5 @@ private:
     std::shared_ptr<EarlyGameDefendMainBaseSquad> squad;
     int lastRegroupFrame;
     MyUnit reservedGasStealAttacker;
-    std::vector<MyUnit> reservedWorkerGasStealAttackers;
+    std::vector<MyWorker> reservedWorkerGasStealAttackers;
 };

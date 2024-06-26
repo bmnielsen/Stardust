@@ -15,5 +15,5 @@ public:
                  const std::function<void(const MyUnit)> &movableUnitCallback) override;
 
 private:
-    MyUnit builder;
+    MyWorker builder;
 };

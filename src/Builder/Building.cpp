@@ -4,7 +4,7 @@
 #include "UnitUtil.h"
 #include "NoGoAreas.h"
 
-Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyUnit builder, int desiredStartFrame)
+Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyWorker builder, int desiredStartFrame)
         : type(type)
         , tile(tile)
         , unit(nullptr)

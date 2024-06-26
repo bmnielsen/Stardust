@@ -2,6 +2,7 @@
 
 #include "Play.h"
 #include "Squads/AttackBaseSquad.h"
+#include "MyWorker.h"
 
 class ElevatorRush : public Play
 {
@@ -31,7 +32,7 @@ protected:
     BWAPI::Position pickupPosition;
     BWAPI::Position dropPosition;
 
-    MyUnit builder;
+    MyWorker builder;
     MyUnit shuttle;
     std::shared_ptr<AttackBaseSquad> squad;
     std::set<MyUnit> transferQueue;

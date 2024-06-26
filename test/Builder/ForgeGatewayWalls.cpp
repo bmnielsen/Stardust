@@ -172,7 +172,7 @@ namespace
                 {
                     if (!wall.probeBlockingPositions.contains(probe->lastPosition)) continue;
 
-                    Workers::reserveWorker(probe);
+                    Workers::reserveWorker(std::static_pointer_cast<MyWorkerImpl>(probe));
                     probe->stop();
                 }
 
@@ -219,7 +219,7 @@ namespace
             {
                 if (wall.probeBlockingPositions.find(probe->lastPosition) == wall.probeBlockingPositions.end()) continue;
 
-                Workers::reserveWorker(probe);
+                Workers::reserveWorker(std::static_pointer_cast<MyWorkerImpl>(probe));
                 probe->stop();
             }
 

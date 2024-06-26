@@ -4,6 +4,7 @@
 #include "Common.h"
 #include "BuildingPlacement.h"
 #include "ProductionLocation.h"
+#include "MyWorker.h"
 
 class UnitProductionGoal
 {
@@ -40,7 +41,7 @@ public:
     UnitProductionGoal(std::string requester,
                        BWAPI::UnitType type,
                        BuildingPlacement::BuildLocation location,
-                       MyUnit reservedBuilder = nullptr,
+                       MyWorker reservedBuilder = nullptr,
                        int frame = 0)
             : requester(std::move(requester))
             , type(type)
@@ -81,7 +82,7 @@ public:
 
     // For buildings with a fixed tile location, gets a builder we already reserved to build it.
     // This is useful for plays that "own" a worker and want to build something with it.
-    [[nodiscard]] MyUnit getReservedBuilder() const { return reservedBuilder; };
+    [[nodiscard]] MyWorker getReservedBuilder() const { return reservedBuilder; };
 
     // The frame when the first item should be produced
     [[nodiscard]] int getFrame() const { return frame; };
@@ -121,6 +122,6 @@ private:
     int count;
     int producerLimit;
     ProductionLocation location;
-    MyUnit reservedBuilder;
+    MyWorker reservedBuilder;
     int frame;
 };

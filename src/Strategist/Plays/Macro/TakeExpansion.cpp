@@ -178,7 +178,7 @@ void TakeExpansion::update()
         {
             if (!Builder::hasPendingBuilding(builder) && !blocker->undetected)
             {
-                builder->attackUnit(blocker);
+                std::static_pointer_cast<MyUnitImpl>(builder)->attackUnit(blocker);
             }
 
             return;

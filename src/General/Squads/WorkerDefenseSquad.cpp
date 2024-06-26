@@ -22,7 +22,7 @@ std::vector<std::pair<MyUnit, Unit>> WorkerDefenseSquad::selectTargets(std::set<
         }
     }
 
-    auto selectTarget = [&enemyUnits, &hasCannonInMineralLine](MyUnit &worker)
+    auto selectTarget = [&enemyUnits, &hasCannonInMineralLine](MyWorker &worker)
     {
         Unit closestEnemy = nullptr;
         int closestEnemyDist = INT_MAX;

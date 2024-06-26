@@ -116,7 +116,7 @@ namespace Producer
             bool isPrerequisite;
             Building *queuedBuilding;
             mutable BuildingPlacement::BuildLocation buildLocation;
-            mutable MyUnit reservedBuilder;
+            mutable MyWorker reservedBuilder;
             mutable int estimatedWorkerMovementTime;
 
             ProductionItem(const Type &type,
@@ -1729,7 +1729,7 @@ namespace Producer
                         int countToProduce,
                         int producerLimit,
                         BWAPI::UnitType prerequisite,
-                        MyUnit reservedBuilder,
+                        MyWorker reservedBuilder,
                         int frame)
         {
             int toProduce = countToProduce;

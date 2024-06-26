@@ -3,7 +3,7 @@
 #include "Common.h"
 
 #include "Building.h"
-#include "MyUnit.h"
+#include "MyWorker.h"
 
 class Base;
 
@@ -15,11 +15,11 @@ namespace Builder
 
     void issueOrders();
 
-    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, const MyUnit &builder, int startFrame = 0);
+    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, const MyWorker &builder, int startFrame = 0);
 
     void cancel(BWAPI::TilePosition tile);
 
-    MyUnit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int *expectedArrivalFrame = nullptr);
+    MyWorker getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int *expectedArrivalFrame = nullptr);
 
     std::vector<std::shared_ptr<Building>> &allPendingBuildings();
 
@@ -31,11 +31,11 @@ namespace Builder
 
     Building *pendingHere(BWAPI::TilePosition tile);
 
-    bool hasPendingBuilding(const MyUnit &builder);
+    bool hasPendingBuilding(const MyWorker &builder);
 
-    void addReservedBuilder(const MyUnit &builder);
+    void addReservedBuilder(const MyWorker &builder);
 
-    void releaseReservedBuilder(const MyUnit &builder);
+    void releaseReservedBuilder(const MyWorker &builder);
 
     bool isInEnemyStaticThreatRange(BWAPI::TilePosition tile, BWAPI::UnitType type);
 

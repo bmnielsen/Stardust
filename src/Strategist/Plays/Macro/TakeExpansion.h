@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Play.h"
+#include "MyWorker.h"
 #include "Squads/AttackBaseSquad.h"
 
 // Takes the next expansion.
@@ -26,7 +27,7 @@ public:
     BWAPI::TilePosition depotPosition;
 
 protected:
-    MyUnit builder;
+    MyWorker builder;
     bool buildCannon;
     std::shared_ptr<AttackBaseSquad> squad;
 };

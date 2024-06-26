@@ -52,10 +52,20 @@ namespace
 //
 //        return BWAPI::Positions::Invalid;
 //    }
+
+    int toKiloInteger(double value)
+    {
+        return int(value * 1000.0);
+    }
 }
 
-MyWorker::MyWorker(BWAPI::Unit unit)
+MyWorkerImpl::MyWorkerImpl(BWAPI::Unit unit)
         : MyUnitImpl(unit)
+        , carryingResource(unit->isCarryingMinerals() || unit->isCarryingGas())
+        , lastDeliveredResource(-1)
+        , horizontalKiloSpeed(toKiloInteger(unit->getVelocityX()))
+        , verticalKiloSpeed(toKiloInteger(unit->getVelocityY()))
+        , kiloHeading(toKiloInteger(unit->getAngle()))
         , mineralWalkingPatch(nullptr)
         , mineralWalkingTargetArea(nullptr)
         , mineralWalkingStartPosition(BWAPI::Positions::Invalid)
@@ -63,7 +73,34 @@ MyWorker::MyWorker(BWAPI::Unit unit)
 {
 }
 
-void MyWorker::resetMoveData()
+void MyWorkerImpl::update(BWAPI::Unit unit)
+{
+    if (!unit || !unit->exists()) return;
+
+    MyUnitImpl::update(unit);
+
+    // We store an integer representation of the worker's velocity and heading
+    // This is used for mining optimizations
+    horizontalKiloSpeed = toKiloInteger(unit->getVelocityX());
+    verticalKiloSpeed = toKiloInteger(unit->getVelocityY());
+    kiloHeading = toKiloInteger(unit->getAngle());
+
+    // Set order process timer for gathering workers
+    // We know the order process timer is 0 when the worker starts mining, finishes mining, and delivers the resource
+    if (carryingResource != (bwapiUnit->isCarryingMinerals() || bwapiUnit->isCarryingGas()))
+    {
+        carryingResource = (bwapiUnit->isCarryingMinerals() || bwapiUnit->isCarryingGas());
+        orderProcessTimer = 0;
+        if (!carryingResource) lastDeliveredResource = currentFrame;
+    }
+    else if (bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals && bwapiUnit->getOrderTimer() == 75 &&
+             (BWAPI::Broodwar->getFrameCount() - 8) % 150 != 0)
+    {
+        orderProcessTimer = 8;
+    }
+}
+
+void MyWorkerImpl::resetMoveData()
 {
     MyUnitImpl::resetMoveData();
     mineralWalkingPatch = nullptr;
@@ -72,7 +109,7 @@ void MyWorker::resetMoveData()
 }
 
 
-bool MyWorker::mineralWalk(const Choke *choke)
+bool MyWorkerImpl::mineralWalk(const Choke *choke)
 {
     if (!choke && !mineralWalkingPatch) return false;
 
@@ -195,7 +232,7 @@ bool MyWorker::mineralWalk(const Choke *choke)
     return true;
 }
 
-void MyWorker::attackUnit(const Unit &target,
+void MyWorkerImpl::attackUnit(const Unit &target,
                           std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                           bool clusterAttacking,
                           int enemyAoeRadius)

@@ -2,10 +2,23 @@
 
 #include "MyUnit.h"
 
-class MyWorker : public MyUnitImpl
+class MyWorkerImpl;
+
+typedef std::shared_ptr<MyWorkerImpl> MyWorker;
+
+class MyWorkerImpl : public MyUnitImpl
 {
 public:
-    explicit MyWorker(BWAPI::Unit unit);
+    int carryingResource;               // Whether the unit is carrying a resource
+    int lastDeliveredResource;          // Frame when the unit last delivered a resource
+
+    int horizontalKiloSpeed;    // Integer representation of the unit's speed on the X axis, multiplied by 1000
+    int verticalKiloSpeed;      // Integer representation of the unit's speed on the Y axis, multiplied by 1000
+    int kiloHeading;            // Integer representation of the unit's heading, multiplied by 1000
+
+    explicit MyWorkerImpl(BWAPI::Unit unit);
+
+    void update(BWAPI::Unit unit) override;
 
 protected:
     void resetMoveData() override;

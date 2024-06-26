@@ -7,7 +7,7 @@ class EarlyGameWorkerScout : public Play
 public:
     struct ScoutLookingForEnemyBase
     {
-        MyUnit unit = nullptr;
+        MyWorker unit = nullptr;
         bool reserved = false;
         Base *targetBase = nullptr;
         int closestDistanceToTargetBase = INT_MAX;

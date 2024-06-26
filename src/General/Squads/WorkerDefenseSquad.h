@@ -2,6 +2,7 @@
 
 #include "Squad.h"
 #include "MyUnit.h"
+#include "MyWorker.h"
 #include "Base.h"
 
 class WorkerDefenseSquad
@@ -18,5 +19,5 @@ public:
 
 private:
     Base *base;
-    std::vector<MyUnit> units; // All of the reserved workers
+    std::vector<MyWorker> units; // All of the reserved workers
 };

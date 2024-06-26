@@ -18,8 +18,8 @@ namespace Builder
     namespace
     {
         std::vector<std::shared_ptr<Building>> pendingBuildings;
-        std::map<MyUnit, std::vector<std::shared_ptr<Building>>> builderQueues;
-        std::set<MyUnit> reservedBuilders;
+        std::map<MyWorker, std::vector<std::shared_ptr<Building>>> builderQueues;
+        std::set<MyWorker> reservedBuilders;
 
         // Ensures the worker is being ordered to build this building
         void build(Building &building)
@@ -239,7 +239,7 @@ namespace Builder
         }
     }
 
-    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, const MyUnit &builder, int startFrame)
+    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, const MyWorker &builder, int startFrame)
     {
         // Sanity check that we don't already have a pending building overlapping the tile
         // This happens if the producer orders two buildings on the same frame where one is using a build location converted from the other
@@ -289,18 +289,18 @@ namespace Builder
         }
     }
 
-    MyUnit getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int *expectedArrivalFrame)
+    MyWorker getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int *expectedArrivalFrame)
     {
         BWAPI::Position buildPosition = BWAPI::Position(tile) + BWAPI::Position(type.tileWidth() * 16, type.tileHeight() * 16);
 
         // First get the closest worker currently available for reassignment
         int bestMineralWorkerTravelTime = INT_MAX;
-        MyUnit bestMineralWorker = Workers::getClosestReassignableWorker(buildPosition,
+        MyWorker bestMineralWorker = Workers::getClosestReassignableWorker(buildPosition,
                                                                          !type.isResourceDepot(),
                                                                          &bestMineralWorkerTravelTime);
 
         // Next get the best existing builder
-        MyUnit bestBuilder = nullptr;
+        MyWorker bestBuilder = nullptr;
         int bestBuilderTravelTime = INT_MAX;
         for (auto &builderAndQueue : builderQueues)
         {
@@ -339,7 +339,7 @@ namespace Builder
         }
 
         // Finally get the best reserved builder
-        MyUnit bestReserved = nullptr;
+        MyWorker bestReserved = nullptr;
         int bestReservedTravelTime = INT_MAX;
         for (auto &reservedBuilder : reservedBuilders)
         {
@@ -368,7 +368,7 @@ namespace Builder
             bestBuilderTravelTime = bestReservedTravelTime;
         }
 
-        MyUnit builder;
+        MyWorker builder;
         int travelTime;
         if (bestMineralWorkerTravelTime < (bestBuilderTravelTime - 144))
         {
@@ -434,7 +434,7 @@ namespace Builder
         return nullptr;
     }
 
-    bool hasPendingBuilding(const MyUnit &builder)
+    bool hasPendingBuilding(const MyWorker &builder)
     {
         auto it = builderQueues.find(builder);
         if (it == builderQueues.end()) return false;
@@ -442,12 +442,12 @@ namespace Builder
         return !it->second.empty();
     }
 
-    void addReservedBuilder(const MyUnit &builder)
+    void addReservedBuilder(const MyWorker &builder)
     {
         reservedBuilders.insert(builder);
     }
 
-    void releaseReservedBuilder(const MyUnit &builder)
+    void releaseReservedBuilder(const MyWorker &builder)
     {
         reservedBuilders.erase(builder);
     }
