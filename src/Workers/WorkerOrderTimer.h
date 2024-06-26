@@ -41,7 +41,7 @@ namespace WorkerOrderTimer
         std::vector<int> mineralsReceivedFrames;
         std::vector<int> mineralsDeliveredFrames;
 
-        GatheringMineralsWorker(BWAPI::Unit worker) : hadMineralsLastFrame(worker->isCarryingMinerals()) {}
+        explicit GatheringMineralsWorker(BWAPI::Unit worker) : hadMineralsLastFrame(worker->isCarryingMinerals()) {}
 
         void update(BWAPI::Unit worker)
         {

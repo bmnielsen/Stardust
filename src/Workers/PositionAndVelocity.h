@@ -1,6 +1,7 @@
 #pragma once
 
 #include <BWAPI.h>
+#include "MyWorker.h"
 
 struct PositionAndVelocity
 {
@@ -20,10 +21,24 @@ struct PositionAndVelocity
             , heading(int(unit->getAngle() * 1000.0))
     {}
 
+    explicit PositionAndVelocity(const MyWorker &worker)
+            : x(worker->lastPosition.x)
+            , y(worker->lastPosition.y)
+            , dx(worker->horizontalKiloSpeed)
+            , dy(worker->verticalKiloSpeed)
+            , heading(worker->kiloHeading)
+    {}
+
     [[nodiscard]] bool positionEquals(const BWAPI::Unit &unit) const
     {
         return x == unit->getPosition().x
                && y == unit->getPosition().y;
+    }
+
+    [[nodiscard]] bool positionEquals(const MyWorker &worker) const
+    {
+        return x == worker->lastPosition.x
+               && y == worker->lastPosition.y;
     }
 
     [[nodiscard]] bool equals(const PositionAndVelocity &other) const
@@ -36,4 +51,3 @@ struct PositionAndVelocity
 
 std::ostream &operator<<(std::ostream &os, const PositionAndVelocity &positionAndVelocity);
 std::ostream &operator<<(std::ostream &os, const std::vector<PositionAndVelocity> &vec);
-std::ostream &operator<<(std::ostream &os, const std::vector<BWAPI::Position> &vec);

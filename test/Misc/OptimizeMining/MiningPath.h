@@ -56,3 +56,5 @@ struct MiningPath
     Path gatherPath;
     Path returnPath;
 };
+
+std::ostream &operator<<(std::ostream &os, const std::vector<BWAPI::Position> &vec);

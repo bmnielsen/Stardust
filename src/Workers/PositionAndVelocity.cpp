@@ -42,9 +42,3 @@ std::ostream &operator<<(std::ostream &os, const std::vector<PositionAndVelocity
     CsvTools::outputList(os, vec);
     return os;
 }
-
-std::ostream &operator<<(std::ostream &os, const std::vector<BWAPI::Position> &vec)
-{
-    CsvTools::outputList(os, vec);
-    return os;
-}
