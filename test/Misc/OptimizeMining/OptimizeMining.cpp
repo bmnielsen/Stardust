@@ -1,5 +1,6 @@
 #include "BWTest.h"
 #include "DoNothingModule.h"
+#include "InstrumentedDoNothingModule.h"
 
 #include <ranges>
 #include <bwem.h>
@@ -7,8 +8,6 @@
 #include "PatchAnalysis.h"
 #include "RemoveOpponentDepotModule.h"
 
-#include "Log.h"
-#include "CherryVis.h"
 #include "Geo.h"
 
 namespace
@@ -42,7 +41,7 @@ namespace
         return result;
     }
 
-    class PatchAnalysisModule : public DoNothingModule
+    class PatchAnalysisModule : public InstrumentedDoNothingModule
     {
         std::vector<BWAPI::TilePosition> patchTiles;
         int batch;
@@ -57,12 +56,7 @@ namespace
 
         void onStart() override
         {
-            currentFrame = 0;
-
-            Log::initialize();
-            Log::SetDebug(true);
-            Log::SetOutputToConsole(true);
-            CherryVis::initialize();
+            InstrumentedDoNothingModule::onStart();
 
             BWEM::Map::ResetInstance();
             BWEM::Map::Instance().Initialize(BWAPI::BroodwarPtr);
@@ -104,7 +98,7 @@ namespace
 
         void onFrame() override
         {
-            currentFrame++;
+            InstrumentedDoNothingModule::onFrameStart();
 
             // Give initial workers time to be killed
             if (currentFrame < 10) return;
@@ -112,7 +106,7 @@ namespace
             if (patchAnalysis.empty())
             {
                 BWAPI::Broodwar->leaveGame();
-                CherryVis::frameEnd(currentFrame);
+                InstrumentedDoNothingModule::onFrameEnd();
                 return;
             }
 
@@ -129,17 +123,7 @@ namespace
                 }
             }
 
-            CherryVis::frameEnd(currentFrame);
-        }
-
-        void onEnd(bool isWinner) override
-        {
-            CherryVis::gameEnd();
-        }
-
-        void onUnitCreate(BWAPI::Unit unit) override
-        {
-            CherryVis::unitFirstSeen(unit);
+            InstrumentedDoNothingModule::onFrameEnd();
         }
     };
 
