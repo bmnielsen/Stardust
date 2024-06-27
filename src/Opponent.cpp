@@ -1,7 +1,6 @@
 #include "Opponent.h"
 
 #include <fstream>
-#include <filesystem>
 #include <ranges>
 
 #include <nlohmann.h>
@@ -9,6 +8,7 @@
 #include "Map.h"
 #include "Units.h"
 #include "PathFinding.h"
+#include "FileTools.h"
 
 namespace Opponent
 {
@@ -20,27 +20,9 @@ namespace Opponent
         nlohmann::json currentGame;
         std::set<std::string> setKeys;
 
-        std::vector<std::string> dataLoadPaths = {
-                "bwapi-data/read/",
-                "bwapi-data/write/",
-                "bwapi-data/AI/"
-        };
-        std::string dataWritePath = "bwapi-data/write/";
-
         std::string opponentDataFilename(bool writing = false)
         {
-            if (writing)
-            {
-                return (std::ostringstream() << dataWritePath << "stardust_" << name << ".json").str();
-            }
-
-            for (auto &path : dataLoadPaths)
-            {
-                auto filename = (std::ostringstream() << path << "stardust_" << name << ".json").str();
-                if (std::filesystem::exists(filename)) return filename;
-            }
-
-            return "";
+            return FileTools::getFilePath((std::ostringstream() << "stardust_" << name).str(), "json", writing);
         }
 
         bool readPreviousGame(std::istream &str)
