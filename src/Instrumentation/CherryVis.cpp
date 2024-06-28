@@ -369,6 +369,8 @@ namespace CherryVis
         {
             unitFirstSeen(unit);
         }
+
+        log() << "CherryVis initialized!";
 #endif
     }
 
