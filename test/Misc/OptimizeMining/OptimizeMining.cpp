@@ -98,15 +98,13 @@ namespace
 
         void onFrame() override
         {
-            InstrumentedDoNothingModule::onFrameStart();
-
             // Give initial workers time to be killed
             if (currentFrame < 10) return;
 
             if (patchAnalysis.empty())
             {
                 BWAPI::Broodwar->leaveGame();
-                InstrumentedDoNothingModule::onFrameEnd();
+                InstrumentedDoNothingModule::onFrame();
                 return;
             }
 
@@ -123,7 +121,7 @@ namespace
                 }
             }
 
-            InstrumentedDoNothingModule::onFrameEnd();
+            InstrumentedDoNothingModule::onFrame();
         }
     };
 

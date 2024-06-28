@@ -18,20 +18,9 @@ public:
         CherryVis::initialize();
     }
 
-    void onFrameStart()
-    {
-        currentFrame++;
-    }
-
-    void onFrameEnd()
-    {
-        CherryVis::frameEnd(currentFrame);
-    }
-
     void onFrame() override
     {
-        onFrameStart();
-        onFrameEnd();
+        CherryVis::frameEnd(currentFrame++);
     }
 
     void onEnd(bool isWinner) override
