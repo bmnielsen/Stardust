@@ -13,6 +13,7 @@
 #include "Units.h"
 #include "Workers.h"
 #include "WorkerOrderTimer.h"
+#include "WorkerMiningInstrumentation.h"
 #include "Bullets.h"
 #include "Players.h"
 #include "Geo.h"
@@ -106,6 +107,9 @@ void StardustAIModule::onStart()
 
     WorkerOrderTimer::initialize();
     Timer::checkpoint("WorkerOrderTimer::initialize");
+
+    WorkerMiningInstrumentation::initialize();
+    Timer::checkpoint("WorkerMiningInstrumentation::initialize");
 
     Strategist::initialize();
     Timer::checkpoint("Strategist::initialize");
@@ -215,8 +219,8 @@ void StardustAIModule::onFrame()
     Players::update();
     Timer::checkpoint("Players::update");
 
-    WorkerOrderTimer::update();
-    Timer::checkpoint("WorkerOrderTimer::update");
+    WorkerMiningInstrumentation::update();
+    Timer::checkpoint("WorkerMiningInstrumentation::update");
 
     Map::update();
     Timer::checkpoint("Map::update");
@@ -331,7 +335,7 @@ void StardustAIModule::onFrame()
     // Instrumentation
     NoGoAreas::writeInstrumentation();
     General::writeInstrumentation();
-    WorkerOrderTimer::writeInstrumentation();
+    WorkerMiningInstrumentation::writeInstrumentation();
 
 #if COLLISION_HEATMAP_FREQUENCY_ENEMY
     if (currentFrame % COLLISION_HEATMAP_FREQUENCY_ENEMY == 0)
