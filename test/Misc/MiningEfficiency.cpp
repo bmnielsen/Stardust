@@ -6,7 +6,7 @@
 #include "Strategist.h"
 #include "TestMainArmyAttackBasePlay.h"
 #include "Plays/Macro/SaturateBases.h"
-#include "WorkerOrderTimer.h"
+#include "WorkerMiningInstrumentation.h"
 #include "Geo.h"
 
 namespace
@@ -88,7 +88,7 @@ namespace
 
         test.onEndMine = [](bool)
         {
-            std::cout << "Mining efficiency: " << WorkerOrderTimer::getEfficiency() << std::endl;
+            std::cout << "Mining efficiency: " << WorkerMiningInstrumentation::getEfficiency() << std::endl;
         };
 
         test.run();

@@ -7,6 +7,8 @@
 
 #if INSTRUMENTATION_ENABLED
 #define TRACK_MINING_EFFICIENCY true
+#define LOG_WORKER_ORDERS true
+#define LOG_PATCH_STATUS true
 #endif
 
 namespace
@@ -24,6 +26,9 @@ namespace
     // 11 = two workers assigned, one worker is returning cargo, other worker is moving to minerals
     // 12 = two workers assigned, one worker is returning cargo, other worker is waiting to mine
     std::map<Resource, std::vector<std::pair<int, int>>> resourceToMiningStatus;
+
+    // Map storing alerts for each patch, so we can show them for a while
+    std::map<Resource, std::pair<int, std::string>> patchToAlert;
 #endif
 }
 
@@ -33,6 +38,7 @@ namespace WorkerMiningInstrumentation
     {
 #if TRACK_MINING_EFFICIENCY
         resourceToMiningStatus.clear();
+        patchToAlert.clear();
 #endif
     }
 
@@ -77,11 +83,18 @@ namespace WorkerMiningInstrumentation
                 auto distPatch = patch->getDistance(worker);
                 auto distDepot = depot->getDistance(worker);
 
+#if LOG_WORKER_ORDERS
                 CherryVis::log(worker->id) << distPatch << ":" << distDepot
                     << "; " << worker->bwapiUnit->getOrder()
                     << "; " << worker->bwapiUnit->isCarryingMinerals();
+#endif
 
-                if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals)
+                if (distPatch == 0 && (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals
+                                       || worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals))
+                {
+                    status = 1;
+                }
+                else if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals)
                 {
                     if (distDepot == 0 && currentFrame > 100)
                     {
@@ -91,11 +104,6 @@ namespace WorkerMiningInstrumentation
                     {
                         status = 0;
                     }
-                }
-                else if (distPatch == 0 && (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals
-                                            || worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals))
-                {
-                    status = 1;
                 }
                 else if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
                 {
@@ -119,13 +127,15 @@ namespace WorkerMiningInstrumentation
                 auto distDepotA = depot->getDistance(workerA);
                 auto distDepotB = depot->getDistance(workerB);
 
+#if LOG_WORKER_ORDERS
                 CherryVis::log(workerA->id) << distPatchA << ":" << distDepotA
                                            << "; " << workerA->bwapiUnit->getOrder()
                                            << "; " << workerA->bwapiUnit->isCarryingMinerals();
                 CherryVis::log(workerB->id) << distPatchB << ":" << distDepotB
                                            << "; " << workerB->bwapiUnit->getOrder()
                                            << "; " << workerB->bwapiUnit->isCarryingMinerals();
-
+#endif
+                
                 if (workerA->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
                     workerB->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
                 {
@@ -150,8 +160,10 @@ namespace WorkerMiningInstrumentation
                 }
             }
 
+#if LOG_PATCH_STATUS
             CherryVis::log(patch->id) << status;
-
+#endif
+            
             if (status != -1)
             {
                 miningStatus.emplace_back(status, currentFrame);
@@ -194,7 +206,7 @@ namespace WorkerMiningInstrumentation
             if (statusFrames == 0) continue;
 
             // Check for an inefficiency based on the status
-            bool inefficiency = false;
+            std::string inefficiency;
             switch (currentStatus)
             {
                 // These cases do not matter
@@ -215,13 +227,13 @@ namespace WorkerMiningInstrumentation
                     {
                         if (framesSinceLastOrderTimerReset > 8)
                         {
-                            inefficiency = true;
+                            inefficiency = "start-mining-wait-no-reset";
                             CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
                                              << ": worker waited too many frames to start mining (no reset)";
                         }
                         else if (statusFrames > (8 - framesSinceLastOrderTimerReset))
                         {
-                            inefficiency = true;
+                            inefficiency = "start-mining-wait-reset";
                             CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
                                              << ": worker waited too many frames to start mining (reset)";
                         }
@@ -234,7 +246,7 @@ namespace WorkerMiningInstrumentation
                 {
                     if (statusFrames > 10)
                     {
-                        inefficiency = true;
+                        inefficiency = "leave-depot";
                         CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
                                          << ": worker waited too many frames to leave depot";
                     }
@@ -242,10 +254,23 @@ namespace WorkerMiningInstrumentation
                 }
             }
 
-            if (inefficiency)
+            if (!inefficiency.empty())
             {
-                CherryVis::drawCircle(patch->center.x, patch->center.y, 32, CherryVis::DrawColor::Red);
+                patchToAlert[patch] = std::make_pair(currentFrame, inefficiency);
             }
+        }
+
+        for (auto it = patchToAlert.begin(); it != patchToAlert.end(); )
+        {
+            if ((currentFrame - it->second.first) > 24)
+            {
+                it = patchToAlert.erase(it);
+                continue;
+            }
+
+            CherryVis::drawCircle(it->first->center.x, it->first->center.y, 32, CherryVis::DrawColor::Red);
+            CherryVis::drawText(it->first->center.x, it->first->center.y, it->second.second);
+            it++;
         }
 #endif
     }
