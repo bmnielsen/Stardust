@@ -2,9 +2,12 @@
 
 #include "DoNothingModule.h"
 #include "InstrumentedDoNothingModule.h"
+#include "WorkerMiningInstrumentation.h"
 
 namespace
 {
+    std::map<Resource, std::set<MyWorker>> mineralPatchWorkers;
+
     struct TestResultData
     {
         int firstWorkerStartedMining = 0;
@@ -53,10 +56,10 @@ namespace
         BWAPI::Unit firstWorker;
         BWAPI::Unit secondWorker;
 
-
     public:
         explicit OptimizeWorkerTakeoverModule(int startMiningDelta, std::shared_ptr<TestResultData> result)
-                : startMiningDelta(startMiningDelta)
+                : InstrumentedDoNothingModule(true)
+                , startMiningDelta(startMiningDelta)
                 , result(std::move(result))
                 , state(0)
                 , firstWorker(nullptr)
@@ -66,10 +69,28 @@ namespace
         void onStart() override
         {
             InstrumentedDoNothingModule::onStart();
+
+            auto getPatchAndWorkers = [&]() -> std::map<Resource, std::set<MyWorker>>&
+            {
+                mineralPatchWorkers.clear();
+
+                auto first = std::dynamic_pointer_cast<MyWorkerImpl>(Units::get(firstWorker));
+                auto second = std::dynamic_pointer_cast<MyWorkerImpl>(Units::get(secondWorker));
+                auto patch = Units::resourceAt(BWAPI::TilePosition(2, 118));
+                if (!first || !second || !patch) return mineralPatchWorkers;
+
+                mineralPatchWorkers[patch] = {first, second};
+                return mineralPatchWorkers;
+            };
+
+            WorkerMiningInstrumentation::initialize(getPatchAndWorkers);
         }
 
         void onFrame() override
         {
+            InstrumentedDoNothingModule::onFrameStart();
+            WorkerMiningInstrumentation::update();
+
             CherryVis::setBoardValue("state-start", (std::ostringstream() << state).str());
 
             auto patch = getPatchUnit(BWAPI::TilePosition(2, 118));
@@ -328,8 +349,10 @@ namespace
             outputWorkerData(firstWorker);
             outputWorkerData(secondWorker);
 
+            WorkerMiningInstrumentation::writeInstrumentation();
+
             CherryVis::setBoardValue("state-end", (std::ostringstream() << state).str());
-            InstrumentedDoNothingModule::onFrame();
+            InstrumentedDoNothingModule::onFrameEnd();
         }
     };
 

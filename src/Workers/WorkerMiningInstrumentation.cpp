@@ -29,23 +29,30 @@ namespace
 
     // Map storing alerts for each patch, so we can show them for a while
     std::map<Resource, std::pair<int, std::string>> patchToAlert;
+
+    // Indirection to the Workers::mineralsAndAssignedWorkers function allowing it to be overridden by tests
+    std::function<std::map<Resource, std::set<MyWorker>> &()> getMineralsAndAssignedWorkers = Workers::mineralsAndAssignedWorkers;
 #endif
 }
 
 namespace WorkerMiningInstrumentation
 {
-    void initialize()
+    void initialize(const std::function<std::map<Resource, std::set<MyWorker>> &()> &getMineralsAndAssignedWorkersOverride)
     {
 #if TRACK_MINING_EFFICIENCY
         resourceToMiningStatus.clear();
         patchToAlert.clear();
+        if (getMineralsAndAssignedWorkersOverride)
+        {
+            getMineralsAndAssignedWorkers = getMineralsAndAssignedWorkersOverride;
+        }
 #endif
     }
 
     void update()
     {
 #if TRACK_MINING_EFFICIENCY
-        for (auto &[patch, workers] : Workers::mineralsAndAssignedWorkers())
+        for (auto &[patch, workers] : getMineralsAndAssignedWorkers())
         {
             if (!patch || workers.empty() || workers.size() > 2) continue;
 
