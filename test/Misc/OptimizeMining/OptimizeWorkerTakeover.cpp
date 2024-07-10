@@ -211,7 +211,7 @@ namespace
                     if (previousOrderTimerReset == takeOverFrame) previousOrderTimerReset -= 150;
 
                     // If the order timer reset during mining, adjust our take over frame
-                    // We always assume the worst-case scenario (first worker's order timer reset to 7)
+                    // We always assume the worst-case scenario (needing to wait a full cycle after the mining timer expires)
                     if (previousOrderTimerReset > result->firstWorkerStartedMining)
                     {
                         CherryVis::log() << "Take over frame adjusted from " << takeOverFrame
@@ -223,38 +223,27 @@ namespace
 
                     CherryVis::setBoardValue("take-over-frame", (std::ostringstream() << takeOverFrame).str());
 
+                    // Compute the frame we need to send a command for it to take effect on the takeover frame and on the order timer reset frame
                     int commandFrameForTakeOver = takeOverFrame - 11 - BWAPI::Broodwar->getLatencyFrames();
                     int commandFrameForReset = previousOrderTimerReset - BWAPI::Broodwar->getLatencyFrames();
 
+                    // If the takeover frame comes first, delay sending the order so it takes effect when the order timer resets instead
+                    // This is to avoid situations where the second worker's command takes effect too soon, causing it to switch to a different patch
                     if (commandFrameForReset > commandFrameForTakeOver)
                     {
-//                        Log::Get() << "reset frame after take over frame"
-//                            << "; reset=" << previousOrderTimerReset << " (cmd=" << commandFrameForReset << ")"
-//                            << "; takeover=" << takeOverFrame << " (cmd=" << commandFrameForTakeOver << ")";
-
                         commandFrameForTakeOver = commandFrameForReset;
                     }
-                    else if ((commandFrameForTakeOver - commandFrameForReset) == 0)
-                    {
-//                        Log::Get() << "command frames equal"
-//                                   << "; reset=" << previousOrderTimerReset << " (cmd=" << commandFrameForReset << ")"
-//                                   << "; takeover=" << takeOverFrame << " (cmd=" << commandFrameForTakeOver << ")";
-                    }
-                    else if ((commandFrameForTakeOver - commandFrameForReset) < 3)
-                    {
-//                        Log::Get() << "take over frame shortly after reset frame"
-//                                   << "; reset=" << previousOrderTimerReset << " (cmd=" << commandFrameForReset << ")"
-//                                   << "; takeover=" << takeOverFrame << " (cmd=" << commandFrameForTakeOver << ")";
-                    }
 
+                    // Compute the number of frames until the next command we have to send
+                    // We send regular commands to avoid having the worker switch patches
                     int framesToNextCommand;
-                    if (currentFrame <= commandFrameForReset)
+                    if (currentFrame <= commandFrameForReset && (commandFrameForTakeOver - commandFrameForReset) > 3)
                     {
-                        framesToNextCommand = currentFrame - std::min(commandFrameForReset, commandFrameForTakeOver);
+                        framesToNextCommand = std::min(commandFrameForReset, commandFrameForTakeOver) - currentFrame;
                     }
                     else
                     {
-                        framesToNextCommand = currentFrame - commandFrameForTakeOver;
+                        framesToNextCommand = commandFrameForTakeOver - currentFrame;
                     }
 
                     if (framesToNextCommand % 4 == 0)
@@ -418,6 +407,11 @@ TEST(OptimizeWorkerTakeover, WorstCaseOrderTimerResetDuringMiningTimer)
     runWithDelta(14);
 }
 
+TEST(OptimizeWorkerTakeover, UnitBusyCase)
+{
+    runWithDelta(71);
+}
+
 TEST(OptimizeWorkerTakeover, WorstCaseOrderTimerResetDuringCommandWindow)
 {
     runWithDelta(77);
@@ -441,12 +435,6 @@ TEST(OptimizeWorkerTakeover, MultipleResetDuringMining)
 TEST(OptimizeWorkerTakeover, MultipleResetAroundMiningCompletion)
 {
     runWithRange(60, 87);
-}
-
-
-TEST(OptimizeWorkerTakeover, MultipleResetAtMiningCompletion)
-{
-    runWithRange(83, 84);
 }
 
 TEST(OptimizeWorkerTakeover, MultipleFullSpectrum)
