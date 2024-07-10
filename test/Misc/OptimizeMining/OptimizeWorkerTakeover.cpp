@@ -208,11 +208,16 @@ namespace
 
                     // Compute the frame of the order timer reset prior to the take over frame
                     int previousOrderTimerReset = takeOverFrame - ((takeOverFrame - 8) % 150);
+                    if (previousOrderTimerReset == takeOverFrame) previousOrderTimerReset -= 150;
 
                     // If the order timer reset during mining, adjust our take over frame
                     // We always assume the worst-case scenario (first worker's order timer reset to 7)
                     if (previousOrderTimerReset > result->firstWorkerStartedMining)
                     {
+                        CherryVis::log() << "Take over frame adjusted from " << takeOverFrame
+                            << " to " << std::max(result->firstWorkerStartedMining + 84, previousOrderTimerReset + 8)
+                            << "; previousOrderTimerReset=" << previousOrderTimerReset
+                            << "; firstWorkerStartedMining=" << result->firstWorkerStartedMining;
                         takeOverFrame = std::max(result->firstWorkerStartedMining + 84, previousOrderTimerReset + 8);
                     }
 
@@ -421,6 +426,11 @@ TEST(OptimizeWorkerTakeover, WorstCaseOrderTimerResetDuringCommandWindow)
 TEST(OptimizeWorkerTakeover, WorstCaseOrderTimerResetAfterMiningTimer)
 {
     runWithDelta(82);
+}
+
+TEST(OptimizeWorkerTakeover, OrderTimerResetExactlyAfterMining)
+{
+    runWithDelta(83);
 }
 
 TEST(OptimizeWorkerTakeover, MultipleResetDuringMining)
