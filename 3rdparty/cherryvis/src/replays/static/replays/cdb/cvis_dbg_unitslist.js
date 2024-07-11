@@ -83,6 +83,7 @@ function cvis_dbg_unitslist_init(global_data, cvis_state) {
       const wt_y = parseInt(y / XYPixelsPerWalktile);
       el.attr('data-pos-x-wt', wt_x)
         .attr('data-pos-y-wt', wt_y)
+        .attr('title', '(' + x + ',' + y + ')')
         .text('(' + wt_x + ', ' + wt_y + ')');
     }
 
@@ -127,6 +128,10 @@ function cvis_dbg_unitslist_init(global_data, cvis_state) {
         set_position(html.find('.cur-order-target-position'), unit_info.order_target.pos.x, unit_info.order_target.pos.y);
       }
       html.find('.cur-order').text(orderText);
+
+      html.find('.cur-order-state').text(unit_info.order_state);
+      html.find('.cur-main-order-timer').text(unit_info.main_order_timer);
+      html.find('.cur-secondary-order-timer').text(unit_info.secondary_order_timer);
     }
     else {
       html.find('.show-when-unit-found').hide();

@@ -684,6 +684,9 @@ val lookup_unit(int32_t index) {
     if (u->order_type) o.set("order", (int)u->order_type->id);
     o.set("order_target", Dump::dump_target(&u->order_target));
 	o.set("order_process_timer", u->order_process_timer);
+    o.set("main_order_timer", u->main_order_timer);
+    o.set("secondary_order_timer", u->secondary_order_timer);
+    o.set("order_state", u->order_state);
 
 	return o;
 }
