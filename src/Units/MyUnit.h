@@ -14,6 +14,12 @@ typedef std::shared_ptr<MyUnitImpl> MyUnit;
 class MyUnitImpl : public UnitImpl
 {
 public:
+    // A number indicating when this unit's orders will be processed relative to our other units
+    // Unit orders are processed in reverse order of when they were added to the visible units list
+    // When units are hidden, they move up in the order processing list once they appear again
+    // See usages of hide_unit in bwgame.h for situations that cause units to be removed from the visible units list
+    int orderProcessIndex;
+
     BWAPI::Unit producer;
 
     int energy;                         // Estimated energy of the unit
@@ -158,6 +164,9 @@ private:
     mutable std::vector<BWAPI::Position> simulatedPositions; // Simulated position up to LF ahead assuming no collisions
     mutable std::vector<int> simulatedHeading;               // Simulated heading up to LF ahead assuming no collisions
     mutable bool simulatedPositionsUpdated;                  // Whether the simulated positions have been updated this frame
+
+    // Whether the unit is visible
+    bool visible;
 
     void updateSimulatedPositions() const;
 };

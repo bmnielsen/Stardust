@@ -9,6 +9,7 @@
 
 MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         : UnitImpl(unit)
+        , orderProcessIndex(unit->isVisible() ? Units::getNextOrderProcessIndex() : -1)
         , producer(nullptr)
         , energy(unit->getEnergy())
         , lastCastFrame(-1)
@@ -22,6 +23,7 @@ MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         , lastMoveFrame(0)
         , unstickUntil(-1)
         , simulatedPositionsUpdated(false)
+        , visible(unit->isVisible())
 {
     recentCommands.resize(BWAPI::Broodwar->getLatencyFrames() + 1, unit->getLastCommand());
     simulatedPositions.resize(BWAPI::Broodwar->getLatencyFrames() + 1, unit->getPosition());
@@ -37,6 +39,21 @@ std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit)
 void MyUnitImpl::update(BWAPI::Unit unit)
 {
     if (!unit || !unit->exists()) return;
+
+    // Update the order process index if the unit's visibility has changed
+    if (unit->isVisible() != visible)
+    {
+        if (visible)
+        {
+            visible = false;
+            orderProcessIndex = -1;
+        }
+        else
+        {
+            visible = true;
+            orderProcessIndex = Units::getNextOrderProcessIndex();
+        }
+    }
 
     // Update command positions
     recentCommands.pop_front();

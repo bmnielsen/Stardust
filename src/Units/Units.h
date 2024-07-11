@@ -75,4 +75,6 @@ namespace Units
 
     // TODO: This doesn't really fit here
     bool isBeingUpgradedOrResearched(UpgradeOrTechType type);
+
+    int getNextOrderProcessIndex();
 }

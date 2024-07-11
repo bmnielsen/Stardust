@@ -45,6 +45,8 @@ namespace Units
 {
     namespace
     {
+        int nextOrderProcessIndex;
+
         std::map<BWAPI::TilePosition, Resource> tileToResource;
 
         std::unordered_set<MyUnit> myUnits;
@@ -578,6 +580,7 @@ namespace Units
 
     void initialize()
     {
+        nextOrderProcessIndex = 0;
         tileToResource.clear();
         myUnits.clear();
         enemyUnits.clear();
@@ -759,6 +762,63 @@ namespace Units
                 if (producing != unitIdToMyUnit.end())
                 {
                     producing->second->producer = bwapiUnit;
+                }
+            }
+        }
+
+        // If this is the first frame, set the order process index for our initial units
+        // They are always initialized in this order: depot, leftmost worker to rightmost worker
+        // If this is a map that moves the initial worker position, we set the order process index to -1 to indicate we don't know the order
+        // (if these kinds of maps become common in bot play, a map-specific override can be developed to fix this)
+        if (currentFrame == 0)
+        {
+            bool nonstandardMap = false;
+
+            // First scan to get the leftmost worker's X position
+            int leftmostX = INT_MAX;
+            for (auto &unit : myUnits)
+            {
+                if (unit->type.isWorker() && unit->lastPosition.x < leftmostX) leftmostX = unit->lastPosition.x;
+            }
+
+            // Now assign the index based on the position
+            for (auto &unit : myUnits)
+            {
+                if (unit->type.isResourceDepot())
+                {
+                    unit->orderProcessIndex = 0;
+                }
+                else if (unit->type.isWorker())
+                {
+                    int offset = unit->lastPosition.x - leftmostX;
+                    if (offset == 0)
+                    {
+                        unit->orderProcessIndex = 1;
+                    }
+                    else if (offset == 24)
+                    {
+                        unit->orderProcessIndex = 2;
+                    }
+                    else if (offset == 48)
+                    {
+                        unit->orderProcessIndex = 3;
+                    }
+                    else if (offset == 72)
+                    {
+                        unit->orderProcessIndex = 4;
+                    }
+                    else
+                    {
+                        nonstandardMap = true;
+                    }
+                }
+            }
+
+            if (nonstandardMap)
+            {
+                for (auto &unit : myUnits)
+                {
+                    if (unit->type.isWorker()) unit->orderProcessIndex = -1;
                 }
             }
         }
@@ -1089,6 +1149,11 @@ namespace Units
             else if (unit->bwapiUnit->getOrderTargetPosition())
             {
                 debug << ";tgt=" << BWAPI::WalkPosition(unit->bwapiUnit->getOrderTargetPosition());
+            }
+            if (unit->player == BWAPI::Broodwar->self())
+            {
+                auto myUnit = std::static_pointer_cast<MyUnitImpl>(unit);
+                debug << ";idx=" << myUnit->orderProcessIndex;
             }
 
             // Last line is movement data and other unit-specific stuff
@@ -1436,5 +1501,10 @@ namespace Units
         }
 
         return upgradesInProgress.contains(type.upgradeType);
+    }
+
+    int getNextOrderProcessIndex()
+    {
+        return nextOrderProcessIndex++;
     }
 }
