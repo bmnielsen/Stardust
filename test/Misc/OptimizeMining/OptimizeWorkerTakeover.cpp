@@ -13,6 +13,7 @@ namespace
         int firstWorkerStartedMining = 0;
         int firstWorkerFinishedMining = 0;
         int secondWorkerStartedMining = 0;
+        bool extraFrame = true;
 
         [[nodiscard]] int miningTime() const
         {
@@ -21,7 +22,7 @@ namespace
 
         [[nodiscard]] int wastedTime() const
         {
-            return secondWorkerStartedMining - firstWorkerFinishedMining - 1;
+            return secondWorkerStartedMining - firstWorkerFinishedMining - 1 - (extraFrame ? 1 : 0);
         }
     };
 
@@ -43,6 +44,10 @@ namespace
         // Time before an order timer reset the first worker should start mining
         int startMiningDelta;
 
+        // If true, chooses a first mining worker that has its order timer reset to 7
+        // Otherwise, chooses a first mining worker that has its order timer reset to 1 (there isn't a suitable worker that resets to 0)
+        bool worstCase;
+
         // Results of the test
         std::shared_ptr<TestResultData> result;
 
@@ -57,9 +62,10 @@ namespace
         BWAPI::Unit secondWorker;
 
     public:
-        explicit OptimizeWorkerTakeoverModule(int startMiningDelta, std::shared_ptr<TestResultData> result)
+        explicit OptimizeWorkerTakeoverModule(int startMiningDelta, bool worstCase, std::shared_ptr<TestResultData> result)
                 : InstrumentedDoNothingModule(true)
                 , startMiningDelta(startMiningDelta)
+                , worstCase(worstCase)
                 , result(std::move(result))
                 , state(0)
                 , firstWorker(nullptr)
@@ -106,12 +112,18 @@ namespace
             CherryVis::log() << "Last reset ago: " << framesSinceLastOrderTimerReset
                 << "\nNext reset in: " << framesToNextOrderTimerReset;
 
-            auto issueGatherCommand = [&patch](BWAPI::Unit worker)
+            auto issueGatherCommand = [&](BWAPI::Unit worker)
             {
+                auto workerLabel = (worker == firstWorker ? "first" : "second");
+
                 if (!worker->gather(patch))
                 {
-                    CherryVis::log() << "Unable to issue gather: " << BWAPI::Broodwar->getLastError();
-                    Log::Get() << "Unable to issue gather: " << BWAPI::Broodwar->getLastError();
+                    CherryVis::log() << "Unable to issue gather to " << workerLabel << ": " << BWAPI::Broodwar->getLastError();
+                    Log::Get() << "Unable to issue gather to " << workerLabel << ": " << BWAPI::Broodwar->getLastError();
+                }
+                else
+                {
+                    CherryVis::log() << "Issued gather command to " << workerLabel;
                 }
             };
 
@@ -119,13 +131,12 @@ namespace
             {
                 case 0:
                 {
-                    // First worker is a unit that we know will reset to 8
-                    // Second worker doesn't matter
+                    // First worker is selected based on whether we want worst case or not
                     for (auto unit : BWAPI::Broodwar->self()->getUnits())
                     {
                         if (!unit->getType().isWorker()) continue;
 
-                        if (unit->getPosition().x == 288)
+                        if ((worstCase && unit->getPosition().x == 288) || (!worstCase && unit->getPosition().x == 240))
                         {
                             firstWorker = unit;
                         }
@@ -196,7 +207,8 @@ namespace
                         state = 3;
                     }
 
-                    // Sometimes the first worker will wait an extra cycle before starting the mining timer for an unknown reason
+                    // The first worker will wait an extra cycle before starting the mining timer if it is not facing the patch
+                    // In this case log and adjust
                     if (firstWorker->getOrderTimer() > 0)
                     {
                         int actualStartFrame = currentFrame - (75 - firstWorker->getOrderTimer()) - 1;
@@ -210,10 +222,17 @@ namespace
                         }
                     }
 
-                    // TODO: Figure out why sometimes the second worker needs to wait an extra frame
+                    // If the first worker is processed after the second, we need to add an extra frame
+                    // Otherwise the second worker will think the patch is still being mined and switch patches
+                    int extraFrame = 1;
+                    if (Units::mine(firstWorker)->orderProcessIndex > Units::mine(secondWorker)->orderProcessIndex)
+                    {
+                        extraFrame = 0;
+                        result->extraFrame = false;
+                    }
 
-                    // Without order timer resets, we can take over 82 frames after the first worker started mining
-                    int takeOverFrame = result->firstWorkerStartedMining + 82;
+                    // Without order timer resets, we can take over 82 frames after the first worker started mining, adjusted for extra frame
+                    int takeOverFrame = result->firstWorkerStartedMining + 82 + extraFrame;
 
                     // Compute the frame of the order timer reset prior to the take over frame
                     int previousOrderTimerReset = takeOverFrame - ((takeOverFrame - 8) % 150);
@@ -224,10 +243,10 @@ namespace
                     if (previousOrderTimerReset > result->firstWorkerStartedMining)
                     {
                         CherryVis::log() << "Take over frame adjusted from " << takeOverFrame
-                            << " to " << std::max(result->firstWorkerStartedMining + 84, previousOrderTimerReset + 8)
+                            << " to " << (std::max(result->firstWorkerStartedMining + 84, previousOrderTimerReset + 8) + extraFrame)
                             << "; previousOrderTimerReset=" << previousOrderTimerReset
                             << "; firstWorkerStartedMining=" << result->firstWorkerStartedMining;
-                        takeOverFrame = std::max(result->firstWorkerStartedMining + 84, previousOrderTimerReset + 8);
+                        takeOverFrame = std::max(result->firstWorkerStartedMining + 84, previousOrderTimerReset + 8) + extraFrame;
                     }
 
                     CherryVis::setBoardValue("take-over-frame", (std::ostringstream() << takeOverFrame).str());
@@ -359,7 +378,7 @@ namespace
         }
     };
 
-    std::shared_ptr<TestResultData> runWithDelta(int delta)
+    std::shared_ptr<TestResultData> runWithDelta(int delta, bool worstCase)
     {
         auto result = std::make_shared<TestResultData>();
 
@@ -375,13 +394,14 @@ namespace
         };
         test.myModule = [&]()
         {
-            return new OptimizeWorkerTakeoverModule(delta, result);
+            return new OptimizeWorkerTakeoverModule(delta, worstCase, result);
         };
 
         std::ostringstream replayName;
         replayName << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
         replayName << "_" << ::testing::UnitTest::GetInstance()->current_test_info()->name();
         replayName << "_delta=" << delta;
+        if (worstCase) replayName << "_worst";
         test.replayName = replayName.str();
 
         test.run();
@@ -392,12 +412,12 @@ namespace
         return result;
     }
 
-    void runWithRange(int start, int end)
+    void runWithRange(int start, int end, bool worstCase)
     {
         int totalWastage = 0;
         for (int delta = start; delta <= end; delta++)
         {
-            totalWastage += runWithDelta(delta)->wastedTime();
+            totalWastage += runWithDelta(delta, worstCase)->wastedTime();
         }
 
         std::cout << std::fixed << std::showpoint << std::setprecision(4)
@@ -408,45 +428,52 @@ namespace
 
 TEST(OptimizeWorkerTakeover, NoOrderTimerReset)
 {
-    runWithDelta(120);
+    runWithDelta(120, true);
 }
 
-TEST(OptimizeWorkerTakeover, WorstCaseOrderTimerResetDuringMiningTimer)
+TEST(OptimizeWorkerTakeover, OrderTimerResetDuringMiningTimer)
 {
-    runWithDelta(14);
+    runWithDelta(14, true);
 }
 
-TEST(OptimizeWorkerTakeover, UnitBusyCase)
+TEST(OptimizeWorkerTakeover, OrderTimerResetDuringCommandWindow)
 {
-    runWithDelta(71);
+    runWithDelta(77, true);
 }
 
-TEST(OptimizeWorkerTakeover, WorstCaseOrderTimerResetDuringCommandWindow)
+TEST(OptimizeWorkerTakeover, OrderTimerResetAfterMiningTimer)
 {
-    runWithDelta(77);
-}
-
-TEST(OptimizeWorkerTakeover, WorstCaseOrderTimerResetAfterMiningTimer)
-{
-    runWithDelta(82);
+    runWithDelta(82, true);
 }
 
 TEST(OptimizeWorkerTakeover, OrderTimerResetExactlyAfterMining)
 {
-    runWithDelta(83);
+    runWithDelta(83, true);
 }
 
-TEST(OptimizeWorkerTakeover, MultipleResetDuringMining)
+TEST(OptimizeWorkerTakeover, MultipleFullSpectrumWorstCase)
 {
-    runWithRange(10, 58);
+    runWithRange(0, 132, true);
 }
 
-TEST(OptimizeWorkerTakeover, MultipleResetAroundMiningCompletion)
+TEST(OptimizeWorkerTakeover, MultipleFullSpectrumNotWorstCase)
 {
-    runWithRange(60, 87);
+    runWithRange(0, 132, false);
 }
 
-TEST(OptimizeWorkerTakeover, MultipleFullSpectrum)
+TEST(OptimizeWorkerTakeover, MultipleFullSpectrumBothCases)
 {
-    runWithRange(0, 132);
+    runWithRange(0, 132, false);
+    runWithRange(0, 132, true);
+}
+
+TEST(OptimizeWorkerTakeover, SingleCase)
+{
+    runWithDelta(123, false);
+    runWithDelta(123, true);
+}
+
+TEST(OptimizeWorkerTakeover, ExtraFrameAtTakeover)
+{
+    runWithDelta(123, false);
 }
