@@ -146,9 +146,18 @@ namespace
                 {
                     // Compute the frame delta to where we want to issue the final gather command to the first worker
                     int framesToFinalGatherCommand = framesToNextOrderTimerReset - 11 - BWAPI::Broodwar->getLatencyFrames() - startMiningDelta;
+                    if (framesToFinalGatherCommand < 0) framesToFinalGatherCommand += 150;
+
+                    int framesToResetCommandFrame = framesToNextOrderTimerReset - BWAPI::Broodwar->getLatencyFrames();
+                    if (framesToResetCommandFrame < framesToFinalGatherCommand && (framesToFinalGatherCommand - framesToResetCommandFrame) < 4)
+                    {
+                        Log::Get() << "WARNING: Reset close to gather";
+                    }
+
+                    int nextCommandFrame = std::min(framesToResetCommandFrame, framesToFinalGatherCommand);
 
                     // Issue gather commands at regular intervals to avoid the workers switching patches or starting mining
-                    if (framesToFinalGatherCommand % 8 == 0)
+                    if (nextCommandFrame % 4 == 0)
                     {
                         issueGatherCommand(firstWorker);
                         issueGatherCommand(secondWorker);
