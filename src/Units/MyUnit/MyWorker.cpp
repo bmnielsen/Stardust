@@ -63,6 +63,7 @@ MyWorkerImpl::MyWorkerImpl(BWAPI::Unit unit)
         : MyUnitImpl(unit)
         , carryingResource(unit->isCarryingMinerals() || unit->isCarryingGas())
         , lastDeliveredResource(-1)
+        , lastStartedMining(-1)
         , horizontalKiloSpeed(toKiloInteger(unit->getVelocityX()))
         , verticalKiloSpeed(toKiloInteger(unit->getVelocityY()))
         , kiloHeading(toKiloInteger(unit->getAngle()))
@@ -93,10 +94,13 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
         orderProcessTimer = 0;
         if (!carryingResource) lastDeliveredResource = currentFrame;
     }
-    else if (bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals && bwapiUnit->getOrderTimer() == 75 &&
-             (BWAPI::Broodwar->getFrameCount() - 8) % 150 != 0)
+    else if (bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals && bwapiUnit->getOrderTimer() == 75)
     {
-        orderProcessTimer = 8;
+        lastStartedMining = currentFrame;
+        if ((BWAPI::Broodwar->getFrameCount() - 8) % 150 != 0)
+        {
+            orderProcessTimer = 8;
+        }
     }
 }
 
