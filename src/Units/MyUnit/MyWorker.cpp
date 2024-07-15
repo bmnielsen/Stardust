@@ -4,6 +4,7 @@
 #include "Geo.h"
 #include "Map.h"
 #include "UnitUtil.h"
+#include "OrderProcessTimer.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -96,8 +97,8 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
     }
     else if (bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals && bwapiUnit->getOrderTimer() == 75)
     {
-        lastStartedMining = currentFrame;
-        if ((BWAPI::Broodwar->getFrameCount() - 8) % 150 != 0)
+        lastStartedMining = BWAPI::Broodwar->getFrameCount();
+        if (!OrderProcessTimer::isResetFrame())
         {
             orderProcessTimer = 8;
         }
@@ -288,7 +289,7 @@ void MyWorkerImpl::attackUnit(const Unit &target,
         // If we have an estimation of the enemy order timer, try to time our attack so the enemy's order timer will not allow it to attack
         // while we are in range
         if (target->orderProcessTimer == -1) return true;
-        if ((BWAPI::Broodwar->getFrameCount() - 8) % 150 > 135) return true; // timers will be reset soon, so we can't use them for prediction
+        if (OrderProcessTimer::framesToNextReset() < 15) return true; // timers will be reset soon, so we can't use them for prediction
 
         int timerAtRange = target->orderProcessTimer - framesToRange;
         while (timerAtRange < 0) timerAtRange += 9;

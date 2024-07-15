@@ -15,6 +15,7 @@
 #include "OpponentEconomicModel.h"
 #include "Strategist.h"
 #include "Bullets.h"
+#include "OrderProcessTimer.h"
 
 #include "DebugFlag_GridUpdates.h"
 
@@ -628,7 +629,7 @@ namespace Units
         // Unit update may reset these later in the frame if something has been observed that reveals the order timer
         // Order timers reset to unknown values every 150 frames starting on frame 8
         auto updateOrderProcessTimer =
-                ((BWAPI::Broodwar->getFrameCount() - 8) % 150 == 0)
+                OrderProcessTimer::isResetFrame()
                 ? [](const Unit &unit) { unit->orderProcessTimer = -1; }
                 : [](const Unit &unit)
                     {
