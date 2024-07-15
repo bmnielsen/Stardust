@@ -3,6 +3,7 @@
 #include <fstream>
 #include <filesystem>
 #include "Units.h"
+#include "Workers.h"
 
 #if INSTRUMENTATION_ENABLED
 #define TRACK_MINING_EFFICIENCY true
@@ -116,14 +117,38 @@ namespace WorkerOrderTimer
 
     bool optimizeStartOfMining(const MyWorker &worker, const Resource &resource)
     {
+        auto resourceBwapiUnit = resource->getBwapiUnitIfVisible();
+        if (!resourceBwapiUnit) return false;
+
         // Send a gather command when the worker has just delivered cargo
         // Occasionally from some patches a worker will wait an extra order timer round for no apparent reason, and this short-circuits that
         if (worker->lastDeliveredResource == currentFrame)
         {
-            auto bwapiUnit = resource->getBwapiUnitIfVisible();
-            if (bwapiUnit)
+            worker->gather(resourceBwapiUnit);
+            return true;
+        }
+
+        // Mineral locking: make sure the worker doesn't switch targets
+        if (worker->bwapiUnit->getOrderTarget() && worker->bwapiUnit->getOrderTarget()->getResources()
+            && worker->bwapiUnit->getOrderTarget() != resourceBwapiUnit)
+        {
+            CherryVis::log(worker->id) << "Changed target patch";
+            worker->gather(resourceBwapiUnit);
+            return true;
+        }
+
+        // If another worker is currently mining this patch, resend the gather command when we expect the other worker to be finished mining in
+        // 11+LF frames
+        auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
+        if (otherWorker && otherWorker->exists() && otherWorker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals &&
+            (otherWorker->bwapiUnit->getOrderTimer() + 7) == (11 + BWAPI::Broodwar->getLatencyFrames()))
+        {
+            // Exception: If we are not at the patch yet, and our last command was sent a long time ago,
+            // we probably want to wait and allow our order timer optimization to send the command instead.
+            int dist = resource->getDistance(worker);
+            if (dist <= 20 || worker->lastCommandFrame >= (currentFrame - 20))
             {
-                worker->gather(bwapiUnit);
+                worker->gather(resourceBwapiUnit);
                 return true;
             }
         }
@@ -168,46 +193,12 @@ namespace WorkerOrderTimer
         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals &&
             optimalOrderPositions.contains(currentPositionAndVelocity))
         {
-            auto bwapiUnit = resource->getBwapiUnitIfVisible();
-            if (bwapiUnit)
-            {
-                worker->gather(bwapiUnit);
-                resent = true;
-            }
+            worker->gather(resourceBwapiUnit);
+            resent = true;
         }
 
         // Record the worker's position
         positionHistory.emplace(std::make_pair(currentFrame, currentPositionAndVelocity));
         return resent;
-    }
-
-    bool optimizeReturn(const MyWorker &worker, const Resource &resource, const Unit &depot)
-    {
-        return false;
-
-        // Resend the gather order when the resources are delivered
-        int dist = worker->getDistance(depot);
-        if (dist > 0) return false;
-
-        if (worker->orderProcessTimer == -1)
-        {
-            CherryVis::log(worker->id) << "Can't predict delivery time";
-        }
-        else
-        {
-            CherryVis::log(worker->id) << "Expect delivery in " << (worker->orderProcessTimer + 1) << " frames";
-            if ((worker->orderProcessTimer + 1) == BWAPI::Broodwar->getRemainingLatencyFrames())
-            {
-                auto bwapiUnit = resource->getBwapiUnitIfVisible();
-                if (bwapiUnit)
-                {
-                    CherryVis::log() << "Resent order to " << BWAPI::WalkPosition(worker->lastPosition);
-                    worker->gather(bwapiUnit);
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 }

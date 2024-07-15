@@ -52,4 +52,6 @@ namespace Workers
     int idleWorkerCount();
 
     std::map<Resource, std::set<MyWorker>> &mineralsAndAssignedWorkers();
+
+    MyWorker getOtherWorkerMining(const Resource &resource, const MyWorker &worker);
 }

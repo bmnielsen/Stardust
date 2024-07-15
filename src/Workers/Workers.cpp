@@ -5,7 +5,7 @@
 #include "PathFinding.h"
 #include "Map.h"
 #include "NoGoAreas.h"
-#include "WorkerOrderTimer.h"
+#include "WorkerMiningOptimization.h"
 #include "Boids.h"
 #include "Strategist.h"
 
@@ -721,10 +721,10 @@ namespace Workers
                                     }
                                     else if (worker->bwapiUnit->isCarryingMinerals())
                                     {
-                                        auto mineralPatch = workerMineralPatch[worker];
-                                        if (mineralPatch)
+                                        auto myDepot = std::dynamic_pointer_cast<MyUnitImpl>(closestBase->resourceDepot);
+                                        if (myDepot)
                                         {
-                                            WorkerOrderTimer::optimizeReturn(worker, mineralPatch, closestBase->resourceDepot);
+                                            WorkerMiningOptimization::optimizeReturnOfResource(worker, myDepot);
                                         }
                                     }
                                     continue;
@@ -748,16 +748,11 @@ namespace Workers
                             worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnGas ||
                             worker->bwapiUnit->getOrder() == BWAPI::Orders::ResetCollision)
                         {
-                            // Potentially optimize the return if we are returning minerals
-                            if (worker->bwapiUnit->isCarryingMinerals())
+                            auto myDepot = std::dynamic_pointer_cast<MyUnitImpl>(base->resourceDepot);
+                            if (myDepot)
                             {
-                                auto mineralPatch = workerMineralPatch[worker];
-                                if (mineralPatch)
-                                {
-                                    WorkerOrderTimer::optimizeReturn(worker, mineralPatch, base->resourceDepot);
-                                }
+                                WorkerMiningOptimization::optimizeReturnOfResource(worker, myDepot);
                             }
-
                             continue;
                         }
 
@@ -775,17 +770,13 @@ namespace Workers
                     auto mineralPatch = workerMineralPatch[worker];
                     if (mineralPatch)
                     {
-                        if (WorkerOrderTimer::optimizeStartOfMining(worker, mineralPatch)) continue;
-
                         // If the unit is currently mining, leave it alone
                         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
-                            worker->bwapiUnit->getOrder() == BWAPI::Orders::ResetCollision)
+                            worker->bwapiUnit->getOrder() == BWAPI::Orders::ResetCollision ||
+                            worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnMinerals)
                         {
                             continue;
                         }
-
-                        // If the unit is returning cargo, leave it alone
-                        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnMinerals) continue;
 
                         // If we don't have vision on the mineral patch, move towards it
                         auto bwapiUnit = mineralPatch->getBwapiUnitIfVisible();
@@ -795,47 +786,17 @@ namespace Workers
                             continue;
                         }
 
-                        // Check if another worker is currently mining this patch
-                        MyWorker otherWorker = nullptr;
-                        for (const auto &unit : mineralPatchWorkers[mineralPatch])
+                        // If the unit hasn't been ordered to gather, order it to do so
+                        if (worker->bwapiUnit->getOrder() != BWAPI::Orders::MoveToMinerals &&
+                            worker->bwapiUnit->getOrder() != BWAPI::Orders::WaitForMinerals &&
+                            ((worker->lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+                             || worker->bwapiUnit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Gather))
                         {
-                            if (unit != worker)
-                            {
-                                otherWorker = unit;
-                                break;
-                            }
-                        }
-
-                        // Resend the gather command when we expect the other worker to be finished mining in 11+LF frames
-                        if (otherWorker && otherWorker->exists() && otherWorker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals &&
-                            (otherWorker->bwapiUnit->getOrderTimer() + 7) == (11 + BWAPI::Broodwar->getLatencyFrames()))
-                        {
-                            // Exception: If we are not at the patch yet, and our last command was sent a long time ago,
-                            // we probably want to wait and allow our order timer optimization to send the command instead.
-                            int dist = mineralPatch->getDistance(worker);
-                            if (dist > 20 && worker->lastCommandFrame < (currentFrame - 20)) continue;
-
                             worker->gather(bwapiUnit);
                             continue;
                         }
 
-                        // Mineral locking: if the unit is moving to or waiting for minerals, make sure it doesn't switch targets
-                        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals ||
-                            worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
-                        {
-                            if (worker->bwapiUnit->getOrderTarget() && worker->bwapiUnit->getOrderTarget()->getResources()
-                                && worker->bwapiUnit->getOrderTarget() != bwapiUnit
-                                && worker->lastCommandFrame
-                                   < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
-                            {
-                                worker->gather(bwapiUnit);
-                            }
-
-                            continue;
-                        }
-
-                        // Otherwise for all other orders click on the mineral patch
-                        worker->gather(bwapiUnit);
+                        WorkerMiningOptimization::optimizeStartOfMining(worker, mineralPatch);
                         continue;
                     }
 
@@ -1187,5 +1148,14 @@ namespace Workers
     std::map<Resource, std::set<MyWorker>> &mineralsAndAssignedWorkers()
     {
         return mineralPatchWorkers;
+    }
+
+    MyWorker getOtherWorkerMining(const Resource &resource, const MyWorker &worker)
+    {
+        for (const auto &unit : mineralPatchWorkers[resource])
+        {
+            if (unit != worker) return unit;
+        }
+        return nullptr;
     }
 }

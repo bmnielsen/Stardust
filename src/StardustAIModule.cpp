@@ -12,7 +12,7 @@
 #include "General.h"
 #include "Units.h"
 #include "Workers.h"
-#include "WorkerOrderTimer.h"
+#include "WorkerMiningOptimization.h"
 #include "WorkerMiningInstrumentation.h"
 #include "Bullets.h"
 #include "Players.h"
@@ -105,8 +105,8 @@ void StardustAIModule::onStart()
     CombatSim::initialize();
     Timer::checkpoint("CombatSim::initialize");
 
-    WorkerOrderTimer::initialize();
-    Timer::checkpoint("WorkerOrderTimer::initialize");
+    WorkerMiningOptimization::initialize();
+    Timer::checkpoint("WorkerMiningOptimization::initialize");
 
     WorkerMiningInstrumentation::initialize();
     Timer::checkpoint("WorkerMiningInstrumentation::initialize");
@@ -144,7 +144,7 @@ void StardustAIModule::onEnd(bool isWinner)
     if (testOnEnd) testOnEnd(isWinner);
 
     Opponent::gameEnd(isWinner);
-    WorkerOrderTimer::write();
+    WorkerMiningOptimization::write();
     CherryVis::gameEnd();
 }
 
