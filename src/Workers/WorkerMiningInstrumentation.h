@@ -12,5 +12,5 @@ namespace WorkerMiningInstrumentation
 
     void writeInstrumentation();
 
-    double getEfficiency();
+    std::pair<double, double> getEfficiency(int fromFrame = -1, int toFrame = -1);
 }

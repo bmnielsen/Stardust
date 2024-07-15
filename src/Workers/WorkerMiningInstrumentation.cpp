@@ -10,6 +10,7 @@
 #define TRACK_MINING_EFFICIENCY true
 #define LOG_WORKER_ORDERS true
 #define LOG_PATCH_STATUS true
+#define LOG_TWOPATCH_TAKEOVER false
 #endif
 
 namespace
@@ -333,15 +334,18 @@ namespace WorkerMiningInstrumentation
 
                     if (!inefficiency.empty())
                     {
+#if LOG_TWOPATCH_TAKEOVER
                         Log::Get() << "Waited " << statusFrames
                                    << "; miningStart=" << miningStart
                                    << "; miningEnd=" << miningEnd
                                    << "; resetFrameAfterMiningStart=" << resetFrameAfterMiningStart
                                    << "; extraFrame=" << extraFrame
                                    << "; " << inefficiency;
+#endif
                         CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
                                          << ": worker waited too many frames to take over mining (" << inefficiency << ")";
                     }
+#if LOG_TWOPATCH_TAKEOVER
                     else
                     {
                         Log::Get() << "OK"
@@ -350,6 +354,7 @@ namespace WorkerMiningInstrumentation
                                    << "; resetFrameAfterMiningStart=" << resetFrameAfterMiningStart
                                    << "; extraFrame=" << extraFrame;
                     }
+#endif
                     break;
                 }
             }
@@ -372,14 +377,23 @@ namespace WorkerMiningInstrumentation
             CherryVis::drawText(it->first->center.x, it->first->center.y, it->second.second);
             it++;
         }
+
+        if (currentFrame % 1000 == 0)
+        {
+            auto efficiency = getEfficiency(currentFrame - 1000, currentFrame);
+            Log::Get() << std::fixed << std::setprecision(1)
+                       << "Mining efficiency over past 1000 frames: "
+                       << "Single: " << efficiency.first << "%; "
+                       << "Double: " << efficiency.second << "%";
+        }
 #endif
     }
 
-    double getEfficiency()
+    std::pair<double, double> getEfficiency(int fromFrame, int toFrame)
     {
 #if TRACK_MINING_EFFICIENCY
         // Counts the number of frames each patch was mined and not mined, aligned to when a worker arrives at the patch
-        auto computeEfficiency = [](int waitState, int mineState)
+        auto computeEfficiency = [](const std::set<int> &waitStates, int mineState, int fromFrame, int toFrame)
         {
             int framesMined = 0;
             int framesNotMined = 0;
@@ -388,23 +402,25 @@ namespace WorkerMiningInstrumentation
                 // Find last frame where the patch was about to be mined
                 int lastFrame = -1;
                 for (auto &[status, frame, _] : std::ranges::reverse_view(miningStatus)) {
-                    if (status == waitState)
+                    if (toFrame != -1 && frame > toFrame) continue;
+                    if (waitStates.contains(status))
                     {
                         lastFrame = frame;
                         break;
                     }
                 }
-                if (lastFrame == -1) continue;
+                if (lastFrame == -1 || (fromFrame != -1 && lastFrame < fromFrame)) continue;
 
                 // Loop all frames and count
                 bool foundFirstFrame = false;
                 for (auto &[status, frame, _] : miningStatus)
                 {
+                    if (fromFrame != -1 && frame < fromFrame) continue;
                     if (frame >= lastFrame) break;
 
                     if (!foundFirstFrame)
                     {
-                        if (status == waitState)
+                        if (waitStates.contains(status))
                         {
                             foundFirstFrame = true;
                         }
@@ -432,12 +448,11 @@ namespace WorkerMiningInstrumentation
             return (double)framesMined / (double)(framesMined + framesNotMined);
         };
 
-        double singleWorkerEfficiency = computeEfficiency(1, 2);
-//        double doubleWorkerEfficiency = computeEfficiency(12, 10);
-
-        return singleWorkerEfficiency;
+        return std::make_pair(
+                computeEfficiency({1}, 2, fromFrame, toFrame) * 100.0,
+                computeEfficiency({12, 13}, 10, fromFrame, toFrame) * 100.0);
 #else
-        return 0.0;
+        return std::make_pair(0.0, 0.0);
 #endif
     }
 }
