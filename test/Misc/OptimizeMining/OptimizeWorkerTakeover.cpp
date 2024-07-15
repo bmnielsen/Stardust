@@ -3,6 +3,7 @@
 #include "DoNothingModule.h"
 #include "InstrumentedDoNothingModule.h"
 #include "WorkerMiningInstrumentation.h"
+#include "OrderProcessTimer.h"
 
 namespace
 {
@@ -45,8 +46,11 @@ namespace
         int startMiningDelta;
 
         // If true, chooses a first mining worker that has its order timer reset to 7
-        // Otherwise, chooses a first mining worker that has its order timer reset to 1 (there isn't a suitable worker that resets to 0)
+        // Otherwise, chooses a first mining worker that has its order timer reset to 0
         bool worstCase;
+
+        // If true, a second worker is chosen that has its orders processed before the first
+        bool extraFrame;
 
         // Results of the test
         std::shared_ptr<TestResultData> result;
@@ -62,10 +66,11 @@ namespace
         BWAPI::Unit secondWorker;
 
     public:
-        explicit OptimizeWorkerTakeoverModule(int startMiningDelta, bool worstCase, std::shared_ptr<TestResultData> result)
+        explicit OptimizeWorkerTakeoverModule(int startMiningDelta, bool worstCase, bool extraFrame, std::shared_ptr<TestResultData> result)
                 : InstrumentedDoNothingModule(true)
                 , startMiningDelta(startMiningDelta)
                 , worstCase(worstCase)
+                , extraFrame(extraFrame)
                 , result(std::move(result))
                 , state(0)
                 , firstWorker(nullptr)
@@ -75,6 +80,8 @@ namespace
         void onStart() override
         {
             InstrumentedDoNothingModule::onStart();
+
+            result->extraFrame = extraFrame;
 
             auto getPatchAndWorkers = [&]() -> std::map<Resource, std::set<MyWorker>>&
             {
@@ -106,8 +113,8 @@ namespace
                 BWAPI::Broodwar->leaveGame();
             }
 
-            int framesSinceLastOrderTimerReset = (currentFrame - 8) % 150;
-            int framesToNextOrderTimerReset = 150 - framesSinceLastOrderTimerReset;
+            int framesSinceLastOrderTimerReset = OrderProcessTimer::framesToPreviousReset();
+            int framesToNextOrderTimerReset = OrderProcessTimer::framesToNextReset();
 
             CherryVis::log() << "Last reset ago: " << framesSinceLastOrderTimerReset
                 << "\nNext reset in: " << framesToNextOrderTimerReset;
@@ -132,15 +139,16 @@ namespace
                 case 0:
                 {
                     // First worker is selected based on whether we want worst case or not
+                    // The four starting workers at this position have their order timer reset to (from left-to-right): 1, 0, 7, 6
                     for (auto unit : BWAPI::Broodwar->self()->getUnits())
                     {
                         if (!unit->getType().isWorker()) continue;
 
-                        if ((worstCase && unit->getPosition().x == 288) || (!worstCase && unit->getPosition().x == 240))
+                        if ((worstCase && unit->getPosition().x == 288) || (!worstCase && unit->getPosition().x == 264))
                         {
                             firstWorker = unit;
                         }
-                        else if (unit->getPosition().x == 264)
+                        else if ((extraFrame && unit->getPosition().x == 312) || (!extraFrame && unit->getPosition().x == 240))
                         {
                             secondWorker = unit;
                         }
@@ -224,18 +232,17 @@ namespace
 
                     // If the first worker is processed after the second, we need to add an extra frame
                     // Otherwise the second worker will think the patch is still being mined and switch patches
-                    int extraFrame = 1;
+                    int addedFrame = 1;
                     if (Units::mine(firstWorker)->orderProcessIndex > Units::mine(secondWorker)->orderProcessIndex)
                     {
-                        extraFrame = 0;
-                        result->extraFrame = false;
+                        addedFrame = 0;
                     }
 
                     // Without order timer resets, we can take over 82 frames after the first worker started mining, adjusted for extra frame
-                    int takeOverFrame = result->firstWorkerStartedMining + 82 + extraFrame;
+                    int takeOverFrame = result->firstWorkerStartedMining + 82 + addedFrame;
 
                     // Compute the frame of the order timer reset prior to the take over frame
-                    int previousOrderTimerReset = takeOverFrame - ((takeOverFrame - 8) % 150);
+                    int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(takeOverFrame);
                     if (previousOrderTimerReset == takeOverFrame) previousOrderTimerReset -= 150;
 
                     // If the order timer reset during mining, adjust our take over frame
@@ -243,10 +250,10 @@ namespace
                     if (previousOrderTimerReset > result->firstWorkerStartedMining)
                     {
                         CherryVis::log() << "Take over frame adjusted from " << takeOverFrame
-                            << " to " << (std::max(result->firstWorkerStartedMining + 84, previousOrderTimerReset + 8) + extraFrame)
+                            << " to " << (std::max(result->firstWorkerStartedMining + 84, previousOrderTimerReset + 8) + addedFrame)
                             << "; previousOrderTimerReset=" << previousOrderTimerReset
                             << "; firstWorkerStartedMining=" << result->firstWorkerStartedMining;
-                        takeOverFrame = std::max(result->firstWorkerStartedMining + 84, previousOrderTimerReset + 8) + extraFrame;
+                        takeOverFrame = std::max(result->firstWorkerStartedMining + 84, previousOrderTimerReset + 8) + addedFrame;
                     }
 
                     CherryVis::setBoardValue("take-over-frame", (std::ostringstream() << takeOverFrame).str());
@@ -378,7 +385,7 @@ namespace
         }
     };
 
-    std::shared_ptr<TestResultData> runWithDelta(int delta, bool worstCase)
+    std::shared_ptr<TestResultData> runWithDelta(int delta, bool worstCase, bool extraFrame)
     {
         auto result = std::make_shared<TestResultData>();
 
@@ -394,7 +401,7 @@ namespace
         };
         test.myModule = [&]()
         {
-            return new OptimizeWorkerTakeoverModule(delta, worstCase, result);
+            return new OptimizeWorkerTakeoverModule(delta, worstCase, extraFrame, result);
         };
 
         std::ostringstream replayName;
@@ -402,22 +409,30 @@ namespace
         replayName << "_" << ::testing::UnitTest::GetInstance()->current_test_info()->name();
         replayName << "_delta=" << delta;
         if (worstCase) replayName << "_worst";
+        if (extraFrame) replayName << "_extra";
         test.replayName = replayName.str();
 
         test.run();
 
-        std::cout << "Result for delta " << delta << ": Mining time = " << result->miningTime() << "; Wastage = " << result->wastedTime()
-                  << std::endl;
+        std::cout << "Results for delta " << delta
+                  << "; mining worker reset to " << (worstCase ? "worst" : "best") << " frame"
+                  << (extraFrame ? "; " : "; no ") << "extra frame:"
+                  << std::endl
+                  << " Mining time: " << result->miningTime() << std::endl
+                  << " Wastage = " << result->wastedTime() << std::endl;
 
         return result;
     }
 
-    void runWithRange(int start, int end, bool worstCase)
+    void runWithRange(int start, int end)
     {
         int totalWastage = 0;
         for (int delta = start; delta <= end; delta++)
         {
-            totalWastage += runWithDelta(delta, worstCase)->wastedTime();
+            totalWastage += runWithDelta(delta, false, false)->wastedTime();
+            totalWastage += runWithDelta(delta, false, true)->wastedTime();
+            totalWastage += runWithDelta(delta, true, false)->wastedTime();
+            totalWastage += runWithDelta(delta, true, true)->wastedTime();
         }
 
         std::cout << std::fixed << std::showpoint << std::setprecision(4)
@@ -428,52 +443,40 @@ namespace
 
 TEST(OptimizeWorkerTakeover, NoOrderTimerReset)
 {
-    runWithDelta(120, true);
+    runWithDelta(120, true, false);
 }
 
 TEST(OptimizeWorkerTakeover, OrderTimerResetDuringMiningTimer)
 {
-    runWithDelta(14, true);
+    runWithDelta(14, true, false);
 }
 
 TEST(OptimizeWorkerTakeover, OrderTimerResetDuringCommandWindow)
 {
-    runWithDelta(77, true);
+    runWithDelta(77, true, false);
 }
 
 TEST(OptimizeWorkerTakeover, OrderTimerResetAfterMiningTimer)
 {
-    runWithDelta(82, true);
+    runWithDelta(82, true, false);
 }
 
 TEST(OptimizeWorkerTakeover, OrderTimerResetExactlyAfterMining)
 {
-    runWithDelta(83, true);
+    runWithDelta(83, true, false);
 }
 
-TEST(OptimizeWorkerTakeover, MultipleFullSpectrumWorstCase)
+TEST(OptimizeWorkerTakeover, RangeAroundEndOfMining)
 {
-    runWithRange(0, 132, true);
+    runWithRange(70, 90);
 }
 
-TEST(OptimizeWorkerTakeover, MultipleFullSpectrumNotWorstCase)
+TEST(OptimizeWorkerTakeover, FullSpectrum)
 {
-    runWithRange(0, 132, false);
-}
-
-TEST(OptimizeWorkerTakeover, MultipleFullSpectrumBothCases)
-{
-    runWithRange(0, 132, false);
-    runWithRange(0, 132, true);
-}
-
-TEST(OptimizeWorkerTakeover, SingleCase)
-{
-    runWithDelta(123, false);
-    runWithDelta(123, true);
+    runWithRange(2, 132);
 }
 
 TEST(OptimizeWorkerTakeover, ExtraFrameAtTakeover)
 {
-    runWithDelta(123, false);
+    runWithDelta(123, false, true);
 }

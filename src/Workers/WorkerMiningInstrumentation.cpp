@@ -4,6 +4,7 @@
 
 #include "Workers.h"
 #include "Map.h"
+#include "OrderProcessTimer.h"
 
 #if INSTRUMENTATION_ENABLED
 #define TRACK_MINING_EFFICIENCY true
@@ -24,8 +25,9 @@ namespace
     // 5 = one worker assigned, worker is waiting to move from depot
     // 10 = two workers assigned, a worker is mining
     // 11 = two workers assigned, one worker is returning cargo, other worker is moving to minerals
-    // 12 = two workers assigned, one worker is returning cargo, other worker is waiting to mine
-    std::map<Resource, std::vector<std::pair<int, int>>> resourceToMiningStatus;
+    // 12 = two workers assigned, one worker is returning cargo, other worker is waiting to mine, worker returning cargo has orders processed first
+    // 13 = same as 12, but where worker returning cargo might not have had its orders processed first
+    std::map<Resource, std::vector<std::tuple<int, int, int>>> resourceToMiningStatus;
 
     // Map storing alerts for each patch, so we can show them for a while
     std::map<Resource, std::pair<int, std::string>> patchToAlert;
@@ -76,7 +78,7 @@ namespace WorkerMiningInstrumentation
             int status = -1;
             if (!miningStatus.empty())
             {
-                auto &[lastStatus, frame] = *miningStatus.rbegin();
+                auto &[lastStatus, frame, extraData] = *miningStatus.rbegin();
                 if (frame == (currentFrame - 1))
                 {
                     status = lastStatus;
@@ -84,6 +86,7 @@ namespace WorkerMiningInstrumentation
             }
 
             // Treat one vs. two assigned worker cases separately
+            int extraData = -1;
             if (workers.size() == 1)
             {
                 auto &worker = *workers.begin();
@@ -150,15 +153,26 @@ namespace WorkerMiningInstrumentation
                 }
                 else if (workerA->bwapiUnit->isCarryingMinerals() != workerB->bwapiUnit->isCarryingMinerals())
                 {
-                    auto &otherWorker = (workerA->bwapiUnit->isCarryingMinerals() ? workerB : workerA);
-                    auto distPatch = patch->getDistance(otherWorker);
+                    auto &miningWorker = (workerA->bwapiUnit->isCarryingMinerals() ? workerB : workerA);
+                    auto &returningWorker = (workerA->bwapiUnit->isCarryingMinerals() ? workerA : workerB);
+
+                    extraData = returningWorker->lastStartedMining;
+
+                    auto distPatch = patch->getDistance(miningWorker);
                     if (distPatch > 0)
                     {
                         status = 11;
                     }
                     else
                     {
-                        status = 12;
+                        if (returningWorker->orderProcessIndex > miningWorker->orderProcessIndex)
+                        {
+                            status = 12;
+                        }
+                        else
+                        {
+                            status = 13;
+                        }
                     }
                 }
                 else
@@ -173,7 +187,7 @@ namespace WorkerMiningInstrumentation
             
             if (status != -1)
             {
-                miningStatus.emplace_back(status, currentFrame);
+                miningStatus.emplace_back(status, currentFrame, extraData);
             }
         }
 #endif
@@ -186,23 +200,25 @@ namespace WorkerMiningInstrumentation
         // For the single-worker case, incorrect behaviour means:
         // - Waiting for more than one frame to mine, unless there has been an order timer reset
         // - Waiting for more frames than needed after an order timer reset
-        // - Taking a longer path back to the depot
+        // - Taking a longer path back to the depot (TODO)
         // - Waiting too long to leave the depot
         // For the two-worker case, incorrect behaviour means:
         // - Waiting for more than one frame to mine when there has not been an order timer reset
         // - Waiting for more than the maximum expected number of frames to mine when there has been an order timer reset
-        // - Second worker not being ready to mine?
-        int framesSinceLastOrderTimerReset = (currentFrame - 8) % 150;
+        // - Second worker not arriving quickly enough (TODO)
+        int framesSinceLastOrderTimerReset = OrderProcessTimer::framesToPreviousReset();
         for (auto &[patch, miningStatus] : resourceToMiningStatus)
         {
             // Get the status and how many frames it has been stable
             int currentStatus = -1;
             int statusFrames = 0;
-            for (auto &[status, frame] : std::ranges::reverse_view(miningStatus)) {
+            int extraData = -1;
+            for (auto &[status, frame, frameExtraData] : std::ranges::reverse_view(miningStatus)) {
                 if (frame != (currentFrame - statusFrames)) break;
                 if (statusFrames == 0)
                 {
                     currentStatus = status;
+                    extraData = frameExtraData;
                 }
                 else if (status != currentStatus)
                 {
@@ -222,14 +238,12 @@ namespace WorkerMiningInstrumentation
                 case 3:
                 case 4:
                 case 10:
-                case 11:
-                case 12:
                 default:
                     break;
 
-                    // Single worker waiting too long to mine
                 case 1:
                 {
+                    // Single worker waiting too long to mine
                     if (statusFrames > 1)
                     {
                         if (framesSinceLastOrderTimerReset > 8)
@@ -248,14 +262,93 @@ namespace WorkerMiningInstrumentation
                     break;
                 }
 
-                    // Single worker taking long path to depot or waiting too long to leave the depot
                 case 5:
                 {
+                    // Single worker taking long path to depot or waiting too long to leave the depot
                     if (statusFrames > 10)
                     {
                         inefficiency = "leave-depot";
                         CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
                                          << ": worker waited too many frames to leave depot";
+                    }
+                    break;
+                }
+
+                case 11:
+                {
+                    // TODO: Check if worker should have already been at minerals
+                    break;
+                }
+                case 12:
+                case 13:
+                {
+                    bool extraFrame = (currentStatus == 13);
+                    int miningStart = extraData;
+
+                    int resetFrameAfterMiningStart = OrderProcessTimer::framesToNextReset(miningStart);
+                    int miningEnd = currentFrame - statusFrames + 1;
+
+                    int expectedWaitingFrames;
+
+                    if (resetFrameAfterMiningStart > 82 || (resetFrameAfterMiningStart == 82 && !extraFrame))
+                    {
+                        // There hasn't been an order timer reset while the worker was mining, so any delay is an inefficiency
+                        // The second condition is for when the order timer reset occurred exactly on the frame the mining completed; in this case we
+                        // can take over immediately if the mining worker's orders are processed first
+                        expectedWaitingFrames = (extraFrame ? 2 : 1);
+                        inefficiency = "takeover-no-reset";
+                    }
+                    else if (resetFrameAfterMiningStart == 82 || (resetFrameAfterMiningStart == 81 && !extraFrame))
+                    {
+                        // This is a special case where the mining worker is not affected by an order timer reset, so its timing is predictable,
+                        // but the taking over worker should start mining on the exact frame of an order timer reset
+                        // Here we can't avoid waiting for the reset order timer to expire again and incur an additional 7 frame delay in the worst
+                        // case
+                        expectedWaitingFrames = 7 + (extraFrame ? 2 : 1);
+                        inefficiency = "takeover-reset-on-takeover-frame";
+                    }
+                    else if (resetFrameAfterMiningStart < 73)
+                    {
+                        // There has been an order timer reset before the worker taking over needed to send its final command to mine
+                        // Here we time the worker taking over to start mining at the worst-case frame the mining worker finishes
+                        // This corresponds to 2 frames later than the usual timing, as the order timer is at 6 when the mining timer expires
+                        // without an order timer reset
+                        expectedWaitingFrames = (miningStart + 84) - miningEnd + (extraFrame ? 1 : 0);
+                        inefficiency = "takeover-reset-mid-mining";
+                    }
+                    else
+                    {
+                        // There is an order timer reset around the end of mining, meaning any commands we try to send to the worker taking over
+                        // to optimize the timing would be reset and therefore not be predictable
+                        // We therefore send the command to the taking over worker to take effect on the reset frame, negating the effects of the
+                        // reset but incurring extra waiting time (but not as much as having the worker try to switch patches)
+                        expectedWaitingFrames = (miningStart + resetFrameAfterMiningStart + 12) - miningEnd;
+                        inefficiency = "takeover-reset-end-mining";
+                    }
+
+                    if (statusFrames <= expectedWaitingFrames)
+                    {
+                        inefficiency.clear();
+                    }
+
+                    if (!inefficiency.empty())
+                    {
+                        Log::Get() << "Waited " << statusFrames
+                                   << "; miningStart=" << miningStart
+                                   << "; miningEnd=" << miningEnd
+                                   << "; resetFrameAfterMiningStart=" << resetFrameAfterMiningStart
+                                   << "; extraFrame=" << extraFrame
+                                   << "; " << inefficiency;
+                        CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
+                                         << ": worker waited too many frames to take over mining (" << inefficiency << ")";
+                    }
+                    else
+                    {
+                        Log::Get() << "OK"
+                                   << "; miningStart=" << miningStart
+                                   << "; miningEnd=" << miningEnd
+                                   << "; resetFrameAfterMiningStart=" << resetFrameAfterMiningStart
+                                   << "; extraFrame=" << extraFrame;
                     }
                     break;
                 }
@@ -294,7 +387,7 @@ namespace WorkerMiningInstrumentation
             {
                 // Find last frame where the patch was about to be mined
                 int lastFrame = -1;
-                for (auto &[status, frame] : std::ranges::reverse_view(miningStatus)) {
+                for (auto &[status, frame, _] : std::ranges::reverse_view(miningStatus)) {
                     if (status == waitState)
                     {
                         lastFrame = frame;
@@ -305,7 +398,7 @@ namespace WorkerMiningInstrumentation
 
                 // Loop all frames and count
                 bool foundFirstFrame = false;
-                for (auto &[status, frame] : miningStatus)
+                for (auto &[status, frame, _] : miningStatus)
                 {
                     if (frame >= lastFrame) break;
 
