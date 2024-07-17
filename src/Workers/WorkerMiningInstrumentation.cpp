@@ -8,9 +8,10 @@
 
 #if INSTRUMENTATION_ENABLED
 #define TRACK_MINING_EFFICIENCY true
-#define LOG_WORKER_ORDERS true
+#define LOG_WORKER_ORDERS false
 #define LOG_PATCH_STATUS true
 #define LOG_TWOPATCH_TAKEOVER false
+#define LOG_TWOPATCH_TAKEOVER_ERRORS true
 #endif
 
 namespace
@@ -133,12 +134,12 @@ namespace WorkerMiningInstrumentation
             {
                 auto &workerA = *workers.begin();
                 auto &workerB = *workers.rbegin();
+
+#if LOG_WORKER_ORDERS
                 auto distPatchA = patch->getDistance(workerA);
                 auto distPatchB = patch->getDistance(workerB);
                 auto distDepotA = depot->getDistance(workerA);
                 auto distDepotB = depot->getDistance(workerB);
-
-#if LOG_WORKER_ORDERS
                 CherryVis::log(workerA->id) << distPatchA << ":" << distDepotA
                                            << "; " << workerA->bwapiUnit->getOrder()
                                            << "; " << workerA->bwapiUnit->isCarryingMinerals();
@@ -211,23 +212,36 @@ namespace WorkerMiningInstrumentation
         for (auto &[patch, miningStatus] : resourceToMiningStatus)
         {
             // Get the status and how many frames it has been stable
+            bool current = true;
             int currentStatus = -1;
-            int statusFrames = 0;
+            int currentFrames = 0;
+            int previousStatus = -1;
+            int previousFrames = 0;
             int extraData = -1;
             for (auto &[status, frame, frameExtraData] : std::ranges::reverse_view(miningStatus)) {
-                if (frame != (currentFrame - statusFrames)) break;
-                if (statusFrames == 0)
+                // Gap in data: break immediately
+                if (frame != (currentFrame - currentFrames - previousFrames)) break;
+
+                if (current)
                 {
-                    currentStatus = status;
-                    extraData = frameExtraData;
+                    if (currentFrames == 0)
+                    {
+                        currentStatus = status;
+                        extraData = frameExtraData;
+                    }
+                    else if (status != currentStatus)
+                    {
+                        current = false;
+                        previousStatus = status;
+                    }
                 }
-                else if (status != currentStatus)
+                else if (status != previousStatus)
                 {
                     break;
                 }
-                statusFrames++;
+                (current ? currentFrames : previousFrames)++;
             }
-            if (statusFrames == 0) continue;
+            if (currentFrames == 0) continue;
 
             // Check for an inefficiency based on the status
             std::string inefficiency;
@@ -245,7 +259,7 @@ namespace WorkerMiningInstrumentation
                 case 1:
                 {
                     // Single worker waiting too long to mine
-                    if (statusFrames > 1)
+                    if (currentFrames > 1)
                     {
                         if (framesSinceLastOrderTimerReset > 8)
                         {
@@ -253,7 +267,7 @@ namespace WorkerMiningInstrumentation
                             CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
                                              << ": worker waited too many frames to start mining (no reset)";
                         }
-                        else if (statusFrames > (8 - framesSinceLastOrderTimerReset))
+                        else if (currentFrames > (8 - framesSinceLastOrderTimerReset))
                         {
                             inefficiency = "start-mining-wait-reset";
                             CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
@@ -266,7 +280,7 @@ namespace WorkerMiningInstrumentation
                 case 5:
                 {
                     // Single worker taking long path to depot or waiting too long to leave the depot
-                    if (statusFrames > 10)
+                    if (currentFrames > 10)
                     {
                         inefficiency = "leave-depot";
                         CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
@@ -287,7 +301,7 @@ namespace WorkerMiningInstrumentation
                     int miningStart = extraData;
 
                     int resetFrameAfterMiningStart = OrderProcessTimer::framesToNextReset(miningStart);
-                    int miningEnd = currentFrame - statusFrames + 1;
+                    int miningEnd = currentFrame - currentFrames - (previousStatus == 11 ? previousFrames : 0) + 1;
 
                     int expectedWaitingFrames;
 
@@ -327,15 +341,27 @@ namespace WorkerMiningInstrumentation
                         inefficiency = "takeover-reset-end-mining";
                     }
 
-                    if (statusFrames <= expectedWaitingFrames)
+                    // If the worker was still moving towards the patch at the expected takeover frame, use the single-worker logic instead
+                    // In this case we expect the worker to have issued a command so it starts mining immediately at arrival
+                    if (previousStatus == 11 && previousFrames >= expectedWaitingFrames)
+                    {
+                        // TODO: Implement check for arrival frame
+                        inefficiency.clear();
+                    }
+
+                    if ((currentFrames + (previousStatus == 11 ? previousFrames : 0)) <= expectedWaitingFrames)
                     {
                         inefficiency.clear();
                     }
 
                     if (!inefficiency.empty())
                     {
-#if LOG_TWOPATCH_TAKEOVER
-                        Log::Get() << "Waited " << statusFrames
+#if LOG_TWOPATCH_TAKEOVER_ERRORS
+                        Log::Get() << "Patch @ " << BWAPI::WalkPosition(patch->center)
+                                   << ": waited " << (currentFrames + (previousStatus == 11 ? previousFrames : 0))
+                                   << "; expected=" << expectedWaitingFrames
+                                   << "; current=" << currentStatus << ":" << currentFrames
+                                   << "; previous=" << previousStatus << ":" << previousFrames
                                    << "; miningStart=" << miningStart
                                    << "; miningEnd=" << miningEnd
                                    << "; resetFrameAfterMiningStart=" << resetFrameAfterMiningStart
@@ -348,7 +374,10 @@ namespace WorkerMiningInstrumentation
 #if LOG_TWOPATCH_TAKEOVER
                     else
                     {
-                        Log::Get() << "OK"
+                        Log::Get() << "Patch @ " << BWAPI::WalkPosition(patch->center)
+                                   << ": OK"
+                                   << "; current=" << currentStatus << ":" << currentFrames
+                                   << "; previous=" << previousStatus << ":" << previousFrames
                                    << "; miningStart=" << miningStart
                                    << "; miningEnd=" << miningEnd
                                    << "; resetFrameAfterMiningStart=" << resetFrameAfterMiningStart

@@ -792,6 +792,7 @@ namespace Workers
                             ((worker->lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
                              || worker->bwapiUnit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Gather))
                         {
+                            CherryVis::log(worker->id) << "hasn't been ordered to gather; order is " << worker->bwapiUnit->getOrder();
                             worker->gather(bwapiUnit);
                             continue;
                         }
