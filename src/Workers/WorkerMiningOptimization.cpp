@@ -61,7 +61,7 @@ namespace WorkerMiningOptimization
 
         // Handle case where another worker is assigned to the patch
         auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
-        if (otherWorker && otherWorker->exists() && (currentFrame - otherWorker->lastStartedMining) < 90)
+        if (otherWorker && otherWorker->exists() && (currentFrame - otherWorker->lastStartedMining) < 100)
         {
             // Compute the optimal frame to take over from the other worker
 
@@ -136,6 +136,10 @@ namespace WorkerMiningOptimization
             }
 
             // Fall through to normal optimization - if we are still approaching the patch it may send a new command to optimize mining at arrival
+            // There is one specific case that is not handled - if the approach optimization tries to send a gather command exactly LF after the
+            // previous one, BWAPI will give a Unit_Busy error
+            // However if our optimization is working correctly, workers should never arrive too late to the patch anyway, so I'm not going to spend
+            // effort on this now
         }
 
         // TODO: Approach optimization

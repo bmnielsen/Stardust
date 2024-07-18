@@ -11,6 +11,8 @@ struct PositionAndVelocity
     int dy;
     int heading;
 
+    PositionAndVelocity() : x(-1), y(-1), dx(-1), dy(-1), heading(-1) {}
+
     PositionAndVelocity(int x, int y, int dx, int dy, int heading) : x(x), y(y), dx(dx), dy(dy), heading(heading) {}
 
     explicit PositionAndVelocity(const BWAPI::Unit &unit)
@@ -28,6 +30,11 @@ struct PositionAndVelocity
             , dy(worker->verticalKiloSpeed)
             , heading(worker->kiloHeading)
     {}
+
+    [[nodiscard]] bool isValid() const
+    {
+        return x != -1;
+    }
 
     [[nodiscard]] bool positionEquals(const BWAPI::Unit &unit) const
     {
