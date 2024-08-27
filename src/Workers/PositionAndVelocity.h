@@ -53,7 +53,33 @@ struct PositionAndVelocity
         return x == other.x && y == other.y && dx == other.dx && dy == other.dy && heading == other.heading;
     }
 
+    void addToHash(uint32_t &hash) const
+    {
+        auto add = [&hash](uint32_t val)
+        {
+            val = ((val >> 16) ^ val) * 0x45d9f3b;
+            val = ((val >> 16) ^ val) * 0x45d9f3b;
+            val = (val >> 16) ^ val;
+            hash ^= val + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+        };
+
+        add(x);
+        add(y);
+        add(dx);
+        add(dy);
+        add(heading);
+    }
+
     static PositionAndVelocity fromString(const std::string &str);
+
+    friend bool operator<(const PositionAndVelocity &a, const PositionAndVelocity &b)
+    {
+        return (a.x < b.x) ||
+               (a.x == b.x && a.y < b.y) ||
+               (a.x == b.x && a.y == b.y && a.dx < b.dx) ||
+               (a.x == b.x && a.y == b.y && a.dx == b.dx && a.dy < b.dy) ||
+               (a.x == b.x && a.y == b.y && a.dx == b.dx && a.dy == b.dy && a.heading < b.heading);
+    }
 };
 
 std::ostream &operator<<(std::ostream &os, const PositionAndVelocity &positionAndVelocity);

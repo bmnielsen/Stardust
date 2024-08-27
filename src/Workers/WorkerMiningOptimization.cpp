@@ -1,17 +1,43 @@
 #include "WorkerMiningOptimization.h"
 
 #include "Workers.h"
-#include "WorkerOrderTimer.h"
 #include "OrderProcessTimer.h"
+#include "PositionAndVelocity.h"
+#include "FileTools.h"
+#include "CsvTools.h"
+#include "Units.h"
 
 #define USE_OLD_LOGIC false
 
-#if INSTRUMENTATION_ENABLED
-#define LOG_DEBUG_INFO true
+#if USE_OLD_LOGIC
+#include "WorkerOrderTimer.h"
 #endif
+
+#if INSTRUMENTATION_ENABLED
+#define TAKEOVER_DEBUG false
+#define OPTIMALPOSITIONS_DEBUG true
+#endif
+
+// How many positions to compare before a position to determine path stability
+#define LOOKBACK 10
 
 namespace WorkerMiningOptimization
 {
+    namespace
+    {
+        std::map<Resource, std::set<std::pair<PositionAndVelocity, uint32_t>>> resourceToOptimalGatherPositions;
+        std::map<MyWorker, std::vector<std::pair<int, PositionAndVelocity>>> workerPositionHistory;
+
+        std::string gatherPathsFilename(bool writing = false)
+        {
+            return FileTools::getFilePath(
+                    (std::ostringstream() << "gatherpositions_" << BWAPI::Broodwar->mapHash() << "_lf" << BWAPI::Broodwar->getLatencyFrames()).str(),
+                    "json",
+                    writing);
+        }
+
+    }
+
     void initialize()
     {
 #if USE_OLD_LOGIC
@@ -19,7 +45,40 @@ namespace WorkerMiningOptimization
         return;
 #endif
 
-        // TODO
+        resourceToOptimalGatherPositions.clear();
+        workerPositionHistory.clear();
+
+        {
+            std::ifstream file;
+            file.open(gatherPathsFilename());
+            if (file.good())
+            {
+                try
+                {
+                    // Read and parse each position
+                    while (true)
+                    {
+                        auto line = CsvTools::readNextLine(file);
+                        if (line.size() != 4) break;
+
+                        BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
+                        auto resource = Units::resourceAt(tile);
+                        if (resource)
+                        {
+                            resourceToOptimalGatherPositions[resource].emplace(
+                                    PositionAndVelocity::fromString(line[2]),
+                                    (uint32_t)std::stoi(line[3]));
+                        }
+                    }
+
+                    Log::Get() << "Read optimal gather positions from " << gatherPathsFilename();
+                }
+                catch (std::exception &ex)
+                {
+                    Log::Get() << "Exception caught attempting to read optimal order positions: " << ex.what();
+                }
+            }
+        }
     }
 
     void write()
@@ -29,7 +88,24 @@ namespace WorkerMiningOptimization
         return;
 #endif
 
-        // TODO
+        {
+            std::ofstream file;
+            file.open(gatherPathsFilename(true), std::ofstream::trunc);
+
+            for (auto &resourceAndOptimalGatherPositions : resourceToOptimalGatherPositions)
+            {
+                for (auto &optimalOrderPosition : resourceAndOptimalGatherPositions.second)
+                {
+                    file << resourceAndOptimalGatherPositions.first->tile.x << ","
+                         << resourceAndOptimalGatherPositions.first->tile.y << ","
+                         << optimalOrderPosition.first << ","
+                         << optimalOrderPosition.second << "\n";
+                }
+            }
+
+            file.close();
+            Log::Get() << "Wrote optimal gather positions to " << gatherPathsFilename(true);
+        }
     }
 
     // Optimizes the start of mining, returning whether an order was sent to the worker.
@@ -40,10 +116,26 @@ namespace WorkerMiningOptimization
         return;
 #endif
 
+        auto &optimalGatherPositions = resourceToOptimalGatherPositions[resource];
+        auto &positionHistory = workerPositionHistory[worker];
+        auto positionHashBefore = [&positionHistory](const auto &positionIt)
+        {
+            if (positionIt == positionHistory.rend()) return std::make_pair((uint32_t)0, false);
+
+            uint32_t hash = 5;
+            for (auto it = (positionIt + 1); it != (positionIt + 6); it++)
+            {
+                if (it == positionHistory.rend()) return std::make_pair((uint32_t)0, false);
+                it->second.addToHash(hash);
+            }
+            return std::make_pair(hash, true);
+        };
+
         auto resourceBwapiUnit = resource->getBwapiUnitIfVisible();
         if (!resourceBwapiUnit)
         {
             CherryVis::log(worker->id) << "mineral field unit not visible";
+            positionHistory.clear();
             return;
         }
 
@@ -56,7 +148,59 @@ namespace WorkerMiningOptimization
         {
             CherryVis::log(worker->id) << "targeting different patch; resending order";
             worker->gather(resourceBwapiUnit);
+            positionHistory.clear();
             return;
+        }
+
+        // Clear position history if the last position was not on the previous frame
+        if (!positionHistory.empty() && positionHistory.rbegin()->first != (currentFrame - 1))
+        {
+            positionHistory.clear();
+        }
+
+        // Record optimal position if we have just arrived at the patch
+        int dist = resource->getDistance(worker);
+        if (dist == 0 && positionHistory.size() >= (BWAPI::Broodwar->getLatencyFrames() + 11 + LOOKBACK))
+        {
+            auto optimalPosition = positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
+            auto hash = positionHashBefore(optimalPosition).first;
+
+#if OPTIMALPOSITIONS_DEBUG
+            auto result = optimalGatherPositions.emplace(optimalPosition->second, hash);
+            if (result.second)
+            {
+                CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(resource->center)
+                                 << ": Registered optimal position " << optimalPosition->second << ":" << hash;
+                CherryVis::log(resource->id) << "Registered optimal position " << optimalPosition->second << ":" << hash;
+            }
+
+            for (auto it = positionHistory.rbegin(); it != positionHistory.rend(); it++)
+            {
+                if (it == optimalPosition) continue;
+
+                auto hashHere = positionHashBefore(it);
+                if (!hashHere.second) break;
+
+                if (optimalGatherPositions.contains(std::make_pair(it->second, hashHere.first)))
+                {
+                    auto delta = std::distance(it, optimalPosition);
+                    CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(resource->center)
+                                     << ": Found a previously registered optimal position in the worker path at delta " << delta
+                                     << "; optimal this trip: " << optimalPosition->second << ":" << hash
+                                     << "; previously registered: " << it->second << ":" << hashHere.first;
+                    CherryVis::log(resource->id)
+                            << "Found a previously registered optimal position in the worker path at delta " << delta
+                            << "; optimal this trip: " << optimalPosition->second << ":" << hash
+                            << "; previously registered: " << it->second << ":" << hashHere.first;
+                }
+            }
+#else
+            optimalGatherPositions.emplace(optimalPosition->second, hash);
+#endif
+        }
+        else if (dist > 0)
+        {
+            positionHistory.emplace_back(currentFrame, worker);
         }
 
         // Handle case where another worker is assigned to the patch
@@ -111,7 +255,7 @@ namespace WorkerMiningOptimization
                 framesToNextCommand = commandFrameForTakeOver - currentFrame;
             }
 
-#if LOG_DEBUG_INFO
+#if TAKEOVER_DEBUG
             CherryVis::log(worker->id)
                 << "Timing for takeover from " << otherWorker->id << ": "
                 << "otherStarted=" << otherWorker->lastStartedMining << "; "
@@ -142,8 +286,17 @@ namespace WorkerMiningOptimization
             // effort on this now
         }
 
-        // TODO: Approach optimization
-
+        // Check if this worker is at an optimal position to resend the gather order
+        PositionAndVelocity currentPositionAndVelocity(worker);
+        auto hash = positionHashBefore(positionHistory.rbegin());
+        if (hash.second && optimalGatherPositions.contains(std::make_pair(currentPositionAndVelocity, hash.first)))
+        {
+            worker->gather(resourceBwapiUnit);
+#if OPTIMALPOSITIONS_DEBUG
+            CherryVis::log(worker->id) << "Resending gather command; at optimal position " << currentPositionAndVelocity << ":" << hash.first;
+            CherryVis::log(resource->id) << "Resending gather command; at optimal position " << currentPositionAndVelocity << ":" << hash.first;
+#endif
+        }
     }
 
     // Optimizes returning a resource, returning whether an order was sent to the worker.
