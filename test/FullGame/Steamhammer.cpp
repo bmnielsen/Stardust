@@ -13,11 +13,13 @@ TEST(Steamhammer, RunThirty)
         BWTest test;
         test.opponentName = "Steamhammer";
         test.opponentRace = BWAPI::Races::Random;
-        test.maps = Maps::Get("cog2022");
+//        test.maps = Maps::Get("cog2022");
+        test.map = Maps::GetOne("Fighting");
+        test.randomSeed = 73549;
         test.opponentModule = []()
         {
             auto module = new UAlbertaBot::UAlbertaBotModule();
-//            Config::StardustTestStrategyName = "11HatchTurtleHydra";
+            Config::StardustTestStrategyName = "ZvZ_12PoolLing";
             return module;
         };
 //        test.onFrameMine = [&test]()
@@ -424,7 +426,6 @@ TEST(Steamhammer, ZvZ_12PoolLing)
     test.map = Maps::GetOne("Fighting");
     test.opponentRace = BWAPI::Races::Zerg;
     test.randomSeed = 73549;
-    test.frameLimit = 10000;
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
