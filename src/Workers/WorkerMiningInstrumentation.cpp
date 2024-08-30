@@ -58,7 +58,7 @@ namespace WorkerMiningInstrumentation
 #if TRACK_MINING_EFFICIENCY
         for (auto &[patch, workers] : getMineralsAndAssignedWorkers())
         {
-            if (!patch || workers.empty() || workers.size() > 2) continue;
+            if (!patch || workers.empty() || workers.size() > 2 || !(*workers.begin())->exists() || !(*workers.rbegin())->exists()) continue;
 
             Base *closestBase = nullptr;
             auto closestBaseDist = INT_MAX;
