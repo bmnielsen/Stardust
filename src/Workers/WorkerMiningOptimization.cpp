@@ -30,12 +30,12 @@ namespace WorkerMiningOptimization
 
         std::string gatherPathsFilename(bool writing = false)
         {
-            return FileTools::getFilePath(
-                    (std::ostringstream() << "gatherpositions_" << BWAPI::Broodwar->mapHash() << "_lf" << BWAPI::Broodwar->getLatencyFrames()).str(),
-                    "json",
-                    writing);
+            auto filename = std::ostringstream()
+                    << "gatherpositions_" << BWAPI::Broodwar->mapHash()
+                    << "_lf" << BWAPI::Broodwar->getLatencyFrames()
+                    << "_lb" << LOOKBACK;
+            return FileTools::getFilePath(filename.str(), "json", writing);
         }
-
     }
 
     void initialize()
@@ -122,8 +122,8 @@ namespace WorkerMiningOptimization
         {
             if (positionIt == positionHistory.rend()) return std::make_pair((uint32_t)0, false);
 
-            uint32_t hash = 5;
-            for (auto it = (positionIt + 1); it != (positionIt + 6); it++)
+            uint32_t hash = LOOKBACK;
+            for (auto it = (positionIt + 1); it != (positionIt + LOOKBACK + 1); it++)
             {
                 if (it == positionHistory.rend()) return std::make_pair((uint32_t)0, false);
                 it->second.addToHash(hash);
