@@ -7,12 +7,6 @@
 #include "CsvTools.h"
 #include "Units.h"
 
-#define USE_OLD_LOGIC false
-
-#if USE_OLD_LOGIC
-#include "WorkerOrderTimer.h"
-#endif
-
 #if INSTRUMENTATION_ENABLED
 #define TAKEOVER_DEBUG false
 #define OPTIMALPOSITIONS_DEBUG true
@@ -40,11 +34,6 @@ namespace WorkerMiningOptimization
 
     void initialize()
     {
-#if USE_OLD_LOGIC
-        WorkerOrderTimer::initialize();
-        return;
-#endif
-
         resourceToOptimalGatherPositions.clear();
         workerPositionHistory.clear();
 
@@ -83,11 +72,6 @@ namespace WorkerMiningOptimization
 
     void write()
     {
-#if USE_OLD_LOGIC
-        WorkerOrderTimer::write();
-        return;
-#endif
-
         {
             std::ofstream file;
             file.open(gatherPathsFilename(true), std::ofstream::trunc);
@@ -111,11 +95,6 @@ namespace WorkerMiningOptimization
     // Optimizes the start of mining, returning whether an order was sent to the worker.
     void optimizeStartOfMining(const MyWorker &worker, const Resource &resource)
     {
-#if USE_OLD_LOGIC
-        WorkerOrderTimer::optimizeStartOfMining(worker, resource);
-        return;
-#endif
-
         auto &optimalGatherPositions = resourceToOptimalGatherPositions[resource];
         auto &positionHistory = workerPositionHistory[worker];
         auto positionHashBefore = [&positionHistory](const auto &positionIt)
