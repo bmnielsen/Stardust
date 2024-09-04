@@ -18,10 +18,40 @@ namespace WorkerMiningOptimization
     {
         struct OptimalGatherPositionMetadata
         {
+        public:
             unsigned long observations = 0;
-            unsigned long correct = 0;
-            unsigned long incorrect = 0;
+            unsigned long optimal = 0;
+            unsigned long nonoptimal = 0;
             unsigned long frameLosses = 0;
+
+            void trackOptimalObservation()
+            {
+                if (atObservationCap()) return;
+
+                observations++;
+                optimal++;
+            }
+
+            void trackNonoptimalObservation(size_t delta)
+            {
+                if (atObservationCap()) return;
+
+                observations++;
+                nonoptimal++;
+
+                // Frame losses depend on where the wrong position was in the history
+                // Sending the command too late results in a loss equal to the number of frames late
+                // Sending the command early causes an extra order timer cycle
+                frameLosses += (delta + 900) % 9;
+            }
+
+        private:
+            [[nodiscard]] bool atObservationCap() const
+            {
+                // Set a cap on how many observations we track to reduce file size and ensure we don't exceed the size of unsigned long
+                // Beyond a certain point additional observations are not going to have any impact anyway
+                return observations >= 9999;
+            }
         };
 
         struct WorkerGatherStatus
@@ -115,8 +145,8 @@ namespace WorkerMiningOptimization
                          << resourceAndOptimalGatherPositions.first->tile.y << ","
                          << optimalOrderPosition.first << ","
                          << optimalOrderPosition.second.observations << ","
-                         << optimalOrderPosition.second.correct << ","
-                         << optimalOrderPosition.second.incorrect << ","
+                         << optimalOrderPosition.second.optimal << ","
+                         << optimalOrderPosition.second.nonoptimal << ","
                          << optimalOrderPosition.second.frameLosses << "\n";
                 }
             }
@@ -179,7 +209,7 @@ namespace WorkerMiningOptimization
             auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
             auto &optimalPosition = **optimalPositionIt;
 
-            // Register a correct observation at the optimal position
+            // Register the optimal observation
             auto optimalPositionData = optimalGatherPositions.find(optimalPosition);
             if (optimalPositionData == optimalGatherPositions.end())
             {
@@ -192,10 +222,9 @@ namespace WorkerMiningOptimization
 #endif
             }
 
-            optimalPositionData->second.observations++;
-            optimalPositionData->second.correct++;
+            optimalPositionData->second.trackOptimalObservation();
 
-            // Register an incorrect observation on any other matched positions in the path
+            // Register a nonoptimal observation on any other matched positions in the path
             for (auto it = workerStatus.positionHistory.rbegin(); it != workerStatus.positionHistory.rend(); it++)
             {
                 if (it == optimalPositionIt) continue;
@@ -203,14 +232,8 @@ namespace WorkerMiningOptimization
                 auto optimalPositionMetadataIt = optimalGatherPositions.find(**it);
                 if (optimalPositionMetadataIt != optimalGatherPositions.end())
                 {
-                    optimalPositionMetadataIt->second.observations++;
-                    optimalPositionMetadataIt->second.incorrect++;
-
-                    // Frame losses depend on where the wrong position was in the history
-                    // Sending the command too late results in a loss equal to the number of frames late
-                    // Sending the command early causes an extra order timer cycle
                     auto delta = std::distance(it, optimalPositionIt);
-                    optimalPositionMetadataIt->second.frameLosses += (delta + 900) % 9;
+                    optimalPositionMetadataIt->second.trackNonoptimalObservation(delta);
 
 #if OPTIMALPOSITIONS_DEBUG
                     CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(resource->center)
@@ -330,7 +353,7 @@ namespace WorkerMiningOptimization
         auto here = currentPosition();
         auto optimalGatherPositionIt = optimalGatherPositions.find(*here);
         if (optimalGatherPositionIt != optimalGatherPositions.end()
-            && optimalGatherPositionIt->second.correct > optimalGatherPositionIt->second.frameLosses)
+            && optimalGatherPositionIt->second.optimal > optimalGatherPositionIt->second.frameLosses)
         {
             if (!worker->gather(resourceBwapiUnit))
             {
@@ -355,10 +378,10 @@ namespace WorkerMiningOptimization
         {
             CherryVis::log(worker->id) << "Not resending gather command; at optimal position " << *here
                 << " but losses " << optimalGatherPositionIt->second.frameLosses
-                << " exceed correct observations " << optimalGatherPositionIt->second.correct;
+                << " exceed optimal observations " << optimalGatherPositionIt->second.optimal;
             CherryVis::log(resource->id) << "Not resending gather command; at optimal position " << *here
                                          << " but losses " << optimalGatherPositionIt->second.frameLosses
-                                         << " exceed correct observations " << optimalGatherPositionIt->second.correct;
+                                         << " exceed optimal observations " << optimalGatherPositionIt->second.optimal;
         }
 #endif
     }
