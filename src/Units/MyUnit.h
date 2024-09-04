@@ -78,7 +78,7 @@ public:
 
     void rightClick(BWAPI::Unit target);
 
-    void gather(BWAPI::Unit target);
+    bool gather(BWAPI::Unit target);
 
     void returnCargo();
 

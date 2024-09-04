@@ -120,17 +120,17 @@ void MyUnitImpl::rightClick(BWAPI::Unit target)
 #endif
 }
 
-void MyUnitImpl::gather(BWAPI::Unit target)
+bool MyUnitImpl::gather(BWAPI::Unit target)
 {
     if (!target || !target->exists())
     {
         Log::Get() << "GATHER INVALID TARGET: " << *this;
-        return;
+        return false;
     }
     if (issuedOrderThisFrame)
     {
         Log::Get() << "DUPLICATE ORDER: " << *this << ": Gather " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
-        return;
+        return false;
     }
 
     // Unless it is a mineral field, don't gather on the same target again
@@ -140,15 +140,18 @@ void MyUnitImpl::gather(BWAPI::Unit target)
         if (currentCommand.getType() == BWAPI::UnitCommandTypes::Gather &&
             currentCommand.getTargetPosition() == target->getPosition())
         {
-            return;
+            return false;
         }
     }
 
-    issuedOrderThisFrame = bwapiUnit->gather(target);
+    auto result = bwapiUnit->gather(target);
+    issuedOrderThisFrame |= result;
 
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(id) << "Order: Gather " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
 #endif
+
+    return result;
 }
 
 void MyUnitImpl::returnCargo()
