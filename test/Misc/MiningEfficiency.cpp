@@ -36,7 +36,7 @@ namespace
         {
             return new DoNothingModule();
         };
-        test.frameLimit = 15000;
+        test.frameLimit = 20000;
         test.expectWin = false;
 
         std::shared_ptr<SaturateBases> saturateBasesPlay;
@@ -80,7 +80,7 @@ namespace
             }
 
             // After letting us run with one worker per patch for a while, go to two workers per patch
-            if (currentFrame == 7000)
+            if (currentFrame == 10000)
             {
                 saturateBasesPlay->setWorkersPerPatch(2);
             }

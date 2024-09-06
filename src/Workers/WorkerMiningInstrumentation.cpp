@@ -11,7 +11,7 @@
 #define LOG_WORKER_ORDERS false
 #define LOG_PATCH_STATUS true
 #define LOG_TWOPATCH_TAKEOVER false
-#define LOG_TWOPATCH_TAKEOVER_ERRORS true
+#define LOG_TWOPATCH_TAKEOVER_ERRORS false
 #endif
 
 namespace
@@ -208,7 +208,6 @@ namespace WorkerMiningInstrumentation
         // - Waiting for more than one frame to mine when there has not been an order timer reset
         // - Waiting for more than the maximum expected number of frames to mine when there has been an order timer reset
         // - Second worker not arriving quickly enough (TODO)
-        int framesSinceLastOrderTimerReset = OrderProcessTimer::framesToPreviousReset();
         for (auto &[patch, miningStatus] : resourceToMiningStatus)
         {
             // Get the status and how many frames it has been stable
@@ -261,14 +260,18 @@ namespace WorkerMiningInstrumentation
                     // Single worker waiting too long to mine
                     if (currentFrames > 1)
                     {
-                        if (framesSinceLastOrderTimerReset > 8)
+                        int orderTimerResetBeforeArrival = OrderProcessTimer::framesToPreviousReset(currentFrame - currentFrames);
+                        if (orderTimerResetBeforeArrival > 11)
                         {
                             inefficiency = "start-mining-wait-no-reset";
                             CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
                                              << ": worker waited too many frames to start mining (no reset)";
                         }
-                        else if (currentFrames > (8 - framesSinceLastOrderTimerReset))
+                        else if (currentFrames > (12 - orderTimerResetBeforeArrival))
                         {
+                            // If orderTimerResetBeforeArrival is between 8-11, expect maximum wait to be 12-orderTimerResetBeforeArrival
+                            // Otherwise maximum wait can be up to 7 because of order process timer reset
+
                             inefficiency = "start-mining-wait-reset";
                             CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
                                              << ": worker waited too many frames to start mining (reset)";

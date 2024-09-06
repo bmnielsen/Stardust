@@ -62,18 +62,16 @@ namespace WorkerMiningOptimization
             // The recent positions this worker has visited while on its way to gather
             std::vector<std::shared_ptr<PositionAndVelocity>> positionHistory;
 
-            // If a gather command fails, we want to resend it on the next frame
-            int lastGatherCommandFailure;
+            // Used to mark that the worker should have the gather command resent on this specific frame
+            int resendCommandOnFrame;
 
-            // TODO: Metadata needed to determine optimal gather resend frame when a reset is going to happen
-
-            WorkerGatherStatus() : lastProcessedFrame(-2), lastGatherCommandFailure(-2) {}
+            WorkerGatherStatus() : lastProcessedFrame(-2), resendCommandOnFrame(-2) {}
 
             void reset()
             {
                 lastProcessedFrame = -2;
                 positionHistory.clear();
-                lastGatherCommandFailure = -2;
+                resendCommandOnFrame = -2;
             }
         };
 
@@ -405,14 +403,14 @@ namespace WorkerMiningOptimization
             // effort on this now
         }
 
-        // Resend the gather command if it failed to send last frame
-        if (workerStatus.lastGatherCommandFailure == (currentFrame - 1))
+        // Resend the gather command if it has been scheduled for this frame
+        if (workerStatus.resendCommandOnFrame == currentFrame)
         {
             worker->gather(resourceBwapiUnit);
 
 #if OPTIMALPOSITIONS_DEBUG
-            CherryVis::log(worker->id) << "Resending gather command as it failed to send last frame";
-            CherryVis::log(resource->id) << "Resending gather command as it failed to send last frame";
+            CherryVis::log(worker->id) << "Resending gather command on schedule";
+            CherryVis::log(resource->id) << "Resending gather command on schedule";
 #endif
             return;
         }
@@ -423,9 +421,21 @@ namespace WorkerMiningOptimization
         if (optimalGatherPositionIt != optimalGatherPositions.end()
             && optimalGatherPositionIt->second.optimal > optimalGatherPositionIt->second.frameLosses)
         {
-            if (!worker->gather(resourceBwapiUnit))
+            // Check if there will be an order timer reset that affects the timing
+            int framesFromCommandToReset = OrderProcessTimer::framesToNextReset() - BWAPI::Broodwar->getLatencyFrames();
+            if (framesFromCommandToReset > 0 && framesFromCommandToReset < 12)
             {
-                workerStatus.lastGatherCommandFailure = currentFrame;
+                // Send a command to take effect on the reset frame if it is coming soon
+                // Otherwise just let it take its course
+                if (framesFromCommandToReset < 5)
+                {
+                    workerStatus.resendCommandOnFrame = currentFrame + framesFromCommandToReset;
+                }
+            }
+
+            else if (!worker->gather(resourceBwapiUnit))
+            {
+                workerStatus.resendCommandOnFrame = (currentFrame + 1);
 
 #if OPTIMALPOSITIONS_DEBUG
                 Log::Get() << "Failed to send gather command for " << worker->id << ": " << BWAPI::Broodwar->getLastError();
