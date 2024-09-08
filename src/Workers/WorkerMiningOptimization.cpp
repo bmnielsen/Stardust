@@ -416,10 +416,11 @@ namespace WorkerMiningOptimization
         }
 
         // Check if this worker is at an optimal position to resend the gather order
+        // We ignore positions where our observed losses are high
         auto here = currentPosition();
         auto optimalGatherPositionIt = optimalGatherPositions.find(*here);
         if (optimalGatherPositionIt != optimalGatherPositions.end()
-            && optimalGatherPositionIt->second.optimal > optimalGatherPositionIt->second.frameLosses)
+            && (optimalGatherPositionIt->second.optimal * 2 >= optimalGatherPositionIt->second.frameLosses))
         {
             // Check if there will be an order timer reset that affects the timing
             int framesFromCommandToReset = OrderProcessTimer::framesToNextReset() - BWAPI::Broodwar->getLatencyFrames();
