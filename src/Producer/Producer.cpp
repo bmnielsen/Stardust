@@ -2069,6 +2069,10 @@ namespace Producer
         // In emergency situations we might cancel all production of units that need gas, in which case we want to transfer workers off of gas
         // Transferring workers onto gas is handled in the producer logic
         bool hasUnlimitedGasGoal = false;
+
+        // Also track whether we have a goal that produces an unlimited number of units from a gateway
+        bool hasUnlimitedGatewayGoal = false;
+
         int availableGas = BWAPI::Broodwar->self()->gas();
         for (auto &goal : Strategist::currentProductionGoals())
         {
@@ -2078,6 +2082,12 @@ namespace Producer
                 {
                     hasUnlimitedGasGoal = true;
                     availableGas = -1;
+                }
+
+                if (unitProductionGoal->countToProduce() == -1 &&
+                    unitProductionGoal->unitType().whatBuilds().first == BWAPI::UnitTypes::Protoss_Gateway)
+                {
+                    hasUnlimitedGatewayGoal = true;
                 }
 
                 handleGoal(unitProductionGoal->unitType(),
@@ -2146,7 +2156,7 @@ namespace Producer
         pullSupplyProviders();
 
         // When we are maxed, ensure we have enough gateways to quickly replace losses
-        if (totalSupply[0] >= 400 && supply[0] <= 4)
+        if (hasUnlimitedGatewayGoal && totalSupply[0] >= 400 && supply[0] <= 4)
         {
             // Count the gateways we already have
             size_t gateways = Units::countCompleted(BWAPI::UnitTypes::Protoss_Gateway) +
