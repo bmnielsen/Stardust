@@ -11,6 +11,10 @@
 
 namespace
 {
+    const std::string dataBasePath = "/Users/bmnielsen/BW/mining-timings/";
+
+    std::map<std::string, std::map<std::pair<int, int>, double>> mapHashToConfigurationToEfficiency;
+
     double runEfficiencyTest(BWTest &test, int workersPerPatch, int cannons)
     {
         test.opponentRace = BWAPI::Races::Terran;
@@ -22,8 +26,7 @@ namespace
         test.expectWin = false;
 
         std::ostringstream replayNameBuilder;
-        replayNameBuilder << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
-        replayNameBuilder << "_" << ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        replayNameBuilder << "MiningTraining_" << test.map->shortname() << "_";
         replayNameBuilder << workersPerPatch << "wpp_" << cannons << "cannons";
         test.replayName = replayNameBuilder.str();
 
@@ -231,6 +234,8 @@ namespace
             {
                 result = efficiency.second;
             }
+
+            mapHashToConfigurationToEfficiency[BWAPI::Broodwar->mapHash()][std::make_pair(workersPerPatch, cannons)] = result;
         };
 
         test.run();
@@ -256,15 +261,66 @@ TEST(MiningTraining, FightingSpirit)
     }
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
         << "Overall efficiency: " << std::endl
-        << "Single: " << (totalSingle / 3) << std::endl
-        << "Double: " << (totalDouble / 3) << std::endl;
+        << "Single: " << (totalSingle / 3) << "%" << std::endl
+        << "Double: " << (totalDouble / 3) << "%" << std::endl;
 }
 
-TEST(MiningTraining, AllSSCAIT)
+TEST(MiningTraining, AllAIIDE)
 {
-    Maps::RunOnEachStartLocation(Maps::Get("sscai"), [](BWTest test)
+    Maps::RunOnEach(Maps::Get("aiide2023"), [](BWTest test)
     {
-        runEfficiencyTest(test, 1, 0);
-        test.run();
+        double totalSingle = 0.0;
+        double totalDouble = 0.0;
+        for (auto workersPerPatch = 1; workersPerPatch <= 2; workersPerPatch++)
+        {
+            for (auto cannons = 0; cannons <= 2; cannons++)
+            {
+                (workersPerPatch == 1 ? totalSingle : totalDouble) += runEfficiencyTest(test, workersPerPatch, cannons);
+            }
+        }
+        std::cout << std::fixed << std::showpoint << std::setprecision(4)
+                  << "Overall efficiency: " << std::endl
+                  << "Single: " << (totalSingle / 3) << "%" << std::endl
+                  << "Double: " << (totalDouble / 3) << "%" << std::endl;
     });
+
+    {
+        std::ofstream file;
+        auto tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        auto tm = std::localtime(&tt);
+        file.open((std::ostringstream() << dataBasePath << "miningtraining_" << std::put_time(tm, "%Y%m%d_%H%M%S") << ".csv").str(),
+                  std::ofstream::trunc);
+        file << "Hash;1-0;1-1;1-2;2-0;2-1;2-2\n";
+        std::map<std::pair<int, int>, double> totals;
+        for (const auto &[mapHash, _] : mapHashToConfigurationToEfficiency)
+        {
+            file << mapHash;
+
+            for (int workers = 1; workers <= 2; workers++)
+            {
+                for (int cannons = 0; cannons <= 2; cannons++)
+                {
+                    auto key = std::make_pair(workers, cannons);
+                    auto result = mapHashToConfigurationToEfficiency[mapHash][key];
+                    file << ";" << result;
+                    totals[key] += result;
+                }
+            }
+
+            file << "\n";
+        }
+
+        file << "Average";
+        for (int workers = 1; workers <= 2; workers++)
+        {
+            for (int cannons = 0; cannons <= 2; cannons++)
+            {
+                auto key = std::make_pair(workers, cannons);
+                file << ";" << (totals[key] / (double)(mapHashToConfigurationToEfficiency.size()));
+            }
+        }
+        file << "\n";
+
+        file.close();
+    }
 }
