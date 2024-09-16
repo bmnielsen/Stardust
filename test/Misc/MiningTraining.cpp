@@ -157,6 +157,8 @@ namespace
                     // Create workers
                     for (auto &base : Map::allBases())
                     {
+                        auto wpDepot = BWAPI::WalkPosition(base->getPosition());
+                        std::set<std::pair<int, BWAPI::WalkPosition>> positionsByDistToDepot;
                         std::set<BWAPI::WalkPosition> availablePositions;
                         for (auto tile : base->mineralLineTiles)
                         {
@@ -170,6 +172,7 @@ namespace
                                     if (BWAPI::Broodwar->isWalkable(here))
                                     {
                                         availablePositions.insert(here);
+                                        positionsByDistToDepot.insert(std::make_pair(here.getApproxDistance(wpDepot), here));
                                     }
                                 }
                             }
@@ -177,7 +180,7 @@ namespace
 
                         for (int built = 0; built < (base->mineralPatchCount() * workersPerPatch); built++)
                         {
-                            for (auto start : availablePositions)
+                            for (auto [_, start] : positionsByDistToDepot)
                             {
                                 for (int x = 0; x < 3; x++)
                                 {
@@ -263,6 +266,17 @@ TEST(MiningTraining, FightingSpirit)
         << "Overall efficiency: " << std::endl
         << "Single: " << (totalSingle / 3) << "%" << std::endl
         << "Double: " << (totalDouble / 3) << "%" << std::endl;
+}
+
+TEST(MiningTraining, ChupungRyeong)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Chupung");
+    test.randomSeed = 42;
+    auto result = runEfficiencyTest(test, 2, 0);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+        << "Overall efficiency: " << std::endl
+        << "Double: " << result << "%" << std::endl;
 }
 
 TEST(MiningTraining, AllAIIDE)
