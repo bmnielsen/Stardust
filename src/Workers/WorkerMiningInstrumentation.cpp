@@ -101,14 +101,14 @@ namespace WorkerMiningInstrumentation
                     << "; " << worker->bwapiUnit->isCarryingMinerals();
 #endif
 
-                if (distPatch == 0 && (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals
-                                       || worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals))
+                if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals
+                    || worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
                 {
-                    status = 1;
-                }
-                else if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals)
-                {
-                    if (distDepot == 0 && currentFrame > 100)
+                    if (distPatch == 0 && worker->frameLastMoved != currentFrame)
+                    {
+                        status = 1;
+                    }
+                    else if (distDepot == 0 && currentFrame > 100 && worker->frameLastMoved != currentFrame)
                     {
                         status = 5;
                     }
@@ -121,11 +121,11 @@ namespace WorkerMiningInstrumentation
                 {
                     status = 2;
                 }
-                else if (distDepot > 0 && worker->bwapiUnit->isCarryingMinerals())
+                else if ((distDepot > 0 || worker->frameLastMoved == currentFrame) && worker->bwapiUnit->isCarryingMinerals())
                 {
                     status = 3;
                 }
-                else if (distDepot == 0 && worker->bwapiUnit->isCarryingMinerals())
+                else if (worker->bwapiUnit->isCarryingMinerals())
                 {
                     status = 4;
                 }
@@ -161,7 +161,7 @@ namespace WorkerMiningInstrumentation
                     extraData = returningWorker->lastStartedMining;
 
                     auto distPatch = patch->getDistance(miningWorker);
-                    if (distPatch > 0)
+                    if (distPatch > 0 || miningWorker->frameLastMoved == currentFrame)
                     {
                         status = 11;
                     }
@@ -258,6 +258,7 @@ namespace WorkerMiningInstrumentation
                 case 1:
                 {
                     // Single worker waiting too long to mine
+                    currentFrames++; // adjust for the first frame where we detect that the worker has stopped moving
                     if (currentFrames > 1)
                     {
                         int orderTimerResetBeforeArrival = OrderProcessTimer::framesToPreviousReset(currentFrame - currentFrames);
@@ -283,7 +284,7 @@ namespace WorkerMiningInstrumentation
                 case 5:
                 {
                     // Single worker taking long path to depot or waiting too long to leave the depot
-                    if (currentFrames > 10)
+                    if (currentFrames > 5)
                     {
                         inefficiency = "leave-depot";
                         CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
@@ -300,6 +301,8 @@ namespace WorkerMiningInstrumentation
                 case 12:
                 case 13:
                 {
+                    if (previousStatus == 11) currentFrames++; // adjust for the first frame where we detect that the worker has stopped moving
+
                     bool extraFrame = (currentStatus == 13);
                     int miningStart = extraData;
 
