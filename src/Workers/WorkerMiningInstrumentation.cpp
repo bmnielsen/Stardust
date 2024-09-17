@@ -301,7 +301,12 @@ namespace WorkerMiningInstrumentation
                 case 12:
                 case 13:
                 {
-                    if (previousStatus == 11) currentFrames++; // adjust for the first frame where we detect that the worker has stopped moving
+                    // adjust for the first frame where we detect that the worker has stopped moving
+                    if (previousStatus == 11 && previousFrames > 1)
+                    {
+                        currentFrames++;
+                        previousFrames--;
+                    }
 
                     bool extraFrame = (currentStatus == 13);
                     int miningStart = extraData;
@@ -348,13 +353,15 @@ namespace WorkerMiningInstrumentation
                     }
 
                     // If the worker was still moving towards the patch at the expected takeover frame, use the single-worker logic instead
-                    // In this case we expect the worker to have issued a command so it starts mining immediately at arrival
-                    if (previousStatus == 11 && previousFrames >= expectedWaitingFrames)
+                    // In this case we expect the worker to have issued a command so it starts mining immediately at arrival, taking order
+                    // resets into consideration
+                    if (previousStatus == 11 && (currentFrame - miningEnd - (extraFrame ? 1 : 0)) > currentFrames)
                     {
                         // TODO: Implement check for arrival frame
                         inefficiency.clear();
                     }
 
+                    // Clear inefficiency if we are within the tolerance
                     if ((currentFrames + (previousStatus == 11 ? previousFrames : 0)) <= expectedWaitingFrames)
                     {
                         inefficiency.clear();
