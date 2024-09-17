@@ -255,68 +255,70 @@ namespace WorkerMiningOptimization
         workerStatus.lastProcessedFrame = currentFrame;
 
         // Record positions while we are approaching the patch
-        // Update optimal position when we arrive at the patch
-        int dist = resource->getDistance(worker);
-        if (dist > 0)
+        // Update optimal position when we start mining
+        if (resource->getDistance(worker) == 0 && worker->frameLastMoved == (currentFrame - 1))
         {
-            workerStatus.positionHistory.emplace_back(currentPosition());
-        }
-        else if (workerStatus.positionHistory.size() >= (BWAPI::Broodwar->getLatencyFrames() + 11))
-        {
-            auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
-            auto &optimalPosition = **optimalPositionIt;
-
-            // Register the optimal observation
-            auto optimalPositionData = optimalGatherPositions.find(optimalPosition);
-            if (optimalPositionData == optimalGatherPositions.end())
+            if (workerStatus.positionHistory.size() >= (BWAPI::Broodwar->getLatencyFrames() + 12))
             {
-                optimalPositionData = optimalGatherPositions.emplace(optimalPosition, OptimalGatherPositionMetadata{}).first;
+                auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 11;
+                auto &optimalPosition = **optimalPositionIt;
 
-#if OPTIMALPOSITIONS_DEBUG
-                CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(resource->center)
-                                 << ": Registered new optimal position " << optimalPosition;
-                CherryVis::log(resource->id) << "Registered new optimal position " << optimalPosition;
-#endif
-            }
-
-            optimalPositionData->second.trackOptimalObservation();
-
-            // Register a nonoptimal observation on any other matched positions in the path
-            for (auto it = workerStatus.positionHistory.rbegin(); it != workerStatus.positionHistory.rend(); it++)
-            {
-                if (it == optimalPositionIt) continue;
-
-                auto optimalPositionMetadataIt = optimalGatherPositions.find(**it);
-                if (optimalPositionMetadataIt != optimalGatherPositions.end())
+                // Register the optimal observation
+                auto optimalPositionData = optimalGatherPositions.find(optimalPosition);
+                if (optimalPositionData == optimalGatherPositions.end())
                 {
-                    auto delta = std::distance(it, optimalPositionIt);
-                    optimalPositionMetadataIt->second.trackNonoptimalObservation(delta);
+                    optimalPositionData = optimalGatherPositions.emplace(optimalPosition, OptimalGatherPositionMetadata{}).first;
 
 #if OPTIMALPOSITIONS_DEBUG
                     CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(resource->center)
-                                     << ": Found a previously registered optimal position in the worker path at delta " << delta
-                                     << "; frame loss: " << ((delta + 900) % 9)
-                                     << "; optimal this trip: " << optimalPosition
-                                     << "; previously registered: " << **it;
-                    CherryVis::log(resource->id)
-                            << "Found a previously registered optimal position in the worker path at delta " << delta
-                            << "; frame loss: " << ((delta + 900) % 9)
-                            << "; optimal this trip: " << optimalPosition
-                            << "; previously registered: " << **it;
+                                     << ": Registered new optimal position " << optimalPosition;
+                    CherryVis::log(resource->id) << "Registered new optimal position " << optimalPosition;
 #endif
                 }
-            }
 
-            // Register the position of the worker at latency frames before the optimal position
-            // We use this data in the two-worker handoff case below
-            if (workerStatus.positionHistory.size() >= ((BWAPI::Broodwar->getLatencyFrames() * 2) + 11))
-            {
-                auto lfBeforeIt = optimalPositionIt + BWAPI::Broodwar->getLatencyFrames();
-                lfBeforeOptimalGatherPositions.emplace(**lfBeforeIt);
+                optimalPositionData->second.trackOptimalObservation();
+
+                // Register a nonoptimal observation on any other matched positions in the path
+                for (auto it = workerStatus.positionHistory.rbegin(); it != workerStatus.positionHistory.rend(); it++)
+                {
+                    if (it == optimalPositionIt) continue;
+
+                    auto optimalPositionMetadataIt = optimalGatherPositions.find(**it);
+                    if (optimalPositionMetadataIt != optimalGatherPositions.end())
+                    {
+                        auto delta = std::distance(it, optimalPositionIt);
+                        optimalPositionMetadataIt->second.trackNonoptimalObservation(delta);
+
+#if OPTIMALPOSITIONS_DEBUG
+                        CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(resource->center)
+                                         << ": Found a previously registered optimal position in the worker path at delta " << delta
+                                         << "; frame loss: " << ((delta + 900) % 9)
+                                         << "; optimal this trip: " << optimalPosition
+                                         << "; previously registered: " << **it;
+                        CherryVis::log(resource->id)
+                                << "Found a previously registered optimal position in the worker path at delta " << delta
+                                << "; frame loss: " << ((delta + 900) % 9)
+                                << "; optimal this trip: " << optimalPosition
+                                << "; previously registered: " << **it;
+#endif
+                    }
+                }
+
+                // Register the position of the worker at latency frames before the optimal position
+                // We use this data in the two-worker handoff case below
+                if (workerStatus.positionHistory.size() >= ((BWAPI::Broodwar->getLatencyFrames() * 2) + 12))
+                {
+                    auto lfBeforeIt = optimalPositionIt + BWAPI::Broodwar->getLatencyFrames();
+                    lfBeforeOptimalGatherPositions.emplace(**lfBeforeIt);
+                }
             }
 
             // Only need the data until the first arrival frame
             workerStatus.reset();
+        }
+        else
+        {
+            workerStatus.positionHistory.emplace_back(currentPosition());
         }
 
         // Handle case where another worker is assigned to the patch
@@ -325,7 +327,7 @@ namespace WorkerMiningOptimization
         {
             // Compute the optimal frame to take over from the other worker
 
-            // We need to add an extra frame if the worker taking over has its orders processed first
+            // We need to add an extra frame if the worker taking over might have its orders processed first
             int addedFrame = 1;
             if (otherWorker->orderProcessIndex > worker->orderProcessIndex)
             {
