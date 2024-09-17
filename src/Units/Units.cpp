@@ -46,8 +46,6 @@ namespace Units
 {
     namespace
     {
-        int nextOrderProcessIndex;
-
         std::map<BWAPI::TilePosition, Resource> tileToResource;
 
         std::unordered_set<MyUnit> myUnits;
@@ -581,7 +579,6 @@ namespace Units
 
     void initialize()
     {
-        nextOrderProcessIndex = 0;
         tileToResource.clear();
         myUnits.clear();
         enemyUnits.clear();
@@ -819,7 +816,7 @@ namespace Units
             {
                 for (auto &unit : myUnits)
                 {
-                    if (unit->type.isWorker()) unit->orderProcessIndex = -1;
+                    if (unit->type.isWorker()) unit->orderProcessIndex = 1;
                 }
             }
         }
@@ -1502,10 +1499,5 @@ namespace Units
         }
 
         return upgradesInProgress.contains(type.upgradeType);
-    }
-
-    int getNextOrderProcessIndex()
-    {
-        return nextOrderProcessIndex++;
     }
 }

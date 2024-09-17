@@ -9,7 +9,7 @@
 
 MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         : UnitImpl(unit)
-        , orderProcessIndex(unit->isVisible() ? Units::getNextOrderProcessIndex() : -1)
+        , orderProcessIndex(unit->isVisible() ? (10 + currentFrame) : -1)
         , producer(nullptr)
         , energy(unit->getEnergy())
         , lastCastFrame(-1)
@@ -51,7 +51,7 @@ void MyUnitImpl::update(BWAPI::Unit unit)
         else
         {
             visible = true;
-            orderProcessIndex = Units::getNextOrderProcessIndex();
+            orderProcessIndex = 10 + currentFrame;
         }
     }
 
