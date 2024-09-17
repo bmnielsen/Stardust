@@ -24,6 +24,8 @@ namespace WorkerMiningOptimization
             unsigned long nonoptimal = 0;
             unsigned long frameLosses = 0;
 
+            std::shared_ptr<PositionAndVelocity> lfBeforePosition;
+
             void trackOptimalObservation()
             {
                 if (atObservationCap()) return;
@@ -76,21 +78,13 @@ namespace WorkerMiningOptimization
         };
 
         std::map<Resource, std::map<PositionAndVelocity, OptimalGatherPositionMetadata>> resourceToOptimalGatherPositions;
-        std::map<Resource, std::set<PositionAndVelocity>> resourceToLFBeforeOptimalGatherPositions;
+        std::map<Resource, std::map<PositionAndVelocity, PositionAndVelocity>> resourceToLFBeforeOptimalGatherPositions;
         std::map<MyWorker, WorkerGatherStatus> workerGatherStatuses;
 
         std::string optimalGatherPositionsFilename(bool writing = false)
         {
             auto filename = std::ostringstream()
                     << "gatherpositions_" << BWAPI::Broodwar->mapHash()
-                    << "_lf" << BWAPI::Broodwar->getLatencyFrames();
-            return FileTools::getFilePath(filename.str(), "json", writing);
-        }
-
-        std::string lfBeforeOptimalGatherPositionsFilename(bool writing = false)
-        {
-            auto filename = std::ostringstream()
-                    << "gatherpositions_lfbefore_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames();
             return FileTools::getFilePath(filename.str(), "json", writing);
         }
@@ -113,19 +107,32 @@ namespace WorkerMiningOptimization
                     while (true)
                     {
                         auto line = CsvTools::readNextLine(file);
-                        if (line.size() != 7) break;
+                        if (line.size() != 8) break;
 
                         BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
                         auto resource = Units::resourceAt(tile);
                         if (resource)
                         {
+                            auto pos = PositionAndVelocity::fromString(line[2]);
+                            std::shared_ptr<PositionAndVelocity> lfBeforePos;
+                            if (!line[7].empty())
+                            {
+                                lfBeforePos = std::make_shared<PositionAndVelocity>(PositionAndVelocity::fromString(line[7]));
+                            }
+
                             resourceToOptimalGatherPositions[resource].emplace(
-                                    PositionAndVelocity::fromString(line[2]),
+                                    pos,
                                     OptimalGatherPositionMetadata{
                                         std::stoul(line[3]),
                                         std::stoul(line[4]),
                                         std::stoul(line[5]),
-                                        std::stoul(line[6])});
+                                        std::stoul(line[6]),
+                                        lfBeforePos});
+
+                            if (lfBeforePos)
+                            {
+                                resourceToLFBeforeOptimalGatherPositions[resource].emplace(*lfBeforePos, pos);
+                            }
                         }
                     }
 
@@ -134,36 +141,6 @@ namespace WorkerMiningOptimization
                 catch (std::exception &ex)
                 {
                     Log::Get() << "Exception caught attempting to read optimal gather positions: " << ex.what();
-                }
-            }
-        }
-
-        {
-            std::ifstream file;
-            file.open(lfBeforeOptimalGatherPositionsFilename());
-            if (file.good())
-            {
-                try
-                {
-                    // Read and parse each position
-                    while (true)
-                    {
-                        auto line = CsvTools::readNextLine(file);
-                        if (line.size() != 3) break;
-
-                        BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
-                        auto resource = Units::resourceAt(tile);
-                        if (resource)
-                        {
-                            resourceToLFBeforeOptimalGatherPositions[resource].emplace(PositionAndVelocity::fromString(line[2]));
-                        }
-                    }
-
-                    Log::Get() << "Read LF-before optimal gather positions from " << lfBeforeOptimalGatherPositionsFilename();
-                }
-                catch (std::exception &ex)
-                {
-                    Log::Get() << "Exception caught attempting to read LF-before optimal gather positions: " << ex.what();
                 }
             }
         }
@@ -185,30 +162,17 @@ namespace WorkerMiningOptimization
                          << optimalOrderPosition.second.observations << ","
                          << optimalOrderPosition.second.optimal << ","
                          << optimalOrderPosition.second.nonoptimal << ","
-                         << optimalOrderPosition.second.frameLosses << "\n";
+                         << optimalOrderPosition.second.frameLosses << ",";
+                    if (optimalOrderPosition.second.lfBeforePosition)
+                    {
+                        file << *optimalOrderPosition.second.lfBeforePosition;
+                    }
+                    file << "\n";
                 }
             }
 
             file.close();
             Log::Get() << "Wrote optimal gather positions to " << optimalGatherPositionsFilename(true);
-        }
-
-        {
-            std::ofstream file;
-            file.open(lfBeforeOptimalGatherPositionsFilename(true), std::ofstream::trunc);
-
-            for (auto &resourceAndLFBeforeOptimalGatherPositions : resourceToLFBeforeOptimalGatherPositions)
-            {
-                for (auto &lfBeforeOptimalOrderPosition : resourceAndLFBeforeOptimalGatherPositions.second)
-                {
-                    file << resourceAndLFBeforeOptimalGatherPositions.first->tile.x << ","
-                         << resourceAndLFBeforeOptimalGatherPositions.first->tile.y << ","
-                         << lfBeforeOptimalOrderPosition << "\n";
-                }
-            }
-
-            file.close();
-            Log::Get() << "Wrote LF-before optimal gather positions to " << lfBeforeOptimalGatherPositionsFilename(true);
         }
     }
 
@@ -309,7 +273,8 @@ namespace WorkerMiningOptimization
                 if (workerStatus.positionHistory.size() >= ((BWAPI::Broodwar->getLatencyFrames() * 2) + 12))
                 {
                     auto lfBeforeIt = optimalPositionIt + BWAPI::Broodwar->getLatencyFrames();
-                    lfBeforeOptimalGatherPositions.emplace(**lfBeforeIt);
+                    optimalPositionData->second.lfBeforePosition = *lfBeforeIt;
+                    lfBeforeOptimalGatherPositions[**lfBeforeIt] = optimalPositionData->first;
                 }
             }
 
@@ -391,9 +356,20 @@ namespace WorkerMiningOptimization
             {
                 // Issue commands every 4 frames, unless we are at a position that is latency frames away from an optimal gather position
                 // Sending a command at such a position will result in the optimal approach command failing with Unit_Busy
-                if (framesToNextCommand % 4 == 0 && !lfBeforeOptimalGatherPositions.contains(*currentPosition()))
+                if (framesToNextCommand % 4 == 0)
                 {
-                    worker->gather(resourceBwapiUnit);
+                    auto skipCommand = [&]()
+                    {
+                        auto lfBeforeIt = lfBeforeOptimalGatherPositions.find(*currentPosition());
+                        if (lfBeforeIt == lfBeforeOptimalGatherPositions.end()) return false;
+
+                        auto optimalGatherPositionIt = optimalGatherPositions.find(lfBeforeIt->second);
+                        if (optimalGatherPositionIt == optimalGatherPositions.end()) return false;
+
+                        return (optimalGatherPositionIt->second.optimal > optimalGatherPositionIt->second.nonoptimal);
+                    };
+
+                    if (!skipCommand()) worker->gather(resourceBwapiUnit);
                 }
                 return;
             }
