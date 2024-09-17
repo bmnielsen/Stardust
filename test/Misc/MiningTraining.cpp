@@ -8,6 +8,7 @@
 #include "TestMainArmyAttackBasePlay.h"
 #include "Plays/Macro/SaturateBases.h"
 #include "WorkerMiningInstrumentation.h"
+#include "Units.h"
 
 namespace
 {
@@ -40,6 +41,7 @@ namespace
             Strategist::setOpening(openingPlays);
         };
 
+        std::map<BWAPI::Position, int> workerCreationOrder;
         test.onFrameMine = [&]()
         {
             // Initialization steps:
@@ -155,6 +157,7 @@ namespace
                 case 20:
                 {
                     // Create workers
+                    int idx = 0;
                     for (auto &base : Map::allBases())
                     {
                         auto wpDepot = BWAPI::WalkPosition(base->getPosition());
@@ -196,6 +199,7 @@ namespace
                                 BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
                                                             BWAPI::UnitTypes::Protoss_Probe,
                                                             Geo::CenterOfUnit(BWAPI::Position(start), BWAPI::UnitTypes::Protoss_Probe));
+                                workerCreationOrder[Geo::CenterOfUnit(BWAPI::Position(start), BWAPI::UnitTypes::Protoss_Probe)] = ++idx;
 
                                 for (int x = 0; x < 3; x++)
                                 {
@@ -217,6 +221,23 @@ namespace
                     }
 
                     break;
+                }
+                case 23:
+                {
+                    // Rewrite the order process index for all workers, as the way they are created for this test (where they all appear on the same
+                    // frame) prevents our usual logic from working
+                    for (auto &worker : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
+                    {
+                        auto it = workerCreationOrder.find(worker->lastPosition);
+                        if (it != workerCreationOrder.end())
+                        {
+                            worker->orderProcessIndex = it->second;
+                        }
+                        else
+                        {
+                            Log::Get() << "ERROR: Couldn't get index for worker @ " << worker->lastPosition;
+                        }
+                    }
                 }
                 default:
                 {
@@ -273,10 +294,12 @@ TEST(MiningTraining, ChupungRyeong)
     BWTest test;
     test.map = Maps::GetOne("Chupung");
     test.randomSeed = 42;
-    auto result = runEfficiencyTest(test, 2, 0);
+    auto sgl = runEfficiencyTest(test, 1, 0);
+    auto dbl = runEfficiencyTest(test, 2, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
         << "Overall efficiency: " << std::endl
-        << "Double: " << result << "%" << std::endl;
+        << "Single: " << sgl << "%" << std::endl
+        << "Double: " << dbl << "%" << std::endl;
 }
 
 TEST(MiningTraining, AllAIIDE)
