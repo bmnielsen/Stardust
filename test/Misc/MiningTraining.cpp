@@ -302,6 +302,17 @@ TEST(MiningTraining, ChupungRyeong)
         << "Double: " << dbl << "%" << std::endl;
 }
 
+TEST(MiningTraining, ChupungRyeong2)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Chupung");
+    test.randomSeed = 42;
+    auto dbl = runEfficiencyTest(test, 2, 0);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+        << "Overall efficiency: " << std::endl
+        << "Double: " << dbl << "%" << std::endl;
+}
+
 TEST(MiningTraining, AllAIIDE)
 {
     Maps::RunOnEach(Maps::Get("aiide2023"), [](BWTest test)
