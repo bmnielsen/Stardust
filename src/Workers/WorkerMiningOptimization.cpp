@@ -220,7 +220,10 @@ namespace WorkerMiningOptimization
 
         // Record positions while we are approaching the patch
         // Update optimal position when we start mining
-        if (resource->getDistance(worker) == 0 && worker->frameLastMoved == (currentFrame - 1))
+        //if (resource->getDistance(worker) == 0 && worker->frameLastMoved == (currentFrame - 1))
+        if (resource->getDistance(worker) == 0 &&
+            !workerStatus.positionHistory.empty() &&
+            (*workerStatus.positionHistory.rbegin())->equals(*currentPosition()))
         {
             if (workerStatus.positionHistory.size() >= (BWAPI::Broodwar->getLatencyFrames() + 12))
             {
@@ -237,6 +240,14 @@ namespace WorkerMiningOptimization
                     CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(resource->center)
                                      << ": Registered new optimal position " << optimalPosition;
                     CherryVis::log(resource->id) << "Registered new optimal position " << optimalPosition;
+                    CherryVis::log(worker->id) << "Registered new optimal position " << optimalPosition;
+#endif
+                }
+                else
+                {
+#if OPTIMALPOSITIONS_DEBUG
+                    CherryVis::log(resource->id) << "Tracked optimal observation on position " << optimalPosition;
+                    CherryVis::log(worker->id) << "Tracked optimal observation on position " << optimalPosition;
 #endif
                 }
 
@@ -254,16 +265,14 @@ namespace WorkerMiningOptimization
                         optimalPositionMetadataIt->second.trackNonoptimalObservation(delta);
 
 #if OPTIMALPOSITIONS_DEBUG
-                        CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(resource->center)
-                                         << ": Found a previously registered optimal position in the worker path at delta " << delta
-                                         << "; frame loss: " << ((delta + 900) % 9)
-                                         << "; optimal this trip: " << optimalPosition
-                                         << "; previously registered: " << **it;
                         CherryVis::log(resource->id)
-                                << "Found a previously registered optimal position in the worker path at delta " << delta
-                                << "; frame loss: " << ((delta + 900) % 9)
-                                << "; optimal this trip: " << optimalPosition
-                                << "; previously registered: " << **it;
+                                << "Tracked nonoptimal observation on position " << (**it)
+                                << "; delta: " << delta
+                                << "; frame loss: " << ((delta + 900) % 9);
+                        CherryVis::log(worker->id)
+                                << "Tracked nonoptimal observation on position " << (**it)
+                                << "; delta: " << delta
+                                << "; frame loss: " << ((delta + 900) % 9);
 #endif
                     }
                 }
@@ -398,7 +407,7 @@ namespace WorkerMiningOptimization
         auto here = currentPosition();
         auto optimalGatherPositionIt = optimalGatherPositions.find(*here);
         if (optimalGatherPositionIt != optimalGatherPositions.end()
-            && (optimalGatherPositionIt->second.optimal * 2 >= optimalGatherPositionIt->second.frameLosses))
+            && (optimalGatherPositionIt->second.optimal * 4 >= optimalGatherPositionIt->second.frameLosses))
         {
             // Check if there will be an order timer reset that affects the timing
             int framesFromCommandToReset = OrderProcessTimer::framesToNextReset() - BWAPI::Broodwar->getLatencyFrames();
@@ -435,10 +444,10 @@ namespace WorkerMiningOptimization
         {
             CherryVis::log(worker->id) << "Not resending gather command; at optimal position " << *here
                 << " but losses " << optimalGatherPositionIt->second.frameLosses
-                << " exceed optimal observations " << optimalGatherPositionIt->second.optimal;
+                << " exceed optimal observation gains " << (optimalGatherPositionIt->second.optimal * 4);
             CherryVis::log(resource->id) << "Not resending gather command; at optimal position " << *here
                                          << " but losses " << optimalGatherPositionIt->second.frameLosses
-                                         << " exceed optimal observations " << optimalGatherPositionIt->second.optimal;
+                                         << " exceed optimal observation gains " << (optimalGatherPositionIt->second.optimal * 4);
         }
 #endif
     }
