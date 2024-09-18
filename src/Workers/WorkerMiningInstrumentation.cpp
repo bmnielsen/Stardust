@@ -434,55 +434,62 @@ namespace WorkerMiningInstrumentation
     std::pair<double, double> getEfficiency(int fromFrame, int toFrame)
     {
 #if TRACK_MINING_EFFICIENCY
-        // Counts the number of frames each patch was mined and not mined, aligned to when a worker arrives at the patch
-        auto computeEfficiency = [](const std::set<int> &waitStates, int mineState, int fromFrame, int toFrame)
+        // Counts the number of frames each patch was mined and not mined
+        // We only consider uninterrupted periods aligned to start of mining
+        auto computeEfficiency = [](int miningState, const std::set<int> &nonMiningStates, int fromFrame, int toFrame)
         {
             int framesMined = 0;
             int framesNotMined = 0;
             for (auto &[patch, miningStatus] : resourceToMiningStatus)
             {
-                // Find last frame where the patch was about to be mined
+                bool recording = false;
+                int lastStatus = -1;
+                int currentPeriodMined = 0;
+                int currentPeriodNotMined = 0;
                 int lastFrame = -1;
-                for (auto &[status, frame, _] : std::ranges::reverse_view(miningStatus)) {
-                    if (toFrame != -1 && frame > toFrame) continue;
-                    if (waitStates.contains(status))
-                    {
-                        lastFrame = frame;
-                        break;
-                    }
-                }
-                if (lastFrame == -1 || (fromFrame != -1 && lastFrame < fromFrame)) continue;
-
-                // Loop all frames and count
-                bool foundFirstFrame = false;
                 for (auto &[status, frame, _] : miningStatus)
                 {
                     if (fromFrame != -1 && frame < fromFrame) continue;
-                    if (frame >= lastFrame) break;
+                    if (toFrame != -1 && frame > toFrame) break;
 
-                    if (!foundFirstFrame)
+                    // If there is an interruption in the data, stop recording
+                    if (frame != (lastFrame + 1))
                     {
-                        if (waitStates.contains(status))
-                        {
-                            foundFirstFrame = true;
-                        }
-                        else
-                        {
-                            continue;
-                        }
+                        recording = false;
+                        lastStatus = -1;
                     }
+                    lastFrame = frame;
 
-                    // Don't count single worker statuses in double worker counts and vice versa
-                    if ((status >= 10) != (mineState >= 10)) continue;
-
-                    if (status == mineState)
+                    if (status == miningState && nonMiningStates.contains(lastStatus))
                     {
-                        framesMined++;
+                        // This is the transition from not mining to mining, which we use as our start of a measurement period
+
+                        // If we were recording a period, flush it now
+                        if (recording)
+                        {
+                            framesMined += currentPeriodMined;
+                            framesNotMined += currentPeriodNotMined;
+                        }
+
+                        // Start recording a new period
+                        recording = true;
+                        currentPeriodMined = 1;
+                        currentPeriodNotMined = 0;
+                    }
+                    else if (status == miningState)
+                    {
+                        currentPeriodMined++;
+                    }
+                    else if (nonMiningStates.contains(status))
+                    {
+                        currentPeriodNotMined++;
                     }
                     else
                     {
-                        framesNotMined++;
+                        // The status is for a different number of workers than we are interested in, so cancel this period
+                        recording = false;
                     }
+                    lastStatus = status;
                 }
             }
 
@@ -491,8 +498,8 @@ namespace WorkerMiningInstrumentation
         };
 
         return std::make_pair(
-                computeEfficiency({1}, 2, fromFrame, toFrame) * 100.0,
-                computeEfficiency({12, 13}, 10, fromFrame, toFrame) * 100.0);
+                computeEfficiency(2, {0, 1, 3, 4, 5}, fromFrame, toFrame) * 100.0,
+                computeEfficiency(10, {11, 12, 13}, fromFrame, toFrame) * 100.0);
 #else
         return std::make_pair(0.0, 0.0);
 #endif
