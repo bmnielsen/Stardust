@@ -302,7 +302,18 @@ TEST(MiningTraining, ChupungRyeong)
         << "Double: " << dbl << "%" << std::endl;
 }
 
-TEST(MiningTraining, ChupungRyeong2)
+TEST(MiningTraining, ChupungRyeongSingle)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Chupung");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 1, 0);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+        << "Overall efficiency: " << std::endl
+        << "Single: " << sgl << "%" << std::endl;
+}
+
+TEST(MiningTraining, ChupungRyeongDouble)
 {
     BWTest test;
     test.map = Maps::GetOne("Chupung");
