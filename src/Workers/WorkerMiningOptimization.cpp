@@ -12,8 +12,6 @@
 #define OPTIMALPOSITIONS_DEBUG true
 #endif
 
-#define GAIN_PER_CORRECT_OBSERVATION_FACTOR 4
-
 namespace WorkerMiningOptimization
 {
     namespace
@@ -47,6 +45,15 @@ namespace WorkerMiningOptimization
                 // Sending the command too late results in a loss equal to the number of frames late
                 // Sending the command early causes an extra order timer cycle
                 frameLosses += (delta + 900) % 9;
+            }
+
+            [[nodiscard]] bool blacklisted() const
+            {
+                // This is our heuristic for when we consider the observed results of a position to be too poor to use it
+                // By experimentation a number that works reasonably well assumes that we save 2 frames per correct observation,
+                // but there is very little difference between that and being even more pessimistic - the important thing is to
+                // exclude the positions that perform very badly
+                return frameLosses > (2 * optimal);
             }
 
         private:
@@ -395,7 +402,7 @@ namespace WorkerMiningOptimization
                         auto optimalGatherPositionIt = optimalGatherPositions.find(lfBeforeIt->second);
                         if (optimalGatherPositionIt == optimalGatherPositions.end()) return false;
 
-                        return (optimalGatherPositionIt->second.optimal > optimalGatherPositionIt->second.nonoptimal);
+                        return !optimalGatherPositionIt->second.blacklisted();
                     };
 
                     if (!skipCommand()) worker->gather(resourceBwapiUnit);
@@ -426,8 +433,7 @@ namespace WorkerMiningOptimization
         // We ignore positions where our observed losses are high
         auto here = currentPosition();
         auto optimalGatherPositionIt = optimalGatherPositions.find(*here);
-        if (optimalGatherPositionIt != optimalGatherPositions.end()
-            && (optimalGatherPositionIt->second.optimal * GAIN_PER_CORRECT_OBSERVATION_FACTOR >= optimalGatherPositionIt->second.frameLosses))
+        if (optimalGatherPositionIt != optimalGatherPositions.end() && !optimalGatherPositionIt->second.blacklisted())
         {
             // Check if there will be an order timer reset that affects the timing
             int framesFromCommandToReset = OrderProcessTimer::framesToNextReset() - BWAPI::Broodwar->getLatencyFrames();
@@ -464,10 +470,10 @@ namespace WorkerMiningOptimization
         {
             CherryVis::log(worker->id) << "Not resending gather command; at optimal position " << *here
                 << " but losses " << optimalGatherPositionIt->second.frameLosses
-                << " exceed optimal observation gains " << (optimalGatherPositionIt->second.optimal * GAIN_PER_CORRECT_OBSERVATION_FACTOR);
+                << " outweigh correct observations " << optimalGatherPositionIt->second.optimal;
             CherryVis::log(resource->id) << "Not resending gather command; at optimal position " << *here
                                          << " but losses " << optimalGatherPositionIt->second.frameLosses
-                                         << " exceed optimal observation gains " << (optimalGatherPositionIt->second.optimal * GAIN_PER_CORRECT_OBSERVATION_FACTOR);
+                                         << " outweigh correct observations " << optimalGatherPositionIt->second.optimal;
         }
 #endif
     }
