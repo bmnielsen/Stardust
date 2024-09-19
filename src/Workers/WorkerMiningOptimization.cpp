@@ -12,6 +12,8 @@
 #define OPTIMALPOSITIONS_DEBUG true
 #endif
 
+#define GAIN_PER_CORRECT_OBSERVATION_FACTOR 4
+
 namespace WorkerMiningOptimization
 {
     namespace
@@ -86,7 +88,7 @@ namespace WorkerMiningOptimization
             auto filename = std::ostringstream()
                     << "gatherpositions_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames();
-            return FileTools::getFilePath(filename.str(), "json", writing);
+            return FileTools::getFilePath(filename.str(), "csv", writing);
         }
     }
 
@@ -104,6 +106,7 @@ namespace WorkerMiningOptimization
                 try
                 {
                     // Read and parse each position
+                    int count = 0;
                     while (true)
                     {
                         auto line = CsvTools::readNextLine(file);
@@ -115,7 +118,7 @@ namespace WorkerMiningOptimization
                         {
                             auto pos = PositionAndVelocity::fromString(line[2]);
                             std::shared_ptr<PositionAndVelocity> lfBeforePos;
-                            if (!line[7].empty())
+                            if (PositionAndVelocity::isValidString(line[7]))
                             {
                                 lfBeforePos = std::make_shared<PositionAndVelocity>(PositionAndVelocity::fromString(line[7]));
                             }
@@ -128,6 +131,7 @@ namespace WorkerMiningOptimization
                                         std::stoul(line[5]),
                                         std::stoul(line[6]),
                                         lfBeforePos});
+                            count++;
 
                             if (lfBeforePos)
                             {
@@ -136,7 +140,7 @@ namespace WorkerMiningOptimization
                         }
                     }
 
-                    Log::Get() << "Read optimal gather positions from " << optimalGatherPositionsFilename();
+                    Log::Get() << "Read " << count << " optimal gather positions from " << optimalGatherPositionsFilename();
                 }
                 catch (std::exception &ex)
                 {
@@ -152,6 +156,7 @@ namespace WorkerMiningOptimization
             std::ofstream file;
             file.open(optimalGatherPositionsFilename(true), std::ofstream::trunc);
 
+            int count = 0;
             for (auto &resourceAndOptimalGatherPositions : resourceToOptimalGatherPositions)
             {
                 for (auto &optimalOrderPosition : resourceAndOptimalGatherPositions.second)
@@ -167,12 +172,17 @@ namespace WorkerMiningOptimization
                     {
                         file << *optimalOrderPosition.second.lfBeforePosition;
                     }
+                    else
+                    {
+                        file << "null";
+                    }
                     file << "\n";
+                    count++;
                 }
             }
 
             file.close();
-            Log::Get() << "Wrote optimal gather positions to " << optimalGatherPositionsFilename(true);
+            Log::Get() << "Wrote " << count << " optimal gather positions to " << optimalGatherPositionsFilename(true);
         }
     }
 
@@ -219,15 +229,14 @@ namespace WorkerMiningOptimization
         workerStatus.lastProcessedFrame = currentFrame;
 
         // Record positions while we are approaching the patch
-        // Update optimal position when we start mining
-        //if (resource->getDistance(worker) == 0 && worker->frameLastMoved == (currentFrame - 1))
-        if (resource->getDistance(worker) == 0 &&
-            !workerStatus.positionHistory.empty() &&
-            (*workerStatus.positionHistory.rbegin())->equals(*currentPosition()))
+        // Update optimal position when we arrive at the patch
+        // Note that in some cases using distance == 0 is not correct, if the worker is taking a janky path that goes parallel with the patch
+        // This isn't easy to detect though with our current logic, and doesn't affect many paths or patches, so we live with it for now
+        if (resource->getDistance(worker) == 0)
         {
-            if (workerStatus.positionHistory.size() >= (BWAPI::Broodwar->getLatencyFrames() + 12))
+            if (workerStatus.positionHistory.size() >= (BWAPI::Broodwar->getLatencyFrames() + 11))
             {
-                auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 11;
+                auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
                 auto &optimalPosition = **optimalPositionIt;
 
                 // Register the optimal observation
@@ -277,14 +286,14 @@ namespace WorkerMiningOptimization
                     }
                 }
 
-                // Register the position of the worker at latency frames before the optimal position
-                // We use this data in the two-worker handoff case below
-                if (workerStatus.positionHistory.size() >= ((BWAPI::Broodwar->getLatencyFrames() * 2) + 12))
-                {
-                    auto lfBeforeIt = optimalPositionIt + BWAPI::Broodwar->getLatencyFrames();
-                    optimalPositionData->second.lfBeforePosition = *lfBeforeIt;
-                    lfBeforeOptimalGatherPositions[**lfBeforeIt] = optimalPositionData->first;
-                }
+                    // Register the position of the worker at latency frames before the optimal position
+                    // We use this data in the two-worker handoff case below
+                    if (workerStatus.positionHistory.size() >= ((BWAPI::Broodwar->getLatencyFrames() * 2) + 12))
+                    {
+                        auto lfBeforeIt = optimalPositionIt + BWAPI::Broodwar->getLatencyFrames();
+                        optimalPositionData->second.lfBeforePosition = *lfBeforeIt;
+                        lfBeforeOptimalGatherPositions[**lfBeforeIt] = optimalPositionData->first;
+                    }
             }
 
             // Only need the data until the first arrival frame
@@ -407,7 +416,7 @@ namespace WorkerMiningOptimization
         auto here = currentPosition();
         auto optimalGatherPositionIt = optimalGatherPositions.find(*here);
         if (optimalGatherPositionIt != optimalGatherPositions.end()
-            && (optimalGatherPositionIt->second.optimal * 4 >= optimalGatherPositionIt->second.frameLosses))
+            && (optimalGatherPositionIt->second.optimal * GAIN_PER_CORRECT_OBSERVATION_FACTOR >= optimalGatherPositionIt->second.frameLosses))
         {
             // Check if there will be an order timer reset that affects the timing
             int framesFromCommandToReset = OrderProcessTimer::framesToNextReset() - BWAPI::Broodwar->getLatencyFrames();
@@ -444,10 +453,10 @@ namespace WorkerMiningOptimization
         {
             CherryVis::log(worker->id) << "Not resending gather command; at optimal position " << *here
                 << " but losses " << optimalGatherPositionIt->second.frameLosses
-                << " exceed optimal observation gains " << (optimalGatherPositionIt->second.optimal * 4);
+                << " exceed optimal observation gains " << (optimalGatherPositionIt->second.optimal * GAIN_PER_CORRECT_OBSERVATION_FACTOR);
             CherryVis::log(resource->id) << "Not resending gather command; at optimal position " << *here
                                          << " but losses " << optimalGatherPositionIt->second.frameLosses
-                                         << " exceed optimal observation gains " << (optimalGatherPositionIt->second.optimal * 4);
+                                         << " exceed optimal observation gains " << (optimalGatherPositionIt->second.optimal * GAIN_PER_CORRECT_OBSERVATION_FACTOR);
         }
 #endif
     }

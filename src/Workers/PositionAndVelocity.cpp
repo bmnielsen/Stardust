@@ -9,6 +9,12 @@ namespace
     const std::regex parser("\\(x=([0-9]+) y=([0-9]+) dx=([0-9]+) dy=([0-9]+) h=([0-9]+)\\)");
 }
 
+bool PositionAndVelocity::isValidString(const std::string &str)
+{
+    std::smatch matches;
+    return std::regex_search(str, matches, parser) && matches.size() == 5;
+}
+
 PositionAndVelocity PositionAndVelocity::fromString(const std::string &str)
 {
     std::smatch matches;

@@ -70,6 +70,7 @@ struct PositionAndVelocity
         add(heading);
     }
 
+    static bool isValidString(const std::string &str);
     static PositionAndVelocity fromString(const std::string &str);
 
     friend bool operator<(const PositionAndVelocity &a, const PositionAndVelocity &b)
