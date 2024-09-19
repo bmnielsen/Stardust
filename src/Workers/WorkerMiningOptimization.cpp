@@ -103,24 +103,39 @@ namespace WorkerMiningOptimization
             file.open(optimalGatherPositionsFilename());
             if (file.good())
             {
+                int lineNumber = 0;
                 try
                 {
                     // Read and parse each position
                     int count = 0;
                     while (true)
                     {
+                        lineNumber++;
                         auto line = CsvTools::readNextLine(file);
-                        if (line.size() != 8) break;
+                        if (line.size() < 7) break;
 
                         BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
                         auto resource = Units::resourceAt(tile);
                         if (resource)
                         {
-                            auto pos = PositionAndVelocity::fromString(line[2]);
-                            std::shared_ptr<PositionAndVelocity> lfBeforePos;
-                            if (PositionAndVelocity::isValidString(line[7]))
+                            if (!PositionAndVelocity::isValidString(line[2]))
                             {
-                                lfBeforePos = std::make_shared<PositionAndVelocity>(PositionAndVelocity::fromString(line[7]));
+                                Log::Get() << "Invalid position string at line " << lineNumber << "; skipping: " << line[2];
+                                continue;
+                            }
+                            auto pos = PositionAndVelocity::fromString(line[2]);
+
+                            std::shared_ptr<PositionAndVelocity> lfBeforePos;
+                            if (line.size() > 7)
+                            {
+                                if (PositionAndVelocity::isValidString(line[7]))
+                                {
+                                    lfBeforePos = std::make_shared<PositionAndVelocity>(PositionAndVelocity::fromString(line[7]));
+                                }
+                                else
+                                {
+                                    Log::Get() << "Invalid lf-before position string at line " << lineNumber << "; ignoring: " << line[7];
+                                }
                             }
 
                             resourceToOptimalGatherPositions[resource].emplace(
@@ -144,7 +159,7 @@ namespace WorkerMiningOptimization
                 }
                 catch (std::exception &ex)
                 {
-                    Log::Get() << "Exception caught attempting to read optimal gather positions: " << ex.what();
+                    Log::Get() << "Exception caught attempting to read optimal gather positions at line " << lineNumber << ": " << ex.what();
                 }
             }
         }
@@ -161,20 +176,16 @@ namespace WorkerMiningOptimization
             {
                 for (auto &optimalOrderPosition : resourceAndOptimalGatherPositions.second)
                 {
-                    file << resourceAndOptimalGatherPositions.first->tile.x << ","
-                         << resourceAndOptimalGatherPositions.first->tile.y << ","
-                         << optimalOrderPosition.first << ","
-                         << optimalOrderPosition.second.observations << ","
-                         << optimalOrderPosition.second.optimal << ","
-                         << optimalOrderPosition.second.nonoptimal << ","
-                         << optimalOrderPosition.second.frameLosses << ",";
+                    file << resourceAndOptimalGatherPositions.first->tile.x << ";"
+                         << resourceAndOptimalGatherPositions.first->tile.y << ";"
+                         << optimalOrderPosition.first << ";"
+                         << optimalOrderPosition.second.observations << ";"
+                         << optimalOrderPosition.second.optimal << ";"
+                         << optimalOrderPosition.second.nonoptimal << ";"
+                         << optimalOrderPosition.second.frameLosses << ";";
                     if (optimalOrderPosition.second.lfBeforePosition)
                     {
                         file << *optimalOrderPosition.second.lfBeforePosition;
-                    }
-                    else
-                    {
-                        file << "null";
                     }
                     file << "\n";
                     count++;
