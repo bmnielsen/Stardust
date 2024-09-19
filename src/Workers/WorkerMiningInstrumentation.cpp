@@ -104,7 +104,7 @@ namespace WorkerMiningInstrumentation
                 if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MoveToMinerals
                     || worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
                 {
-                    if (distPatch == 0 && worker->frameLastMoved != currentFrame)
+                    if (distPatch == 0)
                     {
                         status = 1;
                     }
@@ -121,7 +121,7 @@ namespace WorkerMiningInstrumentation
                 {
                     status = 2;
                 }
-                else if ((distDepot > 0 || worker->frameLastMoved == currentFrame) && worker->bwapiUnit->isCarryingMinerals())
+                else if (distDepot > 0 && worker->bwapiUnit->isCarryingMinerals())
                 {
                     status = 3;
                 }
@@ -161,7 +161,7 @@ namespace WorkerMiningInstrumentation
                     extraData = returningWorker->lastStartedMining;
 
                     auto distPatch = patch->getDistance(miningWorker);
-                    if (distPatch > 0 || miningWorker->frameLastMoved == currentFrame)
+                    if (distPatch > 0)
                     {
                         status = 11;
                     }
@@ -258,7 +258,6 @@ namespace WorkerMiningInstrumentation
                 case 1:
                 {
                     // Single worker waiting too long to mine
-                    currentFrames++; // adjust for the first frame where we detect that the worker has stopped moving
                     if (currentFrames > 1)
                     {
                         int orderTimerResetBeforeArrival = OrderProcessTimer::framesToPreviousReset(currentFrame - currentFrames);
@@ -301,13 +300,6 @@ namespace WorkerMiningInstrumentation
                 case 12:
                 case 13:
                 {
-                    // adjust for the first frame where we detect that the worker has stopped moving
-                    if (previousStatus == 11 && previousFrames > 1)
-                    {
-                        currentFrames++;
-                        previousFrames--;
-                    }
-
                     bool extraFrame = (currentStatus == 13);
                     int miningStart = extraData;
 
