@@ -50,7 +50,11 @@ Gather commands have the following delay before they can transition into mining:
 
 So we want to reissue a gather command exactly 11+LF frames before the worker arrives at the patch.
 
-Issuing a new gather command to a worker targeting the same patch does not affect its movement in any way: it continues along the same path and maintains its speed. So by tracking the position history of a mining worker, we can build a database of the optimal positions for resending the gather command for each patch.
+Issuing a new gather command to a worker targeting the same patch *usually* does not affect its movement: it continues along the same path and maintains its speed. So by tracking the position history of a mining worker, we can build a database of the optimal positions for resending the gather command for each patch.
+
+When executing the command, the game engine does treat this as a new move target for the unit, however. The exact behaviour of the unit therefore depends on how the game engine chooses to recalculate the path. If it changes the next move waypoint for the unit, this may result in it arriving at the patch earlier or later than it would otherwise.
+
+To make somewhat intelligent decisions about which gather positions to use, we track the observed results and compare this to the expected result if we do not resend the command at all. 
 
 If an order process timer reset is to occur between the optimal resend position and reaching the patch, we cannot achieve optimal timing. What we do in this situation depends on the timing of the reset. If the reset happens just after the optimal command would have kicked in, we send the gather command to take effect at the reset frame, which on average is a benefit. Otherwise we allow the worker to gather without resending the command and accept that it may take longer to begin mining.
 
