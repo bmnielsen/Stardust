@@ -9,7 +9,7 @@
 #if INSTRUMENTATION_ENABLED
 #define TRACK_MINING_EFFICIENCY true
 #define LOG_WORKER_ORDERS false
-#define LOG_PATCH_STATUS true
+#define LOG_PATCH_STATUS false
 #define LOG_TWOPATCH_TAKEOVER false
 #define LOG_TWOPATCH_TAKEOVER_ERRORS false
 #endif
