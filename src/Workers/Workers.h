@@ -54,4 +54,6 @@ namespace Workers
     std::map<Resource, std::set<MyWorker>> &mineralsAndAssignedWorkers();
 
     MyWorker getOtherWorkerMining(const Resource &resource, const MyWorker &worker);
+
+    void setWorkerMineralPatch(const MyWorker &worker, const Resource &resource, Base *base);
 }

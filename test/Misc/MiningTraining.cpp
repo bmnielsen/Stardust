@@ -9,6 +9,7 @@
 #include "Plays/Macro/SaturateBases.h"
 #include "WorkerMiningInstrumentation.h"
 #include "Units.h"
+#include "Workers.h"
 
 namespace
 {
@@ -41,7 +42,7 @@ namespace
             Strategist::setOpening(openingPlays);
         };
 
-        std::map<BWAPI::Position, int> workerCreationOrder;
+        std::map<BWAPI::Position, std::pair<int, Base*>> workerCreationOrderAndBase;
         test.onFrameMine = [&]()
         {
             // Initialization steps:
@@ -199,7 +200,8 @@ namespace
                                 BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
                                                             BWAPI::UnitTypes::Protoss_Probe,
                                                             Geo::CenterOfUnit(BWAPI::Position(start), BWAPI::UnitTypes::Protoss_Probe));
-                                workerCreationOrder[Geo::CenterOfUnit(BWAPI::Position(start), BWAPI::UnitTypes::Protoss_Probe)] = ++idx;
+                                workerCreationOrderAndBase[Geo::CenterOfUnit(BWAPI::Position(start),
+                                                                             BWAPI::UnitTypes::Protoss_Probe)] = std::make_pair(++idx, base);
 
                                 for (int x = 0; x < 3; x++)
                                 {
@@ -224,14 +226,54 @@ namespace
                 }
                 case 23:
                 {
+                    // Gather all available mineral assignments for each base, and sort them to ensure stability between test runs
+                    std::map<Base *, std::vector<Resource>> baseMineralPatches;
+                    for (auto &base : Map::allBases())
+                    {
+                        auto patches = base->mineralPatches();
+                        if (workersPerPatch == 2)
+                        {
+                            patches.insert(patches.end(), base->mineralPatches().begin(), base->mineralPatches().end());
+                        }
+
+                        std::sort(patches.begin(), patches.end(), [](const Resource &a, const Resource &b)
+                        {
+                            return a->tile < b->tile;
+                        });
+
+                        baseMineralPatches[base] = patches;
+                    }
+
+                    // Sort the workers by location so we get stable behaviour across runs
+                    auto workerSet = Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe);
+                    std::vector<MyUnit> workers(workerSet.begin(), workerSet.end());
+                    std::sort(workers.begin(), workers.end(), [](const MyUnit &a, const MyUnit &b)
+                    {
+                        return a->lastPosition < b->lastPosition;
+                    });
+
                     // Rewrite the order process index for all workers, as the way they are created for this test (where they all appear on the same
                     // frame) prevents our usual logic from working
-                    for (auto &worker : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
+                    // Also override the mineral patch assignments to ensure stability between runs
+                    for (auto &worker : workers)
                     {
-                        auto it = workerCreationOrder.find(worker->lastPosition);
-                        if (it != workerCreationOrder.end())
+                        auto it = workerCreationOrderAndBase.find(worker->lastPosition);
+                        if (it != workerCreationOrderAndBase.end())
                         {
-                            worker->orderProcessIndex = it->second;
+                            worker->orderProcessIndex = it->second.first;
+
+                            auto &basePatches = baseMineralPatches[it->second.second];
+                            if (!basePatches.empty())
+                            {
+                                Workers::setWorkerMineralPatch(std::static_pointer_cast<MyWorkerImpl>(worker),
+                                                               *basePatches.rbegin(),
+                                                               it->second.second);
+                                basePatches.pop_back();
+                            }
+                            else
+                            {
+                                Log::Get() << "ERROR: Couldn't get base patches for worker @ " << worker->lastPosition;
+                            }
                         }
                         else
                         {

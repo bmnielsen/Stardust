@@ -1162,4 +1162,14 @@ namespace Workers
         }
         return nullptr;
     }
+
+    void setWorkerMineralPatch(const MyWorker &worker, const Resource &resource, Base *base)
+    {
+        removeFromResource(worker, workerMineralPatch, mineralPatchWorkers);
+
+        workerBase[worker] = base;
+        baseWorkers[base].insert(worker);
+        workerMineralPatch[worker] = resource;
+        mineralPatchWorkers[resource].insert(worker);
+    }
 }
