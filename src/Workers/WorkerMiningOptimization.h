@@ -14,5 +14,5 @@ namespace WorkerMiningOptimization
     void optimizeStartOfMining(const MyWorker &worker, const Resource &resource);
 
     // Optimizes returning a resource
-    void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot);
+    void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
 }

@@ -479,7 +479,7 @@ namespace WorkerMiningOptimization
     }
 
     // Optimizes returning a resource, returning whether an order was sent to the worker.
-    void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot)
+    void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
         // TODO
     }

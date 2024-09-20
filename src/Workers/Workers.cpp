@@ -673,6 +673,8 @@ namespace Workers
                         continue;
                     }
 
+                    auto mineralPatch = workerMineralPatch[worker];
+
                     // If the worker has cargo, return it
                     if (worker->bwapiUnit->isCarryingMinerals() || worker->bwapiUnit->isCarryingGas())
                     {
@@ -724,7 +726,7 @@ namespace Workers
                                         auto myDepot = std::dynamic_pointer_cast<MyUnitImpl>(closestBase->resourceDepot);
                                         if (myDepot)
                                         {
-                                            WorkerMiningOptimization::optimizeReturnOfResource(worker, myDepot);
+                                            WorkerMiningOptimization::optimizeReturnOfResource(worker, myDepot, mineralPatch);
                                         }
                                     }
                                     continue;
@@ -751,7 +753,7 @@ namespace Workers
                             auto myDepot = std::dynamic_pointer_cast<MyUnitImpl>(base->resourceDepot);
                             if (myDepot)
                             {
-                                WorkerMiningOptimization::optimizeReturnOfResource(worker, myDepot);
+                                WorkerMiningOptimization::optimizeReturnOfResource(worker, myDepot, mineralPatch);
                             }
                             continue;
                         }
@@ -767,7 +769,6 @@ namespace Workers
                     }
 
                     // Handle mining from an assigned mineral patch
-                    auto mineralPatch = workerMineralPatch[worker];
                     if (mineralPatch)
                     {
                         // If the unit is currently mining, leave it alone
