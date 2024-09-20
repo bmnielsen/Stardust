@@ -24,7 +24,7 @@ namespace
         {
             return new ClearOpponentUnitsModule();
         };
-        test.frameLimit = 10000;
+        if (test.frameLimit != 500) test.frameLimit = 10000;
         test.expectWin = false;
 
         std::ostringstream replayNameBuilder;
@@ -342,6 +342,18 @@ TEST(MiningTraining, ChupungRyeong)
         << "Overall efficiency: " << std::endl
         << "Single: " << sgl << "%" << std::endl
         << "Double: " << dbl << "%" << std::endl;
+}
+
+TEST(MiningTraining, DebugMiningCommands)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Chupung");
+    test.randomSeed = 42;
+    test.frameLimit = 500;
+    auto sgl = runEfficiencyTest(test, 1, 0);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+        << "Overall efficiency: " << std::endl
+        << "Single: " << sgl << "%" << std::endl;
 }
 
 TEST(MiningTraining, ChupungRyeongSingle)
