@@ -275,19 +275,6 @@ namespace WorkerMiningOptimization
             return;
         }
 
-        // Our logic ensures mineral locking automatically except in some specific cases:
-        // - worker has been released from combat, which can leave it with a gather order to a random patch used for kiting
-        // - workers have been avoiding a no-go area and returning to mining as a group, so the timing gets messed up
-        if (worker->bwapiUnit->getOrderTarget() && worker->bwapiUnit->getOrderTarget()->getResources()
-            && worker->bwapiUnit->getOrderTarget() != resourceBwapiUnit
-            && worker->lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
-        {
-            CherryVis::log(worker->id) << "targeting different patch; resending order";
-            worker->gather(resourceBwapiUnit);
-            workerStatus.reset();
-            return;
-        }
-
         std::shared_ptr<PositionAndVelocity> currentPositionCache = nullptr;
         auto currentPosition = [&currentPositionCache, &worker]()
         {
@@ -439,6 +426,24 @@ namespace WorkerMiningOptimization
             */
         }
 
+        // Our logic ensures mineral locking automatically except in some specific cases:
+        // - worker has been released from combat, which can leave it with a gather order to a random patch used for kiting
+        // - workers have been avoiding a no-go area and returning to mining as a group, so the timing gets messed up
+        // - we don't have enough observed resend positions and get unlucky on the order timer
+        if (worker->bwapiUnit->getOrderTarget() && worker->bwapiUnit->getOrderTarget()->getResources()
+            && worker->bwapiUnit->getOrderTarget() != resourceBwapiUnit
+            && worker->lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+        {
+            CherryVis::log(worker->id) << "targeting different patch; resending order";
+            Log::Get() << "worker " << worker->id << " @ " << worker->getTilePosition()
+                       << " assigned to " << resource->id << " @ " << resource->tile
+                       << " is targeting different patch; resending order";
+            worker->gather(resourceBwapiUnit);
+            workerStatus.reset();
+            workerStatus.lastProcessedFrame = currentFrame;
+            return;
+        }
+
         // Handle case where another worker is assigned to the patch
         auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
         if (otherWorker && otherWorker->exists() && (currentFrame - otherWorker->lastStartedMining) < 100)
@@ -585,7 +590,8 @@ namespace WorkerMiningOptimization
                     workerStatus.resendCommandOnFrame = (currentFrame + 1);
 
 #if OPTIMALPOSITIONS_DEBUG
-                    Log::Get() << "Failed to send gather command for " << worker->id << ": " << BWAPI::Broodwar->getLastError();
+                    Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
+                               << BWAPI::Broodwar->getLastError();
                     CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
                     CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
 #endif
