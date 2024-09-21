@@ -24,18 +24,18 @@ namespace WorkerMiningOptimization
             PositionAndVelocity pos;
 
             // How many times we have observed this as being the optimal position when not resending the order
-            unsigned long observations = 0;
+            unsigned int observations = 0;
 
-            // How many times the order was resent at this position
-            unsigned long attempts = 0;
+            // How many times the order was resent at this position and was optimal
+            unsigned int optimalResends = 0;
 
-            // How many frames we have waited to mine when this was not the optimal position
-            unsigned long waitFrames = 0;
+            // How many times the order was resent at this position and was nonoptimal
+            unsigned int nonoptimalResends = 0;
 
-            // Whether this position is only seen when two workers are assigned to the patch
-            bool twoWorkerOnly = true;
+            // Details of the optimal positions arising from the nonoptimal resends
+            std::map<PositionAndVelocity, std::map<int, OptimalGatherPositionMetadata>> nonoptimalResendOptimalPositions;
 
-            void trackObservation()
+            void trackOptimalObservation()
             {
                 if (atObservationCap()) return;
                 observations++;
@@ -44,26 +44,80 @@ namespace WorkerMiningOptimization
             void trackOptimalResend()
             {
                 if (atObservationCap()) return;
-                attempts++;
+                optimalResends++;
             }
 
-            void trackNonoptimalResend(size_t delta)
+            void trackNonoptimalResend(const PositionAndVelocity &optimalPosition,
+                                       const std::shared_ptr<PositionAndVelocity> &secondResendPosition,
+                                       int resentDelta,
+                                       int secondResentDelta)
             {
                 if (atObservationCap()) return;
-                attempts++;
 
-                // Wait frames depend on where the wrong position was in the history
-                // Sending the command too late results in a loss equal to the number of frames late
-                // Sending the command early causes an extra order timer cycle
-                waitFrames += (delta + 900) % 9;
+                // A special case is if the worker actually arrived at the patch faster because of the resend
+                // This doesn't actually help us, since the worker has to wait for the order process timer to reach 0, but
+                // we actually get the same performance as we expected (as if the path hadn't changed)
+                // So we just treat this as an optimal resend
+                if (resentDelta > 0)
+                {
+                    optimalResends++;
+                    return;
+                }
+
+                nonoptimalResends++;
+
+                auto &optimalPositionMetadata = nonoptimalResendOptimalPositions[optimalPosition][-resentDelta];
+                if (!optimalPositionMetadata.atObservationCap())
+                {
+                    if (!secondResendPosition)
+                    {
+                        optimalPositionMetadata.trackOptimalObservation();
+                    }
+                    else if (secondResentDelta == 0)
+                    {
+                        optimalPositionMetadata.trackOptimalResend();
+                    }
+                }
+
+                if (secondResendPosition && secondResentDelta != 0)
+                {
+                    auto &secondResendPositionMetadata = nonoptimalResendOptimalPositions[*secondResendPosition][-resentDelta];
+                    if (!secondResendPositionMetadata.atObservationCap())
+                    {
+                        (secondResentDelta > 0 ? secondResendPositionMetadata.optimalResends : secondResendPositionMetadata.nonoptimalResends)++;
+                    }
+                }
+            }
+            
+            [[nodiscard]] unsigned int expectedDelay() const
+            {
+                // Gather the aggregated delays across all nonoptimal resends
+                unsigned int count = optimalResends;
+                unsigned int delays = 0;
+                for (const auto &[_, delayAndMetadata] : nonoptimalResendOptimalPositions)
+                {
+                    for (const auto &[delay, metadata] : delayAndMetadata)
+                    {
+                        count += metadata.optimalResends + metadata.nonoptimalResends;
+
+                        // If the delay is exactly LF after, the unit will be busy and this will incur an extra frame of delay
+                        int effectiveDelay = delay + ((delay == BWAPI::Broodwar->getFrameCount()) ? 1 : 0);
+                        delays += metadata.optimalResends * effectiveDelay + metadata.nonoptimalResends * (effectiveDelay + 5);
+                    }
+                }
+
+                if (count == 0) return 0;
+
+                // Integer division with ceiling
+                return (delays + count - 1) / count;
             }
 
         private:
             [[nodiscard]] bool atObservationCap() const
             {
-                // Set a cap on how many observations we track to reduce file size and ensure we don't exceed the size of unsigned long
+                // Set a cap on how many observations we track to reduce computation time
                 // Beyond a certain point additional observations are not going to have any impact anyway
-                return (observations + attempts) >= 10000;
+                return (observations + optimalResends + nonoptimalResends) >= 1000;
             }
         };
 
@@ -71,25 +125,28 @@ namespace WorkerMiningOptimization
         {
             os << optimalGatherPositionMetadata.pos
                << " (o=" << optimalGatherPositionMetadata.observations
-               << " a=" << optimalGatherPositionMetadata.attempts
-               << " fl=" << optimalGatherPositionMetadata.waitFrames
+               << " opt=" << optimalGatherPositionMetadata.optimalResends
+               << " not=" << optimalGatherPositionMetadata.nonoptimalResends
                << ")";
 
             return os;
         }
 
-        bool shouldResendGatherCommand(const MyWorker &worker, const OptimalGatherPositionMetadata &positionMetadata, int frameDelta = 0)
+        bool shouldResendGatherCommand(const MyWorker &worker,
+                                       const OptimalGatherPositionMetadata &positionMetadata,
+                                       unsigned int &expectedDelay,
+                                       int frameDelta = 0)
         {
-            // We always attempt at least once, since we otherwise have no data to go on
-            if (positionMetadata.attempts == 0) return true;
+            expectedDelay = positionMetadata.expectedDelay();
+            if (expectedDelay == 0) return true;
 
             // If we can predict the order timer value at arrival, check if it is better or worse than the observed results on this patch
-            if (worker->orderProcessTimer != -1 && OrderProcessTimer::framesToNextReset() > (BWAPI::Broodwar->getLatencyFrames() + 11 + frameDelta))
+            if (worker->orderProcessTimer != -1)
             {
                 int orderProcessTimerAtArrival = worker->orderProcessTimer - BWAPI::Broodwar->getLatencyFrames() - 11 - frameDelta + 1;
                 while (orderProcessTimerAtArrival < 0) orderProcessTimerAtArrival += 9;
 
-                bool result = positionMetadata.waitFrames < (positionMetadata.attempts * orderProcessTimerAtArrival);
+                bool result = expectedDelay < orderProcessTimerAtArrival;
 
 #if OPTIMALPOSITIONS_DEBUG
                 if (!result)
@@ -103,7 +160,7 @@ namespace WorkerMiningOptimization
             }
 
             // The order timer will be randomized at arrival, so resend if the metadata indicates we on average would benefit
-            bool result = positionMetadata.waitFrames < (positionMetadata.attempts * 4);
+            bool result = expectedDelay < 5;
 
 #if OPTIMALPOSITIONS_DEBUG
             if (!result)
@@ -126,6 +183,9 @@ namespace WorkerMiningOptimization
             // The position at which the gather command was resent, or nullptr if it hasn't been resent
             std::shared_ptr<PositionAndVelocity> resentPosition;
 
+            // The position at which the gather command was resent again, or nullptr if it hasn't been resent
+            std::shared_ptr<PositionAndVelocity> secondResentPosition;
+
             // Used to mark that the worker should have the gather command resent on this specific frame
             int resendCommandOnFrame;
 
@@ -142,6 +202,7 @@ namespace WorkerMiningOptimization
                 lastProcessedFrame = -2;
                 positionHistory.clear();
                 resentPosition = nullptr;
+                secondResentPosition = nullptr;
                 resendCommandOnFrame = -2;
                 passedResendPosition = false;
                 resentCommandForTakeover = false;
@@ -192,14 +253,29 @@ namespace WorkerMiningOptimization
                             }
                             auto pos = PositionAndVelocity::fromString(line[2]);
 
+                            std::map<PositionAndVelocity, std::map<int, OptimalGatherPositionMetadata>> nonoptimalResendOptimalPositions;
+                            for (const auto &nonoptimalResendOptimalPosition : CsvTools::tokenizeList(line[6]))
+                            {
+                                auto data = CsvTools::tokenizeList(nonoptimalResendOptimalPosition, ':');
+                                if (data.size() < 5) continue;
+                                if (!PositionAndVelocity::isValidString(data[0])) continue;
+                                auto nonoptimalPos = PositionAndVelocity::fromString(data[0]);
+
+                                nonoptimalResendOptimalPositions[nonoptimalPos].emplace(std::stoi(data[1]), OptimalGatherPositionMetadata{
+                                        nonoptimalPos,
+                                        (unsigned int)std::stoi(data[2]),
+                                        (unsigned int)std::stoi(data[3]),
+                                        (unsigned int)std::stoi(data[4])});
+                            }
+
                             resourceToOptimalGatherPositions[resource].emplace(
                                     pos,
                                     OptimalGatherPositionMetadata{
                                         pos,
-                                        std::stoul(line[3]),
-                                        std::stoul(line[4]),
-                                        std::stoul(line[5]),
-                                        line[6] == "true"});
+                                        (unsigned int)std::stoi(line[3]),
+                                        (unsigned int)std::stoi(line[4]),
+                                        (unsigned int)std::stoi(line[5]),
+                                        nonoptimalResendOptimalPositions});
                             count++;
                         }
                     }
@@ -233,15 +309,19 @@ namespace WorkerMiningOptimization
                          << resourceAndOptimalGatherPositions.first->tile.y << ";"
                          << optimalOrderPosition.first << ";"
                          << optimalOrderPosition.second.observations << ";"
-                         << optimalOrderPosition.second.attempts << ";"
-                         << optimalOrderPosition.second.waitFrames << ";";
-                    if (optimalOrderPosition.second.twoWorkerOnly)
+                         << optimalOrderPosition.second.optimalResends << ";"
+                         << optimalOrderPosition.second.nonoptimalResends << ";";
+                    std::string sep;
+                    for (const auto &[pos, deltaAndMetadata] : optimalOrderPosition.second.nonoptimalResendOptimalPositions)
                     {
-                        file << "true";
-                    }
-                    else
-                    {
-                        file << "false";
+                        for (const auto &[delta, metadata] : deltaAndMetadata)
+                        {
+                            file << sep << pos << ":" << delta << ":"
+                                 << metadata.observations << ":"
+                                 << metadata.optimalResends << ":"
+                                 << metadata.nonoptimalResends;
+                        }
+                        sep = ",";
                     }
                     file << "\n";
                     count++;
@@ -283,8 +363,8 @@ namespace WorkerMiningOptimization
 
         // Record positions while we are approaching the patch
         // Update optimal position when we arrive at the patch
-        // Note that in some cases using distance == 0 is not correct, if the worker is taking a janky path that goes parallel with the patch
-        // This isn't easy to detect though with our current logic, and doesn't affect many paths or patches, so we live with it for now
+        // Note that in some cases using distance == 0 is not correct, as the worker can take a path that goes parallel to the patch
+        // These are rare and not easily to unambiguously detect, so we are currently ignoring these cases
         if (resource->getDistance(worker) == 0)
         {
 #if !SAVED_POSITIONS_ONLY
@@ -293,7 +373,7 @@ namespace WorkerMiningOptimization
                 auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
                 auto &optimalPosition = **optimalPositionIt;
 
-                // Track an observation only if we didn't resend an order
+                // Track an observation if we didn't resend an order
                 if (!workerStatus.resentPosition)
                 {
                     auto optimalPositionData = optimalGatherPositions.find(optimalPosition);
@@ -316,8 +396,7 @@ namespace WorkerMiningOptimization
 #endif
                     }
 
-                    optimalPositionData->second.trackObservation();
-                    if (!workerStatus.resentCommandForTakeover) optimalPositionData->second.twoWorkerOnly = false;
+                    optimalPositionData->second.trackOptimalObservation();
                 }
                 else
                 {
@@ -336,25 +415,42 @@ namespace WorkerMiningOptimization
                         }
                         else
                         {
-                            // Find the resend position in the positions history so we can compute the delta from the optimal position
-                            for (auto it = workerStatus.positionHistory.rbegin(); it != workerStatus.positionHistory.rend(); it++)
+                            // Find the deltas of the first and second resend positions in the positions history, which we use to measure
+                            // the risk/reward of using a position
+                            auto getDelta = [&](const std::shared_ptr<PositionAndVelocity> &position)
                             {
-                                if ((*it) == workerStatus.resentPosition)
+                                if (!position) return LONG_MAX;
+
+                                for (auto it = workerStatus.positionHistory.rbegin(); it != workerStatus.positionHistory.rend(); it++)
                                 {
-                                    auto delta = std::distance(it, optimalPositionIt);
-                                    resendPositionData->second.trackNonoptimalResend(delta);
+                                    if ((*it) == position)
+                                    {
+                                        return std::distance(it, optimalPositionIt);
+                                    }
+                                }
+
+                                return LONG_MAX;
+                            };
+
+                            auto resentDelta = getDelta(workerStatus.resentPosition);
+                            if (resentDelta != LONG_MAX)
+                            {
+                                auto secondResentDelta = getDelta(workerStatus.secondResentPosition);
+                                resendPositionData->second.trackNonoptimalResend(optimalPosition,
+                                                                                 workerStatus.secondResentPosition,
+                                                                                 (int)resentDelta,
+                                                                                 (int)secondResentDelta);
 
 #if OPTIMALPOSITIONS_DEBUG
-                                    CherryVis::log(resource->id)
-                                            << "Tracked nonoptimal resend on position " << *workerStatus.resentPosition
-                                            << "; delta: " << delta
-                                            << "; frame loss: " << ((delta + 900) % 9);
-                                    CherryVis::log(worker->id)
-                                            << "Tracked nonoptimal resend on position " << *workerStatus.resentPosition
-                                            << "; delta: " << delta
-                                            << "; frame loss: " << ((delta + 900) % 9);
+                                CherryVis::log(resource->id)
+                                        << "Tracked nonoptimal resend on position " << *workerStatus.resentPosition
+                                        << "; delta: " << resentDelta
+                                        << "; frame loss: " << ((resentDelta + 900) % 9);
+                                CherryVis::log(worker->id)
+                                        << "Tracked nonoptimal resend on position " << *workerStatus.resentPosition
+                                        << "; delta: " << resentDelta
+                                        << "; frame loss: " << ((resentDelta + 900) % 9);
 #endif
-                                }
                             }
                         }
                     }
@@ -427,12 +523,9 @@ namespace WorkerMiningOptimization
         }
 
         // Handle case where another worker is assigned to the patch
-        bool takingOver = false;
         auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
         if (otherWorker && otherWorker->exists() && (currentFrame - otherWorker->lastStartedMining) < 100)
         {
-            takingOver = true;
-
             // Keep track of whether the worker has passed a resend position
             if (!workerStatus.passedResendPosition && optimalGatherPositions.contains(*currentPosition()))
             {
@@ -537,26 +630,33 @@ namespace WorkerMiningOptimization
             return;
         }
 
+        auto handleOrderProcessTimerReset = [&](unsigned int expectedDelay)
+        {
+            int framesFromCommandToReset = OrderProcessTimer::framesToNextReset() - BWAPI::Broodwar->getLatencyFrames();
+            if (framesFromCommandToReset > 0 && framesFromCommandToReset < (12 + expectedDelay))
+            {
+                // Send a command to take effect on the reset frame if it is coming soon
+                // Otherwise just let it take its course
+                if (framesFromCommandToReset < 5)
+                {
+                    workerStatus.resendCommandOnFrame = currentFrame + framesFromCommandToReset;
+                }
+                return true;
+            }
+
+            return false;
+        };
+
         // Check if this worker is at an optimal position to resend the gather order
         if (!workerStatus.resentPosition)
         {
             auto here = currentPosition();
             auto optimalGatherPositionIt = optimalGatherPositions.find(*here);
-            if (optimalGatherPositionIt != optimalGatherPositions.end() && shouldResendGatherCommand(worker, optimalGatherPositionIt->second) &&
-                (!optimalGatherPositionIt->second.twoWorkerOnly || takingOver))
+            unsigned int expectedDelay = 0;
+            if (optimalGatherPositionIt != optimalGatherPositions.end() && shouldResendGatherCommand(worker, optimalGatherPositionIt->second, expectedDelay))
             {
-                // Check if there will be an order timer reset that affects the timing
-                int framesFromCommandToReset = OrderProcessTimer::framesToNextReset() - BWAPI::Broodwar->getLatencyFrames();
-                if (framesFromCommandToReset > 0 && framesFromCommandToReset < 12)
-                {
-                    // Send a command to take effect on the reset frame if it is coming soon
-                    // Otherwise just let it take its course
-                    if (framesFromCommandToReset < 5)
-                    {
-                        workerStatus.resendCommandOnFrame = currentFrame + framesFromCommandToReset;
-                    }
-                }
-
+                if (handleOrderProcessTimerReset(expectedDelay))
+                {}
                 else if (worker->gather(resourceBwapiUnit))
                 {
                     workerStatus.resentPosition = here;
@@ -565,6 +665,41 @@ namespace WorkerMiningOptimization
                     CherryVis::log(worker->id) << "Resending gather command at position " << optimalGatherPositionIt->second;
                     CherryVis::log(resource->id) << "Resending gather command at position " << optimalGatherPositionIt->second;
 #endif
+                }
+                else
+                {
+                    workerStatus.resendCommandOnFrame = (currentFrame + 1);
+
+#if OPTIMALPOSITIONS_DEBUG
+                    Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
+                               << BWAPI::Broodwar->getLastError();
+                    CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+                    CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+#endif
+                }
+            }
+        }
+        else
+        {
+            auto resendPositionData = optimalGatherPositions[*workerStatus.resentPosition];
+
+            auto here = currentPosition();
+            auto optimalGatherPositionIt = resendPositionData.nonoptimalResendOptimalPositions.find(*here);
+            if (optimalGatherPositionIt != resendPositionData.nonoptimalResendOptimalPositions.end())
+            {
+                if (handleOrderProcessTimerReset(0))
+                {}
+                else if (optimalGatherPositionIt->second.size() == 1 &&
+                    optimalGatherPositionIt->second.begin()->first == BWAPI::Broodwar->getLatencyFrames())
+                {
+                    // Sending the command now will result in Unit_Busy, so schedule it for the next frame
+                    // This is taken into account in the logic to determine whether to use this position
+                    workerStatus.resendCommandOnFrame = (currentFrame + 1);
+                    workerStatus.secondResentPosition = here;
+                }
+                else if (worker->gather(resourceBwapiUnit))
+                {
+                    workerStatus.secondResentPosition = here;
                 }
                 else
                 {
