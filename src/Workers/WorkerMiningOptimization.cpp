@@ -32,7 +32,8 @@ namespace WorkerMiningOptimization
             // How many frames we have waited to mine when this was not the optimal position
             unsigned long waitFrames = 0;
 
-            std::shared_ptr<PositionAndVelocity> lfBeforePosition;
+            // Whether this position is only seen when two workers are assigned to the patch
+            bool twoWorkerOnly = true;
 
             void trackObservation()
             {
@@ -128,7 +129,13 @@ namespace WorkerMiningOptimization
             // Used to mark that the worker should have the gather command resent on this specific frame
             int resendCommandOnFrame;
 
-            WorkerGatherStatus() : lastProcessedFrame(-2), resendCommandOnFrame(-2) {}
+            // Tracks whether the worker has passed an optimal resend position
+            bool passedResendPosition;
+
+            // Tracks whether the worker has sent a gather command to optimize takeover from another worker
+            bool resentCommandForTakeover;
+
+            WorkerGatherStatus() : lastProcessedFrame(-2), resendCommandOnFrame(-2), passedResendPosition(false), resentCommandForTakeover(false) {}
 
             void reset()
             {
@@ -136,11 +143,12 @@ namespace WorkerMiningOptimization
                 positionHistory.clear();
                 resentPosition = nullptr;
                 resendCommandOnFrame = -2;
+                passedResendPosition = false;
+                resentCommandForTakeover = false;
             }
         };
 
         std::map<Resource, std::map<PositionAndVelocity, OptimalGatherPositionMetadata>> resourceToOptimalGatherPositions;
-        std::map<Resource, std::map<PositionAndVelocity, PositionAndVelocity>> resourceToLFBeforeOptimalGatherPositions;
         std::map<MyWorker, WorkerGatherStatus> workerGatherStatuses;
 
         std::string optimalGatherPositionsFilename(bool writing = false)
@@ -155,7 +163,6 @@ namespace WorkerMiningOptimization
     void initialize()
     {
         resourceToOptimalGatherPositions.clear();
-        resourceToLFBeforeOptimalGatherPositions.clear();
         workerGatherStatuses.clear();
 
         {
@@ -172,7 +179,7 @@ namespace WorkerMiningOptimization
                     {
                         lineNumber++;
                         auto line = CsvTools::readNextLine(file);
-                        if (line.size() < 6) break;
+                        if (line.size() < 7) break;
 
                         BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
                         auto resource = Units::resourceAt(tile);
@@ -185,19 +192,6 @@ namespace WorkerMiningOptimization
                             }
                             auto pos = PositionAndVelocity::fromString(line[2]);
 
-                            std::shared_ptr<PositionAndVelocity> lfBeforePos;
-                            if (line.size() > 6)
-                            {
-                                if (PositionAndVelocity::isValidString(line[6]))
-                                {
-                                    lfBeforePos = std::make_shared<PositionAndVelocity>(PositionAndVelocity::fromString(line[6]));
-                                }
-                                else
-                                {
-                                    Log::Get() << "Invalid lf-before position string at line " << lineNumber << "; ignoring: " << line[6];
-                                }
-                            }
-
                             resourceToOptimalGatherPositions[resource].emplace(
                                     pos,
                                     OptimalGatherPositionMetadata{
@@ -205,13 +199,8 @@ namespace WorkerMiningOptimization
                                         std::stoul(line[3]),
                                         std::stoul(line[4]),
                                         std::stoul(line[5]),
-                                        lfBeforePos});
+                                        line[6] == "true"});
                             count++;
-
-                            if (lfBeforePos)
-                            {
-                                resourceToLFBeforeOptimalGatherPositions[resource].emplace(*lfBeforePos, pos);
-                            }
                         }
                     }
 
@@ -246,9 +235,13 @@ namespace WorkerMiningOptimization
                          << optimalOrderPosition.second.observations << ";"
                          << optimalOrderPosition.second.attempts << ";"
                          << optimalOrderPosition.second.waitFrames << ";";
-                    if (optimalOrderPosition.second.lfBeforePosition)
+                    if (optimalOrderPosition.second.twoWorkerOnly)
                     {
-                        file << *optimalOrderPosition.second.lfBeforePosition;
+                        file << "true";
+                    }
+                    else
+                    {
+                        file << "false";
                     }
                     file << "\n";
                     count++;
@@ -264,7 +257,6 @@ namespace WorkerMiningOptimization
     void optimizeStartOfMining(const MyWorker &worker, const Resource &resource)
     {
         auto &optimalGatherPositions = resourceToOptimalGatherPositions[resource];
-        auto &lfBeforeOptimalGatherPositions = resourceToLFBeforeOptimalGatherPositions[resource];
         auto &workerStatus = workerGatherStatuses[worker];
 
         auto resourceBwapiUnit = resource->getBwapiUnitIfVisible();
@@ -325,15 +317,7 @@ namespace WorkerMiningOptimization
                     }
 
                     optimalPositionData->second.trackObservation();
-
-                    // Register the position of the worker at latency frames before the optimal position
-                    // We use this data in the two-worker handoff case to avoid Unit_Busy
-                    if (workerStatus.positionHistory.size() >= ((BWAPI::Broodwar->getLatencyFrames() * 2) + 12))
-                    {
-                        auto lfBeforeIt = optimalPositionIt + BWAPI::Broodwar->getLatencyFrames();
-                        optimalPositionData->second.lfBeforePosition = *lfBeforeIt;
-                        lfBeforeOptimalGatherPositions[**lfBeforeIt] = optimalPositionData->first;
-                    }
+                    if (!workerStatus.resentCommandForTakeover) optimalPositionData->second.twoWorkerOnly = false;
                 }
                 else
                 {
@@ -378,8 +362,9 @@ namespace WorkerMiningOptimization
             }
 #endif
 
-            // Only need the data until the first arrival frame
+            // Only need the data until the first arrival frame, but we mark that the worker has passed a resend position
             workerStatus.reset();
+            workerStatus.passedResendPosition = true;
         }
         else
         {
@@ -435,9 +420,6 @@ namespace WorkerMiningOptimization
             && worker->lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
         {
             CherryVis::log(worker->id) << "targeting different patch; resending order";
-            Log::Get() << "worker " << worker->id << " @ " << worker->getTilePosition()
-                       << " assigned to " << resource->id << " @ " << resource->tile
-                       << " is targeting different patch; resending order";
             worker->gather(resourceBwapiUnit);
             workerStatus.reset();
             workerStatus.lastProcessedFrame = currentFrame;
@@ -445,9 +427,22 @@ namespace WorkerMiningOptimization
         }
 
         // Handle case where another worker is assigned to the patch
+        bool takingOver = false;
         auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
         if (otherWorker && otherWorker->exists() && (currentFrame - otherWorker->lastStartedMining) < 100)
         {
+            takingOver = true;
+
+            // Keep track of whether the worker has passed a resend position
+            if (!workerStatus.passedResendPosition && optimalGatherPositions.contains(*currentPosition()))
+            {
+                workerStatus.passedResendPosition = true;
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(resource->id) << "Passed resend position " << *currentPosition();
+                CherryVis::log(worker->id) << "Passed resend position " << *currentPosition();
+#endif
+            }
+
             // Compute the optimal frame to take over from the other worker
 
             // We need to add an extra frame if the worker taking over might have its orders processed first
@@ -487,7 +482,8 @@ namespace WorkerMiningOptimization
             // Compute the number of frames until the next command we have to send
             // We send regular commands to avoid having the worker switch patches
             int framesToNextCommand;
-            if (currentFrame <= commandFrameForReset && (commandFrameForTakeOver - commandFrameForReset) > 3)
+            if (currentFrame <= commandFrameForReset && (commandFrameForTakeOver - commandFrameForReset) > 3
+                && workerStatus.passedResendPosition)
             {
                 framesToNextCommand = std::min(commandFrameForReset, commandFrameForTakeOver) - currentFrame;
             }
@@ -506,40 +502,24 @@ namespace WorkerMiningOptimization
                 << "commandFrameForReset=" << commandFrameForReset << "; "
                 << "framesToNextCommand=" << framesToNextCommand << "; "
                 << "addedFrame=" << addedFrame << "; "
-                << "distToPatch=" << resource->getDistance(worker);
+                << "distToPatch=" << resource->getDistance(worker) << "; "
+                << "passedResendPosition=" << workerStatus.passedResendPosition;
 #endif
 
             // Logic for when the next command is in the future
             if (framesToNextCommand >= 0)
             {
-                // Issue commands every 4 frames, unless we are at a position that is latency frames away from an optimal gather position
-                // Sending a command at such a position will result in the optimal approach command failing with Unit_Busy
-                if (framesToNextCommand % 4 == 0)
+                // Resend commands every 2 frames to avoid the worker switching patches, but wait until the worker has passed the optimal
+                // resend frame on its approach to the patch, otherwise it won't arrive in time for direct takeover anyway
+                if (framesToNextCommand % 2 == 0 && workerStatus.passedResendPosition)
                 {
-                    bool sendCommand = true;
-                    auto lfBeforeIt = lfBeforeOptimalGatherPositions.find(*currentPosition());
-                    if (lfBeforeIt != lfBeforeOptimalGatherPositions.end())
-                    {
-                        auto optimalGatherPositionIt = optimalGatherPositions.find(lfBeforeIt->second);
-                        if (optimalGatherPositionIt != optimalGatherPositions.end())
-                        {
-                            sendCommand = shouldResendGatherCommand(worker, optimalGatherPositionIt->second, BWAPI::Broodwar->getLatencyFrames());
-                        }
-                    }
-
-                    if (sendCommand)
-                    {
-                        worker->gather(resourceBwapiUnit);
-                    }
+                    worker->gather(resourceBwapiUnit);
+                    workerStatus.resentCommandForTakeover = true;
                 }
                 return;
             }
 
             // Fall through to normal optimization - if we are still approaching the patch it may send a new command to optimize mining at arrival
-            // There is one specific case that is not handled - if the approach optimization tries to send a gather command exactly LF after the
-            // previous one, BWAPI will give a Unit_Busy error
-            // However if our optimization is working correctly, workers should never arrive too late to the patch anyway, so I'm not going to spend
-            // effort on this now
         }
 
         // Resend the gather command if it has been scheduled for this frame
@@ -562,7 +542,8 @@ namespace WorkerMiningOptimization
         {
             auto here = currentPosition();
             auto optimalGatherPositionIt = optimalGatherPositions.find(*here);
-            if (optimalGatherPositionIt != optimalGatherPositions.end() && shouldResendGatherCommand(worker, optimalGatherPositionIt->second))
+            if (optimalGatherPositionIt != optimalGatherPositions.end() && shouldResendGatherCommand(worker, optimalGatherPositionIt->second) &&
+                (!optimalGatherPositionIt->second.twoWorkerOnly || takingOver))
             {
                 // Check if there will be an order timer reset that affects the timing
                 int framesFromCommandToReset = OrderProcessTimer::framesToNextReset() - BWAPI::Broodwar->getLatencyFrames();
