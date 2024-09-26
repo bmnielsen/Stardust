@@ -775,8 +775,9 @@ namespace Workers
                         // ResetCollision happens both on the frame where mining completes and LF after issuing a gather command, so we need
                         // to differentiate there
                         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
-                            (worker->bwapiUnit->getOrder() == BWAPI::Orders::ResetCollision && (currentFrame - worker->lastStartedMining) < 100) ||
-                            worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnMinerals)
+                            worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnMinerals ||
+                            (worker->bwapiUnit->getOrder() == BWAPI::Orders::ResetCollision &&
+                             (currentFrame - worker->lastCommandFrame) > BWAPI::Broodwar->getLatencyFrames()))
                         {
                             continue;
                         }

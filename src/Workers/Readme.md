@@ -16,7 +16,7 @@ Starting on frame 8, every 150 frames the order process timer of all units [is r
 
 When ordered to gather, the worker gets the MoveToMinerals order and moves towards the patch.
 
-Once the worker is at the patch (edge-to-edge distance is 0) and the worker's order timer is 0, the worker's order will transition to WaitForMinerals if the patch is free, or the worker will move to a different patch if the patch is already being mined.
+Whenever the worker's order process timer is 0, the MoveToMinerals order will be processed. If the edge-to-edge distance from the worker to the patch is [10 or less and the patch is being mined by another worker, the worker will switch to a different patch](https://github.com/OpenBW/openbw/blob/d5fe2306ecb08efdea877a7f4117b178292137cb/bwgame.h#L4319-L4330). If the worker has arrived at the patch (edge-to-edge distance is 0) and the patch is free, the worker's order will transition to WaitForMinerals.
 
 From WaitForMinerals the order transitions to MiningMinerals after one frame.
 
@@ -89,6 +89,14 @@ If there is an order process timer reset during mining (but not near the end), w
 If there is an order process timer reset near the end of mining, we are limited by the fact that the worker taking over also has their order process timer reset. The best we can do is time it so the mining command kicks in on the frame of the reset, causing the order process timer cycle to start over. The other worker will always be finished mining by the time the order is processed.
 
 For all of the above cases, we add an extra frame of delay if the worker taking over has its orders processed before the worker mining.
+
+### Worker taking over arrives after the optimal takeover frame
+
+If the worker taking over mining doesn't arrive at the mineral patch before the optimal takeover frame, we can fall back to the single-worker case, where we resend the gather order at a suitable position to allow mining immediately on arrival.
+
+However, it can be difficult to identify whether the worker will arrive at the mineral patch before or after the optimal takeover frame. While a worker approaches the patch that another worker is mining, we must resend the gather command regularly to prevent it from switching patches. As noted earlier, however, resending the gather command can change the path the worker takes towards the patch. Our logic to maintain mineral locking is therefore effectively poisoning the observations we would like to rely on to know whether the worker will arrive at the patch on time.
+
+To work around this, we rely as much as possible on the observations we make in the single-worker case, as the paths taken by the workers should be the same. Besides this, we make note of positions that have had suboptimal results in order to know when we need to change behaviour.
 
 ## Return of minerals
 

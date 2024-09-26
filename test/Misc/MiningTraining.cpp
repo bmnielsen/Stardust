@@ -24,7 +24,7 @@ namespace
         {
             return new ClearOpponentUnitsModule();
         };
-        if (test.frameLimit != 500) test.frameLimit = 10000;
+        if (test.frameLimit > 10000) test.frameLimit = 10000;
         test.expectWin = false;
 
         std::ostringstream replayNameBuilder;
@@ -367,6 +367,19 @@ TEST(MiningTraining, ChupungRyeongSingle)
         << "Single: " << sgl << "%" << std::endl;
 }
 
+TEST(MiningTraining, ChupungRyeongSingleCannons)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Chupung");
+    test.randomSeed = 42;
+    auto c1 = runEfficiencyTest(test, 1, 1);
+    auto c2 = runEfficiencyTest(test, 1, 2);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+        << "Overall efficiency: " << std::endl
+        << "One cannon: " << c1 << "%" << std::endl
+        << "Two cannons: " << c2 << "%" << std::endl;
+}
+
 TEST(MiningTraining, ChupungRyeongSingle10)
 {
     BWTest test;
@@ -386,6 +399,7 @@ TEST(MiningTraining, ChupungRyeongDouble)
     BWTest test;
     test.map = Maps::GetOne("Chupung");
     test.randomSeed = 42;
+//    test.frameLimit = 2500;
     auto dbl = runEfficiencyTest(test, 2, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
         << "Overall efficiency: " << std::endl
@@ -507,6 +521,58 @@ TEST(MiningTraining, AllAIIDEContinuous)
                     auto key = std::make_pair(workers, cannons);
                     file << ";" << (totals[key] / (double)(mapHashToConfigurationToEfficiency.size()));
                 }
+            }
+            file << "\n";
+
+            file.close();
+        }
+    }
+}
+
+TEST(MiningTraining, AllAIIDEContinuousSingleOnly)
+{
+    while (true)
+    {
+        Maps::RunOnEach(Maps::Get("aiide2023"), [](BWTest test)
+        {
+            double totalSingle = 0.0;
+            for (auto cannons = 0; cannons <= 2; cannons++)
+            {
+                totalSingle += runEfficiencyTest(test, 1, cannons);
+            }
+            std::cout << std::fixed << std::showpoint << std::setprecision(4)
+                      << "Overall efficiency: " << std::endl
+                      << "Single: " << (totalSingle / 3) << "%" << std::endl;
+        });
+
+        {
+            std::ofstream file;
+            auto tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            auto tm = std::localtime(&tt);
+            file.open((std::ostringstream() << dataBasePath << "miningtraining_" << std::put_time(tm, "%Y%m%d_%H%M%S") << ".csv").str(),
+                      std::ofstream::trunc);
+            file << "Hash;1-0;1-1;1-2\n";
+            std::map<std::pair<int, int>, double> totals;
+            for (const auto &[mapHash, _] : mapHashToConfigurationToEfficiency)
+            {
+                file << mapHash;
+
+                for (int cannons = 0; cannons <= 2; cannons++)
+                {
+                    auto key = std::make_pair(1, cannons);
+                    auto result = mapHashToConfigurationToEfficiency[mapHash][key];
+                    file << ";" << result;
+                    totals[key] += result;
+                }
+
+                file << "\n";
+            }
+
+            file << "Average";
+            for (int cannons = 0; cannons <= 2; cannons++)
+            {
+                auto key = std::make_pair(1, cannons);
+                file << ";" << (totals[key] / (double)(mapHashToConfigurationToEfficiency.size()));
             }
             file << "\n";
 

@@ -8,6 +8,8 @@ namespace WorkerMiningOptimization
 {
     void initialize();
 
+    void flushObservations();
+
     void write();
 
     // Optimizes the start of mining

@@ -53,6 +53,11 @@ struct PositionAndVelocity
         return x == other.x && y == other.y && dx == other.dx && dy == other.dy && heading == other.heading;
     }
 
+    [[nodiscard]] BWAPI::Position pos() const
+    {
+        return {x, y};
+    }
+
     void addToHash(uint32_t &hash) const
     {
         auto add = [&hash](uint32_t val)

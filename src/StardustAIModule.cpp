@@ -277,6 +277,10 @@ void StardustAIModule::onFrame()
     Units::issueOrders();
     Timer::checkpoint("Units::issueOrders");
 
+    // Updates the mining optimization data
+    WorkerMiningOptimization::flushObservations();
+    Timer::checkpoint("WorkerMiningOptimization::flushObservations");
+
 #if LOGGING_ENABLED
     auto enemyNatural = Map::getEnemyStartingNatural();
     if (enemyNatural && enemyNatural->resourceDepot && enemyNatural->resourceDepot->bwapiUnit->isVisible()
