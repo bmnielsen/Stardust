@@ -237,22 +237,100 @@ namespace WorkerMiningOptimization
         // Don't touch the worker if it is transitioning to mine
         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals) return;
 
+        // Resend the gather command if it has been scheduled for this frame
+        if (workerStatus.resentOnSchedule())
+        {
+            if (workerStatus.resendCommandOnFrame == currentFrame)
+            {
+                worker->gather(resourceBwapiUnit);
+
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(worker->id) << "Resending gather command on schedule";
+                CherryVis::log(resource->id) << "Resending gather command on schedule";
+#endif
+            }
+            return;
+        }
+
+        // If we have already submitted our second resend, we have nothing left to do
+        if (workerStatus.secondResentPosition) return;
+
+        auto handleOrderProcessTimerReset = [&](unsigned int expectedDelay)
+        {
+            int framesFromCommandToReset = OrderProcessTimer::framesToNextReset() - BWAPI::Broodwar->getLatencyFrames();
+            if (framesFromCommandToReset > 0 && framesFromCommandToReset < (12 + expectedDelay))
+            {
+                // Send a command to take effect on the reset frame if it is coming soon
+                // Otherwise just let it take its course
+                if (framesFromCommandToReset < 5)
+                {
+                    workerStatus.resendCommandOnFrame = currentFrame + framesFromCommandToReset;
+#if OPTIMALPOSITIONS_DEBUG
+                    CherryVis::log(worker->id) << "Scheduled gather command for approach optimization on frame "
+                                               << workerStatus.resendCommandOnFrame;
+                    CherryVis::log(resource->id) << "Scheduled gather command for approach optimization on frame "
+                                                 << workerStatus.resendCommandOnFrame;
+#endif
+
+                }
+                return true;
+            }
+
+            return false;
+        };
+
         auto &optimalGatherPositions = optimalGatherPositionsFor(resource);
 
         // Logic for when we are looking for the first position to resend the command
         if (!workerStatus.resentPosition)
         {
-            // Look for a position here that has untried options
-            auto optimalGatherPositionIt = optimalGatherPositions.find(*currentPosition);
-            if (optimalGatherPositionIt != optimalGatherPositions.end() &&
-                optimalGatherPositionIt->second.hasUntriedPosition())
+            // Position evaluator
+            int expectedDelay = INT_MAX;
+            auto shouldUsePosition = [&](const PositionObservationMetadata &metadata)
             {
-                if (worker->gather(resource->getBwapiUnitIfVisible()))
+                // Always use a position if we are exploring something on it
+                if (metadata.hasUntriedPosition()) return true;
+
+                // Always allow a following position to explore
+                if (metadata.followingHasUntriedPosition) return false;
+
+                // Otherwise use this position if it gives the best delta compared to its following positions
+                if (metadata.bestDelta == 0 || metadata.bestDelta < metadata.bestFollowingPositionDelta)
+                {
+                    expectedDelay = metadata.bestDelta;
+                    return true;
+                }
+
+                return false;
+            };
+
+            // Check if this is a position we want to use
+            auto optimalGatherPositionIt = optimalGatherPositions.find(*currentPosition);
+            if (optimalGatherPositionIt != optimalGatherPositions.end() && shouldUsePosition(optimalGatherPositionIt->second))
+            {
+                if (expectedDelay != INT_MAX &&
+                    optimalGatherPositionIt->second.noResendData.find(optimalGatherPositionIt->second.bestDelta)
+                                            != optimalGatherPositionIt->second.noResendData.end() &&
+                    handleOrderProcessTimerReset(expectedDelay))
+                {}
+                else if (worker->gather(resource->getBwapiUnitIfVisible()))
                 {
                     workerStatus.resentPosition = currentPosition;
 
 #if OPTIMALPOSITIONS_DEBUG
-                    CherryVis::log(worker->id) << "Resending for " << optimalGatherPositionIt->second;
+                    CherryVis::log(worker->id) << "Resending for " << optimalGatherPositionIt->second
+                                               << ((expectedDelay == INT_MAX) ? " (exploring)" : "");
+#endif
+                }
+                else
+                {
+                    workerStatus.resendCommandOnFrame = (currentFrame + 1);
+
+#if OPTIMALPOSITIONS_DEBUG
+                    Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
+                               << BWAPI::Broodwar->getLastError();
+                    CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+                    CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
 #endif
                 }
             }
@@ -268,17 +346,44 @@ namespace WorkerMiningOptimization
         }
         auto &resentPositionData = resentPositionIt->second;
 
-        // Check if this position matches a second resend position we want to test
-        auto secondResendPositionIt = resentPositionData.resendPositionToData.find(*currentPosition);
-        if (secondResendPositionIt != resentPositionData.resendPositionToData.end() &&
-            secondResendPositionIt->second.empty())
+        // Second resend position evaluator
+        int expectedDelay = INT_MAX;
+        auto shouldUseSecondResendPosition = [&](const std::map<int, int> &observations)
         {
-            if (worker->gather(resource->getBwapiUnitIfVisible()))
+            // Always use a position if we are exploring it
+            if (observations.empty()) return true;
+
+            expectedDelay = resentPositionData.bestDelta;
+
+            // Use the position if it is the one that gives the best delta
+            return resentPositionData.noResendData.find(resentPositionData.bestDelta) == resentPositionData.noResendData.end() &&
+                   observations.find(resentPositionData.bestDelta) != observations.end();
+        };
+
+        // Check if this position matches a second resend position we want to use
+        auto secondResendPositionIt = resentPositionData.resendPositionToData.find(*currentPosition);
+        if (secondResendPositionIt != resentPositionData.resendPositionToData.end() && shouldUseSecondResendPosition(secondResendPositionIt->second))
+        {
+            if (expectedDelay != INT_MAX && handleOrderProcessTimerReset(expectedDelay))
+            {}
+            else if (worker->gather(resource->getBwapiUnitIfVisible()))
             {
                 workerStatus.secondResentPosition = currentPosition;
 
 #if OPTIMALPOSITIONS_DEBUG
-                CherryVis::log(worker->id) << "Resending for " << resentPositionData << " : " << *currentPosition;
+                CherryVis::log(worker->id) << "Resending for " << resentPositionData << " : " << *currentPosition
+                                           << ((expectedDelay == INT_MAX) ? " (exploring)" : "");
+#endif
+            }
+            else
+            {
+                workerStatus.resendCommandOnFrame = (currentFrame + 1);
+
+#if OPTIMALPOSITIONS_DEBUG
+                Log::Get() << "Failed to send second gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
+                           << BWAPI::Broodwar->getLastError();
+                CherryVis::log(worker->id) << "Failed to send second gather command; last error " << BWAPI::Broodwar->getLastError();
+                CherryVis::log(resource->id) << "Failed to send second gather command; last error " << BWAPI::Broodwar->getLastError();
 #endif
             }
         }
