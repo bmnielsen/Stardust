@@ -17,7 +17,7 @@ namespace
 
     std::map<std::string, std::map<std::pair<int, int>, double>> mapHashToConfigurationToEfficiency;
 
-    double runEfficiencyTest(BWTest &test, int workersPerPatch, int cannons)
+    double runEfficiencyTest(BWTest &test, int workersPerPatch, int cannons, bool onlyOneWorker = false)
     {
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
@@ -210,6 +210,8 @@ namespace
                                         availablePositions.erase(start + BWAPI::WalkPosition(x, y));
                                     }
                                 }
+
+                                if (onlyOneWorker) return;
 
                                 goto nextWorker;
 
@@ -412,6 +414,19 @@ TEST(MiningTraining, NeoMoonGlaiveSingle)
     test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
     test.randomSeed = 42;
     auto sgl = runEfficiencyTest(test, 1, 0);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << "%" << std::endl;
+}
+
+
+TEST(MiningTraining, NeoMoonGlaiveSingleOneWorker)
+{
+    BWTest test;
+    test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
+    test.randomSeed = 42;
+    test.frameLimit = 10000;
+    auto sgl = runEfficiencyTest(test, 1, 0, true);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
               << "Single: " << sgl << "%" << std::endl;
