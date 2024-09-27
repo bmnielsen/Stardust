@@ -5,9 +5,9 @@ namespace WorkerMiningOptimization
     std::ostream &operator<<(std::ostream &os, const PositionObservationMetadata &optimalGatherPositionMetadata)
     {
         os << optimalGatherPositionMetadata.pos
-           << " (o=" << optimalGatherPositionMetadata.observations
-           << " s=" << optimalGatherPositionMetadata.successes
-           << " f=" << optimalGatherPositionMetadata.failures
+           << " (d=" << optimalGatherPositionMetadata.deltaToNormalPathOptimalPosition
+           << " b=" << optimalGatherPositionMetadata.bestDelta
+           << " fb=" << optimalGatherPositionMetadata.bestFollowingPositionDelta
            << ")";
 
         return os;

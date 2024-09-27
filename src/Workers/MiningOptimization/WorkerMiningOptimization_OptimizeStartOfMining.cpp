@@ -11,6 +11,7 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
+/*
         unsigned int expectedGatherDelay(const PositionObservationMetadata &metadata)
         {
             // Gather the aggregated delays across all nonoptimal resends
@@ -206,11 +207,84 @@ namespace WorkerMiningOptimization
                 }
             }
         }
+        */
     }
 
     // Optimizes the start of mining, returning whether an order was sent to the worker.
     void optimizeStartOfMining(const MyWorker &worker, const Resource &resource)
     {
+        auto &workerStatus = gatherStatusFor(worker, resource);
+
+        auto resourceBwapiUnit = resource->getBwapiUnitIfVisible();
+        if (!resourceBwapiUnit)
+        {
+            CherryVis::log(worker->id) << "mineral field unit not visible";
+            workerStatus.reset();
+            return;
+        }
+
+        // Clear worker status if it wasn't processed last frame
+        if (workerStatus.lastProcessedFrame != (currentFrame - 1))
+        {
+            workerStatus.reset();
+        }
+        workerStatus.lastProcessedFrame = currentFrame;
+
+        // Track the worker's visited positions
+        auto currentPosition = std::make_shared<PositionAndVelocity>(worker);
+        workerStatus.positionHistory.emplace_back(currentPosition);
+
+        // Don't touch the worker if it is transitioning to mine
+        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals) return;
+
+        auto &optimalGatherPositions = optimalGatherPositionsFor(resource);
+
+        // Logic for when we are looking for the first position to resend the command
+        if (!workerStatus.resentPosition)
+        {
+            // Look for a position here that has untried options
+            auto optimalGatherPositionIt = optimalGatherPositions.find(*currentPosition);
+            if (optimalGatherPositionIt != optimalGatherPositions.end() &&
+                optimalGatherPositionIt->second.hasUntriedPosition())
+            {
+                if (worker->gather(resource->getBwapiUnitIfVisible()))
+                {
+                    workerStatus.resentPosition = currentPosition;
+
+#if OPTIMALPOSITIONS_DEBUG
+                    CherryVis::log(worker->id) << "Resending for " << optimalGatherPositionIt->second;
+#endif
+                }
+            }
+            return;
+        }
+
+        // Get the data for the position we are testing
+        auto resentPositionIt = optimalGatherPositions.find(*workerStatus.resentPosition);
+        if (resentPositionIt == optimalGatherPositions.end()) // shouldn't happen
+        {
+            Log::Get() << "ERROR: Couldn't find resent position in map";
+            return;
+        }
+        auto &resentPositionData = resentPositionIt->second;
+
+        // Check if this position matches a second resend position we want to test
+        auto secondResendPositionIt = resentPositionData.resendPositionToData.find(*currentPosition);
+        if (secondResendPositionIt != resentPositionData.resendPositionToData.end() &&
+            secondResendPositionIt->second.empty())
+        {
+            if (worker->gather(resource->getBwapiUnitIfVisible()))
+            {
+                workerStatus.secondResentPosition = currentPosition;
+
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(worker->id) << "Resending for " << resentPositionData << " : " << *currentPosition;
+#endif
+            }
+        }
+
+
+/*
         auto &optimalGatherPositions = optimalGatherPositionsFor(resource);
         auto &tenDistancePositions = tenDistancePositionsFor(resource);
         auto &takeoverResendPositions = takeoverPositionsFor(resource);
@@ -475,5 +549,7 @@ namespace WorkerMiningOptimization
 
         // Single worker approach optimization
         optimizeArrival(worker, resource, workerStatus, optimalGatherPositions, currentPosition);
+
+        */
     }
 }

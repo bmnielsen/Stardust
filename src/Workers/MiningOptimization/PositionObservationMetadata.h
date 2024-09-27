@@ -10,42 +10,38 @@ namespace WorkerMiningOptimization
     {
     public:
         PositionAndVelocity pos;
+        int deltaToNormalPathOptimalPosition;
+        int bestDelta = 100;
+        int bestFollowingPositionDelta = 100;
 
-        // How many times we have observed this position with no resends potentially disturbing the path
-        unsigned int observations = 0;
+        std::map<int, int> noResendData;
+        std::map<PositionAndVelocity, std::map<int, int>> resendPositionToData;
 
-        // How many times this position was used successfully
-        unsigned int successes = 0;
-
-        // How many times this position was used unsuccessfully
-        unsigned int failures = 0;
-
-        // Additional position metadata gathered from the failure cases
-        std::map<PositionAndVelocity, std::map<int, PositionObservationMetadata>> failurePositionMetadata;
-
-        void trackObservation()
+        void addObservation(const std::shared_ptr<PositionAndVelocity> &secondResendPosition, int delta)
         {
-            if (atObservationCap()) return;
-            observations++;
+            if (!secondResendPosition)
+            {
+                noResendData[delta]++;
+            }
+            else
+            {
+                resendPositionToData[*secondResendPosition][delta]++;
+            }
+
+            // Only track best deltas that get the worker to the patch on time
+            if (delta >= 0 && delta < bestDelta) bestDelta = delta;
         }
 
-        void trackSuccess()
+        [[nodiscard]] bool hasUntriedPosition() const
         {
-            if (atObservationCap()) return;
-            successes++;
-        }
+            if (noResendData.empty()) return true;
 
-        void trackFailure()
-        {
-            if (atObservationCap()) return;
-            failures++;
-        }
+            for (const auto &[_, observations] : resendPositionToData)
+            {
+                if (observations.empty()) return true;
+            }
 
-        [[nodiscard]] bool atObservationCap() const
-        {
-            // Set a cap on how many observations we track to reduce computation time
-            // Beyond a certain point additional observations are not going to have any impact anyway
-            return (observations + successes + failures) >= 1000;
+            return false;
         }
     };
 

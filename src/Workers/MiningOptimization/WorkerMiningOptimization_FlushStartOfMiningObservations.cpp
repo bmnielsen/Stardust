@@ -13,6 +13,7 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
+        /*
         // Tracks a nonoptimal resend for the normal approach timing optimization (where we expect to reach the patch 11+LF frames after resend)
         void trackNonoptimalResend(PositionObservationMetadata &metadata,
                                    const PositionAndVelocity &optimalPosition,
@@ -300,6 +301,7 @@ namespace WorkerMiningOptimization
 #endif
             }
         }
+         */
     }
 
     void flushStartOfMiningObservations(std::map<MyWorker, WorkerGatherStatus> &workerGatherStatuses)
@@ -323,20 +325,114 @@ namespace WorkerMiningOptimization
             auto &workerStatus = it->second;
 
             // Remove positions before the worker reached the patch
-            auto positionIt = workerStatus.positionHistory.begin();
-            for (; positionIt != workerStatus.positionHistory.end(); positionIt++)
             {
-                auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                    (*positionIt)->pos(),
-                                                    BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                    workerStatus.resource->center);
-                if (dist == 0 && worker->lastPosition.getApproxDistance((*positionIt)->pos()) < 2) break;
+                auto positionIt = workerStatus.positionHistory.begin();
+                for (; positionIt != workerStatus.positionHistory.end(); positionIt++)
+                {
+                    auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                        (*positionIt)->pos(),
+                                                        BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                        workerStatus.resource->center);
+                    if (dist == 0 && worker->lastPosition.getApproxDistance((*positionIt)->pos()) < 2) break;
+                }
+                workerStatus.positionHistory.erase(positionIt, workerStatus.positionHistory.end());
             }
-            workerStatus.positionHistory.erase(positionIt, workerStatus.positionHistory.end());
 
             // Ensure we have enough history
             if (workerStatus.positionHistory.size() >= (BWAPI::Broodwar->getLatencyFrames() + 11))
             {
+                auto &optimalGatherPositions = optimalGatherPositionsFor(workerStatus.resource);
+
+                auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
+
+                // If we sent no command, queue a test on the apparent optimal position and some positions before and after it
+                if (!workerStatus.resentPosition)
+                {
+                    for (auto positionIt = optimalPositionIt - 3; positionIt != workerStatus.positionHistory.rend(); positionIt++)
+                    {
+                        int delta = (int)std::distance(positionIt, optimalPositionIt);
+                        if (delta < -3) break;
+
+                        auto existingIt = optimalGatherPositions.find(**positionIt);
+                        if (existingIt == optimalGatherPositions.end())
+                        {
+                            optimalGatherPositions.emplace(**positionIt, PositionObservationMetadata{**positionIt, delta});
+
+#if OPTIMALPOSITIONS_DEBUG
+                            CherryVis::log(worker->id) << "Queued test of " << **positionIt << " at delta " << delta;
+#endif
+                        }
+                    }
+                }
+                else
+                {
+                    auto resentPositionDataIt = optimalGatherPositions.find(*workerStatus.resentPosition);
+
+                    // Find the resent position in the position history
+                    auto positionIt = workerStatus.positionHistory.rbegin();
+                    for (; positionIt != workerStatus.positionHistory.rend(); positionIt++)
+                    {
+                        if (workerStatus.resentPosition == *positionIt) break;
+                    }
+                    if (resentPositionDataIt != optimalGatherPositions.end() && positionIt != workerStatus.positionHistory.rend())
+                    {
+                        auto &resentPositionData = resentPositionDataIt->second;
+
+                        // Add the observation on this resend position
+                        resentPositionData.addObservation(workerStatus.secondResentPosition, (int)std::distance(positionIt, optimalPositionIt));
+
+                        // If this resent position hasn't found an optimal delta yet, queue some second resends to try
+                        if (resentPositionData.bestDelta > 0 && !workerStatus.secondResentPosition)
+                        {
+                            for (auto secondResendPositionIt = positionIt - 1;
+                                 secondResendPositionIt != workerStatus.positionHistory.rbegin();
+                                 secondResendPositionIt--)
+                            {
+                                // We queue at most 5 but skip the position at LF since that is not usable due to Unit_Busy
+                                if (secondResendPositionIt == (positionIt - 6)) break;
+                                if (std::distance(secondResendPositionIt, positionIt) == BWAPI::Broodwar->getLatencyFrames()) continue;
+
+                                auto secondResendPositionDataIt = resentPositionData.resendPositionToData.find(**secondResendPositionIt);
+                                if (secondResendPositionDataIt == resentPositionData.resendPositionToData.end())
+                                {
+                                    resentPositionData.resendPositionToData.emplace(**secondResendPositionIt, std::map<int, int>{});
+
+#if OPTIMALPOSITIONS_DEBUG
+                                    CherryVis::log(worker->id) << "Queued test of " << resentPositionData
+                                                               << " : " << **secondResendPositionIt << ", delta "
+                                                               << std::distance(secondResendPositionIt, positionIt);
+#endif
+                                }
+                            }
+                        }
+
+                        // Update all of the earlier positions' best following delta
+                        for (positionIt++; positionIt != workerStatus.positionHistory.rend(); positionIt++)
+                        {
+                            auto previousPositionDataIt = optimalGatherPositions.find(**positionIt);
+                            if (previousPositionDataIt != optimalGatherPositions.end() &&
+                                previousPositionDataIt->second.bestFollowingPositionDelta > resentPositionData.bestDelta)
+                            {
+                                previousPositionDataIt->second.bestFollowingPositionDelta = resentPositionData.bestDelta;
+                            }
+                        }
+
+#if OPTIMALPOSITIONS_DEBUG
+                        if (workerStatus.secondResentPosition)
+                        {
+                            CherryVis::log(worker->id) << "Added observation of " << resentPositionDataIt->second
+                                                       << " : " << *workerStatus.secondResentPosition;
+                        }
+                        else
+                        {
+                            CherryVis::log(worker->id) << "Added observation of " << resentPositionDataIt->second;
+                        }
+#endif
+
+                    }
+                }
+
+                /*
                 // Handle observations for the optimizing arrival at the patch
                 auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
                 handleObservation(workerStatus,
@@ -349,6 +445,8 @@ namespace WorkerMiningOptimization
                                        workerStatus.resource,
                                        tenDistancePositionsFor(workerStatus.resource),
                                        takeoverPositionsFor(workerStatus.resource));
+
+                                       */
             }
 
             // We now no longer need to do anything with this worker status
@@ -361,6 +459,8 @@ namespace WorkerMiningOptimization
                                         std::map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositions,
                                         std::map<PositionAndVelocity, PositionObservationMetadata> &takeoverResendPositions)
     {
+        /*
         updateTakeoverMetadata(workerStatus, resource, tenDistancePositions, takeoverResendPositions, true);
+         */
     }
 }
