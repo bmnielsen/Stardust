@@ -429,6 +429,21 @@ TEST(MiningTraining, NeoMoonGlaiveDouble)
         << "Double: " << dbl << "%" << std::endl;
 }
 
+TEST(MiningTraining, NeoMoonGlaiveDoubleContinuous)
+{
+    while (true)
+    {
+        BWTest test;
+        test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
+        test.randomSeed = 42;
+//    test.frameLimit = 3500;
+        auto dbl = runEfficiencyTest(test, 2, 0);
+        std::cout << std::fixed << std::showpoint << std::setprecision(4)
+                  << "Overall efficiency: " << std::endl
+                  << "Double: " << dbl << "%" << std::endl;
+    }
+}
+
 TEST(MiningTraining, AllAIIDE)
 {
     Maps::RunOnEach(Maps::Get("aiide2023"), [](BWTest test)
