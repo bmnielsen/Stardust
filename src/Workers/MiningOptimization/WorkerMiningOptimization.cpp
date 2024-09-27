@@ -69,7 +69,7 @@ namespace WorkerMiningOptimization
                     lineNumber++;
 
                     auto line = CsvTools::readNextLine(file);
-                    if (line.size() < 7) break;
+                    if (line.size() < 8) break;
 
                     BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
                     auto resource = Units::resourceAt(tile);
@@ -90,16 +90,17 @@ namespace WorkerMiningOptimization
                             pos,
                             std::stoi(line[3]),
                             std::stoi(line[4]),
-                            std::stoi(line[5])
+                            std::stoi(line[5]),
+                            line[6] == "y"
                         }).first;
                     }
                     auto &positionData = positionDataIt->second;
 
                     auto addObservationsTo = [&](std::map<int, int> &observationsMap)
                     {
-                        if (line.size() < 8) return;
+                        if (line.size() < 9) return;
 
-                        for (const auto &observations : CsvTools::tokenizeList(line[7]))
+                        for (const auto &observations : CsvTools::tokenizeList(line[8]))
                         {
                             auto data = CsvTools::tokenizeList(observations, ':');
                             if (data.size() < 2) continue;
@@ -108,9 +109,9 @@ namespace WorkerMiningOptimization
                         }
                     };
 
-                    if (PositionAndVelocity::isValidString(line[6]))
+                    if (PositionAndVelocity::isValidString(line[7]))
                     {
-                        auto secondResendPos = PositionAndVelocity::fromString(line[6]);
+                        auto secondResendPos = PositionAndVelocity::fromString(line[7]);
                         addObservationsTo(positionData.resendPositionToData[secondResendPos]);
                     }
                     else
@@ -149,6 +150,12 @@ namespace WorkerMiningOptimization
                              << optimalOrderPosition.second.deltaToNormalPathOptimalPosition << ";"
                              << optimalOrderPosition.second.bestDelta << ";"
                              << optimalOrderPosition.second.bestFollowingPositionDelta << ";";
+                        if (optimalOrderPosition.second.followingHasUntriedPosition)
+                        {
+                            file << "y";
+                        }
+                        file << ";";
+
                         if (secondResendPosition) file << *secondResendPosition;
                         file << ";";
 

@@ -345,9 +345,30 @@ namespace WorkerMiningOptimization
 
                 auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
 
+                auto applyOnPositionsBefore = [&](
+                        std::vector<std::shared_ptr<PositionAndVelocity>>::reverse_iterator it,
+                        const std::function<bool(PositionObservationMetadata&)> &func)
+                {
+                    for (it++; it != workerStatus.positionHistory.rend(); it++)
+                    {
+                        auto previousPositionDataIt = optimalGatherPositions.find(**it);
+                        if (previousPositionDataIt != optimalGatherPositions.end())
+                        {
+                            if (func(previousPositionDataIt->second)) return;
+                        }
+                    }
+                };
+
+                auto setFollowingHasUntriedPosition = [](PositionObservationMetadata &metadata)
+                {
+                    metadata.followingHasUntriedPosition = true;
+                    return false;
+                };
+
                 // If we sent no command, queue a test on the apparent optimal position and some positions before and after it
                 if (!workerStatus.resentPosition)
                 {
+                    bool firstQueued = true;
                     for (auto positionIt = optimalPositionIt - 3; positionIt != workerStatus.positionHistory.rend(); positionIt++)
                     {
                         int delta = (int)std::distance(positionIt, optimalPositionIt);
@@ -356,7 +377,16 @@ namespace WorkerMiningOptimization
                         auto existingIt = optimalGatherPositions.find(**positionIt);
                         if (existingIt == optimalGatherPositions.end())
                         {
-                            optimalGatherPositions.emplace(**positionIt, PositionObservationMetadata{**positionIt, delta});
+                            existingIt = optimalGatherPositions.emplace(**positionIt, PositionObservationMetadata{**positionIt, delta}).first;
+                            if (firstQueued)
+                            {
+                                applyOnPositionsBefore(positionIt, setFollowingHasUntriedPosition);
+                                firstQueued = false;
+                            }
+                            else
+                            {
+                                existingIt->second.followingHasUntriedPosition = true;
+                            }
 
 #if OPTIMALPOSITIONS_DEBUG
                             CherryVis::log(worker->id) << "Queued test of " << **positionIt << " at delta " << delta;
@@ -382,6 +412,7 @@ namespace WorkerMiningOptimization
                         resentPositionData.addObservation(workerStatus.secondResentPosition, (int)std::distance(positionIt, optimalPositionIt));
 
                         // If this resent position hasn't found an optimal delta yet, queue some second resends to try
+                        bool queuedSecondResend = false;
                         if (resentPositionData.bestDelta > 0 && !workerStatus.secondResentPosition)
                         {
                             for (auto secondResendPositionIt = positionIt - 1;
@@ -396,6 +427,11 @@ namespace WorkerMiningOptimization
                                 if (secondResendPositionDataIt == resentPositionData.resendPositionToData.end())
                                 {
                                     resentPositionData.resendPositionToData.emplace(**secondResendPositionIt, std::map<int, int>{});
+                                    if (!queuedSecondResend)
+                                    {
+                                        applyOnPositionsBefore(positionIt, setFollowingHasUntriedPosition);
+                                        queuedSecondResend = true;
+                                    }
 
 #if OPTIMALPOSITIONS_DEBUG
                                     CherryVis::log(worker->id) << "Queued test of " << resentPositionData
@@ -406,16 +442,26 @@ namespace WorkerMiningOptimization
                             }
                         }
 
-                        // Update all of the earlier positions' best following delta
-                        for (positionIt++; positionIt != workerStatus.positionHistory.rend(); positionIt++)
+                        // If we haven't queued a new experiment, and this position no longer has any untried positions, update previous positions
+                        if (!queuedSecondResend && !resentPositionData.hasUntriedPosition())
                         {
-                            auto previousPositionDataIt = optimalGatherPositions.find(**positionIt);
-                            if (previousPositionDataIt != optimalGatherPositions.end() &&
-                                previousPositionDataIt->second.bestFollowingPositionDelta > resentPositionData.bestDelta)
+                            auto unsetFollowingHasUntriedPosition = [](PositionObservationMetadata &metadata)
                             {
-                                previousPositionDataIt->second.bestFollowingPositionDelta = resentPositionData.bestDelta;
-                            }
+                                metadata.followingHasUntriedPosition = false;
+                                return metadata.hasUntriedPosition();
+                            };
+                            applyOnPositionsBefore(positionIt, unsetFollowingHasUntriedPosition);
                         }
+
+                        // Update all of the earlier positions' best following delta
+                        applyOnPositionsBefore(positionIt, [&resentPositionData](PositionObservationMetadata &metadata)
+                        {
+                            if (metadata.bestFollowingPositionDelta > resentPositionData.bestDelta)
+                            {
+                                metadata.bestFollowingPositionDelta = resentPositionData.bestDelta;
+                            }
+                            return false;
+                        });
 
 #if OPTIMALPOSITIONS_DEBUG
                         if (workerStatus.secondResentPosition)
@@ -428,7 +474,6 @@ namespace WorkerMiningOptimization
                             CherryVis::log(worker->id) << "Added observation of " << resentPositionDataIt->second;
                         }
 #endif
-
                     }
                 }
 

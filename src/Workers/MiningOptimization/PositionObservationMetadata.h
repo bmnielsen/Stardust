@@ -13,6 +13,7 @@ namespace WorkerMiningOptimization
         int deltaToNormalPathOptimalPosition;
         int bestDelta = 100;
         int bestFollowingPositionDelta = 100;
+        bool followingHasUntriedPosition = false;
 
         std::map<int, int> noResendData;
         std::map<PositionAndVelocity, std::map<int, int>> resendPositionToData;
