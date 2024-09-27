@@ -77,25 +77,29 @@ namespace WorkerMiningOptimization
 
                 failures++;
 
-                auto &optimalPositionMetadata = failurePositionMetadata[optimalPosition][-resentDelta];
-                if (!optimalPositionMetadata.atObservationCap())
+                // Track an observation on the optimal second resend position if we didn't resend anything
+                if (!secondResendPosition)
                 {
-                    if (!secondResendPosition)
-                    {
-                        optimalPositionMetadata.trackObservation();
-                    }
-                    else if (secondResentDelta == 0)
-                    {
-                        optimalPositionMetadata.trackSuccess();
-                    }
-                }
+                    auto &positions = failurePositionMetadata[optimalPosition];
 
-                if (secondResendPosition && secondResentDelta != 0)
-                {
-                    auto &secondResendPositionMetadata = failurePositionMetadata[*secondResendPosition][-resentDelta];
-                    if (!secondResendPositionMetadata.atObservationCap())
+                    auto it = positions.find(-resentDelta);
+                    if (it == positions.end())
                     {
-                        (secondResentDelta > 0 ? secondResendPositionMetadata.successes : secondResendPositionMetadata.failures)++;
+                        it = positions.emplace(-resentDelta, PositionObservationMetadata{optimalPosition}).first;
+                    }
+
+                    it->second.trackObservation();
+                }
+                else
+                {
+                    // Track success or failure on all of the matching positions
+                    auto positionsIt = failurePositionMetadata.find(*secondResendPosition);
+                    if (positionsIt != failurePositionMetadata.end())
+                    {
+                        for (auto &[_, metadata] : positionsIt->second)
+                        {
+                            (secondResentDelta >= 0 ? metadata.successes : metadata.failures)++;
+                        }
                     }
                 }
             }
@@ -186,7 +190,8 @@ namespace WorkerMiningOptimization
                                        const std::map<int, PositionObservationMetadata> &positionMetadata,
                                        bool &mayGetUnitBusy)
         {
-            // Sum up the performance of this position
+            // The logic is just checking if successes outweigh failures
+            // In reality we don't really see failures so this doesn't matter too much
             unsigned int successes = 0;
             unsigned int failures = 0;
             for (const auto &[_, metadata] : positionMetadata)
@@ -198,7 +203,6 @@ namespace WorkerMiningOptimization
             mayGetUnitBusy = positionMetadata.contains(BWAPI::Broodwar->getLatencyFrames()) &&
                     !positionMetadata.contains(BWAPI::Broodwar->getLatencyFrames() + 1);
 
-            // TODO: Maybe tune this if needed
             return successes >= failures;
         }
 
@@ -389,8 +393,8 @@ namespace WorkerMiningOptimization
                                  << metadata.observations << ":"
                                  << metadata.successes << ":"
                                  << metadata.failures;
+                            sep = ",";
                         }
-                        sep = ",";
                     }
                     file << "\n";
                     count++;
@@ -929,11 +933,6 @@ namespace WorkerMiningOptimization
             // Compute the frame of the order timer reset prior to the take over frame
             int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(takeOverFrame);
             if (previousOrderTimerReset == takeOverFrame) previousOrderTimerReset -= 150;
-
-            if (previousOrderTimerReset == (otherWorker->lastStartedMining - 1))
-            {
-                Log::Get() << "patch @ " << resource->tile << "; worker " << worker->id << " @ " << worker->getTilePosition() << " -1";
-            }
 
             // If the order timer reset during mining, adjust our take over frame
             // We always assume the worst-case scenario (needing to wait a full cycle after the mining timer expires)
