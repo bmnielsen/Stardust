@@ -347,7 +347,7 @@ namespace WorkerMiningInstrumentation
                     // If the worker was still moving towards the patch at the expected takeover frame, use the single-worker logic instead
                     // In this case we expect the worker to have issued a command so it starts mining immediately at arrival, taking order
                     // resets into consideration
-                    if (previousStatus == 11 && (currentFrame - miningEnd - (extraFrame ? 1 : 0)) > currentFrames)
+                    if (previousStatus == 11 && (currentFrame - miningEnd - (extraFrame ? 1 : 0)) >= currentFrames)
                     {
                         // TODO: Implement check for arrival frame
                         inefficiency.clear();
