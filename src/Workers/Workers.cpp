@@ -5,7 +5,7 @@
 #include "PathFinding.h"
 #include "Map.h"
 #include "NoGoAreas.h"
-#include "WorkerMiningOptimization.h"
+#include "MiningOptimization/WorkerMiningOptimization.h"
 #include "Boids.h"
 #include "Strategist.h"
 

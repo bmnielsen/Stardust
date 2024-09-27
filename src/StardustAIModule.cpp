@@ -12,7 +12,7 @@
 #include "General.h"
 #include "Units.h"
 #include "Workers.h"
-#include "WorkerMiningOptimization.h"
+#include "MiningOptimization/WorkerMiningOptimization.h"
 #include "WorkerMiningInstrumentation.h"
 #include "Bullets.h"
 #include "Players.h"

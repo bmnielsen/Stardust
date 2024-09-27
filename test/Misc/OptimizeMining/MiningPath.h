@@ -3,7 +3,7 @@
 #include <BWAPI.h>
 
 #include "CsvTools.h"
-#include "PositionAndVelocity.h"
+#include "MiningOptimization/PositionAndVelocity.h"
 
 class Path : public std::vector<PositionAndVelocity>
 {
