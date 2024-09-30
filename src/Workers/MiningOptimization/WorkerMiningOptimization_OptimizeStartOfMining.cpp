@@ -255,10 +255,10 @@ namespace WorkerMiningOptimization
         // If we have already submitted our second resend, we have nothing left to do
         if (workerStatus.secondResentPosition) return;
 
-        auto handleOrderProcessTimerReset = [&](unsigned int expectedDelay)
+        auto handleOrderProcessTimerReset = [&]()
         {
             int framesFromCommandToReset = OrderProcessTimer::framesToNextReset() - BWAPI::Broodwar->getLatencyFrames();
-            if (framesFromCommandToReset > 0 && framesFromCommandToReset < (12 + expectedDelay))
+            if (framesFromCommandToReset > 0 && framesFromCommandToReset < 12)
             {
                 // Send a command to take effect on the reset frame if it is coming soon
                 // Otherwise just let it take its course
@@ -270,8 +270,12 @@ namespace WorkerMiningOptimization
                                                << workerStatus.resendCommandOnFrame;
                     CherryVis::log(resource->id) << "Scheduled gather command for approach optimization on frame "
                                                  << workerStatus.resendCommandOnFrame;
+                }
+                else
+                {
+                    CherryVis::log(worker->id) << "Not resending at " << *currentPosition << " due to pending order timer reset";
+                    CherryVis::log(resource->id) << "Not resending at " << *currentPosition << " due to pending order timer reset";
 #endif
-
                 }
                 return true;
             }
@@ -285,19 +289,19 @@ namespace WorkerMiningOptimization
         if (!workerStatus.resentPosition)
         {
             // Position evaluator
-            int expectedDelay = INT_MAX;
+            bool exploring = true;
             auto shouldUsePosition = [&](const PositionObservationMetadata &metadata)
             {
                 // Always use a position if we are exploring something on it
-                if (metadata.hasUntriedPosition()) return true;
+                if (metadata.hasPositionToTry) return true;
 
                 // Always allow a following position to explore
-                if (metadata.followingHasUntriedPosition) return false;
+                if (metadata.followingHasPositionToTry) return false;
 
                 // Otherwise use this position if it gives the best delta compared to its following positions
-                if (metadata.bestDelta == 0 || metadata.bestDelta < metadata.bestFollowingPositionDelta)
+                if (metadata.bestDelta < metadata.bestFollowingPositionDelta)
                 {
-                    expectedDelay = metadata.bestDelta;
+                    exploring = false;
                     return true;
                 }
 
@@ -308,18 +312,18 @@ namespace WorkerMiningOptimization
             auto optimalGatherPositionIt = optimalGatherPositions.find(*currentPosition);
             if (optimalGatherPositionIt != optimalGatherPositions.end() && shouldUsePosition(optimalGatherPositionIt->second))
             {
-                if (expectedDelay != INT_MAX &&
-                    optimalGatherPositionIt->second.noResendData.find(optimalGatherPositionIt->second.bestDelta)
-                                            != optimalGatherPositionIt->second.noResendData.end() &&
-                    handleOrderProcessTimerReset(expectedDelay))
-                {}
+                if (!exploring && !optimalGatherPositionIt->second.requiresSecondResend() && handleOrderProcessTimerReset())
+                {
+                    // We only consider order process timer resets here if this is the only resend we would normally issue
+                    // Otherwise we consider order process timer resets when handling the second resend
+                }
                 else if (worker->gather(resource->getBwapiUnitIfVisible()))
                 {
                     workerStatus.resentPosition = currentPosition;
 
 #if OPTIMALPOSITIONS_DEBUG
                     CherryVis::log(worker->id) << "Resending for " << optimalGatherPositionIt->second
-                                               << ((expectedDelay == INT_MAX) ? " (exploring)" : "");
+                                               << (exploring ? " (exploring)" : "");
 #endif
                 }
                 else
@@ -334,10 +338,16 @@ namespace WorkerMiningOptimization
 #endif
                 }
             }
+#if OPTIMALPOSITIONS_DEBUG
+            else if (optimalGatherPositionIt != optimalGatherPositions.end())
+            {
+                CherryVis::log(worker->id) << "Not choosing position " << optimalGatherPositionIt->second;
+            }
+#endif
             return;
         }
 
-        // Get the data for the position we are testing
+        // Get the data for the first resend position
         auto resentPositionIt = optimalGatherPositions.find(*workerStatus.resentPosition);
         if (resentPositionIt == optimalGatherPositions.end()) // shouldn't happen
         {
@@ -346,25 +356,35 @@ namespace WorkerMiningOptimization
         }
         auto &resentPositionData = resentPositionIt->second;
 
-        // Second resend position evaluator
-        int expectedDelay = INT_MAX;
-        auto shouldUseSecondResendPosition = [&](const std::map<int, int> &observations)
-        {
-            // Always use a position if we are exploring it
-            if (observations.empty()) return true;
+        // If the position doesn't require a second resend, return here
+        if (!resentPositionData.requiresSecondResend()) return;
 
-            expectedDelay = resentPositionData.bestDelta;
+        // Second resend position evaluator
+        bool exploring = true;
+        auto shouldUseSecondResendPosition = [&](const SecondResendPositionObservationMetadata *metadata)
+        {
+            if (!metadata) return false;
+
+            // Always use a position if we are exploring it
+            if (metadata->observations.empty()) return true;
 
             // Use the position if it is the one that gives the best delta
-            return resentPositionData.noResendData.find(resentPositionData.bestDelta) == resentPositionData.noResendData.end() &&
-                   observations.find(resentPositionData.bestDelta) != observations.end();
+            exploring = false;
+            for (const auto &[delta, _] : metadata->observations)
+            {
+                if (delta == (resentPositionData.bestDelta - resentPositionData.deltaToNormalPathOptimalPosition - metadata->deltaToFirstResend))
+                {
+                    return true;
+                }
+            }
+            return false;
         };
 
         // Check if this position matches a second resend position we want to use
-        auto secondResendPositionIt = resentPositionData.resendPositionToData.find(*currentPosition);
-        if (secondResendPositionIt != resentPositionData.resendPositionToData.end() && shouldUseSecondResendPosition(secondResendPositionIt->second))
+        auto secondResendPositionMetadata = resentPositionData.secondResendMetadataFor(*currentPosition);
+        if (shouldUseSecondResendPosition(secondResendPositionMetadata))
         {
-            if (expectedDelay != INT_MAX && handleOrderProcessTimerReset(expectedDelay))
+            if (!exploring && handleOrderProcessTimerReset())
             {}
             else if (worker->gather(resource->getBwapiUnitIfVisible()))
             {
@@ -372,7 +392,7 @@ namespace WorkerMiningOptimization
 
 #if OPTIMALPOSITIONS_DEBUG
                 CherryVis::log(worker->id) << "Resending for " << resentPositionData << " : " << *currentPosition
-                                           << ((expectedDelay == INT_MAX) ? " (exploring)" : "");
+                                           << (exploring ? " (exploring)" : "");
 #endif
             }
             else

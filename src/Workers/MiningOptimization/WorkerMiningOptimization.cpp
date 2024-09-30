@@ -54,7 +54,7 @@ namespace WorkerMiningOptimization
                                                   std::map<Resource, std::map<PositionAndVelocity, PositionObservationMetadata>> &map)
         {
             map.clear();
-
+/*
             std::ifstream file;
             file.open(filename);
             if (!file.good()) return;
@@ -129,6 +129,7 @@ namespace WorkerMiningOptimization
                 Log::Get() << "Exception caught attempting to read positions metadata from " << filename
                            << " at line " << lineNumber << ": " << ex.what();
             }
+            */
         }
 
         void writePositionObservationMetadataFile(const std::string &filename,
@@ -137,52 +138,47 @@ namespace WorkerMiningOptimization
             std::ofstream file;
             file.open(filename, std::ofstream::trunc);
 
-            int count = 0;
-            for (auto &resourceAndOptimalGatherPositions : map)
+            auto outputObservations = [&file](const std::map<int, int> &observations)
             {
-                for (auto &optimalOrderPosition : resourceAndOptimalGatherPositions.second)
+                std::string sep;
+                for (const auto &[delta, occurrences] : observations)
                 {
-                    auto out = [&](const PositionAndVelocity *secondResendPosition, const std::map<int, int> &observations)
+                    file << sep << delta << "|" << occurrences;
+                    sep = "_";
+                }
+            };
+
+            int count = 0;
+            for (const auto &[resource, gatherPositions] : map)
+            {
+                for (const auto &[resendPos, resendPositionMetadata] : gatherPositions)
+                {
+                    file << resource->tile.x << ";"
+                         << resource->tile.y << ";"
+                         << resendPos << ";";
+                    if (resendPositionMetadata.next) file << *resendPositionMetadata.next;
+                    file << ";"
+                         << resendPositionMetadata.deltaToNormalPathOptimalPosition << ";"
+                         << resendPositionMetadata.bestPreviousPositionDelta << ";"
+                         << resendPositionMetadata.bestDelta << ";"
+                         << resendPositionMetadata.bestFollowingPositionDelta << ";"
+                         << (resendPositionMetadata.hasPositionToTry ? "y" : "") << ";"
+                         << (resendPositionMetadata.followingHasPositionToTry ? "y" : "") << ";";
+                    outputObservations(resendPositionMetadata.noResendObservations);
+                    file << ";";
+
+                    std::string sep;
+                    for (const auto &secondResendPositionMetadata : resendPositionMetadata.secondResendMetadata)
                     {
-                        file << resourceAndOptimalGatherPositions.first->tile.x << ";"
-                             << resourceAndOptimalGatherPositions.first->tile.y << ";"
-                             << optimalOrderPosition.first << ";"
-                             << optimalOrderPosition.second.deltaToNormalPathOptimalPosition << ";"
-                             << optimalOrderPosition.second.bestDelta << ";"
-                             << optimalOrderPosition.second.bestFollowingPositionDelta << ";";
-                        if (optimalOrderPosition.second.followingHasUntriedPosition)
-                        {
-                            file << "y";
-                        }
-                        file << ";";
-
-                        if (secondResendPosition) file << *secondResendPosition;
-                        file << ";";
-
-                        std::string sep;
-                        for (const auto &[delta, occurrences] : observations)
-                        {
-                            file << sep << delta << ":" << occurrences;
-                            sep = ",";
-                        }
-
-                        // TODO: remove later, just for analysis purposes
-                        file << ";";
-                        if (optimalOrderPosition.second.bestDelta == 0 && optimalOrderPosition.second.deltaToNormalPathOptimalPosition < 0)
-                        {
-                            file << "*" << -optimalOrderPosition.second.deltaToNormalPathOptimalPosition << "*";
-                        }
-
-                        file << "\n";
-                        count++;
-                    };
-
-                    out(nullptr, optimalOrderPosition.second.noResendData);
-
-                    for (auto &[secondResendPosition, observations] : optimalOrderPosition.second.resendPositionToData)
-                    {
-                        out(&secondResendPosition, observations);
+                        file << sep
+                             << secondResendPositionMetadata.pos << ":"
+                             << secondResendPositionMetadata.deltaToFirstResend << ":";
+                        outputObservations(secondResendPositionMetadata.observations);
+                        sep = ",";
                     }
+
+                    file << "\n";
+                    count++;
                 }
             }
 

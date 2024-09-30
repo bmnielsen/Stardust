@@ -338,161 +338,324 @@ namespace WorkerMiningOptimization
                 workerStatus.positionHistory.erase(positionIt, workerStatus.positionHistory.end());
             }
 
-            // Ensure we have enough history
-            if (workerStatus.positionHistory.size() >= (BWAPI::Broodwar->getLatencyFrames() + 11))
+            // Ensure we have enough history and we haven't done a scheduled resend
+            if (workerStatus.resentOnSchedule() || workerStatus.positionHistory.size() < (BWAPI::Broodwar->getLatencyFrames() + 11))
             {
-                auto &optimalGatherPositions = optimalGatherPositionsFor(workerStatus.resource);
-
-                auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
-
-                auto applyOnPositionsBefore = [&](
-                        std::vector<std::shared_ptr<PositionAndVelocity>>::reverse_iterator it,
-                        const std::function<bool(PositionObservationMetadata&)> &func)
-                {
-                    for (it++; it != workerStatus.positionHistory.rend(); it++)
-                    {
-                        auto previousPositionDataIt = optimalGatherPositions.find(**it);
-                        if (previousPositionDataIt != optimalGatherPositions.end())
-                        {
-                            if (func(previousPositionDataIt->second)) return;
-                        }
-                    }
-                };
-
-                auto setFollowingHasUntriedPosition = [](PositionObservationMetadata &metadata)
-                {
-                    metadata.followingHasUntriedPosition = true;
-                    return false;
-                };
-
-                // If we sent no command, queue a test on the apparent optimal position and some positions before and after it
-                if (!workerStatus.resentPosition)
-                {
-                    bool firstQueued = true;
-                    for (auto positionIt = optimalPositionIt - 3; positionIt != workerStatus.positionHistory.rend(); positionIt++)
-                    {
-                        int delta = (int)std::distance(positionIt, optimalPositionIt);
-                        if (delta < -3) break;
-
-                        auto existingIt = optimalGatherPositions.find(**positionIt);
-                        if (existingIt == optimalGatherPositions.end())
-                        {
-                            existingIt = optimalGatherPositions.emplace(**positionIt, PositionObservationMetadata{**positionIt, delta}).first;
-                            if (firstQueued)
-                            {
-                                applyOnPositionsBefore(positionIt, setFollowingHasUntriedPosition);
-                                firstQueued = false;
-                            }
-                            else
-                            {
-                                existingIt->second.followingHasUntriedPosition = true;
-                            }
-
-#if OPTIMALPOSITIONS_DEBUG
-                            CherryVis::log(worker->id) << "Queued test of " << **positionIt << " at delta " << delta;
-#endif
-                        }
-                    }
-                }
-                else
-                {
-                    auto resentPositionDataIt = optimalGatherPositions.find(*workerStatus.resentPosition);
-
-                    // Find the resent position in the position history
-                    auto positionIt = workerStatus.positionHistory.rbegin();
-                    for (; positionIt != workerStatus.positionHistory.rend(); positionIt++)
-                    {
-                        if (workerStatus.resentPosition == *positionIt) break;
-                    }
-                    if (resentPositionDataIt != optimalGatherPositions.end() && positionIt != workerStatus.positionHistory.rend())
-                    {
-                        auto &resentPositionData = resentPositionDataIt->second;
-
-                        // Add the observation on this resend position
-                        resentPositionData.addObservation(workerStatus.secondResentPosition, (int)std::distance(positionIt, optimalPositionIt));
-
-                        // If this resent position hasn't found an optimal delta yet, queue some second resends to try
-                        bool queuedSecondResend = false;
-                        if (resentPositionData.bestDelta > 0 && !workerStatus.secondResentPosition)
-                        {
-                            for (auto secondResendPositionIt = positionIt - 1;
-                                 secondResendPositionIt != workerStatus.positionHistory.rbegin();
-                                 secondResendPositionIt--)
-                            {
-                                // We queue at most 5 but skip the position at LF since that is not usable due to Unit_Busy
-                                if (secondResendPositionIt == (positionIt - 6)) break;
-                                if (std::distance(secondResendPositionIt, positionIt) == BWAPI::Broodwar->getLatencyFrames()) continue;
-
-                                auto secondResendPositionDataIt = resentPositionData.resendPositionToData.find(**secondResendPositionIt);
-                                if (secondResendPositionDataIt == resentPositionData.resendPositionToData.end())
-                                {
-                                    resentPositionData.resendPositionToData.emplace(**secondResendPositionIt, std::map<int, int>{});
-                                    if (!queuedSecondResend)
-                                    {
-                                        applyOnPositionsBefore(positionIt, setFollowingHasUntriedPosition);
-                                        queuedSecondResend = true;
-                                    }
-
-#if OPTIMALPOSITIONS_DEBUG
-                                    CherryVis::log(worker->id) << "Queued test of " << resentPositionData
-                                                               << " : " << **secondResendPositionIt << ", delta "
-                                                               << std::distance(secondResendPositionIt, positionIt);
-#endif
-                                }
-                            }
-                        }
-
-                        // If we haven't queued a new experiment, and this position no longer has any untried positions, update previous positions
-                        if (!queuedSecondResend && !resentPositionData.hasUntriedPosition())
-                        {
-                            auto unsetFollowingHasUntriedPosition = [](PositionObservationMetadata &metadata)
-                            {
-                                metadata.followingHasUntriedPosition = false;
-                                return metadata.hasUntriedPosition();
-                            };
-                            applyOnPositionsBefore(positionIt, unsetFollowingHasUntriedPosition);
-                        }
-
-                        // Update all of the earlier positions' best following delta
-                        applyOnPositionsBefore(positionIt, [&resentPositionData](PositionObservationMetadata &metadata)
-                        {
-                            if (metadata.bestFollowingPositionDelta > resentPositionData.bestDelta)
-                            {
-                                metadata.bestFollowingPositionDelta = resentPositionData.bestDelta;
-                            }
-                            return false;
-                        });
-
-#if OPTIMALPOSITIONS_DEBUG
-                        if (workerStatus.secondResentPosition)
-                        {
-                            CherryVis::log(worker->id) << "Added observation of " << resentPositionDataIt->second
-                                                       << " : " << *workerStatus.secondResentPosition;
-                        }
-                        else
-                        {
-                            CherryVis::log(worker->id) << "Added observation of " << resentPositionDataIt->second;
-                        }
-#endif
-                    }
-                }
-
-                /*
-                // Handle observations for the optimizing arrival at the patch
-                auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
-                handleObservation(workerStatus,
-                                  *optimalPositionIt,
-                                  workerStatus.resentPosition,
-                                  optimalGatherPositionsFor(workerStatus.resource));
-
-                // Tracking of 10-distance positions and resend positions for takeover
-                updateTakeoverMetadata(workerStatus,
-                                       workerStatus.resource,
-                                       tenDistancePositionsFor(workerStatus.resource),
-                                       takeoverPositionsFor(workerStatus.resource));
-
-                                       */
+                it = workerGatherStatuses.erase(it);
+                continue;
             }
+
+            auto &optimalGatherPositions = optimalGatherPositionsFor(workerStatus.resource);
+
+            // Iterator to the optimal position in the position history
+            // This might not be achievable, but is what we use to measure against
+            auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
+
+            auto applyOnPositionsBefore = [&](
+                    std::vector<std::shared_ptr<PositionAndVelocity>>::reverse_iterator it,
+                    const std::function<bool(PositionObservationMetadata&)> &func)
+            {
+                for (it++; it != workerStatus.positionHistory.rend(); it++)
+                {
+                    auto previousPositionDataIt = optimalGatherPositions.find(**it);
+                    if (previousPositionDataIt == optimalGatherPositions.end()) return;
+                    if (func(previousPositionDataIt->second)) return;
+                }
+            };
+            auto applyOnPositionsAfter = [&](
+                    PositionObservationMetadata *metadata,
+                    const std::function<bool(PositionObservationMetadata&)> &func)
+            {
+                while (metadata->next)
+                {
+                    auto nextPositionDataIt = optimalGatherPositions.find(*(metadata->next));
+                    if (nextPositionDataIt == optimalGatherPositions.end()) return;
+                    metadata = &(nextPositionDataIt->second);
+                    if (func(*metadata)) return;
+                }
+            };
+
+            auto setFollowingHasPositionToTry = [](PositionObservationMetadata &metadata)
+            {
+                metadata.followingHasPositionToTry = true;
+                return false;
+            };
+
+            // If we sent no command, queue a test on the apparent optimal position
+            if (!workerStatus.resentPosition)
+            {
+                // If there is already metadata for the optimal position, then it was a decision by the optimizer not to resend there and
+                // nothing further is needed
+                auto optimalPositionDataIt = optimalGatherPositions.find(**optimalPositionIt);
+                if (optimalPositionDataIt != optimalGatherPositions.end())
+                {
+#if OPTIMALPOSITIONS_DEBUG
+                    if (optimalPositionDataIt->second.deltaToNormalPathOptimalPosition != 0)
+                    {
+                        Log::Get() << "ERROR: Position " << optimalPositionDataIt->second << " came up out of order"
+                                   << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                    }
+#endif
+
+                    it = workerGatherStatuses.erase(it);
+                    continue;
+                }
+
+                // Create metadata for this position and the three after it
+                std::shared_ptr<PositionAndVelocity> nextPosition;
+                for (auto positionIt = optimalPositionIt - 3; positionIt != workerStatus.positionHistory.rend(); positionIt++)
+                {
+                    int delta = (int)std::distance(positionIt, optimalPositionIt);
+                    if (delta < 0) break;
+
+                    auto existingIt = optimalGatherPositions.find(**positionIt);
+                    if (existingIt == optimalGatherPositions.end())
+                    {
+                        existingIt = optimalGatherPositions.emplace(
+                                **positionIt,
+                                PositionObservationMetadata{**positionIt, nextPosition, delta}
+                        ).first;
+
+                        existingIt->second.hasPositionToTry = true;
+                        if (delta < 3) existingIt->second.followingHasPositionToTry = true;
+
+#if OPTIMALPOSITIONS_DEBUG
+                        CherryVis::log(worker->id) << "Queued test of " << **positionIt << " at delta " << delta;
+                    }
+                    else
+                    {
+                        Log::Get() << "ERROR: Position " << existingIt->second << " came up again during processing of a new position"
+                                   << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+#endif
+                    }
+
+                    nextPosition = *positionIt;
+                }
+
+                applyOnPositionsBefore(optimalPositionIt, setFollowingHasPositionToTry);
+
+                it = workerGatherStatuses.erase(it);
+                continue;
+            }
+
+            // Get the data for the resent position
+            auto resentPositionDataIt = optimalGatherPositions.find(*workerStatus.resentPosition);
+
+            // Find the resent position(s) in the position history
+            // Second resent position always comes first when reverse iterating
+            auto resentPositionIt = workerStatus.positionHistory.rbegin();
+            auto secondResentPositionIt = workerStatus.positionHistory.rend();
+            for (; resentPositionIt != workerStatus.positionHistory.rend(); resentPositionIt++)
+            {
+                if (workerStatus.secondResentPosition == *resentPositionIt) secondResentPositionIt = resentPositionIt;
+                if (workerStatus.resentPosition == *resentPositionIt) break;
+            }
+
+            // If we couldn't locate the resent position, bail out now
+            if (resentPositionDataIt == optimalGatherPositions.end() || resentPositionIt == workerStatus.positionHistory.rend() ||
+                (workerStatus.secondResentPosition && secondResentPositionIt == workerStatus.positionHistory.rend()))
+            {
+                Log::Get() << "ERROR: Resent position metadata or history not found"
+                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                it = workerGatherStatuses.erase(it);
+                continue;
+            }
+
+            auto &resentPositionData = resentPositionDataIt->second;
+            bool exploring = resentPositionData.hasPositionToTry;
+            int previousBestDelta = resentPositionData.bestDelta;
+
+            // Track the observation
+            resentPositionData.addObservation(
+                    workerStatus.secondResentPosition,
+                    (int)std::distance((workerStatus.secondResentPosition ? secondResentPositionIt : resentPositionIt), optimalPositionIt));
+
+#if OPTIMALPOSITIONS_DEBUG
+            if (workerStatus.secondResentPosition)
+            {
+                CherryVis::log(worker->id) << "Added observation of " << resentPositionData
+                                           << " : " << *workerStatus.secondResentPosition;
+            }
+            else
+            {
+                CherryVis::log(worker->id) << "Added observation of " << resentPositionData;
+            }
+#endif
+
+            // If we had already explored all possible options before this resend, nothing more is needed
+            if (!exploring)
+            {
+                it = workerGatherStatuses.erase(it);
+                continue;
+            }
+
+            // Cascade a new best delta to other positions on this path
+            if (resentPositionData.bestDelta < previousBestDelta)
+            {
+                // Previous positions
+                applyOnPositionsBefore(resentPositionIt, [&resentPositionData](PositionObservationMetadata &metadata)
+                {
+                    if (metadata.bestFollowingPositionDelta > resentPositionData.bestDelta)
+                    {
+                        metadata.bestFollowingPositionDelta = resentPositionData.bestDelta;
+                    }
+                    return false;
+                });
+
+                // Future positions
+                applyOnPositionsAfter(&resentPositionData, [&resentPositionData](PositionObservationMetadata &metadata)
+                {
+                    if (metadata.bestPreviousPositionDelta > resentPositionData.bestDelta)
+                    {
+                        metadata.bestPreviousPositionDelta = resentPositionData.bestDelta;
+                    }
+                    return false;
+                });
+            }
+
+            // Queue up second resend positions to test
+            if (resentPositionData.bestDelta > resentPositionData.deltaToNormalPathOptimalPosition && !workerStatus.secondResentPosition)
+            {
+                for (int i = 1; i <= std::min(resentPositionData.bestDelta - resentPositionData.deltaToNormalPathOptimalPosition, 5); i++)
+                {
+                    auto here = resentPositionIt - i;
+                    if (here == workerStatus.positionHistory.rbegin()) break; // should never be true
+
+                    // We can't issue gather commands LF apart, second will fail with Unit_Busy
+                    if (i == BWAPI::Broodwar->getLatencyFrames()) continue;
+
+                    auto secondResendPositionDataIt = resentPositionData.secondResendMetadataFor(**here);
+                    if (!secondResendPositionDataIt)
+                    {
+                        resentPositionData.secondResendMetadata.emplace_back(SecondResendPositionObservationMetadata{**here, i});
+
+#if OPTIMALPOSITIONS_DEBUG
+                        CherryVis::log(worker->id) << "Queued test of " << resentPositionData
+                                                   << " : " << **here << ", delta " << i;
+                    }
+                    else
+                    {
+                        Log::Get() << "ERROR: Position " << resentPositionData << " already had second resend position " << **here
+                                   << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+#endif
+                    }
+                }
+            }
+
+            resentPositionData.updateState();
+
+            // Potentially queue up other positions to test if we are finished testing this position
+            // TODO
+//            if (!resentPositionData.hasPositionToTry)
+//            {
+//                if (resentPositionData.deltaToNormalPathOptimalPosition >= 0 && resentPositionData.deltaToNormalPathOptimalPosition <= 2)
+//                {
+//
+//                }
+//            }
+
+            /*
+
+            // If we have just finished exploring the original optimal position candidate, unlock the other candidates
+            if (resentPositionData.deltaToNormalPathOptimalPosition == 0 && !resentPositionData.hasPositionToTry)
+            {
+                resentPositionData.followingHasPositionToTry = true;
+
+            }
+            else if (!resentPositionData.hasPositionToTry)
+            {
+                auto unsetFollowingHasUntriedPosition = [](PositionObservationMetadata &metadata)
+                {
+                    metadata.followingHasPositionToTry = false;
+                    return metadata.hasPositionToTry;
+                };
+                applyOnPositionsBefore(resentPositionIt, unsetFollowingHasUntriedPosition);
+            }
+*/
+
+/*
+
+                    // If this resent position hasn't found an optimal delta yet, queue some second resends to try
+                    bool queuedSecondResend = false;
+                    if (resentPositionData.bestDelta > 0 && !workerStatus.secondResentPosition)
+                    {
+                        for (auto secondResendPositionIt = positionIt - 1;
+                             secondResendPositionIt != workerStatus.positionHistory.rbegin();
+                             secondResendPositionIt--)
+                        {
+                            // We queue at most 5 but skip the position at LF since that is not usable due to Unit_Busy
+                            if (secondResendPositionIt == (positionIt - 6)) break;
+                            if (std::distance(secondResendPositionIt, positionIt) == BWAPI::Broodwar->getLatencyFrames()) continue;
+
+                            auto secondResendPositionDataIt = resentPositionData.resendPositionToData.find(**secondResendPositionIt);
+                            if (secondResendPositionDataIt == resentPositionData.resendPositionToData.end())
+                            {
+                                resentPositionData.resendPositionToData.emplace(**secondResendPositionIt, std::map<int, int>{});
+                                if (!queuedSecondResend)
+                                {
+                                    applyOnPositionsBefore(positionIt, setFollowingHasPositionToTry);
+                                    queuedSecondResend = true;
+                                }
+
+#if OPTIMALPOSITIONS_DEBUG
+                                CherryVis::log(worker->id) << "Queued test of " << resentPositionData
+                                                           << " : " << **secondResendPositionIt << ", delta "
+                                                           << std::distance(secondResendPositionIt, positionIt);
+#endif
+                            }
+                        }
+                    }
+
+                    // If we haven't queued a new experiment, and this position no longer has any untried positions, update previous positions
+                    if (!queuedSecondResend && !resentPositionData.hasUntriedPosition())
+                    {
+                        auto unsetFollowingHasUntriedPosition = [](PositionObservationMetadata &metadata)
+                        {
+                            metadata.followingHasPositionToTry = false;
+                            return metadata.hasUntriedPosition();
+                        };
+                        applyOnPositionsBefore(positionIt, unsetFollowingHasUntriedPosition);
+                    }
+
+                    // Update all of the earlier positions' best following delta
+                    applyOnPositionsBefore(positionIt, [&resentPositionData](PositionObservationMetadata &metadata)
+                    {
+                        if (metadata.bestFollowingPositionDelta > resentPositionData.bestDelta)
+                        {
+                            metadata.bestFollowingPositionDelta = resentPositionData.bestDelta;
+                        }
+                        return false;
+                    });
+
+#if OPTIMALPOSITIONS_DEBUG
+                    if (workerStatus.secondResentPosition)
+                    {
+                        CherryVis::log(worker->id) << "Added observation of " << resentPositionDataIt->second
+                                                   << " : " << *workerStatus.secondResentPosition;
+                    }
+                    else
+                    {
+                        CherryVis::log(worker->id) << "Added observation of " << resentPositionDataIt->second;
+                    }
+#endif
+                }
+            }
+*/
+            /*
+            // Handle observations for the optimizing arrival at the patch
+            auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
+            handleObservation(workerStatus,
+                              *optimalPositionIt,
+                              workerStatus.resentPosition,
+                              optimalGatherPositionsFor(workerStatus.resource));
+
+            // Tracking of 10-distance positions and resend positions for takeover
+            updateTakeoverMetadata(workerStatus,
+                                   workerStatus.resource,
+                                   tenDistancePositionsFor(workerStatus.resource),
+                                   takeoverPositionsFor(workerStatus.resource));
+
+                                   */
 
             // We now no longer need to do anything with this worker status
             it = workerGatherStatuses.erase(it);
