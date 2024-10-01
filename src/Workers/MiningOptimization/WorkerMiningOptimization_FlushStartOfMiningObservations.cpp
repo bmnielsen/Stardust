@@ -9,6 +9,10 @@
 
 #include "Geo.h"
 
+#define EXPLORE_BEFORE 5
+#define EXPLORE_AFTER 3
+#define MAX_SECOND_RESEND_POSITIONS 5
+
 namespace WorkerMiningOptimization
 {
     namespace
@@ -375,12 +379,6 @@ namespace WorkerMiningOptimization
                 }
             };
 
-            auto setFollowingHasPositionToTry = [](PositionObservationMetadata &metadata)
-            {
-                metadata.followingHasPositionToTry = true;
-                return false;
-            };
-
             // If we sent no command, queue a test on the apparent optimal position
             if (!workerStatus.resentPosition)
             {
@@ -401,12 +399,12 @@ namespace WorkerMiningOptimization
                     continue;
                 }
 
-                // Create metadata for this position and the three after it
+                // Create metadata for positions we want to test
                 std::shared_ptr<PositionAndVelocity> nextPosition;
-                for (auto positionIt = optimalPositionIt - 3; positionIt != workerStatus.positionHistory.rend(); positionIt++)
+                for (auto positionIt = optimalPositionIt - EXPLORE_AFTER; positionIt != workerStatus.positionHistory.rend(); positionIt++)
                 {
                     int delta = (int)std::distance(positionIt, optimalPositionIt);
-                    if (delta < 0) break;
+                    if (delta < -EXPLORE_BEFORE) break;
 
                     auto existingIt = optimalGatherPositions.find(**positionIt);
                     if (existingIt == optimalGatherPositions.end())
@@ -416,15 +414,16 @@ namespace WorkerMiningOptimization
                                 PositionObservationMetadata{**positionIt, nextPosition, delta}
                         ).first;
 
-                        existingIt->second.hasPositionToTry = true;
-                        if (delta < 3) existingIt->second.followingHasPositionToTry = true;
+                        if (delta >= 0) existingIt->second.hasPositionToTry = true;
+                        if (delta < EXPLORE_AFTER) existingIt->second.followingHasPositionToTry = true;
 
 #if OPTIMALPOSITIONS_DEBUG
                         CherryVis::log(worker->id) << "Queued test of " << **positionIt << " at delta " << delta;
                     }
                     else
                     {
-                        Log::Get() << "ERROR: Position " << existingIt->second << " came up again during processing of a new position"
+                        Log::Get() << "ERROR: Position " << existingIt->second
+                                   << " came up again during processing of a new position at delta " << delta
                                    << "; worker id " << worker->id << " @ " << worker->getTilePosition();
 #endif
                     }
@@ -432,7 +431,11 @@ namespace WorkerMiningOptimization
                     nextPosition = *positionIt;
                 }
 
-                applyOnPositionsBefore(optimalPositionIt, setFollowingHasPositionToTry);
+                applyOnPositionsBefore(optimalPositionIt, [](PositionObservationMetadata &metadata)
+                {
+                    metadata.followingHasPositionToTry = true;
+                    return false;
+                });
 
                 it = workerGatherStatuses.erase(it);
                 continue;
@@ -489,10 +492,9 @@ namespace WorkerMiningOptimization
                 continue;
             }
 
-            // Cascade a new best delta to other positions on this path
+            // Cascade a new best delta to previous positions on this path
             if (resentPositionData.bestDelta < previousBestDelta)
             {
-                // Previous positions
                 applyOnPositionsBefore(resentPositionIt, [&resentPositionData](PositionObservationMetadata &metadata)
                 {
                     if (metadata.bestFollowingPositionDelta > resentPositionData.bestDelta)
@@ -501,48 +503,75 @@ namespace WorkerMiningOptimization
                     }
                     return false;
                 });
-
-                // Future positions
-                applyOnPositionsAfter(&resentPositionData, [&resentPositionData](PositionObservationMetadata &metadata)
-                {
-                    if (metadata.bestPreviousPositionDelta > resentPositionData.bestDelta)
-                    {
-                        metadata.bestPreviousPositionDelta = resentPositionData.bestDelta;
-                    }
-                    return false;
-                });
             }
 
             // Queue up second resend positions to test
             if (resentPositionData.bestDelta > resentPositionData.deltaToNormalPathOptimalPosition && !workerStatus.secondResentPosition)
             {
-                for (int i = 1; i <= std::min(resentPositionData.bestDelta - resentPositionData.deltaToNormalPathOptimalPosition, 5); i++)
+                // If we have already queued second resend positions, this is an indication that the path is unstable:
+                // we saw some second resend positions the first time that we have not seen now
+                // When this happens, we just distrust all of the second resent positions
+                if (!resentPositionData.secondResendMetadata.empty())
                 {
-                    auto here = resentPositionIt - i;
-                    if (here == workerStatus.positionHistory.rbegin()) break; // should never be true
-
-                    // We can't issue gather commands LF apart, second will fail with Unit_Busy
-                    if (i == BWAPI::Broodwar->getLatencyFrames()) continue;
-
-                    auto secondResendPositionDataIt = resentPositionData.secondResendMetadataFor(**here);
-                    if (!secondResendPositionDataIt)
+                    resentPositionData.secondResendMetadata.clear();
+#if OPTIMALPOSITIONS_DEBUG
+                    CherryVis::log(worker->id) << "Cleared second resend metadata of " << resentPositionData;
+                    Log::Get() << "ERROR: Second resend positions unstable for " << resentPositionData
+                               << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+#endif
+                }
+                else
+                {
+                    auto targetDelta = std::min(resentPositionData.bestDelta, resentPositionData.bestFollowingPositionDelta)
+                                       - resentPositionData.deltaToNormalPathOptimalPosition - 1;
+                    for (int i = 1; i <= std::min(targetDelta, MAX_SECOND_RESEND_POSITIONS); i++)
                     {
+                        auto here = resentPositionIt - i;
+                        if (here == workerStatus.positionHistory.rbegin()) break; // should never be true
+
+                        // We can't issue gather commands LF apart, second will fail with Unit_Busy
+                        if (i == BWAPI::Broodwar->getLatencyFrames()) continue;
+
                         resentPositionData.secondResendMetadata.emplace_back(SecondResendPositionObservationMetadata{**here, i});
 
 #if OPTIMALPOSITIONS_DEBUG
                         CherryVis::log(worker->id) << "Queued test of " << resentPositionData
                                                    << " : " << **here << ", delta " << i;
-                    }
-                    else
-                    {
-                        Log::Get() << "ERROR: Position " << resentPositionData << " already had second resend position " << **here
-                                   << "; worker id " << worker->id << " @ " << worker->getTilePosition();
 #endif
                     }
                 }
             }
 
             resentPositionData.updateState();
+
+            // If there are still things to explore in this position, continue now
+            if (resentPositionData.hasPositionToTry)
+            {
+                it = workerGatherStatuses.erase(it);
+                continue;
+            }
+
+            // Unmark following positions if we have already done as well as we can here
+            if (resentPositionData.bestDelta == resentPositionData.deltaToNormalPathOptimalPosition)
+            {
+                resentPositionData.followingHasPositionToTry = false;
+                applyOnPositionsAfter(&resentPositionData, [](PositionObservationMetadata &metadata)
+                {
+                    metadata.hasPositionToTry = false;
+                    return false;
+                });
+            }
+
+            // If we are finished exploring forwards, explore backwards
+            if (!resentPositionData.followingHasPositionToTry && resentPositionData.deltaToNormalPathOptimalPosition >= 0)
+            {
+                applyOnPositionsBefore(resentPositionIt, [](PositionObservationMetadata &metadata)
+                {
+                    if (metadata.deltaToNormalPathOptimalPosition < 0) metadata.hasPositionToTry = true;
+                    metadata.followingHasPositionToTry = (metadata.deltaToNormalPathOptimalPosition < -1);
+                    return false;
+                });
+            }
 
             // Potentially queue up other positions to test if we are finished testing this position
             // TODO

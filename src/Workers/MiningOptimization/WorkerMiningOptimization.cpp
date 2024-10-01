@@ -159,7 +159,6 @@ namespace WorkerMiningOptimization
                     if (resendPositionMetadata.next) file << *resendPositionMetadata.next;
                     file << ";"
                          << resendPositionMetadata.deltaToNormalPathOptimalPosition << ";"
-                         << resendPositionMetadata.bestPreviousPositionDelta << ";"
                          << resendPositionMetadata.bestDelta << ";"
                          << resendPositionMetadata.bestFollowingPositionDelta << ";"
                          << (resendPositionMetadata.hasPositionToTry ? "y" : "") << ";"
@@ -175,6 +174,14 @@ namespace WorkerMiningOptimization
                              << secondResendPositionMetadata.deltaToFirstResend << ":";
                         outputObservations(secondResendPositionMetadata.observations);
                         sep = ",";
+                    }
+
+                    // TODO: Remove (for debugging)
+                    file << ";";
+                    if (resendPositionMetadata.bestDelta < resendPositionMetadata.bestFollowingPositionDelta &&
+                        resendPositionMetadata.deltaToNormalPathOptimalPosition < 0)
+                    {
+                        file << "*" << resendPositionMetadata.bestDelta;
                     }
 
                     file << "\n";

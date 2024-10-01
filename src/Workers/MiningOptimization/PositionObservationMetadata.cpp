@@ -6,7 +6,6 @@ namespace WorkerMiningOptimization
     {
         os << optimalGatherPositionMetadata.pos
            << " (d=" << optimalGatherPositionMetadata.deltaToNormalPathOptimalPosition
-           << " pb=" << optimalGatherPositionMetadata.bestPreviousPositionDelta
            << " b=" << optimalGatherPositionMetadata.bestDelta
            << " fb=" << optimalGatherPositionMetadata.bestFollowingPositionDelta
            << " try=" << optimalGatherPositionMetadata.hasPositionToTry

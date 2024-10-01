@@ -255,6 +255,7 @@ namespace WorkerMiningOptimization
         // If we have already submitted our second resend, we have nothing left to do
         if (workerStatus.secondResentPosition) return;
 
+        // TODO: Consider positions where the resend gets us to the patch faster/slower
         auto handleOrderProcessTimerReset = [&]()
         {
             int framesFromCommandToReset = OrderProcessTimer::framesToNextReset() - BWAPI::Broodwar->getLatencyFrames();
@@ -367,6 +368,9 @@ namespace WorkerMiningOptimization
 
             // Always use a position if we are exploring it
             if (metadata->observations.empty()) return true;
+
+            // Never use a position if we have explored it and want to explore a later one
+            if (resentPositionData.hasPositionToTry) return false;
 
             // Use the position if it is the one that gives the best delta
             exploring = false;

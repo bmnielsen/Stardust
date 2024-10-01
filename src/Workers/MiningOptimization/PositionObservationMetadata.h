@@ -19,7 +19,6 @@ namespace WorkerMiningOptimization
         PositionAndVelocity pos;
         std::shared_ptr<PositionAndVelocity> next;
         int deltaToNormalPathOptimalPosition;
-        int bestPreviousPositionDelta = 100;
         int bestDelta = 100;
         int bestFollowingPositionDelta = 100;
         bool hasPositionToTry = false;
