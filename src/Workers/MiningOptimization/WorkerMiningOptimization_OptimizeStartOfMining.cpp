@@ -221,6 +221,8 @@ namespace WorkerMiningOptimization
             auto currentMetadataIt = optimalGatherPositions.find(*currentPosition);
             if (currentMetadataIt == optimalGatherPositions.end()) return;
 
+            auto currentPositionDeltaToNormalPath = currentMetadataIt->second.deltaToNormalPathOptimalPosition;
+
             workerStatus.resendsPlanned = true;
 
             auto planPosition = [&](const PositionObservationMetadata *metadata, int secondResendIndex = -1)
@@ -268,10 +270,10 @@ namespace WorkerMiningOptimization
                 }
 
                 // Set the second resend position to use if applicable
-                auto secondResendPosition = metadata->optimalSecondResendPosition();
-                if (secondResendPosition)
+                auto secondResendPositionMetadata = metadata->optimalSecondResendPositionMetadata();
+                if (secondResendPositionMetadata)
                 {
-                    workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*secondResendPosition);
+                    workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(secondResendPositionMetadata->pos);
                 }
             };
 
@@ -303,6 +305,9 @@ namespace WorkerMiningOptimization
             // Scan through and find the best option
             auto currentMetadata = &currentMetadataIt->second;
             bool optimizingOrderProcessTimerReset = false;
+            int bestMiningStartDeltaForOrderProcessTimerReset = -1;
+            PositionObservationMetadata *bestPositionForOrderProcessTimerReset = nullptr;
+            int bestSecondResendIndexForOrderProcessTimerReset = 0;
             while (true)
             {
                 // Exploring this position
@@ -318,20 +323,68 @@ namespace WorkerMiningOptimization
 
                 if (!currentMetadata->followingHasPositionToTry)
                 {
-                    if (optimizingOrderProcessTimerReset)
-                    {
-                        // TODO
-                    }
-                    else if (currentMetadata->bestDelta < currentMetadata->bestFollowingPositionDelta)
+                    if (currentMetadata->bestDelta < currentMetadata->bestFollowingPositionDelta)
                     {
                         // Check if an order process timer reset will affect this position
-                        // TODO
+                        int framesToResendAppliedFrame = BWAPI::Broodwar->getLatencyFrames()
+                                + currentMetadata->deltaToNormalPathOptimalPosition
+                                - currentPositionDeltaToNormalPath;
 
-                        planPosition(currentMetadata);
+                        auto secondResendPositionMetadata = currentMetadata->optimalSecondResendPositionMetadata();
+                        if (secondResendPositionMetadata) framesToResendAppliedFrame += secondResendPositionMetadata->deltaToFirstResend;
+
+                        int framesToReset = OrderProcessTimer::framesToNextReset(BWAPI::Broodwar->getFrameCount() + framesToResendAppliedFrame);
+                        if (framesToReset <= 0 || framesToReset >= 12) // no reset to worry about
+                        {
+                            planPosition(currentMetadata);
 #if OPTIMALPOSITIONS_DEBUG
-                        dbg();
+                            dbg();
 #endif
-                        break;
+                            break;
+                        }
+
+                        optimizingOrderProcessTimerReset = true;
+                    }
+
+                    if (optimizingOrderProcessTimerReset)
+                    {
+                        // For each resend position here, compute when we expect to start mining
+                        // This may be known or an estimate depending on whether the order process timer reset is allowed to apply at the patch
+                        auto handlePositionForOrderProcessTimerReset = [&](const SecondResendPositionObservationMetadata *secondResendMetadata)
+                        {
+                            auto &observations = (secondResendMetadata ? secondResendMetadata->observations : currentMetadata->noResendObservations);
+                            if (observations.empty()) return;
+
+                            // Ensure the worker arrives to the patch on time
+                            int arrivalDelay = observations.begin()->first;
+                            if (arrivalDelay < 0) return;
+
+                            int framesToResendAppliedFrame = BWAPI::Broodwar->getLatencyFrames()
+                                                             + currentMetadata->deltaToNormalPathOptimalPosition
+                                                             - currentPositionDeltaToNormalPath
+                                                             + (secondResendMetadata ? secondResendMetadata->deltaToFirstResend : 0);
+
+                            int noResetMiningDelta = currentMetadata->deltaToNormalPathOptimalPosition
+                                                     + (secondResendMetadata ? secondResendMetadata->deltaToFirstResend : 0);
+
+                            int framesToReset = OrderProcessTimer::framesToNextReset(BWAPI::Broodwar->getFrameCount() + framesToResendAppliedFrame);
+                            int miningDelta =
+                                    (framesToReset <= 0 || framesToReset >= 12)
+                                    ? noResetMiningDelta
+                                    : (noResetMiningDelta - arrivalDelay + 4);
+
+                            if (miningDelta <= bestMiningStartDeltaForOrderProcessTimerReset)
+                            {
+                                bestMiningStartDeltaForOrderProcessTimerReset = miningDelta;
+                                bestPositionForOrderProcessTimerReset = currentMetadata;
+                                bestSecondResendIndexForOrderProcessTimerReset = secondResendMetadata ? secondResendMetadata->deltaToFirstResend : -1;
+                            }
+                        };
+                        handlePositionForOrderProcessTimerReset(nullptr);
+                        for (const auto &secondResendMetadata : currentMetadata->secondResendMetadata)
+                        {
+                            handlePositionForOrderProcessTimerReset(&secondResendMetadata);
+                        }
                     }
                 }
 
@@ -339,6 +392,21 @@ namespace WorkerMiningOptimization
                 currentMetadataIt = optimalGatherPositions.find(*currentMetadata->next);
                 if (currentMetadataIt == optimalGatherPositions.end()) break;
                 currentMetadata = &currentMetadataIt->second;
+            }
+
+            if (optimizingOrderProcessTimerReset)
+            {
+                if (bestPositionForOrderProcessTimerReset)
+                {
+                    planPosition(bestPositionForOrderProcessTimerReset, bestSecondResendIndexForOrderProcessTimerReset);
+#if OPTIMALPOSITIONS_DEBUG
+                    dbg("order timer reset");
+                }
+                else
+                {
+                    CherryVis::log(worker->id) << "Not resending anything because of pending order process timer reset";
+#endif
+                }
             }
         }
     }

@@ -37,7 +37,7 @@ namespace WorkerMiningOptimization
             return nullptr;
         }
 
-        [[nodiscard]] const PositionAndVelocity* optimalSecondResendPosition() const
+        [[nodiscard]] const SecondResendPositionObservationMetadata* optimalSecondResendPositionMetadata() const
         {
             if (bestDelta == 100) return nullptr;
 
@@ -48,7 +48,7 @@ namespace WorkerMiningOptimization
                     if (candidate.observations.empty()) continue;
                     if (bestDelta == (deltaToNormalPathOptimalPosition + candidate.deltaToFirstResend + candidate.observations.begin()->first))
                     {
-                        return &candidate.pos;
+                        return &candidate;
                     }
                 }
             }
