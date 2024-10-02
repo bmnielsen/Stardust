@@ -231,7 +231,9 @@ namespace WorkerMiningOptimization
         workerStatus.lastProcessedFrame = currentFrame;
 
         // Track the worker's visited positions
-        auto currentPosition = std::make_shared<PositionAndVelocity>(worker);
+        auto currentPosition = std::make_shared<PositionAndVelocity>(
+                worker,
+                workerStatus.positionHistory.empty() ? nullptr : workerStatus.positionHistory.rbegin()->get());
         workerStatus.positionHistory.emplace_back(currentPosition);
 
         // Don't touch the worker if it is transitioning to mine

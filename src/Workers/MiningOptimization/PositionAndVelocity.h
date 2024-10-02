@@ -10,10 +10,12 @@ struct PositionAndVelocity
     int dx;
     int dy;
     int heading;
+    uint32_t previousPositionsHash;
 
-    PositionAndVelocity() : x(-1), y(-1), dx(-1), dy(-1), heading(-1) {}
+    PositionAndVelocity() : x(-1), y(-1), dx(-1), dy(-1), heading(-1), previousPositionsHash(0) {}
 
-    PositionAndVelocity(int x, int y, int dx, int dy, int heading) : x(x), y(y), dx(dx), dy(dy), heading(heading) {}
+    PositionAndVelocity(int x, int y, int dx, int dy, int heading, uint32_t previousPositionsHash)
+        : x(x), y(y), dx(dx), dy(dy), heading(heading), previousPositionsHash(previousPositionsHash) {}
 
     explicit PositionAndVelocity(const BWAPI::Unit &unit)
             : x(unit->getPosition().x)
@@ -21,14 +23,16 @@ struct PositionAndVelocity
             , dx(int(unit->getVelocityX() * 1000.0))
             , dy(int(unit->getVelocityY() * 1000.0))
             , heading(int(unit->getAngle() * 1000.0))
+            , previousPositionsHash(0)
     {}
 
-    explicit PositionAndVelocity(const MyWorker &worker)
+    explicit PositionAndVelocity(const MyWorker &worker, const PositionAndVelocity *previousPosition)
             : x(worker->lastPosition.x)
             , y(worker->lastPosition.y)
             , dx(worker->horizontalKiloSpeed)
             , dy(worker->verticalKiloSpeed)
             , heading(worker->kiloHeading)
+            , previousPositionsHash(previousPosition ? previousPosition->nextHash() : 0)
     {}
 
     [[nodiscard]] bool isValid() const
@@ -50,7 +54,12 @@ struct PositionAndVelocity
 
     [[nodiscard]] bool equals(const PositionAndVelocity &other) const
     {
-        return x == other.x && y == other.y && dx == other.dx && dy == other.dy && heading == other.heading;
+        return x == other.x
+               && y == other.y
+               && dx == other.dx
+               && dy == other.dy
+               && heading == other.heading
+               && previousPositionsHash == other.previousPositionsHash;
     }
 
     [[nodiscard]] BWAPI::Position pos() const
@@ -58,14 +67,15 @@ struct PositionAndVelocity
         return {x, y};
     }
 
-    void addToHash(uint32_t &hash) const
+    [[nodiscard]] uint32_t nextHash() const
     {
-        auto add = [&hash](uint32_t val)
+        uint32_t result = previousPositionsHash;
+        auto add = [&result](uint32_t val)
         {
             val = ((val >> 16) ^ val) * 0x45d9f3b;
             val = ((val >> 16) ^ val) * 0x45d9f3b;
             val = (val >> 16) ^ val;
-            hash ^= val + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+            result ^= val + 0x9e3779b9 + (result << 6) + (result >> 2);
         };
 
         add(x);
@@ -73,6 +83,8 @@ struct PositionAndVelocity
         add(dx);
         add(dy);
         add(heading);
+
+        return result;
     }
 
     static bool isValidString(const std::string &str);
@@ -84,7 +96,9 @@ struct PositionAndVelocity
                (a.x == b.x && a.y < b.y) ||
                (a.x == b.x && a.y == b.y && a.dx < b.dx) ||
                (a.x == b.x && a.y == b.y && a.dx == b.dx && a.dy < b.dy) ||
-               (a.x == b.x && a.y == b.y && a.dx == b.dx && a.dy == b.dy && a.heading < b.heading);
+               (a.x == b.x && a.y == b.y && a.dx == b.dx && a.dy == b.dy && a.heading < b.heading) ||
+               (a.x == b.x && a.y == b.y && a.dx == b.dx && a.dy == b.dy && a.heading == b.heading
+                    && a.previousPositionsHash < b.previousPositionsHash);
     }
 };
 
