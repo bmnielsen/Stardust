@@ -5,11 +5,47 @@
 
 namespace WorkerMiningOptimization
 {
+    struct ResendPositionObservations
+    {
+        std::map<int, int> data;
+
+        void add(int arrivalDelta)
+        {
+            data[arrivalDelta]++;
+        }
+
+        [[nodiscard]] bool empty() const
+        {
+            return data.empty();
+        }
+
+        [[nodiscard]] int mostCommonArrivalDelay() const
+        {
+            int best = -1;
+            int bestCount = 0;
+            for (const auto &[arrivalDelay, occurrences] : data)
+            {
+                if (occurrences > bestCount)
+                {
+                    best = arrivalDelay;
+                    bestCount = occurrences;
+                }
+            }
+
+            return best;
+        }
+
+        [[nodiscard]] bool hasArrivalDelay(int arrivalDelay) const
+        {
+            return data.contains(arrivalDelay);
+        }
+    };
+
     struct SecondResendPositionObservationMetadata
     {
         PositionAndVelocity pos;
         int deltaToFirstResend;
-        std::map<int, int> observations;
+        ResendPositionObservations observations;
     };
 
     // This is the structure we use to track observed positions and our track record using them
@@ -24,7 +60,7 @@ namespace WorkerMiningOptimization
         bool hasPositionToTry = false;
         bool followingHasPositionToTry = false;
 
-        std::map<int, int> noResendObservations;
+        ResendPositionObservations noResendObservations;
         std::vector<SecondResendPositionObservationMetadata> secondResendMetadata;
 
         [[nodiscard]] SecondResendPositionObservationMetadata* secondResendMetadataFor(const PositionAndVelocity &secondResendPosition)
@@ -45,8 +81,7 @@ namespace WorkerMiningOptimization
             {
                 for (const auto &candidate : secondResendMetadata)
                 {
-                    if (candidate.observations.empty()) continue;
-                    if (bestDelta == (deltaToNormalPathOptimalPosition + candidate.deltaToFirstResend + candidate.observations.begin()->first))
+                    if (candidate.observations.hasArrivalDelay(bestDelta - deltaToNormalPathOptimalPosition - candidate.deltaToFirstResend))
                     {
                         return &candidate;
                     }
@@ -61,7 +96,7 @@ namespace WorkerMiningOptimization
             int deltaFromNormalPath = 100;
             if (!secondResendPosition)
             {
-                noResendObservations[arrivalDelta]++;
+                noResendObservations.add(arrivalDelta);
                 if (arrivalDelta >= 0)
                 {
                     deltaFromNormalPath = deltaToNormalPathOptimalPosition + arrivalDelta;
@@ -72,7 +107,7 @@ namespace WorkerMiningOptimization
                 auto metadata = secondResendMetadataFor(*secondResendPosition);
                 if (metadata)
                 {
-                    metadata->observations[arrivalDelta]++;
+                    metadata->observations.add(arrivalDelta);
                     if (arrivalDelta >= 0)
                     {
                         deltaFromNormalPath = deltaToNormalPathOptimalPosition + metadata->deltaToFirstResend + arrivalDelta;

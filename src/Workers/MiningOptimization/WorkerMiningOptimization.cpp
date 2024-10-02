@@ -102,7 +102,7 @@ namespace WorkerMiningOptimization
                             result.emplace(std::stoi(data[0]), std::stoi(data[1]));
                         }
 
-                        return result;
+                        return ResendPositionObservations{result};
                     };
 
                     auto parseSecondResendPositions = [&]()
@@ -119,7 +119,7 @@ namespace WorkerMiningOptimization
                             result.emplace_back(SecondResendPositionObservationMetadata{
                                     PositionAndVelocity::fromString(data[0]),
                                     std::stoi(data[1]),
-                                    (data.size() > 2) ? parseObservations(data[2]) : std::map<int, int>{}
+                                    (data.size() > 2) ? parseObservations(data[2]) : ResendPositionObservations{std::map<int, int>{}}
                             });
                         }
 
@@ -156,10 +156,10 @@ namespace WorkerMiningOptimization
             std::ofstream file;
             file.open(filename, std::ofstream::trunc);
 
-            auto outputObservations = [&file](const std::map<int, int> &observations)
+            auto outputObservations = [&file](const ResendPositionObservations &observations)
             {
                 std::string sep;
-                for (const auto &[delta, occurrences] : observations)
+                for (const auto &[delta, occurrences] : observations.data)
                 {
                     file << sep << delta << "|" << occurrences;
                     sep = "_";
@@ -204,9 +204,9 @@ namespace WorkerMiningOptimization
 
                     int mostOccurrences = 0;
                     int mostOccurrencesPosition = -1;
-                    auto handleObservations = [&mostOccurrences, &mostOccurrencesPosition](const std::map<int, int> &observations, int thisPosition)
+                    auto handleObservations = [&](const ResendPositionObservations &observations, int thisPosition)
                     {
-                        for (const auto &[delta, occurrences] : observations)
+                        for (const auto &[delta, occurrences] : observations.data)
                         {
                             if (occurrences >= mostOccurrences)
                             {
@@ -214,6 +214,31 @@ namespace WorkerMiningOptimization
                                 mostOccurrencesPosition = thisPosition;
                             }
                         }
+
+#if INSTRUMENTATION_ENABLED
+                        if (observations.data.size() > 1)
+                        {
+                            int mostCommonArrivalDelay = observations.mostCommonArrivalDelay();
+                            int common = 0;
+                            int uncommon = 0;
+                            int problematic = 0;
+                            for (const auto &[delta, occurrences] : observations.data)
+                            {
+                                ((delta == mostCommonArrivalDelay) ? common : uncommon) += occurrences;
+                                if (delta >= 0 && delta < mostCommonArrivalDelay) problematic++;
+                            }
+
+                            if ((common + uncommon) > 10 && (common < uncommon * 4))
+                            {
+                                Log::Get() << "WARNING: Patch " << resource->tile
+                                    << " position " << resendPositionMetadata << " : " << thisPosition
+                                    << " has " << observations.data.size() << " unstable arrival deltas"
+                                    << "; common(" << mostCommonArrivalDelay << ")=" << common
+                                    << "; uncommon=" << uncommon
+                                    << "; problematic=" << problematic;
+                            }
+                        }
+#endif
                     };
                     handleObservations(resendPositionMetadata.noResendObservations, 0);
                     for (const auto &secondResendMetadata : resendPositionMetadata.secondResendMetadata)

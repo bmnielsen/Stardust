@@ -3,7 +3,6 @@
 
 #include "WorkerMiningOptimization.h"
 
-#include "Workers.h"
 #include "OrderProcessTimer.h"
 #include "PositionAndVelocity.h"
 
@@ -356,7 +355,7 @@ namespace WorkerMiningOptimization
                             if (observations.empty()) return;
 
                             // Ensure the worker arrives to the patch on time
-                            int arrivalDelay = observations.begin()->first;
+                            int arrivalDelay = observations.mostCommonArrivalDelay();
                             if (arrivalDelay < 0) return;
 
                             int framesToResendAppliedFrame = BWAPI::Broodwar->getLatencyFrames()
