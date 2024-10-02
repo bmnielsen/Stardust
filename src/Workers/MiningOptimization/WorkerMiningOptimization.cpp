@@ -176,12 +176,39 @@ namespace WorkerMiningOptimization
                         sep = ",";
                     }
 
-                    // TODO: Remove (for debugging)
+                    // TODO: Remove following debugging things once everything is working
                     file << ";";
                     if (resendPositionMetadata.bestDelta < resendPositionMetadata.bestFollowingPositionDelta &&
                         resendPositionMetadata.deltaToNormalPathOptimalPosition < 0)
                     {
                         file << "*" << resendPositionMetadata.bestDelta;
+                    }
+
+                    int mostOccurrences = 0;
+                    int mostOccurrencesPosition = -1;
+                    auto handleObservations = [&mostOccurrences, &mostOccurrencesPosition](const std::map<int, int> &observations, int thisPosition)
+                    {
+                        for (const auto &[delta, occurrences] : observations)
+                        {
+                            if (occurrences >= mostOccurrences)
+                            {
+                                mostOccurrences = occurrences;
+                                mostOccurrencesPosition = thisPosition;
+                            }
+                        }
+                    };
+                    handleObservations(resendPositionMetadata.noResendObservations, 0);
+                    for (const auto &secondResendMetadata : resendPositionMetadata.secondResendMetadata)
+                    {
+                        handleObservations(secondResendMetadata.observations, secondResendMetadata.deltaToFirstResend);
+                    }
+                    if (mostOccurrences > 1)
+                    {
+                        file << ";y;" << mostOccurrencesPosition;
+                    }
+                    else
+                    {
+                        file << ";;";
                     }
 
                     file << "\n";

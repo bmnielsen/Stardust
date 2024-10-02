@@ -366,18 +366,6 @@ namespace WorkerMiningOptimization
                     if (func(previousPositionDataIt->second)) return;
                 }
             };
-            auto applyOnPositionsAfter = [&](
-                    PositionObservationMetadata *metadata,
-                    const std::function<bool(PositionObservationMetadata&)> &func)
-            {
-                while (metadata->next)
-                {
-                    auto nextPositionDataIt = optimalGatherPositions.find(*(metadata->next));
-                    if (nextPositionDataIt == optimalGatherPositions.end()) return;
-                    metadata = &(nextPositionDataIt->second);
-                    if (func(*metadata)) return;
-                }
-            };
 
             // If we sent no command, queue a test on the apparent optimal position
             if (!workerStatus.resentPosition)
@@ -551,15 +539,40 @@ namespace WorkerMiningOptimization
                 continue;
             }
 
-            // Unmark following positions if we have already done as well as we can here
-            if (resentPositionData.bestDelta == resentPositionData.deltaToNormalPathOptimalPosition)
+            // Unmark following positions to try that can not be better than the current position
+            if (resentPositionData.bestDelta < EXPLORE_AFTER)
             {
-                resentPositionData.followingHasPositionToTry = false;
-                applyOnPositionsAfter(&resentPositionData, [](PositionObservationMetadata &metadata)
+                // Unset future try positions where relevant and collect them in a vector
+                std::vector<PositionObservationMetadata*> futurePositions;
                 {
-                    metadata.hasPositionToTry = false;
-                    return false;
-                });
+                    auto current = &resentPositionData;
+                    while (current->next)
+                    {
+                        auto nextPositionDataIt = optimalGatherPositions.find(*current->next);
+                        if (nextPositionDataIt != optimalGatherPositions.end())
+                        {
+                            current = &nextPositionDataIt->second;
+                            futurePositions.push_back(current);
+
+                            if (resentPositionData.bestDelta < current->deltaToNormalPathOptimalPosition)
+                            {
+                                current->hasPositionToTry = false;
+#if OPTIMALPOSITIONS_DEBUG
+                                CherryVis::log(worker->id) << "Unqueued as it can no longer be better: " << nextPositionDataIt->second;
+#endif
+                            }
+                        }
+                    }
+                }
+
+                // Loop backwards to update whether the following has a position to try
+                bool followingHasPositionToTry = false;
+                for (auto futurePositionIt = futurePositions.rbegin(); futurePositionIt != futurePositions.rend(); futurePositionIt++)
+                {
+                    (*futurePositionIt)->followingHasPositionToTry = followingHasPositionToTry;
+                    followingHasPositionToTry = followingHasPositionToTry || (*futurePositionIt)->hasPositionToTry;
+                }
+                resentPositionData.followingHasPositionToTry = followingHasPositionToTry;
             }
 
             // If we are finished exploring forwards, explore backwards
@@ -570,6 +583,16 @@ namespace WorkerMiningOptimization
                     if (metadata.deltaToNormalPathOptimalPosition < 0) metadata.hasPositionToTry = true;
                     metadata.followingHasPositionToTry = (metadata.deltaToNormalPathOptimalPosition < -1);
                     return false;
+                });
+            }
+
+            // If we no longer have following positions to try, cascade this backwards
+            if (!resentPositionData.followingHasPositionToTry)
+            {
+                applyOnPositionsBefore(resentPositionIt, [](PositionObservationMetadata &metadata)
+                {
+                    metadata.followingHasPositionToTry = false;
+                    return metadata.hasPositionToTry;
                 });
             }
 
