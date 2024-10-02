@@ -355,8 +355,29 @@ namespace WorkerMiningOptimization
             // This might not be achievable, but is what we use to measure against
             auto optimalPositionIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
 
+#if OPTIMALPOSITIONS_DEBUG
+            std::ostringstream dbg;
+            dbg << "Position history:";
+            for (auto positionIt = optimalPositionIt + 5; positionIt >= optimalPositionIt - 5; positionIt--)
+            {
+                dbg << "\n" << **positionIt;
+            }
+            CherryVis::log(worker->id) << dbg.str();
+
+            if (workerStatus.plannedResendPosition && !workerStatus.resentPosition)
+            {
+                Log::Get() << "ERROR: Worker didn't resend at planned position " << *workerStatus.plannedResendPosition
+                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+            }
+            if (workerStatus.plannedSecondResendPosition && !workerStatus.secondResentPosition)
+            {
+                Log::Get() << "ERROR: Worker didn't resend at second planned position " << *workerStatus.plannedSecondResendPosition
+                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+            }
+#endif
+
             auto applyOnPositionsBefore = [&](
-                    std::vector<std::shared_ptr<PositionAndVelocity>>::reverse_iterator it,
+                    std::vector<std::shared_ptr<const PositionAndVelocity>>::reverse_iterator it,
                     const std::function<bool(PositionObservationMetadata&)> &func)
             {
                 for (it++; it != workerStatus.positionHistory.rend(); it++)
@@ -388,7 +409,7 @@ namespace WorkerMiningOptimization
                 }
 
                 // Create metadata for positions we want to test
-                std::shared_ptr<PositionAndVelocity> nextPosition;
+                std::shared_ptr<const PositionAndVelocity> nextPosition;
                 for (auto positionIt = optimalPositionIt - EXPLORE_AFTER; positionIt != workerStatus.positionHistory.rend(); positionIt++)
                 {
                     int delta = (int)std::distance(positionIt, optimalPositionIt);

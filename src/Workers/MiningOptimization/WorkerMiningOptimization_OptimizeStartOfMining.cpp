@@ -208,6 +208,139 @@ namespace WorkerMiningOptimization
             }
         }
         */
+
+        void planResends(const Resource &resource,
+                         const MyWorker &worker,
+                         const std::shared_ptr<const PositionAndVelocity> &currentPosition,
+                         WorkerGatherStatus &workerStatus)
+        {
+            if (workerStatus.resendsPlanned) return;
+
+            // Plan the resends once we find a position we have metadata about
+            auto &optimalGatherPositions = optimalGatherPositionsFor(resource);
+            auto currentMetadataIt = optimalGatherPositions.find(*currentPosition);
+            if (currentMetadataIt == optimalGatherPositions.end()) return;
+
+            workerStatus.resendsPlanned = true;
+
+            auto planPosition = [&](const PositionObservationMetadata *metadata, int secondResendIndex = -1)
+            {
+                workerStatus.plannedResendPosition = std::make_shared<PositionAndVelocity>(metadata->pos);
+
+                // If exploring, find the next resend position that hasn't been tried yet
+                if (metadata->hasPositionToTry)
+                {
+                    if (!metadata->noResendObservations.empty())
+                    {
+                        for (const auto &secondResendMetadata : metadata->secondResendMetadata)
+                        {
+                            if (secondResendMetadata.observations.empty())
+                            {
+                                workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(secondResendMetadata.pos);
+                                return;
+                            }
+                        }
+#if OPTIMALPOSITIONS_DEBUG
+                        Log::Get() << "ERROR: Position marked for trying but no untried position was found: " << *metadata
+                                   << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+#endif
+                    }
+                    return;
+                }
+
+                // If a specific second resend position was specified, find it
+                if (secondResendIndex != -1)
+                {
+                    for (const auto &secondResendMetadata : metadata->secondResendMetadata)
+                    {
+                        if (secondResendMetadata.deltaToFirstResend == secondResendIndex)
+                        {
+                            workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(secondResendMetadata.pos);
+                            return;
+                        }
+                    }
+
+#if OPTIMALPOSITIONS_DEBUG
+                    Log::Get() << "ERROR: Could not find second resend index " << secondResendIndex << ": " << *metadata
+                               << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+#endif
+                    return;
+                }
+
+                // Set the second resend position to use if applicable
+                auto secondResendPosition = metadata->optimalSecondResendPosition();
+                if (secondResendPosition)
+                {
+                    workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*secondResendPosition);
+                }
+            };
+
+#if OPTIMALPOSITIONS_DEBUG
+            auto dbg = [&](const std::string &label = "")
+            {
+                std::ostringstream out;
+                out << "Planned gather command(s): ";
+                if (workerStatus.plannedResendPosition)
+                {
+                    out << *workerStatus.plannedResendPosition;
+                }
+                else
+                {
+                    out << "none";
+                }
+                if (workerStatus.plannedSecondResendPosition)
+                {
+                    out << " : " << *workerStatus.plannedSecondResendPosition;
+                }
+                if (!label.empty())
+                {
+                    out << " (" << label << ")";
+                }
+                CherryVis::log(worker->id) << out.str();
+            };
+#endif
+
+            // Scan through and find the best option
+            auto currentMetadata = &currentMetadataIt->second;
+            bool optimizingOrderProcessTimerReset = false;
+            while (true)
+            {
+                // Exploring this position
+                if (currentMetadata->hasPositionToTry)
+                {
+                    planPosition(currentMetadata);
+
+#if OPTIMALPOSITIONS_DEBUG
+                    dbg("exploring");
+#endif
+                    break;
+                }
+
+                if (!currentMetadata->followingHasPositionToTry)
+                {
+                    if (optimizingOrderProcessTimerReset)
+                    {
+                        // TODO
+                    }
+                    else if (currentMetadata->bestDelta < currentMetadata->bestFollowingPositionDelta)
+                    {
+                        // Check if an order process timer reset will affect this position
+                        // TODO
+
+                        planPosition(currentMetadata);
+#if OPTIMALPOSITIONS_DEBUG
+                        dbg();
+#endif
+                        break;
+                    }
+                }
+
+                if (!currentMetadata->next) break;
+                currentMetadataIt = optimalGatherPositions.find(*currentMetadata->next);
+                if (currentMetadataIt == optimalGatherPositions.end()) break;
+                currentMetadata = &currentMetadataIt->second;
+            }
+        }
     }
 
     // Optimizes the start of mining, returning whether an order was sent to the worker.
@@ -254,6 +387,45 @@ namespace WorkerMiningOptimization
             return;
         }
 
+        planResends(resource, worker, currentPosition, workerStatus);
+
+        // Send commands we have pre-planned
+        if (workerStatus.resendsPlanned)
+        {
+            auto handlePlannedResend = [&](
+                    const std::shared_ptr<const PositionAndVelocity> &plannedPosition,
+                    std::shared_ptr<const PositionAndVelocity> &resentPosition)
+            {
+                if (!plannedPosition) return; // nothing planned for this position
+                if (resentPosition) return; // already resent
+                if (!plannedPosition->equals(*currentPosition)) return; // not at the position yet
+
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(worker->id) << "Resending for " << *plannedPosition;
+#endif
+
+                if (worker->gather(resource->getBwapiUnitIfVisible()))
+                {
+                    resentPosition = currentPosition;
+                }
+                else
+                {
+#if OPTIMALPOSITIONS_DEBUG
+                    Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
+                               << BWAPI::Broodwar->getLastError();
+                    CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+                    CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+#endif
+                }
+            };
+
+            handlePlannedResend(workerStatus.plannedResendPosition, workerStatus.resentPosition);
+            handlePlannedResend(workerStatus.plannedSecondResendPosition, workerStatus.secondResentPosition);
+            return;
+        }
+
+/*
+
         // If we have already submitted our second resend, we have nothing left to do
         if (workerStatus.secondResentPosition) return;
 
@@ -261,6 +433,10 @@ namespace WorkerMiningOptimization
         auto handleOrderProcessTimerReset = [&]()
         {
             int framesFromCommandToReset = OrderProcessTimer::framesToNextReset() - BWAPI::Broodwar->getLatencyFrames();
+            if (framesFromCommandToReset <= 0 || framesFromCommandToReset >= 12) return false; // no reset to worry about
+
+
+
             if (framesFromCommandToReset > 0 && framesFromCommandToReset < 12)
             {
                 // Send a command to take effect on the reset frame if it is coming soon
@@ -286,11 +462,15 @@ namespace WorkerMiningOptimization
             return false;
         };
 
-        auto &optimalGatherPositions = optimalGatherPositionsFor(resource);
 
         // Logic for when we are looking for the first position to resend the command
         if (!workerStatus.resentPosition)
         {
+            // See if we have any metadata here
+            auto optimalGatherPositionIt = optimalGatherPositions.find(*currentPosition);
+            if (optimalGatherPositionIt == optimalGatherPositions.end()) return;
+
+
             // Position evaluator
             bool exploring = true;
             auto shouldUsePosition = [&](const PositionObservationMetadata &metadata)
@@ -413,7 +593,7 @@ namespace WorkerMiningOptimization
 #endif
             }
         }
-
+*/
 
 /*
         auto &optimalGatherPositions = optimalGatherPositionsFor(resource);

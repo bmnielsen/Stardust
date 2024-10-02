@@ -17,7 +17,7 @@ namespace WorkerMiningOptimization
     {
     public:
         PositionAndVelocity pos;
-        std::shared_ptr<PositionAndVelocity> next;
+        std::shared_ptr<const PositionAndVelocity> next;
         int deltaToNormalPathOptimalPosition;
         int bestDelta = 100;
         int bestFollowingPositionDelta = 100;
@@ -37,12 +37,26 @@ namespace WorkerMiningOptimization
             return nullptr;
         }
 
-        [[nodiscard]] bool requiresSecondResend() const
+        [[nodiscard]] const PositionAndVelocity* optimalSecondResendPosition() const
         {
-            return bestDelta > deltaToNormalPathOptimalPosition;
+            if (bestDelta == 100) return nullptr;
+
+            if (bestDelta > deltaToNormalPathOptimalPosition)
+            {
+                for (const auto &candidate : secondResendMetadata)
+                {
+                    if (candidate.observations.empty()) continue;
+                    if (bestDelta == (deltaToNormalPathOptimalPosition + candidate.deltaToFirstResend + candidate.observations.begin()->first))
+                    {
+                        return &candidate.pos;
+                    }
+                }
+            }
+
+            return nullptr;
         }
 
-        void addObservation(const std::shared_ptr<PositionAndVelocity> &secondResendPosition, int arrivalDelta)
+        void addObservation(const std::shared_ptr<const PositionAndVelocity> &secondResendPosition, int arrivalDelta)
         {
             int deltaFromNormalPath = 100;
             if (!secondResendPosition)
