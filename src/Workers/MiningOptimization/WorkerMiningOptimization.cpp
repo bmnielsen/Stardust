@@ -54,7 +54,7 @@ namespace WorkerMiningOptimization
                                                   std::map<Resource, std::map<PositionAndVelocity, PositionObservationMetadata>> &map)
         {
             map.clear();
-/*
+
             std::ifstream file;
             file.open(filename);
             if (!file.good()) return;
@@ -69,7 +69,7 @@ namespace WorkerMiningOptimization
                     lineNumber++;
 
                     auto line = CsvTools::readNextLine(file);
-                    if (line.size() < 8) break;
+                    if (line.size() < 10) break;
 
                     BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
                     auto resource = Units::resourceAt(tile);
@@ -82,42 +82,61 @@ namespace WorkerMiningOptimization
                     }
                     auto pos = PositionAndVelocity::fromString(line[2]);
 
-                    auto &resourceMap = map[resource];
-                    auto positionDataIt = resourceMap.find(pos);
-                    if (positionDataIt == resourceMap.end())
+                    std::shared_ptr<const PositionAndVelocity> next;
+                    if (PositionAndVelocity::isValidString(line[3]))
                     {
-                        positionDataIt = resourceMap.emplace(pos, PositionObservationMetadata{
-                            pos,
-                            std::stoi(line[3]),
-                            std::stoi(line[4]),
-                            std::stoi(line[5]),
-                            line[6] == "y"
-                        }).first;
+                        next = std::make_shared<const PositionAndVelocity>(PositionAndVelocity::fromString(line[3]));
                     }
-                    auto &positionData = positionDataIt->second;
 
-                    auto addObservationsTo = [&](std::map<int, int> &observationsMap)
+                    auto &resourceMap = map[resource];
+
+                    auto parseObservations = [&](const std::string &str)
                     {
-                        if (line.size() < 9) return;
+                        std::map<int, int> result;
 
-                        for (const auto &observations : CsvTools::tokenizeList(line[8]))
+                        for (const auto &observations : CsvTools::tokenizeList(str, '_'))
                         {
-                            auto data = CsvTools::tokenizeList(observations, ':');
+                            auto data = CsvTools::tokenizeList(observations, '|');
                             if (data.size() < 2) continue;
 
-                            observationsMap.emplace(std::stoi(data[0]), std::stoi(data[1]));
+                            result.emplace(std::stoi(data[0]), std::stoi(data[1]));
                         }
+
+                        return result;
                     };
 
-                    if (PositionAndVelocity::isValidString(line[7]))
+                    auto parseSecondResendPositions = [&]()
                     {
-                        auto secondResendPos = PositionAndVelocity::fromString(line[7]);
-                        addObservationsTo(positionData.resendPositionToData[secondResendPos]);
-                    }
-                    else
-                    {
-                        addObservationsTo(positionData.noResendData);
-                    }
+                        std::vector<SecondResendPositionObservationMetadata> result;
+                        if (line.size() < 11) return result;
+
+                        for (const auto &secondResendData : CsvTools::tokenizeList(line[10]))
+                        {
+                            auto data = CsvTools::tokenizeList(secondResendData, ':');
+                            if (data.size() < 2) continue;
+                            if (!PositionAndVelocity::isValidString(data[0])) continue;
+
+                            result.emplace_back(SecondResendPositionObservationMetadata{
+                                    PositionAndVelocity::fromString(data[0]),
+                                    std::stoi(data[1]),
+                                    (data.size() > 2) ? parseObservations(data[2]) : std::map<int, int>{}
+                            });
+                        }
+
+                        return result;
+                    };
+
+                    resourceMap.emplace(pos, PositionObservationMetadata{
+                        pos,
+                        next,
+                        std::stoi(line[4]),
+                        std::stoi(line[5]),
+                        std::stoi(line[6]),
+                        line[7] == "y",
+                        line[8] == "y",
+                        parseObservations(line[9]),
+                        parseSecondResendPositions()
+                    });
 
                     count++;
                 }
@@ -129,7 +148,6 @@ namespace WorkerMiningOptimization
                 Log::Get() << "Exception caught attempting to read positions metadata from " << filename
                            << " at line " << lineNumber << ": " << ex.what();
             }
-            */
         }
 
         void writePositionObservationMetadataFile(const std::string &filename,
