@@ -306,10 +306,27 @@ namespace WorkerMiningOptimization
             }
         }
          */
+
+#if OPTIMALPOSITIONS_DEBUG
+        std::set<uint32_t> exploredPaths;
+        std::set<BWAPI::TilePosition> exploredPatches;
+#endif
     }
 
     void flushStartOfMiningObservations(std::map<MyWorker, WorkerGatherStatus> &workerGatherStatuses)
     {
+#if OPTIMALPOSITIONS_DEBUG
+        if (currentFrame == 0)
+        {
+            exploredPaths.clear();
+            exploredPatches.clear();
+        }
+        else if (currentFrame % 1000 == 0)
+        {
+            Log::Get() << "Explored " << exploredPaths.size() << " path(s) over " << exploredPatches.size() << " patch(es)";
+        }
+#endif
+
         // Flush the worker statuses for workers that have started mining
         for (auto it = workerGatherStatuses.begin(); it != workerGatherStatuses.end(); )
         {
@@ -504,12 +521,61 @@ namespace WorkerMiningOptimization
             }
 #endif
 
+            // Clears the second resend positions data from the current position
+            // We do this if we observe instability in the positions reached after the resend
+            auto clearSecondResendPositionsData = [&]()
+            {
+                resentPositionData.secondResendMetadata.clear();
+
+                // If the best delta changes as a result of this, cascade that backwards
+                auto bestDelta = 100;
+                if (!resentPositionData.noResendObservations.empty())
+                {
+                    int arrivalDelay = resentPositionData.noResendObservations.mostCommonArrivalDelay();
+                    if (arrivalDelay >= 0)
+                    {
+                        bestDelta = resentPositionData.deltaToNormalPathOptimalPosition + arrivalDelay;
+                    }
+                }
+                if (bestDelta != resentPositionData.bestDelta)
+                {
+                    resentPositionData.bestDelta = bestDelta;
+                    int followingBest = std::min(resentPositionData.bestDelta, resentPositionData.bestFollowingPositionDelta);
+                    applyOnPositionsBefore(resentPositionIt, [&](PositionObservationMetadata &metadata)
+                    {
+                        if (metadata.bestFollowingPositionDelta != followingBest)
+                        {
+                            metadata.bestFollowingPositionDelta = followingBest;
+                            followingBest = std::min(metadata.bestDelta, followingBest);
+                            return false;
+                        }
+                        return true;
+                    });
+                }
+
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(worker->id) << "Cleared second resend metadata of " << resentPositionData;
+                Log::Get() << "ERROR: Cleared unstable second resend positions for " << resentPositionData
+                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+#endif
+            };
+
             // If we had already explored all possible options before this resend, nothing more is needed
             if (!exploring)
             {
+                if (workerStatus.plannedSecondResendPosition && !workerStatus.secondResentPosition)
+                {
+                    clearSecondResendPositionsData();
+                }
+
                 it = workerGatherStatuses.erase(it);
                 continue;
             }
+
+#if OPTIMALPOSITIONS_DEBUG
+            exploredPaths.insert(resentPositionData.pathHash);
+            exploredPatches.insert(workerStatus.resource->tile);
+#endif
 
             // Cascade a new best delta to previous positions on this path
             if (resentPositionData.bestDelta < previousBestDelta)
@@ -532,12 +598,7 @@ namespace WorkerMiningOptimization
                 // When this happens, we just distrust all of the second resent positions
                 if (!resentPositionData.secondResendMetadata.empty())
                 {
-                    resentPositionData.secondResendMetadata.clear();
-#if OPTIMALPOSITIONS_DEBUG
-                    CherryVis::log(worker->id) << "Cleared second resend metadata of " << resentPositionData;
-                    Log::Get() << "ERROR: Second resend positions unstable for " << resentPositionData
-                               << "; worker id " << worker->id << " @ " << worker->getTilePosition();
-#endif
+                    clearSecondResendPositionsData();
                 }
                 else
                 {
@@ -558,8 +619,6 @@ namespace WorkerMiningOptimization
                     }
                 }
             }
-
-            resentPositionData.updateState();
 
             // If there are still things to explore in this position, continue now
             if (resentPositionData.hasPositionToTry)

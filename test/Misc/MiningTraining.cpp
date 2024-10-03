@@ -17,7 +17,7 @@ namespace
 
     std::map<std::string, std::map<std::pair<int, int>, double>> mapHashToConfigurationToEfficiency;
 
-    double runEfficiencyTest(BWTest &test, int workersPerPatch, int cannons, bool onlyOneWorker = false)
+    double runEfficiencyTestImpl(BWTest &test, int workersPerPatch, int cannons, bool onlyOneWorker)
     {
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
@@ -291,6 +291,7 @@ namespace
                         else
                         {
                             Log::Get() << "ERROR: Couldn't get index for worker @ " << worker->lastPosition;
+                            BWAPI::Broodwar->leaveGame();
                         }
                     }
                 }
@@ -321,6 +322,18 @@ namespace
 
         std::cout << "Mining efficiency: " << result << std::endl;
         return result;
+    }
+
+    double runEfficiencyTest(BWTest &test, int workersPerPatch, int cannons, bool onlyOneWorker = false)
+    {
+        for (int i=0; i<10; i++)
+        {
+            auto result = runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker);
+            if (result > 0.0001) return result;
+        }
+
+        Log::Get() << "ERROR: Could not get a stable test run after 10 tries!";
+        return 49.0;
     }
 }
 

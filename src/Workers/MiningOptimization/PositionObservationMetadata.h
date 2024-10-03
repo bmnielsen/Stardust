@@ -117,20 +117,6 @@ namespace WorkerMiningOptimization
             }
 
             if (deltaFromNormalPath < bestDelta) bestDelta = deltaFromNormalPath;
-        }
-
-        void updateState()
-        {
-            // Purge second resend metadata that is not needed
-            int maxRelevantSecondResendDelta = std::min(bestDelta, bestFollowingPositionDelta) - deltaToNormalPathOptimalPosition;
-            for (auto it = secondResendMetadata.begin(); it != secondResendMetadata.end(); it++)
-            {
-                if (it->deltaToFirstResend > maxRelevantSecondResendDelta)
-                {
-                    secondResendMetadata.erase(it, secondResendMetadata.end());
-                    break;
-                }
-            }
 
             // Clear the "have a position to try" flag if we no longer have anything to try
             if (hasPositionToTry && !hasUntriedPosition())

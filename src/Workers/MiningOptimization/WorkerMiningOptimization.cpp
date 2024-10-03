@@ -29,7 +29,7 @@ namespace WorkerMiningOptimization
         std::string optimalGatherPositionsFilename(bool writing = false)
         {
             auto filename = std::ostringstream()
-                    << "gatherpositionsnew_" << BWAPI::Broodwar->mapHash()
+                    << "gatherpositions_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames();
             return FileTools::getFilePath(filename.str(), "csv", writing);
         }
@@ -37,7 +37,7 @@ namespace WorkerMiningOptimization
         std::string tenDistancePositionsFilename(bool writing = false)
         {
             auto filename = std::ostringstream()
-                    << "10distancenew_" << BWAPI::Broodwar->mapHash()
+                    << "10distance_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames();
             return FileTools::getFilePath(filename.str(), "csv", writing);
         }
@@ -45,7 +45,7 @@ namespace WorkerMiningOptimization
         std::string takeoverResendPositionsFilename(bool writing = false)
         {
             auto filename = std::ostringstream()
-                    << "takeoverpositionsnew_" << BWAPI::Broodwar->mapHash()
+                    << "takeoverpositions_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames();
             return FileTools::getFilePath(filename.str(), "csv", writing);
         }
