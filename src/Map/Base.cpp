@@ -6,8 +6,9 @@
 
 namespace
 {
-    BWAPI::Unit getBlockingNeutral(BWAPI::TilePosition tile)
+    std::vector<BWAPI::Unit> getBlockingNeutrals(BWAPI::TilePosition tile)
     {
+        std::vector<BWAPI::Unit> result;
         for (auto unit : BWAPI::Broodwar->getStaticNeutralUnits())
         {
             if (unit->getType().isMineralField())
@@ -19,7 +20,7 @@ namespace
                                   2,
                                   1))
                 {
-                    return unit;
+                    result.push_back(unit);
                 }
             }
             else
@@ -31,12 +32,12 @@ namespace
                                   unit->getType().tileWidth(),
                                   unit->getType().tileHeight()))
                 {
-                    return unit;
+                    result.push_back(unit);
                 }
             }
         }
 
-        return nullptr;
+        return result;
     }
 }
 
@@ -49,7 +50,7 @@ Base::Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase)
         , requiresMineralWalkFromEnemyStartLocations(false)
         , island(true) // set to false later where appropriate
         , workerDefenseRallyPatch(nullptr)
-        , blockingNeutral(getBlockingNeutral(tile))
+        , blockingNeutrals(getBlockingNeutrals(tile))
         , minerals(0)
         , gas(0)
         , tile(tile)
@@ -110,7 +111,7 @@ Base::Base(BWAPI::TilePosition tile, const BWEM::Area *bwemArea, std::vector<Res
         , requiresMineralWalkFromEnemyStartLocations(false)
         , island(true) // set to false later where appropriate
         , workerDefenseRallyPatch(nullptr)
-        , blockingNeutral(getBlockingNeutral(tile))
+        , blockingNeutrals(getBlockingNeutrals(tile))
         , minerals(0)
         , gas(0)
         , tile(tile)

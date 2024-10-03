@@ -26,7 +26,7 @@ public:
     BWAPI::Position mineralLineCenter;                  // Approximate center of the mineral line
     Resource workerDefenseRallyPatch;                   // Mineral patch where workers should rally when doing worker defense
     std::set<BWAPI::TilePosition> mineralLineTiles;     // All tiles considered to be part of the mineral line
-    BWAPI::Unit blockingNeutral;                        // A neutral unit that must be cleared before building the nexus
+    std::vector<BWAPI::Unit> blockingNeutrals;          // Neutral units that must be cleared before building the nexus
 
     int minerals;   // Current total count of minerals remaining
     int gas;        // Current total count of gas remaining

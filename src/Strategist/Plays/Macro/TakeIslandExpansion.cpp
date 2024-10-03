@@ -126,25 +126,27 @@ void TakeIslandExpansion::update()
         }
 
         // Ensure the builder clears a blocking neutral
-        if (base->blockingNeutral && base->blockingNeutral->exists())
+        for (const auto &blockingNeutral : base->blockingNeutrals)
         {
-            if (base->blockingNeutral->getType().isMineralField())
+            if (!blockingNeutral->exists()) continue;
+
+            if (blockingNeutral->getType().isMineralField())
             {
                 // No need to do anything if the builder is gathering
                 if (builder->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Gather &&
-                    builder->bwapiUnit->getLastCommand().getTarget() == base->blockingNeutral)
+                    builder->bwapiUnit->getLastCommand().getTarget() == blockingNeutral)
                     return;
 
-                builder->gather(base->blockingNeutral);
+                builder->gather(blockingNeutral);
             }
             else
             {
                 // No need to do anything if the builder is attacking
                 if (builder->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit &&
-                    builder->bwapiUnit->getLastCommand().getTarget() == base->blockingNeutral)
+                    builder->bwapiUnit->getLastCommand().getTarget() == blockingNeutral)
                     return;
 
-                builder->attack(base->blockingNeutral);
+                builder->attack(blockingNeutral);
             }
 
             return;
@@ -327,19 +329,24 @@ bool TakeIslandExpansion::cancellable()
 
 int TakeIslandExpansion::framesToClearBlocker()
 {
-    if (!base->blockingNeutral || !base->blockingNeutral->exists()) return 0;
-
-    if (base->blockingNeutral->getType().isMineralField()) return 0;
-
-    int hp = base->blockingNeutral->getInitialHitPoints();
-    if (base->blockingNeutral->isVisible())
+    for (const auto &blockingNeutral : base->blockingNeutrals)
     {
-        hp = base->blockingNeutral->getHitPoints();
+        if (!blockingNeutral->exists()) continue;
+
+        if (blockingNeutral->getType().isMineralField()) return 0;
+
+        int hp = blockingNeutral->getInitialHitPoints();
+        if (blockingNeutral->isVisible())
+        {
+            hp = blockingNeutral->getHitPoints();
+        }
+
+        return (hp * BWAPI::UnitTypes::Protoss_Probe.groundWeapon().damageCooldown())
+               / Players::attackDamage(BWAPI::Broodwar->self(),
+                                       BWAPI::UnitTypes::Protoss_Probe,
+                                       blockingNeutral->getPlayer(),
+                                       blockingNeutral->getType());
     }
 
-    return (hp * BWAPI::UnitTypes::Protoss_Probe.groundWeapon().damageCooldown())
-           / Players::attackDamage(BWAPI::Broodwar->self(),
-                                   BWAPI::UnitTypes::Protoss_Probe,
-                                   base->blockingNeutral->getPlayer(),
-                                   base->blockingNeutral->getType());
+    return 0;
 }

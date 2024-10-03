@@ -345,6 +345,10 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     {
         if (!takeMineralOnly && expansion->gas == 0) continue;
 
+        // Don't take expansions that have a blocking neutral
+        // We currently only handle this for island expansions
+        if (!expansion->blockingNeutrals.empty()) continue;
+
         // Don't take expansions that are blocked by the enemy and that we don't know how to unblock
         if (expansion->blockedByEnemy)
         {
