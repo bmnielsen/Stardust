@@ -801,7 +801,11 @@ namespace Workers
                             continue;
                         }
 
-                        WorkerMiningOptimization::optimizeStartOfMining(worker, mineralPatch);
+                        auto myDepot = std::dynamic_pointer_cast<MyUnitImpl>(base->resourceDepot);
+                        if (myDepot)
+                        {
+                            WorkerMiningOptimization::optimizeStartOfMining(worker, myDepot, mineralPatch);
+                        }
                         continue;
                     }
 

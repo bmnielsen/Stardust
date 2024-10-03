@@ -411,7 +411,7 @@ namespace WorkerMiningOptimization
     }
 
     // Optimizes the start of mining, returning whether an order was sent to the worker.
-    void optimizeStartOfMining(const MyWorker &worker, const Resource &resource)
+    void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
         auto &workerStatus = gatherStatusFor(worker, resource);
 
@@ -423,6 +423,25 @@ namespace WorkerMiningOptimization
             return;
         }
 
+        // Our logic ensures mineral locking automatically except in some specific cases:
+        // - worker has been released from combat, which can leave it with a gather order to a random patch used for kiting
+        // - workers have been avoiding a no-go area and returning to mining as a group, so the timing gets messed up
+        // - both workers reach the patch at approximately the same time after one or both are (re)assigned
+        // - we don't have enough observed resend positions and get unlucky on the order timer
+        if (worker->bwapiUnit->getOrderTarget() && worker->bwapiUnit->getOrderTarget()->getResources()
+            && worker->bwapiUnit->getOrderTarget() != resourceBwapiUnit
+            && worker->lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+        {
+            // Hook to update our observations based on this potential failure of mineral locking
+//            handleStartOfMiningPatchSwitch(workerStatus, resource, tenDistancePositions, takeoverResendPositions);
+
+            CherryVis::log(worker->id) << "targeting different patch; resending order";
+            Log::Get() << "ERROR: patch @ " << resource->tile << "; worker " << worker->id << " @ " << worker->getTilePosition() << " switched patch";
+
+            worker->gather(resourceBwapiUnit);
+            return;
+        }
+
         // Clear worker status if it wasn't processed last frame
         if (workerStatus.lastProcessedFrame != (currentFrame - 1))
         {
@@ -431,9 +450,10 @@ namespace WorkerMiningOptimization
         workerStatus.lastProcessedFrame = currentFrame;
 
         // Track the worker's visited positions
+        // We start updating the previous positions hash once the worker leaves the depot
         auto currentPosition = std::make_shared<PositionAndVelocity>(
                 worker,
-                workerStatus.positionHistory.empty() ? nullptr : workerStatus.positionHistory.rbegin()->get());
+                (workerStatus.positionHistory.empty() || depot->getDistance(worker) == 0) ? nullptr : workerStatus.positionHistory.rbegin()->get());
         workerStatus.positionHistory.emplace_back(currentPosition);
 
         // Don't touch the worker if it is transitioning to mine

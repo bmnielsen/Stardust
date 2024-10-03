@@ -20,7 +20,7 @@ namespace WorkerMiningOptimization
     void write();
 
     // Optimizes the start of mining
-    void optimizeStartOfMining(const MyWorker &worker, const Resource &resource);
+    void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
 
     // Optimizes returning a resource
     void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
