@@ -52,6 +52,7 @@ namespace WorkerMiningOptimization
     struct PositionObservationMetadata
     {
     public:
+        uint32_t pathHash;
         PositionAndVelocity pos;
         std::shared_ptr<const PositionAndVelocity> next;
         int deltaToNormalPathOptimalPosition;

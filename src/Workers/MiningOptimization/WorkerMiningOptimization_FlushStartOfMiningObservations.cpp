@@ -408,6 +408,16 @@ namespace WorkerMiningOptimization
                     continue;
                 }
 
+                // Get the "path hash", which is the hash of the first position in the explored path
+                uint32_t pathHash = 0;
+                for (auto positionIt = optimalPositionIt; positionIt != workerStatus.positionHistory.rend(); positionIt++)
+                {
+                    int delta = (int)std::distance(positionIt, optimalPositionIt);
+                    if (delta < -EXPLORE_BEFORE) break;
+
+                    pathHash = (*positionIt)->previousPositionsHash;
+                }
+
                 // Create metadata for positions we want to test
                 std::shared_ptr<const PositionAndVelocity> nextPosition;
                 for (auto positionIt = optimalPositionIt - EXPLORE_AFTER; positionIt != workerStatus.positionHistory.rend(); positionIt++)
@@ -420,7 +430,7 @@ namespace WorkerMiningOptimization
                     {
                         existingIt = optimalGatherPositions.emplace(
                                 **positionIt,
-                                PositionObservationMetadata{**positionIt, nextPosition, delta}
+                                PositionObservationMetadata{pathHash, **positionIt, nextPosition, delta}
                         ).first;
 
                         if (delta >= 0) existingIt->second.hasPositionToTry = true;

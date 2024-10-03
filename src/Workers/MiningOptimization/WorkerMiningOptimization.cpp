@@ -69,23 +69,23 @@ namespace WorkerMiningOptimization
                     lineNumber++;
 
                     auto line = CsvTools::readNextLine(file);
-                    if (line.size() < 10) break;
+                    if (line.size() < 11) break;
 
                     BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
                     auto resource = Units::resourceAt(tile);
                     if (!resource) continue;
 
-                    if (!PositionAndVelocity::isValidString(line[2]))
+                    if (!PositionAndVelocity::isValidString(line[3]))
                     {
                         Log::Get() << "Invalid position string at line " << lineNumber << "; skipping: " << line[2];
                         continue;
                     }
-                    auto pos = PositionAndVelocity::fromString(line[2]);
+                    auto pos = PositionAndVelocity::fromString(line[3]);
 
                     std::shared_ptr<const PositionAndVelocity> next;
-                    if (PositionAndVelocity::isValidString(line[3]))
+                    if (PositionAndVelocity::isValidString(line[4]))
                     {
-                        next = std::make_shared<const PositionAndVelocity>(PositionAndVelocity::fromString(line[3]));
+                        next = std::make_shared<const PositionAndVelocity>(PositionAndVelocity::fromString(line[4]));
                     }
 
                     auto &resourceMap = map[resource];
@@ -108,9 +108,9 @@ namespace WorkerMiningOptimization
                     auto parseSecondResendPositions = [&]()
                     {
                         std::vector<SecondResendPositionObservationMetadata> result;
-                        if (line.size() < 11) return result;
+                        if (line.size() < 12) return result;
 
-                        for (const auto &secondResendData : CsvTools::tokenizeList(line[10]))
+                        for (const auto &secondResendData : CsvTools::tokenizeList(line[11]))
                         {
                             auto data = CsvTools::tokenizeList(secondResendData, ':');
                             if (data.size() < 2) continue;
@@ -127,14 +127,15 @@ namespace WorkerMiningOptimization
                     };
 
                     resourceMap.emplace(pos, PositionObservationMetadata{
+                        (uint32_t)std::stoul(line[2]),
                         pos,
                         next,
-                        std::stoi(line[4]),
                         std::stoi(line[5]),
                         std::stoi(line[6]),
-                        line[7] == "y",
+                        std::stoi(line[7]),
                         line[8] == "y",
-                        parseObservations(line[9]),
+                        line[9] == "y",
+                        parseObservations(line[10]),
                         parseSecondResendPositions()
                     });
 
@@ -173,6 +174,7 @@ namespace WorkerMiningOptimization
                 {
                     file << resource->tile.x << ";"
                          << resource->tile.y << ";"
+                         << resendPositionMetadata.pathHash << ";"
                          << resendPos << ";";
                     if (resendPositionMetadata.next) file << *resendPositionMetadata.next;
                     file << ";"
