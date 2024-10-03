@@ -10,8 +10,8 @@
 #include "Geo.h"
 
 #define EXPLORE_BEFORE 5
-#define EXPLORE_AFTER 3
-#define MAX_SECOND_RESEND_POSITIONS 5
+#define EXPLORE_AFTER 2
+#define EXPLORE_SECOND_RESEND_POSITIONS 2 // This is in addition to EXPLORE_AFTER
 
 namespace WorkerMiningOptimization
 {
@@ -525,7 +525,7 @@ namespace WorkerMiningOptimization
             }
 
             // Queue up second resend positions to test
-            if (resentPositionData.bestDelta > resentPositionData.deltaToNormalPathOptimalPosition && !workerStatus.secondResentPosition)
+            if (!workerStatus.secondResentPosition)
             {
                 // If we have already queued second resend positions, this is an indication that the path is unstable:
                 // we saw some second resend positions the first time that we have not seen now
@@ -541,9 +541,7 @@ namespace WorkerMiningOptimization
                 }
                 else
                 {
-                    auto targetDelta = std::min(resentPositionData.bestDelta, resentPositionData.bestFollowingPositionDelta)
-                                       - resentPositionData.deltaToNormalPathOptimalPosition - 1;
-                    for (int i = 1; i <= std::min(targetDelta, MAX_SECOND_RESEND_POSITIONS); i++)
+                    for (int i = 1; i <= (EXPLORE_AFTER - resentPositionData.deltaToNormalPathOptimalPosition + EXPLORE_SECOND_RESEND_POSITIONS); i++)
                     {
                         auto here = resentPositionIt - i;
                         if (here == workerStatus.positionHistory.rbegin()) break; // should never be true
@@ -568,42 +566,6 @@ namespace WorkerMiningOptimization
             {
                 it = workerGatherStatuses.erase(it);
                 continue;
-            }
-
-            // Unmark following positions to try that can not be better than the current position
-            if (resentPositionData.bestDelta < EXPLORE_AFTER)
-            {
-                // Unset future try positions where relevant and collect them in a vector
-                std::vector<PositionObservationMetadata*> futurePositions;
-                {
-                    auto current = &resentPositionData;
-                    while (current->next)
-                    {
-                        auto nextPositionDataIt = optimalGatherPositions.find(*current->next);
-                        if (nextPositionDataIt != optimalGatherPositions.end())
-                        {
-                            current = &nextPositionDataIt->second;
-                            futurePositions.push_back(current);
-
-                            if (resentPositionData.bestDelta < current->deltaToNormalPathOptimalPosition)
-                            {
-                                current->hasPositionToTry = false;
-#if OPTIMALPOSITIONS_DEBUG
-                                CherryVis::log(worker->id) << "Unqueued as it can no longer be better: " << nextPositionDataIt->second;
-#endif
-                            }
-                        }
-                    }
-                }
-
-                // Loop backwards to update whether the following has a position to try
-                bool followingHasPositionToTry = false;
-                for (auto futurePositionIt = futurePositions.rbegin(); futurePositionIt != futurePositions.rend(); futurePositionIt++)
-                {
-                    (*futurePositionIt)->followingHasPositionToTry = followingHasPositionToTry;
-                    followingHasPositionToTry = followingHasPositionToTry || (*futurePositionIt)->hasPositionToTry;
-                }
-                resentPositionData.followingHasPositionToTry = followingHasPositionToTry;
             }
 
             // If we are finished exploring forwards, explore backwards
