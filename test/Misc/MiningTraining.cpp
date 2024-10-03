@@ -45,8 +45,15 @@ namespace
         std::map<BWAPI::Position, std::pair<int, Base*>> workerCreationOrderAndBase;
         test.onFrameMine = [&]()
         {
+            // Ensure all mineral patches keep enough minerals
+            for (auto unit : BWAPI::Broodwar->getNeutralUnits())
+            {
+                if (!unit->getType().isMineralField()) continue;
+                if (unit->getResources() < 100) unit->setResources(1500);
+            }
+
             // Initialization steps:
-            // - Kill initial workers
+            // - Kill initial workers and blocking neutrals
             // - Add observers at expansions
             // - Add depots at expansions
             // - Add pylons at each base
@@ -68,6 +75,10 @@ namespace
 
                     for (auto base : Map::allBases())
                     {
+                        for (const auto &blockingNeutral : base->blockingNeutrals)
+                        {
+                            BWAPI::Broodwar->killUnit(blockingNeutral);
+                        }
                         BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, base->getPosition());
                     }
 
@@ -408,6 +419,28 @@ TEST(MiningTraining, ChupungRyeongDouble)
         << "Double: " << dbl << "%" << std::endl;
 }
 
+TEST(MiningTraining, EddySingle)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Eddy");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 1, 0);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << "%" << std::endl;
+}
+
+TEST(MiningTraining, RoadkillSingle)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Roadkill");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 1, 0);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << "%" << std::endl;
+}
+
 TEST(MiningTraining, NeoMoonGlaiveSingle)
 {
     BWTest test;
@@ -640,6 +673,48 @@ TEST(MiningTraining, AllAIIDEContinuousSingleOnly)
                 auto key = std::make_pair(1, cannons);
                 file << ";" << (totals[key] / (double)(mapHashToConfigurationToEfficiency.size()));
             }
+            file << "\n";
+
+            file.close();
+        }
+    }
+}
+
+TEST(MiningTraining, AllAIIDEContinuousSingleOnlyNoCannons)
+{
+    while (true)
+    {
+        Maps::RunOnEach(Maps::Get("aiide2023"), [](BWTest test)
+        {
+            double single = runEfficiencyTest(test, 1, 0);
+            std::cout << std::fixed << std::showpoint << std::setprecision(4)
+                      << "Overall efficiency: " << std::endl
+                      << "Single: " << single << "%" << std::endl;
+        });
+
+        {
+            std::ofstream file;
+            auto tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            auto tm = std::localtime(&tt);
+            file.open((std::ostringstream() << dataBasePath << "miningtraining_" << std::put_time(tm, "%Y%m%d_%H%M%S") << ".csv").str(),
+                      std::ofstream::trunc);
+            file << "Hash;1-0;1-1;1-2\n";
+            std::map<std::pair<int, int>, double> totals;
+            for (const auto &[mapHash, _] : mapHashToConfigurationToEfficiency)
+            {
+                file << mapHash;
+
+                auto key = std::make_pair(1, 0);
+                auto result = mapHashToConfigurationToEfficiency[mapHash][key];
+                file << ";" << result;
+                totals[key] += result;
+
+                file << "\n";
+            }
+
+            file << "Average";
+            auto key = std::make_pair(1, 0);
+            file << ";" << (totals[key] / (double)(mapHashToConfigurationToEfficiency.size()));
             file << "\n";
 
             file.close();
