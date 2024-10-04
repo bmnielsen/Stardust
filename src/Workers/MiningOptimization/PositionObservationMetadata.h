@@ -64,11 +64,13 @@ namespace WorkerMiningOptimization
         ResendPositionObservations noResendObservations;
         std::vector<SecondResendPositionObservationMetadata> secondResendMetadata;
 
-        [[nodiscard]] SecondResendPositionObservationMetadata* secondResendMetadataFor(const PositionAndVelocity &secondResendPosition)
+        [[nodiscard]] SecondResendPositionObservationMetadata* secondResendMetadataFor(const PositionAndVelocity *secondResendPosition)
         {
+            if (!secondResendPosition) return nullptr;
+
             for (auto &candidate : secondResendMetadata)
             {
-                if (candidate.pos.equals(secondResendPosition)) return &candidate;
+                if (candidate.pos.equals(*secondResendPosition)) return &candidate;
             }
 
             return nullptr;
@@ -95,25 +97,12 @@ namespace WorkerMiningOptimization
         void addObservation(const std::shared_ptr<const PositionAndVelocity> &secondResendPosition, int arrivalDelta)
         {
             int deltaFromNormalPath = 100;
-            if (!secondResendPosition)
+
+            auto secondResendData = secondResendMetadataFor(secondResendPosition.get());
+            (secondResendData ? secondResendData->observations : noResendObservations).add(arrivalDelta);
+            if (arrivalDelta >= 0)
             {
-                noResendObservations.add(arrivalDelta);
-                if (arrivalDelta >= 0)
-                {
-                    deltaFromNormalPath = deltaToNormalPathOptimalPosition + arrivalDelta;
-                }
-            }
-            else
-            {
-                auto metadata = secondResendMetadataFor(*secondResendPosition);
-                if (metadata)
-                {
-                    metadata->observations.add(arrivalDelta);
-                    if (arrivalDelta >= 0)
-                    {
-                        deltaFromNormalPath = deltaToNormalPathOptimalPosition + metadata->deltaToFirstResend + arrivalDelta;
-                    }
-                }
+                deltaFromNormalPath = deltaToNormalPathOptimalPosition + arrivalDelta + (secondResendData ? secondResendData->deltaToFirstResend : 0);
             }
 
             if (deltaFromNormalPath < bestDelta) bestDelta = deltaFromNormalPath;

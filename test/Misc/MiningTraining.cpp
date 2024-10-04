@@ -330,7 +330,7 @@ namespace
     double runEfficiencyTest(BWTest &test, int workersPerPatch, int cannons, bool onlyOneWorker = false, bool measureOnly = false)
     {
 #if !INSTRUMENTATION_ENABLED
-        return runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker);
+        return runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker, measureOnly);
 #else
         for (int i=0; i<10; i++)
         {
@@ -477,6 +477,18 @@ TEST(MiningTraining, NeoMoonGlaiveSingleMeasure)
     BWTest test;
     test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
     test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 1, 0, false, true);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << "%" << std::endl;
+}
+
+TEST(MiningTraining, NeoMoonGlaiveSingleMeasureShort)
+{
+    BWTest test;
+    test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
+    test.randomSeed = 42;
+    test.frameLimit = 1000;
     auto sgl = runEfficiencyTest(test, 1, 0, false, true);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
