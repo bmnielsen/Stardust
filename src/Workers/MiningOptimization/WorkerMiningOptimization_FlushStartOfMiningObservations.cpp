@@ -425,6 +425,26 @@ namespace WorkerMiningOptimization
                     continue;
                 }
 
+                // If the path did not start at the depot, we don't try to explore surrounding positions
+                // The rationale for this is that paths not starting at the depot are not likely to come up often,
+                // so we can't explore them efficiently
+                if (!workerStatus.pathStartsAtDepot())
+                {
+                    auto emplacedIt = optimalGatherPositions.emplace(
+                            **optimalPositionIt,
+                            PositionObservationMetadata{(*optimalPositionIt)->previousPositionsHash, **optimalPositionIt, nullptr, 0}
+                    ).first;
+
+                    emplacedIt->second.hasPositionToTry = true;
+
+#if OPTIMALPOSITIONS_DEBUG
+                    CherryVis::log(worker->id) << "Queued test of " << **optimalPositionIt;
+#endif
+
+                    it = workerGatherStatuses.erase(it);
+                    continue;
+                }
+
                 // Get the "path hash", which is the hash of the first position in the explored path
                 uint32_t pathHash = 0;
                 for (auto positionIt = optimalPositionIt; positionIt != workerStatus.positionHistory.rend(); positionIt++)
@@ -600,7 +620,7 @@ namespace WorkerMiningOptimization
                 {
                     clearSecondResendPositionsData();
                 }
-                else
+                else if (workerStatus.pathStartsAtDepot())
                 {
                     for (int i = 1; i <= (EXPLORE_AFTER - resentPositionData.deltaToNormalPathOptimalPosition + EXPLORE_SECOND_RESEND_POSITIONS); i++)
                     {
@@ -617,6 +637,8 @@ namespace WorkerMiningOptimization
                                                    << " : " << **here << ", delta " << i;
 #endif
                     }
+
+                    resentPositionData.hasPositionToTry = true;
                 }
             }
 

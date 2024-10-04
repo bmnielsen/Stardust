@@ -445,7 +445,7 @@ namespace WorkerMiningOptimization
     // Optimizes the start of mining, returning whether an order was sent to the worker.
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
-        auto &workerStatus = gatherStatusFor(worker, resource);
+        auto &workerStatus = gatherStatusFor(worker, depot, resource);
 
         auto resourceBwapiUnit = resource->getBwapiUnitIfVisible();
         if (!resourceBwapiUnit)
@@ -471,22 +471,22 @@ namespace WorkerMiningOptimization
             Log::Get() << "ERROR: patch @ " << resource->tile << "; worker " << worker->id << " @ " << worker->getTilePosition() << " switched patch";
 
             worker->gather(resourceBwapiUnit);
+            workerStatus.reset();
             return;
         }
 
-        // Clear worker status if it wasn't processed last frame
-        if (workerStatus.lastProcessedFrame != (currentFrame - 1))
-        {
-            workerStatus.reset();
-        }
-        workerStatus.lastProcessedFrame = currentFrame;
-
         // Track the worker's visited positions
-        // We start updating the previous positions hash once the worker leaves the depot
-        auto currentPosition = std::make_shared<PositionAndVelocity>(
-                worker,
-                (workerStatus.positionHistory.empty() || depot->getDistance(worker) == 0) ? nullptr : workerStatus.positionHistory.rbegin()->get());
+        // We start updating the previous positions hash once the worker starts moving from the depot
+        const PositionAndVelocity *previous = nullptr;
+        if (!workerStatus.positionHistory.empty() &&
+            (depot->getDistance(worker) > 0 ||
+             !(*workerStatus.positionHistory.begin())->positionAndVelocityEquals(**workerStatus.positionHistory.rbegin())))
+        {
+            previous = workerStatus.positionHistory.rbegin()->get();
+        }
+        auto currentPosition = std::make_shared<PositionAndVelocity>(worker, previous);
         workerStatus.positionHistory.emplace_back(currentPosition);
+        workerStatus.lastProcessedFrame = currentFrame;
 
         // Don't touch the worker if it is transitioning to mine
         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals) return;
@@ -523,7 +523,7 @@ namespace WorkerMiningOptimization
                 CherryVis::log(worker->id) << "Resending for " << *plannedPosition;
 #endif
 
-                if (worker->gather(resource->getBwapiUnitIfVisible()))
+                if (worker->gather(resourceBwapiUnit))
                 {
                     resentPosition = currentPosition;
                 }

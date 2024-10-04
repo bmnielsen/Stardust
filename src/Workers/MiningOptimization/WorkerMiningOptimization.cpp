@@ -295,12 +295,20 @@ namespace WorkerMiningOptimization
         // TODO
     }
 
-    WorkerGatherStatus &gatherStatusFor(const MyWorker &worker, const Resource &resource)
+    WorkerGatherStatus &gatherStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
         auto workerStatusIt = workerGatherStatuses.find(worker);
         if (workerStatusIt == workerGatherStatuses.end())
         {
-            workerStatusIt = workerGatherStatuses.emplace(worker, WorkerGatherStatus{worker, resource}).first;
+            workerStatusIt = workerGatherStatuses.emplace(worker, WorkerGatherStatus{worker, depot, resource}).first;
+        }
+        else if (workerStatusIt->second.lastProcessedFrame != (currentFrame - 1)
+                 || workerStatusIt->second.depot != depot
+                 || workerStatusIt->second.resource != resource)
+        {
+            workerStatusIt->second.reset();
+            workerStatusIt->second.depot = depot;
+            workerStatusIt->second.resource = resource;
         }
         return workerStatusIt->second;
     }

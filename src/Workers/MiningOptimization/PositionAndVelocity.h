@@ -62,6 +62,15 @@ struct PositionAndVelocity
                && previousPositionsHash == other.previousPositionsHash;
     }
 
+    [[nodiscard]] bool positionAndVelocityEquals(const PositionAndVelocity &other) const
+    {
+        return x == other.x
+               && y == other.y
+               && dx == other.dx
+               && dy == other.dy
+               && heading == other.heading;
+    }
+
     [[nodiscard]] BWAPI::Position pos() const
     {
         return {x, y};

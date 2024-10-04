@@ -31,7 +31,7 @@ namespace WorkerMiningOptimization
                                         std::map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositions,
                                         std::map<PositionAndVelocity, PositionObservationMetadata> &takeoverResendPositions);
 
-    WorkerGatherStatus &gatherStatusFor(const MyWorker &worker, const Resource &resource);
+    WorkerGatherStatus &gatherStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
     std::map<PositionAndVelocity, PositionObservationMetadata> &optimalGatherPositionsFor(const Resource &resource);
     std::map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositionsFor(const Resource &resource);
     std::map<PositionAndVelocity, PositionObservationMetadata> &takeoverPositionsFor(const Resource &resource);

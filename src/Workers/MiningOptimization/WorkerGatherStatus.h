@@ -3,6 +3,7 @@
 #include "MyWorker.h"
 #include "Resource.h"
 #include "PositionAndVelocity.h"
+#include "Geo.h"
 
 namespace WorkerMiningOptimization
 {
@@ -10,6 +11,9 @@ namespace WorkerMiningOptimization
     {
         // The worker gathering
         MyWorker worker;
+
+        // The depot returning to
+        MyUnit depot;
 
         // The resource being gathered from
         Resource resource;
@@ -44,8 +48,9 @@ namespace WorkerMiningOptimization
         // Mode to use for takeover, current allowed values: 0=use normal approach optimization, 1=use takeover optimization, 2=at patch
         int takeoverMode;
 
-        WorkerGatherStatus(MyWorker worker, Resource resource)
+        WorkerGatherStatus(MyWorker worker, MyUnit depot, Resource resource)
                 : worker(std::move(worker))
+                , depot(std::move(depot))
                 , resource(std::move(resource))
                 , lastProcessedFrame(-2)
                 , resendsPlanned(false)
@@ -70,6 +75,13 @@ namespace WorkerMiningOptimization
         [[nodiscard]] bool resentOnSchedule() const
         {
             return resendCommandOnFrame != -2;
+        }
+
+        [[nodiscard]] bool pathStartsAtDepot() const
+        {
+            if (positionHistory.empty()) return false;
+
+            return Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe, (*positionHistory.begin())->pos(), depot->type, depot->lastPosition) == 0;
         }
     };
 }
