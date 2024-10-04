@@ -224,12 +224,21 @@ namespace WorkerMiningOptimization
 
             workerStatus.resendsPlanned = true;
 
+            auto explorePosition = [](const PositionObservationMetadata *metadata)
+            {
+                if (!metadata->hasPositionToTry) return false;
+                if (WorkerMiningOptimization::isExploring()) return true;
+
+                // Also explore the single most common optimal position even if we aren't exploring
+                return metadata->deltaToNormalPathOptimalPosition == 0 && metadata->noResendObservations.empty();
+            };
+
             auto planPosition = [&](const PositionObservationMetadata *metadata, int secondResendIndex = -1)
             {
                 workerStatus.plannedResendPosition = std::make_shared<PositionAndVelocity>(metadata->pos);
 
                 // If exploring, find the next resend position that hasn't been tried yet
-                if (metadata->hasPositionToTry)
+                if (explorePosition(metadata))
                 {
                     if (!metadata->noResendObservations.empty())
                     {
@@ -308,7 +317,7 @@ namespace WorkerMiningOptimization
             while (true)
             {
                 // Exploring this position
-                if (currentMetadata->hasPositionToTry)
+                if (explorePosition(currentMetadata))
                 {
                     planPosition(currentMetadata);
 
@@ -318,7 +327,7 @@ namespace WorkerMiningOptimization
                     break;
                 }
 
-                if (!currentMetadata->followingHasPositionToTry)
+                if (!currentMetadata->followingHasPositionToTry || !WorkerMiningOptimization::isExploring())
                 {
                     if (currentMetadata->bestDelta < currentMetadata->bestFollowingPositionDelta)
                     {

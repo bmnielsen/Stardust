@@ -8,6 +8,7 @@
 #include "TestMainArmyAttackBasePlay.h"
 #include "Plays/Macro/SaturateBases.h"
 #include "WorkerMiningInstrumentation.h"
+#include "MiningOptimization/WorkerMiningOptimization.h"
 #include "Units.h"
 #include "Workers.h"
 
@@ -17,7 +18,7 @@ namespace
 
     std::map<std::string, std::map<std::pair<int, int>, double>> mapHashToConfigurationToEfficiency;
 
-    double runEfficiencyTestImpl(BWTest &test, int workersPerPatch, int cannons, bool onlyOneWorker)
+    double runEfficiencyTestImpl(BWTest &test, int workersPerPatch, int cannons, bool onlyOneWorker, bool measureOnly)
     {
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
@@ -65,6 +66,8 @@ namespace
             {
                 case 0:
                 {
+                    WorkerMiningOptimization::setExploring(!measureOnly);
+
                     for (auto unit : BWAPI::Broodwar->self()->getUnits())
                     {
                         if (unit->getType().isWorker())
@@ -324,16 +327,20 @@ namespace
         return result;
     }
 
-    double runEfficiencyTest(BWTest &test, int workersPerPatch, int cannons, bool onlyOneWorker = false)
+    double runEfficiencyTest(BWTest &test, int workersPerPatch, int cannons, bool onlyOneWorker = false, bool measureOnly = false)
     {
+#if !INSTRUMENTATION_ENABLED
+        return runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker);
+#else
         for (int i=0; i<10; i++)
         {
-            auto result = runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker);
+            auto result = runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker, measureOnly);
             if (result > 0.0001) return result;
         }
 
         Log::Get() << "ERROR: Could not get a stable test run after 10 tries!";
         return 49.0;
+#endif
     }
 }
 
@@ -460,6 +467,17 @@ TEST(MiningTraining, NeoMoonGlaiveSingle)
     test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
     test.randomSeed = 42;
     auto sgl = runEfficiencyTest(test, 1, 0);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << "%" << std::endl;
+}
+
+TEST(MiningTraining, NeoMoonGlaiveSingleMeasure)
+{
+    BWTest test;
+    test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 1, 0, false, true);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
               << "Single: " << sgl << "%" << std::endl;

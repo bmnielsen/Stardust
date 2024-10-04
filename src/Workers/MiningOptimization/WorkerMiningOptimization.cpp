@@ -12,6 +12,9 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
+        // Whether we are exploring new positions
+        bool exploring;
+
         // Metadata for positions where we can resend the gather command to start mining immediately on arrival
         std::map<Resource, std::map<PositionAndVelocity, PositionObservationMetadata>> resourceToOptimalGatherPositions;
 
@@ -268,6 +271,11 @@ namespace WorkerMiningOptimization
 
     void initialize()
     {
+#if INSTRUMENTATION_ENABLED
+        exploring = true;
+#else
+        exploring = false;
+#endif
         workerGatherStatuses.clear();
 
         parsePositionObservationMetadataFile(optimalGatherPositionsFilename(), resourceToOptimalGatherPositions);
@@ -326,5 +334,15 @@ namespace WorkerMiningOptimization
     std::map<PositionAndVelocity, PositionObservationMetadata> &takeoverPositionsFor(const Resource &resource)
     {
         return resourceToTakeoverResendPositions[resource];
+    }
+
+    bool isExploring()
+    {
+        return exploring;
+    }
+
+    void setExploring(bool newExploring)
+    {
+        exploring = newExploring;
     }
 }

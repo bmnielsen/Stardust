@@ -39,10 +39,12 @@ list(FILTER SRC_FILES EXCLUDE REGEX ".*3rdparty.*")
 add_executable(tests ${SRC_FILES})
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
+    target_compile_definitions(tests PUBLIC INSTRUMENTATION_ENABLED=true)
     target_compile_definitions(tests PUBLIC DEBUG=1)
 endif()
 
 if (CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
+    target_compile_definitions(tests PUBLIC INSTRUMENTATION_ENABLED=true)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fsanitize-recover=address,undefined -g")
 endif()
 
