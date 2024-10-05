@@ -21,6 +21,8 @@ public:
     bool enableSurrender = false;
 #endif
 
+    bool enableFrameLimit = true;
+
     void onStart() override;
 
     void onEnd(bool isWinner) override;

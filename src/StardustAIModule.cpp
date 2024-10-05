@@ -176,7 +176,7 @@ void StardustAIModule::onFrame()
     if (BWAPI::Broodwar->isReplay()) return;
 
 #ifdef FRAME_LIMIT
-    if (currentFrame > FRAME_LIMIT)
+    if (enableFrameLimit && currentFrame > FRAME_LIMIT)
     {
         gameFinished = true;
         BWAPI::Broodwar->leaveGame();
