@@ -10,8 +10,8 @@
 #include "Geo.h"
 #include "OrderProcessTimer.h"
 
-#define EXPLORE_BEFORE 5
-#define EXPLORE_AFTER 2
+#define EXPLORE_BEFORE 8
+#define EXPLORE_AFTER 5
 #define EXPLORE_SECOND_RESEND_POSITIONS 2 // This is in addition to EXPLORE_AFTER
 
 namespace WorkerMiningOptimization
@@ -380,6 +380,7 @@ namespace WorkerMiningOptimization
                     + BWAPI::Broodwar->getLatencyFrames() + 10;
 
 #if OPTIMALPOSITIONS_DEBUG
+#if OPTIMALPOSITIONS_DEBUG_VERBOSE
             {
                 std::ostringstream dbg;
                 dbg << "Position history:";
@@ -389,6 +390,7 @@ namespace WorkerMiningOptimization
                 }
                 CherryVis::log(worker->id) << dbg.str();
             }
+#endif
 
             if (workerStatus.plannedResendPosition && !workerStatus.resentPosition)
             {
@@ -424,7 +426,7 @@ namespace WorkerMiningOptimization
                                 : resentPositionData.noResendObservations.mostCommonArrivalDelay();
 
                         auto actualFramesToArrival = std::distance(lastResendPositionIt.base(), arrivalPositionIt);
-                        if (actualFramesToArrival != (BWAPI::Broodwar->getLatencyFrames() + 10 - arrivalDelay))
+                        if (actualFramesToArrival > (BWAPI::Broodwar->getLatencyFrames() + 10 - arrivalDelay))
                         {
                             Log::Get() << "ERROR: Position " << resentPositionData << " has unexpected arrival delta"
                                        << "; expected=" << (BWAPI::Broodwar->getLatencyFrames() + 10 - arrivalDelay)
@@ -451,7 +453,7 @@ namespace WorkerMiningOptimization
                                        << "; expected=" << minExpectedFramesToMining << "-" << maxExpectedFramesToMining
                                        << "; actual=" << actualFramesToMining
                                        << "; worker id " << worker->id << " @ " << worker->getTilePosition();
-/*
+
                             std::ostringstream dbg;
                             dbg << "Distance mismatch:";
                             bool hasDistanceMismatch = false;
@@ -468,7 +470,6 @@ namespace WorkerMiningOptimization
                                 if (dist == 0 && distCurrent == 1) hasDistanceMismatch = true;
                             }
                             if (hasDistanceMismatch) Log::Get() << dbg.str();
-*/
                         }
                     }
                 }

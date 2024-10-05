@@ -306,6 +306,22 @@ namespace WorkerMiningOptimization
                 {
                     out << " (" << label << ")";
                 }
+
+                if (workerStatus.plannedResendPosition)
+                {
+                    auto resentPositionDataIt = optimalGatherPositions.find(*workerStatus.plannedResendPosition);
+                    if (resentPositionDataIt != optimalGatherPositions.end())
+                    {
+                        auto &resentPositionData = resentPositionDataIt->second;
+
+                        auto secondResendData = resentPositionData.secondResendMetadataFor(workerStatus.plannedSecondResendPosition.get());
+                        auto &observations = secondResendData ? secondResendData->observations : resentPositionData.noResendObservations;
+                        if (!observations.empty())
+                        {
+                            out << " expected delay " << observations.mostCommonArrivalDelay();
+                        }
+                    }
+                }
                 CherryVis::log(worker->id) << out.str();
             };
 #endif
