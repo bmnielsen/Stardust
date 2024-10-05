@@ -501,17 +501,7 @@ namespace WorkerMiningOptimization
         }
 
         // Track the worker's visited positions
-        // We start updating the previous positions hash once the worker starts moving from the depot
-        const PositionAndVelocity *previous = nullptr;
-        if (!workerStatus.positionHistory.empty() &&
-            (depot->getDistance(worker) > 0 ||
-             !(*workerStatus.positionHistory.begin())->positionAndVelocityEquals(**workerStatus.positionHistory.rbegin())))
-        {
-            previous = workerStatus.positionHistory.rbegin()->get();
-        }
-        auto currentPosition = std::make_shared<PositionAndVelocity>(worker, previous);
-        workerStatus.positionHistory.emplace_back(currentPosition);
-        workerStatus.lastProcessedFrame = currentFrame;
+        auto currentPosition = workerStatus.appendCurrentPosition();
 
         // Don't touch the worker if it is transitioning to mine
         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals) return;

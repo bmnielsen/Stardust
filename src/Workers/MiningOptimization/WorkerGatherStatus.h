@@ -83,5 +83,19 @@ namespace WorkerMiningOptimization
 
             return Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe, (*positionHistory.begin())->pos(), depot->type, depot->lastPosition) == 0;
         }
+
+        std::shared_ptr<PositionAndVelocity> appendCurrentPosition()
+        {
+            // If the path starts at the depot, include hashes of the previous positions
+            // This helps us detect when the worker takes a slightly different path
+            // We can't use it when the path starts elsewhere though, as the worker could have been anywhere and we will not get enough data
+            auto currentPosition = std::make_shared<PositionAndVelocity>(
+                    worker,
+                    (!positionHistory.empty() && pathStartsAtDepot()) ? positionHistory.rbegin()->get() : nullptr);
+            positionHistory.emplace_back(currentPosition);
+            lastProcessedFrame = currentFrame;
+
+            return currentPosition;
+        }
     };
 }
