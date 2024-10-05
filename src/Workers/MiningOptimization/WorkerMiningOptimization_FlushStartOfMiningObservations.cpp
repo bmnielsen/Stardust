@@ -10,9 +10,6 @@
 #include "Geo.h"
 #include "OrderProcessTimer.h"
 
-#define EXPLORE_BEFORE 8
-#define EXPLORE_AFTER 5
-#define EXPLORE_SECOND_RESEND_POSITIONS 2 // This is in addition to EXPLORE_AFTER
 
 namespace WorkerMiningOptimization
 {

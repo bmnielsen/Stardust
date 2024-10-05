@@ -33,7 +33,8 @@ namespace WorkerMiningOptimization
         {
             auto filename = std::ostringstream()
                     << "gatherpositions_" << BWAPI::Broodwar->mapHash()
-                    << "_lf" << BWAPI::Broodwar->getLatencyFrames();
+                    << "_lf" << BWAPI::Broodwar->getLatencyFrames()
+                    << "_" << EXPLORE_BEFORE << EXPLORE_AFTER << EXPLORE_SECOND_RESEND_POSITIONS;
             return FileTools::getFilePath(filename.str(), "csv", writing);
         }
 
