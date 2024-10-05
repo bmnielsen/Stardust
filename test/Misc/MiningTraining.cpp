@@ -2,6 +2,7 @@
 #include "DoNothingModule.h"
 #include "ClearOpponentUnitsModule.h"
 #include "DoNothingStrategyEngine.h"
+#include "StardustAIModule.h"
 
 #include "Map.h"
 #include "Strategist.h"
@@ -18,14 +19,27 @@ namespace
 
     std::map<std::string, std::map<std::pair<int, int>, double>> mapHashToConfigurationToEfficiency;
 
-    double runEfficiencyTestImpl(BWTest &test, int workersPerPatch, int cannons, bool onlyOneWorker, bool measureOnly)
+    double runEfficiencyTestImpl(BWTest &test, int workersPerPatch, int cannons, bool onlyOneWorker, bool measureOnly, int iterations = 1)
     {
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
         {
             return new ClearOpponentUnitsModule();
         };
-        if (test.frameLimit > 10000) test.frameLimit = 10000;
+        test.myModule = []()
+        {
+            auto module = new StardustAIModule();
+            module->enableFrameLimit = false;
+            return module;
+        };
+        if (iterations > 1)
+        {
+            test.frameLimit = 10000 * iterations;
+        }
+        else
+        {
+            test.frameLimit = 10000;
+        }
         test.expectWin = false;
 
         std::ostringstream replayNameBuilder;
@@ -62,19 +76,23 @@ namespace
             // - Add required number of cannons
             // - Create workers
 
-            switch (BWAPI::Broodwar->getFrameCount())
+            if (BWAPI::Broodwar->getFrameCount() % 10000 == 0)
             {
-                case 0:
+                Log::SetOutputToConsole(false);
+
+                for (auto unit : BWAPI::Broodwar->self()->getUnits())
+                {
+                    if (unit->getType().isWorker())
+                    {
+                        BWAPI::Broodwar->killUnit(unit);
+                    }
+                }
+
+                workerCreationOrderAndBase.clear();
+
+                if (BWAPI::Broodwar->getFrameCount() == 0)
                 {
                     WorkerMiningOptimization::setExploring(!measureOnly);
-
-                    for (auto unit : BWAPI::Broodwar->self()->getUnits())
-                    {
-                        if (unit->getType().isWorker())
-                        {
-                            BWAPI::Broodwar->killUnit(unit);
-                        }
-                    }
 
                     for (auto base : Map::allBases())
                     {
@@ -84,224 +102,212 @@ namespace
                         }
                         BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, base->getPosition());
                     }
-
-                    break;
                 }
-                case 5:
+            }
+            else if (BWAPI::Broodwar->getFrameCount() == 5)
+            {
+                for (auto base : Map::allBases())
                 {
-                    for (auto base : Map::allBases())
+                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                                BWAPI::UnitTypes::Protoss_Nexus,
+                                                Geo::CenterOfUnit(base->getTilePosition(), BWAPI::UnitTypes::Protoss_Nexus));
+
+                    auto &staticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
+                    if (staticDefenseLocations.powerPylon.isValid())
                     {
                         BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                    BWAPI::UnitTypes::Protoss_Nexus,
-                                                    Geo::CenterOfUnit(base->getTilePosition(), BWAPI::UnitTypes::Protoss_Nexus));
-
-                        auto &staticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-                        if (staticDefenseLocations.powerPylon.isValid())
-                        {
-                            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                        BWAPI::UnitTypes::Protoss_Pylon,
-                                                        Geo::CenterOfUnit(staticDefenseLocations.powerPylon, BWAPI::UnitTypes::Protoss_Pylon));
-                        }
+                                                    BWAPI::UnitTypes::Protoss_Pylon,
+                                                    Geo::CenterOfUnit(staticDefenseLocations.powerPylon, BWAPI::UnitTypes::Protoss_Pylon));
                     }
-
-                    break;
                 }
-                case 10:
+            }
+            else if (BWAPI::Broodwar->getFrameCount() == 10)
+            {
+                for (auto unit : BWAPI::Broodwar->self()->getUnits())
                 {
-                    for (auto unit : BWAPI::Broodwar->self()->getUnits())
+                    if (unit->getType() == BWAPI::UnitTypes::Protoss_Observer)
                     {
-                        if (unit->getType() == BWAPI::UnitTypes::Protoss_Observer)
-                        {
-                            BWAPI::Broodwar->killUnit(unit);
-                        }
+                        BWAPI::Broodwar->killUnit(unit);
                     }
-
-                    auto &locations = BuildingPlacement::getBuildLocations()[to_underlying(BuildingPlacement::Neighbourhood::MainBase)][3];
-                    if (!locations.empty())
-                    {
-                        BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                    BWAPI::UnitTypes::Protoss_Forge,
-                                                    Geo::CenterOfUnit(locations.begin()->location.tile, BWAPI::UnitTypes::Protoss_Forge));
-                    }
-
-                    break;
                 }
-                case 15:
+
+                auto &locations = BuildingPlacement::getBuildLocations()[to_underlying(BuildingPlacement::Neighbourhood::MainBase)][3];
+                if (!locations.empty())
                 {
-                    for (auto base : Map::allBases())
-                    {
-                        auto &staticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-                        if (staticDefenseLocations.powerPylon.isValid())
-                        {
-                            auto cannonLocations = std::set<BWAPI::TilePosition>(staticDefenseLocations.workerDefenseCannons.begin(),
-                                                                                 staticDefenseLocations.workerDefenseCannons.end());
-
-                            auto buildCannon = [&]()
-                            {
-                                BWAPI::TilePosition best = BWAPI::TilePositions::Invalid;
-                                int bestDist = INT_MAX;
-                                for (auto tile : cannonLocations)
-                                {
-                                    int dist = base->mineralLineCenter.getApproxDistance(Geo::CenterOfUnit(tile,
-                                                                                                           BWAPI::UnitTypes::Protoss_Photon_Cannon));
-                                    if (dist < bestDist)
-                                    {
-                                        bestDist = dist;
-                                        best = tile;
-                                    }
-                                }
-
-                                if (best != BWAPI::TilePositions::Invalid)
-                                {
-                                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                                BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                                                                Geo::CenterOfUnit(best, BWAPI::UnitTypes::Protoss_Photon_Cannon));
-                                    cannonLocations.erase(best);
-                                }
-                            };
-
-                            for (int builtCannons = 0; builtCannons < cannons; builtCannons++)
-                            {
-                                buildCannon();
-                            }
-                        }
-                    }
-
-                    break;
+                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                                BWAPI::UnitTypes::Protoss_Forge,
+                                                Geo::CenterOfUnit(locations.begin()->location.tile, BWAPI::UnitTypes::Protoss_Forge));
                 }
-                case 20:
+            }
+            else if (BWAPI::Broodwar->getFrameCount() == 15)
+            {
+                for (auto base : Map::allBases())
                 {
-                    // Create workers
-                    int idx = 0;
-                    for (auto &base : Map::allBases())
+                    auto &staticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
+                    if (staticDefenseLocations.powerPylon.isValid())
                     {
-                        auto wpDepot = BWAPI::WalkPosition(base->getPosition());
-                        std::set<std::pair<int, BWAPI::WalkPosition>> positionsByDistToDepot;
-                        std::set<BWAPI::WalkPosition> availablePositions;
-                        for (auto tile : base->mineralLineTiles)
-                        {
-                            if (!Map::isWalkable(tile)) continue;
+                        auto cannonLocations = std::set<BWAPI::TilePosition>(staticDefenseLocations.workerDefenseCannons.begin(),
+                                                                             staticDefenseLocations.workerDefenseCannons.end());
 
-                            for (int x = 0; x < 4; x++)
+                        auto buildCannon = [&]()
+                        {
+                            BWAPI::TilePosition best = BWAPI::TilePositions::Invalid;
+                            int bestDist = INT_MAX;
+                            for (auto tile : cannonLocations)
                             {
-                                for (int y = 0; y < 4; y++)
+                                int dist = base->mineralLineCenter.getApproxDistance(Geo::CenterOfUnit(tile,
+                                                                                                       BWAPI::UnitTypes::Protoss_Photon_Cannon));
+                                if (dist < bestDist)
                                 {
-                                    auto here = BWAPI::WalkPosition(tile) + BWAPI::WalkPosition(x, y);
-                                    if (BWAPI::Broodwar->isWalkable(here))
-                                    {
-                                        availablePositions.insert(here);
-                                        positionsByDistToDepot.insert(std::make_pair(here.getApproxDistance(wpDepot), here));
-                                    }
+                                    bestDist = dist;
+                                    best = tile;
                                 }
                             }
-                        }
 
-                        for (int built = 0; built < (base->mineralPatchCount() * workersPerPatch); built++)
-                        {
-                            for (auto [_, start] : positionsByDistToDepot)
+                            if (best != BWAPI::TilePositions::Invalid)
                             {
-                                for (int x = 0; x < 3; x++)
-                                {
-                                    for (int y = 0; y < 3; y++)
-                                    {
-                                        if (!availablePositions.contains(start + BWAPI::WalkPosition(x, y)))
-                                        {
-                                            goto nextStartPosition;
-                                        }
-                                    }
-                                }
-
                                 BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                            BWAPI::UnitTypes::Protoss_Probe,
-                                                            Geo::CenterOfUnit(BWAPI::Position(start), BWAPI::UnitTypes::Protoss_Probe));
-                                workerCreationOrderAndBase[Geo::CenterOfUnit(BWAPI::Position(start),
-                                                                             BWAPI::UnitTypes::Protoss_Probe)] = std::make_pair(++idx, base);
+                                                            BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                                            Geo::CenterOfUnit(best, BWAPI::UnitTypes::Protoss_Photon_Cannon));
+                                cannonLocations.erase(best);
+                            }
+                        };
 
-                                for (int x = 0; x < 3; x++)
+                        for (int builtCannons = 0; builtCannons < cannons; builtCannons++)
+                        {
+                            buildCannon();
+                        }
+                    }
+                }
+            }
+            else if (BWAPI::Broodwar->getFrameCount() % 10000 == 20)
+            {
+                // Create workers
+                int idx = 0;
+                for (auto &base : Map::allBases())
+                {
+                    auto wpDepot = BWAPI::WalkPosition(base->getPosition());
+                    std::set<std::pair<int, BWAPI::WalkPosition>> positionsByDistToDepot;
+                    std::set<BWAPI::WalkPosition> availablePositions;
+                    for (auto tile : base->mineralLineTiles)
+                    {
+                        if (!Map::isWalkable(tile)) continue;
+
+                        for (int x = 0; x < 4; x++)
+                        {
+                            for (int y = 0; y < 4; y++)
+                            {
+                                auto here = BWAPI::WalkPosition(tile) + BWAPI::WalkPosition(x, y);
+                                if (BWAPI::Broodwar->isWalkable(here))
                                 {
-                                    for (int y = 0; y < 3; y++)
+                                    availablePositions.insert(here);
+                                    positionsByDistToDepot.insert(std::make_pair(here.getApproxDistance(wpDepot), here));
+                                }
+                            }
+                        }
+                    }
+
+                    for (int built = 0; built < (base->mineralPatchCount() * workersPerPatch); built++)
+                    {
+                        for (auto [_, start] : positionsByDistToDepot)
+                        {
+                            for (int x = 0; x < 3; x++)
+                            {
+                                for (int y = 0; y < 3; y++)
+                                {
+                                    if (!availablePositions.contains(start + BWAPI::WalkPosition(x, y)))
                                     {
-                                        availablePositions.erase(start + BWAPI::WalkPosition(x, y));
+                                        goto nextStartPosition;
                                     }
                                 }
-
-                                if (onlyOneWorker) return;
-
-                                goto nextWorker;
-
-                                nextStartPosition:;
                             }
 
-                            Log::Get() << "ERROR: Could not build worker " << built << " at base " << base->getTilePosition();
+                            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                                        BWAPI::UnitTypes::Protoss_Probe,
+                                                        Geo::CenterOfUnit(BWAPI::Position(start), BWAPI::UnitTypes::Protoss_Probe));
+                            workerCreationOrderAndBase[Geo::CenterOfUnit(BWAPI::Position(start),
+                                                                         BWAPI::UnitTypes::Protoss_Probe)] = std::make_pair(++idx, base);
 
-                            nextWorker:;
+                            for (int x = 0; x < 3; x++)
+                            {
+                                for (int y = 0; y < 3; y++)
+                                {
+                                    availablePositions.erase(start + BWAPI::WalkPosition(x, y));
+                                }
+                            }
+
+                            if (onlyOneWorker) return;
+
+                            goto nextWorker;
+
+                            nextStartPosition:;
                         }
-                    }
 
-                    break;
+                        Log::Get() << "ERROR: Could not build worker " << built << " at base " << base->getTilePosition();
+
+                        nextWorker:;
+                    }
                 }
-                case 23:
+            }
+            else if (BWAPI::Broodwar->getFrameCount() % 10000 == 23)
+            {
+                // Gather all available mineral assignments for each base, and sort them to ensure stability between test runs
+                std::map<Base *, std::vector<Resource>> baseMineralPatches;
+                for (auto &base : Map::allBases())
                 {
-                    // Gather all available mineral assignments for each base, and sort them to ensure stability between test runs
-                    std::map<Base *, std::vector<Resource>> baseMineralPatches;
-                    for (auto &base : Map::allBases())
+                    auto patches = base->mineralPatches();
+                    if (workersPerPatch == 2)
                     {
-                        auto patches = base->mineralPatches();
-                        if (workersPerPatch == 2)
-                        {
-                            patches.insert(patches.end(), base->mineralPatches().begin(), base->mineralPatches().end());
-                        }
-
-                        std::sort(patches.begin(), patches.end(), [](const Resource &a, const Resource &b)
-                        {
-                            return a->tile < b->tile;
-                        });
-
-                        baseMineralPatches[base] = patches;
+                        patches.insert(patches.end(), base->mineralPatches().begin(), base->mineralPatches().end());
                     }
 
-                    // Sort the workers by location so we get stable behaviour across runs
-                    auto workerSet = Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe);
-                    std::vector<MyUnit> workers(workerSet.begin(), workerSet.end());
-                    std::sort(workers.begin(), workers.end(), [](const MyUnit &a, const MyUnit &b)
+                    std::sort(patches.begin(), patches.end(), [](const Resource &a, const Resource &b)
                     {
-                        return a->lastPosition < b->lastPosition;
+                        return a->tile < b->tile;
                     });
 
-                    // Rewrite the order process index for all workers, as the way they are created for this test (where they all appear on the same
-                    // frame) prevents our usual logic from working
-                    // Also override the mineral patch assignments to ensure stability between runs
-                    for (auto &worker : workers)
-                    {
-                        auto it = workerCreationOrderAndBase.find(worker->lastPosition);
-                        if (it != workerCreationOrderAndBase.end())
-                        {
-                            worker->orderProcessIndex = it->second.first;
+                    baseMineralPatches[base] = patches;
+                }
 
-                            auto &basePatches = baseMineralPatches[it->second.second];
-                            if (!basePatches.empty())
-                            {
-                                Workers::setWorkerMineralPatch(std::static_pointer_cast<MyWorkerImpl>(worker),
-                                                               *basePatches.rbegin(),
-                                                               it->second.second);
-                                basePatches.pop_back();
-                            }
-                            else
-                            {
-                                Log::Get() << "ERROR: Couldn't get base patches for worker @ " << worker->lastPosition;
-                            }
+                // Sort the workers by location so we get stable behaviour across runs
+                auto workerSet = Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe);
+                std::vector<MyUnit> workers(workerSet.begin(), workerSet.end());
+                std::sort(workers.begin(), workers.end(), [](const MyUnit &a, const MyUnit &b)
+                {
+                    return a->lastPosition < b->lastPosition;
+                });
+
+                // Rewrite the order process index for all workers, as the way they are created for this test (where they all appear on the same
+                // frame) prevents our usual logic from working
+                // Also override the mineral patch assignments to ensure stability between runs
+                for (auto &worker : workers)
+                {
+                    auto it = workerCreationOrderAndBase.find(worker->lastPosition);
+                    if (it != workerCreationOrderAndBase.end())
+                    {
+                        worker->orderProcessIndex = it->second.first;
+
+                        auto &basePatches = baseMineralPatches[it->second.second];
+                        if (!basePatches.empty())
+                        {
+                            Workers::setWorkerMineralPatch(std::static_pointer_cast<MyWorkerImpl>(worker),
+                                                           *basePatches.rbegin(),
+                                                           it->second.second);
+                            basePatches.pop_back();
                         }
                         else
                         {
-                            Log::Get() << "ERROR: Couldn't get index for worker @ " << worker->lastPosition;
-                            BWAPI::Broodwar->leaveGame();
+                            Log::Get() << "ERROR: Couldn't get base patches for worker @ " << worker->lastPosition;
                         }
                     }
+                    else
+                    {
+                        Log::Get() << "ERROR: Couldn't get index for worker @ " << worker->lastPosition;
+                        BWAPI::Broodwar->leaveGame();
+                    }
                 }
-                default:
-                {
-                    break;
-                }
+
+                Log::SetOutputToConsole(true);
             }
         };
 
@@ -317,8 +323,6 @@ namespace
             {
                 result = efficiency.second;
             }
-
-            mapHashToConfigurationToEfficiency[BWAPI::Broodwar->mapHash()][std::make_pair(workersPerPatch, cannons)] = result;
         };
 
         test.run();
@@ -341,6 +345,12 @@ namespace
         Log::Get() << "ERROR: Could not get a stable test run after 10 tries!";
         return 49.0;
 #endif
+    }
+
+    double runTestSuite(BWTest &test, int workersPerPatch, int cannons)
+    {
+        runEfficiencyTestImpl(test, workersPerPatch, cannons, false, false, 5);
+        return runEfficiencyTest(test, workersPerPatch, cannons, false, true);
     }
 }
 
@@ -395,6 +405,17 @@ TEST(MiningTraining, ChupungRyeongSingle)
     test.map = Maps::GetOne("Chupung");
     test.randomSeed = 42;
     auto sgl = runEfficiencyTest(test, 1, 0);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+        << "Overall efficiency: " << std::endl
+        << "Single: " << sgl << "%" << std::endl;
+}
+
+TEST(MiningTraining, ChupungRyeongSingleTwoIterations)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Chupung");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTestImpl(test, 1, 0, false, false, 2);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
         << "Overall efficiency: " << std::endl
         << "Single: " << sgl << "%" << std::endl;
@@ -467,6 +488,17 @@ TEST(MiningTraining, NeoMoonGlaiveSingle)
     test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
     test.randomSeed = 42;
     auto sgl = runEfficiencyTest(test, 1, 0);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << "%" << std::endl;
+}
+
+TEST(MiningTraining, NeoMoonGlaiveTestSuite)
+{
+    BWTest test;
+    test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
+    test.randomSeed = 42;
+    auto sgl = runTestSuite(test, 1, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
               << "Single: " << sgl << "%" << std::endl;
@@ -727,9 +759,10 @@ TEST(MiningTraining, AllAIIDEContinuousSingleOnlyNoCannons)
 {
     while (true)
     {
-        Maps::RunOnEach(Maps::Get("aiide2023"), [](BWTest test)
+        Maps::RunOnEach(Maps::Get("aiide2024"), [](BWTest test)
         {
-            double single = runEfficiencyTest(test, 1, 0);
+            double single = runTestSuite(test, 1, 0);
+            mapHashToConfigurationToEfficiency[test.map->openbwHash][std::make_pair(1, 0)] = single;
             std::cout << std::fixed << std::showpoint << std::setprecision(4)
                       << "Overall efficiency: " << std::endl
                       << "Single: " << single << "%" << std::endl;
