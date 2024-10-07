@@ -44,6 +44,7 @@ namespace WorkerMiningOptimization
     struct SecondResendPositionObservationMetadata
     {
         PositionAndVelocity pos;
+        std::map<PositionAndVelocity, int> next;
         int deltaToFirstResend;
         ResendPositionObservations observations;
     };
@@ -54,58 +55,25 @@ namespace WorkerMiningOptimization
     public:
         uint32_t pathHash;
         PositionAndVelocity pos;
-        std::shared_ptr<const PositionAndVelocity> next;
+        std::map<PositionAndVelocity, int> next;
+
         int deltaToNormalPathOptimalPosition;
-        int bestDelta = 100;
-        int bestFollowingPositionDelta = 100;
-        bool hasPositionToTry = false;
-        bool followingHasPositionToTry = false;
+
+        bool hasPositionToTry;
 
         ResendPositionObservations noResendObservations;
-        std::vector<SecondResendPositionObservationMetadata> secondResendMetadata;
-
-        [[nodiscard]] SecondResendPositionObservationMetadata* secondResendMetadataFor(const PositionAndVelocity *secondResendPosition)
-        {
-            if (!secondResendPosition) return nullptr;
-
-            for (auto &candidate : secondResendMetadata)
-            {
-                if (candidate.pos.equals(*secondResendPosition)) return &candidate;
-            }
-
-            return nullptr;
-        }
-
-        [[nodiscard]] const SecondResendPositionObservationMetadata* optimalSecondResendPositionMetadata() const
-        {
-            if (bestDelta == 100) return nullptr;
-
-            if (bestDelta > deltaToNormalPathOptimalPosition)
-            {
-                for (const auto &candidate : secondResendMetadata)
-                {
-                    if (candidate.observations.hasArrivalDelay(bestDelta - deltaToNormalPathOptimalPosition - candidate.deltaToFirstResend))
-                    {
-                        return &candidate;
-                    }
-                }
-            }
-
-            return nullptr;
-        }
+        std::map<PositionAndVelocity, SecondResendPositionObservationMetadata> secondResendMetadata;
 
         void addObservation(const std::shared_ptr<const PositionAndVelocity> &secondResendPosition, int arrivalDelta)
         {
-            int deltaFromNormalPath = 100;
-
-            auto secondResendData = secondResendMetadataFor(secondResendPosition.get());
-            (secondResendData ? secondResendData->observations : noResendObservations).add(arrivalDelta);
-            if (arrivalDelta >= 0)
+            if (secondResendPosition)
             {
-                deltaFromNormalPath = deltaToNormalPathOptimalPosition + arrivalDelta + (secondResendData ? secondResendData->deltaToFirstResend : 0);
+                secondResendMetadata[*secondResendPosition].observations.add(arrivalDelta);
             }
-
-            if (deltaFromNormalPath < bestDelta) bestDelta = deltaFromNormalPath;
+            else
+            {
+                noResendObservations.add(arrivalDelta);
+            }
 
             // Clear the "have a position to try" flag if we no longer have anything to try
             if (hasPositionToTry && !hasUntriedPosition())
@@ -114,17 +82,65 @@ namespace WorkerMiningOptimization
             }
         }
 
-    private:
         [[nodiscard]] bool hasUntriedPosition() const
         {
             if (noResendObservations.empty()) return true;
 
+            std::set<int> secondResendDeltasExplored;
+            std::set<int> secondResendDeltasUnexplored;
             for (const auto &metadata : secondResendMetadata)
             {
-                if (metadata.observations.empty()) return true;
+                if (metadata.second.deltaToFirstResend == BWAPI::Broodwar->getLatencyFrames()) continue;
+
+                if (metadata.second.observations.empty())
+                {
+                    secondResendDeltasUnexplored.emplace(metadata.second.deltaToFirstResend);
+                }
+                else
+                {
+                    secondResendDeltasExplored.emplace(metadata.second.deltaToFirstResend);
+                }
+            }
+            if (secondResendDeltasUnexplored.empty()) return false;
+
+            for (int delta : secondResendDeltasExplored) secondResendDeltasUnexplored.erase(delta);
+            return !secondResendDeltasUnexplored.empty();
+        }
+
+        std::vector<const SecondResendPositionObservationMetadata*> expectedPathAfterResend() const
+        {
+            std::vector<const SecondResendPositionObservationMetadata*> result;
+
+            std::map<int, std::vector<const SecondResendPositionObservationMetadata*>> secondResendByDelta;
+            for (auto &[secondResendPos, secondResendData] : secondResendMetadata)
+            {
+                secondResendByDelta[secondResendData.deltaToFirstResend].push_back(&secondResendData);
             }
 
-            return false;
+            const std::map<PositionAndVelocity, int> *nextOccurrences = &next;
+            int delta = 1;
+            while (true)
+            {
+                int bestOccurrences = 0;
+                const SecondResendPositionObservationMetadata* bestMetadata = nullptr;
+                for (const auto &secondResendData : secondResendByDelta[delta])
+                {
+                    auto occurrencesIt = nextOccurrences->find(secondResendData->pos);
+                    if (occurrencesIt != nextOccurrences->end() && occurrencesIt->second > bestOccurrences)
+                    {
+                        bestOccurrences = occurrencesIt->second;
+                        bestMetadata = secondResendData;
+                    }
+                }
+
+                if (!bestMetadata) break;
+
+                result.push_back(bestMetadata);
+                delta++;
+                nextOccurrences = &bestMetadata->next;
+            }
+
+            return result;
         }
     };
 

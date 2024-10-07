@@ -59,6 +59,61 @@ namespace WorkerMiningOptimization
         {
             map.clear();
 
+            auto parseNextPositions = [](const std::string &str)
+            {
+                std::map<PositionAndVelocity, int> result;
+
+                for (const auto &observations : CsvTools::tokenizeList(str, '_'))
+                {
+                    auto data = CsvTools::tokenizeList(observations, '|');
+                    if (data.size() < 2) continue;
+                    if (!PositionAndVelocity::isValidString(data[0])) continue;
+
+                    result.emplace(PositionAndVelocity::fromString(data[0]), std::stoi(data[1]));
+                }
+
+                return result;
+            };
+
+            auto parseObservations = [](const std::string &str)
+            {
+                std::map<int, int> result;
+
+                for (const auto &observations : CsvTools::tokenizeList(str, '_'))
+                {
+                    auto data = CsvTools::tokenizeList(observations, '|');
+                    if (data.size() < 2) continue;
+
+                    result.emplace(std::stoi(data[0]), std::stoi(data[1]));
+                }
+
+                return ResendPositionObservations{result};
+            };
+
+            auto parseSecondResendPositions = [&parseNextPositions, &parseObservations](const std::string &str)
+            {
+                std::map<PositionAndVelocity, SecondResendPositionObservationMetadata> result;
+                if (str.empty()) return result;
+
+                for (const auto &secondResendData : CsvTools::tokenizeList(str))
+                {
+                    auto data = CsvTools::tokenizeList(secondResendData, ':');
+                    if (data.size() < 3) continue;
+                    if (!PositionAndVelocity::isValidString(data[0])) continue;
+
+                    auto pos = PositionAndVelocity::fromString(data[0]);
+
+                    result.emplace(pos, SecondResendPositionObservationMetadata{
+                            pos,
+                            parseNextPositions(data[1]),
+                            std::stoi(data[2]),
+                            (data.size() > 3) ? parseObservations(data[3]) : ResendPositionObservations{std::map<int, int>{}}
+                    });
+                }
+
+                return result;
+            };
+
             std::ifstream file;
             file.open(filename);
             if (!file.good()) return;
@@ -73,7 +128,7 @@ namespace WorkerMiningOptimization
                     lineNumber++;
 
                     auto line = CsvTools::readNextLine(file);
-                    if (line.size() < 11) break;
+                    if (line.size() < 8) break;
 
                     BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
                     auto resource = Units::resourceAt(tile);
@@ -86,61 +141,16 @@ namespace WorkerMiningOptimization
                     }
                     auto pos = PositionAndVelocity::fromString(line[3]);
 
-                    std::shared_ptr<const PositionAndVelocity> next;
-                    if (PositionAndVelocity::isValidString(line[4]))
-                    {
-                        next = std::make_shared<const PositionAndVelocity>(PositionAndVelocity::fromString(line[4]));
-                    }
-
                     auto &resourceMap = map[resource];
-
-                    auto parseObservations = [&](const std::string &str)
-                    {
-                        std::map<int, int> result;
-
-                        for (const auto &observations : CsvTools::tokenizeList(str, '_'))
-                        {
-                            auto data = CsvTools::tokenizeList(observations, '|');
-                            if (data.size() < 2) continue;
-
-                            result.emplace(std::stoi(data[0]), std::stoi(data[1]));
-                        }
-
-                        return ResendPositionObservations{result};
-                    };
-
-                    auto parseSecondResendPositions = [&]()
-                    {
-                        std::vector<SecondResendPositionObservationMetadata> result;
-                        if (line.size() < 12) return result;
-
-                        for (const auto &secondResendData : CsvTools::tokenizeList(line[11]))
-                        {
-                            auto data = CsvTools::tokenizeList(secondResendData, ':');
-                            if (data.size() < 2) continue;
-                            if (!PositionAndVelocity::isValidString(data[0])) continue;
-
-                            result.emplace_back(SecondResendPositionObservationMetadata{
-                                    PositionAndVelocity::fromString(data[0]),
-                                    std::stoi(data[1]),
-                                    (data.size() > 2) ? parseObservations(data[2]) : ResendPositionObservations{std::map<int, int>{}}
-                            });
-                        }
-
-                        return result;
-                    };
 
                     resourceMap.emplace(pos, PositionObservationMetadata{
                         (uint32_t)std::stoul(line[2]),
                         pos,
-                        next,
+                        parseNextPositions(line[4]),
                         std::stoi(line[5]),
-                        std::stoi(line[6]),
-                        std::stoi(line[7]),
-                        line[8] == "y",
-                        line[9] == "y",
-                        parseObservations(line[10]),
-                        parseSecondResendPositions()
+                        line[6] == "y",
+                        parseObservations(line[7]),
+                        parseSecondResendPositions((line.size() > 8) ? line[8] : "")
                     });
 
                     count++;
@@ -161,6 +171,15 @@ namespace WorkerMiningOptimization
             std::ofstream file;
             file.open(filename, std::ofstream::trunc);
 
+            auto outputNext = [&file](const std::map<PositionAndVelocity, int> &next)
+            {
+                std::string nextPosSep;
+                for (const auto &[nextPos, nextOccurrences] : next)
+                {
+                    file << nextPosSep << nextPos << "|" << nextOccurrences;
+                    nextPosSep = "_";
+                }
+            };
             auto outputObservations = [&file](const ResendPositionObservations &observations)
             {
                 std::string sep;
@@ -180,28 +199,68 @@ namespace WorkerMiningOptimization
                          << resource->tile.y << ";"
                          << resendPositionMetadata.pathHash << ";"
                          << resendPos << ";";
-                    if (resendPositionMetadata.next) file << *resendPositionMetadata.next;
-                    file << ";"
-                         << resendPositionMetadata.deltaToNormalPathOptimalPosition << ";"
-                         << resendPositionMetadata.bestDelta << ";"
-                         << resendPositionMetadata.bestFollowingPositionDelta << ";"
-                         << (resendPositionMetadata.hasPositionToTry ? "y" : "") << ";"
-                         << (resendPositionMetadata.followingHasPositionToTry ? "y" : "") << ";";
+
+                    outputNext(resendPositionMetadata.next);
+                    file << ";";
+
+                    file << resendPositionMetadata.deltaToNormalPathOptimalPosition << ";"
+                         << (resendPositionMetadata.hasPositionToTry ? "y" : "") << ";";
+
                     outputObservations(resendPositionMetadata.noResendObservations);
                     file << ";";
 
-                    std::string sep;
-                    for (const auto &secondResendPositionMetadata : resendPositionMetadata.secondResendMetadata)
+                    std::string secondResendPosSep;
+                    for (const auto &[secondResentPos, secondResendPositionMetadata] : resendPositionMetadata.secondResendMetadata)
                     {
-                        file << sep
-                             << secondResendPositionMetadata.pos << ":"
+                        file << secondResendPosSep
+                             << secondResendPositionMetadata.pos << ":";
+                        outputNext(secondResendPositionMetadata.next);
+                        file << ":"
                              << secondResendPositionMetadata.deltaToFirstResend << ":";
                         outputObservations(secondResendPositionMetadata.observations);
-                        sep = ",";
+                        secondResendPosSep = ",";
                     }
+                    file << ";";
 
                     // TODO: Remove following debugging things once everything is working
-                    file << ";";
+
+                    // Most common delta
+                    int bestDelta = 100;
+                    auto handleObservations = [&resendPositionMetadata, &bestDelta](const ResendPositionObservations &observations, int addedDelta)
+                    {
+                        if (observations.empty()) return;
+
+                        int arrivalDelay = observations.mostCommonArrivalDelay();
+                        if (arrivalDelay < 0) return;
+
+                        int delta = resendPositionMetadata.deltaToNormalPathOptimalPosition + addedDelta + arrivalDelay;
+                        if (delta < bestDelta) bestDelta = delta;
+                    };
+                    handleObservations(resendPositionMetadata.noResendObservations, 0);
+                    for (const auto &secondResendPosition : resendPositionMetadata.expectedPathAfterResend())
+                    {
+                        handleObservations(secondResendPosition->observations, secondResendPosition->deltaToFirstResend);
+                    }
+                    file << bestDelta << ";";
+
+                    // Number of next positions this position has
+                    file << resendPositionMetadata.next.size() << ";";
+
+                    // Number of second resend paths this position has
+                    std::map<int, int> secondResendDeltaOccurrences;
+                    for (const auto &[_, secondResendPosition] : resendPositionMetadata.secondResendMetadata)
+                    {
+                        secondResendDeltaOccurrences[secondResendPosition.deltaToFirstResend]++;
+                    }
+                    int maxSecondResendDeltaOccurrences = 0;
+                    for (const auto &[_, occurrences] : secondResendDeltaOccurrences)
+                    {
+                        if (occurrences > maxSecondResendDeltaOccurrences) maxSecondResendDeltaOccurrences = occurrences;
+                    }
+                    file << maxSecondResendDeltaOccurrences;
+
+                    /*
+
                     if (resendPositionMetadata.bestDelta < resendPositionMetadata.bestFollowingPositionDelta &&
                         resendPositionMetadata.deltaToNormalPathOptimalPosition < 0)
                     {
@@ -259,6 +318,7 @@ namespace WorkerMiningOptimization
                     {
                         file << ";;";
                     }
+                     */
 
                     file << "\n";
                     count++;
@@ -293,9 +353,10 @@ namespace WorkerMiningOptimization
 
     void write()
     {
+//        if (false) writePositionObservationMetadataFile(optimalGatherPositionsFilename(true), resourceToOptimalGatherPositions);
         writePositionObservationMetadataFile(optimalGatherPositionsFilename(true), resourceToOptimalGatherPositions);
-        writePositionObservationMetadataFile(tenDistancePositionsFilename(true), resourceTo10DistancePositions);
-        writePositionObservationMetadataFile(takeoverResendPositionsFilename(true), resourceToTakeoverResendPositions);
+//        writePositionObservationMetadataFile(tenDistancePositionsFilename(true), resourceTo10DistancePositions);
+//        writePositionObservationMetadataFile(takeoverResendPositionsFilename(true), resourceToTakeoverResendPositions);
     }
 
     // Optimizes returning a resource

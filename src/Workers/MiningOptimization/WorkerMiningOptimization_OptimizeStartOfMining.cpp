@@ -208,11 +208,14 @@ namespace WorkerMiningOptimization
         }
         */
 
+/*
         void planResends(const Resource &resource,
                          const MyWorker &worker,
                          const std::shared_ptr<const PositionAndVelocity> &currentPosition,
                          WorkerGatherStatus &workerStatus)
         {
+
+
             if (workerStatus.resendsPlanned) return;
 
             // Plan the resends once we find a position we have metadata about
@@ -465,6 +468,7 @@ namespace WorkerMiningOptimization
                 }
             }
         }
+            */
     }
 
     // Optimizes the start of mining, returning whether an order was sent to the worker.
@@ -521,6 +525,67 @@ namespace WorkerMiningOptimization
             return;
         }
 
+        auto &optimalPositions = optimalGatherPositionsFor(resource);
+
+        // Resend here if we are exploring
+        // TODO: Implement optimization
+
+        if (workerStatus.resentPosition)
+        {
+            if (workerStatus.secondResentPosition) return;
+
+            auto metadataIt = optimalPositions.find(*workerStatus.resentPosition);
+            if (metadataIt != optimalPositions.end())
+            {
+                auto secondResentIt = metadataIt->second.secondResendMetadata.find(*currentPosition);
+                if (secondResentIt != metadataIt->second.secondResendMetadata.end()
+                    && secondResentIt->second.deltaToFirstResend != BWAPI::Broodwar->getLatencyFrames()
+                    && secondResentIt->second.observations.empty())
+                {
+                    if (worker->gather(resourceBwapiUnit))
+                    {
+                        workerStatus.secondResentPosition = currentPosition;
+                    }
+                    else
+                    {
+#if OPTIMALPOSITIONS_DEBUG
+                        Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
+                                   << BWAPI::Broodwar->getLastError();
+                        CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+                        CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+#endif
+                    }
+                }
+            }
+        }
+        else
+        {
+            auto metadataIt = optimalPositions.find(*currentPosition);
+            if (metadataIt != optimalPositions.end() && metadataIt->second.hasUntriedPosition())
+            {
+                if (worker->gather(resourceBwapiUnit))
+                {
+                    workerStatus.resentPosition = currentPosition;
+                }
+                else
+                {
+#if OPTIMALPOSITIONS_DEBUG
+                    Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
+                               << BWAPI::Broodwar->getLastError();
+                    CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+                    CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+#endif
+                }
+            }
+        }
+
+        /*
+        // Validate the observed path matches planned resends
+        if (workerStatus.resendsPlanned)
+        {
+            // TODO
+        }
+
         planResends(resource, worker, currentPosition, workerStatus);
 
         // Send commands we have pre-planned
@@ -557,6 +622,7 @@ namespace WorkerMiningOptimization
             handlePlannedResend(workerStatus.plannedSecondResendPosition, workerStatus.secondResentPosition);
             return;
         }
+*/
 
 /*
 
