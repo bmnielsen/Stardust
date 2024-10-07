@@ -469,6 +469,161 @@ namespace WorkerMiningOptimization
             }
         }
             */
+
+        struct PositionEvaluation
+        {
+            double expectedDelta = 100.0;
+            std::deque<PositionAndVelocity> expectedPath;
+            std::shared_ptr<PositionAndVelocity> resendPosition;
+            bool positionToTryOnExpectedPath = false;
+            int positionToTryDelta = 0;
+        };
+
+        PositionEvaluation evaluateSecondResendPositions(const PositionObservationMetadata &positionMetadata,
+                                                         const PositionAndVelocity &here,
+                                                         int deltaToFirstResend,
+                                                         const ResendPositionObservations &observations,
+                                                         const std::map<PositionAndVelocity, int> &nextPositions)
+        {
+            // Start by getting the data for all of the next positions
+            PositionEvaluation nextPositionsEvaluation;
+            {
+                double deltaAccumulator = 0.0;
+                int occurrenceCount = 0;
+                int bestOccurrences = 0;
+                for (const auto &[nextPosition, occurrences] : nextPositions)
+                {
+                    auto nextPositionDataIt = positionMetadata.secondResendMetadata.find(nextPosition);
+                    if (nextPositionDataIt == positionMetadata.secondResendMetadata.end())
+                    {
+#if OPTIMALPOSITIONS_DEBUG
+                        Log::Get() << "ERROR: No second resend metadata found for next position " << nextPosition;
+                        std::ostringstream dbg;
+                        dbg << "Second resend positions:";
+                        for (const auto &pos : positionMetadata.expectedPathAfterResend())
+                        {
+                            dbg << "\n" << pos->pos;
+                            if (pos->next.empty())
+                            {
+                                dbg << " (no next)";
+                            }
+                            else
+                            {
+                                dbg << " : " << pos->next.begin()->first;
+                            }
+                        }
+                        Log::Get() << dbg.str();
+#endif
+                        continue;
+                    }
+
+                    auto nextPositionEvaluation = evaluateSecondResendPositions(positionMetadata,
+                                                                                nextPosition,
+                                                                                nextPositionDataIt->second.deltaToFirstResend,
+                                                                                nextPositionDataIt->second.observations,
+                                                                                nextPositionDataIt->second.next);
+                    deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
+                    occurrenceCount += occurrences;
+                    if (occurrences > bestOccurrences)
+                    {
+                        bestOccurrences = occurrences;
+                        nextPositionsEvaluation = std::move(nextPositionEvaluation);
+                    }
+                }
+                if (occurrenceCount > 0) nextPositionsEvaluation.expectedDelta = (deltaAccumulator / (double)occurrenceCount);
+            }
+            nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), here);
+
+            // We can't send another command at LF after previous command
+            if (deltaToFirstResend == BWAPI::Broodwar->getLatencyFrames()) return nextPositionsEvaluation;
+
+            // If we want to try this position and it is better than the current best, return this
+            if (observations.empty() &&
+                (WorkerMiningOptimization::isExploring() || (positionMetadata.deltaToNormalPathOptimalPosition == 0 && deltaToFirstResend == 0)))
+            {
+                int positionToTryDelta = std::abs(positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend);
+                if (!nextPositionsEvaluation.positionToTryOnExpectedPath || positionToTryDelta < nextPositionsEvaluation.positionToTryDelta)
+                {
+                    return {100, {here}, std::make_shared<PositionAndVelocity>(positionMetadata.pos), true, positionToTryDelta};
+                }
+            }
+
+            // If the next positions' expected path has a position to try, return it
+            if (nextPositionsEvaluation.positionToTryOnExpectedPath) return nextPositionsEvaluation;
+
+            // Compute the expected delta for this position
+            double expectedArrivalDelay = observations.expectedArrivalDelay();
+            double expectedDelta =
+                    positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + expectedArrivalDelay;
+
+            if (expectedDelta < (nextPositionsEvaluation.expectedDelta - 0.0001))
+            {
+                return {expectedDelta, {here}, std::make_shared<PositionAndVelocity>(positionMetadata.pos), false, 0};
+            }
+
+            return nextPositionsEvaluation;
+        }
+
+        PositionEvaluation evaluatePosition(const std::map<PositionAndVelocity, PositionObservationMetadata> &allPositionData,
+                                            const PositionObservationMetadata &positionMetadata)
+        {
+            // Start by getting the data for all of the next positions
+            PositionEvaluation nextPositionsEvaluation;
+            {
+                double deltaAccumulator = 0.0;
+                int occurrenceCount = 0;
+                int bestOccurrences = 0;
+                for (const auto &[nextPosition, occurrences] : positionMetadata.next)
+                {
+                    auto nextPositionDataIt = allPositionData.find(nextPosition);
+                    if (nextPositionDataIt == allPositionData.end())
+                    {
+#if OPTIMALPOSITIONS_DEBUG
+                        Log::Get() << "ERROR: No metadata found for next position " << nextPosition;
+#endif
+                        continue;
+                    }
+
+                    auto nextPositionEvaluation = evaluatePosition(allPositionData, nextPositionDataIt->second);
+                    deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
+                    occurrenceCount += occurrences;
+                    if (occurrences > bestOccurrences)
+                    {
+                        bestOccurrences = occurrences;
+                        nextPositionsEvaluation = std::move(nextPositionEvaluation);
+                    }
+                }
+                if (occurrenceCount > 0) nextPositionsEvaluation.expectedDelta = (deltaAccumulator / (double)occurrenceCount);
+            }
+            nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), positionMetadata.pos);
+
+            // Now evaluate this position using the second resend metadata
+            auto evaluationHere = evaluateSecondResendPositions(positionMetadata,
+                                                                positionMetadata.pos,
+                                                                0,
+                                                                positionMetadata.noResendObservations,
+                                                                positionMetadata.next);
+
+            // If one of the branches wants to explore, return it
+            if (evaluationHere.positionToTryOnExpectedPath &&
+                (!nextPositionsEvaluation.positionToTryOnExpectedPath
+                 || evaluationHere.positionToTryDelta < nextPositionsEvaluation.positionToTryDelta))
+            {
+                return evaluationHere;
+            }
+            else if (nextPositionsEvaluation.positionToTryOnExpectedPath)
+            {
+                return nextPositionsEvaluation;
+            }
+
+            // Return the best branch
+            if (evaluationHere.expectedDelta < (nextPositionsEvaluation.expectedDelta - 0.0001))
+            {
+                return evaluationHere;
+            }
+
+            return nextPositionsEvaluation;
+        }
     }
 
     // Optimizes the start of mining, returning whether an order was sent to the worker.
@@ -527,45 +682,58 @@ namespace WorkerMiningOptimization
 
         auto &optimalPositions = optimalGatherPositionsFor(resource);
 
-        // Resend here if we are exploring
-        // TODO: Implement optimization
+        /*
+         * Look ahead and see what our best plan is for optimizing
+         * - Look along all paths in the tree, cascading back the expected and worst-case deltas with their probabilities
+         * - Choose the resend positions with the best balance of the two and store the expected path
+         *
+         * - Find the expected path
+         * - Find the best delta along the expected path
+         * - Check if any positions need to be explored
+         *
+         * Store the expected path. If anything changes, replan based on the new starting position.
+         *
+         */
 
-        if (workerStatus.resentPosition)
+        // TODO: Store expected path on worker status and validate planned resends are still valid against this
+
+        if (!workerStatus.resendsPlanned)
         {
-            if (workerStatus.secondResentPosition) return;
+            auto metadataIt = optimalPositions.find(*currentPosition);
+            if (metadataIt == optimalPositions.end()) return; // haven't reached an observed position yet
 
-            auto metadataIt = optimalPositions.find(*workerStatus.resentPosition);
-            if (metadataIt != optimalPositions.end())
+            workerStatus.resendsPlanned = true;
+
+            auto evaluation = evaluatePosition(optimalPositions, metadataIt->second);
+            if ((evaluation.expectedDelta < 10 || evaluation.positionToTryOnExpectedPath) && evaluation.resendPosition)
             {
-                auto secondResentIt = metadataIt->second.secondResendMetadata.find(*currentPosition);
-                if (secondResentIt != metadataIt->second.secondResendMetadata.end()
-                    && secondResentIt->second.deltaToFirstResend != BWAPI::Broodwar->getLatencyFrames()
-                    && secondResentIt->second.observations.empty())
+                workerStatus.plannedResendPosition = evaluation.resendPosition;
+                workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*evaluation.expectedPath.rbegin());
+                if (workerStatus.plannedResendPosition->equals(*workerStatus.plannedSecondResendPosition))
                 {
-                    if (worker->gather(resourceBwapiUnit))
-                    {
-                        workerStatus.secondResentPosition = currentPosition;
-                    }
-                    else
-                    {
-#if OPTIMALPOSITIONS_DEBUG
-                        Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
-                                   << BWAPI::Broodwar->getLastError();
-                        CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
-                        CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
-#endif
-                    }
+                    workerStatus.plannedSecondResendPosition = nullptr;
                 }
             }
         }
-        else
+
+        // Send commands we have pre-planned
+        if (workerStatus.resendsPlanned)
         {
-            auto metadataIt = optimalPositions.find(*currentPosition);
-            if (metadataIt != optimalPositions.end() && metadataIt->second.hasUntriedPosition())
+            auto handlePlannedResend = [&](
+                    const std::shared_ptr<const PositionAndVelocity> &plannedPosition,
+                    std::shared_ptr<const PositionAndVelocity> &resentPosition)
             {
+                if (!plannedPosition) return; // nothing planned for this position
+                if (resentPosition) return; // already resent
+                if (!plannedPosition->equals(*currentPosition)) return; // not at the position yet
+
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(worker->id) << "Resending for " << *plannedPosition;
+#endif
+
                 if (worker->gather(resourceBwapiUnit))
                 {
-                    workerStatus.resentPosition = currentPosition;
+                    resentPosition = currentPosition;
                 }
                 else
                 {
@@ -576,8 +744,61 @@ namespace WorkerMiningOptimization
                     CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
 #endif
                 }
-            }
+            };
+
+            handlePlannedResend(workerStatus.plannedResendPosition, workerStatus.resentPosition);
+            handlePlannedResend(workerStatus.plannedSecondResendPosition, workerStatus.secondResentPosition);
         }
+
+//
+//        if (workerStatus.resentPosition)
+//        {
+//            if (workerStatus.secondResentPosition) return;
+//
+//            auto metadataIt = optimalPositions.find(*workerStatus.resentPosition);
+//            if (metadataIt != optimalPositions.end())
+//            {
+//                auto secondResentIt = metadataIt->second.secondResendMetadata.find(*currentPosition);
+//                if (secondResentIt != metadataIt->second.secondResendMetadata.end()
+//                    && secondResentIt->second.deltaToFirstResend != BWAPI::Broodwar->getLatencyFrames()
+//                    && secondResentIt->second.observations.empty())
+//                {
+//                    if (worker->gather(resourceBwapiUnit))
+//                    {
+//                        workerStatus.secondResentPosition = currentPosition;
+//                    }
+//                    else
+//                    {
+//#if OPTIMALPOSITIONS_DEBUG
+//                        Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
+//                                   << BWAPI::Broodwar->getLastError();
+//                        CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+//                        CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+//#endif
+//                    }
+//                }
+//            }
+//        }
+//        else
+//        {
+//            auto metadataIt = optimalPositions.find(*currentPosition);
+//            if (metadataIt != optimalPositions.end() && metadataIt->second.hasUntriedPosition())
+//            {
+//                if (worker->gather(resourceBwapiUnit))
+//                {
+//                    workerStatus.resentPosition = currentPosition;
+//                }
+//                else
+//                {
+//#if OPTIMALPOSITIONS_DEBUG
+//                    Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
+//                               << BWAPI::Broodwar->getLastError();
+//                    CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+//                    CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+//#endif
+//                }
+//            }
+//        }
 
         /*
         // Validate the observed path matches planned resends

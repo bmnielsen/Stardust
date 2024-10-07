@@ -316,9 +316,7 @@ namespace WorkerMiningOptimization
 
             // Include LF-1 positions after the resend since the positions only change after the command kicks in
             int afterResentPosition = INT_MAX;
-            for (auto positionIt = workerStatus.positionHistory.begin();
-                 positionIt != workerStatus.positionHistory.end() && (positionIt + 1) != workerStatus.positionHistory.end();
-                 positionIt++)
+            for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != workerStatus.positionHistory.end(); positionIt++)
             {
                 afterResentPosition--;
                 if (afterResentPosition <= 0) break;
@@ -329,7 +327,10 @@ namespace WorkerMiningOptimization
 
                 auto &positionMetadata = metadataIt->second;
 
-                positionMetadata.next[**(positionIt + 1)]++;
+                if ((positionIt + 1) != workerStatus.positionHistory.end() && metadata.find(**(positionIt + 1)) != metadata.end())
+                {
+                    positionMetadata.next[**(positionIt + 1)]++;
+                }
 
                 // Add metadata for second resend positions
                 // If this is the resend position, we add up to the second resend metadata limit or LF-1 past the second resend position
@@ -344,10 +345,7 @@ namespace WorkerMiningOptimization
                 for (int secondResendIndex = 1; secondResendIndex <= maxIndex; secondResendIndex++)
                 {
                     auto here = positionIt + secondResendIndex;
-                    auto next = positionIt + secondResendIndex + 1;
-
-                    // Break if we reach the end of the position history
-                    if (next == workerStatus.positionHistory.end()) break;
+                    if (here == workerStatus.positionHistory.end()) break;
 
                     afterSecondResentPosition--;
                     if (afterSecondResentPosition <= 0) break;
@@ -356,17 +354,25 @@ namespace WorkerMiningOptimization
                         afterSecondResentPosition = BWAPI::Broodwar->getLatencyFrames() - 1;
                     }
 
+                    auto next = (secondResendIndex < maxIndex && afterSecondResentPosition > 1)
+                            ? (positionIt + secondResendIndex + 1)
+                            : workerStatus.positionHistory.end();
+
                     auto secondResendMetadataIt = positionMetadata.secondResendMetadata.find(**here);
                     if (secondResendMetadataIt == positionMetadata.secondResendMetadata.end())
                     {
+                        auto nextPositions =
+                                (next == workerStatus.positionHistory.end())
+                                ? std::map<PositionAndVelocity, int>{}
+                                : std::map<PositionAndVelocity, int>{{**next, 1}};
                         positionMetadata.secondResendMetadata.emplace(
                                 **here,
                                 SecondResendPositionObservationMetadata{
                                     **here,
-                                    std::map<PositionAndVelocity, int>{{**next, 1}},
+                                    std::move(nextPositions),
                                     secondResendIndex});
                     }
-                    else
+                    else if (next != workerStatus.positionHistory.end())
                     {
                         secondResendMetadataIt->second.next[**next]++;
                     }
@@ -605,14 +611,29 @@ namespace WorkerMiningOptimization
                     auto existingIt = optimalGatherPositions.find(**positionIt);
                     if (existingIt == optimalGatherPositions.end())
                     {
+                        std::map<PositionAndVelocity, int> nextPositions;
+                        std::map<PositionAndVelocity, SecondResendPositionObservationMetadata> secondResendPositions;
+                        if (nextPosition)
+                        {
+                            nextPositions.emplace(*nextPosition, 1);
+                            secondResendPositions.emplace(
+                                    *nextPosition,
+                                    SecondResendPositionObservationMetadata{
+                                            *nextPosition,
+                                            std::map<PositionAndVelocity, int>{},
+                                            1});
+                        }
+
                         optimalGatherPositions.emplace(
                                 **positionIt,
                                 PositionObservationMetadata{
                                         pathHash,
                                         **positionIt,
-                                        nextPosition ? std::map<PositionAndVelocity, int>{{*nextPosition, 1}} : std::map<PositionAndVelocity, int>{},
+                                        std::move(nextPositions),
                                         delta,
-                                        true}
+                                        true,
+                                        {},
+                                        std::move(secondResendPositions)}
                         );
 
 #if OPTIMALPOSITIONS_DEBUG
@@ -685,7 +706,8 @@ namespace WorkerMiningOptimization
             // Queue up second resend positions to test
             if (!workerStatus.secondResentPosition && workerStatus.pathStartsAtDepot())
             {
-                for (int i = 1; i <= (EXPLORE_AFTER - resentPositionData.deltaToNormalPathOptimalPosition + EXPLORE_SECOND_RESEND_POSITIONS); i++)
+                int maxIndex = EXPLORE_AFTER - resentPositionData.deltaToNormalPathOptimalPosition + EXPLORE_SECOND_RESEND_POSITIONS;
+                for (int i = 1; i <= maxIndex; i++)
                 {
                     auto here = resentPositionIt - i;
                     auto next = resentPositionIt - i - 1;
@@ -694,12 +716,17 @@ namespace WorkerMiningOptimization
                     auto secondResendMetadataIt = resentPositionData.secondResendMetadata.find(**here);
                     if (secondResendMetadataIt == resentPositionData.secondResendMetadata.end())
                     {
+                        std::map<PositionAndVelocity, int> nextPositions;
+                        if (i < maxIndex && next != workerStatus.positionHistory.rbegin())
+                        {
+                            nextPositions.emplace(**next, 1);
+                        }
+
                         resentPositionData.secondResendMetadata.emplace(
                                 **here,
                                 SecondResendPositionObservationMetadata{
                                         **here,
-                                        (next == workerStatus.positionHistory.rbegin()) ? std::map<PositionAndVelocity, int>{}
-                                                                                        : std::map<PositionAndVelocity, int>{{**next, 1}},
+                                        std::move(nextPositions),
                                         i});
 
 #if OPTIMALPOSITIONS_DEBUG

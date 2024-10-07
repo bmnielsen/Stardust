@@ -39,6 +39,21 @@ namespace WorkerMiningOptimization
         {
             return data.contains(arrivalDelay);
         }
+
+        [[nodiscard]] double expectedArrivalDelay() const
+        {
+            if (data.empty()) return 100.0;
+
+            double totalArrivalDelay = 0.0;
+            int totalOccurrences = 0;
+            for (const auto &[arrivalDelay, occurrences] : data)
+            {
+                totalArrivalDelay += arrivalDelay;
+                totalOccurrences += occurrences;
+            }
+
+            return totalArrivalDelay / (double)totalOccurrences;
+        }
     };
 
     struct SecondResendPositionObservationMetadata
