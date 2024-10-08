@@ -481,6 +481,28 @@ namespace WorkerMiningOptimization
             int positionToTryDelta = 0;
         };
 
+        double computeExpectedArrivalDelta(int normalPathCommandFrame,
+                                           const PositionObservationMetadata &positionMetadata,
+                                           int deltaToFirstResend,
+                                           const ResendPositionObservations &observations)
+        {
+            double expectedArrivalDelay = observations.expectedArrivalDelay();
+
+            // If it doesn't get us to the patch on time, don't use this position
+            if (expectedArrivalDelay < -EPSILON) return 100;
+
+            // Adjust for order process timer resets
+            int resendAppliedFrame = normalPathCommandFrame
+                                     + BWAPI::Broodwar->getLatencyFrames()
+                                     + positionMetadata.deltaToNormalPathOptimalPosition
+                                     + deltaToFirstResend;
+            if (OrderProcessTimer::framesToNextReset(resendAppliedFrame + 1) < 11)
+            {
+                return positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + 5;
+            }
+            return positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + expectedArrivalDelay;
+        }
+
         PositionEvaluation evaluateSecondResendPositions(int normalPathCommandFrame,
                                                          const PositionObservationMetadata &positionMetadata,
                                                          const PositionAndVelocity &here,
@@ -558,26 +580,7 @@ namespace WorkerMiningOptimization
             if (nextPositionsEvaluation.positionToTryOnExpectedPath) return nextPositionsEvaluation;
 
             // Compute the expected delta for this position
-            double expectedArrivalDelay = observations.expectedArrivalDelay();
-
-            // If it doesn't get us to the patch on time, don't use this position
-            if (expectedArrivalDelay < -EPSILON) return nextPositionsEvaluation;
-
-            // Adjust for order process timer resets
-            int resendAppliedFrame = normalPathCommandFrame
-                                     + BWAPI::Broodwar->getLatencyFrames()
-                                     + positionMetadata.deltaToNormalPathOptimalPosition
-                                     + deltaToFirstResend;
-            double expectedDelta;
-            if (OrderProcessTimer::framesToNextReset(resendAppliedFrame + 1) < 11)
-            {
-                expectedDelta = positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + 5;
-            }
-            else
-            {
-                expectedDelta = positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + expectedArrivalDelay;
-            }
-
+            double expectedDelta = computeExpectedArrivalDelta(normalPathCommandFrame, positionMetadata, deltaToFirstResend, observations);
             if (expectedDelta < (nextPositionsEvaluation.expectedDelta - EPSILON))
             {
                 return {expectedDelta, {here}, std::make_shared<PositionAndVelocity>(positionMetadata.pos), false, 0};
@@ -694,11 +697,33 @@ namespace WorkerMiningOptimization
         {
             if (workerStatus.resendCommandOnFrame == currentFrame)
             {
-                worker->gather(resourceBwapiUnit);
+                if (worker->gather(resourceBwapiUnit))
+                {
+                    if (!workerStatus.resentPosition)
+                    {
+                        workerStatus.resentPosition = currentPosition;
+                        workerStatus.resendCommandOnFrame = -2;
+                    }
+                    else if (!workerStatus.secondResentPosition)
+                    {
+                        workerStatus.secondResentPosition = currentPosition;
+                        workerStatus.resendCommandOnFrame = -2;
+                    }
+                }
 
 #if OPTIMALPOSITIONS_DEBUG
                 CherryVis::log(worker->id) << "Resending gather command on schedule";
                 CherryVis::log(resource->id) << "Resending gather command on schedule";
+            }
+            else
+            {
+                Log::Get() << "Failed to send scheduled gather command for "
+                           << worker->id << " @ " << worker->getTilePosition() << ": "
+                           << BWAPI::Broodwar->getLastError();
+                CherryVis::log(worker->id) << "Failed to send scheduled gather command; last error "
+                                           << BWAPI::Broodwar->getLastError();
+                CherryVis::log(resource->id) << "Failed to send scheduled gather command; last error "
+                                             << BWAPI::Broodwar->getLastError();
 #endif
             }
             return;
@@ -706,20 +731,131 @@ namespace WorkerMiningOptimization
 
         auto &optimalPositions = optimalGatherPositionsFor(resource);
 
-        /*
-         * Look ahead and see what our best plan is for optimizing
-         * - Look along all paths in the tree, cascading back the expected and worst-case deltas with their probabilities
-         * - Choose the resend positions with the best balance of the two and store the expected path
-         *
-         * - Find the expected path
-         * - Find the best delta along the expected path
-         * - Check if any positions need to be explored
-         *
-         * Store the expected path. If anything changes, replan based on the new starting position.
-         *
-         */
+        // If we have a path planned, validate that we are following it
+        if (workerStatus.resendsPlanned && !workerStatus.expectedPath.empty() && !workerStatus.expectedPath.front().equals(*currentPosition))
+        {
+            // If we haven't passed the first resend position yet, then just clear the planned data and we will hit the replan logic below
+            if (!workerStatus.resentPosition)
+            {
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(worker->id) << "Worker did not follow expected path; expected " << workerStatus.expectedPath.front()
+                                           << "; actual " << *currentPosition
+                                           << "; falling through to replan resend position";
+#endif
 
-        // TODO: Store expected path on worker status and validate planned resends are still valid against this
+                workerStatus.resendsPlanned = false;
+                workerStatus.expectedPath.clear();
+                workerStatus.plannedResendPosition = nullptr;
+                workerStatus.plannedSecondResendPosition = nullptr;
+            }
+            else
+            {
+                // We have sent the first resend, but hit a different path before reaching the second resend position
+                auto resentPositionDataIt = optimalPositions.find(*workerStatus.resentPosition);
+                if (resentPositionDataIt != optimalPositions.end()) // should always be true
+                {
+                    auto &resentPositionData = resentPositionDataIt->second;
+
+                    // Check if we have observed this path
+                    auto secondGatherPositionIt = resentPositionData.secondResendMetadata.find(*currentPosition);
+                    if (secondGatherPositionIt == resentPositionData.secondResendMetadata.end())
+                    {
+                        // We haven't observed this path, so let's just schedule a resend at the same delta and hope the result will be the same
+                        secondGatherPositionIt = resentPositionData.secondResendMetadata.find(*workerStatus.plannedSecondResendPosition);
+                        if (secondGatherPositionIt != resentPositionData.secondResendMetadata.end()) // should always be true
+                        {
+                            // Get the delta from the first resend position to here
+                            auto positionIt = workerStatus.positionHistory.rbegin();
+                            for (; positionIt != workerStatus.positionHistory.rend(); positionIt++)
+                            {
+                                if ((*positionIt)->equals(*workerStatus.resentPosition)) break;
+                            }
+                            if (positionIt != workerStatus.positionHistory.rend()) // should always be true
+                            {
+                                int resendIn = secondGatherPositionIt->second.deltaToFirstResend
+                                               - std::distance(workerStatus.positionHistory.rbegin(), positionIt);
+                                if (resendIn == 0)
+                                {
+                                    if (worker->gather(resourceBwapiUnit))
+                                    {
+                                        workerStatus.secondResentPosition = currentPosition;
+#if OPTIMALPOSITIONS_DEBUG
+                                    }
+                                    else
+                                    {
+                                        Log::Get() << "Failed to send replanned second gather command for "
+                                                   << worker->id << " @ " << worker->getTilePosition() << ": "
+                                                   << BWAPI::Broodwar->getLastError();
+                                        CherryVis::log(worker->id) << "Failed to send replanned second gather command; last error "
+                                                                   << BWAPI::Broodwar->getLastError();
+                                        CherryVis::log(resource->id) << "Failed to send replanned second gather command; last error "
+                                                                     << BWAPI::Broodwar->getLastError();
+#endif
+                                    }
+                                }
+                                else
+                                {
+                                    workerStatus.resendCommandOnFrame = currentFrame + resendIn;
+                                }
+
+#if OPTIMALPOSITIONS_DEBUG
+                            }
+                            else
+                            {
+                                Log::Get() << "ERROR: Didn't find resend position in positions history: " << *workerStatus.resentPosition;
+#endif
+                            }
+#if OPTIMALPOSITIONS_DEBUG
+                        }
+                        else
+                        {
+                            Log::Get() << "ERROR: Didn't find second resend position metadata: " << *workerStatus.resentPosition
+                                       << " : " << *workerStatus.plannedSecondResendPosition;
+#endif
+                        }
+                    }
+                    else
+                    {
+                        // We have observed this path, so we can replan given that we already performed one resend
+
+                        // Evaluate second resends
+                        int normalPathCommandFrame = BWAPI::Broodwar->getFrameCount() - resentPositionData.deltaToNormalPathOptimalPosition;
+                        auto evaluation = evaluateSecondResendPositions(normalPathCommandFrame,
+                                                                        resentPositionData,
+                                                                        *currentPosition,
+                                                                        secondGatherPositionIt->second.deltaToFirstResend,
+                                                                        secondGatherPositionIt->second.observations,
+                                                                        secondGatherPositionIt->second.next);
+
+                        // Evaluate no resend
+                        double expectedDelta = computeExpectedArrivalDelta(normalPathCommandFrame,
+                                                                           resentPositionData,
+                                                                           0,
+                                                                           resentPositionData.noResendObservations);
+
+                        // Pick the best strategy - either resend at a different position or clear
+                        if (evaluation.positionToTryOnExpectedPath ||
+                            (evaluation.expectedDelta < 10 && evaluation.expectedDelta < (expectedDelta + EPSILON)))
+                        {
+                            workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*evaluation.expectedPath.rbegin());
+                            workerStatus.expectedPath = std::move(evaluation.expectedPath);
+                        }
+                        else
+                        {
+                            workerStatus.plannedSecondResendPosition = nullptr;
+                            workerStatus.expectedPath.clear();
+                        }
+                    }
+
+#if OPTIMALPOSITIONS_DEBUG
+                }
+                else
+                {
+                    Log::Get() << "ERROR: Didn't find resend position metadata: " << *workerStatus.resentPosition;
+#endif
+                }
+            }
+        }
 
         if (!workerStatus.resendsPlanned)
         {
@@ -730,8 +866,38 @@ namespace WorkerMiningOptimization
 
             int normalPathCommandFrame = BWAPI::Broodwar->getFrameCount() - metadataIt->second.deltaToNormalPathOptimalPosition;
 
+            auto shouldResend = [&](const PositionEvaluation &evaluation)
+            {
+                if (!evaluation.resendPosition) return false;
+                if (evaluation.positionToTryOnExpectedPath) return true;
+                if (evaluation.expectedDelta > 9) return false;
+
+                // If we can predict the worker's order process timer at normal arrival, check if it is better than the evaluated result
+                if (worker->orderProcessTimer != -1)
+                {
+                    int orderProcessTimerAtArrival =
+                            worker->orderProcessTimer - BWAPI::Broodwar->getLatencyFrames() - 10 + metadataIt->second.deltaToNormalPathOptimalPosition;
+                    while (orderProcessTimerAtArrival < 0)
+                    {
+                        orderProcessTimerAtArrival += 9;
+                    }
+
+                    if (orderProcessTimerAtArrival < evaluation.expectedDelta)
+                    {
+#if OPTIMALPOSITIONS_DEBUG
+                        CherryVis::log(worker->id) << "Not resending as order timer " << orderProcessTimerAtArrival
+                                << " is better than expected delta " << evaluation.expectedDelta;
+#endif
+
+                        return false;
+                    }
+                }
+
+                return true;
+            };
+
             auto evaluation = evaluatePosition(normalPathCommandFrame, optimalPositions, metadataIt->second);
-            if ((evaluation.expectedDelta < 10 || evaluation.positionToTryOnExpectedPath) && evaluation.resendPosition)
+            if (shouldResend(evaluation))
             {
                 workerStatus.plannedResendPosition = evaluation.resendPosition;
                 workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*evaluation.expectedPath.rbegin());
@@ -739,6 +905,8 @@ namespace WorkerMiningOptimization
                 {
                     workerStatus.plannedSecondResendPosition = nullptr;
                 }
+
+                workerStatus.expectedPath = std::move(evaluation.expectedPath);
 
 #if OPTIMALPOSITIONS_DEBUG
                 std::ostringstream out;
@@ -799,10 +967,10 @@ namespace WorkerMiningOptimization
                 if (worker->gather(resourceBwapiUnit))
                 {
                     resentPosition = currentPosition;
+#if OPTIMALPOSITIONS_DEBUG
                 }
                 else
                 {
-#if OPTIMALPOSITIONS_DEBUG
                     Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
                                << BWAPI::Broodwar->getLastError();
                     CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
@@ -813,6 +981,9 @@ namespace WorkerMiningOptimization
 
             handlePlannedResend(workerStatus.plannedResendPosition, workerStatus.resentPosition);
             handlePlannedResend(workerStatus.plannedSecondResendPosition, workerStatus.secondResentPosition);
+
+            // Remove this position from the expected path
+            if (!workerStatus.expectedPath.empty()) workerStatus.expectedPath.pop_front();
         }
 
 //

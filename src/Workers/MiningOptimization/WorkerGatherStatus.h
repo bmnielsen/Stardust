@@ -33,6 +33,9 @@ namespace WorkerMiningOptimization
         // Planned second resend position
         std::shared_ptr<const PositionAndVelocity> plannedSecondResendPosition;
 
+        // The expected path the worker will follow
+        std::deque<PositionAndVelocity> expectedPath;
+
         // The position at which the gather command was resent, or nullptr if it hasn't been resent
         std::shared_ptr<const PositionAndVelocity> resentPosition;
 
@@ -65,6 +68,7 @@ namespace WorkerMiningOptimization
             resendsPlanned = false;
             plannedResendPosition = nullptr;
             plannedSecondResendPosition = nullptr;
+            expectedPath.clear();
             resentPosition = nullptr;
             secondResentPosition = nullptr;
             resendCommandOnFrame = -2;
