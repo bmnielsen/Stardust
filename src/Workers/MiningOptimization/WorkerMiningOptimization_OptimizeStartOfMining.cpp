@@ -98,7 +98,7 @@ namespace WorkerMiningOptimization
         void optimizeArrival(const MyWorker &worker,
                              const Resource &resource,
                              WorkerGatherStatus &workerStatus,
-                             std::map<PositionAndVelocity, PositionObservationMetadata> &optimalGatherPositions,
+                             std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &optimalGatherPositions,
                              const std::shared_ptr<PositionAndVelocity> &currentPosition)
         {
             if (workerStatus.secondResentPosition || workerStatus.resentOnSchedule()) return;
@@ -508,7 +508,7 @@ namespace WorkerMiningOptimization
                                                          const PositionAndVelocity &here,
                                                          int deltaToFirstResend,
                                                          const ResendPositionObservations &observations,
-                                                         const std::map<PositionAndVelocity, int> &nextPositions)
+                                                         const std::unordered_map<PositionAndVelocity, int> &nextPositions)
         {
             // Start by getting the data for all of the next positions
             PositionEvaluation nextPositionsEvaluation;
@@ -590,7 +590,7 @@ namespace WorkerMiningOptimization
         }
 
         PositionEvaluation evaluatePosition(int normalPathCommandFrame,
-                                            const std::map<PositionAndVelocity, PositionObservationMetadata> &allPositionData,
+                                            const std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &allPositionData,
                                             const PositionObservationMetadata &positionMetadata)
         {
             // Start by getting the data for all of the next positions

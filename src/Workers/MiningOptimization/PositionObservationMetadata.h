@@ -68,7 +68,7 @@ namespace WorkerMiningOptimization
     struct SecondResendPositionObservationMetadata
     {
         PositionAndVelocity pos;
-        std::map<PositionAndVelocity, int> next;
+        std::unordered_map<PositionAndVelocity, int> next;
         int deltaToFirstResend;
         ResendPositionObservations observations;
     };
@@ -79,12 +79,12 @@ namespace WorkerMiningOptimization
     public:
         uint32_t pathHash;
         PositionAndVelocity pos;
-        std::map<PositionAndVelocity, int> next;
+        std::unordered_map<PositionAndVelocity, int> next;
 
         int deltaToNormalPathOptimalPosition;
 
         ResendPositionObservations noResendObservations;
-        std::map<PositionAndVelocity, SecondResendPositionObservationMetadata> secondResendMetadata;
+        std::unordered_map<PositionAndVelocity, SecondResendPositionObservationMetadata> secondResendMetadata;
 
         bool addObservation(const std::shared_ptr<const PositionAndVelocity> &secondResendPosition, int arrivalDelta)
         {
@@ -104,7 +104,7 @@ namespace WorkerMiningOptimization
                 secondResendByDelta[secondResendData.deltaToFirstResend].push_back(&secondResendData);
             }
 
-            const std::map<PositionAndVelocity, int> *nextOccurrences = &next;
+            const std::unordered_map<PositionAndVelocity, int> *nextOccurrences = &next;
             int delta = 1;
             while (true)
             {

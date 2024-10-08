@@ -5,6 +5,7 @@
 
 struct PositionAndVelocity
 {
+public:
     int x;
     int y;
     int dx;
@@ -32,7 +33,7 @@ struct PositionAndVelocity
             , dx(worker->horizontalKiloSpeed)
             , dy(worker->verticalKiloSpeed)
             , heading(worker->kiloHeading)
-            , previousPositionsHash(previousPosition ? previousPosition->nextHash() : 0)
+            , previousPositionsHash(previousPosition ? previousPosition->getHash() : 0)
     {}
 
     bool operator==(const PositionAndVelocity &other) const
@@ -76,15 +77,17 @@ struct PositionAndVelocity
         return {x, y};
     }
 
-    [[nodiscard]] uint32_t nextHash() const
+    [[nodiscard]] uint32_t getHash() const
     {
-        uint32_t result = previousPositionsHash;
-        auto add = [&result](uint32_t val)
+        if (hashComputed) return hash;
+
+        hash = previousPositionsHash;
+        auto add = [&](uint32_t val)
         {
             val = ((val >> 16) ^ val) * 0x45d9f3b;
             val = ((val >> 16) ^ val) * 0x45d9f3b;
             val = (val >> 16) ^ val;
-            result ^= val + 0x9e3779b9 + (result << 6) + (result >> 2);
+            hash ^= val + 0x9e3779b9 + (hash << 6) + (hash >> 2);
         };
 
         add(x);
@@ -93,20 +96,23 @@ struct PositionAndVelocity
         add(dy);
         add(heading);
 
-        return result;
+        hashComputed = true;
+        return hash;
     }
 
     static bool tryParse(const std::string &str, PositionAndVelocity &out);
 
-    friend bool operator<(const PositionAndVelocity &a, const PositionAndVelocity &b)
+private:
+    mutable bool hashComputed = false;
+    mutable uint32_t hash = 0;
+};
+
+template <>
+struct std::hash<PositionAndVelocity>
+{
+    std::size_t operator()(const PositionAndVelocity& pos) const
     {
-        return (a.x < b.x) ||
-               (a.x == b.x && a.y < b.y) ||
-               (a.x == b.x && a.y == b.y && a.dx < b.dx) ||
-               (a.x == b.x && a.y == b.y && a.dx == b.dx && a.dy < b.dy) ||
-               (a.x == b.x && a.y == b.y && a.dx == b.dx && a.dy == b.dy && a.heading < b.heading) ||
-               (a.x == b.x && a.y == b.y && a.dx == b.dx && a.dy == b.dy && a.heading == b.heading
-                    && a.previousPositionsHash < b.previousPositionsHash);
+        return pos.getHash();
     }
 };
 

@@ -16,15 +16,15 @@ namespace WorkerMiningOptimization
         bool exploring;
 
         // Metadata for positions where we can resend the gather command to start mining immediately on arrival
-        std::map<Resource, std::map<PositionAndVelocity, PositionObservationMetadata>> resourceToOptimalGatherPositions;
+        std::map<Resource, std::unordered_map<PositionAndVelocity, PositionObservationMetadata>> resourceToOptimalGatherPositions;
 
         // Metadata for positions LF+1 frames before reaching 10 or less distance from the patch
         // Workers can try to switch to another patch if their chosen patch is being mined once they reach this distance, so we use these
         // positions to detect when we need to start resending gather commands to ensure mineral locking
-        std::map<Resource, std::map<PositionAndVelocity, PositionObservationMetadata>> resourceTo10DistancePositions;
+        std::map<Resource, std::unordered_map<PositionAndVelocity, PositionObservationMetadata>> resourceTo10DistancePositions;
 
         // Metadata for positions where we can resend the gather command to optimize the takeover frame and reach the patch on time
-        std::map<Resource, std::map<PositionAndVelocity, PositionObservationMetadata>> resourceToTakeoverResendPositions;
+        std::map<Resource, std::unordered_map<PositionAndVelocity, PositionObservationMetadata>> resourceToTakeoverResendPositions;
 
         // Worker state for those on their way to the patch
         std::map<MyWorker, WorkerGatherStatus> workerGatherStatuses;
@@ -55,13 +55,13 @@ namespace WorkerMiningOptimization
         }
 
         void parsePositionObservationMetadataFile(const std::string &filename,
-                                                  std::map<Resource, std::map<PositionAndVelocity, PositionObservationMetadata>> &map)
+                                                  std::map<Resource, std::unordered_map<PositionAndVelocity, PositionObservationMetadata>> &map)
         {
             map.clear();
 
             auto parseNextPositions = [](const std::string &str)
             {
-                std::map<PositionAndVelocity, int> result;
+                std::unordered_map<PositionAndVelocity, int> result;
 
                 for (const auto &observations : CsvTools::tokenizeList(str, '_'))
                 {
@@ -93,7 +93,7 @@ namespace WorkerMiningOptimization
 
             auto parseSecondResendPositions = [&parseNextPositions, &parseObservations](const std::string &str)
             {
-                std::map<PositionAndVelocity, SecondResendPositionObservationMetadata> result;
+                std::unordered_map<PositionAndVelocity, SecondResendPositionObservationMetadata> result;
                 if (str.empty()) return result;
 
                 for (const auto &secondResendData : CsvTools::tokenizeList(str))
@@ -165,12 +165,12 @@ namespace WorkerMiningOptimization
         }
 
         void writePositionObservationMetadataFile(const std::string &filename,
-                                                  std::map<Resource, std::map<PositionAndVelocity, PositionObservationMetadata>> &map)
+                                                  std::map<Resource, std::unordered_map<PositionAndVelocity, PositionObservationMetadata>> &map)
         {
             std::ofstream file;
             file.open(filename, std::ofstream::trunc);
 
-            auto outputNext = [&file](const std::map<PositionAndVelocity, int> &next)
+            auto outputNext = [&file](const std::unordered_map<PositionAndVelocity, int> &next)
             {
                 std::string nextPosSep;
                 for (const auto &[nextPos, nextOccurrences] : next)
@@ -377,17 +377,17 @@ namespace WorkerMiningOptimization
         return workerStatusIt->second;
     }
 
-    std::map<PositionAndVelocity, PositionObservationMetadata> &optimalGatherPositionsFor(const Resource &resource)
+    std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &optimalGatherPositionsFor(const Resource &resource)
     {
         return resourceToOptimalGatherPositions[resource];
     }
 
-    std::map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositionsFor(const Resource &resource)
+    std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositionsFor(const Resource &resource)
     {
         return resourceTo10DistancePositions[resource];
     }
 
-    std::map<PositionAndVelocity, PositionObservationMetadata> &takeoverPositionsFor(const Resource &resource)
+    std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &takeoverPositionsFor(const Resource &resource)
     {
         return resourceToTakeoverResendPositions[resource];
     }

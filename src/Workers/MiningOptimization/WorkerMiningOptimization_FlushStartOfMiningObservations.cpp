@@ -67,7 +67,7 @@ namespace WorkerMiningOptimization
         void handleObservation(const WorkerGatherStatus &workerStatus,
                                const std::shared_ptr<PositionAndVelocity> &observedPosition,
                                const std::shared_ptr<PositionAndVelocity> &resentPosition,
-                               std::map<PositionAndVelocity, PositionObservationMetadata> &observations,
+                               std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &observations,
                                bool tenDistance = false)
         {
             if (workerStatus.resentOnSchedule()) return;
@@ -169,8 +169,8 @@ namespace WorkerMiningOptimization
 
         void updateTakeoverMetadata(WorkerGatherStatus &workerStatus,
                                     const Resource &resource,
-                                    std::map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositions,
-                                    std::map<PositionAndVelocity, PositionObservationMetadata> &takeoverResendPositions,
+                                    std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositions,
+                                    std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &takeoverResendPositions,
                                     bool switchedPatches = false)
         {
             // Abort if we've already cleared our history
@@ -310,7 +310,7 @@ namespace WorkerMiningOptimization
         std::set<BWAPI::TilePosition> exploredPatches;
 #endif
 
-        void updateNextPositions(const WorkerGatherStatus &workerStatus, std::map<PositionAndVelocity, PositionObservationMetadata> &metadata)
+        void updateNextPositions(const WorkerGatherStatus &workerStatus, std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &metadata)
         {
             if (!workerStatus.pathStartsAtDepot()) return;
 
@@ -363,8 +363,8 @@ namespace WorkerMiningOptimization
                     {
                         auto nextPositions =
                                 (next == workerStatus.positionHistory.end())
-                                ? std::map<PositionAndVelocity, int>{}
-                                : std::map<PositionAndVelocity, int>{{**next, 1}};
+                                ? std::unordered_map<PositionAndVelocity, int>{}
+                                : std::unordered_map<PositionAndVelocity, int>{{**next, 1}};
                         positionMetadata.secondResendMetadata.emplace(
                                 **here,
                                 SecondResendPositionObservationMetadata{
@@ -503,7 +503,7 @@ namespace WorkerMiningOptimization
                             PositionObservationMetadata{
                                 (*optimalPositionIt)->previousPositionsHash,
                                 **optimalPositionIt,
-                                std::map<PositionAndVelocity, int>{},
+                                std::unordered_map<PositionAndVelocity, int>{},
                                 0}
                     );
 
@@ -535,8 +535,8 @@ namespace WorkerMiningOptimization
                     auto existingIt = optimalGatherPositions.find(**positionIt);
                     if (existingIt == optimalGatherPositions.end())
                     {
-                        std::map<PositionAndVelocity, int> nextPositions;
-                        std::map<PositionAndVelocity, SecondResendPositionObservationMetadata> secondResendPositions;
+                        std::unordered_map<PositionAndVelocity, int> nextPositions;
+                        std::unordered_map<PositionAndVelocity, SecondResendPositionObservationMetadata> secondResendPositions;
                         if (nextPosition)
                         {
                             nextPositions.emplace(*nextPosition, 1);
@@ -544,7 +544,7 @@ namespace WorkerMiningOptimization
                                     *nextPosition,
                                     SecondResendPositionObservationMetadata{
                                             *nextPosition,
-                                            std::map<PositionAndVelocity, int>{},
+                                            std::unordered_map<PositionAndVelocity, int>{},
                                             1});
                         }
 
@@ -704,7 +704,7 @@ namespace WorkerMiningOptimization
                     auto secondResendMetadataIt = resentPositionData.secondResendMetadata.find(**here);
                     if (secondResendMetadataIt == resentPositionData.secondResendMetadata.end())
                     {
-                        std::map<PositionAndVelocity, int> nextPositions;
+                        std::unordered_map<PositionAndVelocity, int> nextPositions;
                         if (i < maxIndex && next != workerStatus.positionHistory.rbegin())
                         {
                             nextPositions.emplace(**next, 1);
@@ -845,8 +845,8 @@ namespace WorkerMiningOptimization
 
     void handleStartOfMiningPatchSwitch(WorkerGatherStatus &workerStatus,
                                         const Resource &resource,
-                                        std::map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositions,
-                                        std::map<PositionAndVelocity, PositionObservationMetadata> &takeoverResendPositions)
+                                        std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositions,
+                                        std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &takeoverResendPositions)
     {
         /*
         updateTakeoverMetadata(workerStatus, resource, tenDistancePositions, takeoverResendPositions, true);
