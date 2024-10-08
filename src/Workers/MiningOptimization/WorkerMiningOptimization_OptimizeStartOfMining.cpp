@@ -734,7 +734,7 @@ namespace WorkerMiningOptimization
         auto &optimalPositions = optimalGatherPositionsFor(resource);
 
         // If we have a path planned, validate that we are following it
-        if (workerStatus.resendsPlanned && !workerStatus.expectedPath.empty() && !workerStatus.expectedPath.front().equals(*currentPosition))
+        if (workerStatus.resendsPlanned && !workerStatus.expectedPath.empty() && workerStatus.expectedPath.front() != (*currentPosition))
         {
             // If we haven't passed the first resend position yet, then just clear the planned data and we will hit the replan logic below
             if (!workerStatus.resentPosition)
@@ -770,7 +770,7 @@ namespace WorkerMiningOptimization
                             auto positionIt = workerStatus.positionHistory.rbegin();
                             for (; positionIt != workerStatus.positionHistory.rend(); positionIt++)
                             {
-                                if ((*positionIt)->equals(*workerStatus.resentPosition)) break;
+                                if ((**positionIt) == (*workerStatus.resentPosition)) break;
                             }
                             if (positionIt != workerStatus.positionHistory.rend()) // should always be true
                             {
@@ -903,7 +903,7 @@ namespace WorkerMiningOptimization
             {
                 workerStatus.plannedResendPosition = evaluation.resendPosition;
                 workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*evaluation.expectedPath.rbegin());
-                if (workerStatus.plannedResendPosition->equals(*workerStatus.plannedSecondResendPosition))
+                if ((*workerStatus.plannedResendPosition) == (*workerStatus.plannedSecondResendPosition))
                 {
                     workerStatus.plannedSecondResendPosition = nullptr;
                 }
@@ -960,7 +960,7 @@ namespace WorkerMiningOptimization
             {
                 if (!plannedPosition) return; // nothing planned for this position
                 if (resentPosition) return; // already resent
-                if (!plannedPosition->equals(*currentPosition)) return; // not at the position yet
+                if ((*plannedPosition) != (*currentPosition)) return; // not at the position yet
 
 #if OPTIMALPOSITIONS_DEBUG
                 CherryVis::log(worker->id) << "Resending for " << *plannedPosition;

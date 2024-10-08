@@ -35,6 +35,16 @@ struct PositionAndVelocity
             , previousPositionsHash(previousPosition ? previousPosition->nextHash() : 0)
     {}
 
+    bool operator==(const PositionAndVelocity &other) const
+    {
+        return x == other.x
+               && y == other.y
+               && dx == other.dx
+               && dy == other.dy
+               && heading == other.heading
+               && previousPositionsHash == other.previousPositionsHash;
+    }
+
     [[nodiscard]] bool isValid() const
     {
         return x != -1;
@@ -50,16 +60,6 @@ struct PositionAndVelocity
     {
         return x == worker->lastPosition.x
                && y == worker->lastPosition.y;
-    }
-
-    [[nodiscard]] bool equals(const PositionAndVelocity &other) const
-    {
-        return x == other.x
-               && y == other.y
-               && dx == other.dx
-               && dy == other.dy
-               && heading == other.heading
-               && previousPositionsHash == other.previousPositionsHash;
     }
 
     [[nodiscard]] bool positionAndVelocityEquals(const PositionAndVelocity &other) const

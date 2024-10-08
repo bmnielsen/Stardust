@@ -54,7 +54,7 @@ struct PathAnalysis
                     unstableType = 2;
                     CherryVis::log() << "One frame difference";
                 }
-                else if (longestLength - shortestLength == 11 && paths[longestIndex].begin()->equals(*(paths[longestIndex].begin() + 8)))
+                else if (longestLength - shortestLength == 11 && (*paths[longestIndex].begin()) == (*(paths[longestIndex].begin() + 8)))
                 {
                     unstableType = 1;
                 }
