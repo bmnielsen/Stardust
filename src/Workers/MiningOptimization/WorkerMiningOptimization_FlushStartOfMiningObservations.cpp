@@ -471,80 +471,6 @@ namespace WorkerMiningOptimization
                 Log::Get() << "ERROR: Worker didn't resend at second planned position " << *workerStatus.plannedSecondResendPosition
                            << "; worker id " << worker->id << " @ " << worker->getTilePosition();
             }
-/*
-            else
-            {
-                // Measure effectiveness of this gather path
-                if (workerStatus.resentPosition)
-                {
-                    auto resentPositionDataIt = optimalGatherPositions.find(*workerStatus.resentPosition);
-                    if (resentPositionDataIt != optimalGatherPositions.end() && !resentPositionDataIt->second.hasPositionToTry)
-                    {
-                        auto &resentPositionData = resentPositionDataIt->second;
-
-                        // Find the last resend position in the position history
-                        auto lastResendPositionIt = workerStatus.positionHistory.rbegin();
-                        for (; lastResendPositionIt != workerStatus.positionHistory.rend(); lastResendPositionIt++)
-                        {
-                            if (workerStatus.secondResentPosition == *lastResendPositionIt) break;
-                            if (workerStatus.resentPosition == *lastResendPositionIt) break;
-                        }
-
-                        auto secondResendData = resentPositionData.secondResendMetadataFor(workerStatus.secondResentPosition.get());
-                        int arrivalDelay = secondResendData
-                                ? secondResendData->observations.mostCommonArrivalDelay()
-                                : resentPositionData.noResendObservations.mostCommonArrivalDelay();
-
-                        auto actualFramesToArrival = std::distance(lastResendPositionIt.base(), arrivalPositionIt);
-                        if (actualFramesToArrival > (BWAPI::Broodwar->getLatencyFrames() + 10 - arrivalDelay))
-                        {
-                            Log::Get() << "ERROR: Position " << resentPositionData << " has unexpected arrival delta"
-                                       << "; expected=" << (BWAPI::Broodwar->getLatencyFrames() + 10 - arrivalDelay)
-                                       << "; actual=" << actualFramesToArrival
-                                       << "; worker id " << worker->id << " @ " << worker->getTilePosition();
-                        }
-
-                        auto actualFramesToMining = std::distance(lastResendPositionIt.base(), workerStatus.positionHistory.end());
-                        auto framesToReset =
-                                OrderProcessTimer::framesToNextReset(currentFrame - actualFramesToMining + BWAPI::Broodwar->getLatencyFrames());
-                        int minExpectedFramesToMining, maxExpectedFramesToMining;
-                        if (framesToReset > 0 && framesToReset < 12)
-                        {
-                            minExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 10 - arrivalDelay);
-                            maxExpectedFramesToMining = minExpectedFramesToMining + 9;
-                        }
-                        else
-                        {
-                            minExpectedFramesToMining = maxExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 11);
-                        }
-                        if (actualFramesToMining < minExpectedFramesToMining || actualFramesToMining > maxExpectedFramesToMining)
-                        {
-                            Log::Get() << "ERROR: Position " << resentPositionData << " has unexpected mining start delta"
-                                       << "; expected=" << minExpectedFramesToMining << "-" << maxExpectedFramesToMining
-                                       << "; actual=" << actualFramesToMining
-                                       << "; worker id " << worker->id << " @ " << worker->getTilePosition();
-
-                            std::ostringstream dbg;
-                            dbg << "Distance mismatch:";
-                            bool hasDistanceMismatch = false;
-                            for (auto posIt = arrivalPositionIt - 5; posIt != workerStatus.positionHistory.end(); posIt++)
-                            {
-                                auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                                    (*posIt)->pos(),
-                                                                    BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                                    workerStatus.resource->center);
-                                auto distCurrent = worker->lastPosition.getApproxDistance((*posIt)->pos());
-
-                                dbg << "\n" << **posIt << "; distPatch=" << dist << "; distCurrentPos=" << distCurrent;
-
-                                if (dist == 0 && distCurrent == 1) hasDistanceMismatch = true;
-                            }
-                            if (hasDistanceMismatch) Log::Get() << dbg.str();
-                        }
-                    }
-                }
-            }
-            */
 #endif
 
             // If we sent no command, queue a test on the apparent optimal position
@@ -572,16 +498,14 @@ namespace WorkerMiningOptimization
                 // so we can't explore them efficiently
                 if (!workerStatus.pathStartsAtDepot())
                 {
-                    auto emplacedIt = optimalGatherPositions.emplace(
+                    optimalGatherPositions.emplace(
                             **optimalPositionIt,
                             PositionObservationMetadata{
                                 (*optimalPositionIt)->previousPositionsHash,
                                 **optimalPositionIt,
                                 std::map<PositionAndVelocity, int>{},
                                 0}
-                    ).first;
-
-                    emplacedIt->second.hasPositionToTry = true;
+                    );
 
 #if OPTIMALPOSITIONS_DEBUG
                     CherryVis::log(worker->id) << "Queued test of " << **optimalPositionIt;
@@ -631,7 +555,6 @@ namespace WorkerMiningOptimization
                                         **positionIt,
                                         std::move(nextPositions),
                                         delta,
-                                        true,
                                         {},
                                         std::move(secondResendPositions)}
                         );
@@ -672,10 +595,9 @@ namespace WorkerMiningOptimization
             }
 
             auto &resentPositionData = resentPositionDataIt->second;
-            bool exploring = resentPositionData.hasPositionToTry;
 
             // Track the observation
-            resentPositionData.addObservation(
+            bool exploring = resentPositionData.addObservation(
                     workerStatus.secondResentPosition,
                     (int)std::distance((workerStatus.secondResentPosition ? secondResentPositionIt : resentPositionIt), optimalPositionIt));
 
@@ -691,9 +613,75 @@ namespace WorkerMiningOptimization
             }
 #endif
 
-            // If we had already explored all possible options before this resend, nothing more is needed
+            // If this resend was not exploring a new position, nothing more is needed
             if (!exploring && (!workerStatus.plannedSecondResendPosition || workerStatus.secondResentPosition))
             {
+#if OPTIMALPOSITIONS_DEBUG
+                // Measure effectiveness of this gather path
+                if (workerStatus.resentPosition)
+                {
+                    // Find the last resend position in the position history
+                    auto lastResendPositionIt = workerStatus.positionHistory.rbegin();
+                    for (; lastResendPositionIt != workerStatus.positionHistory.rend(); lastResendPositionIt++)
+                    {
+                        if (workerStatus.secondResentPosition == *lastResendPositionIt) break;
+                        if (workerStatus.resentPosition == *lastResendPositionIt) break;
+                    }
+
+                    auto secondResendData = resentPositionData.secondResendMetadataFor(workerStatus.secondResentPosition.get());
+                    int arrivalDelay = secondResendData
+                                       ? secondResendData->observations.mostCommonArrivalDelay()
+                                       : resentPositionData.noResendObservations.mostCommonArrivalDelay();
+
+                    auto actualFramesToArrival = std::distance(lastResendPositionIt.base(), arrivalPositionIt);
+                    if (actualFramesToArrival > (BWAPI::Broodwar->getLatencyFrames() + 10 - arrivalDelay))
+                    {
+                        Log::Get() << "ERROR: Position " << resentPositionData << " has unexpected arrival delta"
+                                   << "; expected=" << (BWAPI::Broodwar->getLatencyFrames() + 10 - arrivalDelay)
+                                   << "; actual=" << actualFramesToArrival
+                                   << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                    }
+
+                    auto actualFramesToMining = std::distance(lastResendPositionIt.base(), workerStatus.positionHistory.end());
+                    auto framesToReset =
+                            OrderProcessTimer::framesToNextReset(currentFrame - actualFramesToMining + BWAPI::Broodwar->getLatencyFrames());
+                    int minExpectedFramesToMining, maxExpectedFramesToMining;
+                    if (framesToReset > 0 && framesToReset < 12)
+                    {
+                        minExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 10 - arrivalDelay);
+                        maxExpectedFramesToMining = minExpectedFramesToMining + 9;
+                    }
+                    else
+                    {
+                        minExpectedFramesToMining = maxExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 11);
+                    }
+                    if (actualFramesToMining < minExpectedFramesToMining || actualFramesToMining > maxExpectedFramesToMining)
+                    {
+                        Log::Get() << "ERROR: Position " << resentPositionData << " has unexpected mining start delta"
+                                   << "; expected=" << minExpectedFramesToMining << "-" << maxExpectedFramesToMining
+                                   << "; actual=" << actualFramesToMining
+                                   << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+
+                        std::ostringstream dbg;
+                        dbg << "Distance mismatch:";
+                        bool hasDistanceMismatch = false;
+                        for (auto posIt = arrivalPositionIt - 5; posIt != workerStatus.positionHistory.end(); posIt++)
+                        {
+                            auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                                (*posIt)->pos(),
+                                                                BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                                workerStatus.resource->center);
+                            auto distCurrent = worker->lastPosition.getApproxDistance((*posIt)->pos());
+
+                            dbg << "\n" << **posIt << "; distPatch=" << dist << "; distCurrentPos=" << distCurrent;
+
+                            if (dist == 0 && distCurrent == 1) hasDistanceMismatch = true;
+                        }
+                        if (hasDistanceMismatch) Log::Get() << dbg.str();
+                    }
+                }
+#endif
+
                 it = workerGatherStatuses.erase(it);
                 continue;
             }
@@ -735,8 +723,6 @@ namespace WorkerMiningOptimization
 #endif
                     }
                 }
-
-                resentPositionData.hasPositionToTry = resentPositionData.hasUntriedPosition();
             }
 
             // Potentially queue up other positions to test if we are finished testing this position

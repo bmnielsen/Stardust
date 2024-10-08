@@ -6,6 +6,8 @@
 #include "OrderProcessTimer.h"
 #include "PositionAndVelocity.h"
 
+#define EPSILON 0.001
+
 namespace WorkerMiningOptimization
 {
     namespace
@@ -479,7 +481,8 @@ namespace WorkerMiningOptimization
             int positionToTryDelta = 0;
         };
 
-        PositionEvaluation evaluateSecondResendPositions(const PositionObservationMetadata &positionMetadata,
+        PositionEvaluation evaluateSecondResendPositions(int normalPathCommandFrame,
+                                                         const PositionObservationMetadata &positionMetadata,
                                                          const PositionAndVelocity &here,
                                                          int deltaToFirstResend,
                                                          const ResendPositionObservations &observations,
@@ -498,6 +501,7 @@ namespace WorkerMiningOptimization
                     {
 #if OPTIMALPOSITIONS_DEBUG
                         Log::Get() << "ERROR: No second resend metadata found for next position " << nextPosition;
+#if OPTIMALPOSITIONS_DEBUG_VERBOSE
                         std::ostringstream dbg;
                         dbg << "Second resend positions:";
                         for (const auto &pos : positionMetadata.expectedPathAfterResend())
@@ -514,10 +518,12 @@ namespace WorkerMiningOptimization
                         }
                         Log::Get() << dbg.str();
 #endif
+#endif
                         continue;
                     }
 
-                    auto nextPositionEvaluation = evaluateSecondResendPositions(positionMetadata,
+                    auto nextPositionEvaluation = evaluateSecondResendPositions(normalPathCommandFrame,
+                                                                                positionMetadata,
                                                                                 nextPosition,
                                                                                 nextPositionDataIt->second.deltaToFirstResend,
                                                                                 nextPositionDataIt->second.observations,
@@ -553,10 +559,26 @@ namespace WorkerMiningOptimization
 
             // Compute the expected delta for this position
             double expectedArrivalDelay = observations.expectedArrivalDelay();
-            double expectedDelta =
-                    positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + expectedArrivalDelay;
 
-            if (expectedDelta < (nextPositionsEvaluation.expectedDelta - 0.0001))
+            // If it doesn't get us to the patch on time, don't use this position
+            if (expectedArrivalDelay < -EPSILON) return nextPositionsEvaluation;
+
+            // Adjust for order process timer resets
+            int resendAppliedFrame = normalPathCommandFrame
+                                     + BWAPI::Broodwar->getLatencyFrames()
+                                     + positionMetadata.deltaToNormalPathOptimalPosition
+                                     + deltaToFirstResend;
+            double expectedDelta;
+            if (OrderProcessTimer::framesToNextReset(resendAppliedFrame + 1) < 11)
+            {
+                expectedDelta = positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + 5;
+            }
+            else
+            {
+                expectedDelta = positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + expectedArrivalDelay;
+            }
+
+            if (expectedDelta < (nextPositionsEvaluation.expectedDelta - EPSILON))
             {
                 return {expectedDelta, {here}, std::make_shared<PositionAndVelocity>(positionMetadata.pos), false, 0};
             }
@@ -564,7 +586,8 @@ namespace WorkerMiningOptimization
             return nextPositionsEvaluation;
         }
 
-        PositionEvaluation evaluatePosition(const std::map<PositionAndVelocity, PositionObservationMetadata> &allPositionData,
+        PositionEvaluation evaluatePosition(int normalPathCommandFrame,
+                                            const std::map<PositionAndVelocity, PositionObservationMetadata> &allPositionData,
                                             const PositionObservationMetadata &positionMetadata)
         {
             // Start by getting the data for all of the next positions
@@ -584,7 +607,7 @@ namespace WorkerMiningOptimization
                         continue;
                     }
 
-                    auto nextPositionEvaluation = evaluatePosition(allPositionData, nextPositionDataIt->second);
+                    auto nextPositionEvaluation = evaluatePosition(normalPathCommandFrame, allPositionData, nextPositionDataIt->second);
                     deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
                     occurrenceCount += occurrences;
                     if (occurrences > bestOccurrences)
@@ -598,7 +621,8 @@ namespace WorkerMiningOptimization
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), positionMetadata.pos);
 
             // Now evaluate this position using the second resend metadata
-            auto evaluationHere = evaluateSecondResendPositions(positionMetadata,
+            auto evaluationHere = evaluateSecondResendPositions(normalPathCommandFrame,
+                                                                positionMetadata,
                                                                 positionMetadata.pos,
                                                                 0,
                                                                 positionMetadata.noResendObservations,
@@ -704,7 +728,9 @@ namespace WorkerMiningOptimization
 
             workerStatus.resendsPlanned = true;
 
-            auto evaluation = evaluatePosition(optimalPositions, metadataIt->second);
+            int normalPathCommandFrame = BWAPI::Broodwar->getFrameCount() - metadataIt->second.deltaToNormalPathOptimalPosition;
+
+            auto evaluation = evaluatePosition(normalPathCommandFrame, optimalPositions, metadataIt->second);
             if ((evaluation.expectedDelta < 10 || evaluation.positionToTryOnExpectedPath) && evaluation.resendPosition)
             {
                 workerStatus.plannedResendPosition = evaluation.resendPosition;
@@ -713,6 +739,45 @@ namespace WorkerMiningOptimization
                 {
                     workerStatus.plannedSecondResendPosition = nullptr;
                 }
+
+#if OPTIMALPOSITIONS_DEBUG
+                std::ostringstream out;
+                out << "Planned gather command(s): ";
+                if (workerStatus.plannedResendPosition)
+                {
+                    out << *workerStatus.plannedResendPosition;
+                }
+                else
+                {
+                    out << "none";
+                }
+                if (workerStatus.plannedSecondResendPosition)
+                {
+                    out << " : " << *workerStatus.plannedSecondResendPosition;
+                }
+                if (evaluation.positionToTryOnExpectedPath)
+                {
+                    out << " (exploring)";
+                }
+
+                if (workerStatus.plannedResendPosition)
+                {
+                    auto resentPositionDataIt = optimalPositions.find(*workerStatus.plannedResendPosition);
+                    if (resentPositionDataIt != optimalPositions.end())
+                    {
+                        auto &resentPositionData = resentPositionDataIt->second;
+
+                        auto secondResendData = resentPositionData.secondResendMetadataFor(workerStatus.plannedSecondResendPosition.get());
+                        auto &observations = secondResendData ? secondResendData->observations : resentPositionData.noResendObservations;
+                        if (!observations.empty())
+                        {
+                            out << " expected delay " << observations.mostCommonArrivalDelay();
+                        }
+                    }
+                }
+
+                CherryVis::log(worker->id) << out.str();
+#endif
             }
         }
 

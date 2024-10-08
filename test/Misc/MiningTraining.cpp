@@ -641,6 +641,18 @@ TEST(MiningTraining, NeoMoonGlaiveSingleOneWorker)
               << "Single: " << sgl << "%" << std::endl;
 }
 
+TEST(MiningTraining, NeoMoonGlaiveSingleOneWorkerMeasure)
+{
+    BWTest test;
+    test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
+    test.randomSeed = 42;
+    test.frameLimit = 10000;
+    auto sgl = runEfficiencyTest(test, 1, 0, true, true);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << "%" << std::endl;
+}
+
 TEST(MiningTraining, NeoMoonGlaiveDouble)
 {
     BWTest test;

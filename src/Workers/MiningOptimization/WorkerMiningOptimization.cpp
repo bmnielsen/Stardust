@@ -128,7 +128,7 @@ namespace WorkerMiningOptimization
                     lineNumber++;
 
                     auto line = CsvTools::readNextLine(file);
-                    if (line.size() < 8) break;
+                    if (line.size() < 7) break;
 
                     BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
                     auto resource = Units::resourceAt(tile);
@@ -148,9 +148,8 @@ namespace WorkerMiningOptimization
                         pos,
                         parseNextPositions(line[4]),
                         std::stoi(line[5]),
-                        line[6] == "y",
-                        parseObservations(line[7]),
-                        parseSecondResendPositions((line.size() > 8) ? line[8] : "")
+                        parseObservations(line[6]),
+                        parseSecondResendPositions((line.size() > 7) ? line[7] : "")
                     });
 
                     count++;
@@ -203,8 +202,7 @@ namespace WorkerMiningOptimization
                     outputNext(resendPositionMetadata.next);
                     file << ";";
 
-                    file << resendPositionMetadata.deltaToNormalPathOptimalPosition << ";"
-                         << (resendPositionMetadata.hasPositionToTry ? "y" : "") << ";";
+                    file << resendPositionMetadata.deltaToNormalPathOptimalPosition << ";";
 
                     outputObservations(resendPositionMetadata.noResendObservations);
                     file << ";";
@@ -259,17 +257,10 @@ namespace WorkerMiningOptimization
                     }
                     file << maxSecondResendDeltaOccurrences;
 
-                    /*
-
-                    if (resendPositionMetadata.bestDelta < resendPositionMetadata.bestFollowingPositionDelta &&
-                        resendPositionMetadata.deltaToNormalPathOptimalPosition < 0)
-                    {
-                        file << "*" << resendPositionMetadata.bestDelta;
-                    }
-
                     int mostOccurrences = 0;
                     int mostOccurrencesPosition = -1;
-                    auto handleObservations = [&](const ResendPositionObservations &observations, int thisPosition)
+                    int mostOccurrencesDelta = 0;
+                    auto countOccurrences = [&](const ResendPositionObservations &observations, int thisPosition)
                     {
                         for (const auto &[delta, occurrences] : observations.data)
                         {
@@ -277,6 +268,7 @@ namespace WorkerMiningOptimization
                             {
                                 mostOccurrences = occurrences;
                                 mostOccurrencesPosition = thisPosition;
+                                mostOccurrencesDelta = thisPosition + delta;
                             }
                         }
 
@@ -305,20 +297,22 @@ namespace WorkerMiningOptimization
                         }
 #endif
                     };
-                    handleObservations(resendPositionMetadata.noResendObservations, 0);
+                    countOccurrences(resendPositionMetadata.noResendObservations, 0);
                     for (const auto &secondResendMetadata : resendPositionMetadata.secondResendMetadata)
                     {
-                        handleObservations(secondResendMetadata.observations, secondResendMetadata.deltaToFirstResend);
+                        countOccurrences(secondResendMetadata.second.observations, secondResendMetadata.second.deltaToFirstResend);
                     }
                     if (mostOccurrences > 1)
                     {
-                        file << ";y;" << mostOccurrencesPosition;
+                        file << ";y"
+                             << ";" << mostOccurrences
+                             << ";" << (resendPositionMetadata.deltaToNormalPathOptimalPosition + mostOccurrencesDelta)
+                             << ";" << mostOccurrencesPosition;
                     }
                     else
                     {
-                        file << ";;";
+                        file << ";;;;";
                     }
-                     */
 
                     file << "\n";
                     count++;

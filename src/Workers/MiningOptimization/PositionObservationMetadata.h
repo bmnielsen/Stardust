@@ -21,6 +21,9 @@ namespace WorkerMiningOptimization
 
         [[nodiscard]] int mostCommonArrivalDelay() const
         {
+            if (data.empty()) return INT_MAX;
+            if (data.size() == 1) return data.begin()->first;
+
             int best = -1;
             int bestCount = 0;
             for (const auto &[arrivalDelay, occurrences] : data)
@@ -43,12 +46,18 @@ namespace WorkerMiningOptimization
         [[nodiscard]] double expectedArrivalDelay() const
         {
             if (data.empty()) return 100.0;
+            if (data.size() == 1) return data.begin()->first;
+
+            // If the most common arrival delay is negative, return it
+            auto mostCommon = mostCommonArrivalDelay();
+            if (mostCommon < 0) return mostCommon;
 
             double totalArrivalDelay = 0.0;
             int totalOccurrences = 0;
             for (const auto &[arrivalDelay, occurrences] : data)
             {
-                totalArrivalDelay += arrivalDelay;
+                // If the arrival delay is negative, this means we don't reach the patch on time, so we penalize this heavily
+                totalArrivalDelay += arrivalDelay + ((arrivalDelay < 0) ? (BWAPI::Broodwar->getLatencyFrames() + 11) : 0);
                 totalOccurrences += occurrences;
             }
 
@@ -74,55 +83,18 @@ namespace WorkerMiningOptimization
 
         int deltaToNormalPathOptimalPosition;
 
-        bool hasPositionToTry;
-
         ResendPositionObservations noResendObservations;
         std::map<PositionAndVelocity, SecondResendPositionObservationMetadata> secondResendMetadata;
 
-        void addObservation(const std::shared_ptr<const PositionAndVelocity> &secondResendPosition, int arrivalDelta)
+        bool addObservation(const std::shared_ptr<const PositionAndVelocity> &secondResendPosition, int arrivalDelta)
         {
-            if (secondResendPosition)
-            {
-                secondResendMetadata[*secondResendPosition].observations.add(arrivalDelta);
-            }
-            else
-            {
-                noResendObservations.add(arrivalDelta);
-            }
-
-            // Clear the "have a position to try" flag if we no longer have anything to try
-            if (hasPositionToTry && !hasUntriedPosition())
-            {
-                hasPositionToTry = false;
-            }
+            auto &observations = secondResendPosition ? secondResendMetadata[*secondResendPosition].observations : noResendObservations;
+            bool result = observations.empty();
+            observations.add(arrivalDelta);
+            return result;
         }
 
-        [[nodiscard]] bool hasUntriedPosition() const
-        {
-            if (noResendObservations.empty()) return true;
-
-            std::set<int> secondResendDeltasExplored;
-            std::set<int> secondResendDeltasUnexplored;
-            for (const auto &metadata : secondResendMetadata)
-            {
-                if (metadata.second.deltaToFirstResend == BWAPI::Broodwar->getLatencyFrames()) continue;
-
-                if (metadata.second.observations.empty())
-                {
-                    secondResendDeltasUnexplored.emplace(metadata.second.deltaToFirstResend);
-                }
-                else
-                {
-                    secondResendDeltasExplored.emplace(metadata.second.deltaToFirstResend);
-                }
-            }
-            if (secondResendDeltasUnexplored.empty()) return false;
-
-            for (int delta : secondResendDeltasExplored) secondResendDeltasUnexplored.erase(delta);
-            return !secondResendDeltasUnexplored.empty();
-        }
-
-        std::vector<const SecondResendPositionObservationMetadata*> expectedPathAfterResend() const
+        [[nodiscard]] std::vector<const SecondResendPositionObservationMetadata*> expectedPathAfterResend() const
         {
             std::vector<const SecondResendPositionObservationMetadata*> result;
 
@@ -156,6 +128,14 @@ namespace WorkerMiningOptimization
             }
 
             return result;
+        }
+
+        [[nodiscard]] SecondResendPositionObservationMetadata* secondResendMetadataFor(const PositionAndVelocity *secondResendPosition)
+        {
+            if (!secondResendPosition) return nullptr;
+
+            auto secondResendDataIt = secondResendMetadata.find(*secondResendPosition);
+            return (secondResendDataIt == secondResendMetadata.end()) ? nullptr : &secondResendDataIt->second;
         }
     };
 
