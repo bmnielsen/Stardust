@@ -709,21 +709,23 @@ namespace WorkerMiningOptimization
                         workerStatus.secondResentPosition = currentPosition;
                         workerStatus.resendCommandOnFrame = -2;
                     }
+#if OPTIMALPOSITIONS_DEBUG
+                }
+                else
+                {
+                    Log::Get() << "Failed to send scheduled gather command for "
+                               << worker->id << " @ " << worker->getTilePosition() << ": "
+                               << BWAPI::Broodwar->getLastError();
+                    CherryVis::log(worker->id) << "Failed to send scheduled gather command; last error "
+                                               << BWAPI::Broodwar->getLastError();
+                    CherryVis::log(resource->id) << "Failed to send scheduled gather command; last error "
+                                                 << BWAPI::Broodwar->getLastError();
+#endif
                 }
 
 #if OPTIMALPOSITIONS_DEBUG
                 CherryVis::log(worker->id) << "Resending gather command on schedule";
                 CherryVis::log(resource->id) << "Resending gather command on schedule";
-            }
-            else
-            {
-                Log::Get() << "Failed to send scheduled gather command for "
-                           << worker->id << " @ " << worker->getTilePosition() << ": "
-                           << BWAPI::Broodwar->getLastError();
-                CherryVis::log(worker->id) << "Failed to send scheduled gather command; last error "
-                                           << BWAPI::Broodwar->getLastError();
-                CherryVis::log(resource->id) << "Failed to send scheduled gather command; last error "
-                                             << BWAPI::Broodwar->getLastError();
 #endif
             }
             return;

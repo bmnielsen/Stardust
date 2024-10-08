@@ -67,9 +67,10 @@ namespace WorkerMiningOptimization
                 {
                     auto data = CsvTools::tokenizeList(observations, '|');
                     if (data.size() < 2) continue;
-                    if (!PositionAndVelocity::isValidString(data[0])) continue;
+                    PositionAndVelocity pos;
+                    if (!PositionAndVelocity::tryParse(data[0], pos)) continue;
 
-                    result.emplace(PositionAndVelocity::fromString(data[0]), std::stoi(data[1]));
+                    result.emplace(pos, std::stoi(data[1]));
                 }
 
                 return result;
@@ -99,9 +100,8 @@ namespace WorkerMiningOptimization
                 {
                     auto data = CsvTools::tokenizeList(secondResendData, ':');
                     if (data.size() < 3) continue;
-                    if (!PositionAndVelocity::isValidString(data[0])) continue;
-
-                    auto pos = PositionAndVelocity::fromString(data[0]);
+                    PositionAndVelocity pos;
+                    if (!PositionAndVelocity::tryParse(data[0], pos)) continue;
 
                     result.emplace(pos, SecondResendPositionObservationMetadata{
                             pos,
@@ -134,12 +134,12 @@ namespace WorkerMiningOptimization
                     auto resource = Units::resourceAt(tile);
                     if (!resource) continue;
 
-                    if (!PositionAndVelocity::isValidString(line[3]))
+                    PositionAndVelocity pos;
+                    if (!PositionAndVelocity::tryParse(line[3], pos))
                     {
                         Log::Get() << "Invalid position string at line " << lineNumber << "; skipping: " << line[2];
                         continue;
                     }
-                    auto pos = PositionAndVelocity::fromString(line[3]);
 
                     auto &resourceMap = map[resource];
 

@@ -383,7 +383,7 @@ namespace
             {
                 for (auto cannons = 0; cannons <= maxCannons; cannons++)
                 {
-                    auto result = runEfficiencyTest(test, workersPerPatch, cannons);
+                    auto result = runTestSuite(test, workersPerPatch, cannons);
                     (workersPerPatch == 1 ? totalSingle : totalDouble) += result;
                     mapHashToConfigurationToEfficiency[test.map->openbwHash][std::make_pair(1, 0)] = result;
                 }

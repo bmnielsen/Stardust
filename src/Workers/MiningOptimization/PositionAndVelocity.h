@@ -96,8 +96,7 @@ struct PositionAndVelocity
         return result;
     }
 
-    static bool isValidString(const std::string &str);
-    static PositionAndVelocity fromString(const std::string &str);
+    static bool tryParse(const std::string &str, PositionAndVelocity &out);
 
     friend bool operator<(const PositionAndVelocity &a, const PositionAndVelocity &b)
     {
