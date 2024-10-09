@@ -875,11 +875,10 @@ namespace WorkerMiningOptimization
                 if (evaluation.expectedDelta > 9) return false;
 
                 // If we can predict the worker's order process timer at normal arrival, check if it is better than the evaluated result
-                if (worker->orderProcessTimer != -1)
+                int framesToNormalPathArrival = BWAPI::Broodwar->getLatencyFrames() + 10 - metadataIt->second.deltaToNormalPathOptimalPosition;
+                if (worker->orderProcessTimer != -1 && OrderProcessTimer::framesToNextReset() > framesToNormalPathArrival)
                 {
-                    int orderProcessTimerAtArrival =
-                            worker->orderProcessTimer - BWAPI::Broodwar->getLatencyFrames() - 10
-                            + metadataIt->second.deltaToNormalPathOptimalPosition;
+                    int orderProcessTimerAtArrival = worker->orderProcessTimer - framesToNormalPathArrival;
                     while (orderProcessTimerAtArrival < 0)
                     {
                         orderProcessTimerAtArrival += 9;
@@ -942,6 +941,9 @@ namespace WorkerMiningOptimization
                         auto &observations = secondResendData ? secondResendData->observations : resentPositionData.noResendObservations;
                         if (!observations.empty())
                         {
+                            out << " expected delta " << (resentPositionData.deltaToNormalPathOptimalPosition
+                                                          + (secondResendData ? secondResendData->deltaToFirstResend : 0)
+                                                          + observations.mostCommonArrivalDelay());
                             out << " expected delay " << observations.mostCommonArrivalDelay();
                         }
                     }
