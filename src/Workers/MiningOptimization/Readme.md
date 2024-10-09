@@ -38,9 +38,19 @@ When units are added to the visible units list, they are added [at (or near) the
 
 This means that units have their orders processed in reverse order to when they last became visible.
 
+### Subpixels
+
+Internally, the StarCraft engine generally stores positions in units of 1/256th of a pixel, allowing for smooth movement at speeds that are not exact multiples of pixels per frame. All of this is abstracted away at the BWAPI layer, where we just see the pixel locations.
+
+When a unit finishes mining or delivering a resource, it needs to start moving along a new path that will generally be in the opposite direction of where it is currently facing. This means the unit first needs to turn before actually moving towards the new target.
+
+At a subpixel level, at least on the first frame when leaving a patch or depot, the worker moves very slightly forward while executing the turn. This can be a problem, as the worker is always right next to the patch or depot and facing it when the turn begins. If its subpixel position was very close to the pixel boundary of the patch or depot, the worker will be pushed inside it and be detected as colliding with the patch or depot.
+
+The resulting collision reconciliation state takes a full order process timer cycle to resolve, so unlucky subpixel placement of the worker can seriously impact mining efficiency.
+
 ## Start of gathering - no worker currently mining patch
 
-When the patch is free, we want the approaching worker's order process timer to reach 0 on the exact frame it arrives at the patch.
+When the patch is free, we ideally want the approaching worker's order process timer to reach 0 on the exact frame it arrives at the patch, while of course ensuring the worker arrives at the patch as early as possible.
 
 Gather commands have the following delay before they can transition into mining:
 
@@ -102,7 +112,7 @@ To work around this, we rely as much as possible on the observations we make in 
 
 Similar to when approaching a free mineral patch, the optimal timing for returning minerals is to reach the depot at the same frame when the order process timer reaches 0.
 
-However, unlike the gather command, reissuing the return cargo command (or anything equivalent, like right-clicking the depot) does affect the worker's movement: the worker stops moving completely for three frames and may take a different path back to the depot (which may be shorter).
+However, unlike the gather command, reissuing the return cargo command (or anything equivalent, like right-clicking the depot) always affects the worker's movement: the worker stops moving completely for three frames and may take a different path back to the depot (which may be shorter).
 
 Despite the potentially longer path back to the depot, optimizing the order process timer can still give a benefit, especially as in some cases the worker will maintain some of its speed and therefore reach the mineral patch again more quickly.
 
