@@ -385,7 +385,7 @@ namespace
                 {
                     auto result = runTestSuite(test, workersPerPatch, cannons);
                     (workersPerPatch == 1 ? totalSingle : totalDouble) += result;
-                    mapHashToConfigurationToEfficiency[test.map->openbwHash][std::make_pair(1, 0)] = result;
+                    mapHashToConfigurationToEfficiency[test.map->openbwHash][std::make_pair(workersPerPatch, cannons)] = result;
                 }
             }
             std::cout << std::fixed << std::showpoint << std::setprecision(4)
@@ -581,6 +581,17 @@ TEST(MiningTraining, NeoMoonGlaiveSingle)
               << "Single: " << sgl << "%" << std::endl;
 }
 
+TEST(MiningTraining, NeoMoonGlaiveSingleOneCannon)
+{
+    BWTest test;
+    test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 1, 1);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << "%" << std::endl;
+}
+
 TEST(MiningTraining, NeoMoonGlaiveTestSuite)
 {
     BWTest test;
@@ -686,4 +697,23 @@ TEST(MiningTraining, AllAIIDEContinuousSingleOnlyNoCannons)
     {
         testRunWithResults("aiide2024", 1, false);
     }
+}
+
+TEST(MiningTraining, AllAIIDEContinuousSingleAllCannons)
+{
+    while (true)
+    {
+        testRunWithResults("aiide2024", 1);
+    }
+}
+
+TEST(MiningTraining, AllAIIDEMeasureSingleAllCannons)
+{
+    Maps::RunOnEach(Maps::Get("aiide2024"), [&](BWTest test)
+    {
+        for (auto cannons = 0; cannons <= 2; cannons++)
+        {
+            runEfficiencyTest(test, 1, cannons, false, true);
+        }
+    });
 }

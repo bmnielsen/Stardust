@@ -6,8 +6,9 @@
 #include "Map.h"
 #include "OrderProcessTimer.h"
 
-#if INSTRUMENTATION_ENABLED
 #define TRACK_MINING_EFFICIENCY true
+
+#if INSTRUMENTATION_ENABLED
 #define LOG_WORKER_ORDERS false
 #define LOG_PATCH_STATUS false
 #define LOG_TWOPATCH_TAKEOVER false
