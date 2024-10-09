@@ -12,5 +12,7 @@ namespace WorkerMiningInstrumentation
 
     void writeInstrumentation();
 
+    std::map<Resource, std::pair<double, double>> getEfficiencyByPatch(int fromFrame = -1, int toFrame = -1);
+
     std::pair<double, double> getEfficiency(int fromFrame = -1, int toFrame = -1);
 }

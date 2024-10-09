@@ -17,7 +17,13 @@ namespace
 {
     const std::string dataBasePath = "/Users/bmnielsen/BW/mining-timings/";
 
-    double runEfficiencyTestImpl(BWTest &test, int workersPerPatch, int cannons, bool onlyOneWorker, bool measureOnly, int iterations = 1)
+    double runEfficiencyTestImpl(BWTest &test,
+                                 int workersPerPatch,
+                                 int cannons,
+                                 bool onlyOneWorker,
+                                 bool measureOnly,
+                                 int iterations = 1,
+                                 bool patchResults = false)
     {
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
@@ -336,6 +342,28 @@ namespace
             {
                 result = efficiency.second;
             }
+
+            if (patchResults)
+            {
+                auto patchEfficiencyMap = WorkerMiningInstrumentation::getEfficiencyByPatch();
+                std::vector<std::pair<Resource, std::pair<double, double>>> patchEfficiency;
+                std::copy(patchEfficiencyMap.begin(), patchEfficiencyMap.end(), std::back_inserter(patchEfficiency));
+                std::sort(patchEfficiency.begin(), patchEfficiency.end(), [](
+                        const std::pair<Resource, std::pair<double, double>> &a,
+                        const std::pair<Resource, std::pair<double, double>> &b)
+                {
+                    return a.first->tile < b.first->tile;
+                });
+
+                std::ostringstream str;
+                str << std::fixed << std::showpoint << std::setprecision(4)
+                    << "Efficiency per patch:";
+                for (const auto &[patch, singleAndDouble] : patchEfficiency)
+                {
+                    str << "\n" << patch->tile << ": " << ((workersPerPatch == 1) ? singleAndDouble.first : singleAndDouble.second);
+                }
+                std::cout << str.str() << std::endl;
+            }
         };
 
         test.run();
@@ -344,14 +372,19 @@ namespace
         return result;
     }
 
-    double runEfficiencyTest(BWTest &test, int workersPerPatch, int cannons, bool onlyOneWorker = false, bool measureOnly = false)
+    double runEfficiencyTest(BWTest &test,
+                             int workersPerPatch,
+                             int cannons,
+                             bool onlyOneWorker = false,
+                             bool measureOnly = false,
+                             bool patchResults = false)
     {
 #if !INSTRUMENTATION_ENABLED
         return runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker, measureOnly);
 #else
         for (int i=0; i<10; i++)
         {
-            auto result = runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker, measureOnly);
+            auto result = runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker, measureOnly, 1, patchResults);
             if (result > 0.0001) return result;
         }
 
@@ -603,12 +636,37 @@ TEST(MiningTraining, NeoMoonGlaiveTestSuite)
               << "Single: " << sgl << "%" << std::endl;
 }
 
+TEST(MiningTraining, NeoMoonGlaiveTestSuiteContinuous)
+{
+    while (true)
+    {
+        BWTest test;
+        test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
+        test.randomSeed = 42;
+        auto sgl = runTestSuite(test, 1, 0);
+        std::cout << std::fixed << std::showpoint << std::setprecision(4)
+                  << "Overall efficiency: " << std::endl
+                  << "Single: " << sgl << "%" << std::endl;
+    }
+}
+
 TEST(MiningTraining, NeoMoonGlaiveSingleMeasure)
 {
     BWTest test;
     test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
     test.randomSeed = 42;
-    auto sgl = runEfficiencyTest(test, 1, 0, false, true);
+    auto sgl = runEfficiencyTest(test, 1, 0, false, true, true);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << "%" << std::endl;
+}
+
+TEST(MiningTraining, PowerBondSingleTwoCannonsMeasure)
+{
+    BWTest test;
+    test.map = Maps::GetOne("PowerBond");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 1, 2, false, true);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
               << "Single: " << sgl << "%" << std::endl;

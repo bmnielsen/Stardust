@@ -37,6 +37,76 @@ namespace
 
     // Indirection to the Workers::mineralsAndAssignedWorkers function allowing it to be overridden by tests
     std::function<std::map<Resource, std::set<MyWorker>> &()> getMineralsAndAssignedWorkers = Workers::mineralsAndAssignedWorkers;
+
+    std::pair<int, int> computePatchEfficiency(const Resource &patch,
+                                               const std::vector<std::tuple<int, int, int>> &miningStatus,
+                                               int miningState,
+                                               const std::set<int> &nonMiningStates,
+                                               int fromFrame,
+                                               int toFrame)
+    {
+        int framesMined = 0;
+        int framesNotMined = 0;
+
+        bool recording = false;
+        int lastStatus = -1;
+        int currentPeriodMined = 0;
+        int currentPeriodNotMined = 0;
+        int lastFrame = -1;
+        for (auto &[status, frame, _] : miningStatus)
+        {
+            if (fromFrame != -1 && frame < fromFrame) continue;
+            if (toFrame != -1 && frame > toFrame) break;
+
+            // If there is an interruption in the data, stop recording
+            if (frame != (lastFrame + 1))
+            {
+                recording = false;
+                lastStatus = -1;
+            }
+            lastFrame = frame;
+
+            if (status == miningState && nonMiningStates.contains(lastStatus))
+            {
+                // This is the transition from not mining to mining, which we use as our start of a measurement period
+
+                // If we were recording a period, flush it now
+                if (recording)
+                {
+                    framesMined += currentPeriodMined;
+                    framesNotMined += currentPeriodNotMined;
+                }
+
+                // Start recording a new period
+                recording = true;
+                currentPeriodMined = 1;
+                currentPeriodNotMined = 0;
+            }
+            else if (status == miningState)
+            {
+                currentPeriodMined++;
+            }
+            else if (nonMiningStates.contains(status))
+            {
+                currentPeriodNotMined++;
+            }
+            else
+            {
+                // The status is for a different number of workers than we are interested in, so cancel this period
+                recording = false;
+            }
+            lastStatus = status;
+        }
+
+        return std::make_pair(framesMined, framesNotMined);
+    }
+
+    double efficiencyScore(int framesMined, int framesNotMined)
+    {
+        if (framesMined == 0 && framesNotMined == 0) return 0.0;
+
+        return 100.0 * (double)framesMined / (double)(framesMined + framesNotMined);
+    }
 #endif
 }
 
@@ -424,75 +494,43 @@ namespace WorkerMiningInstrumentation
 #endif
     }
 
+    std::map<Resource, std::pair<double, double>> getEfficiencyByPatch(int fromFrame, int toFrame)
+    {
+        std::map<Resource, std::pair<double, double>> result;
+
+#if TRACK_MINING_EFFICIENCY
+        for (auto &[patch, miningStatus] : resourceToMiningStatus)
+        {
+            auto sgl = computePatchEfficiency(patch, miningStatus, 2, {0, 1, 3, 4, 5}, fromFrame, toFrame);
+            auto dbl = computePatchEfficiency(patch, miningStatus, 10, {11, 12, 13}, fromFrame, toFrame);
+
+            result[patch] = std::make_pair(efficiencyScore(sgl.first, sgl.second), efficiencyScore(dbl.first, dbl.second));
+        }
+#endif
+
+        return result;
+    }
+
     std::pair<double, double> getEfficiency(int fromFrame, int toFrame)
     {
 #if TRACK_MINING_EFFICIENCY
-        // Counts the number of frames each patch was mined and not mined
-        // We only consider uninterrupted periods aligned to start of mining
-        auto computeEfficiency = [](int miningState, const std::set<int> &nonMiningStates, int fromFrame, int toFrame)
+        int sglFramesMined = 0;
+        int sglFramesNotMined = 0;
+        int dblFramesMined = 0;
+        int dblFramesNotMined = 0;
+
+        for (auto &[patch, miningStatus] : resourceToMiningStatus)
         {
-            int framesMined = 0;
-            int framesNotMined = 0;
-            for (auto &[patch, miningStatus] : resourceToMiningStatus)
-            {
-                bool recording = false;
-                int lastStatus = -1;
-                int currentPeriodMined = 0;
-                int currentPeriodNotMined = 0;
-                int lastFrame = -1;
-                for (auto &[status, frame, _] : miningStatus)
-                {
-                    if (fromFrame != -1 && frame < fromFrame) continue;
-                    if (toFrame != -1 && frame > toFrame) break;
+            auto sgl = computePatchEfficiency(patch, miningStatus, 2, {0, 1, 3, 4, 5}, fromFrame, toFrame);
+            auto dbl = computePatchEfficiency(patch, miningStatus, 10, {11, 12, 13}, fromFrame, toFrame);
 
-                    // If there is an interruption in the data, stop recording
-                    if (frame != (lastFrame + 1))
-                    {
-                        recording = false;
-                        lastStatus = -1;
-                    }
-                    lastFrame = frame;
+            sglFramesMined += sgl.first;
+            sglFramesNotMined += sgl.second;
+            dblFramesMined += dbl.first;
+            dblFramesNotMined += dbl.second;
+        }
 
-                    if (status == miningState && nonMiningStates.contains(lastStatus))
-                    {
-                        // This is the transition from not mining to mining, which we use as our start of a measurement period
-
-                        // If we were recording a period, flush it now
-                        if (recording)
-                        {
-                            framesMined += currentPeriodMined;
-                            framesNotMined += currentPeriodNotMined;
-                        }
-
-                        // Start recording a new period
-                        recording = true;
-                        currentPeriodMined = 1;
-                        currentPeriodNotMined = 0;
-                    }
-                    else if (status == miningState)
-                    {
-                        currentPeriodMined++;
-                    }
-                    else if (nonMiningStates.contains(status))
-                    {
-                        currentPeriodNotMined++;
-                    }
-                    else
-                    {
-                        // The status is for a different number of workers than we are interested in, so cancel this period
-                        recording = false;
-                    }
-                    lastStatus = status;
-                }
-            }
-
-            if (framesMined == 0 && framesNotMined == 0) return 0.0;
-            return (double)framesMined / (double)(framesMined + framesNotMined);
-        };
-
-        return std::make_pair(
-                computeEfficiency(2, {0, 1, 3, 4, 5}, fromFrame, toFrame) * 100.0,
-                computeEfficiency(10, {11, 12, 13}, fromFrame, toFrame) * 100.0);
+        return std::make_pair(efficiencyScore(sglFramesMined, sglFramesNotMined), efficiencyScore(dblFramesMined, dblFramesNotMined));
 #else
         return std::make_pair(0.0, 0.0);
 #endif
