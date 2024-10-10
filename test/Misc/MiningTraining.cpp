@@ -40,7 +40,7 @@ namespace
         {
             test.frameLimit = 10000 * iterations;
         }
-        else
+        else if (test.frameLimit > 10000)
         {
             test.frameLimit = 10000;
         }
