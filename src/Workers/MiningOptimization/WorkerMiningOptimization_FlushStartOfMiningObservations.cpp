@@ -154,10 +154,67 @@ namespace WorkerMiningOptimization
         }
          */
 
+        // Used to track whether a mining worker collides with the patch after mining
+        struct MiningWorker
+        {
+            MyWorker worker;
+            Resource resource;
+            std::vector<std::shared_ptr<const PositionAndVelocity>> positionHistory;
+            std::shared_ptr<const PositionAndVelocity> resentPosition;
+            std::shared_ptr<const PositionAndVelocity> secondResentPosition;
+        };
+
+        std::vector<MiningWorker> miningWorkers;
+
 #if OPTIMALPOSITIONS_DEBUG
         std::set<uint32_t> exploredPaths;
         std::set<BWAPI::TilePosition> exploredPatches;
 #endif
+
+        void handlePossiblePatchCollision(const MiningWorker &miningWorker)
+        {
+            // There is a collision if the worker isn't moving
+            bool collision = (currentFrame - miningWorker.worker->frameLastMoved) > 2;
+#if OPTIMALPOSITIONS_DEBUG
+            CherryVis::log(miningWorker.worker->id) << "Collision with patch";
+#endif
+
+            // Update the stats on the appropriate position metadata
+            auto &optimalGatherPositions = optimalGatherPositionsFor(miningWorker.resource);
+
+            // If no resend occurred, update all positions
+            if (!miningWorker.resentPosition)
+            {
+                for (const auto &position : miningWorker.positionHistory)
+                {
+                    auto metadataIt = optimalGatherPositions.find(*position);
+                    if (metadataIt != optimalGatherPositions.end())
+                    {
+                        (collision ? metadataIt->second.noResendCollisions : metadataIt->second.noResendNonCollisions)++;
+                    }
+                }
+                return;
+            }
+
+            auto resendMetadataIt = optimalGatherPositions.find(*miningWorker.resentPosition);
+            if (resendMetadataIt == optimalGatherPositions.end()) // shouldn't happen
+            {
+#if OPTIMALPOSITIONS_DEBUG
+                Log::Get() << "ERROR: Resend metadata not found for " << *miningWorker.resentPosition
+                           << "; worker id " << miningWorker.worker->id << " @ " << miningWorker.worker->getTilePosition();
+#endif
+                return;
+            }
+
+            auto secondResendMetadata = resendMetadataIt->second.secondResendMetadataFor(miningWorker.secondResentPosition.get());
+            if (miningWorker.secondResentPosition && !secondResendMetadata) // may happen when a new branch is detected and we send at the same delta
+            {
+                return;
+            }
+
+            auto &observations = (secondResendMetadata ? secondResendMetadata->observations : resendMetadataIt->second.noSecondResendObservations);
+            (collision ? observations.collisions : observations.nonCollisions)++;
+        }
 
         void updateNextPositions(const WorkerGatherStatus &workerStatus, std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &metadata)
         {
@@ -440,7 +497,7 @@ namespace WorkerMiningOptimization
                     auto secondResendData = resentPositionData.secondResendMetadataFor(workerStatus.secondResentPosition.get());
                     int arrivalDelay = secondResendData
                                        ? secondResendData->observations.mostCommonArrivalDelay()
-                                       : resentPositionData.noResendObservations.mostCommonArrivalDelay();
+                                       : resentPositionData.noSecondResendObservations.mostCommonArrivalDelay();
 
                     auto actualFramesToArrival = std::distance(lastResendPositionIt.base(), arrivalPositionIt);
                     if (actualFramesToArrival > (BWAPI::Broodwar->getLatencyFrames() + 10 - arrivalDelay))
@@ -536,6 +593,8 @@ namespace WorkerMiningOptimization
 
     void flushStartOfMiningObservations(std::map<MyWorker, WorkerGatherStatus> &workerGatherStatuses)
     {
+        if (currentFrame == 0) miningWorkers.clear();
+
 #if OPTIMALPOSITIONS_DEBUG
         if (currentFrame == 0)
         {
@@ -547,6 +606,29 @@ namespace WorkerMiningOptimization
             Log::Get() << "Explored " << exploredPaths.size() << " path(s) over " << exploredPatches.size() << " patch(es)";
         }
 #endif
+
+        // Update collision state for workers that are finished mining
+        for (auto it = miningWorkers.begin(); it != miningWorkers.end(); )
+        {
+            auto &worker = it->worker;
+            if (!worker->exists())
+            {
+                it = miningWorkers.erase(it);
+                continue;
+            }
+
+            // Wait until the worker started carrying a resource 8 frames ago
+            if (!worker->carryingResource || worker->lastCarryingResourceChange != (currentFrame - 8))
+            {
+                it++;
+                continue;
+            }
+
+            handlePossiblePatchCollision(*it);
+
+            // Don't need to track this any more
+            it = miningWorkers.erase(it);
+        }
 
         // Flush the worker statuses for workers that have started mining
         for (auto it = workerGatherStatuses.begin(); it != workerGatherStatuses.end(); )
@@ -574,6 +656,14 @@ namespace WorkerMiningOptimization
                                    takeoverPositionsFor(workerStatus.resource));
 
                                    */
+
+            // Move required fields into the MiningWorker struct that we use to track patch collisions
+            miningWorkers.emplace_back(MiningWorker{
+                    std::move(it->second.worker),
+                    std::move(it->second.resource),
+                    std::move(it->second.positionHistory),
+                    std::move(it->second.resentPosition),
+                    std::move(it->second.secondResentPosition)});
 
             // We now no longer need to do anything with this worker status
             it = workerGatherStatuses.erase(it);

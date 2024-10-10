@@ -7,26 +7,28 @@ namespace WorkerMiningOptimization
 {
     struct ResendPositionObservations
     {
-        std::map<int, int> data;
+        std::map<int, int> arrivalDelayAndOccurrences;
+        int collisions = 0;
+        int nonCollisions = 0;
 
-        void add(int arrivalDelta)
+        void add(int arrivalDelay)
         {
-            data[arrivalDelta]++;
+            arrivalDelayAndOccurrences[arrivalDelay]++;
         }
 
         [[nodiscard]] bool empty() const
         {
-            return data.empty();
+            return arrivalDelayAndOccurrences.empty();
         }
 
         [[nodiscard]] int mostCommonArrivalDelay() const
         {
-            if (data.empty()) return INT_MAX;
-            if (data.size() == 1) return data.begin()->first;
+            if (arrivalDelayAndOccurrences.empty()) return INT_MAX;
+            if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
 
             int best = -1;
             int bestCount = 0;
-            for (const auto &[arrivalDelay, occurrences] : data)
+            for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
             {
                 if (occurrences > bestCount)
                 {
@@ -40,13 +42,13 @@ namespace WorkerMiningOptimization
 
         [[nodiscard]] bool hasArrivalDelay(int arrivalDelay) const
         {
-            return data.contains(arrivalDelay);
+            return arrivalDelayAndOccurrences.contains(arrivalDelay);
         }
 
         [[nodiscard]] double expectedArrivalDelay() const
         {
-            if (data.empty()) return 100.0;
-            if (data.size() == 1) return data.begin()->first;
+            if (arrivalDelayAndOccurrences.empty()) return 100.0;
+            if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
 
             // If the most common arrival delay is negative, return it
             auto mostCommon = mostCommonArrivalDelay();
@@ -54,7 +56,7 @@ namespace WorkerMiningOptimization
 
             double totalArrivalDelay = 0.0;
             int totalOccurrences = 0;
-            for (const auto &[arrivalDelay, occurrences] : data)
+            for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
             {
                 // If the arrival delay is negative, this means we don't reach the patch on time, so we penalize this heavily
                 totalArrivalDelay += arrivalDelay + ((arrivalDelay < 0) ? (BWAPI::Broodwar->getLatencyFrames() + 11) : 0);
@@ -83,12 +85,15 @@ namespace WorkerMiningOptimization
 
         int deltaToNormalPathOptimalPosition;
 
-        ResendPositionObservations noResendObservations;
+        ResendPositionObservations noSecondResendObservations;
         std::unordered_map<PositionAndVelocity, SecondResendPositionObservationMetadata> secondResendMetadata;
+
+        int noResendCollisions = 0;
+        int noResendNonCollisions = 0;
 
         bool addObservation(const std::shared_ptr<const PositionAndVelocity> &secondResendPosition, int arrivalDelta)
         {
-            auto &observations = secondResendPosition ? secondResendMetadata[*secondResendPosition].observations : noResendObservations;
+            auto &observations = secondResendPosition ? secondResendMetadata[*secondResendPosition].observations : noSecondResendObservations;
             bool result = observations.empty();
             observations.add(arrivalDelta);
             return result;

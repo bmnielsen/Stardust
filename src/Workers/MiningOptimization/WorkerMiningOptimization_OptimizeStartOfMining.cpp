@@ -235,7 +235,7 @@ namespace WorkerMiningOptimization
                 if (WorkerMiningOptimization::isExploring()) return true;
 
                 // Also explore the single most common optimal position even if we aren't exploring
-                return metadata->deltaToNormalPathOptimalPosition == 0 && metadata->noResendObservations.empty();
+                return metadata->deltaToNormalPathOptimalPosition == 0 && metadata->noSecondResendObservations.empty();
             };
 
             auto planPosition = [&](const PositionObservationMetadata *metadata, int secondResendIndex = -1)
@@ -245,7 +245,7 @@ namespace WorkerMiningOptimization
                 // If exploring, find the next resend position that hasn't been tried yet
                 if (explorePosition(metadata))
                 {
-                    if (!metadata->noResendObservations.empty())
+                    if (!metadata->noSecondResendObservations.empty())
                     {
                         for (const auto &secondResendMetadata : metadata->secondResendMetadata)
                         {
@@ -320,7 +320,7 @@ namespace WorkerMiningOptimization
                         auto &resentPositionData = resentPositionDataIt->second;
 
                         auto secondResendData = resentPositionData.secondResendMetadataFor(workerStatus.plannedSecondResendPosition.get());
-                        auto &observations = secondResendData ? secondResendData->observations : resentPositionData.noResendObservations;
+                        auto &observations = secondResendData ? secondResendData->observations : resentPositionData.noSecondResendObservations;
                         if (!observations.empty())
                         {
                             out << " expected delay " << observations.mostCommonArrivalDelay();
@@ -416,7 +416,7 @@ namespace WorkerMiningOptimization
                     // This may be known or an estimate depending on whether the order process timer reset is allowed to apply at the patch
                     auto handlePositionForOrderProcessTimerReset = [&](const SecondResendPositionObservationMetadata *secondResendMetadata)
                     {
-                        auto &observations = (secondResendMetadata ? secondResendMetadata->observations : currentMetadata->noResendObservations);
+                        auto &observations = (secondResendMetadata ? secondResendMetadata->observations : currentMetadata->noSecondResendObservations);
                         if (observations.empty()) return;
 
                         // Ensure the worker arrives to the patch on time
@@ -472,6 +472,18 @@ namespace WorkerMiningOptimization
         }
             */
 
+        double expectedPatchCollisionDelay(int observedCollisions, int observedNonCollisions)
+        {
+            int total = observedCollisions + observedNonCollisions;
+            if (total == 0) return 0.0;
+
+            // If we are exploring and don't have enough data yet, allow it no matter what
+            if (WorkerMiningOptimization::isExploring() && total < 10) return 0.0;
+
+            // A collision adds 14 frames of delay
+            return 14.0 * (double)observedCollisions / (double)total;
+        }
+
         struct PositionEvaluation
         {
             double expectedDelta = 100.0;
@@ -491,6 +503,8 @@ namespace WorkerMiningOptimization
             // If it doesn't get us to the patch on time, don't use this position
             if (expectedArrivalDelay < -EPSILON) return 100;
 
+            auto collisionDelay = expectedPatchCollisionDelay(observations.collisions, observations.nonCollisions);
+
             // Adjust for order process timer resets
             int resendAppliedFrame = normalPathCommandFrame
                                      + BWAPI::Broodwar->getLatencyFrames()
@@ -498,9 +512,9 @@ namespace WorkerMiningOptimization
                                      + deltaToFirstResend;
             if (OrderProcessTimer::framesToNextReset(resendAppliedFrame + 1) < 11)
             {
-                return positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + 5;
+                return positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + 5 + collisionDelay;
             }
-            return positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + expectedArrivalDelay;
+            return positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + expectedArrivalDelay + collisionDelay;
         }
 
         PositionEvaluation evaluateSecondResendPositions(int normalPathCommandFrame,
@@ -628,7 +642,7 @@ namespace WorkerMiningOptimization
                                                                 positionMetadata,
                                                                 positionMetadata.pos,
                                                                 0,
-                                                                positionMetadata.noResendObservations,
+                                                                positionMetadata.noSecondResendObservations,
                                                                 positionMetadata.next);
 
             // If one of the branches wants to explore, return it
@@ -760,7 +774,7 @@ namespace WorkerMiningOptimization
             double expectedDelta = computeExpectedArrivalDelta(normalPathCommandFrame,
                                                                resentPositionData,
                                                                0,
-                                                               resentPositionData.noResendObservations);
+                                                               resentPositionData.noSecondResendObservations);
 
             // Pick the best strategy - either resend at a different position or clear
             if (evaluation.positionToTryOnExpectedPath ||
@@ -872,7 +886,11 @@ namespace WorkerMiningOptimization
             {
                 if (!evaluation.resendPosition) return false;
                 if (evaluation.positionToTryOnExpectedPath) return true;
-                if (evaluation.expectedDelta > 9) return false;
+
+                // Ensure the path gets us to the patch better than the worst case of letting the worker be
+                auto normalPathCollisionDelay = expectedPatchCollisionDelay(metadataIt->second.noResendCollisions,
+                                                                            metadataIt->second.noResendNonCollisions);
+                if (evaluation.expectedDelta > (9 + normalPathCollisionDelay)) return false;
 
                 // If we can predict the worker's order process timer at normal arrival, check if it is better than the evaluated result
                 int framesToNormalPathArrival = BWAPI::Broodwar->getLatencyFrames() + 10 - metadataIt->second.deltaToNormalPathOptimalPosition;
@@ -884,10 +902,12 @@ namespace WorkerMiningOptimization
                         orderProcessTimerAtArrival += 9;
                     }
 
-                    if (orderProcessTimerAtArrival < evaluation.expectedDelta)
+                    if ((normalPathCollisionDelay + orderProcessTimerAtArrival) < evaluation.expectedDelta)
                     {
 #if OPTIMALPOSITIONS_DEBUG
-                        CherryVis::log(worker->id) << "Not resending as order timer " << orderProcessTimerAtArrival
+                        CherryVis::log(worker->id) << std::fixed << std::setprecision(1)
+                                << "Not resending as order timer " << orderProcessTimerAtArrival
+                                << " and collision delay " << normalPathCollisionDelay
                                 << " is better than expected delta " << evaluation.expectedDelta;
 #endif
 
@@ -912,7 +932,7 @@ namespace WorkerMiningOptimization
 
 #if OPTIMALPOSITIONS_DEBUG
                 std::ostringstream out;
-                out << "Planned gather command(s): ";
+                out << std::fixed << std::setprecision(1) << "Planned gather command(s): ";
                 if (workerStatus.plannedResendPosition)
                 {
                     out << *workerStatus.plannedResendPosition;
@@ -938,7 +958,7 @@ namespace WorkerMiningOptimization
                         auto &resentPositionData = resentPositionDataIt->second;
 
                         auto secondResendData = resentPositionData.secondResendMetadataFor(workerStatus.plannedSecondResendPosition.get());
-                        auto &observations = secondResendData ? secondResendData->observations : resentPositionData.noResendObservations;
+                        auto &observations = secondResendData ? secondResendData->observations : resentPositionData.noSecondResendObservations;
                         if (!observations.empty())
                         {
                             out << " expected delta " << (resentPositionData.deltaToNormalPathOptimalPosition

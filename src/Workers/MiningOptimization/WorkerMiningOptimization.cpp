@@ -76,19 +76,26 @@ namespace WorkerMiningOptimization
                 return result;
             };
 
-            auto parseObservations = [](const std::string &str)
+            auto parseObservations = [](const std::string &arrivalDelayOccurrences, const std::string &collisions, const std::string &nonCollisions)
             {
-                std::map<int, int> result;
+                std::map<int, int> arrivalDelayOccurrencesResult;
 
-                for (const auto &observations : CsvTools::tokenizeList(str, '_'))
+                if (!arrivalDelayOccurrences.empty())
                 {
-                    auto data = CsvTools::tokenizeList(observations, '|');
-                    if (data.size() < 2) continue;
+                    for (const auto &observations : CsvTools::tokenizeList(arrivalDelayOccurrences, '_'))
+                    {
+                        auto data = CsvTools::tokenizeList(observations, '|');
+                        if (data.size() < 2) continue;
 
-                    result.emplace(std::stoi(data[0]), std::stoi(data[1]));
+                        arrivalDelayOccurrencesResult.emplace(std::stoi(data[0]), std::stoi(data[1]));
+                    }
                 }
 
-                return ResendPositionObservations{result};
+                return ResendPositionObservations{
+                    arrivalDelayOccurrencesResult,
+                    std::stoi(collisions),
+                    std::stoi(nonCollisions)
+                };
             };
 
             auto parseSecondResendPositions = [&parseNextPositions, &parseObservations](const std::string &str)
@@ -99,15 +106,15 @@ namespace WorkerMiningOptimization
                 for (const auto &secondResendData : CsvTools::tokenizeList(str))
                 {
                     auto data = CsvTools::tokenizeList(secondResendData, ':');
-                    if (data.size() < 3) continue;
+                    if (data.size() < 5) continue;
                     PositionAndVelocity pos;
                     if (!PositionAndVelocity::tryParse(data[0], pos)) continue;
 
                     result.emplace(pos, SecondResendPositionObservationMetadata{
                             pos,
                             parseNextPositions(data[1]),
-                            std::stoi(data[2]),
-                            (data.size() > 3) ? parseObservations(data[3]) : ResendPositionObservations{std::map<int, int>{}}
+                            std::stoi(data[4]),
+                            parseObservations((data.size() > 5) ? data[5] : "", data[2], data[3])
                     });
                 }
 
@@ -128,7 +135,7 @@ namespace WorkerMiningOptimization
                     lineNumber++;
 
                     auto line = CsvTools::readNextLine(file);
-                    if (line.size() < 7) break;
+                    if (line.size() < 11) break;
 
                     BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
                     auto resource = Units::resourceAt(tile);
@@ -147,9 +154,11 @@ namespace WorkerMiningOptimization
                         (uint32_t)std::stoul(line[2]),
                         pos,
                         parseNextPositions(line[4]),
+                        std::stoi(line[7]),
+                        parseObservations(line[8], line[9], line[10]),
+                        parseSecondResendPositions((line.size() > 11) ? line[11] : ""),
                         std::stoi(line[5]),
-                        parseObservations(line[6]),
-                        parseSecondResendPositions((line.size() > 7) ? line[7] : "")
+                        std::stoi(line[6])
                     });
 
                     count++;
@@ -179,12 +188,12 @@ namespace WorkerMiningOptimization
                     nextPosSep = "_";
                 }
             };
-            auto outputObservations = [&file](const ResendPositionObservations &observations)
+            auto outputArrivalDelayObservations = [&file](const ResendPositionObservations &observations)
             {
                 std::string sep;
-                for (const auto &[delta, occurrences] : observations.data)
+                for (const auto &[arrivalDelay, occurrences] : observations.arrivalDelayAndOccurrences)
                 {
-                    file << sep << delta << "|" << occurrences;
+                    file << sep << arrivalDelay << "|" << occurrences;
                     sep = "_";
                 }
             };
@@ -200,12 +209,16 @@ namespace WorkerMiningOptimization
                          << resendPos << ";";
 
                     outputNext(resendPositionMetadata.next);
-                    file << ";";
+                    file << ";"
+                         << resendPositionMetadata.noResendCollisions << ";"
+                         << resendPositionMetadata.noResendNonCollisions << ";";
 
                     file << resendPositionMetadata.deltaToNormalPathOptimalPosition << ";";
 
-                    outputObservations(resendPositionMetadata.noResendObservations);
-                    file << ";";
+                    outputArrivalDelayObservations(resendPositionMetadata.noSecondResendObservations);
+                    file << ";"
+                         << resendPositionMetadata.noSecondResendObservations.collisions << ";"
+                         << resendPositionMetadata.noSecondResendObservations.nonCollisions << ";";
 
                     std::string secondResendPosSep;
                     for (const auto &[secondResentPos, secondResendPositionMetadata] : resendPositionMetadata.secondResendMetadata)
@@ -214,8 +227,10 @@ namespace WorkerMiningOptimization
                              << secondResendPositionMetadata.pos << ":";
                         outputNext(secondResendPositionMetadata.next);
                         file << ":"
+                             << secondResendPositionMetadata.observations.collisions << ":"
+                             << secondResendPositionMetadata.observations.nonCollisions << ":"
                              << secondResendPositionMetadata.deltaToFirstResend << ":";
-                        outputObservations(secondResendPositionMetadata.observations);
+                        outputArrivalDelayObservations(secondResendPositionMetadata.observations);
                         secondResendPosSep = ",";
                     }
                     file << ";";
@@ -234,7 +249,7 @@ namespace WorkerMiningOptimization
                         int delta = resendPositionMetadata.deltaToNormalPathOptimalPosition + addedDelta + arrivalDelay;
                         if (delta < bestDelta) bestDelta = delta;
                     };
-                    handleObservations(resendPositionMetadata.noResendObservations, 0);
+                    handleObservations(resendPositionMetadata.noSecondResendObservations, 0);
                     for (const auto &secondResendPosition : resendPositionMetadata.expectedPathAfterResend())
                     {
                         handleObservations(secondResendPosition->observations, secondResendPosition->deltaToFirstResend);
@@ -260,36 +275,40 @@ namespace WorkerMiningOptimization
                     int mostOccurrences = 0;
                     int mostOccurrencesPosition = -1;
                     int mostOccurrencesDelta = 0;
+                    int mostOccurrencesCollisions = 0;
+                    int mostOccurrencesNonCollisions = 0;
                     auto countOccurrences = [&](const ResendPositionObservations &observations, int thisPosition)
                     {
-                        for (const auto &[delta, occurrences] : observations.data)
+                        for (const auto &[arrivalDelay, occurrences] : observations.arrivalDelayAndOccurrences)
                         {
                             if (occurrences >= mostOccurrences)
                             {
                                 mostOccurrences = occurrences;
                                 mostOccurrencesPosition = thisPosition;
-                                mostOccurrencesDelta = thisPosition + delta;
+                                mostOccurrencesDelta = thisPosition + arrivalDelay;
+                                mostOccurrencesCollisions = observations.collisions;
+                                mostOccurrencesNonCollisions = observations.nonCollisions;
                             }
                         }
 
 #if INSTRUMENTATION_ENABLED
-                        if (observations.data.size() > 1)
+                        if (observations.arrivalDelayAndOccurrences.size() > 1)
                         {
                             int mostCommonArrivalDelay = observations.mostCommonArrivalDelay();
                             int common = 0;
                             int uncommon = 0;
                             int problematic = 0;
-                            for (const auto &[delta, occurrences] : observations.data)
+                            for (const auto &[arrivalDelay, occurrences] : observations.arrivalDelayAndOccurrences)
                             {
-                                ((delta == mostCommonArrivalDelay) ? common : uncommon) += occurrences;
-                                if (delta >= 0 && delta < mostCommonArrivalDelay) problematic++;
+                                ((arrivalDelay == mostCommonArrivalDelay) ? common : uncommon) += occurrences;
+                                if (arrivalDelay >= 0 && arrivalDelay < mostCommonArrivalDelay) problematic++;
                             }
 
                             if ((common + uncommon) > 10 && (common < uncommon * 4))
                             {
                                 Log::Get() << "WARNING: Patch " << resource->tile
                                     << " position " << resendPositionMetadata << " : " << thisPosition
-                                    << " has " << observations.data.size() << " unstable arrival deltas"
+                                    << " has " << observations.arrivalDelayAndOccurrences.size() << " unstable arrival delays"
                                     << "; common(" << mostCommonArrivalDelay << ")=" << common
                                     << "; uncommon=" << uncommon
                                     << "; problematic=" << problematic;
@@ -297,7 +316,7 @@ namespace WorkerMiningOptimization
                         }
 #endif
                     };
-                    countOccurrences(resendPositionMetadata.noResendObservations, 0);
+                    countOccurrences(resendPositionMetadata.noSecondResendObservations, 0);
                     for (const auto &secondResendMetadata : resendPositionMetadata.secondResendMetadata)
                     {
                         countOccurrences(secondResendMetadata.second.observations, secondResendMetadata.second.deltaToFirstResend);
@@ -307,11 +326,13 @@ namespace WorkerMiningOptimization
                         file << ";y"
                              << ";" << mostOccurrences
                              << ";" << (resendPositionMetadata.deltaToNormalPathOptimalPosition + mostOccurrencesDelta)
-                             << ";" << mostOccurrencesPosition;
+                             << ";" << mostOccurrencesPosition
+                             << ";" << mostOccurrencesCollisions
+                             << ";" << mostOccurrencesNonCollisions;
                     }
                     else
                     {
-                        file << ";;;;";
+                        file << ";;;;;;";
                     }
 
                     file << "\n";

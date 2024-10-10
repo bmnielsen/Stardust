@@ -63,7 +63,7 @@ namespace
 MyWorkerImpl::MyWorkerImpl(BWAPI::Unit unit)
         : MyUnitImpl(unit)
         , carryingResource(unit->isCarryingMinerals() || unit->isCarryingGas())
-        , lastDeliveredResource(-1)
+        , lastCarryingResourceChange(-1)
         , lastStartedMining(-1)
         , horizontalKiloSpeed(toKiloInteger(unit->getVelocityX()))
         , verticalKiloSpeed(toKiloInteger(unit->getVelocityY()))
@@ -93,7 +93,7 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
     {
         carryingResource = (bwapiUnit->isCarryingMinerals() || bwapiUnit->isCarryingGas());
         orderProcessTimer = 0;
-        if (!carryingResource) lastDeliveredResource = currentFrame;
+        lastCarryingResourceChange = currentFrame;
     }
     else if (bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals && bwapiUnit->getOrderTimer() == 75)
     {

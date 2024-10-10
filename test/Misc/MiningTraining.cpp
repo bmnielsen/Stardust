@@ -80,7 +80,7 @@ namespace
             // - Add required number of cannons
             // - Create workers
 
-            if (BWAPI::Broodwar->getFrameCount() % 10000 == 0)
+            if (BWAPI::Broodwar->getFrameCount() % 10000 == 0 && BWAPI::Broodwar->getFrameCount() < test.frameLimit)
             {
                 Log::SetOutputToConsole(false);
 
