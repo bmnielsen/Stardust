@@ -514,7 +514,7 @@ namespace WorkerMiningOptimization
                     int minExpectedFramesToMining, maxExpectedFramesToMining;
                     if (framesToReset > 0 && framesToReset < 12)
                     {
-                        minExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 10 - arrivalDelay);
+                        minExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 11 - arrivalDelay);
                         maxExpectedFramesToMining = minExpectedFramesToMining + 9;
                     }
                     else
