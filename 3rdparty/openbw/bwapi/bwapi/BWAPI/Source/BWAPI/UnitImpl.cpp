@@ -236,4 +236,9 @@ namespace BWAPI
   {
     bwunit.setResources(value);
   }
+
+  Position UnitImpl::getSubpixelPosition() const
+  {
+    return bwunit.getSubpixelPosition();
+  }
 };

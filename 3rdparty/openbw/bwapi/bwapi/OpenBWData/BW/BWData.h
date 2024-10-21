@@ -418,6 +418,8 @@ struct Unit {
   void setShields(int value);
   void setEnergy(int value);
   void setResources(int value);
+
+  Position getSubpixelPosition() const;
 };
 
 struct Bullet {

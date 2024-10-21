@@ -2305,6 +2305,10 @@ void Unit::setResources(int value)
   impl->game_setup_helper.input_action(w.data(), w.size());
 }
 
+Position Unit::getSubpixelPosition() const
+{
+    return {(s16)u->exact_position.x.fractional_part(), (s16)u->exact_position.y.fractional_part()};
+}
 
 Bullet::operator bool() const
 {

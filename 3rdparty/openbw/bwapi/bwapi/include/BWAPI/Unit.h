@@ -2579,6 +2579,8 @@ namespace BWAPI
     virtual void setEnergy(int value) = 0;
     virtual void setResources(int value) = 0;
 
+    virtual Position getSubpixelPosition() const = 0;
+
     ///@}
   };
 }
