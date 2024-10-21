@@ -215,7 +215,11 @@ namespace WorkerMiningOptimization
 
                     file << resendPositionMetadata.deltaToNormalPathOptimalPosition << ";";
 
-                    outputArrivalDelayObservations(resendPositionMetadata.noSecondResendObservations);
+                    if ((resendPositionMetadata.noSecondResendObservations.collisions
+                         + resendPositionMetadata.noSecondResendObservations.nonCollisions) > 0)
+                    {
+                        outputArrivalDelayObservations(resendPositionMetadata.noSecondResendObservations);
+                    }
                     file << ";"
                          << resendPositionMetadata.noSecondResendObservations.collisions << ";"
                          << resendPositionMetadata.noSecondResendObservations.nonCollisions << ";";
@@ -230,7 +234,10 @@ namespace WorkerMiningOptimization
                              << secondResendPositionMetadata.observations.collisions << ":"
                              << secondResendPositionMetadata.observations.nonCollisions << ":"
                              << secondResendPositionMetadata.deltaToFirstResend << ":";
-                        outputArrivalDelayObservations(secondResendPositionMetadata.observations);
+                        if ((secondResendPositionMetadata.observations.collisions + secondResendPositionMetadata.observations.nonCollisions) > 0)
+                        {
+                            outputArrivalDelayObservations(secondResendPositionMetadata.observations);
+                        }
                         secondResendPosSep = ",";
                     }
                     file << ";";

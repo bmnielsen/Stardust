@@ -175,8 +175,12 @@ namespace WorkerMiningOptimization
         {
             // There is a collision if the worker isn't moving
             bool collision = (currentFrame - miningWorker.worker->frameLastMoved) > 2;
+
 #if OPTIMALPOSITIONS_DEBUG
-            CherryVis::log(miningWorker.worker->id) << "Collision with patch";
+            if (collision)
+            {
+                CherryVis::log(miningWorker.worker->id) << "Collision with patch";
+            }
 #endif
 
             // Update the stats on the appropriate position metadata
