@@ -478,7 +478,7 @@ namespace WorkerMiningOptimization
             if (total == 0) return 0.0;
 
             // If we are exploring and don't have enough data yet, allow it no matter what
-            if (WorkerMiningOptimization::isExploring() && total < 10) return 0.0;
+            if (WorkerMiningOptimization::isExploring() && total < 5) return 0.0;
 
             // A collision adds 14 frames of delay
             return 14.0 * (double)observedCollisions / (double)total;
@@ -493,28 +493,18 @@ namespace WorkerMiningOptimization
             int positionToTryDelta = 0;
         };
 
-        double computeExpectedArrivalDelta(int normalPathCommandFrame,
-                                           const PositionObservationMetadata &positionMetadata,
-                                           int deltaToFirstResend,
-                                           const ResendPositionObservations &observations)
+        double computeExpectedDelta(int normalPathCommandFrame,
+                                    const PositionObservationMetadata &positionMetadata,
+                                    int deltaToFirstResend,
+                                    const ResendPositionObservations &observations)
         {
-            double expectedArrivalDelay = observations.expectedArrivalDelay();
-
-            // If it doesn't get us to the patch on time, don't use this position
-            if (expectedArrivalDelay < -EPSILON) return 100;
+            double expectedMiningDelay = observations.expectedMiningDelay(
+                    false,
+                    normalPathCommandFrame + positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend);
 
             auto collisionDelay = expectedPatchCollisionDelay(observations.collisions, observations.nonCollisions);
 
-            // Adjust for order process timer resets
-            int resendAppliedFrame = normalPathCommandFrame
-                                     + BWAPI::Broodwar->getLatencyFrames()
-                                     + positionMetadata.deltaToNormalPathOptimalPosition
-                                     + deltaToFirstResend;
-            if (OrderProcessTimer::framesToNextReset(resendAppliedFrame + 1) < 11)
-            {
-                return positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + 5 + collisionDelay;
-            }
-            return positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + expectedArrivalDelay + collisionDelay;
+            return positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + expectedMiningDelay + collisionDelay;
         }
 
         PositionEvaluation evaluateSecondResendPositions(int normalPathCommandFrame,
@@ -594,7 +584,7 @@ namespace WorkerMiningOptimization
             if (nextPositionsEvaluation.positionToTryOnExpectedPath) return nextPositionsEvaluation;
 
             // Compute the expected delta for this position
-            double expectedDelta = computeExpectedArrivalDelta(normalPathCommandFrame, positionMetadata, deltaToFirstResend, observations);
+            double expectedDelta = computeExpectedDelta(normalPathCommandFrame, positionMetadata, deltaToFirstResend, observations);
             if (expectedDelta < (nextPositionsEvaluation.expectedDelta - EPSILON))
             {
                 return {expectedDelta, {here}, std::make_shared<PositionAndVelocity>(positionMetadata.pos), false, 0};
@@ -771,10 +761,10 @@ namespace WorkerMiningOptimization
                                                             secondGatherPositionIt->second.next);
 
             // Evaluate no resend
-            double expectedDelta = computeExpectedArrivalDelta(normalPathCommandFrame,
-                                                               resentPositionData,
-                                                               0,
-                                                               resentPositionData.noSecondResendObservations);
+            double expectedDelta = computeExpectedDelta(normalPathCommandFrame,
+                                                        resentPositionData,
+                                                        0,
+                                                        resentPositionData.noSecondResendObservations);
 
             // Pick the best strategy - either resend at a different position or clear
             if (evaluation.positionToTryOnExpectedPath ||

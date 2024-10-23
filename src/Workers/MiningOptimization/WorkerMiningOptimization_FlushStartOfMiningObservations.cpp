@@ -504,10 +504,10 @@ namespace WorkerMiningOptimization
                                        : resentPositionData.noSecondResendObservations.mostCommonArrivalDelay();
 
                     auto actualFramesToArrival = std::distance(lastResendPositionIt.base(), arrivalPositionIt);
-                    if (actualFramesToArrival > (BWAPI::Broodwar->getLatencyFrames() + 10 - arrivalDelay))
+                    if (actualFramesToArrival > (BWAPI::Broodwar->getLatencyFrames() + 10 + arrivalDelay))
                     {
                         Log::Get() << "ERROR: Position " << resentPositionData << " has unexpected arrival delta"
-                                   << "; expected=" << (BWAPI::Broodwar->getLatencyFrames() + 10 - arrivalDelay)
+                                   << "; expected=" << (BWAPI::Broodwar->getLatencyFrames() + 10 + arrivalDelay)
                                    << "; actual=" << actualFramesToArrival
                                    << "; worker id " << worker->id << " @ " << worker->getTilePosition();
                     }
@@ -518,7 +518,7 @@ namespace WorkerMiningOptimization
                     int minExpectedFramesToMining, maxExpectedFramesToMining;
                     if (framesToReset > 0 && framesToReset < 12)
                     {
-                        minExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 11 - arrivalDelay);
+                        minExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 11 + arrivalDelay);
                         maxExpectedFramesToMining = minExpectedFramesToMining + 9;
                     }
                     else

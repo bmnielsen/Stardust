@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PositionAndVelocity.h"
+#include "OrderProcessTimer.h"
 #include <map>
 
 namespace WorkerMiningOptimization
@@ -40,30 +41,67 @@ namespace WorkerMiningOptimization
             return best;
         }
 
-        [[nodiscard]] bool hasArrivalDelay(int arrivalDelay) const
-        {
-            return arrivalDelayAndOccurrences.contains(arrivalDelay);
-        }
-
-        [[nodiscard]] double expectedArrivalDelay() const
+        [[nodiscard]] double expectedMiningDelay(bool otherWorkerAssigned, int commandFrame) const
         {
             if (arrivalDelayAndOccurrences.empty()) return 100.0;
-            if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
 
-            // If the most common arrival delay is negative, return it
+            auto arrivalDelayToMiningDelay = [&](int arrivalDelay)
+            {
+                // If the worker doesn't arrive at the patch on time, and another worker is assigned to the patch, it is likely that
+                // our worker will try to switch patches when its order kicks in, resulting in a full command cycle of extra delay
+                if (arrivalDelay > 0 && otherWorkerAssigned)
+                {
+                    return (double)(arrivalDelay + 11 + BWAPI::Broodwar->getLatencyFrames());
+                }
+
+                // Compute the delay between the gather command kicking in and mining starting
+                // If the worker arrives at the patch on time, the delay is 0
+                // If not, the delay will correspond to how long it takes the worker's order process timer to reach 0 again
+                int miningDelay;
+                if (arrivalDelay <= 0)
+                {
+                    miningDelay = 0;
+                }
+                else
+                {
+                    miningDelay = arrivalDelay;
+                    if (miningDelay % 9 != 0) miningDelay += (9 - miningDelay % 9);
+                }
+
+                // Check for order process timer resets that will affect start of mining
+                int framesToNextReset = OrderProcessTimer::framesToNextReset(commandFrame + BWAPI::Broodwar->getLatencyFrames() + 1);
+                if (framesToNextReset < (11 + arrivalDelay))
+                {
+                    // A reset will happen before the worker arrives at the patch
+                    // On average we will need to wait 4 frames after arrival before mining
+                    return arrivalDelay + 4.0;
+                }
+                if (framesToNextReset < (11 + miningDelay))
+                {
+                    // A reset will happen after the worker arrives at the patch, but before it can start mining
+                    // On average we will need to wait 3.5 frames after the reset
+                    return framesToNextReset - 11 + 3.5;
+                }
+
+                // No reset, return the computed mining delay
+                return (double)miningDelay;
+            };
+
+            if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayToMiningDelay(arrivalDelayAndOccurrences.begin()->first);
+
+            // If the most common arrival delay is positive, return it
             auto mostCommon = mostCommonArrivalDelay();
-            if (mostCommon < 0) return mostCommon;
+            if (mostCommon > 0) return arrivalDelayToMiningDelay(mostCommon);
 
-            double totalArrivalDelay = 0.0;
+            double totalMiningDelay = 0.0;
             int totalOccurrences = 0;
             for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
             {
-                // If the arrival delay is negative, this means we don't reach the patch on time, so we penalize this heavily
-                totalArrivalDelay += arrivalDelay + ((arrivalDelay < 0) ? (BWAPI::Broodwar->getLatencyFrames() + 11) : 0);
+                totalMiningDelay += arrivalDelayToMiningDelay(arrivalDelay);
                 totalOccurrences += occurrences;
             }
 
-            return totalArrivalDelay / (double)totalOccurrences;
+            return totalMiningDelay / (double)totalOccurrences;
         }
     };
 
@@ -71,7 +109,7 @@ namespace WorkerMiningOptimization
     {
         PositionAndVelocity pos;
         std::unordered_map<PositionAndVelocity, int> next;
-        int deltaToFirstResend;
+        int deltaToFirstResend = 0;
         ResendPositionObservations observations;
     };
 
@@ -95,7 +133,7 @@ namespace WorkerMiningOptimization
         {
             auto &observations = secondResendPosition ? secondResendMetadata[*secondResendPosition].observations : noSecondResendObservations;
             bool result = observations.empty();
-            observations.add(arrivalDelta);
+            observations.add(-arrivalDelta);
             return result;
         }
 

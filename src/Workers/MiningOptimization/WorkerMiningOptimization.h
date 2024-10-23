@@ -6,7 +6,7 @@
 #include "PositionObservationMetadata.h"
 #include "WorkerGatherStatus.h"
 
-#define EXPLORE_BEFORE 9
+#define EXPLORE_BEFORE 12
 #define EXPLORE_AFTER 5
 #define EXPLORE_SECOND_RESEND_POSITIONS 2 // This is in addition to EXPLORE_AFTER
 

@@ -244,16 +244,26 @@ namespace WorkerMiningOptimization
 
                     // TODO: Remove following debugging things once everything is working
 
-                    // Most common delta
+                    // Best mining delta for most common arrival and collisions
                     int bestDelta = 100;
                     auto handleObservations = [&resendPositionMetadata, &bestDelta](const ResendPositionObservations &observations, int addedDelta)
                     {
                         if (observations.empty()) return;
 
-                        int arrivalDelay = observations.mostCommonArrivalDelay();
-                        if (arrivalDelay < 0) return;
+                        int delta = resendPositionMetadata.deltaToNormalPathOptimalPosition + addedDelta;
 
-                        int delta = resendPositionMetadata.deltaToNormalPathOptimalPosition + addedDelta + arrivalDelay;
+                        int arrivalDelay = observations.mostCommonArrivalDelay();
+                        while (arrivalDelay > 8) arrivalDelay -= 9; // Adjust for order timer cycles before mining
+                        if (arrivalDelay > 0)
+                        {
+                            delta += arrivalDelay;
+                        }
+
+                        if (observations.collisions > observations.nonCollisions)
+                        {
+                            delta += 14;
+                        }
+
                         if (delta < bestDelta) bestDelta = delta;
                     };
                     handleObservations(resendPositionMetadata.noSecondResendObservations, 0);
@@ -308,7 +318,7 @@ namespace WorkerMiningOptimization
                             for (const auto &[arrivalDelay, occurrences] : observations.arrivalDelayAndOccurrences)
                             {
                                 ((arrivalDelay == mostCommonArrivalDelay) ? common : uncommon) += occurrences;
-                                if (arrivalDelay >= 0 && arrivalDelay < mostCommonArrivalDelay) problematic++;
+                                if (mostCommonArrivalDelay <= 0 && arrivalDelay > 0) problematic++;
                             }
 
                             if ((common + uncommon) > 10 && (common < uncommon * 4))
