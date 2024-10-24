@@ -257,10 +257,10 @@ namespace WorkerMiningOptimization
                         int delta = resendPositionMetadata.deltaToNormalPathOptimalPosition + addedDelta;
 
                         int arrivalDelay = observations.mostCommonArrivalDelay();
-                        while (arrivalDelay > 8) arrivalDelay -= 9; // Adjust for order timer cycles before mining
                         if (arrivalDelay > 0)
                         {
                             delta += arrivalDelay;
+                            if (arrivalDelay % 9 != 0) arrivalDelay += (9 - arrivalDelay % 9); // Align to order process timer cycle
                         }
 
                         if (observations.collisions > observations.nonCollisions)
@@ -268,8 +268,13 @@ namespace WorkerMiningOptimization
                             delta += 14;
                         }
 
-                        if (delta < bestDelta) bestDelta = delta;
+                        if (delta < bestDelta)
+                        {
+                            bestDelta = delta;
+                        }
                     };
+                    std::ostringstream posStr;
+                    posStr << resendPositionMetadata.pos;
                     handleObservations(resendPositionMetadata.noSecondResendObservations, 0);
                     for (const auto &secondResendPosition : resendPositionMetadata.expectedPathAfterResend())
                     {
