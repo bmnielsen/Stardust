@@ -529,6 +529,13 @@ namespace WorkerMiningOptimization
 
                     auto framesToReset =
                             OrderProcessTimer::framesToNextReset(currentFrame - actualFramesToMining + BWAPI::Broodwar->getLatencyFrames() + 1);
+
+                    if (framesToReset == 0)
+                    {
+                        Log::Get() << "ERROR: Sent command 4 frames before order process timer reset"
+                                   << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                    }
+
                     int minExpectedFramesToMining, maxExpectedFramesToMining;
                     if (framesToReset < (11 + arrivalDelay))
                     {

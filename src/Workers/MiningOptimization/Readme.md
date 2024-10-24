@@ -55,10 +55,11 @@ When the patch is free, we ideally want the approaching worker's order process t
 Gather commands have the following delay before they can transition into mining:
 
 - Latency frames
-- 3 frames where the worker goes through a ResetCollision cycle
-- 8 frames for the order process timer to cycle back to 0
+- One frame where the unit replans its movement and resets the mining status
+- 9 frames for order process timer to cycle back to 0
+- 1 frame in WaitForMinerals (once the worker is at the patch)
 
-So we want to reissue a gather command exactly 11+LF frames before the worker arrives at the patch.
+So we want to reissue a gather command exactly 10+LF frames before the worker arrives at the patch.
 
 Issuing a new gather command to a worker targeting the same patch *usually* does not affect its movement: it continues along the same path and maintains its speed. So by tracking the position history of a mining worker, we can build a database of the optimal positions for resending the gather command for each patch.
 
@@ -66,7 +67,9 @@ When executing the command, the game engine does treat this as a new move target
 
 To make somewhat intelligent decisions about which gather positions to use, we track the observed results and compare this to the expected result if we do not resend the command at all. 
 
-If an order process timer reset is to occur between the optimal resend position and reaching the patch, we cannot achieve optimal timing. What we do in this situation depends on the timing of the reset. If the reset happens just after the optimal command would have kicked in, we send the gather command to take effect at the reset frame, which on average is a benefit. Otherwise we allow the worker to gather without resending the command and accept that it may take longer to begin mining.
+If an order process timer reset is to occur between the optimal resend position and reaching the patch, we cannot achieve optimal timing. What we do in this situation depends on the timing of the reset and what possibilies we have for reaching the patch faster. If the reset happens just after the optimal command would have kicked in, we can often send the gather command to take effect at the reset frame, which on average is a benefit. Otherwise we allow the worker to gather without resending the command and accept that it may take longer to begin mining.
+
+One special case with order timer resets is when the order timer reset occurs on the frame LF+1 after issuing a mining command. Because it has just processed the gather command, normally the worker's order process timer will always be 0 on this frame, causing it to process the MoveToMinerals order. If there is an order timer reset, however, the worker will most likely be left in an in-between state until the order process timer reaches 0 again, where movement has been replanned but the mining state is at its default value. The result of this is that the worker needs an additional order process timer cycle before it can actually transition to mining, so we want to avoid this situation.
 
 ## Start of gathering - other worker currently mining patch
 
