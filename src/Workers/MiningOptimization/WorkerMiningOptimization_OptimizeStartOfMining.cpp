@@ -493,17 +493,13 @@ namespace WorkerMiningOptimization
             int positionToTryDelta = 0;
         };
 
-        double computeExpectedDelta(int normalPathCommandFrame,
+        double computeExpectedDelta(int commandFrame,
                                     const PositionObservationMetadata &positionMetadata,
                                     int deltaToFirstResend,
                                     const ResendPositionObservations &observations)
         {
-            double expectedMiningDelay = observations.expectedMiningDelay(
-                    false,
-                    normalPathCommandFrame + positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend);
-
+            double expectedMiningDelay = observations.expectedMiningDelay(false, commandFrame);
             auto collisionDelay = expectedPatchCollisionDelay(observations.collisions, observations.nonCollisions);
-
             return positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + expectedMiningDelay + collisionDelay;
         }
 
@@ -569,6 +565,10 @@ namespace WorkerMiningOptimization
             // We can't send another command at LF after previous command
             if (deltaToFirstResend == BWAPI::Broodwar->getLatencyFrames()) return nextPositionsEvaluation;
 
+            // We can't send a command LF+1 frames before an order process timer reset
+            int commandFrame = normalPathCommandFrame + positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend;
+            if (OrderProcessTimer::framesToNextReset(commandFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
+
             // If we want to try this position and it is better than the current best, return this
             if (observations.empty() &&
                 (WorkerMiningOptimization::isExploring() || (positionMetadata.deltaToNormalPathOptimalPosition == 0 && deltaToFirstResend == 0)))
@@ -584,7 +584,7 @@ namespace WorkerMiningOptimization
             if (nextPositionsEvaluation.positionToTryOnExpectedPath) return nextPositionsEvaluation;
 
             // Compute the expected delta for this position
-            double expectedDelta = computeExpectedDelta(normalPathCommandFrame, positionMetadata, deltaToFirstResend, observations);
+            double expectedDelta = computeExpectedDelta(commandFrame, positionMetadata, deltaToFirstResend, observations);
             if (expectedDelta < (nextPositionsEvaluation.expectedDelta - EPSILON))
             {
                 return {expectedDelta, {here}, std::make_shared<PositionAndVelocity>(positionMetadata.pos), false, 0};
@@ -761,7 +761,8 @@ namespace WorkerMiningOptimization
                                                             secondGatherPositionIt->second.next);
 
             // Evaluate no resend
-            double expectedDelta = computeExpectedDelta(normalPathCommandFrame,
+            int commandFrame = normalPathCommandFrame + resentPositionData.deltaToNormalPathOptimalPosition;
+            double expectedDelta = computeExpectedDelta(commandFrame,
                                                         resentPositionData,
                                                         0,
                                                         resentPositionData.noSecondResendObservations);

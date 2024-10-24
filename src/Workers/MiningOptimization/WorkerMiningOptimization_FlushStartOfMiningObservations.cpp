@@ -524,7 +524,7 @@ namespace WorkerMiningOptimization
                     int noResetExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 11);
                     if (arrivalDelay > 0)
                     {
-                        noResetExpectedFramesToMining += 9 * ((arrivalDelay / 9) + 1);
+                        noResetExpectedFramesToMining += 9 * (((arrivalDelay - 1) / 9) + 1);
                     }
 
                     auto framesToReset =
@@ -546,7 +546,7 @@ namespace WorkerMiningOptimization
                     else if (framesToReset < noResetExpectedFramesToMining)
                     {
                         // Reset between arrival and start of mining
-                        minExpectedFramesToMining = framesToReset;
+                        minExpectedFramesToMining = framesToReset + 1;
                         maxExpectedFramesToMining = minExpectedFramesToMining + 9;
                     }
                     else
@@ -556,9 +556,11 @@ namespace WorkerMiningOptimization
                     if (actualFramesToMining < minExpectedFramesToMining || actualFramesToMining > maxExpectedFramesToMining)
                     {
                         Log::Get() << "ERROR: Position " << resentPositionData << " has unexpected mining start delta"
-                                   << "; arrivalDelay=" << arrivalDelay
                                    << "; expected=" << minExpectedFramesToMining << "-" << maxExpectedFramesToMining
                                    << "; actual=" << actualFramesToMining
+                                   << "; arrivalDelay=" << arrivalDelay
+                                   << "; noResetExpectedFramesToMining=" << noResetExpectedFramesToMining
+                                   << "; framesToReset=" << framesToReset
                                    << "; worker id " << worker->id << " @ " << worker->getTilePosition();
 
                         std::ostringstream dbg;
