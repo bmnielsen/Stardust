@@ -765,6 +765,14 @@ TEST(MiningTraining, AllAIIDEContinuousSingleAllCannons)
     }
 }
 
+TEST(MiningTraining, AllAIIDEMeasureSingleNoCannons)
+{
+    Maps::RunOnEach(Maps::Get("aiide2024"), [&](BWTest test)
+    {
+        runEfficiencyTest(test, 1, 0, false, true);
+    });
+}
+
 TEST(MiningTraining, AllAIIDEMeasureSingleAllCannons)
 {
     Maps::RunOnEach(Maps::Get("aiide2024"), [&](BWTest test)
