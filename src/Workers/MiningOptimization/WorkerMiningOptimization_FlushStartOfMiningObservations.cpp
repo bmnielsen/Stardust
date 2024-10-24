@@ -169,6 +169,8 @@ namespace WorkerMiningOptimization
 #if OPTIMALPOSITIONS_DEBUG
         std::set<uint32_t> exploredPaths;
         std::set<BWAPI::TilePosition> exploredPatches;
+        int collisions = 0;
+        int noncollisions = 0;
 #endif
 
         void handlePossiblePatchCollision(const MiningWorker &miningWorker)
@@ -180,6 +182,11 @@ namespace WorkerMiningOptimization
             if (collision)
             {
                 CherryVis::log(miningWorker.worker->id) << "Collision with patch";
+                collisions++;
+            }
+            else
+            {
+                noncollisions++;
             }
 #endif
 
@@ -513,21 +520,36 @@ namespace WorkerMiningOptimization
                     }
 
                     auto actualFramesToMining = (int)std::distance(lastResendPositionIt.base(), workerStatus.positionHistory.end());
-                    auto framesToReset =
-                            OrderProcessTimer::framesToNextReset(currentFrame - actualFramesToMining + BWAPI::Broodwar->getLatencyFrames());
-                    int minExpectedFramesToMining, maxExpectedFramesToMining;
-                    if (framesToReset > 0 && framesToReset < 12)
+
+                    int noResetExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 11);
+                    if (arrivalDelay > 0)
                     {
+                        noResetExpectedFramesToMining += 9 * ((arrivalDelay / 9) + 1);
+                    }
+
+                    auto framesToReset =
+                            OrderProcessTimer::framesToNextReset(currentFrame - actualFramesToMining + BWAPI::Broodwar->getLatencyFrames() + 1);
+                    int minExpectedFramesToMining, maxExpectedFramesToMining;
+                    if (framesToReset < (11 + arrivalDelay))
+                    {
+                        // Reset prior to arrival
                         minExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 11 + arrivalDelay);
+                        maxExpectedFramesToMining = minExpectedFramesToMining + 9;
+                    }
+                    else if (framesToReset < noResetExpectedFramesToMining)
+                    {
+                        // Reset between arrival and start of mining
+                        minExpectedFramesToMining = framesToReset;
                         maxExpectedFramesToMining = minExpectedFramesToMining + 9;
                     }
                     else
                     {
-                        minExpectedFramesToMining = maxExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 11);
+                        minExpectedFramesToMining = maxExpectedFramesToMining = noResetExpectedFramesToMining;
                     }
                     if (actualFramesToMining < minExpectedFramesToMining || actualFramesToMining > maxExpectedFramesToMining)
                     {
                         Log::Get() << "ERROR: Position " << resentPositionData << " has unexpected mining start delta"
+                                   << "; arrivalDelay=" << arrivalDelay
                                    << "; expected=" << minExpectedFramesToMining << "-" << maxExpectedFramesToMining
                                    << "; actual=" << actualFramesToMining
                                    << "; worker id " << worker->id << " @ " << worker->getTilePosition();
@@ -604,10 +626,18 @@ namespace WorkerMiningOptimization
         {
             exploredPaths.clear();
             exploredPatches.clear();
+            collisions = 0;
+            noncollisions = 0;
         }
         else if (currentFrame % 1000 == 0)
         {
             Log::Get() << "Explored " << exploredPaths.size() << " path(s) over " << exploredPatches.size() << " patch(es)";
+            if ((collisions + noncollisions) > 0)
+            {
+                Log::Get() << std::fixed << std::setprecision(1)
+                           << "Collision rate: " << (100.0 * collisions)/(double)(collisions + noncollisions)
+                           << "% over " << (collisions + noncollisions) << " collections";
+            }
         }
 #endif
 

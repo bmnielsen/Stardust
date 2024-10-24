@@ -883,6 +883,7 @@ namespace WorkerMiningOptimization
                 if (evaluation.expectedDelta > (9 + normalPathCollisionDelay)) return false;
 
                 // If we can predict the worker's order process timer at normal arrival, check if it is better than the evaluated result
+                double orderProcessTimerDelay = 4.5;
                 int framesToNormalPathArrival = BWAPI::Broodwar->getLatencyFrames() + 10 - metadataIt->second.deltaToNormalPathOptimalPosition;
                 if (worker->orderProcessTimer != -1 && OrderProcessTimer::framesToNextReset() > framesToNormalPathArrival)
                 {
@@ -891,18 +892,19 @@ namespace WorkerMiningOptimization
                     {
                         orderProcessTimerAtArrival += 9;
                     }
+                    orderProcessTimerDelay = (double)orderProcessTimerAtArrival;
+                }
 
-                    if ((normalPathCollisionDelay + orderProcessTimerAtArrival) < evaluation.expectedDelta)
-                    {
+                if ((normalPathCollisionDelay + orderProcessTimerDelay) < evaluation.expectedDelta)
+                {
 #if OPTIMALPOSITIONS_DEBUG
-                        CherryVis::log(worker->id) << std::fixed << std::setprecision(1)
-                                << "Not resending as order timer " << orderProcessTimerAtArrival
-                                << " and collision delay " << normalPathCollisionDelay
-                                << " is better than expected delta " << evaluation.expectedDelta;
+                    CherryVis::log(worker->id) << std::fixed << std::setprecision(1)
+                            << "Not resending as expected order timer delay " << orderProcessTimerDelay
+                            << " and collision delay " << normalPathCollisionDelay
+                            << " is better than expected delta " << evaluation.expectedDelta;
 #endif
 
-                        return false;
-                    }
+                    return false;
                 }
 
                 return true;
@@ -939,24 +941,9 @@ namespace WorkerMiningOptimization
                 {
                     out << " (exploring)";
                 }
-
-                if (workerStatus.plannedResendPosition)
+                else
                 {
-                    auto resentPositionDataIt = optimalPositions.find(*workerStatus.plannedResendPosition);
-                    if (resentPositionDataIt != optimalPositions.end())
-                    {
-                        auto &resentPositionData = resentPositionDataIt->second;
-
-                        auto secondResendData = resentPositionData.secondResendMetadataFor(workerStatus.plannedSecondResendPosition.get());
-                        auto &observations = secondResendData ? secondResendData->observations : resentPositionData.noSecondResendObservations;
-                        if (!observations.empty())
-                        {
-                            out << " expected delta " << (resentPositionData.deltaToNormalPathOptimalPosition
-                                                          + (secondResendData ? secondResendData->deltaToFirstResend : 0)
-                                                          + observations.mostCommonArrivalDelay());
-                            out << " expected delay " << observations.mostCommonArrivalDelay();
-                        }
-                    }
+                    out << " expected delta " << evaluation.expectedDelta;
                 }
 
                 CherryVis::log(worker->id) << out.str();

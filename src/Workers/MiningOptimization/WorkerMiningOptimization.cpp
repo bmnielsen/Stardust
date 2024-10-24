@@ -136,6 +136,7 @@ namespace WorkerMiningOptimization
 
                     auto line = CsvTools::readNextLine(file);
                     if (line.size() < 11) break;
+                    if (lineNumber == 1 && line[0] == "x") continue; // header row
 
                     BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
                     auto resource = Units::resourceAt(tile);
@@ -178,6 +179,9 @@ namespace WorkerMiningOptimization
         {
             std::ofstream file;
             file.open(filename, std::ofstream::trunc);
+
+            file << "x;y;path hash;1st resend position;next position(s);no resend collisions;no resend non-collisions;delta to benchmark;"
+                 << "no 2nd resend arrivals;no 2nd resend collisions;no 2nd resend non-collisions;second resend data\n";
 
             auto outputNext = [&file](const std::unordered_map<PositionAndVelocity, int> &next)
             {
