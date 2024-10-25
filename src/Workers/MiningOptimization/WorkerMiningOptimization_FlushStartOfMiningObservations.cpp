@@ -2,6 +2,7 @@
 // This file contains the logic needed to update the data maps with new observations related to optimizing the start of mining
 
 #include "WorkerMiningOptimization.h"
+#include "DebugFlag_WorkerMiningOptimization.h"
 
 #include "PositionAndVelocity.h"
 #include "PositionObservationMetadata.h"

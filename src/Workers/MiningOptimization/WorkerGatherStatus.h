@@ -1,5 +1,7 @@
 #pragma once
 
+#include "DebugFlag_WorkerMiningOptimization.h"
+
 #include "MyWorker.h"
 #include "Resource.h"
 #include "PositionAndVelocity.h"

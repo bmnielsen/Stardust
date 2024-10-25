@@ -2,6 +2,7 @@
 // This file contains the logic that optimizes the start of mining
 
 #include "WorkerMiningOptimization.h"
+#include "DebugFlag_WorkerMiningOptimization.h"
 
 #include "OrderProcessTimer.h"
 #include "PositionAndVelocity.h"

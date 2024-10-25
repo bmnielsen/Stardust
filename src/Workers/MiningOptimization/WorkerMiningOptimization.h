@@ -10,12 +10,6 @@
 #define EXPLORE_AFTER 5
 #define EXPLORE_SECOND_RESEND_POSITIONS 2 // This is in addition to EXPLORE_AFTER
 
-#if INSTRUMENTATION_ENABLED
-#define TAKEOVER_DEBUG true
-#define OPTIMALPOSITIONS_DEBUG true
-#define OPTIMALPOSITIONS_DEBUG_VERBOSE false
-#endif
-
 namespace WorkerMiningOptimization
 {
     void initialize();
