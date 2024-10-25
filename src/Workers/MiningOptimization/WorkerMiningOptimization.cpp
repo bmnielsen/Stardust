@@ -21,10 +21,7 @@ namespace WorkerMiningOptimization
         // Metadata for positions LF+1 frames before reaching 10 or less distance from the patch
         // Workers can try to switch to another patch if their chosen patch is being mined once they reach this distance, so we use these
         // positions to detect when we need to start resending gather commands to ensure mineral locking
-        std::map<Resource, std::unordered_map<PositionAndVelocity, PositionObservationMetadata>> resourceTo10DistancePositions;
-
-        // Metadata for positions where we can resend the gather command to optimize the takeover frame and reach the patch on time
-        std::map<Resource, std::unordered_map<PositionAndVelocity, PositionObservationMetadata>> resourceToTakeoverResendPositions;
+        std::map<Resource, std::unordered_set<PositionAndVelocity>> resourceTo10DistancePositions;
 
         // Worker state for those on their way to the patch
         std::map<MyWorker, WorkerGatherStatus> workerGatherStatuses;
@@ -42,14 +39,6 @@ namespace WorkerMiningOptimization
         {
             auto filename = std::ostringstream()
                     << "10distance_" << BWAPI::Broodwar->mapHash()
-                    << "_lf" << BWAPI::Broodwar->getLatencyFrames();
-            return FileTools::getFilePath(filename.str(), "csv", writing);
-        }
-
-        std::string takeoverResendPositionsFilename(bool writing = false)
-        {
-            auto filename = std::ostringstream()
-                    << "takeoverpositions_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames();
             return FileTools::getFilePath(filename.str(), "csv", writing);
         }
@@ -175,7 +164,7 @@ namespace WorkerMiningOptimization
         }
 
         void writePositionObservationMetadataFile(const std::string &filename,
-                                                  std::map<Resource, std::unordered_map<PositionAndVelocity, PositionObservationMetadata>> &map)
+                                                  const std::map<Resource, std::unordered_map<PositionAndVelocity, PositionObservationMetadata>> &map)
         {
             std::ofstream file;
             file.open(filename, std::ofstream::trunc);
@@ -369,6 +358,87 @@ namespace WorkerMiningOptimization
             file.close();
             Log::Get() << "Wrote " << count << " positions metadata to " << filename;
         }
+
+        void parse10DistancePositionsFile(const std::string &filename,
+                                          std::map<Resource, std::unordered_set<PositionAndVelocity>> &map)
+        {
+            map.clear();
+
+            std::ifstream file;
+            file.open(filename);
+            if (!file.good()) return;
+
+            int lineNumber = 0;
+            try
+            {
+                // Each line is data for a single patch
+                int count = 0;
+                while (true)
+                {
+                    lineNumber++;
+
+                    auto line = CsvTools::readNextLine(file);
+                    if (line.size() < 3) break;
+                    if (lineNumber == 1 && line[0] == "x") continue; // header row
+
+                    BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
+                    auto resource = Units::resourceAt(tile);
+                    if (!resource) continue;
+
+                    auto &positions = map[resource];
+                    for (auto &posStr : CsvTools::tokenizeList(line[2], ','))
+                    {
+                        PositionAndVelocity pos;
+                        if (!PositionAndVelocity::tryParse(posStr, pos))
+                        {
+                            Log::Get() << "Invalid position string at line " << lineNumber << "; skipping: " << posStr;
+                            continue;
+                        }
+
+                        positions.insert(pos);
+                        count++;
+                    }
+                }
+
+                Log::Get() << "Read " << count << " 10-distance positions from " << filename;
+            }
+            catch (std::exception &ex)
+            {
+                Log::Get() << "Exception caught attempting to read 10-distance positions from " << filename
+                           << " at line " << lineNumber << ": " << ex.what();
+            }
+        }
+
+        void write10DistancePositionsFile(const std::string &filename,
+                                          const std::map<Resource, std::unordered_set<PositionAndVelocity>> &map)
+        {
+            std::ofstream file;
+            file.open(filename, std::ofstream::trunc);
+
+            file << "x;y;positions\n";
+
+            int count = 0;
+            for (const auto &[resource, tenDistancePositions] : map)
+            {
+                if (tenDistancePositions.empty()) continue;
+
+                file << resource->tile.x << ";"
+                     << resource->tile.y << ";";
+
+                std::string posSep;
+                for (const auto &pos : tenDistancePositions)
+                {
+                    file << posSep << pos;
+                    posSep = ",";
+                    count++;
+                }
+
+                file << "\n";
+            }
+
+            file.close();
+            Log::Get() << "Wrote " << count << " 10-distance positions to " << filename;
+        }
     }
 
     void initialize()
@@ -381,8 +451,7 @@ namespace WorkerMiningOptimization
         workerGatherStatuses.clear();
 
         parsePositionObservationMetadataFile(optimalGatherPositionsFilename(), resourceToOptimalGatherPositions);
-        parsePositionObservationMetadataFile(tenDistancePositionsFilename(), resourceTo10DistancePositions);
-        parsePositionObservationMetadataFile(takeoverResendPositionsFilename(), resourceToTakeoverResendPositions);
+        parse10DistancePositionsFile(tenDistancePositionsFilename(), resourceTo10DistancePositions);
     }
 
     void flushObservations()
@@ -394,10 +463,8 @@ namespace WorkerMiningOptimization
 
     void write()
     {
-//        if (false) writePositionObservationMetadataFile(optimalGatherPositionsFilename(true), resourceToOptimalGatherPositions);
         writePositionObservationMetadataFile(optimalGatherPositionsFilename(true), resourceToOptimalGatherPositions);
-//        writePositionObservationMetadataFile(tenDistancePositionsFilename(true), resourceTo10DistancePositions);
-//        writePositionObservationMetadataFile(takeoverResendPositionsFilename(true), resourceToTakeoverResendPositions);
+        write10DistancePositionsFile(tenDistancePositionsFilename(true), resourceTo10DistancePositions);
     }
 
     // Optimizes returning a resource
@@ -429,14 +496,9 @@ namespace WorkerMiningOptimization
         return resourceToOptimalGatherPositions[resource];
     }
 
-    std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositionsFor(const Resource &resource)
+    std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource)
     {
         return resourceTo10DistancePositions[resource];
-    }
-
-    std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &takeoverPositionsFor(const Resource &resource)
-    {
-        return resourceToTakeoverResendPositions[resource];
     }
 
     bool isExploring()

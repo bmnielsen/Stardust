@@ -29,8 +29,7 @@ namespace WorkerMiningOptimization
 
     WorkerGatherStatus &gatherStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
     std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &optimalGatherPositionsFor(const Resource &resource);
-    std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositionsFor(const Resource &resource);
-    std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &takeoverPositionsFor(const Resource &resource);
+    std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource);
 
     bool isExploring();
     void setExploring(bool exploring);
