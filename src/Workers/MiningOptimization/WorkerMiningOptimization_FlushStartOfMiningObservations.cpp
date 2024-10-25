@@ -715,9 +715,7 @@ namespace WorkerMiningOptimization
     }
 
     void handleStartOfMiningPatchSwitch(WorkerGatherStatus &workerStatus,
-                                        const Resource &resource,
-                                        std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositions,
-                                        std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &takeoverResendPositions)
+                                        const Resource &resource)
     {
         /*
         updateTakeoverMetadata(workerStatus, resource, tenDistancePositions, takeoverResendPositions, true);

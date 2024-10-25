@@ -44,14 +44,20 @@ namespace WorkerMiningOptimization
         // The position at which the gather command was resent again, or nullptr if it hasn't been resent
         std::shared_ptr<const PositionAndVelocity> secondResentPosition;
 
+        // Whether there were additional resends after the second resend
+        bool additionalResendsAfterSecondResend;
+
         // Used to mark that the worker should have the gather command resent on this specific frame
         int resendCommandOnFrame;
 
+        // Mode to use for takeover, current allowed values: 0=use normal approach optimization, 1=use takeover optimization, 2=at patch
+        int takeoverState;
+
+        // The frame where we want to take over mining from another worker
+        int takeoverFrame;
+
         // Tracks whether the worker has passed the position LF+1 before reaching 10 distance from the patch
         std::shared_ptr<const PositionAndVelocity> passed10DistancePosition;
-
-        // Mode to use for takeover, current allowed values: 0=use normal approach optimization, 1=use takeover optimization, 2=at patch
-        int takeoverMode;
 
         WorkerGatherStatus(MyWorker worker, MyUnit depot, Resource resource)
                 : worker(std::move(worker))
@@ -59,8 +65,10 @@ namespace WorkerMiningOptimization
                 , resource(std::move(resource))
                 , lastProcessedFrame(-2)
                 , resendsPlanned(false)
+                , additionalResendsAfterSecondResend(false)
                 , resendCommandOnFrame(-2)
-                , takeoverMode(0)
+                , takeoverState(0)
+                , takeoverFrame(-1)
         {}
 
         void reset()
@@ -73,9 +81,11 @@ namespace WorkerMiningOptimization
             expectedPath.clear();
             resentPosition = nullptr;
             secondResentPosition = nullptr;
+            additionalResendsAfterSecondResend = false;
             resendCommandOnFrame = -2;
+            takeoverState = 0;
+            takeoverFrame = -1;
             passed10DistancePosition = nullptr;
-            takeoverMode = 0;
         }
 
         [[nodiscard]] bool resentOnSchedule() const
@@ -102,6 +112,33 @@ namespace WorkerMiningOptimization
             lastProcessedFrame = currentFrame;
 
             return currentPosition;
+        }
+
+        void sendGatherCommand(BWAPI::Unit resourceBwapiUnit, const std::shared_ptr<PositionAndVelocity> &currentPosition)
+        {
+            if (!worker->gather(resourceBwapiUnit))
+            {
+#if OPTIMALPOSITIONS_DEBUG
+                    Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
+                               << BWAPI::Broodwar->getLastError();
+                    CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+                    CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+#endif
+                return;
+            }
+
+            if (!resentPosition)
+            {
+                resentPosition = currentPosition;
+            }
+            else if (!secondResentPosition)
+            {
+                secondResentPosition = currentPosition;
+            }
+            else
+            {
+                additionalResendsAfterSecondResend = true;
+            }
         }
     };
 }

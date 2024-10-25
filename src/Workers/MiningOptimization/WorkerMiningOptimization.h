@@ -25,10 +25,7 @@ namespace WorkerMiningOptimization
     void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
 
     void flushStartOfMiningObservations(std::map<MyWorker, WorkerGatherStatus> &workerGatherStatuses);
-    void handleStartOfMiningPatchSwitch(WorkerGatherStatus &workerStatus,
-                                        const Resource &resource,
-                                        std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositions,
-                                        std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &takeoverResendPositions);
+    void handleStartOfMiningPatchSwitch(WorkerGatherStatus &workerStatus, const Resource &resource);
 
     WorkerGatherStatus &gatherStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
     std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &optimalGatherPositionsFor(const Resource &resource);
