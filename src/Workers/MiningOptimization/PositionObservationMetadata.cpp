@@ -87,9 +87,9 @@ namespace WorkerMiningOptimization
         return totalMiningDelay / (double)totalOccurrences;
     }
 
-    bool PositionObservationMetadata::addObservation(const std::shared_ptr<const PositionAndVelocity> &secondResendPosition, int arrivalDelta)
+    bool PositionObservationMetadata::addObservation(SecondResendPositionObservationMetadata* secondResendPositionData, int arrivalDelta)
     {
-        auto &observations = secondResendPosition ? secondResendMetadata[*secondResendPosition].observations : noSecondResendObservations;
+        auto &observations = secondResendPositionData ? secondResendPositionData->observations : noSecondResendObservations;
         bool result = observations.empty();
         observations.add(arrivalDelta);
         return result;

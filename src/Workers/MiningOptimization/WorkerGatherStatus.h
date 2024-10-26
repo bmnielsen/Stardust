@@ -38,14 +38,8 @@ namespace WorkerMiningOptimization
         // The expected path the worker will follow
         std::deque<PositionAndVelocity> expectedPath;
 
-        // The position at which the gather command was resent, or nullptr if it hasn't been resent
-        std::shared_ptr<const PositionAndVelocity> resentPosition;
-
-        // The position at which the gather command was resent again, or nullptr if it hasn't been resent
-        std::shared_ptr<const PositionAndVelocity> secondResentPosition;
-
-        // Whether there were additional resends after the second resend
-        std::shared_ptr<const PositionAndVelocity> lastAdditionalResendPosition;
+        // Positions at which the gather command was resent
+        std::vector<std::shared_ptr<const PositionAndVelocity>> resentPositions;
 
         // Used to mark that the worker should have the gather command resent on this specific frame
         int resendCommandOnFrame;
@@ -82,9 +76,7 @@ namespace WorkerMiningOptimization
             plannedResendPosition = nullptr;
             plannedSecondResendPosition = nullptr;
             expectedPath.clear();
-            resentPosition = nullptr;
-            secondResentPosition = nullptr;
-            lastAdditionalResendPosition = nullptr;
+            resentPositions.clear();
             resendCommandOnFrame = -2;
             takeoverState = 0;
             takeoverFrame = -1;
@@ -131,18 +123,13 @@ namespace WorkerMiningOptimization
                 return;
             }
 
-            if (!resentPosition)
-            {
-                resentPosition = currentPosition;
-            }
-            else if (!secondResentPosition)
-            {
-                secondResentPosition = currentPosition;
-            }
-            else
-            {
-                lastAdditionalResendPosition = currentPosition;
-            }
+            resentPositions.push_back(currentPosition);
+        }
+
+        const PositionAndVelocity *resentPosition() const
+        {
+            if (resentPositions.empty()) return nullptr;
+            return resentPositions.begin()->get();
         }
     };
 }

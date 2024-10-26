@@ -210,7 +210,8 @@ namespace WorkerMiningOptimization
             // We have reached an unexpected position
 
             // If we haven't passed the first resend position yet, then just clear the planned data so we can replan
-            if (!workerStatus.resentPosition)
+            auto resentPosition = workerStatus.resentPosition();
+            if (!resentPosition)
             {
 #if OPTIMALPOSITIONS_DEBUG
                 CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path; expected " << workerStatus.expectedPath.front()
@@ -226,11 +227,11 @@ namespace WorkerMiningOptimization
             }
 
             // We have sent the first resend, but hit a different path before reaching the second resend position
-            auto resentPositionDataIt = optimalPositions.find(*workerStatus.resentPosition);
+            auto resentPositionDataIt = optimalPositions.find(*resentPosition);
             if (resentPositionDataIt == optimalPositions.end())
             {
 #if OPTIMALPOSITIONS_DEBUG
-                Log::Get() << "ERROR: Didn't find resend position metadata: " << *workerStatus.resentPosition;
+                Log::Get() << "ERROR: Didn't find resend position metadata: " << *resentPosition;
 #endif
                 return;
             }
@@ -246,7 +247,7 @@ namespace WorkerMiningOptimization
                 if (secondGatherPositionIt == resentPositionData.secondResendMetadata.end())
                 {
 #if OPTIMALPOSITIONS_DEBUG
-                    Log::Get() << "ERROR: Didn't find resend position in positions history: " << *workerStatus.resentPosition;
+                    Log::Get() << "ERROR: Didn't find resend position in positions history: " << *resentPosition;
 #endif
                     return;
                 }
@@ -255,12 +256,12 @@ namespace WorkerMiningOptimization
                 auto positionIt = workerStatus.positionHistory.rbegin();
                 for (; positionIt != workerStatus.positionHistory.rend(); positionIt++)
                 {
-                    if ((**positionIt) == (*workerStatus.resentPosition)) break;
+                    if ((**positionIt) == (*resentPosition)) break;
                 }
                 if (positionIt == workerStatus.positionHistory.rend())
                 {
 #if OPTIMALPOSITIONS_DEBUG
-                    Log::Get() << "ERROR: Didn't find resend position in positions history: " << *workerStatus.resentPosition;
+                    Log::Get() << "ERROR: Didn't find resend position in positions history: " << *resentPosition;
 #endif
                     return;
                 }
@@ -459,7 +460,7 @@ namespace WorkerMiningOptimization
 
                     // If we've already resent twice, we assume resending again will always get to the patch on time
                     // TODO: Implement check for this
-                    if (workerStatus.secondResentPosition)
+                    if (workerStatus.resentPositions.size() > 1)
                     {
 #if TAKEOVER_DEBUG
                         CherryVis::log(worker->id) << "Sending final command; worker has already resent twice (or more)";
@@ -474,9 +475,10 @@ namespace WorkerMiningOptimization
                     auto &optimalPositions = optimalGatherPositionsFor(resource);
                     auto &takeoverPositions = takeoverPositionsFor(resource);
                     const std::map<int, int>* observations = nullptr;
-                    if (workerStatus.resentPosition)
+                    auto resentPosition = workerStatus.resentPosition();
+                    if (resentPosition)
                     {
-                        auto resentPositionDataIt = optimalPositions.find(*workerStatus.resentPosition);
+                        auto resentPositionDataIt = optimalPositions.find(*resentPosition);
                         if (resentPositionDataIt != optimalPositions.end())
                         {
                             auto secondResendMetadata = resentPositionDataIt->second.secondResendMetadataFor(currentPosition.get());
@@ -485,9 +487,9 @@ namespace WorkerMiningOptimization
                                 observations = &secondResendMetadata->observations.arrivalDelayAndOccurrences;
                             }
                         }
-                        else
+                        if (!observations)
                         {
-                            auto takeoverPositionDataIt = takeoverPositions.find(*workerStatus.resentPosition);
+                            auto takeoverPositionDataIt = takeoverPositions.find(*resentPosition);
                             if (takeoverPositionDataIt != takeoverPositions.end())
                             {
                                 observations = takeoverPositionDataIt->second.secondResendObservationsFor(currentPosition.get());
@@ -544,7 +546,7 @@ namespace WorkerMiningOptimization
                     if (send)
                     {
                         workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
-                        workerStatus.takeoverState = (workerStatus.resentPosition ? 12 : 13);
+                        workerStatus.takeoverState = (resentPosition ? 12 : 13);
                     }
 
                     return true;
@@ -714,10 +716,10 @@ namespace WorkerMiningOptimization
         {
             auto handlePlannedResend = [&](
                     const std::shared_ptr<const PositionAndVelocity> &plannedPosition,
-                    const std::shared_ptr<const PositionAndVelocity> &resentPosition)
+                    int resend)
             {
                 if (!plannedPosition) return; // nothing planned for this position
-                if (resentPosition) return; // already resent
+                if (workerStatus.resentPositions.size() >= resend) return; // already resent
                 if ((*plannedPosition) != (*currentPosition)) return; // not at the position yet
 
 #if OPTIMALPOSITIONS_DEBUG
@@ -727,8 +729,8 @@ namespace WorkerMiningOptimization
                 workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
             };
 
-            handlePlannedResend(workerStatus.plannedResendPosition, workerStatus.resentPosition);
-            handlePlannedResend(workerStatus.plannedSecondResendPosition, workerStatus.secondResentPosition);
+            handlePlannedResend(workerStatus.plannedResendPosition, 1);
+            handlePlannedResend(workerStatus.plannedSecondResendPosition, 2);
 
             // Remove this position from the expected path
             if (!workerStatus.expectedPath.empty()) workerStatus.expectedPath.pop_front();

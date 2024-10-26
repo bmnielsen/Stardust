@@ -52,7 +52,7 @@ namespace WorkerMiningOptimization
         int noResendCollisions = 0;
         int noResendNonCollisions = 0;
 
-        bool addObservation(const std::shared_ptr<const PositionAndVelocity> &secondResendPosition, int arrivalDelta);
+        bool addObservation(SecondResendPositionObservationMetadata* secondResendPositionData, int arrivalDelta);
 
         [[nodiscard]] std::vector<const SecondResendPositionObservationMetadata*> expectedPathAfterResend() const;
 
