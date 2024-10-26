@@ -472,7 +472,8 @@ namespace WorkerMiningOptimization
 
                     // Reference the observations we have for when we resend at this position
                     auto &optimalPositions = optimalGatherPositionsFor(resource);
-                    const ResendPositionObservations* observations = nullptr;
+                    auto &takeoverPositions = takeoverPositionsFor(resource);
+                    const std::map<int, int>* observations = nullptr;
                     if (workerStatus.resentPosition)
                     {
                         auto resentPositionDataIt = optimalPositions.find(*workerStatus.resentPosition);
@@ -481,7 +482,15 @@ namespace WorkerMiningOptimization
                             auto secondResendMetadata = resentPositionDataIt->second.secondResendMetadataFor(currentPosition.get());
                             if (secondResendMetadata)
                             {
-                                observations = &secondResendMetadata->observations;
+                                observations = &secondResendMetadata->observations.arrivalDelayAndOccurrences;
+                            }
+                        }
+                        else
+                        {
+                            auto takeoverPositionDataIt = takeoverPositions.find(*workerStatus.resentPosition);
+                            if (takeoverPositionDataIt != takeoverPositions.end())
+                            {
+                                observations = takeoverPositionDataIt->second.secondResendObservationsFor(currentPosition.get());
                             }
                         }
                     }
@@ -490,7 +499,15 @@ namespace WorkerMiningOptimization
                         auto optimalPositionDataIt = optimalPositions.find(*currentPosition);
                         if (optimalPositionDataIt != optimalPositions.end())
                         {
-                            observations = &optimalPositionDataIt->second.noSecondResendObservations;
+                            observations = &optimalPositionDataIt->second.noSecondResendObservations.arrivalDelayAndOccurrences;
+                        }
+                        else
+                        {
+                            auto takeoverPositionDataIt = takeoverPositions.find(*currentPosition);
+                            if (takeoverPositionDataIt != takeoverPositions.end())
+                            {
+                                observations = &takeoverPositionDataIt->second.noSecondResendArrivalDelayAndOccurrences;
+                            }
                         }
                     }
 
@@ -504,7 +521,7 @@ namespace WorkerMiningOptimization
                     }
                     else
                     {
-                        for (const auto &[delay, _] : observations->arrivalDelayAndOccurrences)
+                        for (const auto &[delay, _] : *observations)
                         {
                             if (delay > 0)
                             {
@@ -584,13 +601,13 @@ namespace WorkerMiningOptimization
             && worker->lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
         {
             // Hook to update our observations based on this potential failure of mineral locking
-            handleStartOfMiningPatchSwitch(workerStatus, resource);
+            handleStartOfMiningPatchSwitch(workerStatus);
 
             CherryVis::log(worker->id) << "targeting different patch; resending order";
             Log::Get() << "ERROR: patch @ " << resource->tile << "; worker " << worker->id << " @ " << worker->getTilePosition() << " switched patch";
 
             worker->gather(resourceBwapiUnit);
-            workerStatus.reset();
+            workerStatus.switchedPatches = true;
             return;
         }
 

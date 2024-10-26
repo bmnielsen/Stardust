@@ -45,7 +45,7 @@ namespace WorkerMiningOptimization
         std::shared_ptr<const PositionAndVelocity> secondResentPosition;
 
         // Whether there were additional resends after the second resend
-        bool additionalResendsAfterSecondResend;
+        std::shared_ptr<const PositionAndVelocity> lastAdditionalResendPosition;
 
         // Used to mark that the worker should have the gather command resent on this specific frame
         int resendCommandOnFrame;
@@ -59,16 +59,19 @@ namespace WorkerMiningOptimization
         // Tracks whether the worker has passed the position LF+1 before reaching 10 distance from the patch
         std::shared_ptr<const PositionAndVelocity> passed10DistancePosition;
 
+        // Whether the worker switched patches while trying to mine
+        bool switchedPatches;
+
         WorkerGatherStatus(MyWorker worker, MyUnit depot, Resource resource)
                 : worker(std::move(worker))
                 , depot(std::move(depot))
                 , resource(std::move(resource))
                 , lastProcessedFrame(-2)
                 , resendsPlanned(false)
-                , additionalResendsAfterSecondResend(false)
                 , resendCommandOnFrame(-2)
                 , takeoverState(0)
                 , takeoverFrame(-1)
+                , switchedPatches(false)
         {}
 
         void reset()
@@ -81,11 +84,12 @@ namespace WorkerMiningOptimization
             expectedPath.clear();
             resentPosition = nullptr;
             secondResentPosition = nullptr;
-            additionalResendsAfterSecondResend = false;
+            lastAdditionalResendPosition = nullptr;
             resendCommandOnFrame = -2;
             takeoverState = 0;
             takeoverFrame = -1;
             passed10DistancePosition = nullptr;
+            switchedPatches = false;
         }
 
         [[nodiscard]] bool resentOnSchedule() const
@@ -137,7 +141,7 @@ namespace WorkerMiningOptimization
             }
             else
             {
-                additionalResendsAfterSecondResend = true;
+                lastAdditionalResendPosition = currentPosition;
             }
         }
     };
