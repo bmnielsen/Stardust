@@ -708,36 +708,57 @@ namespace WorkerMiningOptimization
 #endif
             }
 
-            // Don't need to do anything further if we didn't resend a gather command
-            if (workerStatus.resentPositions.empty()) return;
+            // Don't need to do anything further if we didn't resend a gather command before arrival
+            if (positionsInHistory.resendsBeforeArrival.empty()) return;
+
+            // If there is normal approach optimization data for this resend position, we would have already tracked the observation
+            if (positionsInHistory.resendsBeforeArrival.size() == 1)
+            {
+                auto &optimalGatherPositions = optimalGatherPositionsFor(workerStatus.resource);
+                if (optimalGatherPositions.contains(*positionsInHistory.resendsBeforeArrival[0])) return;
+            }
+            else if (positionsInHistory.resendsBeforeArrival.size() == 2)
+            {
+                auto &optimalGatherPositions = optimalGatherPositionsFor(workerStatus.resource);
+                auto optimalGatherPositionIt = optimalGatherPositions.find(*positionsInHistory.resendsBeforeArrival[0]);
+                if (optimalGatherPositionIt != optimalGatherPositions.end())
+                {
+                    if (optimalGatherPositionIt->second.secondResendMetadataFor(positionsInHistory.resendsBeforeArrival[1].get()))
+                    {
+                        return;
+                    }
+                }
+            }
 
             // Determine the arrival delay
-//            int arrivalDelay;
-//            if (switchedPatch)
-//            {
-//                arrivalDelay = 100;
-//            }
-//            else
-//            {
-//                auto actualFramesToArrival = std::distance(positionsInHistory., positionsInHistory.arrivalPositionIt);
-//
-//            }
+            int arrivalDelay;
+            if (switchedPatch)
+            {
+                arrivalDelay = 100;
+            }
+            else
+            {
+                // Get actual frames between last resend and arrival
+                auto actualFramesToArrival = std::distance(positionsInHistory.resendPositionIts[positionsInHistory.resendsBeforeArrival.size() - 1],
+                                                           positionsInHistory.arrivalPositionIt);
 
-//                // Measure the arrival delay from the last resend
-//                auto lastResendIt = resendPositionIt;
-//                if (workerStatus.secondResentPosition) lastResendIt = secondResendPositionIt;
-//                if (workerStatus.lastAdditionalResendPosition) lastResendIt = lastAdditionalResendPositionIt;
-//                arrivalDelay = (int)std::distance(lastResendIt, arrivalPositionIt) - BWAPI::Broodwar->getLatencyFrames() - 10;
-//            }
-//
-//            // Record an observation
-//            auto &optimalGatherPositions = optimalGatherPositionsFor(workerStatus.resource);
-//            auto resendPositionDataIt = optimalGatherPositions.find(*workerStatus.resentPosition);
-//            if (resendPositionDataIt == optimalGatherPositions.end())
-//            {
-//
-//            }
-//            Log::Get() << arrivalDelay;
+                // Arrival delay is measured from when the command kicks in
+                arrivalDelay = (int)actualFramesToArrival - BWAPI::Broodwar->getLatencyFrames() - 11;
+            }
+
+            // Get the takeover position record
+            auto &takeoverPositions = takeoverPositionsFor(workerStatus.resource);
+            auto firstResendPos = positionsInHistory.resendsBeforeArrival[std::max(positionsInHistory.resendsBeforeArrival.size() - 2, 0UL)];
+            auto takeoverPositionIt = takeoverPositions.find(*firstResendPos);
+            if (takeoverPositionIt == takeoverPositions.end())
+            {
+                takeoverPositionIt = takeoverPositions.emplace(*firstResendPos, PositionObservationMetadataForTakeoverResends{*firstResendPos}).first;
+            }
+
+            // Add the observation
+            auto secondResendPos = positionsInHistory.resendsBeforeArrival[positionsInHistory.resendsBeforeArrival.size() - 1];
+            if (firstResendPos == secondResendPos) secondResendPos = nullptr;
+            takeoverPositionIt->second.addObservation(secondResendPos, arrivalDelay);
         }
     }
 
