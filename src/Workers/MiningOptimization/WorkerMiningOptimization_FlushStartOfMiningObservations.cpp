@@ -237,6 +237,7 @@ namespace WorkerMiningOptimization
             Resource resource;
             std::vector<std::shared_ptr<const PositionAndVelocity>> positionHistory;
             std::vector<std::shared_ptr<const PositionAndVelocity>> resentPositions;
+            int takeoverState;
         };
 
         std::vector<MiningWorker> miningWorkers;
@@ -283,11 +284,15 @@ namespace WorkerMiningOptimization
             }
 
             auto resendMetadataIt = optimalGatherPositions.find(*miningWorker.resentPositions[0]);
-            if (resendMetadataIt == optimalGatherPositions.end()) // shouldn't happen
+            if (resendMetadataIt == optimalGatherPositions.end())
             {
+                // Should only happen in takeover scenarios
 #if OPTIMALPOSITIONS_DEBUG
-                Log::Get() << "ERROR: Resend metadata not found for " << *miningWorker.resentPositions[0]
-                           << "; worker id " << miningWorker.worker->id << " @ " << miningWorker.worker->getTilePosition();
+                if (miningWorker.takeoverState == 0)
+                {
+                    Log::Get() << "ERROR: Resend metadata not found for " << *miningWorker.resentPositions[0]
+                               << "; worker id " << miningWorker.worker->id << " @ " << miningWorker.worker->getTilePosition();
+                }
 #endif
                 return;
             }
@@ -748,7 +753,7 @@ namespace WorkerMiningOptimization
 
             // Get the takeover position record
             auto &takeoverPositions = takeoverPositionsFor(workerStatus.resource);
-            auto firstResendPos = positionsInHistory.resendsBeforeArrival[std::max(positionsInHistory.resendsBeforeArrival.size() - 2, 0UL)];
+            auto firstResendPos = positionsInHistory.resendsBeforeArrival[std::max((int)positionsInHistory.resendsBeforeArrival.size() - 2, 0)];
             auto takeoverPositionIt = takeoverPositions.find(*firstResendPos);
             if (takeoverPositionIt == takeoverPositions.end())
             {
@@ -842,7 +847,8 @@ namespace WorkerMiningOptimization
                     std::move(it->second.worker),
                     std::move(it->second.resource),
                     std::move(it->second.positionHistory),
-                    std::move(positionsInHistory.resendsBeforeArrival)});
+                    std::move(positionsInHistory.resendsBeforeArrival),
+                    it->second.takeoverState});
 
             // We now no longer need to do anything with this worker status
             it = workerGatherStatuses.erase(it);

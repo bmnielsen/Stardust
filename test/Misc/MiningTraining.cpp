@@ -749,6 +749,17 @@ TEST(MiningTraining, NeoMoonGlaiveDoubleContinuous)
     }
 }
 
+TEST(MiningTraining, VermeerSingleMeasure)
+{
+    BWTest test;
+    test.map = Maps::GetOne("VermeerSE_2.1");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 1, 0, false, true, true);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << "%" << std::endl;
+}
+
 TEST(MiningTraining, AllAIIDEContinuousSingleOnlyNoCannons)
 {
     while (true)
