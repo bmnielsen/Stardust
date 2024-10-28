@@ -41,6 +41,9 @@ namespace WorkerMiningOptimization
         // Positions at which the gather command was resent
         std::vector<std::shared_ptr<const PositionAndVelocity>> resentPositions;
 
+        // Frames at which we have send gather commands
+        std::set<int> resentFrames;
+
         // Used to mark that the worker should have the gather command resent on this specific frame
         int resendCommandOnFrame;
 
@@ -51,7 +54,7 @@ namespace WorkerMiningOptimization
         int takeoverFrame;
 
         // Tracks whether the worker has passed the position LF+1 before reaching 10 distance from the patch
-        std::shared_ptr<const PositionAndVelocity> passed10DistancePosition;
+        bool passed10DistancePosition;
 
         // Whether the worker switched patches while trying to mine
         bool switchedPatches;
@@ -65,6 +68,7 @@ namespace WorkerMiningOptimization
                 , resendCommandOnFrame(-2)
                 , takeoverState(0)
                 , takeoverFrame(-1)
+                , passed10DistancePosition(false)
                 , switchedPatches(false)
         {}
 
@@ -77,10 +81,11 @@ namespace WorkerMiningOptimization
             plannedSecondResendPosition = nullptr;
             expectedPath.clear();
             resentPositions.clear();
+            resentFrames.clear();
             resendCommandOnFrame = -2;
             takeoverState = 0;
             takeoverFrame = -1;
-            passed10DistancePosition = nullptr;
+            passed10DistancePosition = false;
             switchedPatches = false;
         }
 
@@ -124,6 +129,7 @@ namespace WorkerMiningOptimization
             }
 
             resentPositions.push_back(currentPosition);
+            resentFrames.insert(currentFrame);
         }
 
         const PositionAndVelocity *resentPosition() const

@@ -213,7 +213,6 @@ namespace WorkerMiningOptimization
                            << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
                 return false;
             }
-            if (positionsInHistory.arrivalPositionIt == workerStatus.positionHistory.end()) return false;
 
             // Create the filtered vectors with just resends that happened before arrival at the patch
             for (int i = 0; i < positionsInHistory.resendPositionIts.size(); i++)
@@ -716,6 +715,12 @@ namespace WorkerMiningOptimization
             // Don't need to do anything further if we didn't resend a gather command before arrival
             if (positionsInHistory.resendsBeforeArrival.empty()) return;
 
+            // If we switched patches before arrival and before the last resend kicked in, don't measure any observations on it
+            if (switchedPatch && positionsInHistory.resendsBeforeArrival.size() < positionsInHistory.resendPositionIts.size())
+            {
+                return;
+            }
+
             // If there is normal approach optimization data for this resend position, we would have already tracked the observation
             if (positionsInHistory.resendsBeforeArrival.size() == 1)
             {
@@ -736,12 +741,8 @@ namespace WorkerMiningOptimization
             }
 
             // Determine the arrival delay
-            int arrivalDelay;
-            if (switchedPatch)
-            {
-                arrivalDelay = 100;
-            }
-            else
+            int arrivalDelay = 100; // default for when we switched before reaching the patch
+            if (positionsInHistory.arrivalPositionIt != workerStatus.positionHistory.end())
             {
                 // Get actual frames between last resend and arrival
                 auto actualFramesToArrival = std::distance(positionsInHistory.resendPositionIts[positionsInHistory.resendsBeforeArrival.size() - 1],
@@ -831,7 +832,8 @@ namespace WorkerMiningOptimization
             }
 
             PositionsInHistory positionsInHistory;
-            if (it->second.switchedPatches || !extractPositionsInHistory(it->second, positionsInHistory))
+            if (it->second.switchedPatches || !extractPositionsInHistory(it->second, positionsInHistory)
+                    || positionsInHistory.arrivalPositionIt == it->second.positionHistory.end())
             {
                 it = workerGatherStatuses.erase(it);
                 continue;

@@ -317,15 +317,24 @@ namespace WorkerMiningOptimization
         {
             auto &resource = workerStatus.resource;
             auto &worker = workerStatus.worker;
+            auto distToPatch = resource->getDistance(worker);
 
             // Keep track of whether the worker has passed a 10-distance position
             auto &tenDistancePositions = tenDistancePositionsFor(resource);
             if (!workerStatus.passed10DistancePosition && tenDistancePositions.contains(*currentPosition))
             {
-                workerStatus.passed10DistancePosition = currentPosition;
+                workerStatus.passed10DistancePosition = true;
 
 #if TAKEOVER_DEBUG
                 CherryVis::log(worker->id) << "Will reach 10-distance position in LF+1 from here";
+#endif
+            }
+            if (!workerStatus.passed10DistancePosition && distToPatch == 0)
+            {
+                workerStatus.passed10DistancePosition = true;
+
+#if TAKEOVER_DEBUG
+                CherryVis::log(worker->id) << "Worker arrived at patch without passing recorded 10-distance position";
 #endif
             }
 
@@ -344,7 +353,8 @@ namespace WorkerMiningOptimization
                 {
                     // Try to find another worker assigned to the patch that is mining or has recently mined
                     auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
-                    if (!otherWorker || !otherWorker->exists() || (currentFrame - otherWorker->lastStartedMining) >= 100) return false;
+                    if (!otherWorker || !otherWorker->exists() || otherWorker->lastStartedMining == -1
+                        || (currentFrame - otherWorker->lastStartedMining) >= 100) return false;
 
                     // We found another worker, so compute the takeover frame
                     // We need to add an extra frame if the worker taking over might have its orders processed first
@@ -384,8 +394,6 @@ namespace WorkerMiningOptimization
                 }
                 case 1:
                 {
-                    auto distToPatch = resource->getDistance(worker);
-
                     // If the worker is at the patch and the takeover frame has passed, don't touch it
                     // We normally won't reach this but it might happen if workers are reassigned
                     if (distToPatch == 0 && currentFrame >= workerStatus.takeoverFrame)
@@ -411,24 +419,95 @@ namespace WorkerMiningOptimization
                         commandFrameForTakeOver = commandFrameForReset;
                     }
 
+                    // If the takeover and reset command frames are LF apart, we can't send both of them
+                    // Time it instead to send the reset command one frame late - this may cause the worker to switch patches for one frame,
+                    // but this isn't long enough to be a problem
+                    if ((commandFrameForTakeOver - commandFrameForReset) == BWAPI::Broodwar->getLatencyFrames())
+                    {
+                        commandFrameForReset++;
+                    }
+
+                    int framesToTakeoverCommand = commandFrameForTakeOver - currentFrame;
+
                     // Compute the number of frames until the next command we have to send
                     // We ignore order process timer resets if we are far enough away from the patch that it will not affect us
-                    int framesToNextCommand;
-                    if (currentFrame <= commandFrameForReset && (commandFrameForTakeOver - commandFrameForReset) > 3
-                        && (workerStatus.passed10DistancePosition || distToPatch == 0))
+                    int framesToNextCommand = framesToTakeoverCommand;
+                    if (currentFrame <= commandFrameForReset && commandFrameForTakeOver > commandFrameForReset
+                        && workerStatus.passed10DistancePosition)
                     {
-                        framesToNextCommand = std::min(commandFrameForReset, commandFrameForTakeOver) - currentFrame;
-                    }
-                    else
-                    {
-                        framesToNextCommand = commandFrameForTakeOver - currentFrame;
+                        framesToNextCommand = commandFrameForReset - currentFrame;
+                        if (framesToNextCommand == 0)
+                        {
+#if TAKEOVER_DEBUG
+                            CherryVis::log(worker->id) << "Resending to ensure mineral locking (reset frame)";
+#endif
+                            workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
+                            return true;
+                        }
                     }
 
                     // Logic for when the next command is in the future
                     if (framesToNextCommand > 0)
                     {
-                        // Once the worker is close to the patch, resend commands every 2 frames to avoid the worker switching patches
-                        if (framesToNextCommand % 2 == 0 && (workerStatus.passed10DistancePosition || distToPatch == 0))
+                        // Try to plan an approach based on the approach optimization data we have
+                        // TODO: implement and go to state 2
+
+                        // We need to resend gather commands once we get close to the patch to avoid the worker switching patches
+
+                        // No need to do anything if the worker isn't close yet
+                        if (!workerStatus.passed10DistancePosition) return true;
+
+                        // We resend every 7 frames, since this is within the order process timer cycle and doesn't conflict with LF3-LF6
+                        int framesToNextResend = framesToNextCommand % 7;
+
+                        // Handle the initial send
+                        // The important thing here is to resend as soon as possible but without blocking later resends with Unit_Busy
+                        if (workerStatus.resentPositions.empty())
+                        {
+                            // Wait until the next frame if that is when we want to resend anyway
+                            if (framesToNextCommand == 1) return true;
+
+                            // Wait until the next frame if the next resend, or the final takeover command, are in LF frames
+                            if (framesToNextResend == BWAPI::Broodwar->getLatencyFrames()
+                                || framesToTakeoverCommand == BWAPI::Broodwar->getLatencyFrames())
+                            {
+#if TAKEOVER_DEBUG
+                                CherryVis::log(worker->id) << "Deferring initial mineral locking resend";
+#endif
+                                return true;
+                            }
+
+#if TAKEOVER_DEBUG
+                            CherryVis::log(worker->id) << "Initial resend to ensure mineral locking";
+#endif
+                            workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
+                            return true;
+                        }
+
+                        // The planned resend may be blocked by a previous one if we have been handling an order process timer reset
+                        // If this occurs, find a nearby frame where we can resend
+                        auto realign = [&](int delta)
+                        {
+                            if (!workerStatus.resentFrames.contains(currentFrame + framesToNextResend - BWAPI::Broodwar->getLatencyFrames())) return;
+
+                            if ((framesToNextResend + delta) < 0) return;
+                            if (workerStatus.resentFrames.contains(currentFrame + framesToNextResend + delta - BWAPI::Broodwar->getLatencyFrames()))
+                            {
+                                return;
+                            }
+                            if ((framesToNextCommand - framesToNextResend + delta) == BWAPI::Broodwar->getLatencyFrames()) return;
+                            if ((framesToTakeoverCommand - framesToNextResend + delta) == BWAPI::Broodwar->getLatencyFrames()) return;
+
+                            framesToNextResend += delta;
+                        };
+                        realign(-1);
+                        realign(1);
+                        realign(-2);
+                        realign(2);
+                        realign(-3);
+                        realign(3);
+
+                        if (framesToNextResend == 0)
                         {
 #if TAKEOVER_DEBUG
                             CherryVis::log(worker->id) << "Resending to ensure mineral locking";
@@ -437,8 +516,15 @@ namespace WorkerMiningOptimization
                             workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
                         }
 
-                        // Try to plan an approach based on the approach optimization data we have
-                        // TODO: implement and go to state 2
+                        return true;
+                    }
+
+                    // Bail out if we can't send a command here
+                    if (workerStatus.resentFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+                    {
+#if TAKEOVER_DEBUG
+                        CherryVis::log(worker->id) << "Skipping this frame as we can't send a command here";
+#endif
 
                         return true;
                     }
@@ -523,24 +609,27 @@ namespace WorkerMiningOptimization
                     }
                     else
                     {
-                        for (const auto &[delay, _] : *observations)
+                        // Count number of successes and failures
+                        int successes = 0;
+                        int failures = 0;
+                        for (const auto &[delay, occurrences] : *observations)
                         {
-                            if (delay > 0)
-                            {
-#if TAKEOVER_DEBUG
-                                CherryVis::log(worker->id) << "Not sending here; have observed an arrival delay of " << delay;
-#endif
-                                send = false;
-                                break;
-                            }
+                            ((delay > 0) ? failures : successes)++;
                         }
 
-#if TAKEOVER_DEBUG
-                        if (send)
+                        if (successes >= (failures * 4))
                         {
-                            CherryVis::log(worker->id) << "Sending final command; observations have no failures at this position";
-                        }
+#if TAKEOVER_DEBUG
+                            CherryVis::log(worker->id) << "Sending final command; successes " << successes << " vs. failures " << failures;
 #endif
+                        }
+                        else
+                        {
+                            send = false;
+#if TAKEOVER_DEBUG
+                            CherryVis::log(worker->id) << "Not sending here; successes " << successes << " vs. failures " << failures;
+#endif
+                        }
                     }
 
                     if (send)
@@ -563,6 +652,9 @@ namespace WorkerMiningOptimization
     // Optimizes the start of mining, returning whether an order was sent to the worker.
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
+        // Don't touch the worker if it is transitioning to mine
+        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals) return;
+
         auto &workerStatus = gatherStatusFor(worker, depot, resource);
 
         auto resourceBwapiUnit = resource->getBwapiUnitIfVisible();
@@ -575,9 +667,6 @@ namespace WorkerMiningOptimization
 
         // Track the worker's visited positions
         auto currentPosition = workerStatus.appendCurrentPosition();
-
-        // Don't touch the worker if it is transitioning to mine
-        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals) return;
 
         // Resend the gather command if it has been scheduled for this frame
         if (workerStatus.resentOnSchedule())
