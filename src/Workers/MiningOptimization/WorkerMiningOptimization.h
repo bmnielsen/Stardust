@@ -28,6 +28,7 @@ namespace WorkerMiningOptimization
     void handleStartOfMiningPatchSwitch(WorkerGatherStatus &workerStatus);
 
     WorkerGatherStatus &gatherStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
+    WorkerGatherStatus *gatherStatusFor(const MyWorker &worker);
     std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &optimalGatherPositionsFor(const Resource &resource);
     std::unordered_map<PositionAndVelocity, PositionObservationMetadataForTakeoverResends> &takeoverPositionsFor(const Resource &resource);
     std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource);

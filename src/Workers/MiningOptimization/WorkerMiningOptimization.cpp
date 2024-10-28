@@ -247,6 +247,14 @@ namespace WorkerMiningOptimization
         return workerStatusIt->second;
     }
 
+    WorkerGatherStatus *gatherStatusFor(const MyWorker &worker)
+    {
+        auto workerStatusIt = workerGatherStatuses.find(worker);
+        if (workerStatusIt == workerGatherStatuses.end()) return nullptr;
+
+        return &workerStatusIt->second;
+    }
+
     std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &optimalGatherPositionsFor(const Resource &resource)
     {
         return resourceToOptimalGatherPositions[resource];

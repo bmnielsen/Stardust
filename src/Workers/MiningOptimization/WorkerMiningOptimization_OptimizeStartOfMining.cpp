@@ -338,6 +338,63 @@ namespace WorkerMiningOptimization
 #endif
             }
 
+            // Try to find another worker assigned to the patch
+            auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
+            if (!otherWorker || !otherWorker->exists())
+            {
+                if (workerStatus.takeoverState != 0)
+                {
+                    workerStatus.takeoverState = 0;
+                    workerStatus.takeoverFrame = -1;
+#if TAKEOVER_DEBUG
+                    CherryVis::log(worker->id)
+                            << "Clearing takeover from other worker no longer assigned to this patch";
+#endif
+                }
+
+                return false;
+            }
+
+            auto computeTakeoverFrame = [&workerStatus, &worker, &otherWorker]()
+            {
+                // Nothing needed if we've already done it
+                if (workerStatus.takeoverFrame != -1) return;
+
+                // Can't compute the frame yet if the other worker hasn't started mining
+                if (otherWorker->lastStartedMining == -1 || (currentFrame - otherWorker->lastStartedMining) >= 100) return;
+
+                // We need to add an extra frame if the worker taking over might have its orders processed first
+                int addedFrame = 1;
+                if (otherWorker->orderProcessIndex > worker->orderProcessIndex)
+                {
+                    addedFrame = 0;
+                }
+
+                // Without order timer resets, we can compute the exact takeover frame
+                workerStatus.takeoverFrame = otherWorker->lastStartedMining + 81 + addedFrame;
+
+                // Compute the frame of the order timer reset prior to the take over frame
+                int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(workerStatus.takeoverFrame);
+                if (previousOrderTimerReset == workerStatus.takeoverFrame) previousOrderTimerReset -= 150;
+
+                // If the order timer reset during mining, adjust our take over frame
+                // We always assume the worst-case scenario (needing to wait a full cycle after the mining timer expires)
+                // Because the order timer is at 6 when mining ends without a reset, we only have to wait two extra frames
+                if (previousOrderTimerReset >= otherWorker->lastStartedMining)
+                {
+                    workerStatus.takeoverFrame = std::max(otherWorker->lastStartedMining + 83, previousOrderTimerReset + 8) + addedFrame;
+                }
+
+#if TAKEOVER_DEBUG
+                CherryVis::log(worker->id)
+                        << "Initializing takeover from " << otherWorker->id << ": "
+                        << "otherStarted=" << otherWorker->lastStartedMining << "; "
+                        << "takeOverFrame=" << workerStatus.takeoverFrame << "; "
+                        << "previousOrderTimerReset=" << previousOrderTimerReset << "; "
+                        << "addedFrame=" << addedFrame;
+#endif
+            };
+
             // Run the state machine
             // State 0: haven't detected a worker to take over from yet
             // State 1: have initialized takeover and may be resending commands up to the takeover frame
@@ -351,42 +408,12 @@ namespace WorkerMiningOptimization
             {
                 case 0:
                 {
-                    // Try to find another worker assigned to the patch that is mining or has recently mined
-                    auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
-                    if (!otherWorker || !otherWorker->exists() || otherWorker->lastStartedMining == -1
-                        || (currentFrame - otherWorker->lastStartedMining) >= 100) return false;
-
-                    // We found another worker, so compute the takeover frame
-                    // We need to add an extra frame if the worker taking over might have its orders processed first
-                    int addedFrame = 1;
-                    if (otherWorker->orderProcessIndex > worker->orderProcessIndex)
+                    // If the other worker is not mining and is not expected to reach the patch before us, use normal approach optimization
+                    if ((otherWorker->lastStartedMining == -1 || (currentFrame - otherWorker->lastStartedMining) >= 100)
+                            && resource->getDistance(otherWorker) >= resource->getDistance(worker))
                     {
-                        addedFrame = 0;
+                        return false;
                     }
-
-                    // Without order timer resets, we can compute the exact takeover frame
-                    workerStatus.takeoverFrame = otherWorker->lastStartedMining + 81 + addedFrame;
-
-                    // Compute the frame of the order timer reset prior to the take over frame
-                    int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(workerStatus.takeoverFrame);
-                    if (previousOrderTimerReset == workerStatus.takeoverFrame) previousOrderTimerReset -= 150;
-
-                    // If the order timer reset during mining, adjust our take over frame
-                    // We always assume the worst-case scenario (needing to wait a full cycle after the mining timer expires)
-                    // Because the order timer is at 6 when mining ends without a reset, we only have to wait two extra frames
-                    if (previousOrderTimerReset >= otherWorker->lastStartedMining)
-                    {
-                        workerStatus.takeoverFrame = std::max(otherWorker->lastStartedMining + 83, previousOrderTimerReset + 8) + addedFrame;
-                    }
-
-#if TAKEOVER_DEBUG
-                    CherryVis::log(worker->id)
-                            << "Initializing takeover from " << otherWorker->id << ": "
-                            << "otherStarted=" << otherWorker->lastStartedMining << "; "
-                            << "takeOverFrame=" << workerStatus.takeoverFrame << "; "
-                            << "previousOrderTimerReset=" << previousOrderTimerReset << "; "
-                            << "addedFrame=" << addedFrame;
-#endif
 
                     workerStatus.takeoverState = 1;
 
@@ -394,21 +421,45 @@ namespace WorkerMiningOptimization
                 }
                 case 1:
                 {
+                    // Make sure we aren't in a deadlock situation where both workers are waiting for the other
+                    auto otherWorkerStatus = WorkerMiningOptimization::gatherStatusFor(otherWorker);
+                    if (otherWorkerStatus && otherWorkerStatus->takeoverState == 1)
+                    {
+                        otherWorkerStatus->takeoverState = 0;
+                        otherWorkerStatus->takeoverFrame = -1;
+                        otherWorkerStatus->switchedPatches = true; // not actually true but a good way to tell our optimizer not to trust observations
+#if TAKEOVER_DEBUG
+                        CherryVis::log(worker->id) << "Clearing other worker state to avoid deadlock";
+#endif
+                    }
+
+                    // If the mining start frame of the other worker is not yet known, try to get it
+                    computeTakeoverFrame();
+                    int takeoverFrame = workerStatus.takeoverFrame;
+                    if (takeoverFrame == -1)
+                    {
+                        takeoverFrame = currentFrame + 80 - (currentFrame % 7);
+#if TAKEOVER_DEBUG
+                        CherryVis::log(worker->id)
+                                << "Don't know other worker start frame yet, using takeoverFrame=" << takeoverFrame;
+#endif
+                    }
+
                     // If the worker is at the patch and the takeover frame has passed, don't touch it
                     // We normally won't reach this but it might happen if workers are reassigned
-                    if (distToPatch == 0 && currentFrame >= workerStatus.takeoverFrame)
+                    if (distToPatch == 0 && currentFrame >= takeoverFrame)
                     {
                         workerStatus.takeoverState = 20;
                         return true;
                     }
 
                     // Compute the frame of the order timer reset prior to the take over frame
-                    int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(workerStatus.takeoverFrame);
-                    if (previousOrderTimerReset == workerStatus.takeoverFrame) previousOrderTimerReset -= 150;
+                    int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(takeoverFrame);
+                    if (previousOrderTimerReset == takeoverFrame) previousOrderTimerReset -= 150;
 
                     // Now compute when we need to issue mining commands
                     // Besides issuing a mining command for the takeover frame, we also want to issue a command if the order timer resets
-                    int commandFrameForTakeOver = workerStatus.takeoverFrame - 11 - BWAPI::Broodwar->getLatencyFrames();
+                    int commandFrameForTakeOver = takeoverFrame - 11 - BWAPI::Broodwar->getLatencyFrames();
                     int commandFrameForReset = previousOrderTimerReset - BWAPI::Broodwar->getLatencyFrames();
 
                     // If the takeover frame comes first, delay sending the order so it takes effect when the order timer resets instead
