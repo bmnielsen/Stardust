@@ -668,17 +668,17 @@ namespace WorkerMiningOptimization
                             ((delay > 0) ? failures : successes)++;
                         }
 
-                        if (successes >= (failures * 4))
-                        {
-#if TAKEOVER_DEBUG
-                            CherryVis::log(worker->id) << "Sending final command; successes " << successes << " vs. failures " << failures;
-#endif
-                        }
-                        else
+                        // Our current heuristic is to take any positions that succeed more than twice as often as they fail
+                        // While exploring we wait until we have experienced at least two failures
+                        if (successes < (failures * 2) && (!WorkerMiningOptimization::isExploring() || failures >= 2))
                         {
                             send = false;
 #if TAKEOVER_DEBUG
                             CherryVis::log(worker->id) << "Not sending here; successes " << successes << " vs. failures " << failures;
+                        }
+                        else
+                        {
+                            CherryVis::log(worker->id) << "Sending final command; successes " << successes << " vs. failures " << failures;
 #endif
                         }
                     }
