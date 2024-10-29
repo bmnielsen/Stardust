@@ -32,7 +32,7 @@ function cvis_dbg_trees_init(global_data, cvis_state) {
         var td = $('<td>');
         if (unit && unit.type) {
           td.append($('<img style="height: 40px; width: 40px">').attr('src',
-            "http://www.openbw.com/bw/production_icons/icon " + ("000" + unit.type).slice(-3) + ".bmp"));
+            "/static/replays/viewer/images/production_icons/icon " + ("000" + unit.type).slice(-3) + ".bmp"));
         }
       }
       tr.append(th, td, prob);

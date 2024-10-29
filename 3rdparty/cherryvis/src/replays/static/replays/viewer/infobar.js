@@ -357,7 +357,7 @@ function update_speed(speed) {
   document.getElementById("rv-rc-speed").innerHTML = speed + "x";
 }
 
-var IMG_URL1 = "http://www.openbw.com/bw/production_icons/icon ";
+var IMG_URL1 = "/static/replays/viewer/images/production_icons/icon ";
 var IMG_URL2 = ".bmp";
 function set_icon(tab_nr, parent_element, child_nr, icon_id, percentage, info) {
 
@@ -662,7 +662,7 @@ function set_race(player, race) {
       race_name = "protoss";
     }
     console.log("setting race emblem for player " + player);
-    $('#race' + player).css("background-image", "url('http://www.openbw.com/wp-content/uploads/2017/01/" + race_name + "_emblem2.png')");
+    $('#race' + player).css("background-image", "url('/static/replays/viewer/images/race_emblems/" + race_name + ".png')");
   }
 }
 
