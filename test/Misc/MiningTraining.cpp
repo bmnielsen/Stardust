@@ -749,6 +749,31 @@ TEST(MiningTraining, NeoMoonGlaiveDoubleContinuous)
     }
 }
 
+TEST(MiningTraining, VermeerTestSuite)
+{
+    BWTest test;
+    test.map = Maps::GetOne("VermeerSE_2.1");
+    test.randomSeed = 42;
+    auto sgl = runTestSuite(test, 1, 0);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << "%" << std::endl;
+}
+
+TEST(MiningTraining, VermeerTestSuiteContinuous)
+{
+    while (true)
+    {
+        BWTest test;
+        test.map = Maps::GetOne("VermeerSE_2.1");
+        test.randomSeed = 42;
+        auto sgl = runTestSuite(test, 1, 0);
+        std::cout << std::fixed << std::showpoint << std::setprecision(4)
+                  << "Overall efficiency: " << std::endl
+                  << "Single: " << sgl << "%" << std::endl;
+    }
+}
+
 TEST(MiningTraining, VermeerSingleMeasure)
 {
     BWTest test;

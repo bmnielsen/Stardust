@@ -831,6 +831,9 @@ namespace WorkerMiningOptimization
                 continue;
             }
 
+            // Add the final position to the history
+            it->second.appendCurrentPosition();
+
             PositionsInHistory positionsInHistory;
             if (it->second.switchedPatches || !extractPositionsInHistory(it->second, positionsInHistory)
                     || positionsInHistory.arrivalPositionIt == it->second.positionHistory.end())
