@@ -439,10 +439,6 @@ namespace WorkerMiningOptimization
                     if (takeoverFrame == -1)
                     {
                         takeoverFrame = currentFrame + 80 - (currentFrame % 7);
-#if TAKEOVER_DEBUG
-                        CherryVis::log(worker->id)
-                                << "Don't know other worker start frame yet, using takeoverFrame=" << takeoverFrame;
-#endif
                     }
 
                     // If the worker is at the patch and the takeover frame has passed, don't touch it
@@ -500,9 +496,6 @@ namespace WorkerMiningOptimization
                     // Logic for when the next command is in the future
                     if (framesToNextCommand > 0)
                     {
-                        // Try to plan an approach based on the approach optimization data we have
-                        // TODO: implement and go to state 2
-
                         // We need to resend gather commands once we get close to the patch to avoid the worker switching patches
 
                         // No need to do anything if the worker isn't close yet
@@ -515,9 +508,6 @@ namespace WorkerMiningOptimization
                         // The important thing here is to resend as soon as possible but without blocking later resends with Unit_Busy
                         if (workerStatus.resentPositions.empty())
                         {
-                            // Wait until the next frame if that is when we want to resend anyway
-                            if (framesToNextCommand == 1) return true;
-
                             // Wait until the next frame if the next resend, or the final takeover command, are in LF frames
                             if (framesToNextResend == BWAPI::Broodwar->getLatencyFrames()
                                 || framesToTakeoverCommand == BWAPI::Broodwar->getLatencyFrames())
@@ -550,6 +540,9 @@ namespace WorkerMiningOptimization
                             if ((framesToTakeoverCommand - framesToNextResend + delta) == BWAPI::Broodwar->getLatencyFrames()) return;
 
                             framesToNextResend += delta;
+#if TAKEOVER_DEBUG
+                            CherryVis::log(worker->id) << "Shifted resend by " << delta << " to avoid conflicts";
+#endif
                         };
                         realign(-1);
                         realign(1);
@@ -596,7 +589,6 @@ namespace WorkerMiningOptimization
                     // will get to the patch on time if we resend here
 
                     // If we've already resent twice, we assume resending again will always get to the patch on time
-                    // TODO: Implement check for this
                     if (workerStatus.resentPositions.size() > 1)
                     {
 #if TAKEOVER_DEBUG
@@ -669,8 +661,8 @@ namespace WorkerMiningOptimization
                         }
 
                         // Our current heuristic is to take any positions that succeed more than twice as often as they fail
-                        // While exploring we wait until we have experienced at least two failures
-                        if (successes < (failures * 2) && (!WorkerMiningOptimization::isExploring() || failures >= 2))
+                        // While exploring we wait until we have experienced at least three failures
+                        if (successes < (failures * 2) && (!WorkerMiningOptimization::isExploring() || failures >= 3))
                         {
                             send = false;
 #if TAKEOVER_DEBUG
