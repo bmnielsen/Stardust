@@ -8,6 +8,10 @@
 #include "CsvTools.h"
 #include "Units.h"
 
+#if INSTRUMENTATION_ENABLED
+#define OUTPUT_METADATA_ANALYSIS true
+#endif
+
 namespace WorkerMiningOptimization
 {
     namespace
@@ -221,6 +225,62 @@ namespace WorkerMiningOptimization
         writePositionObservationMetadataFile(optimalGatherPositionsFilename(true), resourceToOptimalGatherPositions);
         writePositionObservationMetadataFile(takeoverPositionsFilename(true), resourceToTakeoverPositions);
         write10DistancePositionsFile(tenDistancePositionsFilename(true), resourceTo10DistancePositions);
+
+#if OUTPUT_METADATA_ANALYSIS
+        int total = 0;
+        int unstablePath = 0;
+        int neverUsed = 0;
+        int usedAndUnstable = 0;
+        auto hasBeenUsed = [](const ResendPositionObservations &observations)
+        {
+            if (observations.empty()) return false;
+            if (observations.arrivalDelayAndOccurrences.size() > 1) return true;
+            return observations.arrivalDelayAndOccurrences.begin()->second > 1;
+        };
+        for (const auto &[resource, optimalPositions] : resourceToOptimalGatherPositions)
+        {
+            for (const auto &[_, optimalPosition] : optimalPositions)
+            {
+                bool used = hasBeenUsed(optimalPosition.noSecondResendObservations);
+                bool unstable = false;
+                for (const auto &[_, secondResendPosition] : optimalPosition.secondResendMetadata)
+                {
+                    used = used || hasBeenUsed(secondResendPosition.observations);
+                    unstable = unstable || (secondResendPosition.next.size() > 1);
+                }
+
+                if (!unstable)
+                {
+                    const PositionObservationMetadata *current = &optimalPosition;
+                    while (!current->next.empty())
+                    {
+                        if (current->next.size() > 1)
+                        {
+                            unstable = true;
+                            break;
+                        }
+                        auto nextIt = optimalPositions.find(current->next.begin()->first);
+                        if (nextIt == optimalPositions.end()) break;
+                        current = &nextIt->second;
+                    }
+                }
+
+                if (!used) neverUsed++;
+                if (unstable) unstablePath++;
+                if (used && unstable) usedAndUnstable++;
+                total++;
+            }
+        }
+
+        if (total > 0)
+        {
+            Log::Get() << std::fixed << std::setprecision(1)
+                       << "\nStatistics for " << total << " resend positions:"
+                       << "\nUnstable path:  " << unstablePath << " (" << (100.0 * (double)unstablePath / (double)total) << "%)"
+                       << "\nNever used:     " << neverUsed << " (" << (100.0 * (double)neverUsed / (double)total) << "%)"
+                       << "\nUnstable used:  " << usedAndUnstable << " (" << (100.0 * (double)usedAndUnstable / (double)total) << "%)";
+        }
+#endif
     }
 
     // Optimizes returning a resource
