@@ -53,8 +53,8 @@ namespace WorkerMiningOptimization
         // The frame where we want to take over mining from another worker
         int takeoverFrame;
 
-        // Tracks whether the worker has passed the position LF+1 before reaching 10 distance from the patch
-        bool passed10DistancePosition;
+        // Tracks the frame when the worker passed a position LF+1 before reaching 10 distance from the patch
+        int passed10DistancePosition;
 
         // Whether the worker switched patches while trying to mine
         bool switchedPatches;
@@ -68,7 +68,7 @@ namespace WorkerMiningOptimization
                 , resendCommandOnFrame(-2)
                 , takeoverState(0)
                 , takeoverFrame(-1)
-                , passed10DistancePosition(false)
+                , passed10DistancePosition(-1)
                 , switchedPatches(false)
         {}
 
@@ -85,7 +85,7 @@ namespace WorkerMiningOptimization
             resendCommandOnFrame = -2;
             takeoverState = 0;
             takeoverFrame = -1;
-            passed10DistancePosition = false;
+            passed10DistancePosition = -1;
             switchedPatches = false;
         }
 

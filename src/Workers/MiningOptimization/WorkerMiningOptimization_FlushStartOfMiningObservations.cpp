@@ -195,7 +195,7 @@ namespace WorkerMiningOptimization
 
                 if (positionsInHistory.tenDistancePositionIt == workerStatus.positionHistory.end() && dist <= 10)
                 {
-                    positionsInHistory.tenDistancePositionIt = it - BWAPI::Broodwar->getLatencyFrames();
+                    positionsInHistory.tenDistancePositionIt = it - BWAPI::Broodwar->getLatencyFrames() - 1;
                 }
             }
 

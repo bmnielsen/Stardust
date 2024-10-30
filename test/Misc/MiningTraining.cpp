@@ -774,6 +774,31 @@ TEST(MiningTraining, VermeerTestSuiteContinuous)
     }
 }
 
+TEST(MiningTraining, VermeerTestSuiteDouble)
+{
+    BWTest test;
+    test.map = Maps::GetOne("VermeerSE_2.1");
+    test.randomSeed = 42;
+    auto sgl = runTestSuite(test, 2, 0);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << "%" << std::endl;
+}
+
+TEST(MiningTraining, VermeerTestSuiteDoubleContinuous)
+{
+    while (true)
+    {
+        BWTest test;
+        test.map = Maps::GetOne("VermeerSE_2.1");
+        test.randomSeed = 42;
+        auto sgl = runTestSuite(test, 2, 0);
+        std::cout << std::fixed << std::showpoint << std::setprecision(4)
+                  << "Overall efficiency: " << std::endl
+                  << "Single: " << sgl << "%" << std::endl;
+    }
+}
+
 TEST(MiningTraining, VermeerSingleMeasure)
 {
     BWTest test;
