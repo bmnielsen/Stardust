@@ -777,13 +777,10 @@ namespace WorkerMiningOptimization
                 // If we can predict the worker's order process timer at normal arrival, check if it is better than the evaluated result
                 double orderProcessTimerDelay = 4.5;
                 int framesToNormalPathArrival = BWAPI::Broodwar->getLatencyFrames() + 10 - metadataIt->second.deltaToNormalPathOptimalPosition;
-                if (worker->orderProcessTimer != -1 && OrderProcessTimer::framesToNextReset() > framesToNormalPathArrival)
+                int orderProcessTimerAtArrival =
+                        OrderProcessTimer::unitOrderProcessTimerAtDelta(worker->orderProcessTimer, framesToNormalPathArrival);
+                if (orderProcessTimerAtArrival != -1)
                 {
-                    int orderProcessTimerAtArrival = worker->orderProcessTimer - framesToNormalPathArrival;
-                    while (orderProcessTimerAtArrival < 0)
-                    {
-                        orderProcessTimerAtArrival += 9;
-                    }
                     orderProcessTimerDelay = (double)orderProcessTimerAtArrival;
                 }
 

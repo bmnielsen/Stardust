@@ -56,4 +56,30 @@ namespace OrderProcessTimer
     {
         return isResetFrame(BWAPI::Broodwar->getFrameCount());
     }
+
+    int unitOrderProcessTimerAtDelta(int frame, int unitOrderProcessTimer, int frameDelta)
+    {
+        if (frameDelta == 0) return unitOrderProcessTimer;
+        if (unitOrderProcessTimer == -1) return -1;
+
+        if (frameDelta > 0)
+        {
+            if (framesToNextReset(frame + 1) < frameDelta) return -1;
+
+            int result = unitOrderProcessTimer - frameDelta;
+            while (result < 0) result += 9;
+            return result;
+        }
+
+        if (framesToPreviousReset(frame) < (-frameDelta)) return -1;
+
+        int result = unitOrderProcessTimer - frameDelta;
+        while (result > 8) result -= 9;
+        return result;
+    }
+
+    int unitOrderProcessTimerAtDelta(int unitOrderProcessTimer, int frameDelta)
+    {
+        return unitOrderProcessTimerAtDelta(BWAPI::Broodwar->getFrameCount(), unitOrderProcessTimer, frameDelta);
+    }
 }

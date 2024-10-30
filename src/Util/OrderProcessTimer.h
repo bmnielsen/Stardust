@@ -31,4 +31,12 @@ namespace OrderProcessTimer
 
     // Gets whether there is an order timer reset on this frame
     int isResetFrame();
+
+    // Computes the order process timer a unit will have at a frame delta compared to the given frame
+    // Returns -1 if the order process timer cannot be predicted because of a reset
+    int unitOrderProcessTimerAtDelta(int frame, int unitOrderProcessTimer, int frameDelta);
+
+    // Computes the order process timer a unit will have at a frame delta compared to the current frame
+    // Returns -1 if the order process timer cannot be predicted because of a reset
+    int unitOrderProcessTimerAtDelta(int unitOrderProcessTimer, int frameDelta);
 }

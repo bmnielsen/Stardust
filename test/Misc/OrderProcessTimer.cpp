@@ -19,4 +19,23 @@ TEST(OrderProcessTimer, TestCases)
     EXPECT_EQ(158, OrderProcessTimer::nextResetFrame(157));
     EXPECT_EQ(158, OrderProcessTimer::nextResetFrame(158));
     EXPECT_EQ(308, OrderProcessTimer::nextResetFrame(159));
+
+    EXPECT_EQ(8, OrderProcessTimer::unitOrderProcessTimerAtDelta(100, 0, 1));
+    EXPECT_EQ(0, OrderProcessTimer::unitOrderProcessTimerAtDelta(100, 8, -1));
+
+    EXPECT_EQ(-1, OrderProcessTimer::unitOrderProcessTimerAtDelta(156, 5, 2));
+    EXPECT_EQ(-1, OrderProcessTimer::unitOrderProcessTimerAtDelta(157, 5, 1));
+    EXPECT_EQ(4, OrderProcessTimer::unitOrderProcessTimerAtDelta(158, 5, 1));
+
+    EXPECT_EQ(6, OrderProcessTimer::unitOrderProcessTimerAtDelta(157, 5, -1));
+    EXPECT_EQ(-1, OrderProcessTimer::unitOrderProcessTimerAtDelta(158, 5, -1));
+    EXPECT_EQ(-1, OrderProcessTimer::unitOrderProcessTimerAtDelta(159, 5, -2));
+
+    for (int i = 0; i < 9; i++)
+    {
+        EXPECT_EQ(i, OrderProcessTimer::unitOrderProcessTimerAtDelta(100, i, 9));
+        EXPECT_EQ(i, OrderProcessTimer::unitOrderProcessTimerAtDelta(100, i, -9));
+        EXPECT_EQ(i, OrderProcessTimer::unitOrderProcessTimerAtDelta(100, i, 18));
+        EXPECT_EQ(i, OrderProcessTimer::unitOrderProcessTimerAtDelta(100, i, -18));
+    }
 }
