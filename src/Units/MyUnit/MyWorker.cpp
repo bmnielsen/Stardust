@@ -92,7 +92,7 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
     if (carryingResource != (bwapiUnit->isCarryingMinerals() || bwapiUnit->isCarryingGas()))
     {
         carryingResource = (bwapiUnit->isCarryingMinerals() || bwapiUnit->isCarryingGas());
-        orderProcessTimer = 0;
+        if (OrderProcessTimer::framesToNextReset() != 0) orderProcessTimer = 0;
         lastCarryingResourceChange = currentFrame;
     }
     else if (bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals && bwapiUnit->getOrderTimer() == 75)
