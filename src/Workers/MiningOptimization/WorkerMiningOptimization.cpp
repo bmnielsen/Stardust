@@ -228,9 +228,11 @@ namespace WorkerMiningOptimization
 
 #if OUTPUT_METADATA_ANALYSIS
         int total = 0;
+        int noPathChange = 0;
+        int noPathChangeDifferentArrivalDelay = 0;
+        int noPathChangeDifferentCollisions = 0;
         int unstablePath = 0;
         int neverUsed = 0;
-        int usedAndUnstable = 0;
         auto hasBeenUsed = [](const ResendPositionObservations &observations)
         {
             if (observations.empty()) return false;
@@ -241,34 +243,102 @@ namespace WorkerMiningOptimization
         {
             for (const auto &[_, optimalPosition] : optimalPositions)
             {
-                bool used = hasBeenUsed(optimalPosition.noSecondResendObservations);
+                total++;
                 bool unstable = false;
+
+                std::map<int, const SecondResendPositionObservationMetadata*> secondResendPositionsByDelta;
+                bool used = hasBeenUsed(optimalPosition.noSecondResendObservations);
                 for (const auto &[_, secondResendPosition] : optimalPosition.secondResendMetadata)
                 {
                     used = used || hasBeenUsed(secondResendPosition.observations);
                     unstable = unstable || (secondResendPosition.next.size() > 1);
-                }
-
-                if (!unstable)
-                {
-                    const PositionObservationMetadata *current = &optimalPosition;
-                    while (!current->next.empty())
+                    if (!unstable)
                     {
-                        if (current->next.size() > 1)
+                        if (secondResendPositionsByDelta.contains(secondResendPosition.deltaToFirstResend))
                         {
                             unstable = true;
-                            break;
                         }
-                        auto nextIt = optimalPositions.find(current->next.begin()->first);
-                        if (nextIt == optimalPositions.end()) break;
-                        current = &nextIt->second;
+                        else
+                        {
+                            secondResendPositionsByDelta[secondResendPosition.deltaToFirstResend] = &secondResendPosition;
+                        }
                     }
                 }
 
                 if (!used) neverUsed++;
-                if (unstable) unstablePath++;
-                if (used && unstable) usedAndUnstable++;
-                total++;
+                if (unstable)
+                {
+                    unstablePath++;
+                    continue;
+                }
+
+                std::vector<const PositionObservationMetadata*> noResendNextPositions;
+                const PositionObservationMetadata *current = &optimalPosition;
+                while (!current->next.empty())
+                {
+                    if (current->next.size() > 1)
+                    {
+                        unstable = true;
+                        break;
+                    }
+
+                    auto nextPos = current->next.begin()->first;
+
+                    auto nextIt = optimalPositions.find(nextPos);
+                    if (nextIt == optimalPositions.end()) break;
+
+                    noResendNextPositions.push_back(&nextIt->second);
+
+                    current = &nextIt->second;
+                }
+
+                if (unstable)
+                {
+                    unstablePath++;
+                    continue;
+                }
+
+                bool matchingPositions = true;
+                bool matchingArrivalDeltas = true;
+                bool matchingCollisions = true;
+
+                auto limit = std::min(noResendNextPositions.size(), secondResendPositionsByDelta.size());
+                for (int i = 0; i < limit; i++)
+                {
+                    if (noResendNextPositions[i]->pos != secondResendPositionsByDelta[i+1]->pos)
+                    {
+                        matchingPositions = false;
+                        break;
+                    }
+
+                    // Don't check observations if none have been made on either of the positions
+                    if (noResendNextPositions[i]->noSecondResendObservations.empty()) continue;
+                    if (secondResendPositionsByDelta[i+1]->observations.empty()) continue;
+
+                    // Validate most common arrival delta is the same
+                    if (noResendNextPositions[i]->noSecondResendObservations.mostCommonArrivalDelay() !=
+                            secondResendPositionsByDelta[i+1]->observations.mostCommonArrivalDelay())
+                    {
+                        matchingArrivalDeltas = false;
+                    }
+
+                    // Validate most common collisionness is the same
+                    if ((noResendNextPositions[i]->noSecondResendObservations.collisions >=
+                         noResendNextPositions[i]->noSecondResendObservations.nonCollisions) !=
+                        (secondResendPositionsByDelta[i + 1]->observations.collisions
+                         >= secondResendPositionsByDelta[i + 1]->observations.nonCollisions))
+                    {
+                        matchingCollisions = false;
+                    }
+                }
+
+                if (matchingPositions)
+                {
+                    noPathChange++;
+                    if (!matchingArrivalDeltas) noPathChangeDifferentArrivalDelay++;
+                    if (!matchingCollisions) noPathChangeDifferentCollisions++;
+
+                }
             }
         }
 
@@ -276,9 +346,13 @@ namespace WorkerMiningOptimization
         {
             Log::Get() << std::fixed << std::setprecision(1)
                        << "\nStatistics for " << total << " resend positions:"
-                       << "\nUnstable path:  " << unstablePath << " (" << (100.0 * (double)unstablePath / (double)total) << "%)"
-                       << "\nNever used:     " << neverUsed << " (" << (100.0 * (double)neverUsed / (double)total) << "%)"
-                       << "\nUnstable used:  " << usedAndUnstable << " (" << (100.0 * (double)usedAndUnstable / (double)total) << "%)";
+                       << "\nNever used:      " << neverUsed << " (" << (100.0 * (double)neverUsed / (double)total) << "%)"
+                       << "\nUnstable path:   " << unstablePath << " (" << (100.0 * (double)unstablePath / (double)total) << "%)"
+                       << "\nUnchanged path:  " << noPathChange << " (" << (100.0 * (double)noPathChange / (double)total) << "%)"
+                       << "\n-diff arrival:   " << noPathChangeDifferentArrivalDelay
+                            << " (" << (100.0 * (double)noPathChangeDifferentArrivalDelay / (double)total) << "%)"
+                       << "\n-diff collisions: " << noPathChangeDifferentCollisions
+                            << " (" << (100.0 * (double)noPathChangeDifferentCollisions / (double)total) << "%)";
         }
 #endif
     }
