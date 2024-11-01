@@ -40,17 +40,36 @@ namespace WorkerMiningOptimization
     struct PositionObservationMetadata
     {
     public:
+        // Hash of the first position along this path, only used for debugging
+        // Value of 0 indicates the path didn't start at the depot
+        // Value of UINT32_MAX indicates this position is earlier than our exploration horizon or we don't have full data for this path yet
         uint32_t pathHash;
+
+        // The position
         PositionAndVelocity pos;
+
+        // All next positions seen from this position, with their count of observations
+        // May be empty for the last position we consider in a path
         std::unordered_map<PositionAndVelocity, int> next;
 
+        // The offset between this resend position and the apparent optimal position if no resend had been issued
+        // Defaults to 100 if we haven't observed this path without resends
         int deltaToNormalPathOptimalPosition;
 
+        // Observations for when we send a resend here without a second resend
         ResendPositionObservations noSecondResendObservations;
+
+        // Observations for second resends after resending at this position
         std::unordered_map<PositionAndVelocity, SecondResendPositionObservationMetadata> secondResendMetadata;
 
+        // How many times the worker collides with the patch after mining when no resend is sent along this path
         int noResendCollisions = 0;
+
+        // How many times the worker does not collide with the patch after mining when no resend is sent along this path
         int noResendNonCollisions = 0;
+
+        // Whether a resend at this position changes the path. 1=Yes; -1=No; 0=Unknown
+        int resendChangesPath = 0;
 
         bool addObservation(SecondResendPositionObservationMetadata* secondResendPositionData, int arrivalDelta);
 
@@ -64,6 +83,31 @@ namespace WorkerMiningOptimization
             return (secondResendDataIt == secondResendMetadata.end()) ? nullptr : &secondResendDataIt->second;
         }
 
+        template<typename K>
+        requires std::is_same_v<const K, const std::unordered_map<PositionAndVelocity, PositionObservationMetadata>>
+        [[nodiscard]] auto followingPositionsIfStable(K &positionsData) const
+        {
+            using elem = std::remove_reference_t<decltype((positionsData.begin()->second))>;
+            std::vector<elem*> result;
+            const PositionObservationMetadata *current = this;
+            while (!current->next.empty())
+            {
+                if (current->next.size() > 1)
+                {
+                    std::vector<elem*>{};
+                }
+
+                auto nextIt = positionsData.find(current->next.begin()->first);
+                if (nextIt == positionsData.end()) break;
+
+                result.push_back(&nextIt->second);
+
+                current = &nextIt->second;
+            }
+
+            return result;
+        }
+
         static void outputDataFileHeaderRow(std::ofstream &file);
         void outputToDataFile(std::ofstream &file, const Resource &resource) const;
         static bool parseFromDataFile(
@@ -72,40 +116,5 @@ namespace WorkerMiningOptimization
                 int lineNumber);
     };
 
-    // Stripped-down version used for takeover resends
-    struct PositionObservationMetadataForTakeoverResends
-    {
-    public:
-        PositionAndVelocity pos;
-
-        std::map<int, int> noSecondResendArrivalDelayAndOccurrences;
-        std::unordered_map<PositionAndVelocity, std::map<int, int>> secondResendArrivalDelayAndOccurrences;
-
-        void addObservation(const std::shared_ptr<const PositionAndVelocity> &secondResendPosition, int arrivalDelta)
-        {
-            auto &observations =
-                    secondResendPosition
-                    ? secondResendArrivalDelayAndOccurrences[*secondResendPosition]
-                    : noSecondResendArrivalDelayAndOccurrences;
-            observations[arrivalDelta]++;
-        }
-
-        [[nodiscard]] std::map<int, int>* secondResendObservationsFor(const PositionAndVelocity *secondResendPosition)
-        {
-            if (!secondResendPosition) return nullptr;
-
-            auto secondResendDataIt = secondResendArrivalDelayAndOccurrences.find(*secondResendPosition);
-            return (secondResendDataIt == secondResendArrivalDelayAndOccurrences.end()) ? nullptr : &secondResendDataIt->second;
-        }
-
-        static void outputDataFileHeaderRow(std::ofstream &file);
-        void outputToDataFile(std::ofstream &file, const Resource &resource) const;
-        static bool parseFromDataFile(
-                const std::vector<std::string> &line,
-                std::map<Resource, std::unordered_map<PositionAndVelocity, PositionObservationMetadataForTakeoverResends>> &map,
-                int lineNumber);
-    };
-
     std::ostream &operator<<(std::ostream &os, const PositionObservationMetadata &optimalGatherPositionMetadata);
-    std::ostream &operator<<(std::ostream &os, const PositionObservationMetadataForTakeoverResends &optimalGatherPositionMetadata);
 }

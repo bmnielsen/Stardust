@@ -22,9 +22,6 @@ namespace WorkerMiningOptimization
         // Metadata for positions used for optimizing approach to the patch
         std::map<Resource, std::unordered_map<PositionAndVelocity, PositionObservationMetadata>> resourceToOptimalGatherPositions;
 
-        // Metadata for positions used for optimizing takeover
-        std::map<Resource, std::unordered_map<PositionAndVelocity, PositionObservationMetadataForTakeoverResends>> resourceToTakeoverPositions;
-
         // Metadata for positions LF+1 frames before reaching 10 or less distance from the patch
         // Workers can try to switch to another patch if their chosen patch is being mined once they reach this distance, so we use these
         // positions to detect when we need to start resending gather commands to ensure mineral locking
@@ -38,15 +35,7 @@ namespace WorkerMiningOptimization
             auto filename = std::ostringstream()
                     << "gatherpositions_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames()
-                    << "_" << EXPLORE_BEFORE << EXPLORE_AFTER << EXPLORE_SECOND_RESEND_POSITIONS;
-            return FileTools::getFilePath(filename.str(), "csv", writing);
-        }
-
-        std::string takeoverPositionsFilename(bool writing = false)
-        {
-            auto filename = std::ostringstream()
-                    << "takeoverpositions_" << BWAPI::Broodwar->mapHash()
-                    << "_lf" << BWAPI::Broodwar->getLatencyFrames();
+                    << "_" << EXPLORE_BEFORE << "_" << EXPLORE_AFTER;
             return FileTools::getFilePath(filename.str(), "csv", writing);
         }
 
@@ -209,7 +198,6 @@ namespace WorkerMiningOptimization
         workerGatherStatuses.clear();
 
         parsePositionObservationMetadataFile(optimalGatherPositionsFilename(), resourceToOptimalGatherPositions);
-        parsePositionObservationMetadataFile(takeoverPositionsFilename(), resourceToTakeoverPositions);
         parse10DistancePositionsFile(tenDistancePositionsFilename(), resourceTo10DistancePositions);
     }
 
@@ -223,15 +211,12 @@ namespace WorkerMiningOptimization
     void write()
     {
         writePositionObservationMetadataFile(optimalGatherPositionsFilename(true), resourceToOptimalGatherPositions);
-        writePositionObservationMetadataFile(takeoverPositionsFilename(true), resourceToTakeoverPositions);
         write10DistancePositionsFile(tenDistancePositionsFilename(true), resourceTo10DistancePositions);
 
 #if OUTPUT_METADATA_ANALYSIS
         int total = 0;
-        int noPathChange = 0;
-        int noPathChangeDifferentArrivalDelay = 0;
-        int noPathChangeDifferentCollisions = 0;
         int unstablePath = 0;
+        int unstablePathAtExploreHorizon = 0;
         int neverUsed = 0;
         auto hasBeenUsed = [](const ResendPositionObservations &observations)
         {
@@ -266,78 +251,20 @@ namespace WorkerMiningOptimization
                 }
 
                 if (!used) neverUsed++;
-                if (unstable)
+
+                std::vector<const PositionObservationMetadata*> noResendNextPositions = optimalPosition.followingPositionsIfStable(optimalPositions);
+                if (noResendNextPositions.empty() && !optimalPosition.next.empty())
                 {
-                    unstablePath++;
-                    continue;
-                }
-
-                std::vector<const PositionObservationMetadata*> noResendNextPositions;
-                const PositionObservationMetadata *current = &optimalPosition;
-                while (!current->next.empty())
-                {
-                    if (current->next.size() > 1)
-                    {
-                        unstable = true;
-                        break;
-                    }
-
-                    auto nextPos = current->next.begin()->first;
-
-                    auto nextIt = optimalPositions.find(nextPos);
-                    if (nextIt == optimalPositions.end()) break;
-
-                    noResendNextPositions.push_back(&nextIt->second);
-
-                    current = &nextIt->second;
+                    unstable = true;
                 }
 
                 if (unstable)
                 {
                     unstablePath++;
-                    continue;
                 }
-
-                bool matchingPositions = true;
-                bool matchingArrivalDeltas = true;
-                bool matchingCollisions = true;
-
-                auto limit = std::min(noResendNextPositions.size(), secondResendPositionsByDelta.size());
-                for (int i = 0; i < limit; i++)
+                if (unstable && optimalPosition.deltaToNormalPathOptimalPosition == -EXPLORE_BEFORE)
                 {
-                    if (noResendNextPositions[i]->pos != secondResendPositionsByDelta[i+1]->pos)
-                    {
-                        matchingPositions = false;
-                        break;
-                    }
-
-                    // Don't check observations if none have been made on either of the positions
-                    if (noResendNextPositions[i]->noSecondResendObservations.empty()) continue;
-                    if (secondResendPositionsByDelta[i+1]->observations.empty()) continue;
-
-                    // Validate most common arrival delta is the same
-                    if (noResendNextPositions[i]->noSecondResendObservations.mostCommonArrivalDelay() !=
-                            secondResendPositionsByDelta[i+1]->observations.mostCommonArrivalDelay())
-                    {
-                        matchingArrivalDeltas = false;
-                    }
-
-                    // Validate most common collisionness is the same
-                    if ((noResendNextPositions[i]->noSecondResendObservations.collisions >=
-                         noResendNextPositions[i]->noSecondResendObservations.nonCollisions) !=
-                        (secondResendPositionsByDelta[i + 1]->observations.collisions
-                         >= secondResendPositionsByDelta[i + 1]->observations.nonCollisions))
-                    {
-                        matchingCollisions = false;
-                    }
-                }
-
-                if (matchingPositions)
-                {
-                    noPathChange++;
-                    if (!matchingArrivalDeltas) noPathChangeDifferentArrivalDelay++;
-                    if (!matchingCollisions) noPathChangeDifferentCollisions++;
-
+                    unstablePathAtExploreHorizon++;
                 }
             }
         }
@@ -346,13 +273,10 @@ namespace WorkerMiningOptimization
         {
             Log::Get() << std::fixed << std::setprecision(1)
                        << "\nStatistics for " << total << " resend positions:"
-                       << "\nNever used:      " << neverUsed << " (" << (100.0 * (double)neverUsed / (double)total) << "%)"
-                       << "\nUnstable path:   " << unstablePath << " (" << (100.0 * (double)unstablePath / (double)total) << "%)"
-                       << "\nUnchanged path:  " << noPathChange << " (" << (100.0 * (double)noPathChange / (double)total) << "%)"
-                       << "\n-diff arrival:   " << noPathChangeDifferentArrivalDelay
-                            << " (" << (100.0 * (double)noPathChangeDifferentArrivalDelay / (double)total) << "%)"
-                       << "\n-diff collisions: " << noPathChangeDifferentCollisions
-                            << " (" << (100.0 * (double)noPathChangeDifferentCollisions / (double)total) << "%)";
+                       << "\nNever used:         " << neverUsed << " (" << (100.0 * (double)neverUsed / (double)total) << "%)"
+                       << "\nUnstable path:      " << unstablePath << " (" << (100.0 * (double)unstablePath / (double)total) << "%)"
+                       << "\nUnstable path @-" << EXPLORE_BEFORE << ": "
+                            << unstablePathAtExploreHorizon << " (" << (100.0 * (double)unstablePathAtExploreHorizon / (double)total) << "%)";
         }
 #endif
     }
@@ -392,11 +316,6 @@ namespace WorkerMiningOptimization
     std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &optimalGatherPositionsFor(const Resource &resource)
     {
         return resourceToOptimalGatherPositions[resource];
-    }
-
-    std::unordered_map<PositionAndVelocity, PositionObservationMetadataForTakeoverResends> &takeoverPositionsFor(const Resource &resource)
-    {
-        return resourceToTakeoverPositions[resource];
     }
 
     std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource)

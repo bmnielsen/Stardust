@@ -6,9 +6,9 @@
 #include "PositionObservationMetadata.h"
 #include "WorkerGatherStatus.h"
 
+// In our data files we track the full paths between depot and patch, but we only explore positions within the bounds defined here
 #define EXPLORE_BEFORE 12
 #define EXPLORE_AFTER 5
-#define EXPLORE_SECOND_RESEND_POSITIONS 2 // This is in addition to EXPLORE_AFTER
 
 namespace WorkerMiningOptimization
 {
@@ -30,7 +30,6 @@ namespace WorkerMiningOptimization
     WorkerGatherStatus &gatherStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
     WorkerGatherStatus *gatherStatusFor(const MyWorker &worker);
     std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &optimalGatherPositionsFor(const Resource &resource);
-    std::unordered_map<PositionAndVelocity, PositionObservationMetadataForTakeoverResends> &takeoverPositionsFor(const Resource &resource);
     std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource);
 
     bool isExploring();

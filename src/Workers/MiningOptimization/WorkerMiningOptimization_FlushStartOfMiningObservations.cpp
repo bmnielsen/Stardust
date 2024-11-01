@@ -16,145 +16,6 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
-        /*
-        void updateTakeoverMetadata(WorkerGatherStatus &workerStatus,
-                                    const Resource &resource,
-                                    std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &tenDistancePositions,
-                                    std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &takeoverResendPositions,
-                                    bool switchedPatches = false)
-        {
-            // Abort if we've already cleared our history
-            if (workerStatus.positionHistory.size() < (BWAPI::Broodwar->getLatencyFrames() + 11)) return;
-
-            // Abort if we had to resend a position on a schedule, which might ruin our timings
-            if (workerStatus.resentOnSchedule()) return;
-
-            // Track 10-distance if there was no resend for optimizing arrival
-            if (!workerStatus.resentPosition)
-            {
-                // Find the position where we were LF+1 from being 10 distance from the patch
-                auto it = workerStatus.positionHistory.rbegin();
-                auto beforeIt = it + BWAPI::Broodwar->getLatencyFrames();
-                for (; beforeIt != workerStatus.positionHistory.rend();)
-                {
-                    auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                        (*it)->pos(),
-                                                        BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                        resource->center);
-                    if (dist > 10) break;
-                    it++;
-                    beforeIt++;
-                }
-                if (it != workerStatus.positionHistory.rbegin() && beforeIt != workerStatus.positionHistory.rend())
-                {
-                    handleObservation(workerStatus, *beforeIt, workerStatus.passed10DistancePosition, tenDistancePositions, true);
-                }
-            }
-
-            // If we switched patches, track a failure if we resent
-            if (switchedPatches)
-            {
-                if (workerStatus.resentPosition)
-                {
-                    auto metadata = takeoverResendPositions.find(*workerStatus.resentPosition);
-                    if (metadata == takeoverResendPositions.end())
-                    {
-                        metadata = takeoverResendPositions.emplace(*workerStatus.resentPosition,
-                                                                   PositionObservationMetadata{*workerStatus.resentPosition}).first;
-                    }
-                    metadata->second.trackFailure();
-
-#if OPTIMALPOSITIONS_DEBUG
-                    CherryVis::log(workerStatus.worker->id) << "Tracking takeover failure by patch switch on " << metadata->second;
-                    CherryVis::log(workerStatus.resource->id) << "Tracking takeover failure by patch switch on " << metadata->second;
-#endif
-                }
-
-                return;
-            }
-
-            // Can't observe anything else in the case where we switched patches
-            if (switchedPatches) return;
-
-            // Track observations on any positions that would have got us to the patch in the right time frame
-            bool passedOptimal = false;
-            auto optimalIt = workerStatus.positionHistory.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 10;
-            auto resendIt = workerStatus.positionHistory.rend();
-            auto secondResendIt = workerStatus.positionHistory.rend();
-#if OPTIMALPOSITIONS_DEBUG
-            std::ostringstream dbg;
-            dbg << "Tracking takeover observation on:";
-#endif
-            for (auto it = workerStatus.positionHistory.rbegin(); it != workerStatus.positionHistory.rend(); it++)
-            {
-                // Any resends that got us to the patch in time are observed
-                if (!passedOptimal)
-                {
-                    auto metadata = takeoverResendPositions.find(**it);
-                    if (metadata == takeoverResendPositions.end())
-                    {
-                        metadata = takeoverResendPositions.emplace(**it, PositionObservationMetadata{**it}).first;
-                    }
-                    metadata->second.trackObservation();
-#if OPTIMALPOSITIONS_DEBUG
-                    dbg << "\n" << metadata->second;
-#endif
-                }
-
-                if (workerStatus.resentPosition == *it) resendIt = it;
-                if (workerStatus.secondResentPosition == *it) secondResendIt = it;
-
-                if (it == optimalIt) passedOptimal = true;
-
-                if (passedOptimal && (!workerStatus.resentPosition || resendIt != workerStatus.positionHistory.rend()) &&
-                    (!workerStatus.secondResentPosition || secondResendIt != workerStatus.positionHistory.rend()))
-                {
-                    break;
-                }
-            }
-
-#if OPTIMALPOSITIONS_DEBUG
-            CherryVis::log(workerStatus.worker->id) << dbg.str();
-            CherryVis::log(workerStatus.resource->id) << dbg.str();
-#endif
-
-            // Track success or failure of resend
-            if (workerStatus.resentPosition && resendIt != workerStatus.positionHistory.rend())
-            {
-                auto resendPositionData = takeoverResendPositions.find(*workerStatus.resentPosition);
-                if (resendPositionData == takeoverResendPositions.end())
-                {
-                    resendPositionData = takeoverResendPositions.emplace(*workerStatus.resentPosition,
-                                                                         PositionObservationMetadata{*workerStatus.resentPosition}).first;
-                }
-
-                auto resendDelta = (int)std::distance(resendIt, optimalIt);
-                auto secondResendDelta =
-                        (workerStatus.secondResentPosition && secondResendIt != workerStatus.positionHistory.rend())
-                        ? (int)std::distance(secondResendIt, optimalIt)
-                        : INT_MAX;
-                trackNonoptimalResend(resendPositionData->second,
-                                      **optimalIt,
-                                      workerStatus.secondResentPosition,
-                                      resendDelta,
-                                      secondResendDelta);
-
-#if OPTIMALPOSITIONS_DEBUG
-                if (resendDelta >= 0)
-                {
-                    CherryVis::log(workerStatus.worker->id) << "Tracking success on takeover " << resendPositionData->second;
-                    CherryVis::log(workerStatus.resource->id) << "Tracking success on takeover " << resendPositionData->second;
-                }
-                else
-                {
-                    CherryVis::log(workerStatus.worker->id) << "Tracking failure on takeover " << resendPositionData->second;
-                    CherryVis::log(workerStatus.resource->id) << "Tracking failure on takeover " << resendPositionData->second;
-                }
-#endif
-            }
-        }
-         */
-
         struct PositionsInHistory
         {
             std::vector<std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator> resendPositionIts;
@@ -236,7 +97,6 @@ namespace WorkerMiningOptimization
             Resource resource;
             std::vector<std::shared_ptr<const PositionAndVelocity>> positionHistory;
             std::vector<std::shared_ptr<const PositionAndVelocity>> resentPositions;
-            int takeoverState;
         };
 
         std::vector<MiningWorker> miningWorkers;
@@ -265,6 +125,9 @@ namespace WorkerMiningOptimization
             }
 #endif
 
+            // If there have been more than two resends, we can't trust the data
+            if (miningWorker.resentPositions.size() > 2) return;
+
             // Update the stats on the appropriate position metadata
             auto &optimalGatherPositions = optimalGatherPositionsFor(miningWorker.resource);
 
@@ -283,31 +146,57 @@ namespace WorkerMiningOptimization
             }
 
             auto resendMetadataIt = optimalGatherPositions.find(*miningWorker.resentPositions[0]);
-            if (resendMetadataIt == optimalGatherPositions.end())
+            if (resendMetadataIt == optimalGatherPositions.end()) // should never happen
             {
-                // Should only happen in takeover scenarios
 #if OPTIMALPOSITIONS_DEBUG
-                if (miningWorker.takeoverState == 0)
-                {
-                    Log::Get() << "ERROR: Resend metadata not found for " << *miningWorker.resentPositions[0]
-                               << "; worker id " << miningWorker.worker->id << " @ " << miningWorker.worker->getTilePosition();
-                }
+                Log::Get() << "ERROR: Resend metadata not found for " << *miningWorker.resentPositions[0]
+                           << "; worker id " << miningWorker.worker->id << " @ " << miningWorker.worker->getTilePosition();
 #endif
                 return;
             }
 
-            SecondResendPositionObservationMetadata *secondResendMetadata = nullptr;
-            if (miningWorker.resentPositions.size() > 1)
+            auto updateObservations = [&collision](ResendPositionObservations &observations)
             {
-                secondResendMetadata = resendMetadataIt->second.secondResendMetadataFor(miningWorker.resentPositions[1].get());
-                if (!secondResendMetadata) // may happen when a new branch is detected and we send at the same delta
-                {
-                    return;
-                }
+                (collision ? observations.collisions : observations.nonCollisions)++;
+            };
+
+            // Update no second resend observations if there has not been a second resend
+            if (miningWorker.resentPositions.size() == 1)
+            {
+                updateObservations(resendMetadataIt->second.noSecondResendObservations);
+                return;
             }
 
-            auto &observations = (secondResendMetadata ? secondResendMetadata->observations : resendMetadataIt->second.noSecondResendObservations);
-            (collision ? observations.collisions : observations.nonCollisions)++;
+            // If the initial resend didn't change the path, look up the second resend position in the normal positions set
+            if (resendMetadataIt->second.resendChangesPath == -1)
+            {
+                auto secondResendMetadataIt = optimalGatherPositions.find(*miningWorker.resentPositions[1]);
+                if (secondResendMetadataIt == optimalGatherPositions.end()) // should never happen
+                {
+#if OPTIMALPOSITIONS_DEBUG
+                    Log::Get() << "ERROR: Resend metadata for second resend not found for " << *miningWorker.resentPositions[0]
+                               << " : " << *miningWorker.resentPositions[1]
+                               << "; worker id " << miningWorker.worker->id << " @ " << miningWorker.worker->getTilePosition();
+#endif
+                    return;
+                }
+
+                updateObservations(secondResendMetadataIt->second.noSecondResendObservations);
+                return;
+            }
+
+            auto secondResendMetadata = resendMetadataIt->second.secondResendMetadataFor(miningWorker.resentPositions[1].get());
+            if (!secondResendMetadata) // should never happen
+            {
+#if OPTIMALPOSITIONS_DEBUG
+                Log::Get() << "ERROR: Second resend metadata not found for " << *miningWorker.resentPositions[0]
+                           << " : " << *miningWorker.resentPositions[1]
+                           << "; worker id " << miningWorker.worker->id << " @ " << miningWorker.worker->getTilePosition();
+#endif
+                return;
+            }
+
+            updateObservations(secondResendMetadata->observations);
         }
 
         void updateNextPositions(WorkerGatherStatus &workerStatus,
@@ -316,52 +205,56 @@ namespace WorkerMiningOptimization
         {
             if (!workerStatus.pathStartsAtDepot()) return;
 
-            // Include LF-1 positions after the resend since the positions only change after the command kicks in
+            auto ensureBeforeArrival = [&positionsInHistory](auto it)
+            {
+                if (std::distance(it, positionsInHistory.arrivalPositionIt) < 0)
+                {
+                    return positionsInHistory.arrivalPositionIt;
+                }
+                return it;
+            };
+
+            // Include LF positions after the resend since the positions only change after the command kicks in
             auto limit = positionsInHistory.arrivalPositionIt;
             if (!positionsInHistory.resendsBeforeArrival.empty())
             {
-                limit = (positionsInHistory.resendPositionIts[0]) + BWAPI::Broodwar->getLatencyFrames();
+                limit = ensureBeforeArrival(positionsInHistory.resendPositionIts[0] + BWAPI::Broodwar->getLatencyFrames() + 1);
             }
-            for (auto positionIt = workerStatus.positionHistory.begin();
-                 positionIt != limit && positionIt != workerStatus.positionHistory.end();
-                 positionIt++)
+            for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != limit; positionIt++)
             {
                 auto metadataIt = metadata.find(**positionIt);
                 if (metadataIt == metadata.end()) continue;
 
                 auto &positionMetadata = metadataIt->second;
 
-                if ((positionIt + 1) != workerStatus.positionHistory.end() && metadata.find(**(positionIt + 1)) != metadata.end())
+                if ((positionIt + 1) != limit)
                 {
                     positionMetadata.next[**(positionIt + 1)]++;
                 }
 
+                // Only record next positions for second resend if we actually track them here
+                if (positionMetadata.resendChangesPath != 1) continue;
+
                 // Add metadata for second resend positions
-                // If this isn't the resend position, we add following positions up to LF-1
-                // If this is the resend position, we add following positions until the second resend + LF-1
-                int secondLimit = (BWAPI::Broodwar->getLatencyFrames() - 1);
+                // If this isn't the resend position, we add following positions up to LF
+                // If this is the resend position, we add following positions until the second resend + LF
+                auto secondLimit = ensureBeforeArrival(positionIt + BWAPI::Broodwar->getLatencyFrames() + 1);
                 if (!positionsInHistory.resendsBeforeArrival.empty() && std::distance(positionsInHistory.resendPositionIts[0], positionIt) == 0)
                 {
                     if (positionsInHistory.resendsBeforeArrival.size() > 1)
                     {
-                        secondLimit +=
-                                (int)std::distance(positionsInHistory.resendPositionIts[0], positionsInHistory.resendPositionIts[1]);
+                        secondLimit = ensureBeforeArrival(positionsInHistory.resendPositionIts[1] + BWAPI::Broodwar->getLatencyFrames() + 1);
                     }
                     else
                     {
-                        secondLimit = EXPLORE_AFTER - positionMetadata.deltaToNormalPathOptimalPosition + EXPLORE_SECOND_RESEND_POSITIONS;
+                        secondLimit = positionsInHistory.arrivalPositionIt;
                     }
                 }
-                for (int secondResendIndex = 1; secondResendIndex <= secondLimit; secondResendIndex++)
+                for (auto secondPositionIt = positionIt + 1; secondPositionIt != limit; secondPositionIt++)
                 {
-                    auto here = positionIt + secondResendIndex;
-                    if (here == workerStatus.positionHistory.end()) break;
+                    auto next = ensureBeforeArrival(secondPositionIt + 1);
 
-                    auto next = (secondResendIndex < secondLimit)
-                            ? (positionIt + secondResendIndex + 1)
-                            : workerStatus.positionHistory.end();
-
-                    auto secondResendMetadataIt = positionMetadata.secondResendMetadata.find(**here);
+                    auto secondResendMetadataIt = positionMetadata.secondResendMetadata.find(**secondPositionIt);
                     if (secondResendMetadataIt == positionMetadata.secondResendMetadata.end())
                     {
                         auto nextPositions =
@@ -369,11 +262,11 @@ namespace WorkerMiningOptimization
                                 ? std::unordered_map<PositionAndVelocity, int>{}
                                 : std::unordered_map<PositionAndVelocity, int>{{**next, 1}};
                         positionMetadata.secondResendMetadata.emplace(
-                                **here,
+                                **secondPositionIt,
                                 SecondResendPositionObservationMetadata{
-                                    **here,
+                                    **secondPositionIt,
                                     std::move(nextPositions),
-                                    secondResendIndex});
+                                    (int)std::distance(positionIt, secondPositionIt)});
                     }
                     else if (next != workerStatus.positionHistory.end())
                     {
@@ -386,9 +279,6 @@ namespace WorkerMiningOptimization
         void updateApproachOptimization(WorkerGatherStatus &workerStatus, PositionsInHistory &positionsInHistory)
         {
             auto &worker = workerStatus.worker;
-
-            // We don't optimize the case where the worker switched patches
-            if (workerStatus.switchedPatches) return;
 
             // Ensure we have enough position history to perform the optimization
             if (workerStatus.positionHistory.size() <
@@ -439,41 +329,6 @@ namespace WorkerMiningOptimization
             // If we sent no command, record the path for exploration
             if (positionsInHistory.resendsBeforeArrival.empty())
             {
-                // If there is already metadata for the optimal position, then it was a decision by the optimizer not to resend there and
-                // nothing further is needed
-                auto optimalPositionDataIt = optimalGatherPositions.find(**optimalPositionIt);
-                if (optimalPositionDataIt != optimalGatherPositions.end())
-                {
-#if OPTIMALPOSITIONS_DEBUG
-                    if (optimalPositionDataIt->second.deltaToNormalPathOptimalPosition != 0)
-                    {
-                        Log::Get() << "ERROR: Position " << optimalPositionDataIt->second << " came up out of order"
-                                   << "; worker id " << worker->id << " @ " << worker->getTilePosition();
-                    }
-#endif
-                    return;
-                }
-
-                // If the path did not start at the depot, we don't try to explore surrounding positions
-                // The rationale for this is that paths not starting at the depot are not likely to come up often,
-                // so we can't explore them efficiently
-                if (!workerStatus.pathStartsAtDepot())
-                {
-                    optimalGatherPositions.emplace(
-                            **optimalPositionIt,
-                            PositionObservationMetadata{
-                                    (*optimalPositionIt)->previousPositionsHash,
-                                    **optimalPositionIt,
-                                    std::unordered_map<PositionAndVelocity, int>{},
-                                    0}
-                    );
-
-#if OPTIMALPOSITIONS_DEBUG
-                    CherryVis::log(worker->id) << "Queued test of " << **optimalPositionIt;
-#endif
-                    return;
-                }
-
                 // Get the "path hash", which is the hash of the first position in the explored path
                 uint32_t pathHash = 0;
                 for (auto positionIt = optimalPositionIt; ; --positionIt)
@@ -486,49 +341,58 @@ namespace WorkerMiningOptimization
                     if (positionIt == workerStatus.positionHistory.begin()) break;
                 }
 
-                // Create metadata for positions we want to test
-                std::shared_ptr<const PositionAndVelocity> nextPosition;
-                for (auto positionIt = optimalPositionIt + EXPLORE_AFTER; ; --positionIt)
+                // Update the metadata for the positions in the path
+                for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
                 {
                     int delta = (int)std::distance(optimalPositionIt, positionIt);
-                    if (delta < -EXPLORE_BEFORE) break;
 
                     auto existingIt = optimalGatherPositions.find(**positionIt);
-                    if (existingIt == optimalGatherPositions.end())
+
+                    // If there was a position here already, check if anything needs to be updated
+                    if (existingIt != optimalGatherPositions.end())
                     {
-                        std::unordered_map<PositionAndVelocity, int> nextPositions;
-                        std::unordered_map<PositionAndVelocity, SecondResendPositionObservationMetadata> secondResendPositions;
-                        if (nextPosition)
+                        if (existingIt->second.deltaToNormalPathOptimalPosition == 100)
                         {
-                            nextPositions.emplace(*nextPosition, 1);
-                            secondResendPositions.emplace(
-                                    *nextPosition,
-                                    SecondResendPositionObservationMetadata{
-                                            *nextPosition,
-                                            std::unordered_map<PositionAndVelocity, int>{},
-                                            1});
+                            if (delta >= -EXPLORE_BEFORE) existingIt->second.pathHash = pathHash;
+                            existingIt->second.deltaToNormalPathOptimalPosition = delta;
+#if OPTIMALPOSITIONS_DEBUG
+                            CherryVis::log(worker->id) << "Set correct delta for " << existingIt->second;
+#endif
                         }
 
-                        optimalGatherPositions.emplace(
-                                **positionIt,
-                                PositionObservationMetadata{
-                                        pathHash,
-                                        **positionIt,
-                                        std::move(nextPositions),
-                                        delta,
-                                        {},
-                                        std::move(secondResendPositions)}
-                        );
-
 #if OPTIMALPOSITIONS_DEBUG
-                        CherryVis::log(worker->id) << "Queued test of " << **positionIt << " at delta " << delta;
+                        if (existingIt->second.deltaToNormalPathOptimalPosition != delta)
+                        {
+                            Log::Get() << "ERROR: Position " << existingIt->second << " came up out of order (" << delta << ")"
+                                       << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                        }
 #endif
+
+                        continue;
                     }
 
-                    if (positionIt == workerStatus.positionHistory.begin()) break;
-                    nextPosition = *positionIt;
-                }
+                    // Create a position here for exploring
+                    if (!workerStatus.pathStartsAtDepot() && delta != 0) continue;
 
+                    std::unordered_map<PositionAndVelocity, int> nextPositions;
+                    if ((positionIt + 1) != positionsInHistory.arrivalPositionIt && workerStatus.pathStartsAtDepot())
+                    {
+                        nextPositions.emplace(**(positionIt + 1), 1);
+                    }
+
+                    optimalGatherPositions.emplace(
+                            **positionIt,
+                            PositionObservationMetadata{
+                                    (delta < -EXPLORE_BEFORE) ? UINT32_MAX : pathHash,
+                                    **positionIt,
+                                    std::move(nextPositions),
+                                    delta}
+                    );
+
+#if OPTIMALPOSITIONS_DEBUG
+                    CherryVis::log(worker->id) << "Added metadata for " << **positionIt << " at delta " << delta;
+#endif
+                }
                 return;
             }
 
@@ -536,29 +400,47 @@ namespace WorkerMiningOptimization
             auto resentPositionDataIt = optimalGatherPositions.find(*positionsInHistory.resendsBeforeArrival[0]);
             if (resentPositionDataIt == optimalGatherPositions.end())
             {
-                // This can legitimately happen when we are doing takeover optimization, but error otherwise
-                if (workerStatus.takeoverState == 0)
+                // This can happen if we are exploring takeover positions or if workers are competing to get to a patch first
+                // We create an entry with placeholders for path hash and delta
+
+                std::unordered_map<PositionAndVelocity, int> nextPositions;
+                if ((positionsInHistory.resendPositionIts[0] + 1) != positionsInHistory.arrivalPositionIt)
                 {
-                    Log::Get() << "ERROR: Resent position metadata not found"
-                               << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                    nextPositions.emplace(**(positionsInHistory.resendPositionIts[0] + 1), 1);
                 }
-                return;
+
+                resentPositionDataIt = optimalGatherPositions.emplace(
+                        *positionsInHistory.resendsBeforeArrival[0],
+                        PositionObservationMetadata{
+                                workerStatus.pathStartsAtDepot() ? UINT32_MAX : 0,
+                                *positionsInHistory.resendsBeforeArrival[0],
+                                std::move(nextPositions),
+                                100}
+                ).first;
             }
             auto &resentPositionData = resentPositionDataIt->second;
 
+            // If there was a second resend, reference its metadata
             SecondResendPositionObservationMetadata* secondResendData = nullptr;
             if (positionsInHistory.resendsBeforeArrival.size() > 1)
             {
                 secondResendData = resentPositionData.secondResendMetadataFor(positionsInHistory.resendsBeforeArrival[1].get());
                 if (!secondResendData)
                 {
-                    // This can legitimately happen when we are doing takeover optimization, but error otherwise
-                    if (workerStatus.takeoverState == 0)
+                    std::unordered_map<PositionAndVelocity, int> nextPositions;
+                    if ((positionsInHistory.resendPositionIts[1] + 1) != positionsInHistory.arrivalPositionIt && workerStatus.pathStartsAtDepot())
                     {
-                        Log::Get() << "ERROR: Second resend position metadata not found"
-                                   << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                        nextPositions.emplace(**(positionsInHistory.resendPositionIts[1] + 1), 1);
                     }
-                    return;
+
+                    auto secondResendMetadataIt = resentPositionData.secondResendMetadata.emplace(
+                            *positionsInHistory.resendsBeforeArrival[1],
+                            SecondResendPositionObservationMetadata{
+                                    *positionsInHistory.resendsBeforeArrival[1],
+                                    std::move(nextPositions),
+                                    (int)std::distance(positionsInHistory.resendPositionIts[0], positionsInHistory.resendPositionIts[1])}).first;
+
+                    secondResendData = &secondResendMetadataIt->second;
                 }
             }
 
@@ -659,44 +541,80 @@ namespace WorkerMiningOptimization
             exploredPatches.insert(workerStatus.resource->tile);
 #endif
 
-            // Queue up second resend positions to test
-            if (positionsInHistory.resendsBeforeArrival.size() == 1 && workerStatus.pathStartsAtDepot())
+            // Consider exploration of second resend positions
+            // This is not needed if:
+            // - There was a second resend
+            // - The information for this path is incomplete
+            // - This position is a long way from the patch
+            // - This is the last position before arrival
+            // - The path did not start at the depot
+            if (secondResendData) return;
+            if (resentPositionData.deltaToNormalPathOptimalPosition == 100) return;
+            if (resentPositionData.deltaToNormalPathOptimalPosition < EXPLORE_BEFORE) return;
+            if (resentPositionData.next.empty()) return;
+            if (!workerStatus.pathStartsAtDepot()) return;
+
+            // Check if the path after the resend is the same as the path without a resend
+            auto pathsMatch = [&]()
             {
-                int maxIndex = EXPLORE_AFTER - resentPositionData.deltaToNormalPathOptimalPosition + EXPLORE_SECOND_RESEND_POSITIONS;
-                for (int i = 1; i <= maxIndex; i++)
+                if (resentPositionData.resendChangesPath == 1) return false;
+
+                auto noResendPath = resentPositionData.followingPositionsIfStable(optimalGatherPositions);
+                if (noResendPath.empty()) return false; // No resend path is unstable
+
+                size_t noResendPathIdx = 0;
+                for (auto positionIt = positionsInHistory.resendPositionIts[0] + 1; positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
                 {
-                    auto here = positionsInHistory.resendPositionIts[0] + i;
-                    auto next = positionsInHistory.resendPositionIts[0] + i + 1;
-                    if (here == workerStatus.positionHistory.end()) break; // should never be true
-
-                    auto secondResendMetadataIt = resentPositionData.secondResendMetadata.find(**here);
-                    if (secondResendMetadataIt == resentPositionData.secondResendMetadata.end())
+                    if (noResendPath[noResendPathIdx]->pos != **positionIt)
                     {
-                        std::unordered_map<PositionAndVelocity, int> nextPositions;
-                        if (i < maxIndex && next != workerStatus.positionHistory.end())
-                        {
-                            nextPositions.emplace(**next, 1);
-                        }
+                        return false;
+                    }
 
-                        resentPositionData.secondResendMetadata.emplace(
-                                **here,
-                                SecondResendPositionObservationMetadata{
-                                        **here,
-                                        std::move(nextPositions),
-                                        i});
+                    noResendPathIdx++;
+                    if (noResendPathIdx >= noResendPath.size()) break;
+                }
+                return true;
+            };
+
+            if (pathsMatch())
+            {
+                resentPositionData.resendChangesPath = -1;
+                return;
+            }
+
+            resentPositionData.resendChangesPath = 1;
+
+            // Queue up second resend positions to test
+            for (auto positionIt = positionsInHistory.resendPositionIts[0] + 1; positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
+            {
+                auto secondResendMetadataIt = resentPositionData.secondResendMetadata.find(**positionIt);
+                if (secondResendMetadataIt != resentPositionData.secondResendMetadata.end()) continue;
+
+                std::unordered_map<PositionAndVelocity, int> nextPositions;
+                if ((positionIt + 1) != positionsInHistory.arrivalPositionIt)
+                {
+                    nextPositions.emplace(**(positionIt + 1), 1);
+                }
+
+                resentPositionData.secondResendMetadata.emplace(
+                        **positionIt,
+                        SecondResendPositionObservationMetadata{
+                                **positionIt,
+                                std::move(nextPositions),
+                                (int)std::distance(positionsInHistory.resendPositionIts[0], positionIt)});
 
 #if OPTIMALPOSITIONS_DEBUG
-                        CherryVis::log(worker->id) << "Queued test of " << resentPositionData
-                                                   << " : " << **here << ", delta " << i;
+                    CherryVis::log(worker->id) << "Added metadata for " << resentPositionData
+                                               << " : " << **positionIt
+                                               << ", delta " << std::distance(positionsInHistory.resendPositionIts[0], positionIt);
 #endif
-                    }
-                }
             }
         }
 
-        void updateTakeoverOptimization(WorkerGatherStatus &workerStatus, PositionsInHistory &positionsInHistory, bool switchedPatch)
+        void updateTenDistancePosition(WorkerGatherStatus &workerStatus, PositionsInHistory &positionsInHistory, bool switchedPatch)
         {
             // Update 10-distance position
+            // For simplicity we track all of them we encounter even though there is some overlap with the "main" path data
             if (positionsInHistory.tenDistancePositionIt != workerStatus.positionHistory.end() &&
                 (positionsInHistory.resendsBeforeArrival.empty() ||
                  std::distance(positionsInHistory.tenDistancePositionIt, positionsInHistory.resendPositionIts[0]) > 0))
@@ -711,60 +629,6 @@ namespace WorkerMiningOptimization
                 tenDistancePositionsFor(workerStatus.resource).insert(**positionsInHistory.tenDistancePositionIt);
 #endif
             }
-
-            // Don't need to do anything further if we didn't resend a gather command before arrival
-            if (positionsInHistory.resendsBeforeArrival.empty()) return;
-
-            // If we switched patches before arrival and before the last resend kicked in, don't measure any observations on it
-            if (switchedPatch && positionsInHistory.resendsBeforeArrival.size() < positionsInHistory.resendPositionIts.size())
-            {
-                return;
-            }
-
-            // If there is normal approach optimization data for this resend position, we would have already tracked the observation
-            if (positionsInHistory.resendsBeforeArrival.size() == 1)
-            {
-                auto &optimalGatherPositions = optimalGatherPositionsFor(workerStatus.resource);
-                if (optimalGatherPositions.contains(*positionsInHistory.resendsBeforeArrival[0])) return;
-            }
-            else if (positionsInHistory.resendsBeforeArrival.size() == 2)
-            {
-                auto &optimalGatherPositions = optimalGatherPositionsFor(workerStatus.resource);
-                auto optimalGatherPositionIt = optimalGatherPositions.find(*positionsInHistory.resendsBeforeArrival[0]);
-                if (optimalGatherPositionIt != optimalGatherPositions.end())
-                {
-                    if (optimalGatherPositionIt->second.secondResendMetadataFor(positionsInHistory.resendsBeforeArrival[1].get()))
-                    {
-                        return;
-                    }
-                }
-            }
-
-            // Determine the arrival delay
-            int arrivalDelay = 100; // default for when we switched before reaching the patch
-            if (positionsInHistory.arrivalPositionIt != workerStatus.positionHistory.end())
-            {
-                // Get actual frames between last resend and arrival
-                auto actualFramesToArrival = std::distance(positionsInHistory.resendPositionIts[positionsInHistory.resendsBeforeArrival.size() - 1],
-                                                           positionsInHistory.arrivalPositionIt);
-
-                // Arrival delay is measured from when the command kicks in
-                arrivalDelay = (int)actualFramesToArrival - BWAPI::Broodwar->getLatencyFrames() - 11;
-            }
-
-            // Get the takeover position record
-            auto &takeoverPositions = takeoverPositionsFor(workerStatus.resource);
-            auto firstResendPos = positionsInHistory.resendsBeforeArrival[std::max((int)positionsInHistory.resendsBeforeArrival.size() - 2, 0)];
-            auto takeoverPositionIt = takeoverPositions.find(*firstResendPos);
-            if (takeoverPositionIt == takeoverPositions.end())
-            {
-                takeoverPositionIt = takeoverPositions.emplace(*firstResendPos, PositionObservationMetadataForTakeoverResends{*firstResendPos}).first;
-            }
-
-            // Add the observation
-            auto secondResendPos = positionsInHistory.resendsBeforeArrival[positionsInHistory.resendsBeforeArrival.size() - 1];
-            if (firstResendPos == secondResendPos) secondResendPos = nullptr;
-            takeoverPositionIt->second.addObservation(secondResendPos, arrivalDelay);
         }
     }
 
@@ -834,6 +698,8 @@ namespace WorkerMiningOptimization
             // Add the final position to the history
             it->second.appendCurrentPosition();
 
+            // We skip processing this worker if it has switched patches (in which case we've already observed what we could) or if
+            // we for some reason haven't tracked its positions history correctly
             PositionsInHistory positionsInHistory;
             if (it->second.switchedPatches || !extractPositionsInHistory(it->second, positionsInHistory)
                     || positionsInHistory.arrivalPositionIt == it->second.positionHistory.end())
@@ -844,16 +710,15 @@ namespace WorkerMiningOptimization
 
             updateApproachOptimization(it->second, positionsInHistory);
 
-            // Tracking of 10-distance positions and resend positions for takeover
-            updateTakeoverOptimization(it->second, positionsInHistory, false);
+            // Tracking of 10-distance positions for paths that don't start at the depot
+            updateTenDistancePosition(it->second, positionsInHistory, false);
 
             // Move required fields into the MiningWorker struct that we use to track patch collisions
             miningWorkers.emplace_back(MiningWorker{
                     std::move(it->second.worker),
                     std::move(it->second.resource),
                     std::move(it->second.positionHistory),
-                    std::move(positionsInHistory.resendsBeforeArrival),
-                    it->second.takeoverState});
+                    std::move(positionsInHistory.resendsBeforeArrival)});
 
             // We now no longer need to do anything with this worker status
             it = workerGatherStatuses.erase(it);
@@ -865,6 +730,8 @@ namespace WorkerMiningOptimization
         PositionsInHistory positionsInHistory;
         if (!extractPositionsInHistory(workerStatus, positionsInHistory)) return;
 
-        updateTakeoverOptimization(workerStatus, positionsInHistory, true);
+        updateTenDistancePosition(workerStatus, positionsInHistory, true);
+
+        // TODO: Once the optimization is refactored, reconsider whether any other observations are needed here
     }
 }
