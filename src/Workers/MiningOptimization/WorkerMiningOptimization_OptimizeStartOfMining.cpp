@@ -235,7 +235,8 @@ namespace WorkerMiningOptimization
             if (resentPositionDataIt == optimalPositions.end())
             {
 #if OPTIMALPOSITIONS_DEBUG
-                Log::Get() << "ERROR: Didn't find resend position metadata: " << *resentPosition;
+                Log::Get() << "ERROR: Didn't find resend position metadata: " << *resentPosition
+                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif
                 return;
             }
@@ -251,7 +252,8 @@ namespace WorkerMiningOptimization
                 if (secondGatherPositionIt == resentPositionData.secondResendMetadata.end())
                 {
 #if OPTIMALPOSITIONS_DEBUG
-                    Log::Get() << "ERROR: Didn't find resend position in positions history: " << *resentPosition;
+                    Log::Get() << "ERROR: Didn't find resend position in positions history: " << *resentPosition
+                               << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif
                     return;
                 }
@@ -265,7 +267,8 @@ namespace WorkerMiningOptimization
                 if (positionIt == workerStatus.positionHistory.rend())
                 {
 #if OPTIMALPOSITIONS_DEBUG
-                    Log::Get() << "ERROR: Didn't find resend position in positions history: " << *resentPosition;
+                    Log::Get() << "ERROR: Didn't find resend position in positions history: " << *resentPosition
+                               << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif
                     return;
                 }

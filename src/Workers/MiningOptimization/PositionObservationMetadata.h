@@ -31,8 +31,8 @@ namespace WorkerMiningOptimization
     struct SecondResendPositionObservationMetadata
     {
         PositionAndVelocity pos;
-        std::unordered_map<PositionAndVelocity, int> next;
         int deltaToFirstResend = 0;
+        std::unordered_map<PositionAndVelocity, int> next;
         ResendPositionObservations observations;
     };
 
@@ -48,13 +48,13 @@ namespace WorkerMiningOptimization
         // The position
         PositionAndVelocity pos;
 
-        // All next positions seen from this position, with their count of observations
-        // May be empty for the last position we consider in a path
-        std::unordered_map<PositionAndVelocity, int> next;
-
         // The offset between this resend position and the apparent optimal position if no resend had been issued
         // Defaults to 100 if we haven't observed this path without resends
         int deltaToNormalPathOptimalPosition;
+
+        // All next positions seen from this position, with their count of observations
+        // May be empty for the last position we consider in a path
+        std::unordered_map<PositionAndVelocity, int> next;
 
         // Observations for when we send a resend here without a second resend
         ResendPositionObservations noSecondResendObservations;
