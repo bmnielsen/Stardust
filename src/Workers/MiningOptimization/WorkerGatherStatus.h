@@ -97,6 +97,7 @@ namespace WorkerMiningOptimization
         [[nodiscard]] bool pathStartsAtDepot() const
         {
             if (positionHistory.empty()) return false;
+            if (positionHistory.size() > 60) return false; // usually means distance mining
 
             return Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe, (*positionHistory.begin())->pos(), depot->type, depot->lastPosition) == 0;
         }
