@@ -262,7 +262,7 @@ namespace WorkerMiningOptimization
                 {
                     unstablePath++;
                 }
-                if (unstable && optimalPosition.deltaToNormalPathOptimalPosition == -EXPLORE_BEFORE)
+                if (unstable && optimalPosition.probableDeltaToNormalPathOptimalPosition() == -EXPLORE_BEFORE)
                 {
                     unstablePathAtExploreHorizon++;
                 }

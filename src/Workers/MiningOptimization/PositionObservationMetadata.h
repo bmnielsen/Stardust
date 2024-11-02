@@ -9,7 +9,7 @@ namespace WorkerMiningOptimization
 {
     struct ResendPositionObservations
     {
-        std::map<int, int> arrivalDelayAndOccurrences;
+        std::unordered_map<int, int> arrivalDelayAndOccurrences;
         int collisions = 0;
         int nonCollisions = 0;
 
@@ -49,8 +49,9 @@ namespace WorkerMiningOptimization
         PositionAndVelocity pos;
 
         // The offset between this resend position and the apparent optimal position if no resend had been issued
-        // Defaults to 100 if we haven't observed this path without resends
-        int deltaToNormalPathOptimalPosition;
+        // For positions with unstable following paths this can differ, so we store all observed values with their occurrences
+        // May be empty if we haven't observed a no-resend path with this position yet
+        std::unordered_map<int, int> deltaToNormalPathOptimalPosition;
 
         // All next positions seen from this position, with their count of observations
         // May be empty for the last position we consider in a path
@@ -70,6 +71,43 @@ namespace WorkerMiningOptimization
 
         // Whether a resend at this position changes the path. 1=Yes; -1=No; 0=Unknown
         int resendChangesPath = 0;
+
+        PositionObservationMetadata(uint32_t pathHash, PositionAndVelocity pos)
+            : pathHash(pathHash)
+            , pos(pos)
+        {}
+
+        PositionObservationMetadata(uint32_t pathHash, PositionAndVelocity pos, int deltaToNormalPathOptimalPosition)
+            : pathHash(pathHash)
+            , pos(pos)
+            , deltaToNormalPathOptimalPosition({{deltaToNormalPathOptimalPosition, 1}})
+        {}
+
+        PositionObservationMetadata(
+                uint32_t pathHash,
+                PositionAndVelocity &&pos,
+                std::unordered_map<int, int> &&deltaToNormalPathOptimalPosition,
+                std::unordered_map<PositionAndVelocity, int> &&next,
+                ResendPositionObservations &&noSecondResendObservations,
+                std::unordered_map<PositionAndVelocity, SecondResendPositionObservationMetadata> &&secondResendMetadata,
+                int noResendCollisions = 0,
+                int noResendNonCollisions = 0,
+                int resendChangesPath = 0
+                )
+            : pathHash(pathHash)
+            , pos(pos)
+            , deltaToNormalPathOptimalPosition(std::move(deltaToNormalPathOptimalPosition))
+            , next(std::move(next))
+            , noSecondResendObservations(std::move(noSecondResendObservations))
+            , secondResendMetadata(std::move(secondResendMetadata))
+            , noResendCollisions(noResendCollisions)
+            , noResendNonCollisions(noResendNonCollisions)
+            , resendChangesPath(resendChangesPath)
+        {}
+
+        [[nodiscard]] double averageDeltaToNormalPathOptimalPosition() const;
+
+        [[nodiscard]] int probableDeltaToNormalPathOptimalPosition() const;
 
         bool addObservation(SecondResendPositionObservationMetadata* secondResendPositionData, int arrivalDelta);
 

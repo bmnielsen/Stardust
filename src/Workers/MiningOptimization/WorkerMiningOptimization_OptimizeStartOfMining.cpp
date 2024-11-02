@@ -40,11 +40,16 @@ namespace WorkerMiningOptimization
                                     int deltaToFirstResend,
                                     const ResendPositionObservations &observations)
         {
-            if (positionMetadata.deltaToNormalPathOptimalPosition == 100) return 100.0;
+            if (positionMetadata.deltaToNormalPathOptimalPosition.empty()) return 100.0;
+            if ((positionMetadata.deltaToNormalPathOptimalPosition.size() > 1 || positionMetadata.next.size() > 1) &&
+                positionMetadata.probableDeltaToNormalPathOptimalPosition() < -2)
+            {
+                return 100.0;
+            }
 
             double expectedMiningDelay = observations.expectedMiningDelay(false, commandFrame);
             auto collisionDelay = expectedPatchCollisionDelay(observations.collisions, observations.nonCollisions);
-            return positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend + expectedMiningDelay + collisionDelay;
+            return positionMetadata.averageDeltaToNormalPathOptimalPosition() + deltaToFirstResend + expectedMiningDelay + collisionDelay;
         }
 
         PositionEvaluation evaluateSecondResendPositions(int commandFrame,
@@ -114,12 +119,13 @@ namespace WorkerMiningOptimization
             if (OrderProcessTimer::framesToNextReset(commandFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
 
             // If we want to try this position and it is better than the current best, return this
+            int probableDeltaToNormalPathOptimalPosition = positionMetadata.probableDeltaToNormalPathOptimalPosition();
             if (observations.empty()
-                && positionMetadata.deltaToNormalPathOptimalPosition >= -EXPLORE_BEFORE
-                && positionMetadata.deltaToNormalPathOptimalPosition <= -EXPLORE_AFTER
-                && (WorkerMiningOptimization::isExploring() || (positionMetadata.deltaToNormalPathOptimalPosition == 0 && deltaToFirstResend == 0)))
+                && probableDeltaToNormalPathOptimalPosition >= -EXPLORE_BEFORE
+                && probableDeltaToNormalPathOptimalPosition <= -EXPLORE_AFTER
+                && (WorkerMiningOptimization::isExploring() || (probableDeltaToNormalPathOptimalPosition == 0 && deltaToFirstResend == 0)))
             {
-                int positionToTryDelta = std::abs(positionMetadata.deltaToNormalPathOptimalPosition + deltaToFirstResend);
+                int positionToTryDelta = std::abs(probableDeltaToNormalPathOptimalPosition + deltaToFirstResend);
                 if (!nextPositionsEvaluation.positionToTryOnExpectedPath || positionToTryDelta < nextPositionsEvaluation.positionToTryDelta)
                 {
                     return {100, {here}, std::make_shared<PositionAndVelocity>(positionMetadata.pos), true, positionToTryDelta};
@@ -656,7 +662,7 @@ namespace WorkerMiningOptimization
 
                     // Reference the observations we have for when we resend at this position
                     auto &optimalPositions = optimalGatherPositionsFor(resource);
-                    const std::map<int, int>* observations = nullptr;
+                    const std::unordered_map<int, int>* observations = nullptr;
                     auto resentPosition = workerStatus.resentPosition();
                     if (resentPosition)
                     {
@@ -800,7 +806,20 @@ namespace WorkerMiningOptimization
         {
             auto metadataIt = optimalPositions.find(*currentPosition);
             if (metadataIt == optimalPositions.end()) return; // haven't reached an observed position yet
-            if (metadataIt->second.deltaToNormalPathOptimalPosition == 100) return; // haven't observed this position's normal path yet
+
+            auto &positionMetadata = metadataIt->second;
+
+            if (positionMetadata.deltaToNormalPathOptimalPosition.empty()) return; // haven't observed this position's normal path yet
+
+            int probableDeltaToNormalPathOptimalPosition = positionMetadata.probableDeltaToNormalPathOptimalPosition();
+
+            // Bail out if this is too early to have good data
+            if (probableDeltaToNormalPathOptimalPosition < -EXPLORE_BEFORE) return;
+            if ((positionMetadata.deltaToNormalPathOptimalPosition.size() > 1 || positionMetadata.next.size() > 1) &&
+                probableDeltaToNormalPathOptimalPosition < -2)
+            {
+                return;
+            }
 
             workerStatus.resendsPlanned = true;
 
@@ -810,13 +829,13 @@ namespace WorkerMiningOptimization
                 if (evaluation.positionToTryOnExpectedPath) return true;
 
                 // Ensure the path gets us to the patch better than the worst case of letting the worker be
-                auto normalPathCollisionDelay = expectedPatchCollisionDelay(metadataIt->second.noResendCollisions,
-                                                                            metadataIt->second.noResendNonCollisions);
+                auto normalPathCollisionDelay = expectedPatchCollisionDelay(positionMetadata.noResendCollisions,
+                                                                            positionMetadata.noResendNonCollisions);
                 if (evaluation.expectedDelta > (9 + normalPathCollisionDelay)) return false;
 
                 // If we can predict the worker's order process timer at normal arrival, check if it is better than the evaluated result
                 double orderProcessTimerDelay = 4.5;
-                int framesToNormalPathArrival = BWAPI::Broodwar->getLatencyFrames() + 10 - metadataIt->second.deltaToNormalPathOptimalPosition;
+                int framesToNormalPathArrival = BWAPI::Broodwar->getLatencyFrames() + 10 - probableDeltaToNormalPathOptimalPosition;
                 int orderProcessTimerAtArrival =
                         OrderProcessTimer::unitOrderProcessTimerAtDelta(worker->orderProcessTimer, framesToNormalPathArrival);
                 if (orderProcessTimerAtArrival != -1)
@@ -839,7 +858,7 @@ namespace WorkerMiningOptimization
                 return true;
             };
 
-            auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, metadataIt->second);
+            auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata);
             if (shouldResend(evaluation))
             {
                 workerStatus.plannedResendPosition = evaluation.resendPosition;

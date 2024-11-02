@@ -87,6 +87,43 @@ namespace WorkerMiningOptimization
         return totalMiningDelay / (double)totalOccurrences;
     }
 
+    double PositionObservationMetadata::averageDeltaToNormalPathOptimalPosition() const
+    {
+        if (deltaToNormalPathOptimalPosition.empty()) return 100;
+        if (deltaToNormalPathOptimalPosition.size() == 1) return deltaToNormalPathOptimalPosition.begin()->first;
+
+        int accumulator = 0;
+        int total = 0;
+        for (const auto &[delta, occurrences] : deltaToNormalPathOptimalPosition)
+        {
+            accumulator += delta * occurrences;
+            total += occurrences;
+        }
+
+        if (total == 0) return 100;
+
+        return (double)accumulator / (double)total;
+    }
+
+    int PositionObservationMetadata::probableDeltaToNormalPathOptimalPosition() const
+    {
+        if (deltaToNormalPathOptimalPosition.empty()) return 100;
+        if (deltaToNormalPathOptimalPosition.size() == 1) return deltaToNormalPathOptimalPosition.begin()->first;
+
+        int best = 100;
+        int bestOccurrences = 0;
+        for (const auto &[delta, occurrences] : deltaToNormalPathOptimalPosition)
+        {
+            if (occurrences > bestOccurrences)
+            {
+                best = delta;
+                bestOccurrences = occurrences;
+            }
+        }
+
+        return best;
+    }
+
     bool PositionObservationMetadata::addObservation(SecondResendPositionObservationMetadata* secondResendPositionData, int arrivalDelta)
     {
         auto &observations = secondResendPositionData ? secondResendPositionData->observations : noSecondResendObservations;
@@ -148,12 +185,12 @@ namespace WorkerMiningOptimization
                 nextPosSep = "_";
             }
         };
-        auto outputArrivalDelayObservations = [&file](const ResendPositionObservations &observations)
+        auto outputOccurrenceMap = [&file](const std::unordered_map<int, int> &occurrenceMap)
         {
             std::string sep;
-            for (const auto &[arrivalDelay, occurrences] : observations.arrivalDelayAndOccurrences)
+            for (const auto &[data, occurrences] : occurrenceMap)
             {
-                file << sep << arrivalDelay << "|" << occurrences;
+                file << sep << data << "|" << occurrences;
                 sep = "_";
             }
         };
@@ -168,12 +205,13 @@ namespace WorkerMiningOptimization
              << noResendCollisions << ";"
              << noResendNonCollisions << ";";
 
-        file << deltaToNormalPathOptimalPosition << ";";
+        outputOccurrenceMap(deltaToNormalPathOptimalPosition);
+        file << ";";
 
         if ((noSecondResendObservations.collisions
              + noSecondResendObservations.nonCollisions) > 0)
         {
-            outputArrivalDelayObservations(noSecondResendObservations);
+            outputOccurrenceMap(noSecondResendObservations.arrivalDelayAndOccurrences);
         }
         file << ";"
              << noSecondResendObservations.collisions << ";"
@@ -192,7 +230,7 @@ namespace WorkerMiningOptimization
                  << secondResendPositionMetadata.deltaToFirstResend << ":";
             if ((secondResendPositionMetadata.observations.collisions + secondResendPositionMetadata.observations.nonCollisions) > 0)
             {
-                outputArrivalDelayObservations(secondResendPositionMetadata.observations);
+                outputOccurrenceMap(secondResendPositionMetadata.observations.arrivalDelayAndOccurrences);
             }
             secondResendPosSep = ",";
         }
@@ -205,9 +243,9 @@ namespace WorkerMiningOptimization
         auto handleObservations = [&](const ResendPositionObservations &observations, int addedDelta)
         {
             if (observations.empty()) return;
-            if (deltaToNormalPathOptimalPosition == 100) return;
+            if (deltaToNormalPathOptimalPosition.empty()) return;
 
-            int delta = deltaToNormalPathOptimalPosition + addedDelta;
+            int delta = probableDeltaToNormalPathOptimalPosition() + addedDelta;
 
             int arrivalDelay = observations.mostCommonArrivalDelay();
             if (arrivalDelay > 0)
@@ -304,7 +342,7 @@ namespace WorkerMiningOptimization
         {
             file << ";y"
                  << ";" << mostOccurrences
-                 << ";" << (deltaToNormalPathOptimalPosition + mostOccurrencesDelta)
+                 << ";" << (probableDeltaToNormalPathOptimalPosition() + mostOccurrencesDelta)
                  << ";" << mostOccurrencesPosition
                  << ";" << mostOccurrencesCollisions
                  << ";" << mostOccurrencesNonCollisions;
@@ -339,23 +377,31 @@ namespace WorkerMiningOptimization
             return result;
         };
 
-        auto parseObservations = [](const std::string &arrivalDelayOccurrences, const std::string &collisions, const std::string &nonCollisions)
+        auto parseOccurrencesMap = [](const std::string &occurrencesMap)
         {
-            std::map<int, int> arrivalDelayOccurrencesResult;
+            std::unordered_map<int, int> result;
 
-            if (!arrivalDelayOccurrences.empty())
+            if (!occurrencesMap.empty())
             {
-                for (const auto &observations : CsvTools::tokenizeList(arrivalDelayOccurrences, '_'))
+                for (const auto &observations : CsvTools::tokenizeList(occurrencesMap, '_'))
                 {
                     auto data = CsvTools::tokenizeList(observations, '|');
                     if (data.size() < 2) continue;
 
-                    arrivalDelayOccurrencesResult.emplace(std::stoi(data[0]), std::stoi(data[1]));
+                    result.emplace(std::stoi(data[0]), std::stoi(data[1]));
                 }
             }
 
+            return result;
+        };
+
+        auto parseObservations = [&parseOccurrencesMap](
+                const std::string &arrivalDelayOccurrences,
+                const std::string &collisions,
+                const std::string &nonCollisions)
+        {
             return ResendPositionObservations{
-                    arrivalDelayOccurrencesResult,
+                    parseOccurrencesMap(arrivalDelayOccurrences),
                     std::stoi(collisions),
                     std::stoi(nonCollisions)
             };
@@ -375,8 +421,8 @@ namespace WorkerMiningOptimization
 
                 result.emplace(secondResendPos, SecondResendPositionObservationMetadata{
                         secondResendPos,
-                        parseNextPositions(data[1]),
                         std::stoi(data[4]),
+                        parseNextPositions(data[1]),
                         parseObservations((data.size() > 5) ? data[5] : "", data[2], data[3])
                 });
             }
@@ -401,9 +447,9 @@ namespace WorkerMiningOptimization
 
         resourceMap.emplace(resendPos, PositionObservationMetadata{
                 (uint32_t)std::stoul(line[2]),
-                resendPos,
+                std::move(resendPos),
+                parseOccurrencesMap(line[7]),
                 parseNextPositions(line[4]),
-                std::stoi(line[7]),
                 parseObservations(line[8], line[9], line[10]),
                 parseSecondResendPositions((line.size() > 12) ? line[12] : ""),
                 std::stoi(line[5]),
@@ -417,7 +463,7 @@ namespace WorkerMiningOptimization
     std::ostream &operator<<(std::ostream &os, const PositionObservationMetadata &optimalGatherPositionMetadata)
     {
         os << optimalGatherPositionMetadata.pos
-           << " (d=" << optimalGatherPositionMetadata.deltaToNormalPathOptimalPosition << ")";
+           << " (d=" << optimalGatherPositionMetadata.probableDeltaToNormalPathOptimalPosition() << ")";
 
         return os;
     }

@@ -232,10 +232,9 @@ namespace WorkerMiningOptimization
 
                     metadataIt = optimalGatherPositions.emplace(
                             **positionIt,
-                            PositionObservationMetadata{
+                            PositionObservationMetadata(
                                     workerStatus.pathStartsAtDepot() ? UINT32_MAX : 0,
-                                    **positionIt,
-                                    100}
+                                    **positionIt)
                     ).first;
                 }
                 else
@@ -290,7 +289,9 @@ namespace WorkerMiningOptimization
 
         void updateApproachOptimization(WorkerGatherStatus &workerStatus, PositionsInHistory &positionsInHistory)
         {
+#if OPTIMALPOSITIONS_DEBUG
             auto &worker = workerStatus.worker;
+#endif
 
             // Ensure we have enough position history to perform the optimization
             if (workerStatus.positionHistory.size() <
@@ -358,26 +359,21 @@ namespace WorkerMiningOptimization
 
                     auto existingIt = optimalGatherPositions.find(**positionIt);
 
-                    // If there was a position here already, check if anything needs to be updated
                     if (existingIt != optimalGatherPositions.end())
                     {
-                        if (existingIt->second.deltaToNormalPathOptimalPosition == 100)
-                        {
-                            if (delta >= -EXPLORE_BEFORE) existingIt->second.pathHash = pathHash;
-                            existingIt->second.deltaToNormalPathOptimalPosition = delta;
 #if OPTIMALPOSITIONS_DEBUG
-                            CherryVis::log(worker->id) << "Set correct delta for " << existingIt->second;
-#endif
-                        }
-
-#if OPTIMALPOSITIONS_DEBUG
-                        if (existingIt->second.deltaToNormalPathOptimalPosition != delta)
+                        if (!existingIt->second.deltaToNormalPathOptimalPosition.contains(delta))
                         {
-                            Log::Get() << "ERROR: Position " << existingIt->second << " came up out of order (" << delta << ")"
-                                       << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                            CherryVis::log(worker->id) << "New delta of " << delta << " came up for " << existingIt->second;
                         }
 #endif
 
+                        if (existingIt->second.deltaToNormalPathOptimalPosition.empty() && delta >= -EXPLORE_BEFORE)
+                        {
+                            existingIt->second.pathHash = pathHash;
+                        }
+
+                        existingIt->second.deltaToNormalPathOptimalPosition[delta]++;
                         continue;
                     }
 
@@ -386,10 +382,10 @@ namespace WorkerMiningOptimization
 
                     optimalGatherPositions.emplace(
                             **positionIt,
-                            PositionObservationMetadata{
+                            PositionObservationMetadata(
                                     (delta < -EXPLORE_BEFORE) ? UINT32_MAX : pathHash,
                                     **positionIt,
-                                    delta}
+                                    delta)
                     );
 
 #if OPTIMALPOSITIONS_DEBUG
@@ -407,10 +403,9 @@ namespace WorkerMiningOptimization
                 // We create an entry with placeholders for path hash and delta
                 resentPositionDataIt = optimalGatherPositions.emplace(
                         *positionsInHistory.resendsBeforeArrival[0],
-                        PositionObservationMetadata{
+                        PositionObservationMetadata(
                                 workerStatus.pathStartsAtDepot() ? UINT32_MAX : 0,
-                                *positionsInHistory.resendsBeforeArrival[0],
-                                100}
+                                *positionsInHistory.resendsBeforeArrival[0])
                 ).first;
             }
             auto &resentPositionData = resentPositionDataIt->second;
@@ -434,12 +429,11 @@ namespace WorkerMiningOptimization
 
             auto lastResendPositionIt = positionsInHistory.resendPositionIts[(positionsInHistory.resendsBeforeArrival.size() > 1) ? 1 : 0];
 
-            // Track the observation
+#if OPTIMALPOSITIONS_DEBUG
             bool exploring = resentPositionData.addObservation(
                     secondResendData,
                     (int)std::distance(lastResendPositionIt, optimalPositionIt));
 
-#if OPTIMALPOSITIONS_DEBUG
             if (secondResendData)
             {
                 CherryVis::log(worker->id) << "Added observation of " << resentPositionData
@@ -449,9 +443,7 @@ namespace WorkerMiningOptimization
             {
                 CherryVis::log(worker->id) << "Added observation of " << resentPositionData;
             }
-#endif
 
-#if OPTIMALPOSITIONS_DEBUG
             // If this resend was not exploring a new position, do some validation of whether the timing matched our expectations
             if (!exploring && (!workerStatus.plannedSecondResendPosition || (positionsInHistory.resendsBeforeArrival.size() > 1)))
             {
@@ -522,9 +514,12 @@ namespace WorkerMiningOptimization
             }
             else
             {
-            exploredPaths.insert(resentPositionData.pathHash);
-            exploredPatches.insert(workerStatus.resource->tile);
+                exploredPaths.insert(resentPositionData.pathHash);
+                exploredPatches.insert(workerStatus.resource->tile);
             }
+#else
+            // Track the observation
+            resentPositionData.addObservation(secondResendData, (int)std::distance(lastResendPositionIt, optimalPositionIt));
 #endif
 
             // Consider exploration of second resend positions
@@ -534,9 +529,12 @@ namespace WorkerMiningOptimization
             // - This position is not inside our optimization horizon
             // - The path did not start at the depot
             if (secondResendData) return;
-            if (resentPositionData.deltaToNormalPathOptimalPosition == 100) return;
-            if (resentPositionData.deltaToNormalPathOptimalPosition < EXPLORE_BEFORE) return;
-            if (resentPositionData.deltaToNormalPathOptimalPosition > EXPLORE_AFTER) return;
+            if (resentPositionData.deltaToNormalPathOptimalPosition.empty()) return;
+
+            int probableDeltaToNormalPathOptimalPosition = resentPositionData.probableDeltaToNormalPathOptimalPosition();
+            if (probableDeltaToNormalPathOptimalPosition < EXPLORE_BEFORE) return;
+            if (probableDeltaToNormalPathOptimalPosition > EXPLORE_AFTER) return;
+
             if (!workerStatus.pathStartsAtDepot()) return;
 
             // Check if the path after the resend is the same as the path without a resend
