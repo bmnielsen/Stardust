@@ -72,7 +72,8 @@ namespace WorkerMiningOptimization
                     if (nextPositionDataIt == positionMetadata.secondResendMetadata.end())
                     {
 #if OPTIMALPOSITIONS_DEBUG
-                        Log::Get() << "ERROR: No second resend metadata found for next position " << nextPosition;
+                        Log::Get() << "ERROR: No second resend metadata found for next position " << nextPosition
+                                   << " from " << positionMetadata.pos;
 #if OPTIMALPOSITIONS_DEBUG_VERBOSE
                         std::ostringstream dbg;
                         dbg << "Second resend positions:";
@@ -122,7 +123,7 @@ namespace WorkerMiningOptimization
             int probableDeltaToNormalPathOptimalPosition = positionMetadata.probableDeltaToNormalPathOptimalPosition();
             if (observations.empty()
                 && probableDeltaToNormalPathOptimalPosition >= -EXPLORE_BEFORE
-                && probableDeltaToNormalPathOptimalPosition <= -EXPLORE_AFTER
+                && probableDeltaToNormalPathOptimalPosition <= EXPLORE_AFTER
                 && (WorkerMiningOptimization::isExploring() || (probableDeltaToNormalPathOptimalPosition == 0 && deltaToFirstResend == 0)))
             {
                 int positionToTryDelta = std::abs(probableDeltaToNormalPathOptimalPosition + deltaToFirstResend);

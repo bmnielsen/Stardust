@@ -267,7 +267,7 @@ namespace WorkerMiningOptimization
                         secondLimit = positionsInHistory.arrivalPositionIt;
                     }
                 }
-                for (auto secondPositionIt = positionIt + 1; secondPositionIt != limit; secondPositionIt++)
+                for (auto secondPositionIt = positionIt + 1; secondPositionIt != secondLimit; secondPositionIt++)
                 {
                     auto secondResendMetadataIt = positionMetadata.secondResendMetadata.find(**secondPositionIt);
                     if (secondResendMetadataIt == positionMetadata.secondResendMetadata.end())
@@ -532,7 +532,7 @@ namespace WorkerMiningOptimization
             if (resentPositionData.deltaToNormalPathOptimalPosition.empty()) return;
 
             int probableDeltaToNormalPathOptimalPosition = resentPositionData.probableDeltaToNormalPathOptimalPosition();
-            if (probableDeltaToNormalPathOptimalPosition < EXPLORE_BEFORE) return;
+            if (probableDeltaToNormalPathOptimalPosition < -EXPLORE_BEFORE) return;
             if (probableDeltaToNormalPathOptimalPosition > EXPLORE_AFTER) return;
 
             if (!workerStatus.pathStartsAtDepot()) return;
