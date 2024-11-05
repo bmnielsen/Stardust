@@ -154,19 +154,22 @@ bool MyUnitImpl::gather(BWAPI::Unit target)
     return result;
 }
 
-void MyUnitImpl::returnCargo()
+bool MyUnitImpl::returnCargo()
 {
     if (issuedOrderThisFrame)
     {
         Log::Get() << "DUPLICATE ORDER: " << *this << ": Return cargo";
-        return;
+        return false;
     }
 
-    issuedOrderThisFrame = bwapiUnit->returnCargo();
+    auto result = bwapiUnit->returnCargo();
+    issuedOrderThisFrame |= result;
 
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(id) << "Order: Return cargo";
 #endif
+
+    return result;
 }
 
 bool MyUnitImpl::build(BWAPI::UnitType type, BWAPI::TilePosition tile)

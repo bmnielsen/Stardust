@@ -80,7 +80,7 @@ public:
 
     bool gather(BWAPI::Unit target);
 
-    void returnCargo();
+    bool returnCargo();
 
     bool build(BWAPI::UnitType type, BWAPI::TilePosition tile);
 
