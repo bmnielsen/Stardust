@@ -9,7 +9,7 @@ typedef std::shared_ptr<MyWorkerImpl> MyWorker;
 class MyWorkerImpl : public MyUnitImpl
 {
 public:
-    int carryingResource;               // Whether the unit is carrying a resource
+    bool carryingResource;              // Whether the unit is carrying a resource
     int lastCarryingResourceChange;     // Frame when the unit last acquired or delivered a resource
     int lastStartedMining;              // Frame when the unit last started mining
 
