@@ -113,7 +113,7 @@ namespace WorkerMiningOptimization
                     // If the other worker is not mining and is not expected to reach the patch before us, use normal approach optimization
                     if (otherWorker->carryingResource) return false;
                     if ((otherWorker->lastStartedMining == -1 || (currentFrame - otherWorker->lastStartedMining) >= 100)
-                            && resource->getDistance(otherWorker) >= resource->getDistance(worker))
+                        && resource->getDistance(otherWorker) >= resource->getDistance(worker))
                     {
                         return false;
                     }
@@ -157,14 +157,18 @@ namespace WorkerMiningOptimization
                     auto positionMetadataIt = optimalPositions.find(*currentPosition);
 
                     // If there is a recorded position, we might be able to plan our full approach
-                    if (positionMetadataIt != optimalPositions.end() && !positionMetadataIt->second.deltaToNormalPathOptimalPosition.empty())
+                    if (positionMetadataIt != optimalPositions.end() && !positionMetadataIt->second.deltaToBenchmarkAndOccurrences.empty())
                     {
                         // Handle case where we haven't reached our observation horizon yet
-                        if (positionMetadataIt->second.largestDeltaToNormalPathOptimalPosition() < -EXPLORE_BEFORE)
+                        if (positionMetadataIt->second.largestDeltaToBenchmark() < -EXPLORE_BEFORE)
                         {
                             // If the other worker is finished mining, transition back to doing normal approach optimization
                             if (otherWorker->carryingResource)
                             {
+#if TAKEOVER_DEBUG
+                                CherryVis::log(worker->id) << "Reverting to single-worker case, as other worker has finished mining";
+#endif
+
                                 workerStatus.takeoverState = 0;
                                 workerStatus.takeoverFrame = -1;
                                 return false;
@@ -173,6 +177,8 @@ namespace WorkerMiningOptimization
                             // Otherwise continue the approach waiting until we get closer
                             return true;
                         }
+
+                        // TODO: Implement path optimization for double worker
                     }
 
                     // Compute the frame of the order timer reset prior to the take over frame
@@ -244,8 +250,8 @@ namespace WorkerMiningOptimization
                                 lastSafeResendFrame += additionalSafeFrames;
 #if TAKEOVER_DEBUG
                                 CherryVis::log(worker->id) << "Last safe resend frame: " << lastSafeResendFrame
-                                    << " (increased by " << additionalSafeFrames << " by known order process timer at arrival)"
-                                    << " Predicted order process timer value here is " << worker->orderProcessTimer;
+                                                           << " (increased by " << additionalSafeFrames << " by known order process timer at arrival)"
+                                                           << " Predicted order process timer value here is " << worker->orderProcessTimer;
                             }
                             else
                             {
@@ -376,17 +382,17 @@ namespace WorkerMiningOptimization
                     }
 
                     // Reference the observations we have for when we resend at this position
-                    const std::unordered_map<int, int>* observations = nullptr;
+                    const std::unordered_map<int, int> *observations = nullptr;
                     auto resentPosition = workerStatus.resentPosition();
                     if (resentPosition)
                     {
                         auto resentPositionDataIt = optimalPositions.find(*resentPosition);
                         if (resentPositionDataIt != optimalPositions.end())
                         {
-                            auto secondResendMetadata = resentPositionDataIt->second.secondResendMetadataFor(currentPosition.get());
-                            if (secondResendMetadata)
+                            auto secondResendObservations = resentPositionDataIt->second.secondResendObservationsFor(currentPosition.get());
+                            if (secondResendObservations)
                             {
-                                observations = &secondResendMetadata->observations.arrivalDelayAndOccurrences;
+                                observations = &secondResendObservations->arrivalObservations.arrivalDelayAndOccurrences;
                             }
                         }
                     }
@@ -395,7 +401,7 @@ namespace WorkerMiningOptimization
                         auto optimalPositionDataIt = optimalPositions.find(*currentPosition);
                         if (optimalPositionDataIt != optimalPositions.end())
                         {
-                            observations = &optimalPositionDataIt->second.noSecondResendObservations.arrivalDelayAndOccurrences;
+                            observations = &optimalPositionDataIt->second.noSecondResendArrivalObservations.arrivalDelayAndOccurrences;
                         }
                     }
 
@@ -497,11 +503,11 @@ namespace WorkerMiningOptimization
             && worker->lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
         {
             // Hook to update our observations based on this potential failure of mineral locking
-            handleStartOfMiningPatchSwitch(workerStatus);
+            handleGatherPatchSwitch(workerStatus);
 
             CherryVis::log(worker->id) << "targeting different patch; resending order";
             Log::Get() << "ERROR: patch @ " << resource->tile << "; worker " << worker->id << " @ " << worker->getTilePosition() << " switched patch"
-                << "; passed10DistancePosition: " << workerStatus.passed10DistancePosition;
+                       << "; passed10DistancePosition: " << workerStatus.passed10DistancePosition;
 
             workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
             if (workerStatus.passed10DistancePosition == -1)
@@ -519,11 +525,11 @@ namespace WorkerMiningOptimization
         auto &optimalPositions = optimalGatherPositionsFor(resource);
         if (workerStatus.resendsPlanned)
         {
-            validatePlannedPathSingle(workerStatus, resourceBwapiUnit, optimalPositions, currentPosition);
+            validatePlannedGatherPathSingle(workerStatus, resourceBwapiUnit, optimalPositions, currentPosition);
         }
         else
         {
-            planResendsSingle(workerStatus, optimalPositions, currentPosition);
+            planGatherResendsSingle(workerStatus, optimalPositions, currentPosition);
         }
 
         // Send commands we have pre-planned

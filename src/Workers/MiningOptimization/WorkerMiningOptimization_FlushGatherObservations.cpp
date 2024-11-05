@@ -5,7 +5,7 @@
 #include "DebugFlag_WorkerMiningOptimization.h"
 
 #include "PositionAndVelocity.h"
-#include "PositionObservationMetadata.h"
+#include "GatherPositionObservations.h"
 #include "WorkerGatherStatus.h"
 
 #include "Geo.h"
@@ -79,7 +79,7 @@ namespace WorkerMiningOptimization
             for (int i = 0; i < positionsInHistory.resendPositionIts.size(); i++)
             {
                 if (std::distance(positionsInHistory.resendPositionIts[i], positionsInHistory.arrivalPositionIt)
-                        < BWAPI::Broodwar->getLatencyFrames())
+                    < BWAPI::Broodwar->getLatencyFrames())
                 {
                     break;
                 }
@@ -155,7 +155,7 @@ namespace WorkerMiningOptimization
                 return;
             }
 
-            auto updateObservations = [&collision](ResendPositionObservations &observations)
+            auto updateObservations = [&collision](GatherResendArrivalObservations &observations)
             {
                 (collision ? observations.collisions : observations.nonCollisions)++;
             };
@@ -163,15 +163,15 @@ namespace WorkerMiningOptimization
             // Update no second resend observations if there has not been a second resend
             if (miningWorker.resentPositions.size() == 1)
             {
-                updateObservations(resendMetadataIt->second.noSecondResendObservations);
+                updateObservations(resendMetadataIt->second.noSecondResendArrivalObservations);
                 return;
             }
 
             // If the initial resend didn't change the path, look up the second resend position in the normal positions set
             if (resendMetadataIt->second.resendChangesPath == -1)
             {
-                auto secondResendMetadataIt = optimalGatherPositions.find(*miningWorker.resentPositions[1]);
-                if (secondResendMetadataIt == optimalGatherPositions.end()) // should never happen
+                auto secondResendObservationsIt = optimalGatherPositions.find(*miningWorker.resentPositions[1]);
+                if (secondResendObservationsIt == optimalGatherPositions.end()) // should never happen
                 {
 #if OPTIMALPOSITIONS_DEBUG
                     Log::Get() << "ERROR: Resend metadata for second resend not found for " << *miningWorker.resentPositions[0]
@@ -181,12 +181,12 @@ namespace WorkerMiningOptimization
                     return;
                 }
 
-                updateObservations(secondResendMetadataIt->second.noSecondResendObservations);
+                updateObservations(secondResendObservationsIt->second.noSecondResendArrivalObservations);
                 return;
             }
 
-            auto secondResendMetadata = resendMetadataIt->second.secondResendMetadataFor(miningWorker.resentPositions[1].get());
-            if (!secondResendMetadata) // should never happen
+            auto secondResendObservations = resendMetadataIt->second.secondResendObservationsFor(miningWorker.resentPositions[1].get());
+            if (!secondResendObservations) // should never happen
             {
 #if OPTIMALPOSITIONS_DEBUG
                 Log::Get() << "ERROR: Second resend metadata not found for " << *miningWorker.resentPositions[0]
@@ -196,7 +196,7 @@ namespace WorkerMiningOptimization
                 return;
             }
 
-            updateObservations(secondResendMetadata->observations);
+            updateObservations(secondResendObservations->arrivalObservations);
         }
 
         void updateNextPositions(WorkerGatherStatus &workerStatus,
@@ -232,7 +232,7 @@ namespace WorkerMiningOptimization
 
                     metadataIt = optimalGatherPositions.emplace(
                             **positionIt,
-                            PositionObservationMetadata(
+                            GatherPositionObservations(
                                     workerStatus.pathStartsAtDepot() ? UINT32_MAX : 0,
                                     **positionIt)
                     ).first;
@@ -246,7 +246,7 @@ namespace WorkerMiningOptimization
 
                 if ((positionIt + 1) != limit)
                 {
-                    positionMetadata.next[**(positionIt + 1)]++;
+                    positionMetadata.nextPositionAndOccurrences[**(positionIt + 1)]++;
                 }
 
                 // Only record next positions for second resend if we actually track them here
@@ -269,19 +269,19 @@ namespace WorkerMiningOptimization
                 }
                 for (auto secondPositionIt = positionIt + 1; secondPositionIt != secondLimit; secondPositionIt++)
                 {
-                    auto secondResendMetadataIt = positionMetadata.secondResendMetadata.find(**secondPositionIt);
-                    if (secondResendMetadataIt == positionMetadata.secondResendMetadata.end())
+                    auto secondResendObservationsIt = positionMetadata.secondResendObservations.find(**secondPositionIt);
+                    if (secondResendObservationsIt == positionMetadata.secondResendObservations.end())
                     {
-                        secondResendMetadataIt = positionMetadata.secondResendMetadata.emplace(
+                        secondResendObservationsIt = positionMetadata.secondResendObservations.emplace(
                                 **secondPositionIt,
-                                SecondResendPositionObservationMetadata{
-                                    **secondPositionIt,
-                                    (int)std::distance(positionIt, secondPositionIt)}).first;
+                                SecondResendGatherPositionObservations{
+                                        **secondPositionIt,
+                                        (int)std::distance(positionIt, secondPositionIt)}).first;
                     }
 
                     if ((secondPositionIt + 1) != secondLimit)
                     {
-                        secondResendMetadataIt->second.next[**(secondPositionIt + 1)]++;
+                        secondResendObservationsIt->second.nextPositionAndOccurrences[**(secondPositionIt + 1)]++;
                     }
                 }
             }
@@ -313,18 +313,6 @@ namespace WorkerMiningOptimization
             auto optimalPositionIt = positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames() - 11;
 
 #if OPTIMALPOSITIONS_DEBUG
-#if OPTIMALPOSITIONS_DEBUG_VERBOSE
-            {
-                std::ostringstream dbg;
-                dbg << "Position history:";
-                for (auto positionIt = optimalPositionIt + 5; positionIt >= optimalPositionIt - 5; positionIt--)
-                {
-                    dbg << "\n" << **positionIt;
-                }
-                CherryVis::log(worker->id) << dbg.str();
-            }
-#endif
-
             if (workerStatus.plannedResendPosition && workerStatus.resentPositions.empty())
             {
                 Log::Get() << "ERROR: Worker didn't resend at planned position " << *workerStatus.plannedResendPosition
@@ -342,7 +330,7 @@ namespace WorkerMiningOptimization
             {
                 // Get the "path hash", which is the hash of the first position in the explored path
                 uint32_t pathHash = 0;
-                for (auto positionIt = optimalPositionIt; ; --positionIt)
+                for (auto positionIt = optimalPositionIt;; --positionIt)
                 {
                     int delta = (int)std::distance(optimalPositionIt, positionIt);
                     if (delta < -EXPLORE_BEFORE) break;
@@ -362,18 +350,18 @@ namespace WorkerMiningOptimization
                     if (existingIt != optimalGatherPositions.end())
                     {
 #if OPTIMALPOSITIONS_DEBUG
-                        if (!existingIt->second.deltaToNormalPathOptimalPosition.contains(delta))
+                        if (!existingIt->second.deltaToBenchmarkAndOccurrences.contains(delta))
                         {
                             CherryVis::log(worker->id) << "New delta of " << delta << " came up for " << existingIt->second;
                         }
 #endif
 
-                        if (existingIt->second.deltaToNormalPathOptimalPosition.empty() && delta >= -EXPLORE_BEFORE)
+                        if (existingIt->second.deltaToBenchmarkAndOccurrences.empty() && delta >= -EXPLORE_BEFORE)
                         {
                             existingIt->second.pathHash = pathHash;
                         }
 
-                        existingIt->second.deltaToNormalPathOptimalPosition[delta]++;
+                        existingIt->second.deltaToBenchmarkAndOccurrences[delta]++;
                         continue;
                     }
 
@@ -382,7 +370,7 @@ namespace WorkerMiningOptimization
 
                     optimalGatherPositions.emplace(
                             **positionIt,
-                            PositionObservationMetadata(
+                            GatherPositionObservations(
                                     (delta < -EXPLORE_BEFORE) ? UINT32_MAX : pathHash,
                                     **positionIt,
                                     delta)
@@ -403,7 +391,7 @@ namespace WorkerMiningOptimization
                 // We create an entry with placeholders for path hash and delta
                 resentPositionDataIt = optimalGatherPositions.emplace(
                         *positionsInHistory.resendsBeforeArrival[0],
-                        PositionObservationMetadata(
+                        GatherPositionObservations(
                                 workerStatus.pathStartsAtDepot() ? UINT32_MAX : 0,
                                 *positionsInHistory.resendsBeforeArrival[0])
                 ).first;
@@ -411,26 +399,26 @@ namespace WorkerMiningOptimization
             auto &resentPositionData = resentPositionDataIt->second;
 
             // If there was a second resend, reference its metadata
-            SecondResendPositionObservationMetadata* secondResendData = nullptr;
+            SecondResendGatherPositionObservations *secondResendData = nullptr;
             if (positionsInHistory.resendsBeforeArrival.size() > 1)
             {
-                secondResendData = resentPositionData.secondResendMetadataFor(positionsInHistory.resendsBeforeArrival[1].get());
+                secondResendData = resentPositionData.secondResendObservationsFor(positionsInHistory.resendsBeforeArrival[1].get());
                 if (!secondResendData)
                 {
-                    auto secondResendMetadataIt = resentPositionData.secondResendMetadata.emplace(
+                    auto secondResendObservationsIt = resentPositionData.secondResendObservations.emplace(
                             *positionsInHistory.resendsBeforeArrival[1],
-                            SecondResendPositionObservationMetadata{
+                            SecondResendGatherPositionObservations{
                                     *positionsInHistory.resendsBeforeArrival[1],
                                     (int)std::distance(positionsInHistory.resendPositionIts[0], positionsInHistory.resendPositionIts[1])}).first;
 
-                    secondResendData = &secondResendMetadataIt->second;
+                    secondResendData = &secondResendObservationsIt->second;
                 }
             }
 
             auto lastResendPositionIt = positionsInHistory.resendPositionIts[(positionsInHistory.resendsBeforeArrival.size() > 1) ? 1 : 0];
 
 #if OPTIMALPOSITIONS_DEBUG
-            bool exploring = resentPositionData.addObservation(
+            bool exploring = resentPositionData.addArrivalObservation(
                     secondResendData,
                     (int)std::distance(lastResendPositionIt, optimalPositionIt));
 
@@ -450,8 +438,8 @@ namespace WorkerMiningOptimization
                 // Measure effectiveness of this gather path
 
                 int arrivalDelay = secondResendData
-                                   ? secondResendData->observations.mostCommonArrivalDelay()
-                                   : resentPositionData.noSecondResendObservations.mostCommonArrivalDelay();
+                                   ? secondResendData->arrivalObservations.mostCommonArrivalDelay()
+                                   : resentPositionData.noSecondResendArrivalObservations.mostCommonArrivalDelay();
 
                 auto actualFramesToArrival = std::distance(lastResendPositionIt, positionsInHistory.arrivalPositionIt);
                 if (actualFramesToArrival != (BWAPI::Broodwar->getLatencyFrames() + 11 + arrivalDelay))
@@ -529,11 +517,11 @@ namespace WorkerMiningOptimization
             // - This position is not inside our optimization horizon
             // - The path did not start at the depot
             if (secondResendData) return;
-            if (resentPositionData.deltaToNormalPathOptimalPosition.empty()) return;
+            if (resentPositionData.deltaToBenchmarkAndOccurrences.empty()) return;
 
-            int probableDeltaToNormalPathOptimalPosition = resentPositionData.probableDeltaToNormalPathOptimalPosition();
-            if (probableDeltaToNormalPathOptimalPosition < -EXPLORE_BEFORE) return;
-            if (probableDeltaToNormalPathOptimalPosition > EXPLORE_AFTER) return;
+            int probableDeltaToBenchmark = resentPositionData.probableDeltaToBenchmark();
+            if (probableDeltaToBenchmark < -EXPLORE_BEFORE) return;
+            if (probableDeltaToBenchmark > EXPLORE_AFTER) return;
 
             if (!workerStatus.pathStartsAtDepot()) return;
 
@@ -571,19 +559,19 @@ namespace WorkerMiningOptimization
             // Queue up second resend positions to test
             for (auto positionIt = positionsInHistory.resendPositionIts[0] + 1; positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
             {
-                auto secondResendMetadataIt = resentPositionData.secondResendMetadata.find(**positionIt);
-                if (secondResendMetadataIt != resentPositionData.secondResendMetadata.end()) continue;
+                auto secondResendObservationsIt = resentPositionData.secondResendObservations.find(**positionIt);
+                if (secondResendObservationsIt != resentPositionData.secondResendObservations.end()) continue;
 
-                resentPositionData.secondResendMetadata.emplace(
+                resentPositionData.secondResendObservations.emplace(
                         **positionIt,
-                        SecondResendPositionObservationMetadata{
+                        SecondResendGatherPositionObservations{
                                 **positionIt,
                                 (int)std::distance(positionsInHistory.resendPositionIts[0], positionIt)});
 
 #if OPTIMALPOSITIONS_DEBUG
-                    CherryVis::log(worker->id) << "Added metadata for " << resentPositionData
-                                               << " : " << **positionIt
-                                               << ", delta " << std::distance(positionsInHistory.resendPositionIts[0], positionIt);
+                CherryVis::log(worker->id) << "Added metadata for " << resentPositionData
+                                           << " : " << **positionIt
+                                           << ", delta " << std::distance(positionsInHistory.resendPositionIts[0], positionIt);
 #endif
             }
         }
@@ -609,7 +597,7 @@ namespace WorkerMiningOptimization
         }
     }
 
-    void flushStartOfMiningObservations(std::map<MyWorker, WorkerGatherStatus> &workerGatherStatuses)
+    void flushGatherObservations(std::map<MyWorker, WorkerGatherStatus> &workerGatherStatuses)
     {
         if (currentFrame == 0) miningWorkers.clear();
 
@@ -627,14 +615,14 @@ namespace WorkerMiningOptimization
             if ((collisions + noncollisions) > 0)
             {
                 Log::Get() << std::fixed << std::setprecision(1)
-                           << "Collision rate: " << (100.0 * collisions)/(double)(collisions + noncollisions)
+                           << "Collision rate: " << (100.0 * collisions) / (double)(collisions + noncollisions)
                            << "% over " << (collisions + noncollisions) << " collections";
             }
         }
 #endif
 
         // Update collision state for workers that are finished mining
-        for (auto it = miningWorkers.begin(); it != miningWorkers.end(); )
+        for (auto it = miningWorkers.begin(); it != miningWorkers.end();)
         {
             auto &worker = it->worker;
             if (!worker->exists())
@@ -657,7 +645,7 @@ namespace WorkerMiningOptimization
         }
 
         // Flush the worker statuses for workers that have started mining
-        for (auto it = workerGatherStatuses.begin(); it != workerGatherStatuses.end(); )
+        for (auto it = workerGatherStatuses.begin(); it != workerGatherStatuses.end();)
         {
             auto &worker = it->first;
             if (!worker->exists())
@@ -679,7 +667,7 @@ namespace WorkerMiningOptimization
             // we for some reason haven't tracked its positions history correctly
             PositionsInHistory positionsInHistory;
             if (it->second.switchedPatches || !extractPositionsInHistory(it->second, positionsInHistory)
-                    || positionsInHistory.arrivalPositionIt == it->second.positionHistory.end())
+                || positionsInHistory.arrivalPositionIt == it->second.positionHistory.end())
             {
                 it = workerGatherStatuses.erase(it);
                 continue;
@@ -704,7 +692,7 @@ namespace WorkerMiningOptimization
         }
     }
 
-    void handleStartOfMiningPatchSwitch(WorkerGatherStatus &workerStatus)
+    void handleGatherPatchSwitch(WorkerGatherStatus &workerStatus)
     {
         PositionsInHistory positionsInHistory;
         if (!extractPositionsInHistory(workerStatus, positionsInHistory)) return;

@@ -20,7 +20,7 @@ namespace WorkerMiningOptimization
         bool exploring;
 
         // Metadata for positions used for optimizing approach to the patch
-        std::map<Resource, std::unordered_map<PositionAndVelocity, PositionObservationMetadata>> resourceToOptimalGatherPositions;
+        std::map<Resource, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> resourceToOptimalGatherPositions;
 
         // Metadata for positions LF+1 frames before reaching 10 or less distance from the patch
         // Workers can try to switch to another patch if their chosen patch is being mined once they reach this distance, so we use these
@@ -47,9 +47,9 @@ namespace WorkerMiningOptimization
             return FileTools::getFilePath(filename.str(), "csv", writing);
         }
 
-        template <class T>
-        void parsePositionObservationMetadataFile(const std::string &filename,
-                                                  std::map<Resource, std::unordered_map<PositionAndVelocity, T>> &map)
+        template<class T>
+        void parseGatherPositionObservationsFile(const std::string &filename,
+                                                 std::map<Resource, std::unordered_map<PositionAndVelocity, T>> &map)
         {
             map.clear();
 
@@ -83,9 +83,9 @@ namespace WorkerMiningOptimization
             }
         }
 
-        template <class T>
-        void writePositionObservationMetadataFile(const std::string &filename,
-                                                  const std::map<Resource, std::unordered_map<PositionAndVelocity, T>> &map)
+        template<class T>
+        void writeGatherPositionObservationsFile(const std::string &filename,
+                                                 const std::map<Resource, std::unordered_map<PositionAndVelocity, T>> &map)
         {
             std::ofstream file;
             file.open(filename, std::ofstream::trunc);
@@ -197,20 +197,20 @@ namespace WorkerMiningOptimization
 #endif
         workerGatherStatuses.clear();
 
-        parsePositionObservationMetadataFile(optimalGatherPositionsFilename(), resourceToOptimalGatherPositions);
+        parseGatherPositionObservationsFile(optimalGatherPositionsFilename(), resourceToOptimalGatherPositions);
         parse10DistancePositionsFile(tenDistancePositionsFilename(), resourceTo10DistancePositions);
     }
 
     void flushObservations()
     {
-        flushStartOfMiningObservations(workerGatherStatuses);
+        flushGatherObservations(workerGatherStatuses);
 
         // TODO: Add return when ready
     }
 
     void write()
     {
-        writePositionObservationMetadataFile(optimalGatherPositionsFilename(true), resourceToOptimalGatherPositions);
+        writeGatherPositionObservationsFile(optimalGatherPositionsFilename(true), resourceToOptimalGatherPositions);
         write10DistancePositionsFile(tenDistancePositionsFilename(true), resourceTo10DistancePositions);
 
 #if OUTPUT_METADATA_ANALYSIS
@@ -218,7 +218,7 @@ namespace WorkerMiningOptimization
         int unstablePath = 0;
         int unstablePathAtExploreHorizon = 0;
         int neverUsed = 0;
-        auto hasBeenUsed = [](const ResendPositionObservations &observations)
+        auto hasBeenUsed = [](const GatherResendArrivalObservations &observations)
         {
             if (observations.empty()) return false;
             if (observations.arrivalDelayAndOccurrences.size() > 1) return true;
@@ -231,12 +231,12 @@ namespace WorkerMiningOptimization
                 total++;
                 bool unstable = false;
 
-                std::map<int, const SecondResendPositionObservationMetadata*> secondResendPositionsByDelta;
-                bool used = hasBeenUsed(optimalPosition.noSecondResendObservations);
-                for (const auto &[_, secondResendPosition] : optimalPosition.secondResendMetadata)
+                std::map<int, const SecondResendGatherPositionObservations *> secondResendPositionsByDelta;
+                bool used = hasBeenUsed(optimalPosition.noSecondResendArrivalObservations);
+                for (const auto &[_, secondResendPosition] : optimalPosition.secondResendObservations)
                 {
-                    used = used || hasBeenUsed(secondResendPosition.observations);
-                    unstable = unstable || (secondResendPosition.next.size() > 1);
+                    used = used || hasBeenUsed(secondResendPosition.arrivalObservations);
+                    unstable = unstable || (secondResendPosition.nextPositionAndOccurrences.size() > 1);
                     if (!unstable)
                     {
                         if (secondResendPositionsByDelta.contains(secondResendPosition.deltaToFirstResend))
@@ -252,8 +252,8 @@ namespace WorkerMiningOptimization
 
                 if (!used) neverUsed++;
 
-                std::vector<const PositionObservationMetadata*> noResendNextPositions = optimalPosition.followingPositionsIfStable(optimalPositions);
-                if (noResendNextPositions.empty() && !optimalPosition.next.empty())
+                std::vector<const GatherPositionObservations *> noResendNextPositions = optimalPosition.followingPositionsIfStable(optimalPositions);
+                if (noResendNextPositions.empty() && !optimalPosition.nextPositionAndOccurrences.empty())
                 {
                     unstable = true;
                 }
@@ -262,7 +262,7 @@ namespace WorkerMiningOptimization
                 {
                     unstablePath++;
                 }
-                if (unstable && optimalPosition.probableDeltaToNormalPathOptimalPosition() == -EXPLORE_BEFORE)
+                if (unstable && optimalPosition.probableDeltaToBenchmark() == -EXPLORE_BEFORE)
                 {
                     unstablePathAtExploreHorizon++;
                 }
@@ -276,7 +276,7 @@ namespace WorkerMiningOptimization
                        << "\nNever used:         " << neverUsed << " (" << (100.0 * (double)neverUsed / (double)total) << "%)"
                        << "\nUnstable path:      " << unstablePath << " (" << (100.0 * (double)unstablePath / (double)total) << "%)"
                        << "\nUnstable path @-" << EXPLORE_BEFORE << ": "
-                            << unstablePathAtExploreHorizon << " (" << (100.0 * (double)unstablePathAtExploreHorizon / (double)total) << "%)";
+                       << unstablePathAtExploreHorizon << " (" << (100.0 * (double)unstablePathAtExploreHorizon / (double)total) << "%)";
         }
 #endif
     }
@@ -313,7 +313,7 @@ namespace WorkerMiningOptimization
         return &workerStatusIt->second;
     }
 
-    std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &optimalGatherPositionsFor(const Resource &resource)
+    std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalGatherPositionsFor(const Resource &resource)
     {
         return resourceToOptimalGatherPositions[resource];
     }

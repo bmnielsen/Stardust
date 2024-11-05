@@ -3,7 +3,7 @@
 #include "Common.h"
 #include "MyWorker.h"
 #include "Resource.h"
-#include "PositionObservationMetadata.h"
+#include "GatherPositionObservations.h"
 #include "WorkerGatherStatus.h"
 
 // In our data files we track the full paths between depot and patch, but we only explore positions within the bounds defined here
@@ -20,25 +20,32 @@ namespace WorkerMiningOptimization
 
     // Optimizes the start of mining
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
-    void planResendsSingle(WorkerGatherStatus &workerStatus,
-                           const std::unordered_map <PositionAndVelocity, PositionObservationMetadata> &optimalPositions,
-                           const std::shared_ptr <PositionAndVelocity> &currentPosition);
-    void validatePlannedPathSingle(WorkerGatherStatus &workerStatus,
-                                   BWAPI::Unit resourceBwapiUnit,
-                                   const std::unordered_map <PositionAndVelocity, PositionObservationMetadata> &optimalPositions,
-                                   const std::shared_ptr <PositionAndVelocity> &currentPosition);
+
+    void planGatherResendsSingle(WorkerGatherStatus &workerStatus,
+                                 const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
+                                 const std::shared_ptr<PositionAndVelocity> &currentPosition);
+
+    void validatePlannedGatherPathSingle(WorkerGatherStatus &workerStatus,
+                                         BWAPI::Unit resourceBwapiUnit,
+                                         const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
+                                         const std::shared_ptr<PositionAndVelocity> &currentPosition);
+
+    void flushGatherObservations(std::map<MyWorker, WorkerGatherStatus> &workerGatherStatuses);
+
+    void handleGatherPatchSwitch(WorkerGatherStatus &workerStatus);
+
+    WorkerGatherStatus &gatherStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
+
+    WorkerGatherStatus *gatherStatusFor(const MyWorker &worker);
+
+    std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalGatherPositionsFor(const Resource &resource);
+
+    std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource);
 
     // Optimizes returning a resource
     void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
 
-    void flushStartOfMiningObservations(std::map<MyWorker, WorkerGatherStatus> &workerGatherStatuses);
-    void handleStartOfMiningPatchSwitch(WorkerGatherStatus &workerStatus);
-
-    WorkerGatherStatus &gatherStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
-    WorkerGatherStatus *gatherStatusFor(const MyWorker &worker);
-    std::unordered_map<PositionAndVelocity, PositionObservationMetadata> &optimalGatherPositionsFor(const Resource &resource);
-    std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource);
-
     bool isExploring();
+
     void setExploring(bool exploring);
 }

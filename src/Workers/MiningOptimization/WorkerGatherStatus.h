@@ -121,10 +121,10 @@ namespace WorkerMiningOptimization
             if (!worker->gather(resourceBwapiUnit))
             {
 #if OPTIMALPOSITIONS_DEBUG
-                    Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
-                               << BWAPI::Broodwar->getLastError();
-                    CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
-                    CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+                Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
+                           << BWAPI::Broodwar->getLastError();
+                CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+                CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
 #endif
                 return;
             }
@@ -133,7 +133,7 @@ namespace WorkerMiningOptimization
             resentFrames.insert(currentFrame);
         }
 
-        const PositionAndVelocity *resentPosition() const
+        [[nodiscard]] const PositionAndVelocity *resentPosition() const
         {
             if (resentPositions.empty()) return nullptr;
             return resentPositions.begin()->get();
