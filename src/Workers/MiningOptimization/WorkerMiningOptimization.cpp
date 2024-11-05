@@ -30,12 +30,26 @@ namespace WorkerMiningOptimization
         // Worker state for those on their way to the patch
         std::map<MyWorker, WorkerGatherStatus> workerGatherStatuses;
 
+        // Metadata for positions used for optimizing return of resources
+        std::map<Resource, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> resourceToOptimalReturnPositions;
+
+        // Worker state for those returning resources
+        std::map<MyWorker, WorkerReturnStatus> workerReturnStatuses;
+
         std::string optimalGatherPositionsFilename(bool writing = false)
         {
             auto filename = std::ostringstream()
                     << "gatherpositions_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames()
                     << "_" << EXPLORE_BEFORE << "_" << EXPLORE_AFTER;
+            return FileTools::getFilePath(filename.str(), "csv", writing);
+        }
+
+        std::string optimalReturnPositionsFilename(bool writing = false)
+        {
+            auto filename = std::ostringstream()
+                    << "returnpositions_" << BWAPI::Broodwar->mapHash()
+                    << "_lf" << BWAPI::Broodwar->getLatencyFrames();
             return FileTools::getFilePath(filename.str(), "csv", writing);
         }
 
@@ -48,8 +62,8 @@ namespace WorkerMiningOptimization
         }
 
         template<class T>
-        void parseGatherPositionObservationsFile(const std::string &filename,
-                                                 std::map<Resource, std::unordered_map<PositionAndVelocity, T>> &map)
+        void parsePositionObservationsFile(const std::string &filename,
+                                           std::map<Resource, std::unordered_map<PositionAndVelocity, T>> &map)
         {
             map.clear();
 
@@ -84,8 +98,8 @@ namespace WorkerMiningOptimization
         }
 
         template<class T>
-        void writeGatherPositionObservationsFile(const std::string &filename,
-                                                 const std::map<Resource, std::unordered_map<PositionAndVelocity, T>> &map)
+        void writePositionObservationsFile(const std::string &filename,
+                                           const std::map<Resource, std::unordered_map<PositionAndVelocity, T>> &map)
         {
             std::ofstream file;
             file.open(filename, std::ofstream::trunc);
@@ -196,22 +210,26 @@ namespace WorkerMiningOptimization
         exploring = false;
 #endif
         workerGatherStatuses.clear();
+        workerReturnStatuses.clear();
 
-        parseGatherPositionObservationsFile(optimalGatherPositionsFilename(), resourceToOptimalGatherPositions);
+        parsePositionObservationsFile(optimalGatherPositionsFilename(), resourceToOptimalGatherPositions);
         parse10DistancePositionsFile(tenDistancePositionsFilename(), resourceTo10DistancePositions);
+
+        parsePositionObservationsFile(optimalReturnPositionsFilename(), resourceToOptimalReturnPositions);
     }
 
     void flushObservations()
     {
         flushGatherObservations(workerGatherStatuses);
-
-        // TODO: Add return when ready
+        flushReturnObservations(workerReturnStatuses);
     }
 
     void write()
     {
-        writeGatherPositionObservationsFile(optimalGatherPositionsFilename(true), resourceToOptimalGatherPositions);
+        writePositionObservationsFile(optimalGatherPositionsFilename(true), resourceToOptimalGatherPositions);
         write10DistancePositionsFile(tenDistancePositionsFilename(true), resourceTo10DistancePositions);
+
+        writePositionObservationsFile(optimalReturnPositionsFilename(true), resourceToOptimalReturnPositions);
 
 #if OUTPUT_METADATA_ANALYSIS
         int total = 0;
@@ -281,18 +299,30 @@ namespace WorkerMiningOptimization
 #endif
     }
 
-    // Optimizes returning a resource
-    void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
-    {
-        // TODO
-    }
-
     WorkerGatherStatus &gatherStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
         auto workerStatusIt = workerGatherStatuses.find(worker);
         if (workerStatusIt == workerGatherStatuses.end())
         {
             workerStatusIt = workerGatherStatuses.emplace(worker, WorkerGatherStatus{worker, depot, resource}).first;
+        }
+        else if (workerStatusIt->second.lastProcessedFrame != (currentFrame - 1)
+                 || workerStatusIt->second.depot != depot
+                 || workerStatusIt->second.resource != resource)
+        {
+            workerStatusIt->second.reset();
+            workerStatusIt->second.depot = depot;
+            workerStatusIt->second.resource = resource;
+        }
+        return workerStatusIt->second;
+    }
+
+    WorkerReturnStatus &returnStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
+    {
+        auto workerStatusIt = workerReturnStatuses.find(worker);
+        if (workerStatusIt == workerReturnStatuses.end())
+        {
+            workerStatusIt = workerReturnStatuses.emplace(worker, WorkerReturnStatus{worker, depot, resource}).first;
         }
         else if (workerStatusIt->second.lastProcessedFrame != (currentFrame - 1)
                  || workerStatusIt->second.depot != depot

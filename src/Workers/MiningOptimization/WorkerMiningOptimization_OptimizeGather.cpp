@@ -460,7 +460,6 @@ namespace WorkerMiningOptimization
         }
     }
 
-    // Optimizes the start of mining, returning whether an order was sent to the worker.
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
         // Don't touch the worker if it is transitioning to mine

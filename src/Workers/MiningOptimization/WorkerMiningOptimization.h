@@ -5,6 +5,8 @@
 #include "Resource.h"
 #include "GatherPositionObservations.h"
 #include "WorkerGatherStatus.h"
+#include "ReturnPositionObservations.h"
+#include "WorkerReturnStatus.h"
 
 // In our data files we track the full paths between depot and patch, but we only explore positions within the bounds defined here
 #define EXPLORE_BEFORE 12
@@ -44,6 +46,10 @@ namespace WorkerMiningOptimization
 
     // Optimizes returning a resource
     void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
+
+    void flushReturnObservations(std::map<MyWorker, WorkerReturnStatus> &workerReturnStatuses);
+
+    WorkerReturnStatus &returnStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
 
     bool isExploring();
 
