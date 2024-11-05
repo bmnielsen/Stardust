@@ -7,9 +7,8 @@ namespace WorkerMiningOptimization
 {
     void ReturnPositionObservations::outputDataFileHeaderRow(std::ofstream &file)
     {
-        file << "x;y;path hash;position;no resend next position(s);no resend arrival(s);no resend collisions;no resend non-collisions;"
-             << "no resend lost speed;no resend kept speed;resend next position(s);resend arrival(s);resend collisions;resend non-collisions;"
-             << "resend lost speed;resend kept speed";
+        file << "x;y;path hash;position;no resend next position(s);no resend arrival(s);no resend collisions;no resend stopped;"
+             << "no resend kept speed;resend arrival(s);resend collisions;resend stopped;resend kept speed";
     }
 
     void ReturnPositionObservations::outputToDataFile(std::ofstream &file, const Resource &resource) const
@@ -35,19 +34,17 @@ namespace WorkerMiningOptimization
         auto outputArrivalObservations = [&](const ReturnArrivalObservations &observations)
         {
             file << ";";
-            outputNext(observations.nextPositionAndOccurrences);
-            file << ";";
             outputOccurrenceMap(observations.arrivalDelayAndOccurrences);
-            file << ";" << observations.collisions
-                 << ";" << observations.nonCollisions
-                 << ";" << observations.lostSpeed
-                 << ";" << observations.maintainedSpeed;
+            file << ";" << observations.collision
+                 << ";" << observations.stopped
+                 << ";" << observations.keptSpeed;
         };
 
         file << resource->tile.x << ";"
              << resource->tile.y << ";"
              << pathHash << ";"
-             << pos;
+             << pos << ";";
+        outputNext(nextPositionAndOccurrences);
         outputArrivalObservations(noResendArrivalObservations);
         outputArrivalObservations(resendArrivalObservations);
 
@@ -95,24 +92,20 @@ namespace WorkerMiningOptimization
         };
 
         auto parseArrivalObservations = [&](
-                const std::string &nextPositions,
                 const std::string &arrivalDelayOccurrences,
-                const std::string &collisions,
-                const std::string &nonCollisions,
-                const std::string &lostSpeed,
-                const std::string &maintainedSpeed)
+                const std::string &collision,
+                const std::string &stopped,
+                const std::string &keptSpeed)
         {
             return ReturnArrivalObservations{
-                    parseNextPositions(nextPositions),
                     parseOccurrencesMap(arrivalDelayOccurrences),
-                    std::stoi(collisions),
-                    std::stoi(nonCollisions),
-                    std::stoi(lostSpeed),
-                    std::stoi(maintainedSpeed)
+                    std::stoi(collision),
+                    std::stoi(stopped),
+                    std::stoi(keptSpeed)
             };
         };
 
-        if (line.size() < 15) return true;
+        if (line.size() < 12) return true;
 
         BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
         auto resource = Units::resourceAt(tile);
@@ -130,8 +123,9 @@ namespace WorkerMiningOptimization
         resourceMap.emplace(pos, ReturnPositionObservations{
                 (uint32_t)std::stoul(line[2]),
                 pos,
-                parseArrivalObservations(line[4], line[5], line[6], line[7], line[8], line[9]),
-                parseArrivalObservations(line[10], line[11], line[12], line[13], line[14], (line.size() > 15) ? line[15] : "")
+                parseNextPositions(line[4]),
+                parseArrivalObservations(line[5], line[6], line[7], line[8]),
+                parseArrivalObservations(line[9], line[10], line[11], (line.size() > 13) ? line[13] : "")
         });
 
         return false;

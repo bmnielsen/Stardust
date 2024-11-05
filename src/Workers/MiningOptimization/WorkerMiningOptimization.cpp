@@ -348,6 +348,11 @@ namespace WorkerMiningOptimization
         return resourceToOptimalGatherPositions[resource];
     }
 
+    std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &optimalReturnPositionsFor(const Resource &resource)
+    {
+        return resourceToOptimalReturnPositions[resource];
+    }
+
     std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource)
     {
         return resourceTo10DistancePositions[resource];

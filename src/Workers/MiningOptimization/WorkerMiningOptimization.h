@@ -51,6 +51,8 @@ namespace WorkerMiningOptimization
 
     WorkerReturnStatus &returnStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
 
+    std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &optimalReturnPositionsFor(const Resource &resource);
+
     bool isExploring();
 
     void setExploring(bool exploring);

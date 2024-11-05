@@ -9,15 +9,10 @@ namespace WorkerMiningOptimization
 {
     struct ReturnArrivalObservations
     {
-        // All next positions seen from this position, with their count of observations
-        // May be empty for the last position we consider in a path
-        std::unordered_map<PositionAndVelocity, int> nextPositionAndOccurrences;
-
         std::unordered_map<int, int> arrivalDelayAndOccurrences;
-        int collisions = 0;
-        int nonCollisions = 0;
-        int lostSpeed = 0;
-        int maintainedSpeed = 0;
+        int collision = 0;
+        int stopped = 0;
+        int keptSpeed = 0;
 
         void add(int arrivalDelay)
         {
@@ -41,6 +36,10 @@ namespace WorkerMiningOptimization
         // The position
         PositionAndVelocity pos;
 
+        // All next positions seen from this position, with their count of observations
+        // May be empty for the last position we consider in a path
+        std::unordered_map<PositionAndVelocity, int> nextPositionAndOccurrences;
+
         // Observations for when no resend was sent here
         ReturnArrivalObservations noResendArrivalObservations;
 
@@ -52,13 +51,21 @@ namespace WorkerMiningOptimization
                 , pos(pos)
         {}
 
+        ReturnPositionObservations(uint32_t pathHash, PositionAndVelocity pos, int arrival)
+                : pathHash(pathHash)
+                , pos(pos)
+                , noResendArrivalObservations(ReturnArrivalObservations{{{arrival, 1}}})
+        {}
+
         ReturnPositionObservations(
                 uint32_t pathHash,
                 PositionAndVelocity pos,
+                std::unordered_map<PositionAndVelocity, int> &&nextPositionAndOccurrences,
                 ReturnArrivalObservations &&noResendArrivalObservations,
                 ReturnArrivalObservations &&resendArrivalObservations)
                 : pathHash(pathHash)
                 , pos(pos)
+                , nextPositionAndOccurrences(nextPositionAndOccurrences)
                 , noResendArrivalObservations(std::move(noResendArrivalObservations))
                 , resendArrivalObservations(std::move(resendArrivalObservations))
         {}
