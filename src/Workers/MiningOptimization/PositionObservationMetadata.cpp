@@ -124,6 +124,23 @@ namespace WorkerMiningOptimization
         return best;
     }
 
+    int PositionObservationMetadata::largestDeltaToNormalPathOptimalPosition() const
+    {
+        if (deltaToNormalPathOptimalPosition.empty()) return 100;
+        if (deltaToNormalPathOptimalPosition.size() == 1) return deltaToNormalPathOptimalPosition.begin()->first;
+
+        int best = -1000;
+        for (const auto &[delta, occurrences] : deltaToNormalPathOptimalPosition)
+        {
+            if (delta > best)
+            {
+                best = delta;
+            }
+        }
+
+        return best;
+    }
+
     bool PositionObservationMetadata::addObservation(SecondResendPositionObservationMetadata* secondResendPositionData, int arrivalDelta)
     {
         auto &observations = secondResendPositionData ? secondResendPositionData->observations : noSecondResendObservations;

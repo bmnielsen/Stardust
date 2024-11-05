@@ -109,6 +109,8 @@ namespace WorkerMiningOptimization
 
         [[nodiscard]] int probableDeltaToNormalPathOptimalPosition() const;
 
+        [[nodiscard]] int largestDeltaToNormalPathOptimalPosition() const;
+
         bool addObservation(SecondResendPositionObservationMetadata* secondResendPositionData, int arrivalDelta);
 
         [[nodiscard]] std::vector<const SecondResendPositionObservationMetadata*> expectedPathAfterResend() const;
