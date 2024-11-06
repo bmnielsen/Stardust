@@ -5,6 +5,23 @@
 
 namespace WorkerMiningOptimization
 {
+    int ReturnArrivalObservations::largestArrivalDelay() const
+    {
+        if (arrivalDelayAndOccurrences.empty()) return 100;
+        if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
+
+        int best = -1000;
+        for (const auto &[delta, occurrences] : arrivalDelayAndOccurrences)
+        {
+            if (delta > best)
+            {
+                best = delta;
+            }
+        }
+
+        return best;
+    }
+
     double ReturnArrivalObservations::expectedDeliveryDelay(int commandFrame) const
     {
         if (arrivalDelayAndOccurrences.empty()) return 100.0;

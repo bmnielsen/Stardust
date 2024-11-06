@@ -26,6 +26,8 @@ namespace WorkerMiningOptimization
             return arrivalDelayAndOccurrences.empty();
         }
 
+        [[nodiscard]] int largestArrivalDelay() const;
+
         [[nodiscard]] double expectedDeliveryDelay(int commandFrame) const;
     };
 

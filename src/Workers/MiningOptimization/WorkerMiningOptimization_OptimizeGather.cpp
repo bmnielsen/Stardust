@@ -520,13 +520,16 @@ namespace WorkerMiningOptimization
         // Handle case where another worker is assigned to the patch
         if (handleTakeover(workerStatus, currentPosition, resourceBwapiUnit)) return;
 
-        // Plan or validate resends
         auto &optimalPositions = optimalGatherPositionsFor(resource);
+
+        // Validate planned resends; may clear resend if a path change has occurred
         if (workerStatus.resendsPlanned)
         {
             validatePlannedGatherPathSingle(workerStatus, resourceBwapiUnit, optimalPositions, currentPosition);
         }
-        else
+
+        // Plan potential resends
+        if (!workerStatus.resendsPlanned)
         {
             planGatherResendsSingle(workerStatus, optimalPositions, currentPosition);
         }
