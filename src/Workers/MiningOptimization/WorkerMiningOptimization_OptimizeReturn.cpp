@@ -9,14 +9,18 @@ namespace WorkerMiningOptimization
 {
     double expectedCollisionAndStoppageDelay(const ReturnArrivalObservations &observations)
     {
-        int total = observations.collision + observations.stopped + observations.keptSpeed;
-        if (total == 0) return 0.0;
+        return 0.0;
 
-        // If we are exploring and don't have enough data yet, set it to 0
-        if (WorkerMiningOptimization::isExploring() && total < 5) return 0.0;
+        // TODO
 
-        // Collisions add 14+5=19 frames of delay and stoppages add 5
-        return (double)(19 * observations.collision + 5 * observations.stopped) / (double)total;
+//        int total = observations.collision + observations.stopped + observations.keptSpeed;
+//        if (total == 0) return 0.0;
+//
+//        // If we are exploring and don't have enough data yet, set it to 0
+//        if (WorkerMiningOptimization::isExploring() && total < 5) return 0.0;
+//
+//        // Collisions add 14+5=19 frames of delay and stoppages add 5
+//        return (double)(19 * observations.collision + 5 * observations.stopped) / (double)total;
     }
 
     struct PositionEvaluation
@@ -117,7 +121,7 @@ namespace WorkerMiningOptimization
 
 #if OPTIMALPOSITIONS_DEBUG
             std::ostringstream out;
-            out << std::fixed << std::setprecision(1) << "Planned gather command(s): ";
+            out << std::fixed << std::setprecision(1) << "Planned return command: ";
             if (workerStatus.plannedResendPosition)
             {
                 out << *workerStatus.plannedResendPosition;

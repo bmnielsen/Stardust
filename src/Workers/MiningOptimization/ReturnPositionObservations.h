@@ -10,8 +10,10 @@ namespace WorkerMiningOptimization
     struct ReturnArrivalObservations
     {
         std::unordered_map<int, int> arrivalDelayAndOccurrences;
-        int collision = 0;
-        int stopped = 0;
+        int collisions = 0;
+        int noncollisions = 0;
+
+        int lostSpeed = 0;
         int keptSpeed = 0;
 
         void add(int arrivalDelay)

@@ -78,6 +78,7 @@ namespace WorkerMiningOptimization
         {
             MyWorker worker;
             Resource resource;
+            bool deliveredOnArrivalFrame;
             std::vector<std::shared_ptr<const PositionAndVelocity>> positionHistory;
             std::shared_ptr<const PositionAndVelocity> resentPosition;
         };
@@ -86,7 +87,9 @@ namespace WorkerMiningOptimization
 
 #if OPTIMALRETURN_DEBUG
         int collisions = 0;
-        int stoppeds = 0;
+        int noncollisions = 0;
+
+        int lostSpeeds = 0;
         int keptSpeeds = 0;
 #endif
 
@@ -98,9 +101,19 @@ namespace WorkerMiningOptimization
             bool collision = (currentFrame - worker->frameLastMoved) > 2;
 
             // The worker kept speed if it is already moving at close to full speed
-            auto speed = sqrt(worker->bwapiUnit->getVelocityX() * worker->bwapiUnit->getVelocityX()
-                              + worker->bwapiUnit->getVelocityY() * worker->bwapiUnit->getVelocityY());
-            bool keptSpeed = (speed > (0.95 * worker->type.topSpeed()));
+            bool hasCachedKeptSpeed = false;
+            bool cachedKeptSpeed = false;
+            auto keptSpeed = [&]()
+            {
+                if (!hasCachedKeptSpeed)
+                {
+                    auto speed = sqrt(worker->bwapiUnit->getVelocityX() * worker->bwapiUnit->getVelocityX()
+                                      + worker->bwapiUnit->getVelocityY() * worker->bwapiUnit->getVelocityY());
+                    cachedKeptSpeed = (speed > (0.95 * worker->type.topSpeed()));
+                    hasCachedKeptSpeed = true;
+                }
+                return cachedKeptSpeed;
+            };
 
 #if OPTIMALRETURN_DEBUG
             if (collision)
@@ -108,16 +121,48 @@ namespace WorkerMiningOptimization
                 CherryVis::log(worker->id) << "Collision with depot";
                 collisions++;
             }
-            else if (keptSpeed)
-            {
-                CherryVis::log(worker->id) << "Kept speed";
-                keptSpeeds++;
-            }
             else
             {
-                stoppeds++;
+                noncollisions++;
+            }
+
+            if (justReturnedWorker.deliveredOnArrivalFrame)
+            {
+                if (keptSpeed())
+                {
+                    CherryVis::log(worker->id) << "Kept speed";
+                    keptSpeeds++;
+                }
+                else
+                {
+                    lostSpeeds++;
+                }
             }
 #endif
+
+            auto addObservations = [&](ReturnArrivalObservations observations)
+            {
+                if (collision)
+                {
+                    observations.collisions++;
+                }
+                else
+                {
+                    observations.noncollisions++;
+                }
+
+                if (justReturnedWorker.deliveredOnArrivalFrame)
+                {
+                    if (keptSpeed())
+                    {
+                        observations.keptSpeed++;
+                    }
+                    else
+                    {
+                        observations.lostSpeed++;
+                    }
+                }
+            };
 
             // Update the stats on the appropriate position metadata
             auto &optimalReturnPositions = optimalReturnPositionsFor(justReturnedWorker.resource);
@@ -130,18 +175,7 @@ namespace WorkerMiningOptimization
                     auto metadataIt = optimalReturnPositions.find(*position);
                     if (metadataIt != optimalReturnPositions.end())
                     {
-                        if (collision)
-                        {
-                            metadataIt->second.noResendArrivalObservations.collision++;
-                        }
-                        else if (keptSpeed)
-                        {
-                            metadataIt->second.noResendArrivalObservations.keptSpeed++;
-                        }
-                        else
-                        {
-                            metadataIt->second.noResendArrivalObservations.stopped++;
-                        }
+                        addObservations(metadataIt->second.noResendArrivalObservations);
                     }
                 }
                 return;
@@ -157,18 +191,7 @@ namespace WorkerMiningOptimization
                 return;
             }
 
-            if (collision)
-            {
-                resendMetadataIt->second.resendArrivalObservations.collision++;
-            }
-            else if (keptSpeed)
-            {
-                resendMetadataIt->second.resendArrivalObservations.keptSpeed++;
-            }
-            else
-            {
-                resendMetadataIt->second.resendArrivalObservations.stopped++;
-            }
+            addObservations(resendMetadataIt->second.resendArrivalObservations);
         }
 
         void updateNextPositions(WorkerReturnStatus &workerStatus,
@@ -295,20 +318,23 @@ namespace WorkerMiningOptimization
         if (currentFrame == 0)
         {
             collisions = 0;
-            stoppeds = 0;
+            noncollisions = 0;
             keptSpeeds = 0;
+            lostSpeeds = 0;
         }
         else if (currentFrame % 1000 == 0)
         {
-            int total = collisions + stoppeds + keptSpeeds;
-            if (total > 0)
+            if ((collisions + noncollisions) > 0)
             {
                 Log::Get() << std::fixed << std::setprecision(1)
-                           << "Return collision rate: " << (100.0 * collisions) / (double)(total)
-                           << "% over " << (total) << " deliveries";
+                           << "Return collision rate: " << (100.0 * collisions) / (double)(collisions + noncollisions)
+                           << "% over " << (collisions + noncollisions) << " deliveries";
+            }
+            if ((keptSpeeds + lostSpeeds) > 0)
+            {
                 Log::Get() << std::fixed << std::setprecision(1)
-                           << "Return kept speed rate: " << (100.0 * keptSpeeds) / (double)(total)
-                           << "% over " << (total) << " deliveries";
+                           << "Return kept speed rate: " << (100.0 * keptSpeeds) / (double)(keptSpeeds + lostSpeeds)
+                           << "% over " << (keptSpeeds + lostSpeeds) << " deliveries on arrival frame";
             }
         }
 #endif
@@ -371,6 +397,7 @@ namespace WorkerMiningOptimization
             justReturnedWorkers.emplace_back(JustReturnedWorker{
                     std::move(it->second.worker),
                     std::move(it->second.resource),
+                    positionsInHistory.arrivalPositionIt == (it->second.positionHistory.end() - 1),
                     std::move(it->second.positionHistory),
                     std::move(it->second.resentPosition)});
 
