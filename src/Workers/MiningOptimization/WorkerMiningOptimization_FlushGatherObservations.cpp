@@ -615,7 +615,7 @@ namespace WorkerMiningOptimization
             if ((collisions + noncollisions) > 0)
             {
                 Log::Get() << std::fixed << std::setprecision(1)
-                           << "Collision rate: " << (100.0 * collisions) / (double)(collisions + noncollisions)
+                           << "Gather collision rate: " << (100.0 * collisions) / (double)(collisions + noncollisions)
                            << "% over " << (collisions + noncollisions) << " collections";
             }
         }

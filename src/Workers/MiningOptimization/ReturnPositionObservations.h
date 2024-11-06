@@ -23,6 +23,8 @@ namespace WorkerMiningOptimization
         {
             return arrivalDelayAndOccurrences.empty();
         }
+
+        [[nodiscard]] double expectedDeliveryDelay(int commandFrame) const;
     };
 
     // This is the structure we use to track observed positions and our track record using them

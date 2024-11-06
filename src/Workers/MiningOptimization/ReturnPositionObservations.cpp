@@ -5,10 +5,18 @@
 
 namespace WorkerMiningOptimization
 {
+    double ReturnArrivalObservations::expectedDeliveryDelay(int commandFrame) const
+    {
+        if (arrivalDelayAndOccurrences.empty()) return 100.0;
+
+        // TODO
+        return 0;
+    }
+
     void ReturnPositionObservations::outputDataFileHeaderRow(std::ofstream &file)
     {
         file << "x;y;path hash;position;no resend next position(s);no resend arrival(s);no resend collisions;no resend stopped;"
-             << "no resend kept speed;resend arrival(s);resend collisions;resend stopped;resend kept speed";
+             << "no resend kept speed;resend arrival(s);resend collisions;resend stopped;resend kept speed\n";
     }
 
     void ReturnPositionObservations::outputToDataFile(std::ofstream &file, const Resource &resource) const
