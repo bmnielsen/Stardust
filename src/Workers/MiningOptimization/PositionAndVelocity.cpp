@@ -4,24 +4,45 @@
 
 #include "CsvTools.h"
 
-namespace
+bool PositionAndVelocity::speedExceeds(double fractionOfTopSpeed) const
 {
-    const std::regex parser(R"(\(x=([0-9]+) y=([0-9]+) dx=([\-0-9]+) dy=([\-0-9]+) h=([0-9]+) p=([0-9a-f]+)\))");
+    double velocityX = ((double)dx) / 1000.0;
+    double velocityY = ((double)dy) / 1000.0;
+    return (sqrt(velocityX * velocityX + velocityY * velocityY) > (fractionOfTopSpeed * BWAPI::UnitTypes::Protoss_Probe.topSpeed()));
 }
 
 bool PositionAndVelocity::tryParse(const std::string &str, PositionAndVelocity &out)
 {
-    std::smatch matches;
-    if (!std::regex_search(str, matches, parser) || matches.size() != 7) return false;
+    std::stringstream stream(str);
+    std::string item;
 
-    out.x = std::stoi(matches[1].str());
-    out.y = std::stoi(matches[2].str());
-    out.dx = std::stoi(matches[3].str());
-    out.dy = std::stoi(matches[4].str());
-    out.heading = std::stoi(matches[5].str());
-    out.previousPositionsHash = (uint32_t)std::stoul(matches[6].str(), nullptr, 16);
+    int i = 0;
+    for (; i < 6 && std::getline(stream, item, ' '); i++)
+    {
+        switch (i)
+        {
+            case 0:
+                out.x = std::stoi(item.substr(3));
+                break;
+            case 1:
+                out.y = std::stoi(item.substr(2));
+                break;
+            case 2:
+                out.dx = std::stoi(item.substr(3));
+                break;
+            case 3:
+                out.dy = std::stoi(item.substr(3));
+                break;
+            case 4:
+                out.heading = std::stoi(item.substr(2));
+                break;
+            case 5:
+                out.previousPositionsHash = (uint32_t)std::stoul(item.substr(2, item.size() - 3), nullptr, 16);
+                break;
+        }
+    }
 
-    return true;
+    return i == 6;
 }
 
 std::ostream &operator<<(std::ostream &os, const PositionAndVelocity &positionAndVelocity)

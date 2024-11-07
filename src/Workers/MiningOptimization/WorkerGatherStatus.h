@@ -26,6 +26,9 @@ namespace WorkerMiningOptimization
         // The positions this worker has visited while on its way to the patch
         std::vector<std::shared_ptr<const PositionAndVelocity>> positionHistory;
 
+        // Whether the path started at the patch
+        bool pathStartsAtDepot;
+
         // Whether we have planned the resends we want to send on this path
         bool resendsPlanned;
 
@@ -64,6 +67,7 @@ namespace WorkerMiningOptimization
                 , depot(std::move(depot))
                 , resource(std::move(resource))
                 , lastProcessedFrame(-2)
+                , pathStartsAtDepot(false)
                 , resendsPlanned(false)
                 , resendCommandOnFrame(-2)
                 , takeoverState(0)
@@ -76,6 +80,7 @@ namespace WorkerMiningOptimization
         {
             lastProcessedFrame = -2;
             positionHistory.clear();
+            pathStartsAtDepot = false;
             resendsPlanned = false;
             plannedResendPosition = nullptr;
             plannedSecondResendPosition = nullptr;
@@ -94,25 +99,27 @@ namespace WorkerMiningOptimization
             return resendCommandOnFrame != -2;
         }
 
-        [[nodiscard]] bool pathStartsAtDepot() const
-        {
-            if (positionHistory.empty()) return false;
-            if (positionHistory.size() > 60) return false; // usually means distance mining
-
-            return Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe, (*positionHistory.begin())->pos(), depot->type, depot->lastPosition) == 0;
-        }
-
         std::shared_ptr<PositionAndVelocity> appendCurrentPosition()
         {
-            // If the path starts at the depot, include hashes of the previous positions
-            // This helps us detect when the worker takes a slightly different path
-            // We can't use it when the path starts elsewhere though, as the worker could have been anywhere and we will not get enough data
-            auto currentPosition = std::make_shared<PositionAndVelocity>(
-                    worker,
-                    (!positionHistory.empty() && pathStartsAtDepot()) ? positionHistory.rbegin()->get() : nullptr);
-            positionHistory.emplace_back(currentPosition);
             lastProcessedFrame = currentFrame;
 
+            std::shared_ptr<PositionAndVelocity> currentPosition;
+            if (positionHistory.empty())
+            {
+                // For the first position, compute whether the path started at the depot
+                pathStartsAtDepot = ((depot->getDistance(worker) == 0) && (resource->getDistance(depot) < 256));
+                currentPosition = std::make_shared<PositionAndVelocity>(worker, nullptr);
+            }
+            else
+            {
+                // For subsequent positions, include hashes of the previous positions if the path started at the depot
+                // This helps us detect when the worker reaches the same position via a different path, indicating different subpixel positioning
+                currentPosition = std::make_shared<PositionAndVelocity>(
+                        worker,
+                        pathStartsAtDepot ? positionHistory.rbegin()->get() : nullptr);
+            }
+
+            positionHistory.emplace_back(currentPosition);
             return currentPosition;
         }
 

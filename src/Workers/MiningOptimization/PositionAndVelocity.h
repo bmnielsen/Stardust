@@ -100,6 +100,8 @@ public:
         return hash;
     }
 
+    [[nodiscard]] bool speedExceeds(double fractionOfTopSpeed) const;
+
     static bool tryParse(const std::string &str, PositionAndVelocity &out);
 
 private:

@@ -72,21 +72,22 @@ namespace WorkerMiningOptimization
         {
             lastProcessedFrame = currentFrame;
 
-            // First append sets whether the path starts at the patch
+            std::shared_ptr<PositionAndVelocity> currentPosition;
             if (positionHistory.empty())
             {
-                pathStartsAtPatch = (resource->getDistance(worker) == 0);
-
-                auto currentPosition = std::make_shared<PositionAndVelocity>(worker, nullptr);
-                positionHistory.emplace_back(currentPosition);
-                return currentPosition;
+                // For the first position, compute whether the path started at the patch
+                pathStartsAtPatch = ((resource->getDistance(worker) == 0) && (resource->getDistance(depot) < 256));
+                currentPosition = std::make_shared<PositionAndVelocity>(worker, nullptr);
+            }
+            else
+            {
+                // For subsequent positions, include hashes of the previous positions if the path started at the patch
+                // This helps us detect when the worker reaches the same position via a different path, indicating different subpixel positioning
+                currentPosition = std::make_shared<PositionAndVelocity>(
+                        worker,
+                        pathStartsAtPatch ? positionHistory.rbegin()->get() : nullptr);
             }
 
-            // If the path starts at the patch, include hashes of the previous positions
-            // This helps us detect when the worker reaches the same position via a different path, indicating different subpixel positioning
-            auto currentPosition = std::make_shared<PositionAndVelocity>(
-                    worker,
-                    pathStartsAtPatch ? positionHistory.rbegin()->get() : nullptr);
             positionHistory.emplace_back(currentPosition);
             return currentPosition;
         }

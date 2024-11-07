@@ -18,6 +18,7 @@ namespace WorkerMiningOptimization
     {
         struct PositionsInHistory
         {
+            std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator firstMovedPositionIt;
             std::vector<std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator> resendPositionIts;
             std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator arrivalPositionIt;
             std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator tenDistancePositionIt;
@@ -27,11 +28,15 @@ namespace WorkerMiningOptimization
 
         bool extractPositionsInHistory(WorkerGatherStatus &workerStatus, PositionsInHistory &positionsInHistory)
         {
+            positionsInHistory.firstMovedPositionIt = workerStatus.positionHistory.end();
             positionsInHistory.resendPositionIts.clear();
             positionsInHistory.arrivalPositionIt = workerStatus.positionHistory.end();
             positionsInHistory.tenDistancePositionIt = workerStatus.positionHistory.end();
 
             positionsInHistory.resendsBeforeArrival.clear();
+
+            // Don't process histories over 60 positions, as this indicates either distance mining or some kind of weird pathing error
+            if (workerStatus.positionHistory.size() > 60) return false;
 
             auto nextResendPositionIt = workerStatus.resentPositions.begin();
             for (auto it = workerStatus.positionHistory.begin(); it != workerStatus.positionHistory.end(); it++)
@@ -58,6 +63,26 @@ namespace WorkerMiningOptimization
                 {
                     positionsInHistory.tenDistancePositionIt = it - BWAPI::Broodwar->getLatencyFrames() - 1;
                 }
+
+                if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end())
+                {
+                    // For detecting the first moved position on the path, we both consider distance and speed, since on some paths the worker
+                    // might move parallel to the depot initially
+                    auto distDepot = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                        (*it)->pos(),
+                                                        workerStatus.depot->type,
+                                                        workerStatus.depot->lastPosition);
+                    if (distDepot > 0 || (*it)->speedExceeds(0.4))
+                    {
+                        positionsInHistory.firstMovedPositionIt = it;
+#if OPTIMALPOSITIONS_DEBUG
+                        CherryVis::log(workerStatus.worker->id)
+                                << "First move position at delta " << std::distance(workerStatus.positionHistory.begin(), it)
+                                << " from first position"
+                                << "; dist=" << dist;
+#endif
+                    }
+                }
             }
 
             // Clear the ten distance position iterator if it is invalid
@@ -67,7 +92,25 @@ namespace WorkerMiningOptimization
                 positionsInHistory.tenDistancePositionIt = workerStatus.positionHistory.end();
             }
 
-            // Return false if any of the resend positions or the arrival position couldn't be found
+            if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end())
+            {
+#if OPTIMALPOSITIONS_DEBUG
+                Log::Get() << "ERROR: Couldn't find first gather move position in history"
+                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+#endif
+                return false;
+            }
+            if (!positionsInHistory.resendPositionIts.empty() &&
+                std::distance(positionsInHistory.firstMovedPositionIt, positionsInHistory.resendPositionIts[0]) < 0)
+            {
+#if OPTIMALRETURN_DEBUG
+                Log::Get() << "ERROR: Gather resend position before first moved position"
+                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+#endif
+                return false;
+            }
+
+            // Return false if any of the resend positions couldn't be found
             if (workerStatus.resentPositions.size() != positionsInHistory.resendPositionIts.size())
             {
                 Log::Get() << "ERROR: Not all resent positions found in position history"
@@ -202,7 +245,7 @@ namespace WorkerMiningOptimization
         void updateNextPositions(WorkerGatherStatus &workerStatus,
                                  PositionsInHistory &positionsInHistory)
         {
-            if (!workerStatus.pathStartsAtDepot()) return;
+            if (!workerStatus.pathStartsAtDepot) return;
 
             auto &optimalGatherPositions = optimalGatherPositionsFor(workerStatus.resource);
 
@@ -222,7 +265,7 @@ namespace WorkerMiningOptimization
             {
                 limit = ensureBeforeArrival(positionsInHistory.resendPositionIts[0] + BWAPI::Broodwar->getLatencyFrames() + 1);
             }
-            for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != limit; positionIt++)
+            for (auto positionIt = positionsInHistory.firstMovedPositionIt; positionIt != limit; positionIt++)
             {
                 auto metadataIt = optimalGatherPositions.find(**positionIt);
                 if (metadataIt == optimalGatherPositions.end())
@@ -233,7 +276,7 @@ namespace WorkerMiningOptimization
                     metadataIt = optimalGatherPositions.emplace(
                             **positionIt,
                             GatherPositionObservations(
-                                    workerStatus.pathStartsAtDepot() ? UINT32_MAX : 0,
+                                    workerStatus.pathStartsAtDepot ? (*positionsInHistory.firstMovedPositionIt)->previousPositionsHash : 0,
                                     **positionIt)
                     ).first;
                 }
@@ -328,20 +371,11 @@ namespace WorkerMiningOptimization
             // If we sent no command, record the path for exploration
             if (positionsInHistory.resendsBeforeArrival.empty())
             {
-                // Get the "path hash", which is the hash of the first position in the explored path
-                uint32_t pathHash = 0;
-                for (auto positionIt = optimalPositionIt;; --positionIt)
-                {
-                    int delta = (int)std::distance(optimalPositionIt, positionIt);
-                    if (delta < -EXPLORE_BEFORE) break;
-
-                    pathHash = (*positionIt)->previousPositionsHash;
-
-                    if (positionIt == workerStatus.positionHistory.begin()) break;
-                }
+                // Get the "path hash", which is the hash of the first position the worker moved in the stored path
+                uint32_t pathHash = (*positionsInHistory.firstMovedPositionIt)->previousPositionsHash;
 
                 // Update the metadata for the positions in the path
-                for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
+                for (auto positionIt = positionsInHistory.firstMovedPositionIt; positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
                 {
                     int delta = (int)std::distance(optimalPositionIt, positionIt);
 
@@ -355,23 +389,17 @@ namespace WorkerMiningOptimization
                             CherryVis::log(worker->id) << "New delta of " << delta << " came up for " << existingIt->second;
                         }
 #endif
-
-                        if (existingIt->second.deltaToBenchmarkAndOccurrences.empty() && delta >= -EXPLORE_BEFORE)
-                        {
-                            existingIt->second.pathHash = pathHash;
-                        }
-
                         existingIt->second.deltaToBenchmarkAndOccurrences[delta]++;
                         continue;
                     }
 
                     // Create a position here for exploring
-                    if (!workerStatus.pathStartsAtDepot() && delta != 0) continue;
+                    if (!workerStatus.pathStartsAtDepot && delta != 0) continue;
 
                     optimalGatherPositions.emplace(
                             **positionIt,
                             GatherPositionObservations(
-                                    (delta < -EXPLORE_BEFORE) ? UINT32_MAX : pathHash,
+                                    workerStatus.pathStartsAtDepot ? pathHash : 0,
                                     **positionIt,
                                     delta)
                     );
@@ -392,7 +420,7 @@ namespace WorkerMiningOptimization
                 resentPositionDataIt = optimalGatherPositions.emplace(
                         *positionsInHistory.resendsBeforeArrival[0],
                         GatherPositionObservations(
-                                workerStatus.pathStartsAtDepot() ? UINT32_MAX : 0,
+                                workerStatus.pathStartsAtDepot ? UINT32_MAX : 0,
                                 *positionsInHistory.resendsBeforeArrival[0])
                 ).first;
             }
@@ -507,7 +535,7 @@ namespace WorkerMiningOptimization
             }
 #else
             // Track the observation
-            resentPositionData.addObservation(secondResendData, (int)std::distance(lastResendPositionIt, optimalPositionIt));
+            resentPositionData.addArrivalObservation(secondResendData, (int)std::distance(lastResendPositionIt, optimalPositionIt));
 #endif
 
             // Consider exploration of second resend positions
@@ -523,7 +551,7 @@ namespace WorkerMiningOptimization
             if (probableDeltaToBenchmark < -EXPLORE_BEFORE) return;
             if (probableDeltaToBenchmark > EXPLORE_AFTER) return;
 
-            if (!workerStatus.pathStartsAtDepot()) return;
+            if (!workerStatus.pathStartsAtDepot) return;
 
             // Check if the path after the resend is the same as the path without a resend
             // If so, we don't bother tracking second resends on this, as they will be the same as the normal path

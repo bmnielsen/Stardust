@@ -232,69 +232,99 @@ namespace WorkerMiningOptimization
         writePositionObservationsFile(optimalReturnPositionsFilename(true), resourceToOptimalReturnPositions);
 
 #if OUTPUT_METADATA_ANALYSIS
-        int total = 0;
-        int unstablePath = 0;
-        int unstablePathAtExploreHorizon = 0;
-        int neverUsed = 0;
-        auto hasBeenUsed = [](const GatherResendArrivalObservations &observations)
         {
-            if (observations.empty()) return false;
-            if (observations.arrivalDelayAndOccurrences.size() > 1) return true;
-            return observations.arrivalDelayAndOccurrences.begin()->second > 1;
-        };
-        for (const auto &[resource, optimalPositions] : resourceToOptimalGatherPositions)
-        {
-            for (const auto &[_, optimalPosition] : optimalPositions)
+            int total = 0;
+            int unstablePath = 0;
+            int unstablePathAtExploreHorizon = 0;
+            int neverUsed = 0;
+            auto hasBeenUsed = [](const GatherResendArrivalObservations &observations)
             {
-                total++;
-                bool unstable = false;
-
-                std::map<int, const SecondResendGatherPositionObservations *> secondResendPositionsByDelta;
-                bool used = hasBeenUsed(optimalPosition.noSecondResendArrivalObservations);
-                for (const auto &[_, secondResendPosition] : optimalPosition.secondResendObservations)
+                if (observations.empty()) return false;
+                if (observations.arrivalDelayAndOccurrences.size() > 1) return true;
+                return observations.arrivalDelayAndOccurrences.begin()->second > 1;
+            };
+            for (const auto &[resource, optimalPositions] : resourceToOptimalGatherPositions)
+            {
+                for (const auto &[_, optimalPosition] : optimalPositions)
                 {
-                    used = used || hasBeenUsed(secondResendPosition.arrivalObservations);
-                    unstable = unstable || (secondResendPosition.nextPositionAndOccurrences.size() > 1);
-                    if (!unstable)
+                    total++;
+                    bool unstable = false;
+
+                    std::map<int, const SecondResendGatherPositionObservations *> secondResendPositionsByDelta;
+                    bool used = hasBeenUsed(optimalPosition.noSecondResendArrivalObservations);
+                    for (const auto &[_, secondResendPosition] : optimalPosition.secondResendObservations)
                     {
-                        if (secondResendPositionsByDelta.contains(secondResendPosition.deltaToFirstResend))
+                        used = used || hasBeenUsed(secondResendPosition.arrivalObservations);
+                        unstable = unstable || (secondResendPosition.nextPositionAndOccurrences.size() > 1);
+                        if (!unstable)
                         {
-                            unstable = true;
-                        }
-                        else
-                        {
-                            secondResendPositionsByDelta[secondResendPosition.deltaToFirstResend] = &secondResendPosition;
+                            if (secondResendPositionsByDelta.contains(secondResendPosition.deltaToFirstResend))
+                            {
+                                unstable = true;
+                            }
+                            else
+                            {
+                                secondResendPositionsByDelta[secondResendPosition.deltaToFirstResend] = &secondResendPosition;
+                            }
                         }
                     }
-                }
 
-                if (!used) neverUsed++;
+                    if (!used) neverUsed++;
 
-                std::vector<const GatherPositionObservations *> noResendNextPositions = optimalPosition.followingPositionsIfStable(optimalPositions);
-                if (noResendNextPositions.empty() && !optimalPosition.nextPositionAndOccurrences.empty())
-                {
-                    unstable = true;
-                }
+                    std::vector<const GatherPositionObservations *> noResendNextPositions = optimalPosition.followingPositionsIfStable(
+                            optimalPositions);
+                    if (noResendNextPositions.empty() && !optimalPosition.nextPositionAndOccurrences.empty())
+                    {
+                        unstable = true;
+                    }
 
-                if (unstable)
-                {
-                    unstablePath++;
+                    if (unstable)
+                    {
+                        unstablePath++;
+                    }
+                    if (unstable && optimalPosition.probableDeltaToBenchmark() == -EXPLORE_BEFORE)
+                    {
+                        unstablePathAtExploreHorizon++;
+                    }
                 }
-                if (unstable && optimalPosition.probableDeltaToBenchmark() == -EXPLORE_BEFORE)
-                {
-                    unstablePathAtExploreHorizon++;
-                }
+            }
+
+            if (total > 0)
+            {
+                Log::Get() << std::fixed << std::setprecision(1)
+                           << "\nStatistics for " << total << " gather resend positions:"
+                           << "\nNever used:         " << neverUsed << " (" << (100.0 * (double)neverUsed / (double)total) << "%)"
+                           << "\nUnstable path:      " << unstablePath << " (" << (100.0 * (double)unstablePath / (double)total) << "%)"
+                           << "\nUnstable path @-" << EXPLORE_BEFORE << ": "
+                           << unstablePathAtExploreHorizon << " (" << (100.0 * (double)unstablePathAtExploreHorizon / (double)total) << "%)";
             }
         }
 
-        if (total > 0)
         {
-            Log::Get() << std::fixed << std::setprecision(1)
-                       << "\nStatistics for " << total << " resend positions:"
-                       << "\nNever used:         " << neverUsed << " (" << (100.0 * (double)neverUsed / (double)total) << "%)"
-                       << "\nUnstable path:      " << unstablePath << " (" << (100.0 * (double)unstablePath / (double)total) << "%)"
-                       << "\nUnstable path @-" << EXPLORE_BEFORE << ": "
-                       << unstablePathAtExploreHorizon << " (" << (100.0 * (double)unstablePathAtExploreHorizon / (double)total) << "%)";
+            int total = 0;
+            int withSpeedData = 0;
+            for (const auto &[resource, optimalPositions] : resourceToOptimalReturnPositions)
+            {
+                for (const auto &[_, optimalPosition] : optimalPositions)
+                {
+                    total++;
+
+                    if (optimalPosition.noResendArrivalObservations.lostSpeed > 0
+                        || optimalPosition.noResendArrivalObservations.keptSpeed > 0
+                        || optimalPosition.resendArrivalObservations.lostSpeed > 0
+                        || optimalPosition.resendArrivalObservations.keptSpeed > 0)
+                    {
+                        withSpeedData++;
+                    }
+                }
+            }
+
+            if (total > 0)
+            {
+                Log::Get() << std::fixed << std::setprecision(1)
+                           << "\nStatistics for " << total << " return resend positions:"
+                           << "\nHave speed data: " << withSpeedData << " (" << (100.0 * (double)withSpeedData / (double)total) << "%)";
+            }
         }
 #endif
     }

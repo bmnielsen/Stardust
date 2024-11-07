@@ -299,12 +299,6 @@ namespace WorkerMiningOptimization
         if (workerStatus.expectedPath.empty()) return; // have no further resends planned
         if (workerStatus.expectedPath.front() == *currentPosition) return; // path matches expectations
 
-        // We have reached an unexpected position
-#if OPTIMALPOSITIONS_DEBUG
-        Log::Get() << "WARNING: Reached an unexpected position while following a gather path"
-                   << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
-#endif
-
         // If we haven't passed the first resend position yet, then just clear the planned data so we can replan
         auto resentPosition = workerStatus.resentPosition();
         if (!resentPosition)

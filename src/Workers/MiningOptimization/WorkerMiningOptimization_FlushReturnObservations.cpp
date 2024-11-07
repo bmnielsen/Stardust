@@ -7,6 +7,14 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
+        bool workerSpeedExceeds(const MyWorker &worker, double fractionOfTopSpeed)
+        {
+            return (sqrt(
+                    worker->bwapiUnit->getVelocityX() * worker->bwapiUnit->getVelocityX()
+                    + worker->bwapiUnit->getVelocityY() * worker->bwapiUnit->getVelocityY()
+            ) > (fractionOfTopSpeed * BWAPI::UnitTypes::Protoss_Probe.topSpeed()));
+        }
+
         struct PositionsInHistory
         {
             std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator firstMovedPositionIt;
@@ -39,16 +47,30 @@ namespace WorkerMiningOptimization
                     }
                 }
 
-                if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end() &&
-                    **workerStatus.positionHistory.begin() != **positionIt)
+                if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end())
                 {
-                    positionsInHistory.firstMovedPositionIt = positionIt;
+                    // For detecting the first moved position on the path, we both consider distance and speed, since on some paths the worker
+                    // might move parallel to the side of the patch
+                    auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                        (*positionIt)->pos(),
+                                                        BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                        workerStatus.resource->center);
+                    if (dist > 0 || (*positionIt)->speedExceeds(0.4))
+                    {
+                        positionsInHistory.firstMovedPositionIt = positionIt;
+#if OPTIMALRETURN_DEBUG
+                        CherryVis::log(workerStatus.worker->id)
+                                << "First move position at delta " << std::distance(workerStatus.positionHistory.begin(), positionIt)
+                                << " from first position"
+                                << "; dist=" << dist;
+#endif
+                    }
                 }
             }
             if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end())
             {
 #if OPTIMALRETURN_DEBUG
-                Log::Get() << "ERROR: Couldn't find first move position in history"
+                Log::Get() << "ERROR: Couldn't find first return move position in history"
                            << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif
                 return false;
@@ -65,6 +87,14 @@ namespace WorkerMiningOptimization
             {
 #if OPTIMALRETURN_DEBUG
                 Log::Get() << "ERROR: Couldn't find return resend position in history"
+                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+#endif
+                return false;
+            }
+            if (workerStatus.resentPosition && std::distance(positionsInHistory.firstMovedPositionIt, positionsInHistory.resendPositionIt) < 0)
+            {
+#if OPTIMALRETURN_DEBUG
+                Log::Get() << "ERROR: Return resend position before first moved position"
                            << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif
                 return false;
@@ -107,9 +137,7 @@ namespace WorkerMiningOptimization
             {
                 if (!hasCachedKeptSpeed)
                 {
-                    auto speed = sqrt(worker->bwapiUnit->getVelocityX() * worker->bwapiUnit->getVelocityX()
-                                      + worker->bwapiUnit->getVelocityY() * worker->bwapiUnit->getVelocityY());
-                    cachedKeptSpeed = (speed > (0.95 * worker->type.topSpeed()));
+                    cachedKeptSpeed = workerSpeedExceeds(worker, 0.95);
                     hasCachedKeptSpeed = true;
                 }
                 return cachedKeptSpeed;
@@ -140,7 +168,7 @@ namespace WorkerMiningOptimization
             }
 #endif
 
-            auto addObservations = [&](ReturnArrivalObservations observations)
+            auto addObservations = [&](ReturnArrivalObservations &observations)
             {
                 if (collision)
                 {
@@ -167,7 +195,7 @@ namespace WorkerMiningOptimization
             // Update the stats on the appropriate position metadata
             auto &optimalReturnPositions = optimalReturnPositionsFor(justReturnedWorker.resource);
 
-            // If no resend occurred, update all positions
+            // If no resend occurred, update all positions that have metadata
             if (!justReturnedWorker.resentPosition)
             {
                 for (const auto &position : justReturnedWorker.positionHistory)
