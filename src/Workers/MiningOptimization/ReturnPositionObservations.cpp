@@ -2,6 +2,7 @@
 
 #include "CsvTools.h"
 #include "Units.h"
+#include "DebugFlag_WorkerMiningOptimization.h"
 
 namespace WorkerMiningOptimization
 {
@@ -32,9 +33,15 @@ namespace WorkerMiningOptimization
 
     void ReturnPositionObservations::outputDataFileHeaderRow(std::ofstream &file)
     {
+#if DATAFILE_RETURN_DEBUGCOLUMNS
+        file << "x;y;path hash;position;no resend next position(s);no resend arrival(s);no resend collisions;no resend non collisions;"
+             << "no resend lost speed;no resend kept speed;resend arrival(s);resend collisions;resend non collisions;resend lost speed;"
+             << "resend kept speed;arrival delta\n";
+#else
         file << "x;y;path hash;position;no resend next position(s);no resend arrival(s);no resend collisions;no resend non collisions;"
              << "no resend lost speed;no resend kept speed;resend arrival(s);resend collisions;resend non collisions;resend lost speed;"
              << "resend kept speed\n";
+#endif
     }
 
     void ReturnPositionObservations::outputToDataFile(std::ofstream &file, const Resource &resource) const
@@ -74,6 +81,17 @@ namespace WorkerMiningOptimization
         outputNext(nextPositionAndOccurrences);
         outputArrivalObservations(noResendArrivalObservations);
         outputArrivalObservations(resendArrivalObservations);
+
+#if DATAFILE_RETURN_DEBUGCOLUMNS
+        // Output a column with the difference in arrival between sending and non-sending
+        file << ";";
+        if (noResendArrivalObservations.arrivalDelayAndOccurrences.size() == 1 &&
+            resendArrivalObservations.arrivalDelayAndOccurrences.size() == 1)
+        {
+            file << (resendArrivalObservations.arrivalDelayAndOccurrences.begin()->first -
+                     noResendArrivalObservations.arrivalDelayAndOccurrences.begin()->first);
+        }
+#endif
 
         file << "\n";
     }

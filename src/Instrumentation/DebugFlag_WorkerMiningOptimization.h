@@ -4,4 +4,5 @@
 #define TAKEOVER_DEBUG true
 #define OPTIMALPOSITIONS_DEBUG true
 #define OPTIMALRETURN_DEBUG true
+#define DATAFILE_RETURN_DEBUGCOLUMNS true
 #endif
