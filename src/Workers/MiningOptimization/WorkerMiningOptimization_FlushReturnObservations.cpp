@@ -24,10 +24,13 @@ namespace WorkerMiningOptimization
 
         bool extractPositionsInHistory(WorkerReturnStatus &workerStatus, PositionsInHistory &positionsInHistory)
         {
+            if (workerStatus.positionHistory.empty()) return false;
+
             positionsInHistory.firstMovedPositionIt = workerStatus.positionHistory.end();
             positionsInHistory.resendPositionIt = workerStatus.positionHistory.end();
             positionsInHistory.arrivalPositionIt = workerStatus.positionHistory.end();
 
+            auto firstPos = (*workerStatus.positionHistory.begin())->pos();
             for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != workerStatus.positionHistory.end(); positionIt++)
             {
                 if (workerStatus.resentPosition && (*workerStatus.resentPosition) == **positionIt)
@@ -47,22 +50,18 @@ namespace WorkerMiningOptimization
                     }
                 }
 
-                if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end())
+                if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end() &&
+                    (positionIt + 1) != workerStatus.positionHistory.end())
                 {
-                    // For detecting the first moved position on the path, we both consider distance and speed, since on some paths the worker
-                    // might move parallel to the side of the patch
-                    auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                        (*positionIt)->pos(),
-                                                        BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                        workerStatus.resource->center);
-                    if (dist > 0 || (*positionIt)->speedExceeds(0.4))
+                    // We define the "first moved position" as the first position at least 2 pixels from the initial position
+                    // where the worker is moving
+                    if ((*positionIt)->pos().getApproxDistance(firstPos) >= 2 && (*positionIt)->pos() != (*(positionIt + 1))->pos())
                     {
                         positionsInHistory.firstMovedPositionIt = positionIt;
 #if OPTIMALRETURN_DEBUG
                         CherryVis::log(workerStatus.worker->id)
                                 << "First move position at delta " << std::distance(workerStatus.positionHistory.begin(), positionIt)
-                                << " from first position"
-                                << "; dist=" << dist;
+                                << " from first position";
 #endif
                     }
                 }

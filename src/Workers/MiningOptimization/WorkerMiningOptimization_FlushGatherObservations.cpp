@@ -28,6 +28,8 @@ namespace WorkerMiningOptimization
 
         bool extractPositionsInHistory(WorkerGatherStatus &workerStatus, PositionsInHistory &positionsInHistory)
         {
+            if (workerStatus.positionHistory.empty()) return false;
+
             positionsInHistory.firstMovedPositionIt = workerStatus.positionHistory.end();
             positionsInHistory.resendPositionIts.clear();
             positionsInHistory.arrivalPositionIt = workerStatus.positionHistory.end();
@@ -39,6 +41,7 @@ namespace WorkerMiningOptimization
             if (workerStatus.positionHistory.size() > 60) return false;
 
             auto nextResendPositionIt = workerStatus.resentPositions.begin();
+            auto firstPos = (*workerStatus.positionHistory.begin())->pos();
             for (auto it = workerStatus.positionHistory.begin(); it != workerStatus.positionHistory.end(); it++)
             {
                 if (nextResendPositionIt != workerStatus.resentPositions.end() && **nextResendPositionIt == **it)
@@ -64,22 +67,18 @@ namespace WorkerMiningOptimization
                     positionsInHistory.tenDistancePositionIt = it - BWAPI::Broodwar->getLatencyFrames() - 1;
                 }
 
-                if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end())
+                if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end() &&
+                    (it + 1) != workerStatus.positionHistory.end())
                 {
-                    // For detecting the first moved position on the path, we both consider distance and speed, since on some paths the worker
-                    // might move parallel to the depot initially
-                    auto distDepot = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                        (*it)->pos(),
-                                                        workerStatus.depot->type,
-                                                        workerStatus.depot->lastPosition);
-                    if (distDepot > 0 || (*it)->speedExceeds(0.4))
+                    // We define the "first moved position" as the first position at least 2 pixels from the initial position
+                    // where the worker is moving
+                    if ((*it)->pos().getApproxDistance(firstPos) >= 2 && (*it)->pos() != (*(it + 1))->pos())
                     {
                         positionsInHistory.firstMovedPositionIt = it;
-#if OPTIMALPOSITIONS_DEBUG
+#if OPTIMALRETURN_DEBUG
                         CherryVis::log(workerStatus.worker->id)
                                 << "First move position at delta " << std::distance(workerStatus.positionHistory.begin(), it)
-                                << " from first position"
-                                << "; dist=" << dist;
+                                << " from first position";
 #endif
                     }
                 }
