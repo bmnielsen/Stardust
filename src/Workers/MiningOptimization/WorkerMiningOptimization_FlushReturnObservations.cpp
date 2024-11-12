@@ -7,14 +7,6 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
-        bool workerSpeedExceeds(const MyWorker &worker, double fractionOfTopSpeed)
-        {
-            return (sqrt(
-                    worker->bwapiUnit->getVelocityX() * worker->bwapiUnit->getVelocityX()
-                    + worker->bwapiUnit->getVelocityY() * worker->bwapiUnit->getVelocityY()
-            ) > (fractionOfTopSpeed * BWAPI::UnitTypes::Protoss_Probe.topSpeed()));
-        }
-
         struct PositionsInHistory
         {
             std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator firstMovedPositionIt;
@@ -90,14 +82,6 @@ namespace WorkerMiningOptimization
 #endif
                 return false;
             }
-            if (workerStatus.resentPosition && std::distance(positionsInHistory.firstMovedPositionIt, positionsInHistory.resendPositionIt) < 0)
-            {
-#if OPTIMALRETURN_DEBUG
-                Log::Get() << "ERROR: Return resend position before first moved position"
-                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
-#endif
-                return false;
-            }
 
             return true;
         }
@@ -115,80 +99,80 @@ namespace WorkerMiningOptimization
         std::vector<JustReturnedWorker> justReturnedWorkers;
 
 #if OPTIMALRETURN_DEBUG
-        int collisions = 0;
-        int noncollisions = 0;
-
-        int lostSpeeds = 0;
-        int keptSpeeds = 0;
+        ReturnSpeedOccurrences deliveryAfterArrivalSpeedTotals;
+        ReturnSpeedOccurrences deliveryAtArrivalSpeedTotals;
 #endif
 
         void updateCollisionAndKeptSpeed(const JustReturnedWorker &justReturnedWorker)
         {
             auto &worker = justReturnedWorker.worker;
 
+            auto collisionAdder = [](ReturnSpeedOccurrences &speedOccurrences)
+            {
+                speedOccurrences.collision++;
+            };
+            auto lowExitSpeedAdder = [](ReturnSpeedOccurrences &speedOccurrences)
+            {
+                speedOccurrences.lowExitSpeed++;
+            };
+            auto mediumExitSpeedAdder = [](ReturnSpeedOccurrences &speedOccurrences)
+            {
+                speedOccurrences.mediumExitSpeed++;
+            };
+            auto highExitSpeedAdder = [](ReturnSpeedOccurrences &speedOccurrences)
+            {
+                speedOccurrences.highExitSpeed++;
+            };
+            void (*adder)(ReturnSpeedOccurrences &);
+
             // There is a collision if the worker isn't moving
             bool collision = (currentFrame - worker->frameLastMoved) > 2;
-
-            // The worker kept speed if it is already moving at close to full speed
-            bool hasCachedKeptSpeed = false;
-            bool cachedKeptSpeed = false;
-            auto keptSpeed = [&]()
-            {
-                if (!hasCachedKeptSpeed)
-                {
-                    cachedKeptSpeed = workerSpeedExceeds(worker, 0.95);
-                    hasCachedKeptSpeed = true;
-                }
-                return cachedKeptSpeed;
-            };
-
-#if OPTIMALRETURN_DEBUG
             if (collision)
             {
+                adder = collisionAdder;
+#if OPTIMALRETURN_DEBUG
                 CherryVis::log(worker->id) << "Collision with depot";
-                collisions++;
-            }
-            else
-            {
-                noncollisions++;
+#endif
             }
 
-            if (justReturnedWorker.deliveredOnArrivalFrame)
+            if (!collision)
             {
-                if (keptSpeed())
+                auto speed = sqrt(
+                        worker->bwapiUnit->getVelocityX() * worker->bwapiUnit->getVelocityX()
+                        + worker->bwapiUnit->getVelocityY() * worker->bwapiUnit->getVelocityY()
+                );
+                auto speedFraction = speed / worker->type.topSpeed();
+
+                if (speedFraction >= 0.8)
                 {
-                    CherryVis::log(worker->id) << "Kept speed";
-                    keptSpeeds++;
+                    adder = highExitSpeedAdder;
+#if OPTIMALRETURN_DEBUG
+                    CherryVis::log(worker->id) << "High exit speed: " << std::fixed << std::setprecision(1) << (100.0 * speedFraction) << "%";
+#endif
+                }
+                else if (speedFraction >= 0.5)
+                {
+                    adder = mediumExitSpeedAdder;
+#if OPTIMALRETURN_DEBUG
+                    CherryVis::log(worker->id) << "Medium exit speed: " << std::fixed << std::setprecision(1) << (100.0 * speedFraction) << "%";
+#endif
                 }
                 else
                 {
-                    lostSpeeds++;
+                    adder = lowExitSpeedAdder;
+#if OPTIMALRETURN_DEBUG
+                    CherryVis::log(worker->id) << "Low exit speed: " << std::fixed << std::setprecision(1) << (100.0 * speedFraction) << "%";
+#endif
                 }
             }
+
+#if OPTIMALRETURN_DEBUG
+            adder(justReturnedWorker.deliveredOnArrivalFrame ? deliveryAtArrivalSpeedTotals : deliveryAfterArrivalSpeedTotals);
 #endif
 
             auto addObservations = [&](ReturnArrivalObservations &observations)
             {
-                if (collision)
-                {
-                    observations.collisions++;
-                }
-                else
-                {
-                    observations.noncollisions++;
-                }
-
-                if (justReturnedWorker.deliveredOnArrivalFrame)
-                {
-                    if (keptSpeed())
-                    {
-                        observations.keptSpeed++;
-                    }
-                    else
-                    {
-                        observations.lostSpeed++;
-                    }
-                }
+                adder(justReturnedWorker.deliveredOnArrivalFrame ? observations.deliveryAtArrivalSpeeds : observations.deliveryAfterArrivalSpeeds);
             };
 
             // Update the stats on the appropriate position metadata
@@ -241,7 +225,7 @@ namespace WorkerMiningOptimization
             {
                 limit = ensureBeforeArrival(positionsInHistory.resendPositionIt + BWAPI::Broodwar->getLatencyFrames() + 1);
             }
-            for (auto positionIt = positionsInHistory.firstMovedPositionIt; positionIt != limit; positionIt++)
+            for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != limit; positionIt++)
             {
                 auto metadataIt = optimalReturnPositions.find(**positionIt);
                 if (metadataIt == optimalReturnPositions.end())
@@ -281,7 +265,7 @@ namespace WorkerMiningOptimization
                 uint32_t pathHash = (*positionsInHistory.firstMovedPositionIt)->previousPositionsHash;
 
                 // Create metadata for any missing positions on this path and update the next positions
-                for (auto positionIt = positionsInHistory.firstMovedPositionIt; positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
+                for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
                 {
                     int arrival = (int)std::distance(positionIt, positionsInHistory.arrivalPositionIt);
 
@@ -344,25 +328,26 @@ namespace WorkerMiningOptimization
 #if OPTIMALRETURN_DEBUG
         if (currentFrame == 0)
         {
-            collisions = 0;
-            noncollisions = 0;
-            keptSpeeds = 0;
-            lostSpeeds = 0;
+            deliveryAfterArrivalSpeedTotals = {0, 0, 0, 0};
+            deliveryAtArrivalSpeedTotals = {0, 0, 0, 0};
         }
         else if (currentFrame % 1000 == 0)
         {
-            if ((collisions + noncollisions) > 0)
+            auto outputSpeedTotals = [](const ReturnSpeedOccurrences &speedTotals, const std::string &label)
             {
+                int total = speedTotals.collision + speedTotals.lowExitSpeed + speedTotals.mediumExitSpeed + speedTotals.highExitSpeed;
+                if (total == 0) return;
+
                 Log::Get() << std::fixed << std::setprecision(1)
-                           << "Return collision rate: " << (100.0 * collisions) / (double)(collisions + noncollisions)
-                           << "% over " << (collisions + noncollisions) << " deliveries";
-            }
-            if ((keptSpeeds + lostSpeeds) > 0)
-            {
-                Log::Get() << std::fixed << std::setprecision(1)
-                           << "Return kept speed rate: " << (100.0 * keptSpeeds) / (double)(keptSpeeds + lostSpeeds)
-                           << "% over " << (keptSpeeds + lostSpeeds) << " deliveries on arrival frame";
-            }
+                           << "Speed statistics for " << label << ":\n"
+                           << " Collision rate:    " << (100.0 * speedTotals.collision) / (double)(total) << "%\n"
+                           << " Low speed rate:    " << (100.0 * speedTotals.lowExitSpeed) / (double)(total) << "%\n"
+                           << " Medium speed rate: " << (100.0 * speedTotals.mediumExitSpeed) / (double)(total) << "%\n"
+                           << " High speed rate:   " << (100.0 * speedTotals.highExitSpeed) / (double)(total) << "%\n"
+                           << "over " << total << " deliveries";
+            };
+            outputSpeedTotals(deliveryAfterArrivalSpeedTotals, "delivery after arrival frame");
+            outputSpeedTotals(deliveryAtArrivalSpeedTotals, "delivery at arrival frame");
         }
 #endif
 
@@ -380,6 +365,17 @@ namespace WorkerMiningOptimization
             if (worker->carryingResource || worker->lastCarryingResourceChange != (currentFrame - 8))
             {
                 it++;
+                continue;
+            }
+
+            // Skip the worker if it has been ordered to do something else in the meantime or isn't moving to minerals
+            if (worker->bwapiUnit->getLastCommandFrame() >= (BWAPI::Broodwar->getFrameCount() - 8 - BWAPI::Broodwar->getLatencyFrames()) ||
+                worker->bwapiUnit->getOrder() != BWAPI::Orders::MoveToMinerals)
+            {
+#if OPTIMALRETURN_DEBUG
+                CherryVis::log(worker->id) << "Not tracking collision and speed observation, as the worker has apparently been reassigned";
+#endif
+                it = justReturnedWorkers.erase(it);
                 continue;
             }
 

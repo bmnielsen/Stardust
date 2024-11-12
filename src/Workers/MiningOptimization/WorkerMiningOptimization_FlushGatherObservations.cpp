@@ -99,15 +99,6 @@ namespace WorkerMiningOptimization
 #endif
                 return false;
             }
-            if (!positionsInHistory.resendPositionIts.empty() &&
-                std::distance(positionsInHistory.firstMovedPositionIt, positionsInHistory.resendPositionIts[0]) < 0)
-            {
-#if OPTIMALRETURN_DEBUG
-                Log::Get() << "ERROR: Gather resend position before first moved position"
-                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
-#endif
-                return false;
-            }
 
             // Return false if any of the resend positions couldn't be found
             if (workerStatus.resentPositions.size() != positionsInHistory.resendPositionIts.size())
@@ -264,7 +255,7 @@ namespace WorkerMiningOptimization
             {
                 limit = ensureBeforeArrival(positionsInHistory.resendPositionIts[0] + BWAPI::Broodwar->getLatencyFrames() + 1);
             }
-            for (auto positionIt = positionsInHistory.firstMovedPositionIt; positionIt != limit; positionIt++)
+            for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != limit; positionIt++)
             {
                 auto metadataIt = optimalGatherPositions.find(**positionIt);
                 if (metadataIt == optimalGatherPositions.end())
@@ -374,7 +365,7 @@ namespace WorkerMiningOptimization
                 uint32_t pathHash = (*positionsInHistory.firstMovedPositionIt)->previousPositionsHash;
 
                 // Update the metadata for the positions in the path
-                for (auto positionIt = positionsInHistory.firstMovedPositionIt; positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
+                for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
                 {
                     int delta = (int)std::distance(optimalPositionIt, positionIt);
 
@@ -662,6 +653,17 @@ namespace WorkerMiningOptimization
             if (!worker->carryingResource || worker->lastCarryingResourceChange != (currentFrame - 8))
             {
                 it++;
+                continue;
+            }
+
+            // Skip the worker if it has been ordered to do something else in the meantime or isn't moving to return
+            if (worker->bwapiUnit->getLastCommandFrame() >= (BWAPI::Broodwar->getFrameCount() - 8 - BWAPI::Broodwar->getLatencyFrames()) ||
+                worker->bwapiUnit->getOrder() != BWAPI::Orders::ReturnMinerals)
+            {
+#if OPTIMALRETURN_DEBUG
+                CherryVis::log(worker->id) << "Not tracking collision and speed observation, as the worker has apparently been re-ordered";
+#endif
+                it = miningWorkers.erase(it);
                 continue;
             }
 

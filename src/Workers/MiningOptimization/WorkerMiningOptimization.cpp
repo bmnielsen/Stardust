@@ -300,33 +300,6 @@ namespace WorkerMiningOptimization
                            << unstablePathAtExploreHorizon << " (" << (100.0 * (double)unstablePathAtExploreHorizon / (double)total) << "%)";
             }
         }
-
-        {
-            int total = 0;
-            int withSpeedData = 0;
-            for (const auto &[resource, optimalPositions] : resourceToOptimalReturnPositions)
-            {
-                for (const auto &[_, optimalPosition] : optimalPositions)
-                {
-                    total++;
-
-                    if (optimalPosition.noResendArrivalObservations.lostSpeed > 0
-                        || optimalPosition.noResendArrivalObservations.keptSpeed > 0
-                        || optimalPosition.resendArrivalObservations.lostSpeed > 0
-                        || optimalPosition.resendArrivalObservations.keptSpeed > 0)
-                    {
-                        withSpeedData++;
-                    }
-                }
-            }
-
-            if (total > 0)
-            {
-                Log::Get() << std::fixed << std::setprecision(1)
-                           << "\nStatistics for " << total << " return resend positions:"
-                           << "\nHave speed data: " << withSpeedData << " (" << (100.0 * (double)withSpeedData / (double)total) << "%)";
-            }
-        }
 #endif
     }
 

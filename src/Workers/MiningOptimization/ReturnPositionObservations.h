@@ -7,14 +7,26 @@
 
 namespace WorkerMiningOptimization
 {
+    struct ReturnSpeedOccurrences
+    {
+        // Worker collided with the depot
+        int collision;
+
+        // Worker left the depot at normal low speed (approx. 30% speed 8 frames after delivery)
+        int lowExitSpeed;
+
+        // Worker left the depot at medium speed (50-80% speed 8 frames after delivery)
+        int mediumExitSpeed;
+
+        // Worker left the depot at high speed (80%+ speed 8 frames after delivery)
+        int highExitSpeed;
+    };
+
     struct ReturnArrivalObservations
     {
         std::unordered_map<int, int> arrivalDelayAndOccurrences;
-        int collisions = 0;
-        int noncollisions = 0;
-
-        int lostSpeed = 0;
-        int keptSpeed = 0;
+        ReturnSpeedOccurrences deliveryAfterArrivalSpeeds = {0, 0, 0, 0};
+        ReturnSpeedOccurrences deliveryAtArrivalSpeeds = {0, 0, 0, 0};
 
         void add(int arrivalDelay)
         {

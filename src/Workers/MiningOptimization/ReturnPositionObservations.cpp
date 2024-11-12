@@ -52,13 +52,12 @@ namespace WorkerMiningOptimization
     void ReturnPositionObservations::outputDataFileHeaderRow(std::ofstream &file)
     {
 #if DATAFILE_RETURN_DEBUGCOLUMNS
-        file << "x;y;path hash;position;no resend next position(s);no resend arrival(s);no resend collisions;no resend non collisions;"
-             << "no resend lost speed;no resend kept speed;resend arrival(s);resend collisions;resend non collisions;resend lost speed;"
-             << "resend kept speed;arrival delta\n";
+        file << "x;y;path hash;position;no resend next position(s);no resend arrival(s);no resend speeds delivery after arrival;"
+             << "no resend speeds delivery at arrival;resend arrival(s);resend speeds delivery after arrival;resend speeds delivery at arrival;"
+             << "arrival delta\n";
 #else
-        file << "x;y;path hash;position;no resend next position(s);no resend arrival(s);no resend collisions;no resend non collisions;"
-             << "no resend lost speed;no resend kept speed;resend arrival(s);resend collisions;resend non collisions;resend lost speed;"
-             << "resend kept speed\n";
+        file << "x;y;path hash;position;no resend next position(s);no resend arrival(s);no resend speeds delivery after arrival;"
+             << "no resend speeds delivery at arrival;resend arrival(s);resend speeds delivery after arrival;resend speeds delivery at arrival\n"
 #endif
     }
 
@@ -82,14 +81,19 @@ namespace WorkerMiningOptimization
                 sep = "_";
             }
         };
+        auto outputSpeeds = [&file](const ReturnSpeedOccurrences &speeds)
+        {
+            file << ";" << speeds.collision
+                 << "|" << speeds.lowExitSpeed
+                 << "|" << speeds.mediumExitSpeed
+                 << "|" << speeds.highExitSpeed;
+        };
         auto outputArrivalObservations = [&](const ReturnArrivalObservations &observations)
         {
             file << ";";
             outputOccurrenceMap(observations.arrivalDelayAndOccurrences);
-            file << ";" << observations.collisions
-                 << ";" << observations.noncollisions
-                 << ";" << observations.lostSpeed
-                 << ";" << observations.keptSpeed;
+            outputSpeeds(observations.deliveryAfterArrivalSpeeds);
+            outputSpeeds(observations.deliveryAtArrivalSpeeds);
         };
 
         file << resource->tile.x << ";"
@@ -154,23 +158,31 @@ namespace WorkerMiningOptimization
             return result;
         };
 
-        auto parseArrivalObservations = [&](
-                const std::string &arrivalDelayOccurrences,
-                const std::string &collisions,
-                const std::string &noncollisions,
-                const std::string &lostSpeed,
-                const std::string &keptSpeed)
+        auto parseSpeeds = [](const std::string &speeds)
         {
-            return ReturnArrivalObservations{
-                    parseOccurrencesMap(arrivalDelayOccurrences),
-                    std::stoi(collisions),
-                    std::stoi(noncollisions),
-                    std::stoi(lostSpeed),
-                    std::stoi(keptSpeed)
+            auto data = CsvTools::tokenizeList(speeds, '|');
+            if (data.size() != 4) return ReturnSpeedOccurrences{0, 0, 0, 0};
+            return ReturnSpeedOccurrences{
+                std::stoi(data[0]),
+                std::stoi(data[1]),
+                std::stoi(data[2]),
+                std::stoi(data[3])
             };
         };
 
-        if (line.size() < 14) return true;
+        auto parseArrivalObservations = [&](
+                const std::string &arrivalDelayOccurrences,
+                const std::string &deliveryAfterArrivalSpeeds,
+                const std::string &deliveryAtArrivalSpeeds)
+        {
+            return ReturnArrivalObservations{
+                    parseOccurrencesMap(arrivalDelayOccurrences),
+                    parseSpeeds(deliveryAfterArrivalSpeeds),
+                    parseSpeeds(deliveryAtArrivalSpeeds)
+            };
+        };
+
+        if (line.size() < 11) return true;
 
         BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
         auto resource = Units::resourceAt(tile);
@@ -189,8 +201,8 @@ namespace WorkerMiningOptimization
                 (uint32_t)std::stoul(line[2]),
                 pos,
                 parseNextPositions(line[4]),
-                parseArrivalObservations(line[5], line[6], line[7], line[8], line[9]),
-                parseArrivalObservations(line[10], line[11], line[12], line[13], (line.size() > 14) ? line[14] : "")
+                parseArrivalObservations(line[5], line[6], line[7]),
+                parseArrivalObservations(line[8], line[9], line[10])
         });
 
         return false;
