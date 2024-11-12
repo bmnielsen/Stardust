@@ -1,5 +1,6 @@
 #include "ReturnPositionObservations.h"
 
+#include "WorkerMiningOptimization.h"
 #include "CsvTools.h"
 #include "Units.h"
 #include "DebugFlag_WorkerMiningOptimization.h"
@@ -29,6 +30,23 @@ namespace WorkerMiningOptimization
 
         // TODO
         return 0;
+    }
+
+    bool ReturnPositionObservations::suitableForExploration() const
+    {
+        if (!resendArrivalObservations.empty()) return false; // Have already explored
+        
+        // Don't explore if any of the observed arrival delays are outside our exploration horizon
+        int referenceFrame = 8 + BWAPI::Broodwar->getLatencyFrames();
+        for (const auto &[arrivalDelay, _] : noResendArrivalObservations.arrivalDelayAndOccurrences)
+        {
+            if (arrivalDelay > (referenceFrame + RETURN_EXPLORE_BEFORE) || arrivalDelay < (referenceFrame - RETURN_EXPLORE_AFTER))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     void ReturnPositionObservations::outputDataFileHeaderRow(std::ofstream &file)

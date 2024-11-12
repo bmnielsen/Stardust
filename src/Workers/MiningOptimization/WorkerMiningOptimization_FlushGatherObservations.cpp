@@ -547,8 +547,8 @@ namespace WorkerMiningOptimization
             if (resentPositionData.deltaToBenchmarkAndOccurrences.empty()) return;
 
             int probableDeltaToBenchmark = resentPositionData.probableDeltaToBenchmark();
-            if (probableDeltaToBenchmark < -EXPLORE_BEFORE) return;
-            if (probableDeltaToBenchmark > EXPLORE_AFTER) return;
+            if (probableDeltaToBenchmark < -GATHER_EXPLORE_BEFORE) return;
+            if (probableDeltaToBenchmark > GATHER_EXPLORE_AFTER) return;
 
             if (!workerStatus.pathStartsAtDepot) return;
 

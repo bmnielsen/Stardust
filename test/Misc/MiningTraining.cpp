@@ -436,7 +436,8 @@ namespace
                         << "_" << workers << "workers"
                         << "_" << (!cannons ? "no" : "") << "cannons"
                         << "_" << std::put_time(tm, "%Y%m%d_%H%M%S")
-                        << "_" << EXPLORE_BEFORE << "_" << EXPLORE_AFTER
+                        << "_g_" << GATHER_EXPLORE_BEFORE << "_" << GATHER_EXPLORE_AFTER
+                        << "_r_" << RETURN_EXPLORE_BEFORE << "_" << RETURN_EXPLORE_AFTER
                         << ".csv").str(),
                       std::ofstream::trunc);
             file << "Hash;1-0;1-1;1-2;2-0;2-1;2-2\n";

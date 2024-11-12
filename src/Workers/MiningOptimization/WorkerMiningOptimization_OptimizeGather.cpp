@@ -160,7 +160,7 @@ namespace WorkerMiningOptimization
                     if (positionMetadataIt != optimalPositions.end() && !positionMetadataIt->second.deltaToBenchmarkAndOccurrences.empty())
                     {
                         // Handle case where we haven't reached our observation horizon yet
-                        if (positionMetadataIt->second.largestDeltaToBenchmark() < -EXPLORE_BEFORE)
+                        if (positionMetadataIt->second.largestDeltaToBenchmark() < -GATHER_EXPLORE_BEFORE)
                         {
                             // If the other worker is finished mining, transition back to doing normal approach optimization
                             if (otherWorker->carryingResource)

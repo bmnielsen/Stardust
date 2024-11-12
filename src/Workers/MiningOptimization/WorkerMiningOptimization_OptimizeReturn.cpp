@@ -82,7 +82,8 @@ namespace WorkerMiningOptimization
             }
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), positionMetadata.pos);
 
-            if (WorkerMiningOptimization::isExploring() && positionMetadata.resendArrivalObservations.empty())
+            // Explore positions within our exploration horizon that haven't been tried yet
+            if (WorkerMiningOptimization::isExploring() && positionMetadata.suitableForExploration())
             {
                 return {100.0, {*here}, here, true};
             }

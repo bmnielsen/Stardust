@@ -100,8 +100,8 @@ namespace WorkerMiningOptimization
             // If we want to try this position and it is better than the current best, return this
             int probableDeltaToBenchmark = positionMetadata.probableDeltaToBenchmark();
             if (observations.empty()
-                && probableDeltaToBenchmark >= -EXPLORE_BEFORE
-                && probableDeltaToBenchmark <= EXPLORE_AFTER
+                && probableDeltaToBenchmark >= -GATHER_EXPLORE_BEFORE
+                && probableDeltaToBenchmark <= GATHER_EXPLORE_AFTER
                 && (WorkerMiningOptimization::isExploring() || (probableDeltaToBenchmark == 0 && deltaToFirstResend == 0)))
             {
                 int positionToTryDelta = std::abs(probableDeltaToBenchmark + deltaToFirstResend);
@@ -203,7 +203,7 @@ namespace WorkerMiningOptimization
 
         // Skip this position if it comes before our exploration horizon
         int delta = positionMetadata.largestDeltaToBenchmark();
-        if (delta < -EXPLORE_BEFORE) return;
+        if (delta < -GATHER_EXPLORE_BEFORE) return;
 
         // Also skip this position if it is unstable and comes early in the path
         if ((positionMetadata.deltaToBenchmarkAndOccurrences.size() > 1 || positionMetadata.nextPositionAndOccurrences.size() > 1)

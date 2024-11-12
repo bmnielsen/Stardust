@@ -9,8 +9,12 @@
 #include "WorkerReturnStatus.h"
 
 // In our data files we track the full paths between depot and patch, but we only explore positions within the bounds defined here
-#define EXPLORE_BEFORE 12
-#define EXPLORE_AFTER 5
+#define GATHER_EXPLORE_BEFORE 12
+#define GATHER_EXPLORE_AFTER 5
+
+// Return bounds are relative to the position LF+8 frames before arrival in the normal path, which is often the optimal position to resend from
+#define RETURN_EXPLORE_BEFORE 15
+#define RETURN_EXPLORE_AFTER 5
 
 namespace WorkerMiningOptimization
 {

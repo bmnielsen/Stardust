@@ -41,7 +41,7 @@ namespace WorkerMiningOptimization
             auto filename = std::ostringstream()
                     << "gatherpositions_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames()
-                    << "_" << EXPLORE_BEFORE << "_" << EXPLORE_AFTER;
+                    << "_" << GATHER_EXPLORE_BEFORE << "_" << GATHER_EXPLORE_AFTER;
             return FileTools::getFilePath(filename.str(), "csv", writing);
         }
 
@@ -49,7 +49,8 @@ namespace WorkerMiningOptimization
         {
             auto filename = std::ostringstream()
                     << "returnpositions_" << BWAPI::Broodwar->mapHash()
-                    << "_lf" << BWAPI::Broodwar->getLatencyFrames();
+                    << "_lf" << BWAPI::Broodwar->getLatencyFrames()
+                    << "_" << RETURN_EXPLORE_BEFORE << "_" << RETURN_EXPLORE_AFTER;
             return FileTools::getFilePath(filename.str(), "csv", writing);
         }
 
@@ -282,7 +283,7 @@ namespace WorkerMiningOptimization
                     {
                         unstablePath++;
                     }
-                    if (unstable && optimalPosition.probableDeltaToBenchmark() == -EXPLORE_BEFORE)
+                    if (unstable && optimalPosition.probableDeltaToBenchmark() == -GATHER_EXPLORE_BEFORE)
                     {
                         unstablePathAtExploreHorizon++;
                     }
@@ -295,7 +296,7 @@ namespace WorkerMiningOptimization
                            << "\nStatistics for " << total << " gather resend positions:"
                            << "\nNever used:         " << neverUsed << " (" << (100.0 * (double)neverUsed / (double)total) << "%)"
                            << "\nUnstable path:      " << unstablePath << " (" << (100.0 * (double)unstablePath / (double)total) << "%)"
-                           << "\nUnstable path @-" << EXPLORE_BEFORE << ": "
+                           << "\nUnstable path @-" << GATHER_EXPLORE_BEFORE << ": "
                            << unstablePathAtExploreHorizon << " (" << (100.0 * (double)unstablePathAtExploreHorizon / (double)total) << "%)";
             }
         }

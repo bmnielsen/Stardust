@@ -76,6 +76,8 @@ namespace WorkerMiningOptimization
                 , resendArrivalObservations(std::move(resendArrivalObservations))
         {}
 
+        [[nodiscard]] bool suitableForExploration() const;
+
         static void outputDataFileHeaderRow(std::ofstream &file);
 
         void outputToDataFile(std::ofstream &file, const Resource &resource) const;
