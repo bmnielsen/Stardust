@@ -20,6 +20,8 @@ namespace WorkerMiningOptimization
 
         // Worker left the depot at high speed (80%+ speed 8 frames after delivery)
         int highExitSpeed;
+
+        [[nodiscard]] double expectedDeltaToNormal() const;
     };
 
     struct ReturnArrivalObservations
@@ -40,7 +42,14 @@ namespace WorkerMiningOptimization
 
         [[nodiscard]] int largestArrivalDelay() const;
 
+        // Computes the expected number of frames from resending here to delivery
         [[nodiscard]] double expectedDeliveryDelay(int commandFrame) const;
+
+        // Compute the expected number of frames to delivery if the given worker
+        [[nodiscard]] double expectedNoResendDeliveryDelay(const MyWorker &worker) const;
+
+    private:
+        [[nodiscard]] double deliveryDelayForArrivalFrame(int arrivalFrame, int knownOrderProcessTimer, int knownOrderProcessTimerFrame) const;
     };
 
     // This is the structure we use to track observed positions and our track record using them

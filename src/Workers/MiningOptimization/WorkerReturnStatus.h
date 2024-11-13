@@ -38,6 +38,12 @@ namespace WorkerMiningOptimization
         // The expected path the worker will follow
         std::deque<PositionAndVelocity> expectedPath;
 
+        // Whether the planned resend position is being tried for exploratory purposes
+        bool plannedResendIsForExploration;
+
+        // The expected delay in frames between the resend and delivery of resource
+        double expectedDelayAfterResend;
+
         // Position at which the return command was resent
         std::shared_ptr<const PositionAndVelocity> resentPosition;
 
@@ -48,6 +54,8 @@ namespace WorkerMiningOptimization
                 , lastProcessedFrame(-2)
                 , pathStartsAtPatch(false)
                 , resendPlanned(false)
+                , plannedResendIsForExploration(false)
+                , expectedDelayAfterResend(100.0)
         {}
 
         void reset()
@@ -58,6 +66,8 @@ namespace WorkerMiningOptimization
             resendPlanned = false;
             plannedResendPosition = nullptr;
             expectedPath.clear();
+            plannedResendIsForExploration = false;
+            expectedDelayAfterResend = 100.0;
             resentPosition = nullptr;
         }
 

@@ -9,35 +9,37 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
-        double expectedCollisionAndStoppageDelay(const ReturnArrivalObservations &observations)
-        {
-            return 0.0;
-
-            // TODO
-
-//        int total = observations.collision + observations.stopped + observations.keptSpeed;
-//        if (total == 0) return 0.0;
-//
-//        // If we are exploring and don't have enough data yet, set it to 0
-//        if (WorkerMiningOptimization::isExploring() && total < 5) return 0.0;
-//
-//        // Collisions add 14+5=19 frames of delay and stoppages add 5
-//        return (double)(19 * observations.collision + 5 * observations.stopped) / (double)total;
-        }
-
         struct PositionEvaluation
         {
             double expectedDelay = 100.0;
             std::deque<PositionAndVelocity> expectedPath; // up to and including the resend position
             std::shared_ptr<PositionAndVelocity> resendPosition;
             bool positionToTry = false;
+
+            [[nodiscard]] double expectedDelayAtStartOfPath() const
+            {
+                return expectedDelay + (double)((int)expectedPath.size() - 1);
+            }
         };
 
-        double computeExpectedDelay(int commandFrame, const ReturnArrivalObservations &observations)
-        {
-            if (observations.empty()) return 100.0;
+        PositionEvaluation evaluatePosition(int commandFrame,
+                                            const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
+                                            const ReturnPositionObservations &positionMetadata);
 
-            return observations.expectedDeliveryDelay(commandFrame) + expectedCollisionAndStoppageDelay(observations);
+        PositionEvaluation evaluateNextPosition(int commandFrame,
+                                                const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
+                                                const PositionAndVelocity &nextPosition)
+        {
+            auto nextPositionDataIt = allPositionData.find(nextPosition);
+            if (nextPositionDataIt == allPositionData.end())
+            {
+#if OPTIMALRETURN_DEBUG
+                Log::Get() << "ERROR: No return metadata found for next position " << nextPosition;
+#endif
+                return {};
+            }
+
+            return evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second);
         }
 
         PositionEvaluation evaluatePosition(int commandFrame,
@@ -49,27 +51,26 @@ namespace WorkerMiningOptimization
             // If no resend from this position can take effect before reaching the depot, bail out now
             if (positionMetadata.noResendArrivalObservations.largestArrivalDelay() <= BWAPI::Broodwar->getLatencyFrames())
             {
-                return {100.0, {*here}, here, false};
+                return {};
             }
 
             // Start by getting the data for all of the next positions
             PositionEvaluation nextPositionsEvaluation;
+            if (positionMetadata.nextPositionAndOccurrences.size() == 1)
+            {
+                nextPositionsEvaluation = evaluateNextPosition(
+                        commandFrame,
+                        allPositionData,
+                        positionMetadata.nextPositionAndOccurrences.begin()->first);
+            }
+            else if (positionMetadata.nextPositionAndOccurrences.size() > 1)
             {
                 double delayAccumulator = 0.0;
                 int occurrenceCount = 0;
                 int bestOccurrences = 0;
                 for (const auto &[nextPosition, occurrences] : positionMetadata.nextPositionAndOccurrences)
                 {
-                    auto nextPositionDataIt = allPositionData.find(nextPosition);
-                    if (nextPositionDataIt == allPositionData.end())
-                    {
-#if OPTIMALRETURN_DEBUG
-                        Log::Get() << "ERROR: No return metadata found for next position " << nextPosition;
-#endif
-                        continue;
-                    }
-
-                    auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second);
+                    auto nextPositionEvaluation = evaluateNextPosition(commandFrame, allPositionData, nextPosition);
                     delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
                     occurrenceCount += occurrences;
                     if (occurrences > bestOccurrences)
@@ -89,8 +90,8 @@ namespace WorkerMiningOptimization
             }
             if (nextPositionsEvaluation.positionToTry) return nextPositionsEvaluation;
 
-            double expectedDelay = computeExpectedDelay(commandFrame, positionMetadata.resendArrivalObservations);
-            if (expectedDelay < (nextPositionsEvaluation.expectedDelay - EPSILON))
+            double expectedDelay = positionMetadata.resendArrivalObservations.expectedDeliveryDelay(commandFrame);
+            if (expectedDelay < (nextPositionsEvaluation.expectedDelayAtStartOfPath() - EPSILON))
             {
                 return {expectedDelay, {*here}, here, false};
             }
@@ -118,9 +119,7 @@ namespace WorkerMiningOptimization
                 if (!evaluation.resendPosition) return false;
                 if (evaluation.positionToTry) return true;
 
-                // TODO: Compare with not resending
-
-                return true;
+                return evaluation.expectedDelay < 50.0;
             };
 
             auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata);
@@ -128,6 +127,8 @@ namespace WorkerMiningOptimization
             {
                 workerStatus.plannedResendPosition = evaluation.resendPosition;
                 workerStatus.expectedPath = std::move(evaluation.expectedPath);
+                workerStatus.plannedResendIsForExploration = evaluation.positionToTry;
+                workerStatus.expectedDelayAfterResend = evaluation.expectedDelay;
 
 #if OPTIMALPOSITIONS_DEBUG
                 std::ostringstream out;
@@ -163,6 +164,50 @@ namespace WorkerMiningOptimization
             workerStatus.resendPlanned = false;
             workerStatus.expectedPath.clear();
             workerStatus.plannedResendPosition = nullptr;
+            workerStatus.plannedResendIsForExploration = false;
+            workerStatus.expectedDelayAfterResend = 100.0;
+        }
+
+        bool shouldPerformScheduledResendHere(WorkerReturnStatus &workerStatus,
+                                              const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &optimalPositions,
+                                              const std::shared_ptr<PositionAndVelocity> &currentPosition)
+        {
+            if (workerStatus.resentPosition) return false;
+            if (!workerStatus.plannedResendPosition) return false;
+            if (*workerStatus.plannedResendPosition != *currentPosition) return false;
+
+            if (workerStatus.plannedResendIsForExploration) return true;
+
+            // Check if not resending is more efficient
+            auto &worker = workerStatus.worker;
+
+            // First look up the metadata for this position
+            auto positionMetadataIt = optimalPositions.find(*currentPosition);
+            if (positionMetadataIt == optimalPositions.end()) // should never happen, since we've planned a resend here
+            {
+#if OPTIMALRETURN_DEBUG
+                Log::Get() << "ERROR: Metadata not found at planned resend position " << *currentPosition
+                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+#endif
+                // Return false since we don't want observations for resends at positions we haven't observed without a resend yet
+                return false;
+            }
+
+            // Now estimate the delay given that we do not resend
+            auto noResendExpectedDelay = positionMetadataIt->second.noResendArrivalObservations.expectedNoResendDeliveryDelay(worker);
+            if (workerStatus.expectedDelayAfterResend < (noResendExpectedDelay - EPSILON))
+            {
+                return true;
+            }
+
+#if OPTIMALRETURN_DEBUG
+            CherryVis::log(worker->id) << "Not resending for " << *workerStatus.plannedResendPosition
+                                       << std::fixed << std::setprecision(1)
+                                       << ": no resend delay " << noResendExpectedDelay
+                                       << " vs. resend delay " << workerStatus.expectedDelayAfterResend;
+#endif
+
+            return false;
         }
     }
 
@@ -187,10 +232,11 @@ namespace WorkerMiningOptimization
 
         if (workerStatus.resendPlanned)
         {
-            if (!workerStatus.resentPosition && workerStatus.plannedResendPosition && (*workerStatus.plannedResendPosition == *currentPosition))
+            if (shouldPerformScheduledResendHere(workerStatus, optimalPositions, currentPosition))
             {
 #if OPTIMALRETURN_DEBUG
-                CherryVis::log(worker->id) << "Resending for " << *workerStatus.plannedResendPosition;
+                CherryVis::log(worker->id) << "Resending for " << *workerStatus.plannedResendPosition
+                                           << (workerStatus.plannedResendIsForExploration ? " (exploring)" : "");
 #endif
                 workerStatus.sendReturnCommand(currentPosition);
             }
