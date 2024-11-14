@@ -583,14 +583,28 @@ namespace WorkerMiningOptimization
                 return;
             }
 
-            // If we previously thought that resending didn't change the path, clear our existing next positions so we can restart explorations
-            // We could instead copy the previous data into the second resend data, but this would be complicated and not expected to give a big gain
-            if (resentPositionData.resendChangesPath == -1)
+            // If this is the first detection of a changed path, add the existing next positions as a second resend position
+            if (resentPositionData.resendChangesPath != 1)
             {
-                resentPositionData.nextPositionAndOccurrences.clear();
-            }
+                resentPositionData.resendChangesPath = 1;
 
-            resentPositionData.resendChangesPath = 1;
+                for (const auto &[nextPosition, _] : resentPositionData.nextPositionAndOccurrences)
+                {
+                    auto secondResendObservationsIt = resentPositionData.secondResendObservations.find(nextPosition);
+                    if (secondResendObservationsIt == resentPositionData.secondResendObservations.end())
+                    {
+                        resentPositionData.secondResendObservations.emplace(
+                                nextPosition,
+                                SecondResendGatherPositionObservations{nextPosition, 1});
+
+#if OPTIMALPOSITIONS_DEBUG
+                        CherryVis::log(worker->id) << "Added metadata for " << resentPositionData
+                                                   << " : " << nextPosition
+                                                   << " after discovering unstable path after resends";
+#endif
+                    }
+                }
+            }
 
             // Queue up second resend positions to explore
             auto limit = positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames();
