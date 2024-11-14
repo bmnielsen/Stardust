@@ -28,7 +28,12 @@ namespace WorkerMiningOptimization
 
         bool extractPositionsInHistory(WorkerGatherStatus &workerStatus, PositionsInHistory &positionsInHistory)
         {
-            if (workerStatus.positionHistory.empty()) return false;
+            // If the path is too short to possibly optimize, return here
+            // This might happen if we have a case where the worker gets reassigned or otherwise doesn't follow a normal mining path
+            if (workerStatus.positionHistory.size() < (BWAPI::Broodwar->getLatencyFrames() + 11))
+            {
+                return false;
+            }
 
             positionsInHistory.firstMovedPositionIt = workerStatus.positionHistory.end();
             positionsInHistory.resendPositionIts.clear();
@@ -239,11 +244,12 @@ namespace WorkerMiningOptimization
 
             auto &optimalGatherPositions = optimalGatherPositionsFor(workerStatus.resource);
 
-            auto ensureBeforeArrival = [&positionsInHistory](auto it)
+            // Helper to ensure a given iterator doesn't exceed the given limit
+            auto clampToLimit = [](auto it, auto limit)
             {
-                if (std::distance(it, positionsInHistory.arrivalPositionIt) < 0)
+                if (std::distance(it, limit) < 0)
                 {
-                    return positionsInHistory.arrivalPositionIt;
+                    return limit;
                 }
                 return it;
             };
@@ -253,7 +259,8 @@ namespace WorkerMiningOptimization
             auto limit = positionsInHistory.arrivalPositionIt;
             if (!positionsInHistory.resendsBeforeArrival.empty())
             {
-                limit = ensureBeforeArrival(positionsInHistory.resendPositionIts[0] + BWAPI::Broodwar->getLatencyFrames() + 1);
+                limit = clampToLimit(
+                        positionsInHistory.resendPositionIts[0] + BWAPI::Broodwar->getLatencyFrames() + 1, positionsInHistory.arrivalPositionIt);
             }
             for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != limit; positionIt++)
             {
@@ -288,19 +295,23 @@ namespace WorkerMiningOptimization
                 // Add metadata for second resend positions
                 // If this isn't the resend position, we add following positions up to LF
                 // If this is the resend position, we add following positions until the second resend + LF
-                auto secondLimit = ensureBeforeArrival(positionIt + BWAPI::Broodwar->getLatencyFrames() + 1);
+                auto secondLimit = clampToLimit(
+                        positionIt + BWAPI::Broodwar->getLatencyFrames() + 1,
+                        positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames());
                 if (!positionsInHistory.resendsBeforeArrival.empty() && std::distance(positionsInHistory.resendPositionIts[0], positionIt) == 0)
                 {
                     if (positionsInHistory.resendsBeforeArrival.size() > 1)
                     {
-                        secondLimit = ensureBeforeArrival(positionsInHistory.resendPositionIts[1] + BWAPI::Broodwar->getLatencyFrames() + 1);
+                        secondLimit = clampToLimit(
+                                positionsInHistory.resendPositionIts[1] + BWAPI::Broodwar->getLatencyFrames() + 1,
+                                positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames());
                     }
                     else
                     {
-                        secondLimit = positionsInHistory.arrivalPositionIt;
+                        secondLimit = positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames();
                     }
                 }
-                for (auto secondPositionIt = positionIt + 1; secondPositionIt != secondLimit; secondPositionIt++)
+                for (auto secondPositionIt = positionIt + 1; std::distance(secondPositionIt, secondLimit) > 0; secondPositionIt++)
                 {
                     auto secondResendObservationsIt = positionMetadata.secondResendObservations.find(**secondPositionIt);
                     if (secondResendObservationsIt == positionMetadata.secondResendObservations.end())
@@ -572,10 +583,18 @@ namespace WorkerMiningOptimization
                 return;
             }
 
+            // If we previously thought that resending didn't change the path, clear our existing next positions so we can restart explorations
+            // We could instead copy the previous data into the second resend data, but this would be complicated and not expected to give a big gain
+            if (resentPositionData.resendChangesPath == -1)
+            {
+                resentPositionData.nextPositionAndOccurrences.clear();
+            }
+
             resentPositionData.resendChangesPath = 1;
 
-            // Queue up second resend positions to test
-            for (auto positionIt = positionsInHistory.resendPositionIts[0] + 1; positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
+            // Queue up second resend positions to explore
+            auto limit = positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames();
+            for (auto positionIt = positionsInHistory.resendPositionIts[0] + 1; std::distance(positionIt, limit) > 0; positionIt++)
             {
                 auto secondResendObservationsIt = resentPositionData.secondResendObservations.find(**positionIt);
                 if (secondResendObservationsIt != resentPositionData.secondResendObservations.end()) continue;

@@ -146,7 +146,7 @@ namespace WorkerMiningOptimization
              << "arrival delta\n";
 #else
         file << "x;y;path hash;position;no resend next position(s);no resend arrival(s);no resend speeds delivery after arrival;"
-             << "no resend speeds delivery at arrival;resend arrival(s);resend speeds delivery after arrival;resend speeds delivery at arrival\n"
+             << "no resend speeds delivery at arrival;resend arrival(s);resend speeds delivery after arrival;resend speeds delivery at arrival\n";
 #endif
     }
 

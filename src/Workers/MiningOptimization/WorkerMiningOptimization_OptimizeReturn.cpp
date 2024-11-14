@@ -206,6 +206,7 @@ namespace WorkerMiningOptimization
                                        << ": no resend delay " << noResendExpectedDelay
                                        << " vs. resend delay " << workerStatus.expectedDelayAfterResend;
 #endif
+            workerStatus.plannedResendPosition = nullptr;
 
             return false;
         }

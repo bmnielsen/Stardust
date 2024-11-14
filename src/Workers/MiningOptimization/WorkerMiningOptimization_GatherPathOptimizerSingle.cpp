@@ -158,6 +158,11 @@ namespace WorkerMiningOptimization
             }
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), positionMetadata.pos);
 
+            // We can't send a command LF+1 frames before an order process timer reset
+            // Note that this is actually ok in cases where there is a second resend later, but we can't always trust that this will happen
+            // if we discover a new path branch
+            if (OrderProcessTimer::framesToNextReset(commandFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
+
             // Now evaluate this position using the second resend metadata
             auto evaluationHere = evaluateSecondResendPositions(commandFrame,
                                                                 positionMetadata,
@@ -333,64 +338,39 @@ namespace WorkerMiningOptimization
         auto secondGatherPositionIt = resentPositionData.secondResendObservations.find(*currentPosition);
         if (secondGatherPositionIt == resentPositionData.secondResendObservations.end())
         {
-            // We haven't observed this path, so let's just schedule a resend at the same delta and hope the result will be the same
-            secondGatherPositionIt = resentPositionData.secondResendObservations.find(*workerStatus.plannedSecondResendPosition);
-            if (secondGatherPositionIt == resentPositionData.secondResendObservations.end())
-            {
-#if OPTIMALPOSITIONS_DEBUG
-                Log::Get() << "ERROR: Didn't find resend position in positions history: " << *resentPosition
-                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
-#endif
-                return;
-            }
-
-            // Get the delta from the first resend position to here
-            auto positionIt = workerStatus.positionHistory.rbegin();
-            for (; positionIt != workerStatus.positionHistory.rend(); positionIt++)
-            {
-                if ((**positionIt) == (*resentPosition)) break;
-            }
-            if (positionIt == workerStatus.positionHistory.rend())
-            {
-#if OPTIMALPOSITIONS_DEBUG
-                Log::Get() << "ERROR: Didn't find resend position in positions history: " << *resentPosition
-                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
-#endif
-                return;
-            }
-
-            int resendIn = secondGatherPositionIt->second.deltaToFirstResend
-                           - (int)std::distance(workerStatus.positionHistory.rbegin(), positionIt);
-            if (resendIn == 0)
-            {
-                workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
-            }
-            else
-            {
-                workerStatus.resendCommandOnFrame = currentFrame + resendIn;
-            }
+            // We haven't observed this path, so leave the worker alone to get data about this new path
+            workerStatus.plannedSecondResendPosition = nullptr;
+            workerStatus.expectedPath.clear();
             return;
         }
 
-        // We have observed this path, so we can replan given that we already performed one resend
+        // We have observed this path, so we can replan the second resend position
+        int firstResendCommandFrame = BWAPI::Broodwar->getFrameCount() - secondGatherPositionIt->second.deltaToFirstResend;
 
         // Evaluate second resends
-        auto evaluation = evaluateSecondResendPositions(BWAPI::Broodwar->getFrameCount() + secondGatherPositionIt->second.deltaToFirstResend,
+        auto evaluation = evaluateSecondResendPositions(BWAPI::Broodwar->getFrameCount(),
                                                         resentPositionData,
                                                         *currentPosition,
                                                         secondGatherPositionIt->second.deltaToFirstResend,
                                                         secondGatherPositionIt->second.arrivalObservations,
                                                         secondGatherPositionIt->second.nextPositionAndOccurrences);
 
+        // Use it if we want to explore
+        if (evaluation.positionToTryOnExpectedPath)
+        {
+            workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*evaluation.expectedPath.rbegin());
+            workerStatus.expectedPath = std::move(evaluation.expectedPath);
+            return;
+        }
+
         // Evaluate no resend
-        double expectedDelta = computeExpectedDelta(BWAPI::Broodwar->getFrameCount(),
+        double expectedDelta = computeExpectedDelta(firstResendCommandFrame,
                                                     resentPositionData,
                                                     0,
                                                     resentPositionData.noSecondResendArrivalObservations);
 
         // Pick the best strategy - either resend at a different position or clear
-        if (evaluation.positionToTryOnExpectedPath ||
-            (evaluation.expectedDelta < 10 && evaluation.expectedDelta < (expectedDelta + EPSILON)))
+        if (evaluation.expectedDelta < (expectedDelta + EPSILON))
         {
             workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*evaluation.expectedPath.rbegin());
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
