@@ -21,6 +21,25 @@ namespace WorkerMiningOptimization
         return (double)((collision * 14) - (mediumExitSpeed * 2) - (highExitSpeed * 4)) / (double)total;
     }
 
+    int ReturnArrivalObservations::mostCommonArrivalDelay() const
+    {
+        if (arrivalDelayAndOccurrences.empty()) return INT_MAX;
+        if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
+
+        int best = -1;
+        int bestCount = 0;
+        for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
+        {
+            if (occurrences > bestCount)
+            {
+                best = arrivalDelay;
+                bestCount = occurrences;
+            }
+        }
+
+        return best;
+    }
+
     int ReturnArrivalObservations::largestArrivalDelay() const
     {
         if (arrivalDelayAndOccurrences.empty()) return 100;

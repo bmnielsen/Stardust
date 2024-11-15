@@ -40,6 +40,8 @@ namespace WorkerMiningOptimization
             return arrivalDelayAndOccurrences.empty();
         }
 
+        [[nodiscard]] int mostCommonArrivalDelay() const;
+
         [[nodiscard]] int largestArrivalDelay() const;
 
         // Computes the expected number of frames from resending here to delivery

@@ -480,53 +480,54 @@ namespace WorkerMiningOptimization
                 }
 
                 // We can only predict frames to mining when not taking over from another worker
-                if (workerStatus.takeoverState != 0) return;
-
-                auto actualFramesToMining = (int)std::distance(lastResendPositionIt, workerStatus.positionHistory.end()) - 1;
-
-                int noResetExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 11);
-                if (arrivalDelay > 0)
+                if (workerStatus.takeoverState == 0)
                 {
-                    noResetExpectedFramesToMining += 9 * (((arrivalDelay - 1) / 9) + 1);
-                }
+                    auto actualFramesToMining = (int)std::distance(lastResendPositionIt, workerStatus.positionHistory.end()) - 1;
 
-                auto framesToReset =
-                        OrderProcessTimer::framesToNextReset(currentFrame - actualFramesToMining + BWAPI::Broodwar->getLatencyFrames() + 1);
+                    int noResetExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 11);
+                    if (arrivalDelay > 0)
+                    {
+                        noResetExpectedFramesToMining += 9 * (((arrivalDelay - 1) / 9) + 1);
+                    }
 
-                if (framesToReset == 0)
-                {
-                    Log::Get() << "ERROR: Sent command 4 frames before order process timer reset"
-                               << "; worker id " << worker->id << " @ " << worker->getTilePosition();
-                }
+                    auto framesToReset =
+                            OrderProcessTimer::framesToNextReset(currentFrame - actualFramesToMining + BWAPI::Broodwar->getLatencyFrames() + 1);
 
-                framesToReset += BWAPI::Broodwar->getLatencyFrames();
+                    if (framesToReset == 0)
+                    {
+                        Log::Get() << "ERROR: Sent command 4 frames before order process timer reset"
+                                   << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                    }
 
-                int minExpectedFramesToMining, maxExpectedFramesToMining;
-                if (framesToReset < actualFramesToArrival)
-                {
-                    // Reset prior to arrival
-                    minExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 11 + arrivalDelay);
-                    maxExpectedFramesToMining = minExpectedFramesToMining + 9;
-                }
-                else if (framesToReset < noResetExpectedFramesToMining)
-                {
-                    // Reset between arrival and start of mining
-                    minExpectedFramesToMining = framesToReset + 1;
-                    maxExpectedFramesToMining = minExpectedFramesToMining + 8;
-                }
-                else
-                {
-                    minExpectedFramesToMining = maxExpectedFramesToMining = noResetExpectedFramesToMining;
-                }
-                if (actualFramesToMining < minExpectedFramesToMining || actualFramesToMining > maxExpectedFramesToMining)
-                {
-                    Log::Get() << "ERROR: Position " << resentPositionData << " has unexpected mining start delta"
-                               << "; expected=" << minExpectedFramesToMining << "-" << maxExpectedFramesToMining
-                               << "; actual=" << actualFramesToMining
-                               << "; framesToReset=" << framesToReset
-                               << "; framesToArrival=" << actualFramesToArrival
-                               << "; framesToNoResetMining=" << noResetExpectedFramesToMining
-                               << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                    framesToReset += BWAPI::Broodwar->getLatencyFrames();
+
+                    int minExpectedFramesToMining, maxExpectedFramesToMining;
+                    if (framesToReset < actualFramesToArrival)
+                    {
+                        // Reset prior to arrival
+                        minExpectedFramesToMining = (BWAPI::Broodwar->getLatencyFrames() + 11 + arrivalDelay);
+                        maxExpectedFramesToMining = minExpectedFramesToMining + 9;
+                    }
+                    else if (framesToReset < noResetExpectedFramesToMining)
+                    {
+                        // Reset between arrival and start of mining
+                        minExpectedFramesToMining = framesToReset + 1;
+                        maxExpectedFramesToMining = minExpectedFramesToMining + 8;
+                    }
+                    else
+                    {
+                        minExpectedFramesToMining = maxExpectedFramesToMining = noResetExpectedFramesToMining;
+                    }
+                    if (actualFramesToMining < minExpectedFramesToMining || actualFramesToMining > maxExpectedFramesToMining)
+                    {
+                        Log::Get() << "ERROR: Position " << resentPositionData << " has unexpected mining start delta"
+                                   << "; expected=" << minExpectedFramesToMining << "-" << maxExpectedFramesToMining
+                                   << "; actual=" << actualFramesToMining
+                                   << "; framesToReset=" << framesToReset
+                                   << "; framesToArrival=" << actualFramesToArrival
+                                   << "; framesToNoResetMining=" << noResetExpectedFramesToMining
+                                   << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                    }
                 }
             }
             else
