@@ -841,6 +841,11 @@ TEST(MiningTraining, AllAIIDEContinuousSingleOnlyNoCannons)
     }
 }
 
+TEST(MiningTraining, AllAIIDEDoubleOnlyNoCannons)
+{
+    testRunWithResults("aiide2024", 2, false);
+}
+
 TEST(MiningTraining, AllAIIDEContinuousSingleAllCannons)
 {
     while (true)
