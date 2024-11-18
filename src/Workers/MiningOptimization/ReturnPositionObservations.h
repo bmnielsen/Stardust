@@ -51,7 +51,8 @@ namespace WorkerMiningOptimization
         [[nodiscard]] double expectedNoResendDeliveryDelay(const MyWorker &worker) const;
 
     private:
-        [[nodiscard]] double deliveryDelayForArrivalFrame(int arrivalFrame, int knownOrderProcessTimer, int knownOrderProcessTimerFrame) const;
+        [[nodiscard]] double deliveryDelayForArrival(
+                int arrivalDelay, int arrivalFrame, int knownOrderProcessTimer, int knownOrderProcessTimerFrame) const;
     };
 
     // This is the structure we use to track observed positions and our track record using them

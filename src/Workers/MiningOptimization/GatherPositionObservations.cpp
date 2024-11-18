@@ -73,7 +73,7 @@ namespace WorkerMiningOptimization
         int totalOccurrences = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
-            totalMiningDelay += arrivalDelayToMiningDelay(arrivalDelay);
+            totalMiningDelay += (arrivalDelayToMiningDelay(arrivalDelay) * occurrences);
             totalOccurrences += occurrences;
         }
 

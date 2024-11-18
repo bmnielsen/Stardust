@@ -17,8 +17,8 @@ namespace WorkerMiningOptimization
             // If we are exploring and don't have enough data yet, allow it no matter what
             if (WorkerMiningOptimization::isExploring() && total < 5) return 0.0;
 
-            // A collision adds 14 frames of delay
-            return 14.0 * (double)observedCollisions / (double)total;
+            // A collision adds an extra order process timer cycle of delay
+            return 9.0 * (double)observedCollisions / (double)total;
         }
 
         struct PositionEvaluation

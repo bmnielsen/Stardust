@@ -8,6 +8,9 @@
 #include "ReturnPositionObservations.h"
 #include "WorkerReturnStatus.h"
 
+#define ENABLE_GATHER_OPTIMIZATION true
+#define ENABLE_RETURN_OPTIMIZATION true
+
 // In our data files we track the full paths between depot and patch, but we only explore positions within the bounds defined here
 #define GATHER_EXPLORE_BEFORE 12
 #define GATHER_EXPLORE_AFTER 5

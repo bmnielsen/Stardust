@@ -86,7 +86,12 @@ namespace WorkerMiningOptimization
             // Explore positions within our exploration horizon that haven't been tried yet
             if (WorkerMiningOptimization::isExploring() && positionMetadata.suitableForExploration())
             {
-                return {100.0, {*here}, here, true};
+                double deltaToBenchmark =
+                        std::abs(8 + BWAPI::Broodwar->getLatencyFrames() - positionMetadata.noResendArrivalObservations.mostCommonArrivalDelay());
+                if (!nextPositionsEvaluation.positionToTry || deltaToBenchmark < nextPositionsEvaluation.expectedDelay)
+                {
+                    return {deltaToBenchmark, {*here}, here, true};
+                }
             }
             if (nextPositionsEvaluation.positionToTry) return nextPositionsEvaluation;
 
@@ -219,6 +224,10 @@ namespace WorkerMiningOptimization
         // Track the worker's visited positions
         auto currentPosition = workerStatus.appendCurrentPosition();
 
+#if !ENABLE_RETURN_OPTIMIZATION
+        return;
+#endif
+
         auto &optimalPositions = optimalReturnPositionsFor(resource);
 
         if (workerStatus.resendPlanned)
@@ -243,7 +252,10 @@ namespace WorkerMiningOptimization
             }
 
             // Remove this position from the expected path
-            if (!workerStatus.expectedPath.empty()) workerStatus.expectedPath.pop_front();
+            if (!workerStatus.expectedPath.empty())
+            {
+                workerStatus.expectedPath.pop_front();
+            }
         }
     }
 }

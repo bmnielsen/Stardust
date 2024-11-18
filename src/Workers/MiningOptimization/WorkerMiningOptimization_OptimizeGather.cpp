@@ -517,6 +517,10 @@ namespace WorkerMiningOptimization
             return;
         }
 
+#if !ENABLE_GATHER_OPTIMIZATION
+        return;
+#endif
+
         // Handle case where another worker is assigned to the patch
         if (handleTakeover(workerStatus, currentPosition, resourceBwapiUnit)) return;
 

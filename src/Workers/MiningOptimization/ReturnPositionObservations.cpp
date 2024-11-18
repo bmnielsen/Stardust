@@ -14,11 +14,11 @@ namespace WorkerMiningOptimization
         // - Low exit speed is the norm, so does not affect the result
         // - High exit speed saves 4 frames
         // - Medium exit speed saves 2 frames
-        // - Collisions cost 14 frames
+        // - Collisions cost an extra order process timer cycle
         int total = collision + lowExitSpeed + mediumExitSpeed + highExitSpeed;
         if (total == 0) return 0.0;
 
-        return (double)((collision * 14) - (mediumExitSpeed * 2) - (highExitSpeed * 4)) / (double)total;
+        return (double)((collision * 9) - (mediumExitSpeed * 2) - (highExitSpeed * 4)) / (double)total;
     }
 
     int ReturnArrivalObservations::mostCommonArrivalDelay() const
@@ -63,14 +63,20 @@ namespace WorkerMiningOptimization
 
         if (arrivalDelayAndOccurrences.size() == 1)
         {
-            return deliveryDelayForArrivalFrame(arrivalDelayAndOccurrences.begin()->first, 0, commandFrame + BWAPI::Broodwar->getLatencyFrames());
+            return deliveryDelayForArrival(arrivalDelayAndOccurrences.begin()->first,
+                                           commandFrame + arrivalDelayAndOccurrences.begin()->first,
+                                           0,
+                                           commandFrame + BWAPI::Broodwar->getLatencyFrames());
         }
 
         double totalDelay = 0.0;
         int totalOccurrences = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
-            totalDelay += deliveryDelayForArrivalFrame(arrivalDelay, 0, commandFrame + BWAPI::Broodwar->getLatencyFrames());
+            totalDelay += deliveryDelayForArrival(arrivalDelay,
+                                                  commandFrame + arrivalDelay,
+                                                  0,
+                                                  commandFrame + BWAPI::Broodwar->getLatencyFrames());
             totalOccurrences += occurrences;
         }
 
@@ -79,45 +85,63 @@ namespace WorkerMiningOptimization
 
     double ReturnArrivalObservations::expectedNoResendDeliveryDelay(const MyWorker &worker) const
     {
+        if (worker->lastPosition == BWAPI::Position(191,321))
+        {
+            Log::Get() << "hey";
+        }
+
         if (arrivalDelayAndOccurrences.empty()) return 100.0;
 
         if (arrivalDelayAndOccurrences.size() == 1)
         {
-            return deliveryDelayForArrivalFrame(arrivalDelayAndOccurrences.begin()->first,
-                                                worker->orderProcessTimer,
-                                                BWAPI::Broodwar->getFrameCount());
+            return deliveryDelayForArrival(arrivalDelayAndOccurrences.begin()->first,
+                                           BWAPI::Broodwar->getFrameCount() + arrivalDelayAndOccurrences.begin()->first,
+                                           worker->orderProcessTimer,
+                                           BWAPI::Broodwar->getFrameCount());
         }
 
         double totalDelay = 0.0;
         int totalOccurrences = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
-            totalDelay += deliveryDelayForArrivalFrame(arrivalDelay, worker->orderProcessTimer, BWAPI::Broodwar->getFrameCount());
+            totalDelay += deliveryDelayForArrival(arrivalDelay,
+                                                  BWAPI::Broodwar->getFrameCount() + arrivalDelay,
+                                                  worker->orderProcessTimer,
+                                                  BWAPI::Broodwar->getFrameCount());
             totalOccurrences += occurrences;
         }
 
         return totalDelay / (double)totalOccurrences;
     }
 
-    double ReturnArrivalObservations::deliveryDelayForArrivalFrame(int arrivalFrame,
-                                                                   int knownOrderProcessTimer,
-                                                                   int knownOrderProcessTimerFrame) const
+    double ReturnArrivalObservations::deliveryDelayForArrival(int arrivalDelay,
+                                                              int arrivalFrame,
+                                                              int knownOrderProcessTimer,
+                                                              int knownOrderProcessTimerFrame) const
     {
         // Compute the order process timer at arrival
         // This takes order process timer resets into account
         int orderProcessTimerAtArrival = OrderProcessTimer::unitOrderProcessTimerAtDelta(
-                knownOrderProcessTimerFrame, knownOrderProcessTimer, arrivalFrame - knownOrderProcessTimerFrame);
+                knownOrderProcessTimerFrame, knownOrderProcessTimer, arrivalFrame - knownOrderProcessTimerFrame - 1);
 
         // If we don't know what the order process timer will be at arrival, compute an average delay considering the different exit timings
         // depending on whether the delivery happens at arrival or not
         if (orderProcessTimerAtArrival == -1)
         {
             // If the arrival frame is a reset frame, this changes the math slightly as there are only 8 possible reset values
+            double delayAfterArrival;
             if (OrderProcessTimer::isResetFrame(arrivalFrame))
             {
-                return (deliveryAtArrivalSpeeds.expectedDeltaToNormal() + 28.0 + (7.0 * deliveryAfterArrivalSpeeds.expectedDeltaToNormal())) / 8.0;
+                delayAfterArrival =
+                        (deliveryAtArrivalSpeeds.expectedDeltaToNormal() + 28.0 + (7.0 * deliveryAfterArrivalSpeeds.expectedDeltaToNormal())) / 8.0;
             }
-            return (deliveryAtArrivalSpeeds.expectedDeltaToNormal() + 36.0 + (8.0 * deliveryAfterArrivalSpeeds.expectedDeltaToNormal())) / 9.0;
+            else
+            {
+                delayAfterArrival =
+                        (deliveryAtArrivalSpeeds.expectedDeltaToNormal() + 36.0 + (8.0 * deliveryAfterArrivalSpeeds.expectedDeltaToNormal())) / 9.0;
+            }
+
+            return (double)arrivalDelay + delayAfterArrival;
         }
 
         // Compute the expected delivery frame if no order process timer reset occurs
@@ -128,16 +152,16 @@ namespace WorkerMiningOptimization
         if (nextResetFrame <= deliveryFrame)
         {
             // Average will be 3.5 frames of delay after the reset
-            return (nextResetFrame - arrivalFrame) + 3.5 + deliveryAfterArrivalSpeeds.expectedDeltaToNormal();
+            return (double)(arrivalDelay + (nextResetFrame - arrivalFrame)) + 3.5 + deliveryAfterArrivalSpeeds.expectedDeltaToNormal();
         }
 
         // No order process timer reset affects the timing, so just return the appropriate value depending on whether we deliver on the arrival frame
         // or not
         if (deliveryFrame == arrivalFrame)
         {
-            return deliveryAtArrivalSpeeds.expectedDeltaToNormal();
+            return (double)arrivalDelay + deliveryAtArrivalSpeeds.expectedDeltaToNormal();
         }
-        return (deliveryFrame - arrivalFrame) + deliveryAfterArrivalSpeeds.expectedDeltaToNormal();
+        return (double)(arrivalDelay + deliveryFrame - arrivalFrame) + deliveryAfterArrivalSpeeds.expectedDeltaToNormal();
     }
 
     bool ReturnPositionObservations::suitableForExploration() const
@@ -271,10 +295,10 @@ namespace WorkerMiningOptimization
             auto data = CsvTools::tokenizeList(speeds, '|');
             if (data.size() != 4) return ReturnSpeedOccurrences{0, 0, 0, 0};
             return ReturnSpeedOccurrences{
-                std::stoi(data[0]),
-                std::stoi(data[1]),
-                std::stoi(data[2]),
-                std::stoi(data[3])
+                    std::stoi(data[0]),
+                    std::stoi(data[1]),
+                    std::stoi(data[2]),
+                    std::stoi(data[3])
             };
         };
 
