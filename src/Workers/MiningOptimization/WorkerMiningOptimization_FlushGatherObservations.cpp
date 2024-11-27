@@ -45,6 +45,8 @@ namespace WorkerMiningOptimization
             // Don't process histories over 60 positions, as this indicates either distance mining or some kind of weird pathing error
             if (workerStatus.positionHistory.size() > 60) return false;
 
+            int headingBeforeMiningStart = (*(workerStatus.positionHistory.rbegin() + 1))->heading;
+
             auto nextResendPositionIt = workerStatus.resentPositions.begin();
             auto firstPos = (*workerStatus.positionHistory.begin())->pos();
             for (auto it = workerStatus.positionHistory.begin(); it != workerStatus.positionHistory.end(); it++)
@@ -60,9 +62,14 @@ namespace WorkerMiningOptimization
                                                     BWAPI::UnitTypes::Resource_Mineral_Field,
                                                     workerStatus.resource->center);
 
+                // Arrival position is defined as the position where:
+                // - distance to the patch is 0
+                // - position is the same as the position at mining start
+                // - heading is the same as the heading immediately prior to mining start, unless this is the mining start position
                 if (positionsInHistory.arrivalPositionIt == workerStatus.positionHistory.end()
                     && dist == 0
-                    && workerStatus.worker->lastPosition == (*it)->pos())
+                    && workerStatus.worker->lastPosition == (*it)->pos()
+                    && ((*it)->heading == headingBeforeMiningStart || (it + 1) == workerStatus.positionHistory.end()))
                 {
                     positionsInHistory.arrivalPositionIt = it;
                 }
