@@ -356,11 +356,13 @@ namespace
                 });
 
                 std::ostringstream str;
+                str.imbue(std::locale("da_DK"));
                 str << std::fixed << std::showpoint << std::setprecision(4)
                     << "Efficiency per patch:";
                 for (const auto &[patch, singleAndDouble] : patchEfficiency)
                 {
-                    str << "\n" << patch->tile << ": " << ((workersPerPatch == 1) ? singleAndDouble.first : singleAndDouble.second);
+                    str << "\n" << patch->tile.x << ";" << patch->tile.y << ";"
+                                << ((workersPerPatch == 1) ? singleAndDouble.first : singleAndDouble.second);
                 }
                 std::cout << str.str() << std::endl;
             }

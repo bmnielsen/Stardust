@@ -178,6 +178,7 @@ void StardustAIModule::onFrame()
 #ifdef FRAME_LIMIT
     if (enableFrameLimit && currentFrame > FRAME_LIMIT)
     {
+        Log::Get() << "Frame limit reached; leaving game";
         gameFinished = true;
         BWAPI::Broodwar->leaveGame();
         return;

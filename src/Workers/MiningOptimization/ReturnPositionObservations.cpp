@@ -85,11 +85,6 @@ namespace WorkerMiningOptimization
 
     double ReturnArrivalObservations::expectedNoResendDeliveryDelay(const MyWorker &worker) const
     {
-        if (worker->lastPosition == BWAPI::Position(191,321))
-        {
-            Log::Get() << "hey";
-        }
-
         if (arrivalDelayAndOccurrences.empty()) return 100.0;
 
         if (arrivalDelayAndOccurrences.size() == 1)
