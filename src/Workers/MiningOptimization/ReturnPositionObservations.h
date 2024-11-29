@@ -1,5 +1,6 @@
 #pragma once
 
+#include "TilePosition.h"
 #include "PositionAndVelocity.h"
 #include "OrderProcessTimer.h"
 #include "Resource.h"
@@ -104,11 +105,11 @@ namespace WorkerMiningOptimization
 
         static void outputDataFileHeaderRow(std::ofstream &file);
 
-        void outputToDataFile(std::ofstream &file, const Resource &resource) const;
+        void outputToDataFile(std::ofstream &file, const TilePosition &resourceTile) const;
 
         static bool parseFromDataFile(
                 const std::vector<std::string> &line,
-                std::map<Resource, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &map,
+                std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &map,
                 int lineNumber);
     };
 

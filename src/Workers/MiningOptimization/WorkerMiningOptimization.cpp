@@ -3,10 +3,10 @@
 
 #include "WorkerMiningOptimization.h"
 
+#include "TilePosition.h"
 #include "PositionAndVelocity.h"
 #include "FileTools.h"
 #include "CsvTools.h"
-#include "Units.h"
 
 #if INSTRUMENTATION_ENABLED
 #define OUTPUT_METADATA_ANALYSIS true
@@ -20,18 +20,18 @@ namespace WorkerMiningOptimization
         bool exploring;
 
         // Metadata for positions used for optimizing approach to the patch
-        std::map<Resource, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> resourceToOptimalGatherPositions;
+        std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> resourceToOptimalGatherPositions;
 
         // Metadata for positions LF+1 frames before reaching 10 or less distance from the patch
         // Workers can try to switch to another patch if their chosen patch is being mined once they reach this distance, so we use these
         // positions to detect when we need to start resending gather commands to ensure mineral locking
-        std::map<Resource, std::unordered_set<PositionAndVelocity>> resourceTo10DistancePositions;
+        std::map<TilePosition, std::unordered_set<PositionAndVelocity>> resourceTo10DistancePositions;
 
         // Worker state for those on their way to the patch
         std::map<MyWorker, WorkerGatherStatus> workerGatherStatuses;
 
         // Metadata for positions used for optimizing return of resources
-        std::map<Resource, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> resourceToOptimalReturnPositions;
+        std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> resourceToOptimalReturnPositions;
 
         // Worker state for those returning resources
         std::map<MyWorker, WorkerReturnStatus> workerReturnStatuses;
@@ -64,7 +64,7 @@ namespace WorkerMiningOptimization
 
         template<class T>
         void parsePositionObservationsFile(const std::string &filename,
-                                           std::map<Resource, std::unordered_map<PositionAndVelocity, T>> &map)
+                                           std::map<TilePosition, std::unordered_map<PositionAndVelocity, T>> &map)
         {
             map.clear();
 
@@ -100,7 +100,7 @@ namespace WorkerMiningOptimization
 
         template<class T>
         void writePositionObservationsFile(const std::string &filename,
-                                           const std::map<Resource, std::unordered_map<PositionAndVelocity, T>> &map)
+                                           const std::map<TilePosition, std::unordered_map<PositionAndVelocity, T>> &map)
         {
             std::ofstream file;
             file.open(filename, std::ofstream::trunc);
@@ -122,7 +122,7 @@ namespace WorkerMiningOptimization
         }
 
         void parse10DistancePositionsFile(const std::string &filename,
-                                          std::map<Resource, std::unordered_set<PositionAndVelocity>> &map)
+                                          std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &map)
         {
             map.clear();
 
@@ -143,11 +143,9 @@ namespace WorkerMiningOptimization
                     if (line.size() < 3) break;
                     if (lineNumber == 1 && line[0] == "x") continue; // header row
 
-                    BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
-                    auto resource = Units::resourceAt(tile);
-                    if (!resource) continue;
+                    TilePosition tile{(uint8_t)std::stoul(line[0]), (uint8_t)std::stoul(line[1])};
 
-                    auto &positions = map[resource];
+                    auto &positions = map[tile];
                     for (auto &posStr : CsvTools::tokenizeList(line[2], ','))
                     {
                         PositionAndVelocity pos;
@@ -172,7 +170,7 @@ namespace WorkerMiningOptimization
         }
 
         void write10DistancePositionsFile(const std::string &filename,
-                                          const std::map<Resource, std::unordered_set<PositionAndVelocity>> &map)
+                                          const std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &map)
         {
             std::ofstream file;
             file.open(filename, std::ofstream::trunc);
@@ -180,12 +178,12 @@ namespace WorkerMiningOptimization
             file << "x;y;positions\n";
 
             int count = 0;
-            for (const auto &[resource, tenDistancePositions] : map)
+            for (const auto &[resourceTile, tenDistancePositions] : map)
             {
                 if (tenDistancePositions.empty()) continue;
 
-                file << resource->tile.x << ";"
-                     << resource->tile.y << ";";
+                file << (unsigned int)resourceTile.x << ";"
+                     << (unsigned int)resourceTile.y << ";";
 
                 std::string posSep;
                 for (const auto &pos : tenDistancePositions)
@@ -349,17 +347,17 @@ namespace WorkerMiningOptimization
 
     std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalGatherPositionsFor(const Resource &resource)
     {
-        return resourceToOptimalGatherPositions[resource];
+        return resourceToOptimalGatherPositions[TilePosition::fromBWAPI(resource->tile)];
     }
 
     std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &optimalReturnPositionsFor(const Resource &resource)
     {
-        return resourceToOptimalReturnPositions[resource];
+        return resourceToOptimalReturnPositions[TilePosition::fromBWAPI(resource->tile)];
     }
 
     std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource)
     {
-        return resourceTo10DistancePositions[resource];
+        return resourceTo10DistancePositions[TilePosition::fromBWAPI(resource->tile)];
     }
 
     bool isExploring()

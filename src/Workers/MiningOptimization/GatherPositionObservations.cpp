@@ -1,7 +1,6 @@
 #include "GatherPositionObservations.h"
 
 #include "CsvTools.h"
-#include "Units.h"
 
 namespace WorkerMiningOptimization
 {
@@ -148,7 +147,7 @@ namespace WorkerMiningOptimization
              << "no 2nd resend arrivals;no 2nd resend collisions;no 2nd resend non-collisions;resend changes path;second resend data\n";
     }
 
-    void GatherPositionObservations::outputToDataFile(std::ofstream &file, const Resource &resource) const
+    void GatherPositionObservations::outputToDataFile(std::ofstream &file, const TilePosition &resourceTile) const
     {
         auto outputNext = [&file](const std::unordered_map<PositionAndVelocity, int> &nextPositions)
         {
@@ -169,8 +168,8 @@ namespace WorkerMiningOptimization
             }
         };
 
-        file << resource->tile.x << ";"
-             << resource->tile.y << ";"
+        file << (unsigned int)resourceTile.x << ";"
+             << (unsigned int)resourceTile.y << ";"
              << pathHash << ";"
              << pos << ";";
 
@@ -214,7 +213,7 @@ namespace WorkerMiningOptimization
 
     bool GatherPositionObservations::parseFromDataFile(
             const std::vector<std::string> &line,
-            std::map<Resource, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &map,
+            std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &map,
             int lineNumber)
     {
         auto parseNextPositions = [](const std::string &str)
@@ -289,9 +288,7 @@ namespace WorkerMiningOptimization
 
         if (line.size() < 12) return true;
 
-        BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
-        auto resource = Units::resourceAt(tile);
-        if (!resource) return false;
+        TilePosition tile{(uint8_t)std::stoul(line[0]), (uint8_t)std::stoul(line[1])};
 
         PositionAndVelocity resendPos;
         if (!PositionAndVelocity::tryParse(line[3], resendPos))
@@ -300,7 +297,7 @@ namespace WorkerMiningOptimization
             return false;
         }
 
-        auto &resourceMap = map[resource];
+        auto &resourceMap = map[tile];
 
         resourceMap.emplace(resendPos, GatherPositionObservations{
                 (uint32_t)std::stoul(line[2]),

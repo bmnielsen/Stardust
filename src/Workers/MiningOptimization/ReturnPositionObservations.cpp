@@ -2,7 +2,6 @@
 
 #include "WorkerMiningOptimization.h"
 #include "CsvTools.h"
-#include "Units.h"
 #include "OrderProcessTimer.h"
 #include "DebugFlag_WorkerMiningOptimization.h"
 
@@ -188,7 +187,7 @@ namespace WorkerMiningOptimization
 #endif
     }
 
-    void ReturnPositionObservations::outputToDataFile(std::ofstream &file, const Resource &resource) const
+    void ReturnPositionObservations::outputToDataFile(std::ofstream &file, const TilePosition &resourceTile) const
     {
         auto outputNext = [&file](const std::unordered_map<PositionAndVelocity, int> &nextPositions)
         {
@@ -223,8 +222,8 @@ namespace WorkerMiningOptimization
             outputSpeeds(observations.deliveryAtArrivalSpeeds);
         };
 
-        file << resource->tile.x << ";"
-             << resource->tile.y << ";"
+        file << (unsigned int)resourceTile.x << ";"
+             << (unsigned int)resourceTile.y << ";"
              << pathHash << ";"
              << pos << ";";
         outputNext(nextPositionAndOccurrences);
@@ -247,7 +246,7 @@ namespace WorkerMiningOptimization
 
     bool ReturnPositionObservations::parseFromDataFile(
             const std::vector<std::string> &line,
-            std::map<Resource, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &map,
+            std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &map,
             int lineNumber)
     {
         auto parseNextPositions = [](const std::string &str)
@@ -311,9 +310,7 @@ namespace WorkerMiningOptimization
 
         if (line.size() < 11) return true;
 
-        BWAPI::TilePosition tile(std::stoi(line[0]), std::stoi(line[1]));
-        auto resource = Units::resourceAt(tile);
-        if (!resource) return false;
+        TilePosition tile{(uint8_t)std::stoul(line[0]), (uint8_t)std::stoul(line[1])};
 
         PositionAndVelocity pos;
         if (!PositionAndVelocity::tryParse(line[3], pos))
@@ -322,7 +319,7 @@ namespace WorkerMiningOptimization
             return false;
         }
 
-        auto &resourceMap = map[resource];
+        auto &resourceMap = map[tile];
 
         resourceMap.emplace(pos, ReturnPositionObservations{
                 (uint32_t)std::stoul(line[2]),
