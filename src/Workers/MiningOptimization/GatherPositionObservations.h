@@ -8,6 +8,12 @@
 
 namespace WorkerMiningOptimization
 {
+    enum class ResendChangesPath : uint8_t
+    {
+        Unknown,
+        Yes,
+        No
+    };
     struct GatherResendArrivalObservations
     {
         std::unordered_map<int, int> arrivalDelayAndOccurrences;
@@ -70,8 +76,8 @@ namespace WorkerMiningOptimization
         // How many times the worker does not collide with the patch after mining when no resend is sent along this path
         int noResendNonCollisions = 0;
 
-        // Whether a resend at this position changes the path. 1=Yes; -1=No; 0=Unknown
-        int resendChangesPath = 0;
+        // Whether a resend at this position changes the path
+        ResendChangesPath resendChangesPath = ResendChangesPath::Unknown;
 
         GatherPositionObservations(uint32_t pathHash, PositionAndVelocity pos)
                 : pathHash(pathHash)
@@ -93,7 +99,7 @@ namespace WorkerMiningOptimization
                 std::unordered_map<PositionAndVelocity, SecondResendGatherPositionObservations> &&secondResendObservations,
                 int noResendCollisions = 0,
                 int noResendNonCollisions = 0,
-                int resendChangesPath = 0)
+                ResendChangesPath resendChangesPath = ResendChangesPath::Unknown)
                 : pathHash(pathHash)
                 , pos(pos)
                 , deltaToBenchmarkAndOccurrences(std::move(deltaToBenchmarkAndOccurrences))

@@ -206,7 +206,7 @@ namespace WorkerMiningOptimization
             }
 
             // If the initial resend didn't change the path, look up the second resend position in the normal positions set
-            if (resendMetadataIt->second.resendChangesPath == -1)
+            if (resendMetadataIt->second.resendChangesPath == ResendChangesPath::No)
             {
                 auto secondResendObservationsIt = optimalGatherPositions.find(*miningWorker.resentPositions[1]);
                 if (secondResendObservationsIt == optimalGatherPositions.end()) // should never happen
@@ -290,7 +290,7 @@ namespace WorkerMiningOptimization
                 }
 
                 // Only record next positions for second resend if we actually track them here
-                if (positionMetadata.resendChangesPath != 1) continue;
+                if (positionMetadata.resendChangesPath != ResendChangesPath::Yes) continue;
 
                 // Add metadata for second resend positions
                 // If this isn't the resend position, we add following positions up to LF
@@ -559,7 +559,7 @@ namespace WorkerMiningOptimization
             // If so, we don't bother tracking second resends on this, as they will be the same as the normal path
             auto pathsMatch = [&]()
             {
-                if (resentPositionData.resendChangesPath == 1) return false;
+                if (resentPositionData.resendChangesPath == ResendChangesPath::Yes) return false;
 
                 auto noResendPath = resentPositionData.followingPositionsIfStable(optimalGatherPositions);
                 if (noResendPath.empty()) return false; // No resend path is unstable
@@ -580,14 +580,14 @@ namespace WorkerMiningOptimization
 
             if (pathsMatch())
             {
-                resentPositionData.resendChangesPath = -1;
+                resentPositionData.resendChangesPath = ResendChangesPath::No;
                 return;
             }
 
             // If this is the first detection of a changed path, add the existing next positions as a second resend position
-            if (resentPositionData.resendChangesPath != 1)
+            if (resentPositionData.resendChangesPath != ResendChangesPath::Yes)
             {
-                resentPositionData.resendChangesPath = 1;
+                resentPositionData.resendChangesPath = ResendChangesPath::Yes;
 
                 for (const auto &[nextPosition, _] : resentPositionData.nextPositionAndOccurrences)
                 {

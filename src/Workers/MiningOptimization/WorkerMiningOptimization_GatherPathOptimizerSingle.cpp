@@ -56,7 +56,7 @@ namespace WorkerMiningOptimization
         {
             // Start by getting the data for doing a second resend at all of the next positions
             PositionEvaluation nextPositionsEvaluation;
-            if (positionMetadata.resendChangesPath == 1)
+            if (positionMetadata.resendChangesPath == ResendChangesPath::Yes)
             {
                 double deltaAccumulator = 0.0;
                 int occurrenceCount = 0;

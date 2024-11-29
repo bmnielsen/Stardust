@@ -189,7 +189,7 @@ namespace WorkerMiningOptimization
         file << ";"
              << noSecondResendArrivalObservations.collisions << ";"
              << noSecondResendArrivalObservations.nonCollisions << ";"
-             << resendChangesPath << ";";
+             << (int)(uint8_t)resendChangesPath << ";";
 
         std::string secondResendPosSep;
         for (const auto &[secondResentPos, secondResendPositionMetadata] : secondResendObservations)
@@ -308,7 +308,7 @@ namespace WorkerMiningOptimization
                 parseSecondResendPositions((line.size() > 12) ? line[12] : ""),
                 std::stoi(line[5]),
                 std::stoi(line[6]),
-                std::stoi(line[11])
+                (ResendChangesPath)(uint8_t)std::stoul(line[11])
         });
 
         return false;
