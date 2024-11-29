@@ -36,6 +36,9 @@ public:
     [[nodiscard]] int getDistance(const Resource &other) const;
 
     [[nodiscard]] int getDistance(BWAPI::UnitType type, BWAPI::Position center) const;
+
+private:
+    mutable BWAPI::Unit bwapiUnit;
 };
 
 std::ostream &operator<<(std::ostream &os, const ResourceImpl &resource);

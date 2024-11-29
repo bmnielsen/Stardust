@@ -11,6 +11,7 @@ ResourceImpl::ResourceImpl(BWAPI::Unit unit)
     , currentAmount(unit->getResources())
     , seenLastFrame(false)
     , destroyed(false)
+    , bwapiUnit(unit)
 {}
 
 bool ResourceImpl::hasMyCompletedRefinery() const
@@ -30,17 +31,24 @@ BWAPI::Unit ResourceImpl::getBwapiUnitIfVisible() const
         return refinery->bwapiUnit;
     }
 
+    if (bwapiUnit && bwapiUnit->exists() && bwapiUnit->isVisible())
+    {
+        return bwapiUnit;
+    }
+
+    bwapiUnit = nullptr;
     for (auto unit : BWAPI::Broodwar->getNeutralUnits())
     {
-        if (!unit->isVisible()) continue;
         if (unit->getTilePosition() != tile) continue;
         if (isMinerals && !unit->getType().isMineralField()) continue;
         if (!isMinerals && unit->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser) continue;
+        if (!unit->isVisible()) continue;
 
-        return unit;
+        bwapiUnit = unit;
+        break;
     }
 
-    return nullptr;
+    return bwapiUnit;
 }
 
 int ResourceImpl::getDistance(const Unit &unit) const
