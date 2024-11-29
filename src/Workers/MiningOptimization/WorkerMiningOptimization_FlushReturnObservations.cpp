@@ -231,6 +231,7 @@ namespace WorkerMiningOptimization
             };
 
             // Include LF positions after the resend since the positions only change after the command kicks in
+            bool passedExistingPosition = false;
             auto limit = positionsInHistory.arrivalPositionIt;
             if (workerStatus.resentPosition)
             {
@@ -241,12 +242,19 @@ namespace WorkerMiningOptimization
                 auto metadataIt = optimalReturnPositions.find(**positionIt);
                 if (metadataIt == optimalReturnPositions.end())
                 {
+                    // We create default metadata for anything we create a next link to, but not anything that comes before
+                    if (!passedExistingPosition) continue;
+
                     metadataIt = optimalReturnPositions.emplace(
                             **positionIt,
                             ReturnPositionObservations(
                                     (*positionsInHistory.firstMovedPositionIt)->previousPositionsHash,
                                     **positionIt)
                     ).first;
+                }
+                else
+                {
+                    passedExistingPosition = true;
                 }
 
                 if ((positionIt + 1) != limit)
@@ -275,7 +283,7 @@ namespace WorkerMiningOptimization
                 // Get the "path hash", which is the hash of the first position the worker moved in the stored path
                 uint32_t pathHash = (*positionsInHistory.firstMovedPositionIt)->previousPositionsHash;
 
-                // Create metadata for any missing positions on this path and update the next positions
+                // Create metadata for any missing positions on this path
                 for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
                 {
                     int arrival = (int)std::distance(positionIt, positionsInHistory.arrivalPositionIt);
@@ -293,6 +301,8 @@ namespace WorkerMiningOptimization
                         existingIt->second.noResendArrivalObservations.arrivalDelayAndOccurrences[arrival]++;
                         continue;
                     }
+
+                    if (arrival > (RETURN_EXPLORE_BEFORE + 8 + BWAPI::Broodwar->getLatencyFrames())) continue;
 
                     optimalReturnPositions.emplace(
                             **positionIt,
