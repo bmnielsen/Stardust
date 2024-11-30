@@ -11,7 +11,8 @@ namespace WorkerMiningOptimization
     {
         struct PositionEvaluation
         {
-            double expectedDelay = 100.0;
+            bool explored = false;
+            double expectedDelay = 0.0;
             std::deque<PositionAndVelocity> expectedPath; // up to and including the resend position
             std::shared_ptr<PositionAndVelocity> resendPosition;
             bool positionToTry = false;
@@ -54,6 +55,12 @@ namespace WorkerMiningOptimization
                 return {};
             }
 
+            // Jump out of the recursion when we've exceeded the exploration horizon
+            if (!positionMetadata.afterExplorationHorizon())
+            {
+                return {};
+            }
+
             // Start by getting the data for all of the next positions
             PositionEvaluation nextPositionsEvaluation;
             if (positionMetadata.nextPositionAndOccurrences.size() == 1)
@@ -71,8 +78,11 @@ namespace WorkerMiningOptimization
                 for (const auto &[nextPosition, occurrences] : positionMetadata.nextPositionAndOccurrences)
                 {
                     auto nextPositionEvaluation = evaluateNextPosition(commandFrame, allPositionData, nextPosition);
-                    delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
-                    occurrenceCount += occurrences;
+                    if (nextPositionsEvaluation.explored)
+                    {
+                        delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
+                        occurrenceCount += occurrences;
+                    }
                     if (occurrences > bestOccurrences)
                     {
                         bestOccurrences = occurrences;
@@ -90,15 +100,21 @@ namespace WorkerMiningOptimization
                         std::abs(8 + BWAPI::Broodwar->getLatencyFrames() - positionMetadata.noResendArrivalObservations.mostCommonArrivalDelay());
                 if (!nextPositionsEvaluation.positionToTry || deltaToBenchmark < nextPositionsEvaluation.expectedDelay)
                 {
-                    return {deltaToBenchmark, {*here}, here, true};
+                    return {false, deltaToBenchmark, {*here}, here, true};
                 }
             }
             if (nextPositionsEvaluation.positionToTry) return nextPositionsEvaluation;
 
-            double expectedDelay = positionMetadata.resendArrivalObservations.expectedDeliveryDelay(commandFrame);
-            if (expectedDelay < (nextPositionsEvaluation.expectedDelayAtStartOfPath() - EPSILON))
+            // We haven't explored this position and aren't interested in exploring it, so return the next position data
+            if (positionMetadata.resendArrivalObservations.empty())
             {
-                return {expectedDelay, {*here}, here, false};
+                return nextPositionsEvaluation;
+            }
+
+            double expectedDelay = positionMetadata.resendArrivalObservations.expectedDeliveryDelay(commandFrame);
+            if (!nextPositionsEvaluation.explored || expectedDelay < (nextPositionsEvaluation.expectedDelayAtStartOfPath() - EPSILON))
+            {
+                return {true, expectedDelay, {*here}, here, false};
             }
 
             return nextPositionsEvaluation;
@@ -123,8 +139,7 @@ namespace WorkerMiningOptimization
             {
                 if (!evaluation.resendPosition) return false;
                 if (evaluation.positionToTry) return true;
-
-                return evaluation.expectedDelay < 50.0;
+                return evaluation.explored;
             };
 
             auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata);

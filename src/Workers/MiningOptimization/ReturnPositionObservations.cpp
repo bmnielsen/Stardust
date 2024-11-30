@@ -158,6 +158,20 @@ namespace WorkerMiningOptimization
         return (double)(arrivalDelay + deliveryFrame - arrivalFrame) + deliveryAfterArrivalSpeeds.expectedDeltaToNormal();
     }
 
+    bool ReturnPositionObservations::afterExplorationHorizon() const
+    {
+        int referenceFrame = 8 + BWAPI::Broodwar->getLatencyFrames();
+        for (const auto &[arrivalDelay, _] : noResendArrivalObservations.arrivalDelayAndOccurrences)
+        {
+            if (arrivalDelay < (referenceFrame - RETURN_EXPLORE_AFTER))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     bool ReturnPositionObservations::suitableForExploration() const
     {
         if (!resendArrivalObservations.empty()) return false; // Have already explored

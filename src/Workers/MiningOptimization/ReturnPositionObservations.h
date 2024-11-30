@@ -124,6 +124,9 @@ namespace WorkerMiningOptimization
                 , resendArrivalObservations(std::move(resendArrivalObservations))
         {}
 
+        // Checks if any of the observed arrival delays are after our exploration horizon
+        [[nodiscard]] bool afterExplorationHorizon() const;
+
         [[nodiscard]] bool suitableForExploration() const;
 
         static void outputDataFileHeaderRow(std::ofstream &file);

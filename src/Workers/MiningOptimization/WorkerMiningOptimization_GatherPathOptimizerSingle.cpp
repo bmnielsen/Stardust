@@ -23,6 +23,7 @@ namespace WorkerMiningOptimization
 
         struct PositionEvaluation
         {
+            bool explored = false;
             double expectedDelta = 100.0;
             std::deque<PositionAndVelocity> expectedPath;
             std::shared_ptr<PositionAndVelocity> resendPosition;
@@ -30,16 +31,22 @@ namespace WorkerMiningOptimization
             int positionToTryDelta = 0;
         };
 
-        double computeExpectedDelta(int commandFrame,
-                                    const GatherPositionObservations &positionMetadata,
-                                    int deltaToFirstResend,
-                                    const GatherResendArrivalObservations &observations)
+        std::optional<double> computeExpectedDelta(int commandFrame,
+                                                   const GatherPositionObservations &positionMetadata,
+                                                   int deltaToFirstResend,
+                                                   const GatherResendArrivalObservations &observations)
         {
-            if (positionMetadata.deltaToBenchmarkAndOccurrences.empty()) return 100.0;
+            // If we don't know the normal delta to benchmark, or haven't observed this position, return nothing
+            if (positionMetadata.deltaToBenchmarkAndOccurrences.empty() || observations.arrivalDelayAndOccurrences.empty())
+            {
+                return std::nullopt;
+            }
+
+            // Ignore positions with unstable paths where all deltas are below -2
             if ((positionMetadata.deltaToBenchmarkAndOccurrences.size() > 1 || positionMetadata.nextPositionAndOccurrences.size() > 1) &&
                 positionMetadata.largestDeltaToBenchmark() < -2)
             {
-                return 100.0;
+                return std::nullopt;
             }
 
             double expectedMiningDelay = observations.expectedMiningDelay(commandFrame);
@@ -79,8 +86,11 @@ namespace WorkerMiningOptimization
                                                                                 nextPositionDataIt->second.deltaToFirstResend,
                                                                                 nextPositionDataIt->second.arrivalObservations,
                                                                                 nextPositionDataIt->second.nextPositionAndOccurrences);
-                    deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
-                    occurrenceCount += occurrences;
+                    if (nextPositionsEvaluation.explored)
+                    {
+                        deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
+                        occurrenceCount += occurrences;
+                    }
                     if (occurrences > bestOccurrences)
                     {
                         bestOccurrences = occurrences;
@@ -107,7 +117,7 @@ namespace WorkerMiningOptimization
                 int positionToTryDelta = std::abs(probableDeltaToBenchmark + deltaToFirstResend);
                 if (!nextPositionsEvaluation.positionToTryOnExpectedPath || positionToTryDelta < nextPositionsEvaluation.positionToTryDelta)
                 {
-                    return {100, {here}, std::make_shared<PositionAndVelocity>(positionMetadata.pos), true, positionToTryDelta};
+                    return {false, 100, {here}, std::make_shared<PositionAndVelocity>(positionMetadata.pos), true, positionToTryDelta};
                 }
             }
 
@@ -115,10 +125,12 @@ namespace WorkerMiningOptimization
             if (nextPositionsEvaluation.positionToTryOnExpectedPath) return nextPositionsEvaluation;
 
             // Compute the expected delta for this position
-            double expectedDelta = computeExpectedDelta(commandFrame, positionMetadata, deltaToFirstResend, observations);
-            if (expectedDelta < (nextPositionsEvaluation.expectedDelta - EPSILON))
+            auto expectedDelta = computeExpectedDelta(commandFrame, positionMetadata, deltaToFirstResend, observations);
+            if (!expectedDelta.has_value()) return nextPositionsEvaluation;
+
+            if (expectedDelta.value() < (nextPositionsEvaluation.expectedDelta - EPSILON))
             {
-                return {expectedDelta, {here}, std::make_shared<PositionAndVelocity>(positionMetadata.pos), false, 0};
+                return {true, expectedDelta.value(), {here}, std::make_shared<PositionAndVelocity>(positionMetadata.pos), false, 0};
             }
 
             return nextPositionsEvaluation;
@@ -128,6 +140,13 @@ namespace WorkerMiningOptimization
                                             const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
                                             const GatherPositionObservations &positionMetadata)
         {
+            // Jump out of the recursion when we've exceeded the exploration horizon
+            if (positionMetadata.deltaToBenchmarkAndOccurrences.size() == 1 &&
+                positionMetadata.deltaToBenchmarkAndOccurrences.begin()->first > GATHER_EXPLORE_AFTER)
+            {
+                return {};
+            }
+
             // Start by getting the data for all of the next positions
             PositionEvaluation nextPositionsEvaluation;
             {
@@ -146,8 +165,11 @@ namespace WorkerMiningOptimization
                     }
 
                     auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second);
-                    deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
-                    occurrenceCount += occurrences;
+                    if (nextPositionsEvaluation.explored)
+                    {
+                        deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
+                        occurrenceCount += occurrences;
+                    }
                     if (occurrences > bestOccurrences)
                     {
                         bestOccurrences = occurrences;
@@ -183,8 +205,10 @@ namespace WorkerMiningOptimization
                 return nextPositionsEvaluation;
             }
 
+            if (!evaluationHere.explored) return nextPositionsEvaluation;
+
             // Return the best branch
-            if (evaluationHere.expectedDelta < (nextPositionsEvaluation.expectedDelta - 0.0001))
+            if (!nextPositionsEvaluation.explored || evaluationHere.expectedDelta < (nextPositionsEvaluation.expectedDelta - 0.0001))
             {
                 return evaluationHere;
             }
@@ -304,6 +328,10 @@ namespace WorkerMiningOptimization
         if (workerStatus.expectedPath.empty()) return; // have no further resends planned
         if (workerStatus.expectedPath.front() == *currentPosition) return; // path matches expectations
 
+        // We need to clear second resend and expected path no matter what
+        workerStatus.plannedSecondResendPosition = nullptr;
+        workerStatus.expectedPath.clear();
+
         // If we haven't passed the first resend position yet, then just clear the planned data so we can replan
         auto resentPosition = workerStatus.resentPosition();
         if (!resentPosition)
@@ -315,9 +343,7 @@ namespace WorkerMiningOptimization
 #endif
 
             workerStatus.resendsPlanned = false;
-            workerStatus.expectedPath.clear();
             workerStatus.plannedResendPosition = nullptr;
-            workerStatus.plannedSecondResendPosition = nullptr;
             return;
         }
 
@@ -334,13 +360,10 @@ namespace WorkerMiningOptimization
 
         auto &resentPositionData = resentPositionDataIt->second;
 
-        // Check if we have observed this path
+        // If we haven't observed this path, leave the worker alone to get data about this new path
         auto secondGatherPositionIt = resentPositionData.secondResendObservations.find(*currentPosition);
         if (secondGatherPositionIt == resentPositionData.secondResendObservations.end())
         {
-            // We haven't observed this path, so leave the worker alone to get data about this new path
-            workerStatus.plannedSecondResendPosition = nullptr;
-            workerStatus.expectedPath.clear();
             return;
         }
 
@@ -363,22 +386,21 @@ namespace WorkerMiningOptimization
             return;
         }
 
-        // Evaluate no resend
-        double expectedDelta = computeExpectedDelta(firstResendCommandFrame,
-                                                    resentPositionData,
-                                                    0,
-                                                    resentPositionData.noSecondResendArrivalObservations);
+        // If we don't know anything about the path, and aren't exploring, leave the worker alone
+        // TODO: Check if it is usually better to resend at the same delta as what we originally planned
+        if (!evaluation.explored) return;
 
-        // Pick the best strategy - either resend at a different position or clear
-        if (evaluation.expectedDelta < (expectedDelta + EPSILON))
+        // Evaluate no second resend
+        auto expectedDelta = computeExpectedDelta(firstResendCommandFrame,
+                                                  resentPositionData,
+                                                  0,
+                                                  resentPositionData.noSecondResendArrivalObservations);
+
+        // Resend if the result is better than the no resend delta
+        if (!expectedDelta.has_value() || evaluation.expectedDelta < (expectedDelta.value() + EPSILON))
         {
             workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*evaluation.expectedPath.rbegin());
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
-        }
-        else
-        {
-            workerStatus.plannedSecondResendPosition = nullptr;
-            workerStatus.expectedPath.clear();
         }
     }
 }
