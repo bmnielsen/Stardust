@@ -38,5 +38,11 @@ public:
         }
         return TilePosition{(uint8_t)tile.x, (uint8_t)tile.y};
     }
+
+    template <typename S>
+    void serialize(S& s) {
+        s.value1b(x);
+        s.value1b(y);
+    }
 };
 

@@ -3,13 +3,17 @@
 
 #include "WorkerMiningOptimization.h"
 
+#include <bitsery/adapter/stream.h>
+#include <bitsery/ext/std_set.h>
+#include <bitsery/ext/std_map.h>
+
 #include "TilePosition.h"
 #include "PositionAndVelocity.h"
 #include "FileTools.h"
 #include "CsvTools.h"
 
 #if INSTRUMENTATION_ENABLED
-#define OUTPUT_METADATA_ANALYSIS true
+#define OUTPUT_METADATA_ANALYSIS false
 #endif
 
 namespace WorkerMiningOptimization
@@ -42,7 +46,7 @@ namespace WorkerMiningOptimization
                     << "gatherpositions_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames()
                     << "_" << GATHER_EXPLORE_BEFORE << "_" << GATHER_EXPLORE_AFTER;
-            return FileTools::getFilePath(filename.str(), "csv", writing);
+            return FileTools::getFilePath(filename.str(), "bin", writing);
         }
 
         std::string optimalReturnPositionsFilename(bool writing = false)
@@ -51,7 +55,7 @@ namespace WorkerMiningOptimization
                     << "returnpositions_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames()
                     << "_" << RETURN_EXPLORE_BEFORE << "_" << RETURN_EXPLORE_AFTER;
-            return FileTools::getFilePath(filename.str(), "csv", writing);
+            return FileTools::getFilePath(filename.str(), "bin", writing);
         }
 
         std::string tenDistancePositionsFilename(bool writing = false)
@@ -59,145 +63,106 @@ namespace WorkerMiningOptimization
             auto filename = std::ostringstream()
                     << "10distance_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames();
-            return FileTools::getFilePath(filename.str(), "csv", writing);
+            return FileTools::getFilePath(filename.str(), "bin", writing);
         }
 
-        template<class T>
-        void parsePositionObservationsFile(const std::string &filename,
-                                           std::map<TilePosition, std::unordered_map<PositionAndVelocity, T>> &map)
+        struct OptimalGatherPositionsSerializer
         {
-            map.clear();
-
-            std::ifstream file;
-            file.open(filename);
-            if (!file.good()) return;
-
-            int lineNumber = 0;
-            try
+            template <typename S>
+            void serialize(S& ser)
             {
-                // Read and parse each position
-                int count = 0;
-                while (true)
-                {
-                    lineNumber++;
-
-                    auto line = CsvTools::readNextLine(file);
-                    if (lineNumber == 1 && !line.empty() && line[0] == "x") continue; // header row
-
-                    if (T::parseFromDataFile(line, map, lineNumber)) break;
-
-                    count++;
-                }
-
-                Log::Get() << "Read " << count << " positions metadata from " << filename;
-            }
-            catch (std::exception &ex)
-            {
-                Log::Get() << "Exception caught attempting to read positions metadata from " << filename
-                           << " at line " << lineNumber << ": " << ex.what();
-            }
-        }
-
-        template<class T>
-        void writePositionObservationsFile(const std::string &filename,
-                                           const std::map<TilePosition, std::unordered_map<PositionAndVelocity, T>> &map)
-        {
-            std::ofstream file;
-            file.open(filename, std::ofstream::trunc);
-
-            T::outputDataFileHeaderRow(file);
-
-            int count = 0;
-            for (const auto &[resource, gatherPositions] : map)
-            {
-                for (const auto &[resendPos, resendPositionMetadata] : gatherPositions)
-                {
-                    resendPositionMetadata.outputToDataFile(file, resource);
-                    count++;
-                }
-            }
-
-            file.close();
-            Log::Get() << "Wrote " << count << " positions metadata to " << filename;
-        }
-
-        void parse10DistancePositionsFile(const std::string &filename,
-                                          std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &map)
-        {
-            map.clear();
-
-            std::ifstream file;
-            file.open(filename);
-            if (!file.good()) return;
-
-            int lineNumber = 0;
-            try
-            {
-                // Each line is data for a single patch
-                int count = 0;
-                while (true)
-                {
-                    lineNumber++;
-
-                    auto line = CsvTools::readNextLine(file);
-                    if (line.size() < 3) break;
-                    if (lineNumber == 1 && line[0] == "x") continue; // header row
-
-                    TilePosition tile{(uint8_t)std::stoul(line[0]), (uint8_t)std::stoul(line[1])};
-
-                    auto &positions = map[tile];
-                    for (auto &posStr : CsvTools::tokenizeList(line[2], ','))
-                    {
-                        PositionAndVelocity pos;
-                        if (!PositionAndVelocity::tryParse(posStr, pos))
+                ser.ext(resourceToOptimalGatherPositions,
+                        bitsery::ext::StdMap{INT_MAX},
+                        [](auto &s, TilePosition &key, std::unordered_map<PositionAndVelocity, GatherPositionObservations> &value)
                         {
-                            Log::Get() << "Invalid position string at line " << lineNumber << "; skipping: " << posStr;
-                            continue;
-                        }
-
-                        positions.insert(pos);
-                        count++;
-                    }
-                }
-
-                Log::Get() << "Read " << count << " 10-distance positions from " << filename;
+                            s.object(key);
+                            s.ext(value, bitsery::ext::StdMap{INT_MAX}, [](auto &s, PositionAndVelocity &key, GatherPositionObservations &value)
+                            {
+                                s.object(key);
+                                s.object(value);
+                            });
+                        });
             }
-            catch (std::exception &ex)
+        };
+
+        struct TenDistancePositionsSerializer
+        {
+            template <typename S>
+            void serialize(S& ser)
             {
-                Log::Get() << "Exception caught attempting to read 10-distance positions from " << filename
-                           << " at line " << lineNumber << ": " << ex.what();
+                ser.ext(resourceTo10DistancePositions,
+                        bitsery::ext::StdMap{INT_MAX},
+                        [](auto &s, TilePosition &key, std::unordered_set<PositionAndVelocity> &value)
+                        {
+                            s.object(key);
+                            s.ext(value, bitsery::ext::StdSet{INT_MAX}, [](auto &s, PositionAndVelocity &value)
+                            {
+                                s.object(value);
+                            });
+                        });
             }
+        };
+
+        struct OptimalReturnPositionsSerializer
+        {
+            template <typename S>
+            void serialize(S& ser)
+            {
+                ser.ext(resourceToOptimalReturnPositions,
+                        bitsery::ext::StdMap{INT_MAX},
+                        [](auto &s, TilePosition &key, std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &value)
+                        {
+                            s.object(key);
+                            s.ext(value, bitsery::ext::StdMap{INT_MAX}, [](auto &s, PositionAndVelocity &key, ReturnPositionObservations &value)
+                            {
+                                s.object(key);
+                                s.object(value);
+                            });
+                        });
+            }
+        };
+
+        template <typename S>
+        void readDataFile(const std::string &label, const std::string &filename, S serializer)
+        {
+            if (filename.empty())
+            {
+                Log::Get() << "No saved data available for " << label;
+                return;
+            }
+
+            std::ifstream file;
+            file.open(filename);
+            if (!file.good())
+            {
+                Log::Get() << "Could not open saved data file for " << label;
+                return;
+            }
+
+            bitsery::Deserializer<bitsery::InputStreamAdapter> ser{file};
+            serializer.serialize(ser);
+            file.close();
+
+            Log::Get() << "Read " << label << " data from " << filename;
         }
 
-        void write10DistancePositionsFile(const std::string &filename,
-                                          const std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &map)
+        template <typename S>
+        void writeDataFile(const std::string &label, const std::string &filename, S serializer)
         {
             std::ofstream file;
             file.open(filename, std::ofstream::trunc);
-
-            file << "x;y;positions\n";
-
-            int count = 0;
-            for (const auto &[resourceTile, tenDistancePositions] : map)
+            if (file.fail() || !file.is_open())
             {
-                if (tenDistancePositions.empty()) continue;
-
-                file << (unsigned int)resourceTile.x << ";"
-                     << (unsigned int)resourceTile.y << ";";
-
-                std::string posSep;
-                for (const auto &pos : tenDistancePositions)
-                {
-                    file << posSep << pos;
-                    posSep = ",";
-                    count++;
-                }
-
-                file << "\n";
+                Log::Get() << "Could not open data file for " << label << " for writing";
+                return;
             }
 
+            bitsery::Serializer<bitsery::OutputStreamAdapter> ser{file};
+            serializer.serialize(ser);
+            ser.adapter().flush();
             file.close();
-            Log::Get() << "Wrote " << count << " 10-distance positions to " << filename;
+
+            Log::Get() << "Wrote " << label << " data to " << filename;
         }
     }
 
@@ -211,10 +176,9 @@ namespace WorkerMiningOptimization
         workerGatherStatuses.clear();
         workerReturnStatuses.clear();
 
-        parsePositionObservationsFile(optimalGatherPositionsFilename(), resourceToOptimalGatherPositions);
-        parse10DistancePositionsFile(tenDistancePositionsFilename(), resourceTo10DistancePositions);
-
-        parsePositionObservationsFile(optimalReturnPositionsFilename(), resourceToOptimalReturnPositions);
+        readDataFile("gather positions", optimalGatherPositionsFilename(), OptimalGatherPositionsSerializer{});
+        readDataFile("ten-distance positions", tenDistancePositionsFilename(), TenDistancePositionsSerializer{});
+        readDataFile("return positions", optimalReturnPositionsFilename(), OptimalReturnPositionsSerializer{});
     }
 
     void flushObservations()
@@ -225,10 +189,9 @@ namespace WorkerMiningOptimization
 
     void write()
     {
-        writePositionObservationsFile(optimalGatherPositionsFilename(true), resourceToOptimalGatherPositions);
-        write10DistancePositionsFile(tenDistancePositionsFilename(true), resourceTo10DistancePositions);
-
-        writePositionObservationsFile(optimalReturnPositionsFilename(true), resourceToOptimalReturnPositions);
+        writeDataFile("gather positions", optimalGatherPositionsFilename(true), OptimalGatherPositionsSerializer{});
+        writeDataFile("ten-distance positions", tenDistancePositionsFilename(true), TenDistancePositionsSerializer{});
+        writeDataFile("return positions", optimalReturnPositionsFilename(true), OptimalReturnPositionsSerializer{});
 
 #if OUTPUT_METADATA_ANALYSIS
         {

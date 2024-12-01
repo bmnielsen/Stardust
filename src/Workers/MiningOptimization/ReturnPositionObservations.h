@@ -4,6 +4,7 @@
 #include "PositionAndVelocity.h"
 #include "OrderProcessTimer.h"
 #include "Resource.h"
+#include <bitsery/ext/std_map.h>
 #include <map>
 
 namespace WorkerMiningOptimization
@@ -23,6 +24,15 @@ namespace WorkerMiningOptimization
         uint32_t highExitSpeed;
 
         [[nodiscard]] double expectedDeltaToNormal() const;
+
+        template <typename S>
+        void serialize(S& s)
+        {
+            s.value4b(collision);
+            s.value4b(lowExitSpeed);
+            s.value4b(mediumExitSpeed);
+            s.value4b(highExitSpeed);
+        }
     };
 
     struct ReturnArrivalObservations
@@ -51,6 +61,17 @@ namespace WorkerMiningOptimization
         // Compute the expected number of frames to delivery if the given worker
         [[nodiscard]] double expectedNoResendDeliveryDelay(const MyWorker &worker) const;
 
+        template <typename S>
+        void serialize(S& s)
+        {
+            s.ext(arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, uint16_t& key, uint32_t& value) {
+                s.value2b(key);
+                s.value4b(value);
+            });
+            s.object(deliveryAfterArrivalSpeeds);
+            s.object(deliveryAtArrivalSpeeds);
+        }
+
     private:
         [[nodiscard]] double deliveryDelayForArrival(
                 uint16_t arrivalDelay, int arrivalFrame, int knownOrderProcessTimer, int knownOrderProcessTimerFrame) const;
@@ -76,6 +97,8 @@ namespace WorkerMiningOptimization
 
         // Observations for when a resend was sent here
         ReturnArrivalObservations resendArrivalObservations;
+
+        ReturnPositionObservations(){}
 
         ReturnPositionObservations(uint32_t pathHash, PositionAndVelocity pos)
                 : pathHash(pathHash)
@@ -111,6 +134,18 @@ namespace WorkerMiningOptimization
                 const std::vector<std::string> &line,
                 std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &map,
                 int lineNumber);
+
+        template <typename S>
+        void serialize(S& s) {
+            s.value4b(pathHash);
+            s.object(pos);
+            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint32_t& value) {
+                s.object(key);
+                s.value4b(value);
+            });
+            s.object(noResendArrivalObservations);
+            s.object(resendArrivalObservations);
+        }
     };
 
     std::ostream &operator<<(std::ostream &os, const ReturnPositionObservations &returnPositionObservations);

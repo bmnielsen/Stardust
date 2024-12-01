@@ -42,6 +42,7 @@ ENDIF(MSVC)
 add_subdirectory(3rdparty/BWEM)
 add_subdirectory(3rdparty/FAP)
 add_subdirectory(3rdparty/nlohmann)
+add_subdirectory(3rdparty/bitsery)
 add_subdirectory(src)
 
 IF(MSVC)

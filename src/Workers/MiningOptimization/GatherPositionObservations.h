@@ -4,6 +4,7 @@
 #include "PositionAndVelocity.h"
 #include "OrderProcessTimer.h"
 #include "Resource.h"
+#include <bitsery/ext/std_map.h>
 #include <map>
 
 namespace WorkerMiningOptimization
@@ -33,6 +34,17 @@ namespace WorkerMiningOptimization
         [[nodiscard]] int mostCommonArrivalDelay() const;
 
         [[nodiscard]] double expectedMiningDelay(int commandFrame) const;
+
+        template <typename S>
+        void serialize(S& s)
+        {
+            s.ext(arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, int16_t& key, uint32_t& value) {
+                s.value2b(key);
+                s.value4b(value);
+            });
+            s.value4b(collisions);
+            s.value4b(nonCollisions);
+        }
     };
 
     struct SecondResendGatherPositionObservations
@@ -41,6 +53,18 @@ namespace WorkerMiningOptimization
         uint16_t deltaToFirstResend = 0;
         std::unordered_map<PositionAndVelocity, uint32_t> nextPositionAndOccurrences;
         GatherResendArrivalObservations arrivalObservations;
+
+        template <typename S>
+        void serialize(S& s)
+        {
+            s.object(pos);
+            s.value2b(deltaToFirstResend);
+            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint32_t& value) {
+                s.object(key);
+                s.value4b(value);
+            });
+            s.object(arrivalObservations);
+        }
     };
 
     // This is the structure we use to track observed positions and our track record using them
@@ -78,6 +102,8 @@ namespace WorkerMiningOptimization
 
         // Whether a resend at this position changes the path
         ResendChangesPath resendChangesPath = ResendChangesPath::Unknown;
+
+        GatherPositionObservations(){}
 
         GatherPositionObservations(uint32_t pathHash, PositionAndVelocity pos)
                 : pathHash(pathHash)
@@ -160,6 +186,31 @@ namespace WorkerMiningOptimization
                 const std::vector<std::string> &line,
                 std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &map,
                 int lineNumber);
+
+        template <typename S>
+        void serialize(S& s) {
+            s.value4b(pathHash);
+            s.object(pos);
+            s.ext(deltaToBenchmarkAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, int16_t& key, uint32_t& value) {
+                s.value2b(key);
+                s.value4b(value);
+            });
+            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint32_t& value) {
+                s.object(key);
+                s.value4b(value);
+            });
+            s.object(noSecondResendArrivalObservations);
+            s.ext(secondResendObservations,
+                  bitsery::ext::StdMap{INT_MAX},
+                  [](S &s, PositionAndVelocity &key, SecondResendGatherPositionObservations &value)
+                  {
+                      s.object(key);
+                      s.object(value);
+                  });
+            s.value4b(noResendCollisions);
+            s.value4b(noResendNonCollisions);
+            s.value1b(resendChangesPath);
+        }
     };
 
     std::ostream &operator<<(std::ostream &os, const GatherPositionObservations &gatherPositionObservations);
