@@ -6,24 +6,24 @@
 struct PositionAndVelocity
 {
 public:
-    int x;
-    int y;
-    int dx;
-    int dy;
-    int heading;
+    int16_t x;
+    int16_t y;
+    int16_t dx;
+    int16_t dy;
+    int16_t heading;
     uint32_t previousPositionsHash;
 
     PositionAndVelocity() : x(-1), y(-1), dx(-1), dy(-1), heading(-1), previousPositionsHash(0) {}
 
-    PositionAndVelocity(int x, int y, int dx, int dy, int heading, uint32_t previousPositionsHash)
+    PositionAndVelocity(int16_t x, int16_t y, int16_t dx, int16_t dy, int16_t heading, uint32_t previousPositionsHash)
         : x(x), y(y), dx(dx), dy(dy), heading(heading), previousPositionsHash(previousPositionsHash) {}
 
     explicit PositionAndVelocity(const BWAPI::Unit &unit)
             : x(unit->getPosition().x)
             , y(unit->getPosition().y)
-            , dx(int(unit->getVelocityX() * 1000.0))
-            , dy(int(unit->getVelocityY() * 1000.0))
-            , heading(int(unit->getAngle() * 1000.0))
+            , dx(int16_t(unit->getVelocityX() * 1000.0))
+            , dy(int16_t(unit->getVelocityY() * 1000.0))
+            , heading(int16_t(unit->getAngle() * 1000.0))
             , previousPositionsHash(0)
     {}
 
@@ -103,6 +103,16 @@ public:
     [[nodiscard]] bool speedExceeds(double fractionOfTopSpeed) const;
 
     static bool tryParse(const std::string &str, PositionAndVelocity &out);
+
+    template <typename S>
+    void serialize(S& s) {
+        s.value2b(x);
+        s.value2b(y);
+        s.value2b(dx);
+        s.value2b(dy);
+        s.value2b(heading);
+        s.value4b(previousPositionsHash);
+    }
 
 private:
     mutable bool hashComputed = false;
