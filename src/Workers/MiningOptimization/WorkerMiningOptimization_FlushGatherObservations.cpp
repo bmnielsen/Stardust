@@ -320,7 +320,7 @@ namespace WorkerMiningOptimization
                                 **secondPositionIt,
                                 SecondResendGatherPositionObservations{
                                         **secondPositionIt,
-                                        (int)std::distance(positionIt, secondPositionIt)}).first;
+                                        (uint16_t)std::distance(positionIt, secondPositionIt)}).first;
                     }
 
                     if ((secondPositionIt + 1) != secondLimit)
@@ -378,7 +378,7 @@ namespace WorkerMiningOptimization
                 // Update the metadata for the positions in the path
                 for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
                 {
-                    int delta = (int)std::distance(optimalPositionIt, positionIt);
+                    auto delta = (int16_t)std::distance(optimalPositionIt, positionIt);
 
                     auto existingIt = optimalGatherPositions.find(**positionIt);
 
@@ -438,7 +438,7 @@ namespace WorkerMiningOptimization
                             *positionsInHistory.resendsBeforeArrival[1],
                             SecondResendGatherPositionObservations{
                                     *positionsInHistory.resendsBeforeArrival[1],
-                                    (int)std::distance(positionsInHistory.resendPositionIts[0], positionsInHistory.resendPositionIts[1])}).first;
+                                    (uint16_t)std::distance(positionsInHistory.resendPositionIts[0], positionsInHistory.resendPositionIts[1])}).first;
 
                     secondResendData = &secondResendObservationsIt->second;
                 }
@@ -618,7 +618,7 @@ namespace WorkerMiningOptimization
                         **positionIt,
                         SecondResendGatherPositionObservations{
                                 **positionIt,
-                                (int)std::distance(positionsInHistory.resendPositionIts[0], positionIt)});
+                                (uint16_t)std::distance(positionsInHistory.resendPositionIts[0], positionIt)});
 
 #if OPTIMALPOSITIONS_DEBUG
                 CherryVis::log(worker->id) << "Added metadata for " << resentPositionData

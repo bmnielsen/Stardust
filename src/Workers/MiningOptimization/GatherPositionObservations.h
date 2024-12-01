@@ -16,11 +16,11 @@ namespace WorkerMiningOptimization
     };
     struct GatherResendArrivalObservations
     {
-        std::unordered_map<int, int> arrivalDelayAndOccurrences;
-        int collisions = 0;
-        int nonCollisions = 0;
+        std::unordered_map<int16_t, uint32_t> arrivalDelayAndOccurrences;
+        uint32_t collisions = 0;
+        uint32_t nonCollisions = 0;
 
-        void add(int arrivalDelay)
+        void add(int16_t arrivalDelay)
         {
             arrivalDelayAndOccurrences[arrivalDelay]++;
         }
@@ -38,8 +38,8 @@ namespace WorkerMiningOptimization
     struct SecondResendGatherPositionObservations
     {
         PositionAndVelocity pos;
-        int deltaToFirstResend = 0;
-        std::unordered_map<PositionAndVelocity, int> nextPositionAndOccurrences;
+        uint16_t deltaToFirstResend = 0;
+        std::unordered_map<PositionAndVelocity, uint32_t> nextPositionAndOccurrences;
         GatherResendArrivalObservations arrivalObservations;
     };
 
@@ -58,11 +58,11 @@ namespace WorkerMiningOptimization
         // The offset between this resend position and the apparent optimal position if no resend had been issued
         // For positions with unstable following paths this can differ, so we store all observed values with their occurrences
         // May be empty if we haven't observed a no-resend path with this position yet
-        std::unordered_map<int, int> deltaToBenchmarkAndOccurrences;
+        std::unordered_map<int16_t, uint32_t> deltaToBenchmarkAndOccurrences;
 
         // All next positions seen from this position, with their count of observations
         // May be empty for the last position we consider in a path
-        std::unordered_map<PositionAndVelocity, int> nextPositionAndOccurrences;
+        std::unordered_map<PositionAndVelocity, uint32_t> nextPositionAndOccurrences;
 
         // Observations for when we send a resend here without a second resend
         GatherResendArrivalObservations noSecondResendArrivalObservations;
@@ -71,10 +71,10 @@ namespace WorkerMiningOptimization
         std::unordered_map<PositionAndVelocity, SecondResendGatherPositionObservations> secondResendObservations;
 
         // How many times the worker collides with the patch after mining when no resend is sent along this path
-        int noResendCollisions = 0;
+        uint32_t noResendCollisions = 0;
 
         // How many times the worker does not collide with the patch after mining when no resend is sent along this path
-        int noResendNonCollisions = 0;
+        uint32_t noResendNonCollisions = 0;
 
         // Whether a resend at this position changes the path
         ResendChangesPath resendChangesPath = ResendChangesPath::Unknown;
@@ -93,12 +93,12 @@ namespace WorkerMiningOptimization
         GatherPositionObservations(
                 uint32_t pathHash,
                 PositionAndVelocity pos,
-                std::unordered_map<int, int> &&deltaToBenchmarkAndOccurrences,
-                std::unordered_map<PositionAndVelocity, int> &&nextPositionAndOccurrences,
+                std::unordered_map<int16_t, uint32_t> &&deltaToBenchmarkAndOccurrences,
+                std::unordered_map<PositionAndVelocity, uint32_t> &&nextPositionAndOccurrences,
                 GatherResendArrivalObservations &&noSecondResendArrivalObservations,
                 std::unordered_map<PositionAndVelocity, SecondResendGatherPositionObservations> &&secondResendObservations,
-                int noResendCollisions = 0,
-                int noResendNonCollisions = 0,
+                uint32_t noResendCollisions = 0,
+                uint32_t noResendNonCollisions = 0,
                 ResendChangesPath resendChangesPath = ResendChangesPath::Unknown)
                 : pathHash(pathHash)
                 , pos(pos)

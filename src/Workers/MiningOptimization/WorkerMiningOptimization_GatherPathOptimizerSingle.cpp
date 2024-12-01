@@ -9,9 +9,9 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
-        double expectedPatchCollisionDelay(int observedCollisions, int observedNonCollisions)
+        double expectedPatchCollisionDelay(uint32_t observedCollisions, uint32_t observedNonCollisions)
         {
-            int total = observedCollisions + observedNonCollisions;
+            uint32_t total = observedCollisions + observedNonCollisions;
             if (total == 0) return 0.0;
 
             // If we are exploring and don't have enough data yet, allow it no matter what
@@ -50,17 +50,17 @@ namespace WorkerMiningOptimization
         PositionEvaluation evaluateSecondResendPositions(int commandFrame,
                                                          const GatherPositionObservations &positionMetadata,
                                                          const PositionAndVelocity &here,
-                                                         int deltaToFirstResend,
+                                                         uint16_t deltaToFirstResend,
                                                          const GatherResendArrivalObservations &observations,
-                                                         const std::unordered_map<PositionAndVelocity, int> &nextPositions)
+                                                         const std::unordered_map<PositionAndVelocity, uint32_t> &nextPositions)
         {
             // Start by getting the data for doing a second resend at all of the next positions
             PositionEvaluation nextPositionsEvaluation;
             if (positionMetadata.resendChangesPath == ResendChangesPath::Yes)
             {
                 double deltaAccumulator = 0.0;
-                int occurrenceCount = 0;
-                int bestOccurrences = 0;
+                uint32_t occurrenceCount = 0;
+                uint32_t bestOccurrences = 0;
                 for (const auto &[nextPosition, occurrences] : nextPositions)
                 {
                     auto nextPositionDataIt = positionMetadata.secondResendObservations.find(nextPosition);
@@ -132,8 +132,8 @@ namespace WorkerMiningOptimization
             PositionEvaluation nextPositionsEvaluation;
             {
                 double deltaAccumulator = 0.0;
-                int occurrenceCount = 0;
-                int bestOccurrences = 0;
+                uint32_t occurrenceCount = 0;
+                uint32_t bestOccurrences = 0;
                 for (const auto &[nextPosition, occurrences] : positionMetadata.nextPositionAndOccurrences)
                 {
                     auto nextPositionDataIt = allPositionData.find(nextPosition);
