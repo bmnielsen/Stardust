@@ -14,19 +14,19 @@ namespace WorkerMiningOptimization
         // - High exit speed saves 4 frames
         // - Medium exit speed saves 2 frames
         // - Collisions cost an extra order process timer cycle
-        int total = collision + lowExitSpeed + mediumExitSpeed + highExitSpeed;
+        uint32_t total = collision + lowExitSpeed + mediumExitSpeed + highExitSpeed;
         if (total == 0) return 0.0;
 
-        return (double)((collision * 9) - (mediumExitSpeed * 2) - (highExitSpeed * 4)) / (double)total;
+        return (double)(((int)collision * 9) - ((int)mediumExitSpeed * 2) - ((int)highExitSpeed * 4)) / (double)total;
     }
 
-    int ReturnArrivalObservations::mostCommonArrivalDelay() const
+    uint16_t ReturnArrivalObservations::mostCommonArrivalDelay() const
     {
-        if (arrivalDelayAndOccurrences.empty()) return INT_MAX;
+        if (arrivalDelayAndOccurrences.empty()) return UINT16_MAX;
         if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
 
-        int best = -1;
-        int bestCount = 0;
+        uint16_t best = 0;
+        uint32_t bestCount = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
             if (occurrences > bestCount)
@@ -39,17 +39,17 @@ namespace WorkerMiningOptimization
         return best;
     }
 
-    int ReturnArrivalObservations::largestArrivalDelay() const
+    uint16_t ReturnArrivalObservations::largestArrivalDelay() const
     {
         if (arrivalDelayAndOccurrences.empty()) return 100;
         if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
 
-        int best = -1000;
-        for (const auto &[delta, occurrences] : arrivalDelayAndOccurrences)
+        uint16_t best = 0;
+        for (const auto &[delay, _] : arrivalDelayAndOccurrences)
         {
-            if (delta > best)
+            if (delay > best)
             {
-                best = delta;
+                best = delay;
             }
         }
 
@@ -69,7 +69,7 @@ namespace WorkerMiningOptimization
         }
 
         double totalDelay = 0.0;
-        int totalOccurrences = 0;
+        uint32_t totalOccurrences = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
             totalDelay += deliveryDelayForArrival(arrivalDelay,
@@ -95,7 +95,7 @@ namespace WorkerMiningOptimization
         }
 
         double totalDelay = 0.0;
-        int totalOccurrences = 0;
+        uint32_t totalOccurrences = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
             totalDelay += deliveryDelayForArrival(arrivalDelay,
@@ -108,7 +108,7 @@ namespace WorkerMiningOptimization
         return totalDelay / (double)totalOccurrences;
     }
 
-    double ReturnArrivalObservations::deliveryDelayForArrival(int arrivalDelay,
+    double ReturnArrivalObservations::deliveryDelayForArrival(uint16_t arrivalDelay,
                                                               int arrivalFrame,
                                                               int knownOrderProcessTimer,
                                                               int knownOrderProcessTimerFrame) const
@@ -189,7 +189,7 @@ namespace WorkerMiningOptimization
 
     void ReturnPositionObservations::outputToDataFile(std::ofstream &file, const TilePosition &resourceTile) const
     {
-        auto outputNext = [&file](const std::unordered_map<PositionAndVelocity, int> &nextPositions)
+        auto outputNext = [&file](const std::unordered_map<PositionAndVelocity, uint32_t> &nextPositions)
         {
             std::string nextPosSep;
             for (const auto &[nextPos, nextOccurrences] : nextPositions)
@@ -198,7 +198,7 @@ namespace WorkerMiningOptimization
                 nextPosSep = "_";
             }
         };
-        auto outputOccurrenceMap = [&file](const std::unordered_map<int, int> &occurrenceMap)
+        auto outputOccurrenceMap = [&file](const std::unordered_map<uint16_t, uint32_t> &occurrenceMap)
         {
             std::string sep;
             for (const auto &[data, occurrences] : occurrenceMap)
@@ -251,7 +251,7 @@ namespace WorkerMiningOptimization
     {
         auto parseNextPositions = [](const std::string &str)
         {
-            std::unordered_map<PositionAndVelocity, int> result;
+            std::unordered_map<PositionAndVelocity, uint32_t> result;
 
             for (const auto &observations : CsvTools::tokenizeList(str, '_'))
             {
@@ -268,7 +268,7 @@ namespace WorkerMiningOptimization
 
         auto parseOccurrencesMap = [](const std::string &occurrencesMap)
         {
-            std::unordered_map<int, int> result;
+            std::unordered_map<uint16_t, uint32_t> result;
 
             if (!occurrencesMap.empty())
             {
@@ -277,7 +277,7 @@ namespace WorkerMiningOptimization
                     auto data = CsvTools::tokenizeList(observations, '|');
                     if (data.size() < 2) continue;
 
-                    result.emplace(std::stoi(data[0]), std::stoi(data[1]));
+                    result.emplace(std::stoul(data[0]), std::stoul(data[1]));
                 }
             }
 
@@ -289,10 +289,10 @@ namespace WorkerMiningOptimization
             auto data = CsvTools::tokenizeList(speeds, '|');
             if (data.size() != 4) return ReturnSpeedOccurrences{0, 0, 0, 0};
             return ReturnSpeedOccurrences{
-                    std::stoi(data[0]),
-                    std::stoi(data[1]),
-                    std::stoi(data[2]),
-                    std::stoi(data[3])
+                    (uint32_t)std::stoul(data[0]),
+                    (uint32_t)std::stoul(data[1]),
+                    (uint32_t)std::stoul(data[2]),
+                    (uint32_t)std::stoul(data[3])
             };
         };
 

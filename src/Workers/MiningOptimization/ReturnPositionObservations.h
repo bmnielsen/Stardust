@@ -11,27 +11,27 @@ namespace WorkerMiningOptimization
     struct ReturnSpeedOccurrences
     {
         // Worker collided with the depot
-        int collision;
+        uint32_t collision;
 
         // Worker left the depot at normal low speed (approx. 30% speed 8 frames after delivery)
-        int lowExitSpeed;
+        uint32_t lowExitSpeed;
 
         // Worker left the depot at medium speed (50-80% speed 8 frames after delivery)
-        int mediumExitSpeed;
+        uint32_t mediumExitSpeed;
 
         // Worker left the depot at high speed (80%+ speed 8 frames after delivery)
-        int highExitSpeed;
+        uint32_t highExitSpeed;
 
         [[nodiscard]] double expectedDeltaToNormal() const;
     };
 
     struct ReturnArrivalObservations
     {
-        std::unordered_map<int, int> arrivalDelayAndOccurrences;
+        std::unordered_map<uint16_t, uint32_t> arrivalDelayAndOccurrences;
         ReturnSpeedOccurrences deliveryAfterArrivalSpeeds = {0, 0, 0, 0};
         ReturnSpeedOccurrences deliveryAtArrivalSpeeds = {0, 0, 0, 0};
 
-        void add(int arrivalDelay)
+        void add(uint16_t arrivalDelay)
         {
             arrivalDelayAndOccurrences[arrivalDelay]++;
         }
@@ -41,9 +41,9 @@ namespace WorkerMiningOptimization
             return arrivalDelayAndOccurrences.empty();
         }
 
-        [[nodiscard]] int mostCommonArrivalDelay() const;
+        [[nodiscard]] uint16_t mostCommonArrivalDelay() const;
 
-        [[nodiscard]] int largestArrivalDelay() const;
+        [[nodiscard]] uint16_t largestArrivalDelay() const;
 
         // Computes the expected number of frames from resending here to delivery
         [[nodiscard]] double expectedDeliveryDelay(int commandFrame) const;
@@ -53,7 +53,7 @@ namespace WorkerMiningOptimization
 
     private:
         [[nodiscard]] double deliveryDelayForArrival(
-                int arrivalDelay, int arrivalFrame, int knownOrderProcessTimer, int knownOrderProcessTimerFrame) const;
+                uint16_t arrivalDelay, int arrivalFrame, int knownOrderProcessTimer, int knownOrderProcessTimerFrame) const;
     };
 
     // This is the structure we use to track observed positions and our track record using them
@@ -69,7 +69,7 @@ namespace WorkerMiningOptimization
 
         // All next positions seen from this position, with their count of observations
         // May be empty for the last position we consider in a path
-        std::unordered_map<PositionAndVelocity, int> nextPositionAndOccurrences;
+        std::unordered_map<PositionAndVelocity, uint32_t> nextPositionAndOccurrences;
 
         // Observations for when no resend was sent here
         ReturnArrivalObservations noResendArrivalObservations;
@@ -82,7 +82,7 @@ namespace WorkerMiningOptimization
                 , pos(pos)
         {}
 
-        ReturnPositionObservations(uint32_t pathHash, PositionAndVelocity pos, int arrival)
+        ReturnPositionObservations(uint32_t pathHash, PositionAndVelocity pos, uint16_t arrival)
                 : pathHash(pathHash)
                 , pos(pos)
                 , noResendArrivalObservations(ReturnArrivalObservations{{{arrival, 1}}})
@@ -91,7 +91,7 @@ namespace WorkerMiningOptimization
         ReturnPositionObservations(
                 uint32_t pathHash,
                 PositionAndVelocity pos,
-                std::unordered_map<PositionAndVelocity, int> &&nextPositionAndOccurrences,
+                std::unordered_map<PositionAndVelocity, uint32_t> &&nextPositionAndOccurrences,
                 ReturnArrivalObservations &&noResendArrivalObservations,
                 ReturnArrivalObservations &&resendArrivalObservations)
                 : pathHash(pathHash)

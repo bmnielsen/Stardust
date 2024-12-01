@@ -66,8 +66,8 @@ namespace WorkerMiningOptimization
             else if (positionMetadata.nextPositionAndOccurrences.size() > 1)
             {
                 double delayAccumulator = 0.0;
-                int occurrenceCount = 0;
-                int bestOccurrences = 0;
+                uint32_t occurrenceCount = 0;
+                uint32_t bestOccurrences = 0;
                 for (const auto &[nextPosition, occurrences] : positionMetadata.nextPositionAndOccurrences)
                 {
                     auto nextPositionEvaluation = evaluateNextPosition(commandFrame, allPositionData, nextPosition);
