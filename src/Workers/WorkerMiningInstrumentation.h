@@ -6,13 +6,50 @@
 
 namespace WorkerMiningInstrumentation
 {
+    struct Efficiency
+    {
+        double singleWorkerRotationTime;
+        double singleWorkerMiningPercentage;
+        double doubleWorkerRotationTime;
+        double doubleWorkerMiningPercentage;
+
+        friend std::ostream & operator << (std::ostream &os, const Efficiency &obj)
+        {
+            std::ostringstream buffer;
+            buffer << std::fixed << std::setprecision(1);
+
+            std::string sep;
+            auto add = [&](const std::string &label, double value)
+            {
+                buffer << sep;
+                buffer << label << ": " << value;
+                sep = "; ";
+            };
+
+            if (obj.singleWorkerMiningPercentage > 0.01)
+            {
+                add("Single rotation", obj.singleWorkerRotationTime);
+                add("Single mining %", obj.singleWorkerMiningPercentage);
+            }
+
+            if (obj.doubleWorkerMiningPercentage > 0.01)
+            {
+                add("Double rotation", obj.doubleWorkerRotationTime);
+                add("Double mining %", obj.doubleWorkerMiningPercentage);
+            }
+
+            os << buffer.str();
+            return os;
+        }
+    };
+
     void initialize(const std::function<std::map<Resource, std::set<MyWorker>> &()> &getMineralsAndAssignedWorkersOverride = nullptr);
 
     void update();
 
     void writeInstrumentation();
 
-    std::map<Resource, std::pair<double, double>> getEfficiencyByPatch(int fromFrame = -1, int toFrame = -1);
+    std::map<Resource, Efficiency> getEfficiencyByPatch(int fromFrame = -1, int toFrame = -1);
 
-    std::pair<double, double> getEfficiency(int fromFrame = -1, int toFrame = -1);
+    Efficiency getEfficiency(int fromFrame = -1, int toFrame = -1);
 }

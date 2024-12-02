@@ -15,103 +15,121 @@
 #define LOG_TWOPATCH_TAKEOVER_ERRORS false
 #endif
 
-namespace
-{
-#if TRACK_MINING_EFFICIENCY
-    // This map records statistics of mining efficiency for each patch
-    // At each frame a resource has at least one worker assigned to it, a value is written:
-    // 0 = one worker assigned, worker is moving to minerals
-    // 1 = one worker assigned, worker is waiting to mine
-    // 2 = one worker assigned, worker is mining
-    // 3 = one worker assigned, worker is moving to return cargo
-    // 4 = one worker assigned, worker is waiting to return cargo
-    // 5 = one worker assigned, worker is waiting to move from depot
-    // 10 = two workers assigned, a worker is mining
-    // 11 = two workers assigned, one worker is returning cargo, other worker is moving to minerals
-    // 12 = two workers assigned, one worker is returning cargo, other worker is waiting to mine, worker returning cargo has orders processed first
-    // 13 = same as 12, but where worker returning cargo might not have had its orders processed first
-    std::map<Resource, std::vector<std::tuple<int, int, int>>> resourceToMiningStatus;
-
-    // Map storing alerts for each patch, so we can show them for a while
-    std::map<Resource, std::pair<int, std::string>> patchToAlert;
-
-    // Indirection to the Workers::mineralsAndAssignedWorkers function allowing it to be overridden by tests
-    std::function<std::map<Resource, std::set<MyWorker>> &()> getMineralsAndAssignedWorkers = Workers::mineralsAndAssignedWorkers;
-
-    std::pair<int, int> computePatchEfficiency(const Resource &patch,
-                                               const std::vector<std::tuple<int, int, int>> &miningStatus,
-                                               int miningState,
-                                               const std::set<int> &nonMiningStates,
-                                               int fromFrame,
-                                               int toFrame)
-    {
-        int framesMined = 0;
-        int framesNotMined = 0;
-
-        bool recording = false;
-        int lastStatus = -1;
-        int currentPeriodMined = 0;
-        int currentPeriodNotMined = 0;
-        int lastFrame = -1;
-        for (auto &[status, frame, _] : miningStatus)
-        {
-            if (fromFrame != -1 && frame < fromFrame) continue;
-            if (toFrame != -1 && frame > toFrame) break;
-
-            // If there is an interruption in the data, stop recording
-            if (frame != (lastFrame + 1))
-            {
-                recording = false;
-                lastStatus = -1;
-            }
-            lastFrame = frame;
-
-            if (status == miningState && nonMiningStates.contains(lastStatus))
-            {
-                // This is the transition from not mining to mining, which we use as our start of a measurement period
-
-                // If we were recording a period, flush it now
-                if (recording)
-                {
-                    framesMined += currentPeriodMined;
-                    framesNotMined += currentPeriodNotMined;
-                }
-
-                // Start recording a new period
-                recording = true;
-                currentPeriodMined = 1;
-                currentPeriodNotMined = 0;
-            }
-            else if (status == miningState)
-            {
-                currentPeriodMined++;
-            }
-            else if (nonMiningStates.contains(status))
-            {
-                currentPeriodNotMined++;
-            }
-            else
-            {
-                // The status is for a different number of workers than we are interested in, so cancel this period
-                recording = false;
-            }
-            lastStatus = status;
-        }
-
-        return std::make_pair(framesMined, framesNotMined);
-    }
-
-    double efficiencyScore(int framesMined, int framesNotMined)
-    {
-        if (framesMined == 0 && framesNotMined == 0) return 0.0;
-
-        return 100.0 * (double)framesMined / (double)(framesMined + framesNotMined);
-    }
-#endif
-}
-
 namespace WorkerMiningInstrumentation
 {
+    namespace
+    {
+    #if TRACK_MINING_EFFICIENCY
+        // This map records statistics of mining efficiency for each patch
+        // At each frame a resource has at least one worker assigned to it, a value is written:
+        // 0 = one worker assigned, worker is moving to minerals
+        // 1 = one worker assigned, worker is waiting to mine
+        // 2 = one worker assigned, worker is mining
+        // 3 = one worker assigned, worker is moving to return cargo
+        // 4 = one worker assigned, worker is waiting to return cargo
+        // 5 = one worker assigned, worker is waiting to move from depot
+        // 10 = two workers assigned, a worker is mining
+        // 11 = two workers assigned, one worker is returning cargo, other worker is moving to minerals
+        // 12 = two workers assigned, one worker is returning cargo, other worker is waiting to mine, worker returning cargo has orders processed first
+        // 13 = same as 12, but where worker returning cargo might not have had its orders processed first
+        std::map<Resource, std::vector<std::tuple<int, int, int>>> resourceToMiningStatus;
+
+        // Map storing alerts for each patch, so we can show them for a while
+        std::map<Resource, std::pair<int, std::string>> patchToAlert;
+
+        // Indirection to the Workers::mineralsAndAssignedWorkers function allowing it to be overridden by tests
+        std::function<std::map<Resource, std::set<MyWorker>> &()> getMineralsAndAssignedWorkers = Workers::mineralsAndAssignedWorkers;
+
+        struct PatchData
+        {
+            unsigned int framesMined = 0;
+            unsigned int framesNotMined = 0;
+            unsigned int totalRotationFrames = 0;
+            unsigned int rotationCount = 0;
+        };
+
+        void addPatchData(PatchData &patchData,
+                          const Resource &patch,
+                          const std::vector<std::tuple<int, int, int>> &miningStatus,
+                          int miningState,
+                          const std::set<int> &nonMiningStates,
+                          int fromFrame,
+                          int toFrame)
+        {
+            bool recording = false;
+            int lastStatus = -1;
+            int currentPeriodMined = 0;
+            int currentPeriodNotMined = 0;
+            int currentPeriodStartFrame = 0;
+            int lastFrame = -1;
+            for (auto &[status, frame, _] : miningStatus)
+            {
+                if (fromFrame != -1 && frame < fromFrame) continue;
+                if (toFrame != -1 && frame > toFrame) break;
+
+                // If there is an interruption in the data, stop recording
+                if (frame != (lastFrame + 1))
+                {
+                    recording = false;
+                    lastStatus = -1;
+                }
+                lastFrame = frame;
+
+                if (status == miningState && nonMiningStates.contains(lastStatus))
+                {
+                    // This is the transition from not mining to mining, which we use as our start of a measurement period
+
+                    // If we were recording a period, flush it now
+                    if (recording)
+                    {
+                        patchData.framesMined += currentPeriodMined;
+                        patchData.framesNotMined += currentPeriodNotMined;
+                        patchData.totalRotationFrames += (frame - currentPeriodStartFrame);
+                        patchData.rotationCount++;
+                    }
+
+                    // Start recording a new period
+                    recording = true;
+                    currentPeriodMined = 1;
+                    currentPeriodNotMined = 0;
+                    currentPeriodStartFrame = frame;
+                }
+                else if (status == miningState)
+                {
+                    currentPeriodMined++;
+                }
+                else if (nonMiningStates.contains(status))
+                {
+                    currentPeriodNotMined++;
+                }
+                else
+                {
+                    // The status is for a different number of workers than we are interested in, so cancel this period
+                    recording = false;
+                }
+                lastStatus = status;
+            }
+        }
+
+        Efficiency computeEfficiency(const PatchData &sgl, const PatchData &dbl)
+        {
+            auto computeMiningPercentage = [](const PatchData &pd)
+            {
+                if (pd.framesMined == 0 && pd.framesNotMined == 0) return 0.0;
+
+                return 100.0 * (double)pd.framesMined / (double)(pd.framesMined + pd.framesNotMined);
+            };
+
+            return Efficiency{
+                    (sgl.rotationCount == 0) ? 0.0 : ((double)sgl.totalRotationFrames / (double)sgl.rotationCount),
+                    computeMiningPercentage(sgl),
+                    (dbl.rotationCount == 0) ? 0.0 : ((double)dbl.totalRotationFrames / (double)dbl.rotationCount),
+                    computeMiningPercentage(dbl),
+            };
+        }
+    #endif
+    }
+
     void initialize(const std::function<std::map<Resource, std::set<MyWorker>> &()> &getMineralsAndAssignedWorkersOverride)
     {
 #if TRACK_MINING_EFFICIENCY
@@ -486,53 +504,43 @@ namespace WorkerMiningInstrumentation
         if (currentFrame % 1000 == 0)
         {
             auto efficiency = getEfficiency(currentFrame - 1000, currentFrame);
-            Log::Get() << std::fixed << std::setprecision(1)
-                       << "Mining efficiency over past 1000 frames: "
-                       << "Single: " << efficiency.first << "%; "
-                       << "Double: " << efficiency.second << "%";
+            Log::Get() << "Mining efficiency over past 1000 frames: " << efficiency;
         }
 #endif
     }
 
-    std::map<Resource, std::pair<double, double>> getEfficiencyByPatch(int fromFrame, int toFrame)
+    std::map<Resource, Efficiency> getEfficiencyByPatch(int fromFrame, int toFrame)
     {
-        std::map<Resource, std::pair<double, double>> result;
+        std::map<Resource, Efficiency> result;
 
 #if TRACK_MINING_EFFICIENCY
         for (auto &[patch, miningStatus] : resourceToMiningStatus)
         {
-            auto sgl = computePatchEfficiency(patch, miningStatus, 2, {0, 1, 3, 4, 5}, fromFrame, toFrame);
-            auto dbl = computePatchEfficiency(patch, miningStatus, 10, {11, 12, 13}, fromFrame, toFrame);
+            PatchData sgl, dbl;
+            addPatchData(sgl, patch, miningStatus, 2, {0, 1, 3, 4, 5}, fromFrame, toFrame);
+            addPatchData(dbl, patch, miningStatus, 10, {11, 12, 13}, fromFrame, toFrame);
 
-            result[patch] = std::make_pair(efficiencyScore(sgl.first, sgl.second), efficiencyScore(dbl.first, dbl.second));
+            result[patch] = computeEfficiency(sgl, dbl);
         }
 #endif
 
         return result;
     }
 
-    std::pair<double, double> getEfficiency(int fromFrame, int toFrame)
+    Efficiency getEfficiency(int fromFrame, int toFrame)
     {
 #if TRACK_MINING_EFFICIENCY
-        int sglFramesMined = 0;
-        int sglFramesNotMined = 0;
-        int dblFramesMined = 0;
-        int dblFramesNotMined = 0;
+        PatchData sgl, dbl;
 
         for (auto &[patch, miningStatus] : resourceToMiningStatus)
         {
-            auto sgl = computePatchEfficiency(patch, miningStatus, 2, {0, 1, 3, 4, 5}, fromFrame, toFrame);
-            auto dbl = computePatchEfficiency(patch, miningStatus, 10, {11, 12, 13}, fromFrame, toFrame);
-
-            sglFramesMined += sgl.first;
-            sglFramesNotMined += sgl.second;
-            dblFramesMined += dbl.first;
-            dblFramesNotMined += dbl.second;
+            addPatchData(sgl, patch, miningStatus, 2, {0, 1, 3, 4, 5}, fromFrame, toFrame);
+            addPatchData(dbl, patch, miningStatus, 10, {11, 12, 13}, fromFrame, toFrame);
         }
 
-        return std::make_pair(efficiencyScore(sglFramesMined, sglFramesNotMined), efficiencyScore(dblFramesMined, dblFramesNotMined));
+        return computeEfficiency(sgl, dbl);
 #else
-        return std::make_pair(0.0, 0.0);
+        return Efficiency{0.0,0.0,0.0,0.0};
 #endif
     }
 }
