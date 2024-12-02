@@ -145,17 +145,8 @@ void StardustAIModule::onEnd(bool isWinner)
 
 #if INSTRUMENTATION_ENABLED
     auto miningEfficiency = WorkerMiningInstrumentation::getEfficiency();
-    if (miningEfficiency.first > 0.01)
-    {
-        Log::Get() << std::fixed << std::setprecision(2)
-                   << "Mining efficiency over entire game: "
-                   << "Single: " << miningEfficiency.first << "%; "
-                   << "Double: " << miningEfficiency.second << "%";
-        CherryVis::log() << std::fixed << std::setprecision(2)
-                   << "Mining efficiency over entire game: "
-                   << "Single: " << miningEfficiency.first << "%; "
-                   << "Double: " << miningEfficiency.second << "%";
-    }
+    Log::Get() << "Mining efficiency over entire game: " << miningEfficiency;
+    CherryVis::log() << "Mining efficiency over entire game: " << miningEfficiency;
 #endif
 
     Opponent::gameEnd(isWinner);

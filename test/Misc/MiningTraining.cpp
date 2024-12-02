@@ -17,13 +17,43 @@ namespace
 {
     const std::string dataBasePath = "/Users/bmnielsen/BW/mining-timings/";
 
-    double runEfficiencyTestImpl(BWTest &test,
-                                 int workersPerPatch,
-                                 int cannons,
-                                 bool onlyOneWorker,
-                                 bool measureOnly,
-                                 int iterations = 1,
-                                 bool patchResults = false)
+    struct TestResult
+    {
+        double rotationTime = 0.0;
+        double miningPercentage = 0.0;
+
+        TestResult& operator+= (const TestResult &other)
+        {
+            rotationTime += other.rotationTime;
+            miningPercentage += other.miningPercentage;
+            return *this;
+        }
+
+        TestResult& operator/= (unsigned int val)
+        {
+            rotationTime /= (double)val;
+            miningPercentage /= (double)val;
+            return *this;
+        }
+
+        friend std::ostream & operator << (std::ostream &os, const TestResult &obj)
+        {
+            std::ostringstream buffer;
+            buffer << std::fixed << std::setprecision(2);
+            buffer << "Rotation: " << obj.rotationTime;
+            buffer << "; Percentage: " << obj.miningPercentage << "%";
+            os << buffer.str();
+            return os;
+        }
+    };
+
+    TestResult runEfficiencyTestImpl(BWTest &test,
+                                     unsigned int workersPerPatch,
+                                     unsigned int cannons,
+                                     bool onlyOneWorker,
+                                     bool measureOnly,
+                                     unsigned int iterations = 1,
+                                     bool patchResults = false)
     {
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
@@ -38,7 +68,7 @@ namespace
         };
         if (iterations > 1)
         {
-            test.frameLimit = 10000 * iterations;
+            test.frameLimit = (int)(10000 * iterations);
         }
         else if (test.frameLimit > 10000)
         {
@@ -330,27 +360,29 @@ namespace
             }
         };
 
-        double result = 0.0;
+        TestResult result;
         test.onEndMine = [&](bool)
         {
+            auto getTestResult = [&](const WorkerMiningInstrumentation::Efficiency &e)
+            {
+                if (workersPerPatch == 1)
+                {
+                    return TestResult{e.singleWorkerRotationTime, e.singleWorkerMiningPercentage};
+                }
+                return TestResult{e.doubleWorkerRotationTime, e.doubleWorkerMiningPercentage};
+            };
+
             auto efficiency = WorkerMiningInstrumentation::getEfficiency();
-            if (workersPerPatch == 1)
-            {
-                result = efficiency.first;
-            }
-            else
-            {
-                result = efficiency.second;
-            }
+            result = getTestResult(efficiency);
 
             if (patchResults)
             {
                 auto patchEfficiencyMap = WorkerMiningInstrumentation::getEfficiencyByPatch();
-                std::vector<std::pair<Resource, std::pair<double, double>>> patchEfficiency;
+                std::vector<std::pair<Resource, WorkerMiningInstrumentation::Efficiency>> patchEfficiency;
                 std::copy(patchEfficiencyMap.begin(), patchEfficiencyMap.end(), std::back_inserter(patchEfficiency));
                 std::sort(patchEfficiency.begin(), patchEfficiency.end(), [](
-                        const std::pair<Resource, std::pair<double, double>> &a,
-                        const std::pair<Resource, std::pair<double, double>> &b)
+                        const std::pair<Resource, WorkerMiningInstrumentation::Efficiency> &a,
+                        const std::pair<Resource, WorkerMiningInstrumentation::Efficiency> &b)
                 {
                     return a.first->tile < b.first->tile;
                 });
@@ -359,10 +391,13 @@ namespace
                 str.imbue(std::locale("da_DK"));
                 str << std::fixed << std::showpoint << std::setprecision(4)
                     << "Efficiency per patch:";
-                for (const auto &[patch, singleAndDouble] : patchEfficiency)
+                for (const auto &[patch, e] : patchEfficiency)
                 {
-                    str << "\n" << patch->tile.x << ";" << patch->tile.y << ";"
-                                << ((workersPerPatch == 1) ? singleAndDouble.first : singleAndDouble.second);
+                    auto patchResult = getTestResult(e);
+                    str << "\n" << patch->tile.x
+                        << ";" << patch->tile.y
+                        << ";" << patchResult.rotationTime
+                        << ";" << patchResult.miningPercentage;
                 }
                 std::cout << str.str() << std::endl;
             }
@@ -374,12 +409,12 @@ namespace
         return result;
     }
 
-    double runEfficiencyTest(BWTest &test,
-                             int workersPerPatch,
-                             int cannons,
-                             bool onlyOneWorker = false,
-                             bool measureOnly = false,
-                             bool patchResults = false)
+    TestResult runEfficiencyTest(BWTest &test,
+                                 unsigned int workersPerPatch,
+                                 unsigned int cannons,
+                                 bool onlyOneWorker = false,
+                                 bool measureOnly = false,
+                                 bool patchResults = false)
     {
 #if !INSTRUMENTATION_ENABLED
         return runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker, measureOnly);
@@ -387,46 +422,51 @@ namespace
         for (int i=0; i<10; i++)
         {
             auto result = runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker, measureOnly, 1, patchResults);
-            if (result > 0.0001) return result;
+            if (result.rotationTime > 0.0001) return result;
         }
 
         Log::Get() << "ERROR: Could not get a stable test run after 10 tries!";
-        return 49.0;
+        return {};
 #endif
     }
 
-    double runTestSuite(BWTest &test, int workersPerPatch, int cannons)
+    TestResult runTestSuite(BWTest &test, unsigned int workersPerPatch, int cannons, bool measureOnly = false)
     {
-        runEfficiencyTestImpl(test, workersPerPatch, cannons, false, false, 10);
+        if (!measureOnly) runEfficiencyTestImpl(test, workersPerPatch, cannons, false, false, 10);
         return runEfficiencyTest(test, workersPerPatch, cannons, false, true);
     }
 
-    void testRunWithResults(const std::string &mapSearch, int workers = 0, bool cannons = true)
+    void testRunWithResults(const std::string &mapSearch, int workers = 0, bool cannons = true, bool measureOnly = false)
     {
-        std::map<std::string, std::map<std::pair<int, int>, double>> mapHashToConfigurationToEfficiency;
+        std::map<std::string, std::map<std::pair<int, int>, TestResult>> mapHashToConfigurationToEfficiency;
 
-        int minWorkers = (workers < 2) ? 1 : 2;
-        int maxWorkers = (workers == 1) ? 1 : 2;
+        unsigned int minWorkers = (workers < 2) ? 1 : 2;
+        unsigned int maxWorkers = (workers == 1) ? 1 : 2;
 
-        int maxCannons = cannons ? 2 : 0;
+        unsigned int maxCannons = cannons ? 2 : 0;
 
         Maps::RunOnEach(Maps::Get(mapSearch), [&](BWTest test)
         {
-            double totalSingle = 0.0;
-            double totalDouble = 0.0;
+            TestResult totalSingle;
+            TestResult totalDouble;
             for (auto workersPerPatch = minWorkers; workersPerPatch <= maxWorkers; workersPerPatch++)
             {
                 for (auto cannons = 0; cannons <= maxCannons; cannons++)
                 {
-                    auto result = runTestSuite(test, workersPerPatch, cannons);
+                    auto result = runTestSuite(test, workersPerPatch, cannons, measureOnly);
                     (workersPerPatch == 1 ? totalSingle : totalDouble) += result;
                     mapHashToConfigurationToEfficiency[test.map->openbwHash][std::make_pair(workersPerPatch, cannons)] = result;
                 }
             }
+            if (maxCannons > 0)
+            {
+                totalSingle /= (maxCannons + 1);
+                totalDouble /= (maxCannons + 1);
+            }
             std::cout << std::fixed << std::showpoint << std::setprecision(4)
                       << "Overall efficiency: " << std::endl
-                      << "Single: " << (totalSingle / (double)(maxCannons + 1)) << "%" << std::endl
-                      << "Double: " << (totalDouble / (double)(maxCannons + 1)) << "%" << std::endl;
+                      << "Single: " << totalSingle << std::endl
+                      << "Double: " << totalDouble << std::endl;
         });
 
         {
@@ -442,8 +482,8 @@ namespace
                         << "_r_" << RETURN_EXPLORE_BEFORE << "_" << RETURN_EXPLORE_AFTER
                         << ".csv").str(),
                       std::ofstream::trunc);
-            file << "Hash;1-0;1-1;1-2;2-0;2-1;2-2\n";
-            std::map<std::pair<int, int>, double> totals;
+            file << "Hash;1-0R;1-0P;1-1R;1-1P;1-2R;1-2P;2-0R;2-0P;2-1R;2-1P;2-2R;2-2P\n";
+            std::map<std::pair<int, int>, TestResult> totals;
             for (const auto &[mapHash, _] : mapHashToConfigurationToEfficiency)
             {
                 file << mapHash;
@@ -454,7 +494,7 @@ namespace
                     {
                         auto key = std::make_pair(w, c);
                         auto result = mapHashToConfigurationToEfficiency[mapHash][key];
-                        file << ";" << result;
+                        file << ";" << result.rotationTime << ";" << result.miningPercentage;
                         totals[key] += result;
                     }
                 }
@@ -468,7 +508,8 @@ namespace
                 for (int c = 0; c <= 2; c++)
                 {
                     auto key = std::make_pair(w, c);
-                    file << ";" << (totals[key] / (double)(mapHashToConfigurationToEfficiency.size()));
+                    totals[key] /= mapHashToConfigurationToEfficiency.size();
+                    file << ";" << totals[key].rotationTime << ";" << totals[key].miningPercentage;
                 }
             }
             file << "\n";
@@ -476,26 +517,6 @@ namespace
             file.close();
         }
     }
-}
-
-TEST(MiningTraining, FightingSpirit)
-{
-    BWTest test;
-    test.map = Maps::GetOne("Fighting Spirit");
-    test.randomSeed = 42;
-    double totalSingle = 0.0;
-    double totalDouble = 0.0;
-    for (auto workersPerPatch = 1; workersPerPatch <= 2; workersPerPatch++)
-    {
-        for (auto cannons = 0; cannons <= 2; cannons++)
-        {
-            (workersPerPatch == 1 ? totalSingle : totalDouble) += runEfficiencyTest(test, workersPerPatch, cannons);
-        }
-    }
-    std::cout << std::fixed << std::showpoint << std::setprecision(4)
-        << "Overall efficiency: " << std::endl
-        << "Single: " << (totalSingle / 3) << "%" << std::endl
-        << "Double: " << (totalDouble / 3) << "%" << std::endl;
 }
 
 TEST(MiningTraining, ChupungRyeong)
@@ -507,8 +528,8 @@ TEST(MiningTraining, ChupungRyeong)
     auto dbl = runEfficiencyTest(test, 2, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
         << "Overall efficiency: " << std::endl
-        << "Single: " << sgl << "%" << std::endl
-        << "Double: " << dbl << "%" << std::endl;
+        << "Single: " << sgl << std::endl
+        << "Double: " << dbl << std::endl;
 }
 
 TEST(MiningTraining, DebugMiningCommands)
@@ -520,7 +541,7 @@ TEST(MiningTraining, DebugMiningCommands)
     auto sgl = runEfficiencyTest(test, 1, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
         << "Overall efficiency: " << std::endl
-        << "Single: " << sgl << "%" << std::endl;
+        << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, ChupungRyeongSingle)
@@ -531,7 +552,7 @@ TEST(MiningTraining, ChupungRyeongSingle)
     auto sgl = runEfficiencyTest(test, 1, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
         << "Overall efficiency: " << std::endl
-        << "Single: " << sgl << "%" << std::endl;
+        << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, ChupungRyeongSingleTwoIterations)
@@ -542,7 +563,7 @@ TEST(MiningTraining, ChupungRyeongSingleTwoIterations)
     auto sgl = runEfficiencyTestImpl(test, 1, 0, false, false, 2);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
         << "Overall efficiency: " << std::endl
-        << "Single: " << sgl << "%" << std::endl;
+        << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, ChupungRyeongSingleCannons)
@@ -554,8 +575,8 @@ TEST(MiningTraining, ChupungRyeongSingleCannons)
     auto c2 = runEfficiencyTest(test, 1, 2);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
         << "Overall efficiency: " << std::endl
-        << "One cannon: " << c1 << "%" << std::endl
-        << "Two cannons: " << c2 << "%" << std::endl;
+        << "One cannon: " << c1 << std::endl
+        << "Two cannons: " << c2 << std::endl;
 }
 
 TEST(MiningTraining, ChupungRyeongSingle10)
@@ -568,7 +589,7 @@ TEST(MiningTraining, ChupungRyeongSingle10)
         auto sgl = runEfficiencyTest(test, 1, 0);
         std::cout << std::fixed << std::showpoint << std::setprecision(4)
                   << "Overall efficiency: " << std::endl
-                  << "Single: " << sgl << "%" << std::endl;
+                  << "Single: " << sgl << std::endl;
     }
 }
 
@@ -581,7 +602,7 @@ TEST(MiningTraining, ChupungRyeongDouble)
     auto dbl = runEfficiencyTest(test, 2, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
         << "Overall efficiency: " << std::endl
-        << "Double: " << dbl << "%" << std::endl;
+        << "Double: " << dbl << std::endl;
 }
 
 TEST(MiningTraining, EddySingle)
@@ -592,7 +613,7 @@ TEST(MiningTraining, EddySingle)
     auto sgl = runEfficiencyTest(test, 1, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, RoadkillSingle)
@@ -603,7 +624,7 @@ TEST(MiningTraining, RoadkillSingle)
     auto sgl = runEfficiencyTest(test, 1, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, NeoMoonGlaiveSingle)
@@ -614,7 +635,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingle)
     auto sgl = runEfficiencyTest(test, 1, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, NeoMoonGlaiveSingleOneCannon)
@@ -625,7 +646,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingleOneCannon)
     auto sgl = runEfficiencyTest(test, 1, 1);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, NeoMoonGlaiveTestSuite)
@@ -636,7 +657,7 @@ TEST(MiningTraining, NeoMoonGlaiveTestSuite)
     auto sgl = runTestSuite(test, 1, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, NeoMoonGlaiveTestSuiteContinuous)
@@ -649,7 +670,7 @@ TEST(MiningTraining, NeoMoonGlaiveTestSuiteContinuous)
         auto sgl = runTestSuite(test, 1, 0);
         std::cout << std::fixed << std::showpoint << std::setprecision(4)
                   << "Overall efficiency: " << std::endl
-                  << "Single: " << sgl << "%" << std::endl;
+                  << "Single: " << sgl << std::endl;
     }
 }
 
@@ -661,7 +682,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingleMeasure)
     auto sgl = runEfficiencyTest(test, 1, 0, false, true, true);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, PowerBondSingleTwoCannonsMeasure)
@@ -672,7 +693,7 @@ TEST(MiningTraining, PowerBondSingleTwoCannonsMeasure)
     auto sgl = runEfficiencyTest(test, 1, 2, false, true);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, NeoMoonGlaiveSingleMeasureShort)
@@ -684,7 +705,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingleMeasureShort)
     auto sgl = runEfficiencyTest(test, 1, 0, false, true);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, NeoMoonGlaiveSingleContinuous)
@@ -697,7 +718,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingleContinuous)
         auto sgl = runEfficiencyTest(test, 1, 0);
         std::cout << std::fixed << std::showpoint << std::setprecision(4)
                   << "Overall efficiency: " << std::endl
-                  << "Single: " << sgl << "%" << std::endl;
+                  << "Single: " << sgl << std::endl;
     }
 }
 
@@ -710,7 +731,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingleOneWorker)
     auto sgl = runEfficiencyTest(test, 1, 0, true);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, NeoMoonGlaiveSingleOneWorkerMeasure)
@@ -722,7 +743,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingleOneWorkerMeasure)
     auto sgl = runEfficiencyTest(test, 1, 0, true, true);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, NeoMoonGlaiveDouble)
@@ -734,7 +755,7 @@ TEST(MiningTraining, NeoMoonGlaiveDouble)
     auto dbl = runEfficiencyTest(test, 2, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
         << "Overall efficiency: " << std::endl
-        << "Double: " << dbl << "%" << std::endl;
+        << "Double: " << dbl << std::endl;
 }
 
 TEST(MiningTraining, NeoMoonGlaiveDoubleContinuous)
@@ -748,7 +769,7 @@ TEST(MiningTraining, NeoMoonGlaiveDoubleContinuous)
         auto dbl = runEfficiencyTest(test, 2, 0);
         std::cout << std::fixed << std::showpoint << std::setprecision(4)
                   << "Overall efficiency: " << std::endl
-                  << "Double: " << dbl << "%" << std::endl;
+                  << "Double: " << dbl << std::endl;
     }
 }
 
@@ -760,7 +781,7 @@ TEST(MiningTraining, VermeerTestSuite)
     auto sgl = runTestSuite(test, 1, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, VermeerTestSuiteContinuous)
@@ -773,7 +794,7 @@ TEST(MiningTraining, VermeerTestSuiteContinuous)
         auto sgl = runTestSuite(test, 1, 0);
         std::cout << std::fixed << std::showpoint << std::setprecision(4)
                   << "Overall efficiency: " << std::endl
-                  << "Single: " << sgl << "%" << std::endl;
+                  << "Single: " << sgl << std::endl;
     }
 }
 
@@ -785,7 +806,7 @@ TEST(MiningTraining, VermeerTestSuiteDouble)
     auto sgl = runTestSuite(test, 2, 0);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, VermeerTestSuiteDoubleContinuous)
@@ -798,7 +819,7 @@ TEST(MiningTraining, VermeerTestSuiteDoubleContinuous)
         auto sgl = runTestSuite(test, 2, 0);
         std::cout << std::fixed << std::showpoint << std::setprecision(4)
                   << "Overall efficiency: " << std::endl
-                  << "Single: " << sgl << "%" << std::endl;
+                  << "Single: " << sgl << std::endl;
     }
 }
 
@@ -810,7 +831,7 @@ TEST(MiningTraining, VermeerSingle)
     auto sgl = runEfficiencyTest(test, 1, 0, false);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, VermeerSingleMeasure)
@@ -821,7 +842,7 @@ TEST(MiningTraining, VermeerSingleMeasure)
     auto sgl = runEfficiencyTest(test, 1, 0, false, true, true);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, VermeerDoubleMeasure)
@@ -832,7 +853,7 @@ TEST(MiningTraining, VermeerDoubleMeasure)
     auto sgl = runEfficiencyTest(test, 2, 0, false, true, true);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
-              << "Single: " << sgl << "%" << std::endl;
+              << "Single: " << sgl << std::endl;
 }
 
 TEST(MiningTraining, AllAIIDEContinuousSingleOnlyNoCannons)
@@ -858,19 +879,10 @@ TEST(MiningTraining, AllAIIDEContinuousSingleAllCannons)
 
 TEST(MiningTraining, AllAIIDEMeasureSingleNoCannons)
 {
-    Maps::RunOnEach(Maps::Get("aiide2024"), [&](BWTest test)
-    {
-        runEfficiencyTest(test, 1, 0, false, true);
-    });
+    testRunWithResults("aiide2024", 1, false, true);
 }
 
 TEST(MiningTraining, AllAIIDEMeasureSingleAllCannons)
 {
-    Maps::RunOnEach(Maps::Get("aiide2024"), [&](BWTest test)
-    {
-        for (auto cannons = 0; cannons <= 2; cannons++)
-        {
-            runEfficiencyTest(test, 1, cannons, false, true);
-        }
-    });
+    testRunWithResults("aiide2024", 1, true, true);
 }

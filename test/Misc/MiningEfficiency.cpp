@@ -89,9 +89,7 @@ namespace
         test.onEndMine = [](bool)
         {
             auto efficiency = WorkerMiningInstrumentation::getEfficiency();
-            std::cout << "Mining efficiency: " << std::endl
-                << " Single: " << efficiency.first << std::endl
-                << " Double: " << efficiency.second << std::endl;
+            std::cout << "Mining efficiency: " << efficiency << std::endl;
         };
 
         test.run();
