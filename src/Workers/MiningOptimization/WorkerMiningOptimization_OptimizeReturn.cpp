@@ -129,11 +129,12 @@ namespace WorkerMiningOptimization
             if (metadataIt == optimalPositions.end()) return; // haven't reached an observed position yet
             auto &positionMetadata = metadataIt->second;
 
-            // Always wait until we have observed a path with no resends before exploring
-            if (positionMetadata.noResendArrivalObservations.empty()) return;
-
             // We are now sure that we will plan something, though we may choose not to perform a resend
             workerStatus.resendPlanned = true;
+
+            // Check if we need to "explore" the no resend case
+            if (positionMetadata.noResendArrivalObservations.empty()) return;
+            if (WorkerMiningOptimization::isExploring() && positionMetadata.noResendArrivalObservations.shouldExploreDeliverySpeeds()) return;
 
             auto shouldResend = [&](const PositionEvaluation &evaluation)
             {

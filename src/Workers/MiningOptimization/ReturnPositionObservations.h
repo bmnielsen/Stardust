@@ -25,6 +25,15 @@ namespace WorkerMiningOptimization
 
         [[nodiscard]] double expectedDeltaToNormal() const;
 
+        [[nodiscard]] bool disagreement() const
+        {
+            // There is disagreement if the category with most occurrences is less than 75% of the total
+            auto maxOccurrences = std::max({collision, lowExitSpeed, mediumExitSpeed, highExitSpeed});
+            auto total = collision + lowExitSpeed + mediumExitSpeed + highExitSpeed;
+
+            return (maxOccurrences * 4) < (total * 3);
+        }
+
         template <typename S>
         void serialize(S& s)
         {
@@ -60,6 +69,26 @@ namespace WorkerMiningOptimization
 
         // Compute the expected number of frames to delivery if the given worker
         [[nodiscard]] double expectedNoResendDeliveryDelay(const MyWorker &worker) const;
+
+        // Whether we need to explore delivery speeds for these observations
+        [[nodiscard]] bool shouldExploreDeliverySpeeds() const
+        {
+            uint32_t total = deliveryAfterArrivalSpeeds.collision
+                             + deliveryAfterArrivalSpeeds.lowExitSpeed
+                             + deliveryAfterArrivalSpeeds.mediumExitSpeed
+                             + deliveryAfterArrivalSpeeds.highExitSpeed
+                             + deliveryAtArrivalSpeeds.collision
+                             + deliveryAtArrivalSpeeds.lowExitSpeed
+                             + deliveryAtArrivalSpeeds.mediumExitSpeed
+                             + deliveryAtArrivalSpeeds.highExitSpeed;
+
+            // Always explore until 2 observations and stop exploring after 5
+            if (total < 2) return true;
+            if (total >= 5) return false;
+
+            // In the in-between period, explore if there is disagreement
+            return deliveryAfterArrivalSpeeds.disagreement() || deliveryAtArrivalSpeeds.disagreement();
+        }
 
         template <typename S>
         void serialize(S& s)

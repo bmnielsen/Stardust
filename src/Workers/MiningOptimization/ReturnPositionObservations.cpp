@@ -174,7 +174,7 @@ namespace WorkerMiningOptimization
 
     bool ReturnPositionObservations::suitableForExploration() const
     {
-        if (!resendArrivalObservations.empty()) return false; // Have already explored
+        if (!resendArrivalObservations.empty() && !resendArrivalObservations.shouldExploreDeliverySpeeds()) return false; // Have already explored
 
         // Don't explore if any of the observed arrival delays are outside our exploration horizon
         int referenceFrame = 8 + BWAPI::Broodwar->getLatencyFrames();
