@@ -52,9 +52,9 @@ std::ostream &operator<<(std::ostream &os, const PositionAndVelocity &positionAn
 
     os << "(x=" << positionAndVelocity.x
        << " y=" << positionAndVelocity.y
-       << " dx=" << positionAndVelocity.dx
-       << " dy=" << positionAndVelocity.dy
-       << " h=" << positionAndVelocity.heading
+       << " dx=" << (int)positionAndVelocity.dx
+       << " dy=" << (int)positionAndVelocity.dy
+       << " h=" << (unsigned int)positionAndVelocity.heading
        << " p=" << std::hex << positionAndVelocity.previousPositionsHash
        << ")";
 
