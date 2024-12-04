@@ -145,7 +145,6 @@ namespace WorkerMiningOptimization
         std::vector<MiningWorker> miningWorkers;
 
 #if OPTIMALPOSITIONS_DEBUG
-        std::set<uint32_t> exploredPaths;
         std::set<BWAPI::TilePosition> exploredPatches;
         int collisions = 0;
         int noncollisions = 0;
@@ -522,7 +521,6 @@ namespace WorkerMiningOptimization
             }
             else
             {
-                exploredPaths.insert(resentPositionData.pathHash);
                 exploredPatches.insert(workerStatus.resource->tile);
             }
 #else
@@ -646,14 +644,13 @@ namespace WorkerMiningOptimization
 #if OPTIMALPOSITIONS_DEBUG
         if (currentFrame == 0)
         {
-            exploredPaths.clear();
             exploredPatches.clear();
             collisions = 0;
             noncollisions = 0;
         }
         else if (currentFrame % 1000 == 0)
         {
-            Log::Get() << "Explored " << exploredPaths.size() << " path(s) over " << exploredPatches.size() << " patch(es)";
+            Log::Get() << "Explored " << exploredPatches.size() << " patch(es)";
             if ((collisions + noncollisions) > 0)
             {
                 Log::Get() << std::fixed << std::setprecision(1)
