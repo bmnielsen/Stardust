@@ -243,7 +243,7 @@ namespace WorkerMiningOptimization
 
                 if ((positionIt + 1) != limit)
                 {
-                    metadataIt->second.nextPositionAndOccurrences[**(positionIt + 1)]++;
+                    metadataIt->second.addNext(**(positionIt + 1));
                 }
             }
         }

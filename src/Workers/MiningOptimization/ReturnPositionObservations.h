@@ -4,6 +4,7 @@
 #include "PositionAndVelocity.h"
 #include "OrderProcessTimer.h"
 #include "Resource.h"
+#include "MapUtil.h"
 #include <bitsery/ext/std_map.h>
 #include <map>
 
@@ -144,7 +145,7 @@ namespace WorkerMiningOptimization
 
         // All next positions seen from this position, with their count of observations
         // May be empty for the last position we consider in a path
-        std::unordered_map<PositionAndVelocity, uint32_t> nextPositionAndOccurrences;
+        std::unordered_map<PositionAndVelocity, uint16_t> nextPositionAndOccurrences;
 
         // Observations for when no resend was sent here
         ReturnArrivalObservations noResendArrivalObservations;
@@ -163,6 +164,12 @@ namespace WorkerMiningOptimization
                 , noResendArrivalObservations(ReturnArrivalObservations{{{arrival, 1}}})
         {}
 
+        void addNext(const PositionAndVelocity &next)
+        {
+            if (MapUtil::atOccurrenceCap(nextPositionAndOccurrences)) return;
+            nextPositionAndOccurrences[next]++;
+        }
+
         // Checks if any of the observed arrival delays are after our exploration horizon
         [[nodiscard]] bool afterExplorationHorizon() const;
 
@@ -171,9 +178,9 @@ namespace WorkerMiningOptimization
         template <typename S>
         void serialize(S& s) {
             s.object(pos);
-            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint32_t& value) {
+            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint16_t& value) {
                 s.object(key);
-                s.value4b(value);
+                s.value2b(value);
             });
             s.object(noResendArrivalObservations);
             s.object(resendArrivalObservations);
