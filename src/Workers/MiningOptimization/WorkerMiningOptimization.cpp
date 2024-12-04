@@ -7,7 +7,7 @@
 #include <bitsery/ext/std_set.h>
 #include <bitsery/ext/std_map.h>
 
-#include <zstdstream/zstdstream.hpp>
+#include <zstdstream.h>
 
 #include "TilePosition.h"
 #include "PositionAndVelocity.h"

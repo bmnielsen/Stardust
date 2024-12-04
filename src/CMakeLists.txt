@@ -56,7 +56,7 @@ ELSE (MSVC)
     endif(NOT CMAKE_BUILD_TYPE MATCHES Release)
 ENDIF (MSVC)
 
-target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery cppcrc libzstd_static)
+target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery cppcrc zstdstream)
 target_include_directories(Stardust PUBLIC ${STARDUST_INCLUDES})
 
 IF (NOT MSVC)

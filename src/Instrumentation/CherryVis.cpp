@@ -7,7 +7,7 @@
 #include <filesystem>
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
-#include <zstdstream/zstdstream.hpp>
+#include <zstdstream.h>
 #define STREAM zstd::ofstream
 #define FILE_EXTENSION ".json.zstd"
 #else
