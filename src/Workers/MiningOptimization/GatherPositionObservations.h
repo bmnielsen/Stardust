@@ -4,6 +4,7 @@
 #include "PositionAndVelocity.h"
 #include "OrderProcessTimer.h"
 #include "Resource.h"
+#include "MapUtil.h"
 #include <bitsery/ext/std_map.h>
 #include <map>
 
@@ -51,17 +52,23 @@ namespace WorkerMiningOptimization
     {
         PositionAndVelocity pos;
         uint16_t deltaToFirstResend = 0;
-        std::unordered_map<PositionAndVelocity, uint32_t> nextPositionAndOccurrences;
+        std::unordered_map<PositionAndVelocity, uint16_t> nextPositionAndOccurrences;
         GatherResendArrivalObservations arrivalObservations;
+
+        void addNext(const PositionAndVelocity &next)
+        {
+            if (MapUtil::atOccurrenceCap(nextPositionAndOccurrences)) return;
+            nextPositionAndOccurrences[next]++;
+        }
 
         template <typename S>
         void serialize(S& s)
         {
             s.object(pos);
             s.value2b(deltaToFirstResend);
-            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint32_t& value) {
+            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint16_t& value) {
                 s.object(key);
-                s.value4b(value);
+                s.value2b(value);
             });
             s.object(arrivalObservations);
         }
@@ -81,7 +88,7 @@ namespace WorkerMiningOptimization
 
         // All next positions seen from this position, with their count of observations
         // May be empty for the last position we consider in a path
-        std::unordered_map<PositionAndVelocity, uint32_t> nextPositionAndOccurrences;
+        std::unordered_map<PositionAndVelocity, uint16_t> nextPositionAndOccurrences;
 
         // Observations for when we send a resend here without a second resend
         GatherResendArrivalObservations noSecondResendArrivalObservations;
@@ -116,6 +123,11 @@ namespace WorkerMiningOptimization
         [[nodiscard]] int largestDeltaToBenchmark() const;
 
         bool addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int16_t arrivalDelta);
+        void addNext(const PositionAndVelocity &next)
+        {
+            if (MapUtil::atOccurrenceCap(nextPositionAndOccurrences)) return;
+            nextPositionAndOccurrences[next]++;
+        }
 
         [[nodiscard]] SecondResendGatherPositionObservations *secondResendObservationsFor(const PositionAndVelocity *secondResendPosition)
         {
@@ -157,9 +169,9 @@ namespace WorkerMiningOptimization
                 s.value2b(key);
                 s.value4b(value);
             });
-            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint32_t& value) {
+            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint16_t& value) {
                 s.object(key);
-                s.value4b(value);
+                s.value2b(value);
             });
             s.object(noSecondResendArrivalObservations);
             s.ext(secondResendObservations,

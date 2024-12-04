@@ -289,7 +289,7 @@ namespace WorkerMiningOptimization
 
                 if ((positionIt + 1) != limit)
                 {
-                    positionMetadata.nextPositionAndOccurrences[**(positionIt + 1)]++;
+                    positionMetadata.addNext(**(positionIt + 1));
                 }
 
                 // Only record next positions for second resend if we actually track them here
@@ -328,7 +328,7 @@ namespace WorkerMiningOptimization
 
                     if ((secondPositionIt + 1) != secondLimit)
                     {
-                        secondResendObservationsIt->second.nextPositionAndOccurrences[**(secondPositionIt + 1)]++;
+                        secondResendObservationsIt->second.addNext(**(secondPositionIt + 1));
                     }
                 }
             }

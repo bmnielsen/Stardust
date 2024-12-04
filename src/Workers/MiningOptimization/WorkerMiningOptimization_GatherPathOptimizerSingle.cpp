@@ -59,15 +59,15 @@ namespace WorkerMiningOptimization
                                                          const PositionAndVelocity &here,
                                                          uint16_t deltaToFirstResend,
                                                          const GatherResendArrivalObservations &observations,
-                                                         const std::unordered_map<PositionAndVelocity, uint32_t> &nextPositions)
+                                                         const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions)
         {
             // Start by getting the data for doing a second resend at all of the next positions
             PositionEvaluation nextPositionsEvaluation;
             if (positionMetadata.resendChangesPath == ResendChangesPath::Yes)
             {
                 double deltaAccumulator = 0.0;
-                uint32_t occurrenceCount = 0;
-                uint32_t bestOccurrences = 0;
+                uint16_t occurrenceCount = 0;
+                uint16_t bestOccurrences = 0;
                 for (const auto &[nextPosition, occurrences] : nextPositions)
                 {
                     auto nextPositionDataIt = positionMetadata.secondResendObservations.find(nextPosition);
@@ -151,8 +151,8 @@ namespace WorkerMiningOptimization
             PositionEvaluation nextPositionsEvaluation;
             {
                 double deltaAccumulator = 0.0;
-                uint32_t occurrenceCount = 0;
-                uint32_t bestOccurrences = 0;
+                uint16_t occurrenceCount = 0;
+                uint16_t bestOccurrences = 0;
                 for (const auto &[nextPosition, occurrences] : positionMetadata.nextPositionAndOccurrences)
                 {
                     auto nextPositionDataIt = allPositionData.find(nextPosition);
