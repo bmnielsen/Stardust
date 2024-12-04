@@ -116,27 +116,6 @@ namespace WorkerMiningOptimization
                 , deltaToBenchmarkAndOccurrences({{deltaToBenchmarkAndOccurrences, 1}})
         {}
 
-        GatherPositionObservations(
-                uint32_t pathHash,
-                PositionAndVelocity pos,
-                std::unordered_map<int16_t, uint32_t> &&deltaToBenchmarkAndOccurrences,
-                std::unordered_map<PositionAndVelocity, uint32_t> &&nextPositionAndOccurrences,
-                GatherResendArrivalObservations &&noSecondResendArrivalObservations,
-                std::unordered_map<PositionAndVelocity, SecondResendGatherPositionObservations> &&secondResendObservations,
-                uint32_t noResendCollisions = 0,
-                uint32_t noResendNonCollisions = 0,
-                ResendChangesPath resendChangesPath = ResendChangesPath::Unknown)
-                : pathHash(pathHash)
-                , pos(pos)
-                , deltaToBenchmarkAndOccurrences(std::move(deltaToBenchmarkAndOccurrences))
-                , nextPositionAndOccurrences(std::move(nextPositionAndOccurrences))
-                , noSecondResendArrivalObservations(std::move(noSecondResendArrivalObservations))
-                , secondResendObservations(std::move(secondResendObservations))
-                , noResendCollisions(noResendCollisions)
-                , noResendNonCollisions(noResendNonCollisions)
-                , resendChangesPath(resendChangesPath)
-        {}
-
         [[nodiscard]] double averageDeltaToBenchmark() const;
 
         [[nodiscard]] int probableDeltaToBenchmark() const;
@@ -177,15 +156,6 @@ namespace WorkerMiningOptimization
 
             return result;
         }
-
-        static void outputDataFileHeaderRow(std::ofstream &file);
-
-        void outputToDataFile(std::ofstream &file, const TilePosition &resourceTile) const;
-
-        static bool parseFromDataFile(
-                const std::vector<std::string> &line,
-                std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &map,
-                int lineNumber);
 
         template <typename S>
         void serialize(S& s) {

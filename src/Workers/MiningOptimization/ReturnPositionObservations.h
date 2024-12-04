@@ -140,32 +140,10 @@ namespace WorkerMiningOptimization
                 , noResendArrivalObservations(ReturnArrivalObservations{{{arrival, 1}}})
         {}
 
-        ReturnPositionObservations(
-                uint32_t pathHash,
-                PositionAndVelocity pos,
-                std::unordered_map<PositionAndVelocity, uint32_t> &&nextPositionAndOccurrences,
-                ReturnArrivalObservations &&noResendArrivalObservations,
-                ReturnArrivalObservations &&resendArrivalObservations)
-                : pathHash(pathHash)
-                , pos(pos)
-                , nextPositionAndOccurrences(nextPositionAndOccurrences)
-                , noResendArrivalObservations(std::move(noResendArrivalObservations))
-                , resendArrivalObservations(std::move(resendArrivalObservations))
-        {}
-
         // Checks if any of the observed arrival delays are after our exploration horizon
         [[nodiscard]] bool afterExplorationHorizon() const;
 
         [[nodiscard]] bool suitableForExploration() const;
-
-        static void outputDataFileHeaderRow(std::ofstream &file);
-
-        void outputToDataFile(std::ofstream &file, const TilePosition &resourceTile) const;
-
-        static bool parseFromDataFile(
-                const std::vector<std::string> &line,
-                std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &map,
-                int lineNumber);
 
         template <typename S>
         void serialize(S& s) {
