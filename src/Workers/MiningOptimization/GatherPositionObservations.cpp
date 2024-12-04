@@ -83,10 +83,10 @@ namespace WorkerMiningOptimization
         if (deltaToBenchmarkAndOccurrences.size() == 1) return deltaToBenchmarkAndOccurrences.begin()->first;
 
         int accumulator = 0;
-        uint32_t total = 0;
+        uint16_t total = 0;
         for (const auto &[delta, occurrences] : deltaToBenchmarkAndOccurrences)
         {
-            accumulator += delta * (int)occurrences;
+            accumulator += (int)delta * (int)occurrences;
             total += occurrences;
         }
 
@@ -100,8 +100,8 @@ namespace WorkerMiningOptimization
         if (deltaToBenchmarkAndOccurrences.empty()) return 100;
         if (deltaToBenchmarkAndOccurrences.size() == 1) return deltaToBenchmarkAndOccurrences.begin()->first;
 
-        int best = 100;
-        uint32_t bestOccurrences = 0;
+        int8_t best = 100;
+        uint16_t bestOccurrences = 0;
         for (const auto &[delta, occurrences] : deltaToBenchmarkAndOccurrences)
         {
             if (occurrences > bestOccurrences)
@@ -119,7 +119,7 @@ namespace WorkerMiningOptimization
         if (deltaToBenchmarkAndOccurrences.empty()) return 100;
         if (deltaToBenchmarkAndOccurrences.size() == 1) return deltaToBenchmarkAndOccurrences.begin()->first;
 
-        int best = -1000;
+        int8_t best = INT8_MIN;
         for (const auto &[delta, occurrences] : deltaToBenchmarkAndOccurrences)
         {
             if (delta > best)

@@ -91,7 +91,7 @@ namespace WorkerMiningOptimization
         // The offset between this resend position and the apparent optimal position if no resend had been issued
         // For positions with unstable following paths this can differ, so we store all observed values with their occurrences
         // May be empty if we haven't observed a no-resend path with this position yet
-        std::unordered_map<int16_t, uint32_t> deltaToBenchmarkAndOccurrences;
+        std::unordered_map<int8_t, uint16_t> deltaToBenchmarkAndOccurrences;
 
         // All next positions seen from this position, with their count of observations
         // May be empty for the last position we consider in a path
@@ -118,10 +118,10 @@ namespace WorkerMiningOptimization
                 : pos(pos)
         {}
 
-        GatherPositionObservations(PositionAndVelocity pos, int deltaToBenchmarkAndOccurrences)
-                : pos(pos)
-                , deltaToBenchmarkAndOccurrences({{deltaToBenchmarkAndOccurrences, 1}})
-        {}
+        GatherPositionObservations(PositionAndVelocity pos, int deltaToBenchmark) : pos(pos)
+        {
+            addDeltaToBenchmark(deltaToBenchmark);
+        }
 
         [[nodiscard]] double averageDeltaToBenchmark() const;
 
@@ -130,6 +130,18 @@ namespace WorkerMiningOptimization
         [[nodiscard]] int largestDeltaToBenchmark() const;
 
         bool addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int arrivalDelta);
+
+        void addDeltaToBenchmark(int delta)
+        {
+            if (delta > INT8_MAX || delta < INT8_MIN)
+            {
+                Log::Get() << "ERROR: deltaToBenchmark " << delta << " outside normal bounds";
+                return;
+            }
+
+            if (MapUtil::atOccurrenceCap(deltaToBenchmarkAndOccurrences)) return;
+            deltaToBenchmarkAndOccurrences[(int8_t)delta]++;
+        }
 
         void addNext(const PositionAndVelocity &next)
         {
@@ -179,9 +191,9 @@ namespace WorkerMiningOptimization
         template <typename S>
         void serialize(S& s) {
             s.object(pos);
-            s.ext(deltaToBenchmarkAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, int16_t& key, uint32_t& value) {
-                s.value2b(key);
-                s.value4b(value);
+            s.ext(deltaToBenchmarkAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, int8_t& key, uint16_t& value) {
+                s.value1b(key);
+                s.value2b(value);
             });
             s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint16_t& value) {
                 s.object(key);

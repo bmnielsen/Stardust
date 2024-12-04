@@ -372,7 +372,7 @@ namespace WorkerMiningOptimization
                 // Update the metadata for the positions in the path
                 for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
                 {
-                    auto delta = (int16_t)std::distance(optimalPositionIt, positionIt);
+                    auto delta = (int)std::distance(optimalPositionIt, positionIt);
 
                     auto existingIt = optimalGatherPositions.find(**positionIt);
 
@@ -384,7 +384,7 @@ namespace WorkerMiningOptimization
                             CherryVis::log(worker->id) << "New delta of " << delta << " came up for " << existingIt->second;
                         }
 #endif
-                        existingIt->second.deltaToBenchmarkAndOccurrences[delta]++;
+                        existingIt->second.addDeltaToBenchmark(delta);
                         continue;
                     }
 
