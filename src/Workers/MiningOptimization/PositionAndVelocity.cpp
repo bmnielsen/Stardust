@@ -22,22 +22,22 @@ bool PositionAndVelocity::tryParse(const std::string &str, PositionAndVelocity &
         switch (i)
         {
             case 0:
-                out.x = std::stoi(item.substr(3));
+                out.x = (uint16_t)std::stoul(item.substr(3));
                 break;
             case 1:
-                out.y = std::stoi(item.substr(2));
+                out.y = (uint16_t)std::stoul(item.substr(2));
                 break;
             case 2:
-                out.dx = std::stoi(item.substr(3));
+                out.dx = (int8_t)std::stoi(item.substr(3));
                 break;
             case 3:
-                out.dy = std::stoi(item.substr(3));
+                out.dy = (int8_t)std::stoi(item.substr(3));
                 break;
             case 4:
-                out.heading = std::stoi(item.substr(2));
+                out.heading = (uint8_t)std::stoul(item.substr(2));
                 break;
             case 5:
-                out.previousPositionsHash = (uint32_t)std::stoul(item.substr(2, item.size() - 3), nullptr, 16);
+                out.previousPositionsHash = (uint16_t)std::stoul(item.substr(2, item.size() - 3), nullptr, 16);
                 break;
         }
     }

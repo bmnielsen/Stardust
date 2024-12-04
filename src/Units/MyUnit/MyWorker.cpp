@@ -53,11 +53,6 @@ namespace
 //
 //        return BWAPI::Positions::Invalid;
 //    }
-
-    int toKiloInteger(double value)
-    {
-        return int(value * 1000.0);
-    }
 }
 
 MyWorkerImpl::MyWorkerImpl(BWAPI::Unit unit)
@@ -65,9 +60,9 @@ MyWorkerImpl::MyWorkerImpl(BWAPI::Unit unit)
         , carryingResource(unit->isCarryingMinerals() || unit->isCarryingGas())
         , lastCarryingResourceChange(-1)
         , lastStartedMining(-1)
-        , horizontalKiloSpeed(toKiloInteger(unit->getVelocityX()))
-        , verticalKiloSpeed(toKiloInteger(unit->getVelocityY()))
-        , kiloHeading(toKiloInteger(unit->getAngle()))
+        , horizontalSpeed8b(to8bSpeed(unit->getVelocityX()))
+        , verticalSpeed8b(to8bSpeed(unit->getVelocityY()))
+        , heading8b(to8bHeading(unit->getAngle()))
         , mineralWalkingPatch(nullptr)
         , mineralWalkingTargetArea(nullptr)
         , mineralWalkingStartPosition(BWAPI::Positions::Invalid)
@@ -83,9 +78,9 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
 
     // We store an integer representation of the worker's velocity and heading
     // This is used for mining optimizations
-    horizontalKiloSpeed = toKiloInteger(unit->getVelocityX());
-    verticalKiloSpeed = toKiloInteger(unit->getVelocityY());
-    kiloHeading = toKiloInteger(unit->getAngle());
+    horizontalSpeed8b = to8bSpeed(unit->getVelocityX());
+    verticalSpeed8b = to8bSpeed(unit->getVelocityY());
+    heading8b = to8bHeading(unit->getAngle());
 
     // Set order process timer for gathering workers
     // We know the order process timer is 0 when the worker starts mining, finishes mining, and delivers the resource
@@ -106,6 +101,18 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
             orderProcessTimer = 8;
         }
     }
+}
+
+int8_t MyWorkerImpl::to8bSpeed(double value)
+{
+    // Worker top speed is 5, so multiplying by 50 maps this to -125 to 125, fitting into an 8-bit integer
+    return int8_t(value * 50.0);
+}
+
+uint8_t MyWorkerImpl::to8bHeading(double value)
+{
+    // Headings are from 0 to 2pi, so multiplying by 40 maps this to 0 to 252, fitting into an 8-bit unsigned integer
+    return uint8_t(value * 40.0);
 }
 
 void MyWorkerImpl::resetMoveData()

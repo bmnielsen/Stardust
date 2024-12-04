@@ -35,7 +35,7 @@ endif ()
 
 IF (MSVC)
     IF (TOURNAMENT_BUILD)
-        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery)
+        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery cppcrc)
     ELSE (TOURNAMENT_BUILD)
         target_compile_definitions(Stardust PUBLIC LOGGING_ENABLED=true)
 
@@ -43,7 +43,7 @@ IF (MSVC)
             target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
         endif ()
 
-        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery libzstd_static)
+        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery cppcrc libzstd_static)
     ENDIF (TOURNAMENT_BUILD)
 
 ELSE (MSVC)
@@ -54,12 +54,12 @@ ELSE (MSVC)
     endif()
 
     if (CMAKE_BUILD_TYPE MATCHES Release)
-        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery)
+        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery cppcrc)
     else ()
         target_compile_definitions(Stardust PUBLIC LOGGING_ENABLED=true)
         target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
         target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED_VERBOSE=true)
-        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery libzstd_static)
+        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery cppcrc libzstd_static)
     endif()
 ENDIF (MSVC)
 

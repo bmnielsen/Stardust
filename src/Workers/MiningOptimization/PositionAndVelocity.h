@@ -3,36 +3,38 @@
 #include <BWAPI.h>
 #include "MyWorker.h"
 
+#include <cppcrc.h>
+
 struct PositionAndVelocity
 {
 public:
-    int16_t x;
-    int16_t y;
-    int16_t dx;
-    int16_t dy;
-    int16_t heading;
-    uint32_t previousPositionsHash;
+    uint16_t x;
+    uint16_t y;
+    int8_t dx;
+    int8_t dy;
+    uint8_t heading;
+    uint16_t previousPositionsHash;
 
-    PositionAndVelocity() : x(-1), y(-1), dx(-1), dy(-1), heading(-1), previousPositionsHash(0) {}
+    PositionAndVelocity() : x(0), y(0), dx(0), dy(0), heading(UINT8_MAX), previousPositionsHash(0) {}
 
-    PositionAndVelocity(int16_t x, int16_t y, int16_t dx, int16_t dy, int16_t heading, uint32_t previousPositionsHash)
+    PositionAndVelocity(uint16_t x, uint16_t y, int8_t dx, int8_t dy, uint8_t heading, uint16_t previousPositionsHash)
         : x(x), y(y), dx(dx), dy(dy), heading(heading), previousPositionsHash(previousPositionsHash) {}
 
     explicit PositionAndVelocity(const BWAPI::Unit &unit)
-            : x(unit->getPosition().x)
-            , y(unit->getPosition().y)
-            , dx(int16_t(unit->getVelocityX() * 1000.0))
-            , dy(int16_t(unit->getVelocityY() * 1000.0))
-            , heading(int16_t(unit->getAngle() * 1000.0))
+            : x((uint16_t)unit->getPosition().x)
+            , y((uint16_t)unit->getPosition().y)
+            , dx(MyWorkerImpl::to8bSpeed(unit->getVelocityX()))
+            , dy(MyWorkerImpl::to8bSpeed(unit->getVelocityY()))
+            , heading(MyWorkerImpl::to8bHeading(unit->getAngle()))
             , previousPositionsHash(0)
     {}
 
     explicit PositionAndVelocity(const MyWorker &worker, const PositionAndVelocity *previousPosition)
-            : x(worker->lastPosition.x)
-            , y(worker->lastPosition.y)
-            , dx(worker->horizontalKiloSpeed)
-            , dy(worker->verticalKiloSpeed)
-            , heading(worker->kiloHeading)
+            : x((uint16_t)worker->lastPosition.x)
+            , y((uint16_t)worker->lastPosition.y)
+            , dx(worker->horizontalSpeed8b)
+            , dy(worker->verticalSpeed8b)
+            , heading(worker->heading8b)
             , previousPositionsHash(previousPosition ? previousPosition->getHash() : 0)
     {}
 
@@ -48,7 +50,7 @@ public:
 
     [[nodiscard]] bool isValid() const
     {
-        return x != -1;
+        return heading != UINT8_MAX;
     }
 
     [[nodiscard]] bool positionEquals(const BWAPI::Unit &unit) const
@@ -77,24 +79,19 @@ public:
         return {x, y};
     }
 
-    [[nodiscard]] uint32_t getHash() const
+    [[nodiscard]] uint16_t getHash() const
     {
         if (hashComputed) return hash;
 
-        hash = previousPositionsHash;
-        auto add = [&](uint32_t val)
-        {
-            val = ((val >> 16) ^ val) * 0x45d9f3b;
-            val = ((val >> 16) ^ val) * 0x45d9f3b;
-            val = (val >> 16) ^ val;
-            hash ^= val + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-        };
+        uint8_t data[9];
+        (uint16_t&)(data[0]) = x;
+        (uint16_t&)(data[2]) = y;
+        data[4] = dx;
+        data[5] = dy;
+        data[6] = heading;
+        (uint16_t&)(data[7]) = previousPositionsHash;
 
-        add(x);
-        add(y);
-        add(dx);
-        add(dy);
-        add(heading);
+        hash = CRC16::CCITT_FALSE::calc(data, 9);
 
         hashComputed = true;
         return hash;
@@ -108,15 +105,15 @@ public:
     void serialize(S& s) {
         s.value2b(x);
         s.value2b(y);
-        s.value2b(dx);
-        s.value2b(dy);
-        s.value2b(heading);
-        s.value4b(previousPositionsHash);
+        s.value1b(dx);
+        s.value1b(dy);
+        s.value1b(heading);
+        s.value2b(previousPositionsHash);
     }
 
 private:
     mutable bool hashComputed = false;
-    mutable uint32_t hash = 0;
+    mutable uint16_t hash = 0;
 };
 
 template <>

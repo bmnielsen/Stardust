@@ -1188,9 +1188,9 @@ namespace Units
                 auto myWorker = std::static_pointer_cast<MyWorkerImpl>(unit);
                 debug << "(x=" << unit->lastPosition.x
                    << " y=" << unit->lastPosition.y
-                   << " dx=" << myWorker->horizontalKiloSpeed
-                   << " dy=" << myWorker->verticalKiloSpeed
-                   << " h=" << myWorker->kiloHeading
+                   << " dx=" << myWorker->horizontalSpeed8b
+                   << " dy=" << myWorker->verticalSpeed8b
+                   << " h=" << myWorker->heading8b
                    << ")";
             }
 
