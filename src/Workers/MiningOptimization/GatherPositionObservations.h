@@ -18,14 +18,20 @@ namespace WorkerMiningOptimization
     };
     struct GatherResendArrivalObservations
     {
-        uint32_t collisions = 0;
-        uint32_t nonCollisions = 0;
         std::unordered_map<int8_t, uint16_t> arrivalDelayAndOccurrences;
+        uint16_t collisions = 0;
+        uint16_t nonCollisions = 0;
 
         void addArrival(int8_t arrivalDelay)
         {
             if (MapUtil::atOccurrenceCap(arrivalDelayAndOccurrences)) return;
             arrivalDelayAndOccurrences[arrivalDelay]++;
+        }
+
+        void addCollision(bool collision)
+        {
+            if (collisions + nonCollisions == UINT16_MAX) return;
+            (collision ? collisions : nonCollisions)++;
         }
 
         [[nodiscard]] bool empty() const
@@ -44,8 +50,8 @@ namespace WorkerMiningOptimization
                 s.value1b(key);
                 s.value2b(value);
             });
-            s.value4b(collisions);
-            s.value4b(nonCollisions);
+            s.value2b(collisions);
+            s.value2b(nonCollisions);
         }
     };
 
@@ -98,10 +104,10 @@ namespace WorkerMiningOptimization
         std::unordered_map<PositionAndVelocity, SecondResendGatherPositionObservations> secondResendObservations;
 
         // How many times the worker collides with the patch after mining when no resend is sent along this path
-        uint32_t noResendCollisions = 0;
+        uint16_t noResendCollisions = 0;
 
         // How many times the worker does not collide with the patch after mining when no resend is sent along this path
-        uint32_t noResendNonCollisions = 0;
+        uint16_t noResendNonCollisions = 0;
 
         // Whether a resend at this position changes the path
         ResendChangesPath resendChangesPath = ResendChangesPath::Unknown;
@@ -129,6 +135,12 @@ namespace WorkerMiningOptimization
         {
             if (MapUtil::atOccurrenceCap(nextPositionAndOccurrences)) return;
             nextPositionAndOccurrences[next]++;
+        }
+
+        void addNoResendCollision(bool collision)
+        {
+            if (noResendCollisions + noResendNonCollisions == UINT16_MAX) return;
+            (collision ? noResendCollisions : noResendNonCollisions)++;
         }
 
         [[nodiscard]] SecondResendGatherPositionObservations *secondResendObservationsFor(const PositionAndVelocity *secondResendPosition)
@@ -183,8 +195,8 @@ namespace WorkerMiningOptimization
                       s.object(key);
                       s.object(value);
                   });
-            s.value4b(noResendCollisions);
-            s.value4b(noResendNonCollisions);
+            s.value2b(noResendCollisions);
+            s.value2b(noResendNonCollisions);
             s.value1b(resendChangesPath);
         }
     };

@@ -9,9 +9,9 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
-        double expectedPatchCollisionDelay(uint32_t observedCollisions, uint32_t observedNonCollisions)
+        double expectedPatchCollisionDelay(uint16_t observedCollisions, uint16_t observedNonCollisions)
         {
-            uint32_t total = observedCollisions + observedNonCollisions;
+            uint16_t total = observedCollisions + observedNonCollisions;
             if (total == 0) return 0.0;
 
             // If we are exploring and don't have enough data yet, allow it no matter what

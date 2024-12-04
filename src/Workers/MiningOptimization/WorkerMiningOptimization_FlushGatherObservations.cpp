@@ -182,7 +182,7 @@ namespace WorkerMiningOptimization
                     auto metadataIt = optimalGatherPositions.find(*position);
                     if (metadataIt != optimalGatherPositions.end())
                     {
-                        (collision ? metadataIt->second.noResendCollisions : metadataIt->second.noResendNonCollisions)++;
+                        metadataIt->second.addNoResendCollision(collision);
                     }
                 }
                 return;
@@ -198,15 +198,10 @@ namespace WorkerMiningOptimization
                 return;
             }
 
-            auto updateObservations = [&collision](GatherResendArrivalObservations &observations)
-            {
-                (collision ? observations.collisions : observations.nonCollisions)++;
-            };
-
             // Update no second resend observations if there has not been a second resend
             if (miningWorker.resentPositions.size() == 1)
             {
-                updateObservations(resendMetadataIt->second.noSecondResendArrivalObservations);
+                resendMetadataIt->second.noSecondResendArrivalObservations.addCollision(collision);
                 return;
             }
 
@@ -224,7 +219,7 @@ namespace WorkerMiningOptimization
                     return;
                 }
 
-                updateObservations(secondResendObservationsIt->second.noSecondResendArrivalObservations);
+                secondResendObservationsIt->second.noSecondResendArrivalObservations.addCollision(collision);
                 return;
             }
 
@@ -239,7 +234,7 @@ namespace WorkerMiningOptimization
                 return;
             }
 
-            updateObservations(secondResendObservations->arrivalObservations);
+            secondResendObservations->arrivalObservations.addCollision(collision);
         }
 
         void updateNextPositions(WorkerGatherStatus &workerStatus,
