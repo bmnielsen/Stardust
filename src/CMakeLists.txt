@@ -31,38 +31,32 @@ ENDIF (VS_HUMAN)
 
 if (CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(Stardust PUBLIC DEBUG=1)
-endif ()
+endif (CMAKE_BUILD_TYPE MATCHES Debug)
 
 IF (MSVC)
-    IF (TOURNAMENT_BUILD)
-        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery cppcrc)
-    ELSE (TOURNAMENT_BUILD)
+    IF (NOT TOURNAMENT_BUILD)
         target_compile_definitions(Stardust PUBLIC LOGGING_ENABLED=true)
 
         if (NOT CMAKE_BUILD_TYPE MATCHES Release)
             target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
-        endif ()
-
-        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery cppcrc libzstd_static)
-    ENDIF (TOURNAMENT_BUILD)
+        endif (NOT CMAKE_BUILD_TYPE MATCHES Release)
+    ENDIF (NOT TOURNAMENT_BUILD)
 
 ELSE (MSVC)
     target_compile_definitions(Stardust PUBLIC IS_OPENBW=true)
 
     if (CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fsanitize-recover=address,undefined -g")
-    endif()
+    endif(CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
 
-    if (CMAKE_BUILD_TYPE MATCHES Release)
-        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery cppcrc)
-    else ()
+    if (NOT CMAKE_BUILD_TYPE MATCHES Release)
         target_compile_definitions(Stardust PUBLIC LOGGING_ENABLED=true)
         target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
         target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED_VERBOSE=true)
-        target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery cppcrc libzstd_static)
-    endif()
+    endif(NOT CMAKE_BUILD_TYPE MATCHES Release)
 ENDIF (MSVC)
 
+target_link_libraries(Stardust BWAPILIB BWEM FAP nlohmann bitsery cppcrc libzstd_static)
 target_include_directories(Stardust PUBLIC ${STARDUST_INCLUDES})
 
 IF (NOT MSVC)

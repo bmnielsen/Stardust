@@ -7,6 +7,8 @@
 #include <bitsery/ext/std_set.h>
 #include <bitsery/ext/std_map.h>
 
+#include <zstdstream/zstdstream.hpp>
+
 #include "TilePosition.h"
 #include "PositionAndVelocity.h"
 #include "FileTools.h"
@@ -46,7 +48,7 @@ namespace WorkerMiningOptimization
                     << "gatherpositions_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames()
                     << "_" << GATHER_EXPLORE_BEFORE << "_" << GATHER_EXPLORE_AFTER;
-            return FileTools::getFilePath(filename.str(), "bin", writing);
+            return FileTools::getFilePath(filename.str(), "bin.zstd", writing);
         }
 
         std::string optimalReturnPositionsFilename(bool writing = false)
@@ -55,7 +57,7 @@ namespace WorkerMiningOptimization
                     << "returnpositions_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames()
                     << "_" << RETURN_EXPLORE_BEFORE << "_" << RETURN_EXPLORE_AFTER;
-            return FileTools::getFilePath(filename.str(), "bin", writing);
+            return FileTools::getFilePath(filename.str(), "bin.zstd", writing);
         }
 
         std::string tenDistancePositionsFilename(bool writing = false)
@@ -63,7 +65,7 @@ namespace WorkerMiningOptimization
             auto filename = std::ostringstream()
                     << "10distance_" << BWAPI::Broodwar->mapHash()
                     << "_lf" << BWAPI::Broodwar->getLatencyFrames();
-            return FileTools::getFilePath(filename.str(), "bin", writing);
+            return FileTools::getFilePath(filename.str(), "bin.zstd", writing);
         }
 
         struct OptimalGatherPositionsSerializer
@@ -131,8 +133,7 @@ namespace WorkerMiningOptimization
                 return;
             }
 
-            std::ifstream file;
-            file.open(filename);
+            zstd::ifstream file(filename);
             if (!file.good())
             {
                 Log::Get() << "Could not open saved data file for " << label;
@@ -149,9 +150,8 @@ namespace WorkerMiningOptimization
         template <typename S>
         void writeDataFile(const std::string &label, const std::string &filename, S serializer)
         {
-            std::ofstream file;
-            file.open(filename, std::ofstream::trunc);
-            if (file.fail() || !file.is_open())
+            zstd::ofstream file(filename, std::ofstream::trunc);
+            if (file.fail())
             {
                 Log::Get() << "Could not open data file for " << label << " for writing";
                 return;

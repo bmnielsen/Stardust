@@ -23,7 +23,6 @@ IF(MSVC)
         set(ZSTD_MULTITHREAD_SUPPORT false)
         set(ZSTD_USE_STATIC_RUNTIME true)
         set(ZSTD_ZLIB_SUPPORT false)
-        add_subdirectory(3rdparty/zstd/build/cmake)
     ENDIF(TOURNAMENT_BUILD)
 
     add_definitions(-DWITHOUT_POSIX)
@@ -33,10 +32,6 @@ ELSE(MSVC)
 
     set(OPENBW_DIR ${CMAKE_SOURCE_DIR}/3rdparty/openbw/openbw)
     add_subdirectory(3rdparty/openbw/bwapi)
-
-    if (NOT CMAKE_BUILD_TYPE MATCHES Release)
-        add_subdirectory(3rdparty/zstd/build/cmake)
-    endif()
 ENDIF(MSVC)
 
 add_subdirectory(3rdparty/BWEM)
@@ -44,6 +39,7 @@ add_subdirectory(3rdparty/FAP)
 add_subdirectory(3rdparty/nlohmann)
 add_subdirectory(3rdparty/bitsery)
 add_subdirectory(3rdparty/cppcrc)
+add_subdirectory(3rdparty/zstd/build/cmake)
 add_subdirectory(src)
 
 IF(MSVC)
