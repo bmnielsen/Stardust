@@ -58,7 +58,7 @@ namespace WorkerMiningOptimization
     struct SecondResendGatherPositionObservations
     {
         PositionAndVelocity pos;
-        uint16_t deltaToFirstResend = 0;
+        uint8_t deltaToFirstResend = 0;
         std::unordered_map<PositionAndVelocity, uint16_t> nextPositionAndOccurrences;
         GatherResendArrivalObservations arrivalObservations;
 
@@ -72,7 +72,7 @@ namespace WorkerMiningOptimization
         void serialize(S& s)
         {
             s.object(pos);
-            s.value2b(deltaToFirstResend);
+            s.value1b(deltaToFirstResend);
             s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint16_t& value) {
                 s.object(key);
                 s.value2b(value);

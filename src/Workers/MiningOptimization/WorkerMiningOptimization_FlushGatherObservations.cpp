@@ -318,7 +318,7 @@ namespace WorkerMiningOptimization
                                 **secondPositionIt,
                                 SecondResendGatherPositionObservations{
                                         **secondPositionIt,
-                                        (uint16_t)std::distance(positionIt, secondPositionIt)}).first;
+                                        (uint8_t)std::distance(positionIt, secondPositionIt)}).first;
                     }
 
                     if ((secondPositionIt + 1) != secondLimit)
@@ -428,7 +428,7 @@ namespace WorkerMiningOptimization
                             *positionsInHistory.resendsBeforeArrival[1],
                             SecondResendGatherPositionObservations{
                                     *positionsInHistory.resendsBeforeArrival[1],
-                                    (uint16_t)std::distance(positionsInHistory.resendPositionIts[0], positionsInHistory.resendPositionIts[1])}).first;
+                                    (uint8_t)std::distance(positionsInHistory.resendPositionIts[0], positionsInHistory.resendPositionIts[1])}).first;
 
                     secondResendData = &secondResendObservationsIt->second;
                 }
@@ -608,7 +608,7 @@ namespace WorkerMiningOptimization
                         **positionIt,
                         SecondResendGatherPositionObservations{
                                 **positionIt,
-                                (uint16_t)std::distance(positionsInHistory.resendPositionIts[0], positionIt)});
+                                (uint8_t)std::distance(positionsInHistory.resendPositionIts[0], positionIt)});
 
 #if OPTIMALPOSITIONS_DEBUG
                 CherryVis::log(worker->id) << "Added metadata for " << resentPositionData

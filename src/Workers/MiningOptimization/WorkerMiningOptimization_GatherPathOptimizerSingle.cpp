@@ -57,7 +57,7 @@ namespace WorkerMiningOptimization
         PositionEvaluation evaluateSecondResendPositions(int commandFrame,
                                                          const GatherPositionObservations &positionMetadata,
                                                          const PositionAndVelocity &here,
-                                                         uint16_t deltaToFirstResend,
+                                                         uint8_t deltaToFirstResend,
                                                          const GatherResendArrivalObservations &observations,
                                                          const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions)
         {
