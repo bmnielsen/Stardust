@@ -2,13 +2,13 @@
 
 namespace WorkerMiningOptimization
 {
-    int16_t GatherResendArrivalObservations::mostCommonArrivalDelay() const
+    int8_t GatherResendArrivalObservations::mostCommonArrivalDelay() const
     {
-        if (arrivalDelayAndOccurrences.empty()) return INT16_MAX;
+        if (arrivalDelayAndOccurrences.empty()) return INT8_MAX;
         if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
 
-        int16_t best = -1;
-        uint32_t bestCount = 0;
+        int8_t best = -1;
+        uint16_t bestCount = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
             if (occurrences > bestCount)
@@ -131,11 +131,17 @@ namespace WorkerMiningOptimization
         return best;
     }
 
-    bool GatherPositionObservations::addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int16_t arrivalDelta)
+    bool GatherPositionObservations::addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int arrivalDelta)
     {
+        if (arrivalDelta > INT8_MAX || arrivalDelta < INT8_MIN)
+        {
+            Log::Get() << "ERROR: Arrival delta " << arrivalDelta << " out of bounds";
+            return false;
+        }
+
         auto &observations = secondResendPositionData ? secondResendPositionData->arrivalObservations : noSecondResendArrivalObservations;
         bool result = observations.empty();
-        observations.add(arrivalDelta);
+        observations.addArrival((int8_t)arrivalDelta);
         return result;
     }
 

@@ -382,7 +382,7 @@ namespace WorkerMiningOptimization
                     }
 
                     // Reference the observations we have for when we resend at this position
-                    const std::unordered_map<int16_t, uint32_t> *observations = nullptr;
+                    const std::unordered_map<int8_t, uint16_t> *observations = nullptr;
                     auto resentPosition = workerStatus.resentPosition();
                     if (resentPosition)
                     {

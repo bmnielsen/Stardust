@@ -18,12 +18,13 @@ namespace WorkerMiningOptimization
     };
     struct GatherResendArrivalObservations
     {
-        std::unordered_map<int16_t, uint32_t> arrivalDelayAndOccurrences;
         uint32_t collisions = 0;
         uint32_t nonCollisions = 0;
+        std::unordered_map<int8_t, uint16_t> arrivalDelayAndOccurrences;
 
-        void add(int16_t arrivalDelay)
+        void addArrival(int8_t arrivalDelay)
         {
+            if (MapUtil::atOccurrenceCap(arrivalDelayAndOccurrences)) return;
             arrivalDelayAndOccurrences[arrivalDelay]++;
         }
 
@@ -32,16 +33,16 @@ namespace WorkerMiningOptimization
             return arrivalDelayAndOccurrences.empty();
         }
 
-        [[nodiscard]] int16_t mostCommonArrivalDelay() const;
+        [[nodiscard]] int8_t mostCommonArrivalDelay() const;
 
         [[nodiscard]] double expectedMiningDelay(int commandFrame) const;
 
         template <typename S>
         void serialize(S& s)
         {
-            s.ext(arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, int16_t& key, uint32_t& value) {
-                s.value2b(key);
-                s.value4b(value);
+            s.ext(arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, int8_t& key, uint16_t& value) {
+                s.value1b(key);
+                s.value2b(value);
             });
             s.value4b(collisions);
             s.value4b(nonCollisions);
@@ -122,7 +123,8 @@ namespace WorkerMiningOptimization
 
         [[nodiscard]] int largestDeltaToBenchmark() const;
 
-        bool addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int16_t arrivalDelta);
+        bool addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int arrivalDelta);
+
         void addNext(const PositionAndVelocity &next)
         {
             if (MapUtil::atOccurrenceCap(nextPositionAndOccurrences)) return;

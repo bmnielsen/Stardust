@@ -532,7 +532,7 @@ namespace WorkerMiningOptimization
             }
 #else
             // Track the observation
-            resentPositionData.addArrivalObservation(secondResendData, (int16_t)std::distance(lastResendPositionIt, optimalPositionIt));
+            resentPositionData.addArrivalObservation(secondResendData, (int)std::distance(lastResendPositionIt, optimalPositionIt));
 #endif
 
             // Consider exploration of second resend positions
