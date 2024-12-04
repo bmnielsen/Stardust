@@ -76,12 +76,13 @@ namespace WorkerMiningOptimization
 
     struct ReturnArrivalObservations
     {
-        std::unordered_map<uint16_t, uint32_t> arrivalDelayAndOccurrences;
+        std::unordered_map<uint16_t, uint16_t> arrivalDelayAndOccurrences;
         ReturnSpeedOccurrences deliveryAfterArrivalSpeeds = {0, 0, 0, 0};
         ReturnSpeedOccurrences deliveryAtArrivalSpeeds = {0, 0, 0, 0};
 
         void add(uint16_t arrivalDelay)
         {
+            if (MapUtil::atOccurrenceCap(arrivalDelayAndOccurrences)) return;
             arrivalDelayAndOccurrences[arrivalDelay]++;
         }
 
@@ -123,9 +124,9 @@ namespace WorkerMiningOptimization
         template <typename S>
         void serialize(S& s)
         {
-            s.ext(arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, uint16_t& key, uint32_t& value) {
+            s.ext(arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, uint16_t& key, uint16_t& value) {
                 s.value2b(key);
-                s.value4b(value);
+                s.value2b(value);
             });
             s.object(deliveryAfterArrivalSpeeds);
             s.object(deliveryAtArrivalSpeeds);

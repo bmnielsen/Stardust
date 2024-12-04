@@ -279,7 +279,7 @@ namespace WorkerMiningOptimization
                         }
 #endif
 
-                        existingIt->second.noResendArrivalObservations.arrivalDelayAndOccurrences[arrival]++;
+                        existingIt->second.noResendArrivalObservations.add(arrival);
                         continue;
                     }
 

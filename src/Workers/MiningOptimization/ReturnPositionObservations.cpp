@@ -25,7 +25,7 @@ namespace WorkerMiningOptimization
         if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
 
         uint16_t best = 0;
-        uint32_t bestCount = 0;
+        uint16_t bestCount = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
             if (occurrences > bestCount)
@@ -68,7 +68,7 @@ namespace WorkerMiningOptimization
         }
 
         double totalDelay = 0.0;
-        uint32_t totalOccurrences = 0;
+        uint16_t totalOccurrences = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
             totalDelay += deliveryDelayForArrival(arrivalDelay,
@@ -94,7 +94,7 @@ namespace WorkerMiningOptimization
         }
 
         double totalDelay = 0.0;
-        uint32_t totalOccurrences = 0;
+        uint16_t totalOccurrences = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
             totalDelay += deliveryDelayForArrival(arrivalDelay,
