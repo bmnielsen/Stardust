@@ -11,25 +11,54 @@ namespace WorkerMiningOptimization
 {
     struct ReturnSpeedOccurrences
     {
+        enum class ReturnSpeedObservation
+        {
+            Collision,
+            LowExitSpeed,
+            MediumExitSpeed,
+            HighExitSpeed
+        };
+
         // Worker collided with the depot
-        uint32_t collision;
+        uint16_t collision;
 
         // Worker left the depot at normal low speed (approx. 30% speed 8 frames after delivery)
-        uint32_t lowExitSpeed;
+        uint16_t lowExitSpeed;
 
         // Worker left the depot at medium speed (50-80% speed 8 frames after delivery)
-        uint32_t mediumExitSpeed;
+        uint16_t mediumExitSpeed;
 
         // Worker left the depot at high speed (80%+ speed 8 frames after delivery)
-        uint32_t highExitSpeed;
+        uint16_t highExitSpeed;
+
+        void addObservation(ReturnSpeedObservation observation)
+        {
+            if ((collision + lowExitSpeed + mediumExitSpeed + highExitSpeed) == UINT16_MAX) return;
+            if (observation == ReturnSpeedObservation::Collision)
+            {
+                collision++;
+            }
+            else if (observation == ReturnSpeedObservation::LowExitSpeed)
+            {
+                lowExitSpeed++;
+            }
+            else if (observation == ReturnSpeedObservation::MediumExitSpeed)
+            {
+                mediumExitSpeed++;
+            }
+            else
+            {
+                highExitSpeed++;
+            }
+        }
 
         [[nodiscard]] double expectedDeltaToNormal() const;
 
         [[nodiscard]] bool disagreement() const
         {
             // There is disagreement if the category with most occurrences is less than 75% of the total
-            auto maxOccurrences = std::max({collision, lowExitSpeed, mediumExitSpeed, highExitSpeed});
-            auto total = collision + lowExitSpeed + mediumExitSpeed + highExitSpeed;
+            long maxOccurrences = std::max({collision, lowExitSpeed, mediumExitSpeed, highExitSpeed});
+            long total = collision + lowExitSpeed + mediumExitSpeed + highExitSpeed;
 
             return (maxOccurrences * 4) < (total * 3);
         }
@@ -37,10 +66,10 @@ namespace WorkerMiningOptimization
         template <typename S>
         void serialize(S& s)
         {
-            s.value4b(collision);
-            s.value4b(lowExitSpeed);
-            s.value4b(mediumExitSpeed);
-            s.value4b(highExitSpeed);
+            s.value2b(collision);
+            s.value2b(lowExitSpeed);
+            s.value2b(mediumExitSpeed);
+            s.value2b(highExitSpeed);
         }
     };
 

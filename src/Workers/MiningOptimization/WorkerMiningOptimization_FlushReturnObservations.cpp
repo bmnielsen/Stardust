@@ -118,29 +118,13 @@ namespace WorkerMiningOptimization
         {
             auto &worker = justReturnedWorker.worker;
 
-            auto collisionAdder = [](ReturnSpeedOccurrences &speedOccurrences)
-            {
-                speedOccurrences.collision++;
-            };
-            auto lowExitSpeedAdder = [](ReturnSpeedOccurrences &speedOccurrences)
-            {
-                speedOccurrences.lowExitSpeed++;
-            };
-            auto mediumExitSpeedAdder = [](ReturnSpeedOccurrences &speedOccurrences)
-            {
-                speedOccurrences.mediumExitSpeed++;
-            };
-            auto highExitSpeedAdder = [](ReturnSpeedOccurrences &speedOccurrences)
-            {
-                speedOccurrences.highExitSpeed++;
-            };
-            void (*adder)(ReturnSpeedOccurrences &);
+            ReturnSpeedOccurrences::ReturnSpeedObservation observation;
 
             // There is a collision if the worker isn't moving
             bool collision = (currentFrame - worker->frameLastMoved) > 2;
             if (collision)
             {
-                adder = collisionAdder;
+                observation = ReturnSpeedOccurrences::ReturnSpeedObservation::Collision;
 #if OPTIMALRETURN_DEBUG
                 CherryVis::log(worker->id) << "Collision with depot";
 #endif
@@ -156,21 +140,21 @@ namespace WorkerMiningOptimization
 
                 if (speedFraction >= 0.8)
                 {
-                    adder = highExitSpeedAdder;
+                    observation = ReturnSpeedOccurrences::ReturnSpeedObservation::HighExitSpeed;
 #if OPTIMALRETURN_DEBUG
                     CherryVis::log(worker->id) << "High exit speed: " << std::fixed << std::setprecision(1) << (100.0 * speedFraction) << "%";
 #endif
                 }
                 else if (speedFraction >= 0.5)
                 {
-                    adder = mediumExitSpeedAdder;
+                    observation = ReturnSpeedOccurrences::ReturnSpeedObservation::MediumExitSpeed;
 #if OPTIMALRETURN_DEBUG
                     CherryVis::log(worker->id) << "Medium exit speed: " << std::fixed << std::setprecision(1) << (100.0 * speedFraction) << "%";
 #endif
                 }
                 else
                 {
-                    adder = lowExitSpeedAdder;
+                    observation = ReturnSpeedOccurrences::ReturnSpeedObservation::LowExitSpeed;
 #if OPTIMALRETURN_DEBUG
                     CherryVis::log(worker->id) << "Low exit speed: " << std::fixed << std::setprecision(1) << (100.0 * speedFraction) << "%";
 #endif
@@ -178,12 +162,14 @@ namespace WorkerMiningOptimization
             }
 
 #if OPTIMALRETURN_DEBUG
-            adder(justReturnedWorker.deliveredOnArrivalFrame ? deliveryAtArrivalSpeedTotals : deliveryAfterArrivalSpeedTotals);
+            (justReturnedWorker.deliveredOnArrivalFrame ? deliveryAtArrivalSpeedTotals : deliveryAfterArrivalSpeedTotals).addObservation(observation);
 #endif
 
-            auto addObservations = [&](ReturnArrivalObservations &observations)
+            auto addObservation = [&](ReturnArrivalObservations &observations)
             {
-                adder(justReturnedWorker.deliveredOnArrivalFrame ? observations.deliveryAtArrivalSpeeds : observations.deliveryAfterArrivalSpeeds);
+                (justReturnedWorker.deliveredOnArrivalFrame
+                 ? observations.deliveryAtArrivalSpeeds
+                 : observations.deliveryAfterArrivalSpeeds).addObservation(observation);
             };
 
             // Update the stats on the appropriate position metadata
@@ -197,7 +183,7 @@ namespace WorkerMiningOptimization
                     auto metadataIt = optimalReturnPositions.find(*position);
                     if (metadataIt != optimalReturnPositions.end())
                     {
-                        addObservations(metadataIt->second.noResendArrivalObservations);
+                        addObservation(metadataIt->second.noResendArrivalObservations);
                     }
                 }
                 return;
@@ -213,7 +199,7 @@ namespace WorkerMiningOptimization
                 return;
             }
 
-            addObservations(resendMetadataIt->second.resendArrivalObservations);
+            addObservation(resendMetadataIt->second.resendArrivalObservations);
         }
 
         void updateNextPositions(WorkerReturnStatus &workerStatus,
@@ -389,7 +375,7 @@ namespace WorkerMiningOptimization
         {
             auto outputSpeedTotals = [](const ReturnSpeedOccurrences &speedTotals, const std::string &label)
             {
-                int total = speedTotals.collision + speedTotals.lowExitSpeed + speedTotals.mediumExitSpeed + speedTotals.highExitSpeed;
+                uint16_t total = speedTotals.collision + speedTotals.lowExitSpeed + speedTotals.mediumExitSpeed + speedTotals.highExitSpeed;
                 if (total == 0) return;
 
                 Log::Get() << std::fixed << std::setprecision(1)
