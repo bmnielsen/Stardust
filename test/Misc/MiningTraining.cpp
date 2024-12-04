@@ -798,6 +798,23 @@ TEST(MiningTraining, VermeerTestSuiteContinuous)
     }
 }
 
+TEST(MiningTraining, VermeerTestSuiteSingleAllCannonsContinuous)
+{
+    while (true)
+    {
+        for (int cannons = 0; cannons < 3; cannons++)
+        {
+            BWTest test;
+            test.map = Maps::GetOne("VermeerSE_2.1");
+            test.randomSeed = 42;
+            auto sgl = runTestSuite(test, 1, cannons);
+            std::cout << std::fixed << std::showpoint << std::setprecision(4)
+                      << "Overall efficiency for " << cannons << " cannon(s): " << std::endl
+                      << "Single: " << sgl << std::endl;
+        }
+    }
+}
+
 TEST(MiningTraining, VermeerTestSuiteDouble)
 {
     BWTest test;
