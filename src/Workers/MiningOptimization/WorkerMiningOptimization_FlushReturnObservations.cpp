@@ -247,9 +247,7 @@ namespace WorkerMiningOptimization
 
                     metadataIt = optimalReturnPositions.emplace(
                             **positionIt,
-                            ReturnPositionObservations(
-                                    (*positionsInHistory.firstMovedPositionIt)->previousPositionsHash,
-                                    **positionIt)
+                            ReturnPositionObservations(**positionIt)
                     ).first;
                 }
                 else
@@ -280,13 +278,10 @@ namespace WorkerMiningOptimization
             // If we sent no command, record the path for exploration
             if (!workerStatus.resentPosition)
             {
-                // Get the "path hash", which is the hash of the first position the worker moved in the stored path
-                uint32_t pathHash = (*positionsInHistory.firstMovedPositionIt)->previousPositionsHash;
-
                 // Create metadata for any missing positions on this path
                 for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
                 {
-                    int arrival = (int)std::distance(positionIt, positionsInHistory.arrivalPositionIt);
+                    auto arrival = (uint16_t)std::distance(positionIt, positionsInHistory.arrivalPositionIt);
 
                     auto existingIt = optimalReturnPositions.find(**positionIt);
                     if (existingIt != optimalReturnPositions.end())
@@ -306,10 +301,7 @@ namespace WorkerMiningOptimization
 
                     optimalReturnPositions.emplace(
                             **positionIt,
-                            ReturnPositionObservations(
-                                    pathHash,
-                                    **positionIt,
-                                    arrival)
+                            ReturnPositionObservations(**positionIt, arrival)
                     );
 
 #if OPTIMALRETURN_DEBUG

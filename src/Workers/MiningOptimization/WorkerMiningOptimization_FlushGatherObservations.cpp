@@ -9,8 +9,6 @@
 #include "WorkerGatherStatus.h"
 
 #include "Geo.h"
-#include "OrderProcessTimer.h"
-
 
 namespace WorkerMiningOptimization
 {
@@ -279,9 +277,7 @@ namespace WorkerMiningOptimization
 
                     metadataIt = optimalGatherPositions.emplace(
                             **positionIt,
-                            GatherPositionObservations(
-                                    workerStatus.pathStartsAtDepot ? (*positionsInHistory.firstMovedPositionIt)->previousPositionsHash : 0,
-                                    **positionIt)
+                            GatherPositionObservations(**positionIt)
                     ).first;
                 }
                 else
@@ -379,9 +375,6 @@ namespace WorkerMiningOptimization
             // If we sent no command, record the path for exploration
             if (positionsInHistory.resendsBeforeArrival.empty())
             {
-                // Get the "path hash", which is the hash of the first position the worker moved in the stored path
-                uint32_t pathHash = (*positionsInHistory.firstMovedPositionIt)->previousPositionsHash;
-
                 // Update the metadata for the positions in the path
                 for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
                 {
@@ -406,10 +399,7 @@ namespace WorkerMiningOptimization
 
                     optimalGatherPositions.emplace(
                             **positionIt,
-                            GatherPositionObservations(
-                                    workerStatus.pathStartsAtDepot ? pathHash : 0,
-                                    **positionIt,
-                                    delta)
+                            GatherPositionObservations(**positionIt, delta)
                     );
 
 #if OPTIMALPOSITIONS_DEBUG
@@ -427,9 +417,7 @@ namespace WorkerMiningOptimization
                 // We create an entry with placeholders for path hash and delta
                 resentPositionDataIt = optimalGatherPositions.emplace(
                         *positionsInHistory.resendsBeforeArrival[0],
-                        GatherPositionObservations(
-                                workerStatus.pathStartsAtDepot ? UINT32_MAX : 0,
-                                *positionsInHistory.resendsBeforeArrival[0])
+                        GatherPositionObservations(*positionsInHistory.resendsBeforeArrival[0])
                 ).first;
             }
             auto &resentPositionData = resentPositionDataIt->second;
@@ -544,7 +532,7 @@ namespace WorkerMiningOptimization
             }
 #else
             // Track the observation
-            resentPositionData.addArrivalObservation(secondResendData, (int)std::distance(lastResendPositionIt, optimalPositionIt));
+            resentPositionData.addArrivalObservation(secondResendData, (int16_t)std::distance(lastResendPositionIt, optimalPositionIt));
 #endif
 
             // Consider exploration of second resend positions

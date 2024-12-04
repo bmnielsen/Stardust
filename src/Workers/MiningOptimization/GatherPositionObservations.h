@@ -31,7 +31,7 @@ namespace WorkerMiningOptimization
             return arrivalDelayAndOccurrences.empty();
         }
 
-        [[nodiscard]] int mostCommonArrivalDelay() const;
+        [[nodiscard]] int16_t mostCommonArrivalDelay() const;
 
         [[nodiscard]] double expectedMiningDelay(int commandFrame) const;
 
@@ -71,11 +71,6 @@ namespace WorkerMiningOptimization
     struct GatherPositionObservations
     {
     public:
-        // Hash of the first position along this path, only used for debugging
-        // Value of 0 indicates the path didn't start at the depot
-        // Value of UINT32_MAX indicates this position is earlier than our exploration horizon or we don't have full data for this path yet
-        uint32_t pathHash;
-
         // The position
         PositionAndVelocity pos;
 
@@ -105,14 +100,12 @@ namespace WorkerMiningOptimization
 
         GatherPositionObservations(){}
 
-        GatherPositionObservations(uint32_t pathHash, PositionAndVelocity pos)
-                : pathHash(pathHash)
-                , pos(pos)
+        GatherPositionObservations(PositionAndVelocity pos)
+                : pos(pos)
         {}
 
-        GatherPositionObservations(uint32_t pathHash, PositionAndVelocity pos, int deltaToBenchmarkAndOccurrences)
-                : pathHash(pathHash)
-                , pos(pos)
+        GatherPositionObservations(PositionAndVelocity pos, int deltaToBenchmarkAndOccurrences)
+                : pos(pos)
                 , deltaToBenchmarkAndOccurrences({{deltaToBenchmarkAndOccurrences, 1}})
         {}
 
@@ -122,7 +115,7 @@ namespace WorkerMiningOptimization
 
         [[nodiscard]] int largestDeltaToBenchmark() const;
 
-        bool addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int arrivalDelta);
+        bool addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int16_t arrivalDelta);
 
         [[nodiscard]] SecondResendGatherPositionObservations *secondResendObservationsFor(const PositionAndVelocity *secondResendPosition)
         {
@@ -159,7 +152,6 @@ namespace WorkerMiningOptimization
 
         template <typename S>
         void serialize(S& s) {
-            s.value4b(pathHash);
             s.object(pos);
             s.ext(deltaToBenchmarkAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, int16_t& key, uint32_t& value) {
                 s.value2b(key);

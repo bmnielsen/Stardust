@@ -110,10 +110,6 @@ namespace WorkerMiningOptimization
     struct ReturnPositionObservations
     {
     public:
-        // Hash of the first position along this path after leaving the patch, only used for debugging
-        // Value of 0 indicates the path didn't start at the patch
-        uint32_t pathHash;
-
         // The position
         PositionAndVelocity pos;
 
@@ -129,14 +125,12 @@ namespace WorkerMiningOptimization
 
         ReturnPositionObservations(){}
 
-        ReturnPositionObservations(uint32_t pathHash, PositionAndVelocity pos)
-                : pathHash(pathHash)
-                , pos(pos)
+        ReturnPositionObservations(PositionAndVelocity pos)
+                : pos(pos)
         {}
 
-        ReturnPositionObservations(uint32_t pathHash, PositionAndVelocity pos, uint16_t arrival)
-                : pathHash(pathHash)
-                , pos(pos)
+        ReturnPositionObservations(PositionAndVelocity pos, uint16_t arrival)
+                : pos(pos)
                 , noResendArrivalObservations(ReturnArrivalObservations{{{arrival, 1}}})
         {}
 
@@ -147,7 +141,6 @@ namespace WorkerMiningOptimization
 
         template <typename S>
         void serialize(S& s) {
-            s.value4b(pathHash);
             s.object(pos);
             s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint32_t& value) {
                 s.object(key);

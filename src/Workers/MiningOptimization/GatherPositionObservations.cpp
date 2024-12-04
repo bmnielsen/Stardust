@@ -2,12 +2,12 @@
 
 namespace WorkerMiningOptimization
 {
-    int GatherResendArrivalObservations::mostCommonArrivalDelay() const
+    int16_t GatherResendArrivalObservations::mostCommonArrivalDelay() const
     {
-        if (arrivalDelayAndOccurrences.empty()) return INT_MAX;
+        if (arrivalDelayAndOccurrences.empty()) return INT16_MAX;
         if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
 
-        int best = -1;
+        int16_t best = -1;
         uint32_t bestCount = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
@@ -131,7 +131,7 @@ namespace WorkerMiningOptimization
         return best;
     }
 
-    bool GatherPositionObservations::addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int arrivalDelta)
+    bool GatherPositionObservations::addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int16_t arrivalDelta)
     {
         auto &observations = secondResendPositionData ? secondResendPositionData->arrivalObservations : noSecondResendArrivalObservations;
         bool result = observations.empty();
