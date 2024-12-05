@@ -9,13 +9,24 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
+        bool shouldExploreCollisions(uint16_t collisions, uint16_t nonCollisions)
+        {
+            if (!WorkerMiningOptimization::isExploring()) return false;
+
+            uint16_t total = collisions + nonCollisions;
+
+            // Always explore until 2 observations and stop exploring after 5
+            if (total < 2) return true;
+            if (total >= 5) return false;
+
+            // In the in-between period, explore if there is disagreement
+            return collisions != total && nonCollisions != total;
+        }
+
         double expectedPatchCollisionDelay(uint16_t observedCollisions, uint16_t observedNonCollisions)
         {
             uint16_t total = observedCollisions + observedNonCollisions;
             if (total == 0) return 0.0;
-
-            // If we are exploring and don't have enough data yet, allow it no matter what
-            if (WorkerMiningOptimization::isExploring() && total < 5) return 0.0;
 
             // A collision adds an extra order process timer cycle of delay
             return 9.0 * (double)observedCollisions / (double)total;
@@ -109,7 +120,7 @@ namespace WorkerMiningOptimization
 
             // If we want to try this position and it is better than the current best, return this
             int probableDeltaToBenchmark = positionMetadata.probableDeltaToBenchmark();
-            if (observations.empty()
+            if ((observations.empty() || shouldExploreCollisions(observations.collisions, observations.nonCollisions))
                 && probableDeltaToBenchmark >= -GATHER_EXPLORE_BEFORE
                 && probableDeltaToBenchmark <= GATHER_EXPLORE_AFTER
                 && (WorkerMiningOptimization::isExploring() || (probableDeltaToBenchmark == 0 && deltaToFirstResend == 0)))
@@ -226,10 +237,6 @@ namespace WorkerMiningOptimization
         if (metadataIt == optimalPositions.end()) return; // haven't reached an observed position yet
         auto &positionMetadata = metadataIt->second;
 
-        // For the single worker optimization case, we skip positions we haven't observed on a path with no resend, as we don't have anything
-        // to compare against
-        if (positionMetadata.deltaToBenchmarkAndOccurrences.empty()) return;
-
         // Skip this position if it comes before our exploration horizon
         int delta = positionMetadata.largestDeltaToBenchmark();
         if (delta < -GATHER_EXPLORE_BEFORE) return;
@@ -243,6 +250,10 @@ namespace WorkerMiningOptimization
 
         // We are now sure that we will plan something, though we may choose not to perform a resend
         workerStatus.resendsPlanned = true;
+
+        // Check if we need to "explore" the no resend case
+        if (positionMetadata.deltaToBenchmarkAndOccurrences.empty()) return;
+        if (shouldExploreCollisions(positionMetadata.noResendCollisions, positionMetadata.noResendNonCollisions)) return;
 
         auto shouldResend = [&](const PositionEvaluation &evaluation)
         {

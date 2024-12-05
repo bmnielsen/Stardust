@@ -154,9 +154,9 @@ namespace WorkerMiningOptimization
         // Observations for when a resend was sent here
         ReturnArrivalObservations resendArrivalObservations;
 
-        ReturnPositionObservations(){}
+        ReturnPositionObservations() = default;
 
-        ReturnPositionObservations(PositionAndVelocity pos)
+        explicit ReturnPositionObservations(PositionAndVelocity pos)
                 : pos(pos)
         {}
 
