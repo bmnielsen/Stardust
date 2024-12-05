@@ -2,7 +2,6 @@
 
 #include "WorkerMiningOptimization.h"
 #include "OrderProcessTimer.h"
-#include "DebugFlag_WorkerMiningOptimization.h"
 
 namespace WorkerMiningOptimization
 {

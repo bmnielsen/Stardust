@@ -2,6 +2,9 @@
 // This file contains the logic needed to update the data maps with new observations related to optimizing return of resources
 
 #include "WorkerMiningOptimization.h"
+#include "DebugFlag_WorkerMiningOptimization.h"
+
+#include "Geo.h"
 
 namespace WorkerMiningOptimization
 {
@@ -290,7 +293,7 @@ namespace WorkerMiningOptimization
                             ReturnPositionObservations(**positionIt, arrival)
                     );
 
-#if OPTIMALRETURN_DEBUG
+#if OPTIMALRETURN_DEBUG_VERBOSE
                     CherryVis::log(worker->id) << "Added metadata for " << **positionIt << " at arrival " << arrival;
 #endif
                 }
@@ -312,9 +315,11 @@ namespace WorkerMiningOptimization
             int arrival = (int)std::distance(positionsInHistory.resendPositionIt, positionsInHistory.arrivalPositionIt);
             resentPositionDataIt->second.resendArrivalObservations.add(arrival);
 
-#if OPTIMALRETURN_DEBUG
+#if OPTIMALRETURN_DEBUG_VERBOSE
             CherryVis::log(worker->id) << "Added observation of " << *workerStatus.resentPosition << " with arrival " << arrival;
+#endif
 
+#if OPTIMALRETURN_DEBUG
             // Validate that the delivery frame matches what we would expect
             auto actualFramesToDelivery = (int)std::distance(positionsInHistory.resendPositionIt, workerStatus.positionHistory.end()) - 1;
             auto noResetExpectedFramesToDelivery = (BWAPI::Broodwar->getLatencyFrames() + 10);

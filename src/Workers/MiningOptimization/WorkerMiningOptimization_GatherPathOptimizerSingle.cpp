@@ -2,6 +2,7 @@
 // This file contains the logic to find the optimal path from a position for a single worker mining a patch
 
 #include "WorkerMiningOptimization.h"
+#include "DebugFlag_WorkerMiningOptimization.h"
 
 #define EPSILON 0.001
 

@@ -2,6 +2,7 @@
 // This file contains the logic that optimizes the return of minerals
 
 #include "WorkerMiningOptimization.h"
+#include "DebugFlag_WorkerMiningOptimization.h"
 
 #define EPSILON 0.001
 
@@ -151,7 +152,7 @@ namespace WorkerMiningOptimization
                 workerStatus.plannedResendIsForExploration = evaluation.positionToTry;
                 workerStatus.expectedDelayAfterResend = evaluation.expectedDelay;
 
-#if OPTIMALPOSITIONS_DEBUG
+#if OPTIMALRETURN_DEBUG
                 std::ostringstream out;
                 out << std::fixed << std::setprecision(1) << "Planned return command: ";
                 if (workerStatus.plannedResendPosition)

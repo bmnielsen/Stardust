@@ -1,16 +1,5 @@
 #include "PositionAndVelocity.h"
 
-#include <regex>
-
-#include "CsvTools.h"
-
-bool PositionAndVelocity::speedExceeds(double fractionOfTopSpeed) const
-{
-    double velocityX = ((double)dx) / 1000.0;
-    double velocityY = ((double)dy) / 1000.0;
-    return (sqrt(velocityX * velocityX + velocityY * velocityY) > (fractionOfTopSpeed * BWAPI::UnitTypes::Protoss_Probe.topSpeed()));
-}
-
 bool PositionAndVelocity::tryParse(const std::string &str, PositionAndVelocity &out)
 {
     std::stringstream stream(str);
@@ -59,11 +48,5 @@ std::ostream &operator<<(std::ostream &os, const PositionAndVelocity &positionAn
        << ")";
 
     os.flags(flags);
-    return os;
-}
-
-std::ostream &operator<<(std::ostream &os, const std::vector<PositionAndVelocity> &vec)
-{
-    CsvTools::outputList(os, vec);
     return os;
 }

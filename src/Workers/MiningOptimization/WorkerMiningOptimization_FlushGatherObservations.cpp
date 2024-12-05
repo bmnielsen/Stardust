@@ -85,7 +85,7 @@ namespace WorkerMiningOptimization
                     if ((*it)->pos().getApproxDistance(firstPos) >= 2 && (*it)->pos() != (*(it + 1))->pos())
                     {
                         positionsInHistory.firstMovedPositionIt = it;
-#if OPTIMALRETURN_DEBUG
+#if OPTIMALPOSITIONS_DEBUG
                         CherryVis::log(workerStatus.worker->id)
                                 << "First move position at delta " << std::distance(workerStatus.positionHistory.begin(), it)
                                 << " from first position";
@@ -379,7 +379,7 @@ namespace WorkerMiningOptimization
                     if (existingIt != optimalGatherPositions.end())
                     {
 #if OPTIMALPOSITIONS_DEBUG
-                        if (!existingIt->second.deltaToBenchmarkAndOccurrences.contains(delta))
+                        if (!existingIt->second.deltaToBenchmarkAndOccurrences.contains((int8_t)delta))
                         {
                             CherryVis::log(worker->id) << "New delta of " << delta << " came up for " << existingIt->second;
                         }
@@ -396,7 +396,7 @@ namespace WorkerMiningOptimization
                             GatherPositionObservations(**positionIt, delta)
                     );
 
-#if OPTIMALPOSITIONS_DEBUG
+#if OPTIMALPOSITIONS_DEBUG_VERBOSE
                     CherryVis::log(worker->id) << "Added metadata for " << **positionIt << " at delta " << delta;
 #endif
                 }
@@ -440,6 +440,7 @@ namespace WorkerMiningOptimization
                     secondResendData,
                     (int)std::distance(lastResendPositionIt, optimalPositionIt));
 
+#if OPTIMALPOSITIONS_DEBUG_VERBOSE
             if (secondResendData)
             {
                 CherryVis::log(worker->id) << "Added observation of " << resentPositionData
@@ -449,6 +450,7 @@ namespace WorkerMiningOptimization
             {
                 CherryVis::log(worker->id) << "Added observation of " << resentPositionData;
             }
+#endif
 
             // If this resend was not exploring a new position, do some validation of whether the timing matched our expectations
             if (!exploring && (!workerStatus.plannedSecondResendPosition || (positionsInHistory.resendsBeforeArrival.size() > 1)))
@@ -586,7 +588,7 @@ namespace WorkerMiningOptimization
                                 nextPosition,
                                 SecondResendGatherPositionObservations{nextPosition, 1});
 
-#if OPTIMALPOSITIONS_DEBUG
+#if OPTIMALPOSITIONS_DEBUG_VERBOSE
                         CherryVis::log(worker->id) << "Added metadata for " << resentPositionData
                                                    << " : " << nextPosition
                                                    << " after discovering unstable path after resends";
@@ -608,7 +610,7 @@ namespace WorkerMiningOptimization
                                 **positionIt,
                                 (uint8_t)std::distance(positionsInHistory.resendPositionIts[0], positionIt)});
 
-#if OPTIMALPOSITIONS_DEBUG
+#if OPTIMALPOSITIONS_DEBUG_VERBOSE
                 CherryVis::log(worker->id) << "Added metadata for " << resentPositionData
                                            << " : " << **positionIt
                                            << ", delta " << std::distance(positionsInHistory.resendPositionIts[0], positionIt);
@@ -681,7 +683,7 @@ namespace WorkerMiningOptimization
             if (worker->bwapiUnit->getLastCommandFrame() >= (BWAPI::Broodwar->getFrameCount() - 8 - BWAPI::Broodwar->getLatencyFrames()) ||
                 worker->bwapiUnit->getOrder() != BWAPI::Orders::ReturnMinerals)
             {
-#if OPTIMALRETURN_DEBUG
+#if OPTIMALPOSITIONS_DEBUG
                 CherryVis::log(worker->id) << "Not tracking collision and speed observation, as the worker has apparently been re-ordered";
 #endif
                 it = miningWorkers.erase(it);
