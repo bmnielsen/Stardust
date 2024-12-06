@@ -21,22 +21,25 @@ namespace WorkerMiningOptimization
             auto distToPatch = resource->getDistance(worker);
 
             // Keep track of whether the worker has passed a 10-distance position
-            auto &tenDistancePositions = tenDistancePositionsFor(resource);
-            if (workerStatus.passed10DistancePosition == -1 && tenDistancePositions.contains(*currentPosition))
+            if (workerStatus.passed10DistancePosition == -1)
             {
-                workerStatus.passed10DistancePosition = currentFrame;
+                auto &tenDistancePositions = tenDistancePositionsFor(resource);
+                if (tenDistancePositions.contains(*currentPosition))
+                {
+                    workerStatus.passed10DistancePosition = currentFrame;
 
 #if TAKEOVER_DEBUG
-                CherryVis::log(worker->id) << "Will reach 10-distance position in LF+1 from here " << *currentPosition;
+                    CherryVis::log(worker->id) << "Will reach 10-distance position in LF+1 from here " << *currentPosition;
 #endif
-            }
-            if (workerStatus.passed10DistancePosition == -1 && distToPatch == 0)
-            {
-                workerStatus.passed10DistancePosition = (currentFrame - BWAPI::Broodwar->getLatencyFrames() - 1);
+                }
+                else if (distToPatch <= 10)
+                {
+                    workerStatus.passed10DistancePosition = (currentFrame - BWAPI::Broodwar->getLatencyFrames() - 1);
 
 #if TAKEOVER_DEBUG
-                CherryVis::log(worker->id) << "Worker arrived at patch without passing recorded 10-distance position";
+                    CherryVis::log(worker->id) << "Worker passed unrecorded 10-distance position";
 #endif
+                }
             }
 
             // Try to find another worker assigned to the patch
