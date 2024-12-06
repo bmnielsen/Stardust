@@ -105,8 +105,8 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
 
 int8_t MyWorkerImpl::to8bSpeed(double value)
 {
-    // Worker top speed is 5, so multiplying by 50 maps this to -125 to 125, fitting into an 8-bit integer
-    return int8_t(value * 50.0);
+    // Worker top speed is 5, so multiplying by 25 maps this to -125 to 125, fitting into an 8-bit integer
+    return int8_t(value * 25.0);
 }
 
 uint8_t MyWorkerImpl::to8bHeading(double value)
