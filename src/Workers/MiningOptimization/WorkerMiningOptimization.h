@@ -35,7 +35,14 @@ namespace WorkerMiningOptimization
                                  const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
     void validatePlannedGatherPathSingle(WorkerGatherStatus &workerStatus,
-                                         BWAPI::Unit resourceBwapiUnit,
+                                         const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
+                                         const std::shared_ptr<PositionAndVelocity> &currentPosition);
+
+    void planGatherResendsDouble(WorkerGatherStatus &workerStatus,
+                                 const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
+                                 const std::shared_ptr<PositionAndVelocity> &currentPosition);
+
+    void validatePlannedGatherPathDouble(WorkerGatherStatus &workerStatus,
                                          const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
