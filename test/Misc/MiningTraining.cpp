@@ -873,25 +873,22 @@ TEST(MiningTraining, VermeerDoubleMeasure)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, AllAIIDEContinuousSingleOnlyNoCannons)
+TEST(MiningTraining, AllAIIDEMeasure)
+{
+    testRunWithResults("aiide2024", 0, true, true);
+}
+
+TEST(MiningTraining, AllAIIDEContinuous)
 {
     while (true)
     {
-        testRunWithResults("aiide2024", 1, false);
+        testRunWithResults("aiide2024", 0, true);
     }
 }
 
 TEST(MiningTraining, AllAIIDEDoubleOnlyNoCannons)
 {
     testRunWithResults("aiide2024", 2, false);
-}
-
-TEST(MiningTraining, AllAIIDEContinuousSingleAllCannons)
-{
-    while (true)
-    {
-        testRunWithResults("aiide2024", 1);
-    }
 }
 
 TEST(MiningTraining, AllAIIDEMeasureSingleNoCannons)
