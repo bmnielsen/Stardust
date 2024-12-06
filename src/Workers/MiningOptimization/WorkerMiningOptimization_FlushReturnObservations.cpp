@@ -451,8 +451,13 @@ namespace WorkerMiningOptimization
 
             // We ignore workers that didn't start at the patch or had excessively long paths (indicating distance mining)
             PositionsInHistory positionsInHistory;
-            if (!it->second.pathStartsAtPatch || it->second.positionHistory.size() > 60 || !extractPositionsInHistory(it->second, positionsInHistory))
+            if (!it->second.pathStartsAtPatch || it->second.positionHistory.size() > 75 || !extractPositionsInHistory(it->second, positionsInHistory))
             {
+#if OPTIMALRETURN_DEBUG
+                CherryVis::log(worker->id) << "Not tracking observations for this return"
+                    << ": pathStartsAtPatch=" << it->second.pathStartsAtPatch
+                    << ": path length=" << it->second.positionHistory.size();
+#endif
                 it = workerReturnStatuses.erase(it);
                 continue;
             }

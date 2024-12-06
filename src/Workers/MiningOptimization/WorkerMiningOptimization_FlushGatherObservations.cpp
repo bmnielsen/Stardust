@@ -40,8 +40,8 @@ namespace WorkerMiningOptimization
 
             positionsInHistory.resendsBeforeArrival.clear();
 
-            // Don't process histories over 60 positions, as this indicates either distance mining or some kind of weird pathing error
-            if (workerStatus.positionHistory.size() > 60) return false;
+            // Don't process histories over 75 positions, as this indicates either distance mining or some kind of weird pathing error
+            if (workerStatus.positionHistory.size() > 75) return false;
 
             int headingBeforeMiningStart = (*(workerStatus.positionHistory.rbegin() + 1))->heading;
 
