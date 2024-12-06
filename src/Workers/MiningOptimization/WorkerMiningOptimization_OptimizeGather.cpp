@@ -384,6 +384,9 @@ namespace WorkerMiningOptimization
                         return true;
                     }
 
+                    // Wait until we have left the depot
+                    if (worker->getDistance(workerStatus.depot) == 0) return true;
+
                     // Reference the observations we have for when we resend at this position
                     const std::unordered_map<int8_t, uint16_t> *observations = nullptr;
                     auto resentPosition = workerStatus.resentPosition();
