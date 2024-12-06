@@ -254,7 +254,6 @@ namespace WorkerMiningOptimization
             };
 
             // Include LF positions after the resend since the positions only change after the command kicks in
-            bool passedExistingPosition = false;
             auto limit = positionsInHistory.arrivalPositionIt;
             if (!positionsInHistory.resendsBeforeArrival.empty())
             {
@@ -266,17 +265,11 @@ namespace WorkerMiningOptimization
                 auto metadataIt = optimalGatherPositions.find(**positionIt);
                 if (metadataIt == optimalGatherPositions.end())
                 {
-                    // We create default metadata for anything we create a next link to, but not anything that comes before
-                    if (!passedExistingPosition) continue;
-
+                    // We create default metadata for any position that didn't already exist
                     metadataIt = optimalGatherPositions.emplace(
                             **positionIt,
                             GatherPositionObservations(**positionIt)
                     ).first;
-                }
-                else
-                {
-                    passedExistingPosition = true;
                 }
 
                 auto &positionMetadata = metadataIt->second;
@@ -746,11 +739,15 @@ namespace WorkerMiningOptimization
 
     void handleGatherPatchSwitch(WorkerGatherStatus &workerStatus)
     {
+        // Remove the last position since it might have been affected by the patch switch
+        if (!workerStatus.positionHistory.empty()) workerStatus.positionHistory.pop_back();
+
         PositionsInHistory positionsInHistory;
         if (!extractPositionsInHistory(workerStatus, positionsInHistory)) return;
 
         updateTenDistancePosition(workerStatus, positionsInHistory, true);
 
-        // TODO: Once the optimization is refactored, reconsider whether any other observations are needed here
+        // Register the observed path
+        updateNextPositions(workerStatus, positionsInHistory);
     }
 }

@@ -28,7 +28,7 @@ namespace WorkerMiningOptimization
                                             const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
                                             const ReturnPositionObservations &positionMetadata);
 
-        PositionEvaluation evaluateNextPosition(int commandFrame,
+        PositionEvaluation evaluateNextPosition(int commandFrame, // NOLINT(*-no-recursion)
                                                 const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
                                                 const PositionAndVelocity &nextPosition)
         {
@@ -44,7 +44,7 @@ namespace WorkerMiningOptimization
             return evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second);
         }
 
-        PositionEvaluation evaluatePosition(int commandFrame,
+        PositionEvaluation evaluatePosition(int commandFrame, // NOLINT(*-no-recursion)
                                             const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
                                             const ReturnPositionObservations &positionMetadata)
         {

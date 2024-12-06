@@ -66,7 +66,7 @@ namespace WorkerMiningOptimization
             return positionMetadata.averageDeltaToBenchmark() + deltaToFirstResend + expectedMiningDelay + collisionDelay;
         }
 
-        PositionEvaluation evaluateSecondResendPositions(int commandFrame,
+        PositionEvaluation evaluateSecondResendPositions(int commandFrame, // NOLINT(*-no-recursion)
                                                          const GatherPositionObservations &positionMetadata,
                                                          const PositionAndVelocity &here,
                                                          uint8_t deltaToFirstResend,
@@ -148,7 +148,7 @@ namespace WorkerMiningOptimization
             return nextPositionsEvaluation;
         }
 
-        PositionEvaluation evaluatePosition(int commandFrame,
+        PositionEvaluation evaluatePosition(int commandFrame, // NOLINT(*-no-recursion)
                                             const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
                                             const GatherPositionObservations &positionMetadata)
         {
@@ -220,7 +220,7 @@ namespace WorkerMiningOptimization
             if (!evaluationHere.explored) return nextPositionsEvaluation;
 
             // Return the best branch
-            if (!nextPositionsEvaluation.explored || evaluationHere.expectedDelta < (nextPositionsEvaluation.expectedDelta - 0.0001))
+            if (!nextPositionsEvaluation.explored || evaluationHere.expectedDelta < (nextPositionsEvaluation.expectedDelta - EPSILON))
             {
                 return evaluationHere;
             }
