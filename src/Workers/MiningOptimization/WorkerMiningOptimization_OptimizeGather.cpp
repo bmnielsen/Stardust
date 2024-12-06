@@ -13,6 +13,7 @@ namespace WorkerMiningOptimization
     namespace
     {
         bool handleTakeover(WorkerGatherStatus &workerStatus,
+                            const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
                             const std::shared_ptr<PositionAndVelocity> &currentPosition,
                             BWAPI::Unit resourceBwapiUnit)
         {
@@ -102,13 +103,12 @@ namespace WorkerMiningOptimization
             // Run the state machine
             // State 0: haven't detected a worker to take over from yet
             // State 1: have initialized takeover and may be resending commands up to the takeover frame
-            // State 2: are following a planned path using our normal approach optimization
+            // State 2: are following a path planned using our stored optimization data
             // State 10: issued last command while the worker was at the patch
             // State 11: issued last command after 2 or more prior resends
             // State 12: issued last command after 1 prior resend
             // State 13: issued last command after no prior resends
             // State 20: worker was already at patch after takeover frame, so nothing further was required
-            // State 30: other worker finished mining while this worker was a long way away, so we defer to normal approach optimization
             switch (workerStatus.takeoverState)
             {
                 case 0:
@@ -140,6 +140,9 @@ namespace WorkerMiningOptimization
                     }
 
                     // If the mining start frame of the other worker is not yet known, try to get it
+                    // If we can't compute it yet, we just set the takeover frame a long time into the future
+                    // This generally means that one or both workers were recently reassigned, so they both want to start mining at about
+                    // the same time and there isn't anything to optimize in terms of takeover
                     computeTakeoverFrame();
                     int takeoverFrame = workerStatus.takeoverFrame;
                     if (takeoverFrame == -1)
@@ -156,7 +159,6 @@ namespace WorkerMiningOptimization
                     }
 
                     // Look up path data for this position
-                    auto &optimalPositions = optimalGatherPositionsFor(resource);
                     auto positionMetadataIt = optimalPositions.find(*currentPosition);
 
                     // If there is a recorded position, we might be able to plan our full approach
@@ -313,27 +315,35 @@ namespace WorkerMiningOptimization
                         // If this occurs, find a nearby frame where we can resend
                         auto realign = [&](int delta)
                         {
-                            if (!workerStatus.resentFrames.contains(currentFrame + framesToNextResend - BWAPI::Broodwar->getLatencyFrames())) return;
+                            // Check if the current value is already not blocked by a previous resend
+                            if (!workerStatus.resentFrames.contains(currentFrame + framesToNextResend - BWAPI::Broodwar->getLatencyFrames()))
+                            {
+                                return true;
+                            }
 
-                            if ((framesToNextResend + delta) < 0) return;
+                            // Can't send in the past
+                            if ((framesToNextResend + delta) < 0) return false;
+
+                            // Adjusted frame is also blocked by a previous resend
                             if (workerStatus.resentFrames.contains(currentFrame + framesToNextResend + delta - BWAPI::Broodwar->getLatencyFrames()))
                             {
-                                return;
+                                return false;
                             }
-                            if ((framesToNextCommand - framesToNextResend + delta) == BWAPI::Broodwar->getLatencyFrames()) return;
-                            if ((framesToTakeoverCommand - framesToNextResend + delta) == BWAPI::Broodwar->getLatencyFrames()) return;
 
+                            // Adjusted frame would block next planned resend
+                            if ((framesToNextCommand - framesToNextResend + delta) == BWAPI::Broodwar->getLatencyFrames()) return false;
+
+                            // Adjusted frame would block takeover command
+                            if ((framesToTakeoverCommand - framesToNextResend + delta) == BWAPI::Broodwar->getLatencyFrames()) return false;
+
+                            // Found a value that works, so adjust it
                             framesToNextResend += delta;
 #if TAKEOVER_DEBUG
                             CherryVis::log(worker->id) << "Shifted resend by " << delta << " to avoid conflicts";
 #endif
+                            return true;
                         };
-                        realign(-1);
-                        realign(1);
-                        realign(-2);
-                        realign(2);
-                        realign(-3);
-                        realign(3);
+                        realign(-1) || realign(1) || realign(-2) || realign(2) || realign(-3) || realign(3);
 
                         if (framesToNextResend == 0)
                         {
@@ -411,7 +421,7 @@ namespace WorkerMiningOptimization
                         }
                     }
 
-                    // Resend if we either don't have any data or only see success from this position
+                    // Resend if we either don't have any data or think it will succeed
                     bool send = true;
                     if (!observations || observations->empty())
                     {
@@ -527,15 +537,15 @@ namespace WorkerMiningOptimization
         return;
 #endif
 
-        // Handle case where another worker is assigned to the patch
-        if (handleTakeover(workerStatus, currentPosition, resourceBwapiUnit)) return;
-
         auto &optimalPositions = optimalGatherPositionsFor(resource);
+
+        // Handle case where another worker is assigned to the patch
+        if (handleTakeover(workerStatus, optimalPositions, currentPosition, resourceBwapiUnit)) return;
 
         // Validate planned resends; may clear resend if a path change has occurred
         if (workerStatus.resendsPlanned)
         {
-            validatePlannedGatherPathSingle(workerStatus, resourceBwapiUnit, optimalPositions, currentPosition);
+            validatePlannedGatherPathSingle(workerStatus, optimalPositions, currentPosition);
         }
 
         // Plan potential resends

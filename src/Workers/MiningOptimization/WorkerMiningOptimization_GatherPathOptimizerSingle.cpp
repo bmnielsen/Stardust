@@ -333,7 +333,6 @@ namespace WorkerMiningOptimization
     }
 
     void validatePlannedGatherPathSingle(WorkerGatherStatus &workerStatus,
-                                         BWAPI::Unit resourceBwapiUnit,
                                          const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition)
     {
@@ -351,7 +350,7 @@ namespace WorkerMiningOptimization
 #if OPTIMALPOSITIONS_DEBUG
             CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path; expected " << workerStatus.expectedPath.front()
                                                     << "; actual " << *currentPosition
-                                                    << "; falling through to replan resend position";
+                                                    << "; replanning";
 #endif
 
             workerStatus.resendsPlanned = false;

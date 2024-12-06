@@ -112,9 +112,9 @@ namespace WorkerMiningOptimization
         // Whether a resend at this position changes the path
         ResendChangesPath resendChangesPath = ResendChangesPath::Unknown;
 
-        GatherPositionObservations(){}
+        GatherPositionObservations() = default;
 
-        GatherPositionObservations(PositionAndVelocity pos)
+        explicit GatherPositionObservations(PositionAndVelocity pos)
                 : pos(pos)
         {}
 
@@ -155,12 +155,18 @@ namespace WorkerMiningOptimization
             (collision ? noResendCollisions : noResendNonCollisions)++;
         }
 
-        [[nodiscard]] SecondResendGatherPositionObservations *secondResendObservationsFor(const PositionAndVelocity *secondResendPosition)
+        [[nodiscard]] const SecondResendGatherPositionObservations *secondResendObservationsFor(const PositionAndVelocity *secondResendPosition) const
         {
             if (!secondResendPosition) return nullptr;
 
             auto secondResendDataIt = secondResendObservations.find(*secondResendPosition);
             return (secondResendDataIt == secondResendObservations.end()) ? nullptr : &secondResendDataIt->second;
+        }
+
+        [[nodiscard]] SecondResendGatherPositionObservations *secondResendObservationsFor(const PositionAndVelocity *secondResendPosition)
+        {
+            return const_cast<SecondResendGatherPositionObservations *>(
+                    static_cast<const GatherPositionObservations &>(*this).secondResendObservationsFor(secondResendPosition));
         }
 
         template<typename K>

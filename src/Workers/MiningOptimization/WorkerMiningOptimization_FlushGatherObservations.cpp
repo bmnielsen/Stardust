@@ -408,7 +408,7 @@ namespace WorkerMiningOptimization
             if (resentPositionDataIt == optimalGatherPositions.end())
             {
                 // This can happen if we are exploring takeover positions or if workers are competing to get to a patch first
-                // We create an entry with placeholders for path hash and delta
+                // We create an entry with no information about the delta
                 resentPositionDataIt = optimalGatherPositions.emplace(
                         *positionsInHistory.resendsBeforeArrival[0],
                         GatherPositionObservations(*positionsInHistory.resendsBeforeArrival[0])
