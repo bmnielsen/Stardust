@@ -97,13 +97,16 @@ namespace WorkerMiningOptimization
                                                          const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions)
         {
             // Check if there could be a patch switch here
-            auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                here.pos(),
-                                                BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                workerStatus.resource->center);
-            if (dist <= 10 && workerOrderProcessTimer <= 0)
+            if (commandFrame < workerStatus.takeoverFrame)
             {
-                return PositionEvaluation::patchSwitch(commandFrame);
+                auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                    here.pos(),
+                                                    BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                    workerStatus.resource->center);
+                if (dist <= 10 && workerOrderProcessTimer <= 0)
+                {
+                    return PositionEvaluation::patchSwitch(commandFrame);
+                }
             }
 
             // Compute the order process timer for the next frame
@@ -206,13 +209,16 @@ namespace WorkerMiningOptimization
                                             const GatherPositionObservations &positionMetadata)
         {
             // Check if there could be a patch switch here
-            auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                positionMetadata.pos.pos(),
-                                                BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                workerStatus.resource->center);
-            if (dist <= 10 && workerOrderProcessTimer <= 0)
+            if (commandFrame < workerStatus.takeoverFrame)
             {
-                return PositionEvaluation::patchSwitch(commandFrame);
+                auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                    positionMetadata.pos.pos(),
+                                                    BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                    workerStatus.resource->center);
+                if (dist <= 10 && workerOrderProcessTimer <= 0)
+                {
+                    return PositionEvaluation::patchSwitch(commandFrame);
+                }
             }
 
             // Compute the order process timer for the next frame
