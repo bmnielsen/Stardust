@@ -90,6 +90,7 @@ namespace WorkerMiningOptimization
         PositionEvaluation evaluateSecondResendPositions(const WorkerGatherStatus &workerStatus, // NOLINT(*-no-recursion)
                                                          int commandFrame,
                                                          int workerOrderProcessTimer,
+                                                         const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
                                                          const GatherPositionObservations &positionMetadata,
                                                          const PositionAndVelocity &here,
                                                          uint8_t deltaToFirstResend,
@@ -114,9 +115,9 @@ namespace WorkerMiningOptimization
 
             // Get the data for doing a second resend at all of the next positions
             PositionEvaluation nextPositionsEvaluation;
-            if (positionMetadata.resendChangesPath == ResendChangesPath::Yes)
+            auto evaluateNextPosition = [&](const PositionAndVelocity &nextPosition)->PositionEvaluation // NOLINT(*-no-recursion)
             {
-                auto evaluateNextPosition = [&](const PositionAndVelocity &nextPosition)->PositionEvaluation // NOLINT(*-no-recursion)
+                if (positionMetadata.resendChangesPath == ResendChangesPath::Yes)
                 {
                     auto nextPositionDataIt = positionMetadata.secondResendObservations.find(nextPosition);
                     if (nextPositionDataIt == positionMetadata.secondResendObservations.end())
@@ -131,38 +132,58 @@ namespace WorkerMiningOptimization
                     return evaluateSecondResendPositions(workerStatus,
                                                          commandFrame + 1,
                                                          nextWorkerOrderProcessTimer,
+                                                         allPositionData,
                                                          positionMetadata,
                                                          nextPosition,
                                                          nextPositionDataIt->second.deltaToFirstResend,
                                                          nextPositionDataIt->second.arrivalObservations,
                                                          nextPositionDataIt->second.nextPositionAndOccurrences);
-                };
+                }
 
-                if (nextPositions.size() == 1)
+                auto nextPositionDataIt = allPositionData.find(nextPosition);
+                if (nextPositionDataIt == allPositionData.end())
                 {
-                    nextPositionsEvaluation = evaluateNextPosition(nextPositions.begin()->first);
+#if OPTIMALPOSITIONS_DEBUG
+                    Log::Get() << "ERROR: No metadata found for next position " << nextPosition;
+#endif
+                    return {};
                 }
-                else
+
+                return evaluateSecondResendPositions(workerStatus,
+                                                     commandFrame + 1,
+                                                     nextWorkerOrderProcessTimer,
+                                                     allPositionData,
+                                                     nextPositionDataIt->second,
+                                                     nextPosition,
+                                                     0,
+                                                     nextPositionDataIt->second.noSecondResendArrivalObservations,
+                                                     nextPositionDataIt->second.nextPositionAndOccurrences);
+            };
+
+            if (nextPositions.size() == 1)
+            {
+                nextPositionsEvaluation = evaluateNextPosition(nextPositions.begin()->first);
+            }
+            else
+            {
+                double delayAccumulator = 0.0;
+                uint16_t occurrenceCount = 0;
+                uint16_t bestOccurrences = 0;
+                for (const auto &[nextPosition, occurrences] : nextPositions)
                 {
-                    double delayAccumulator = 0.0;
-                    uint16_t occurrenceCount = 0;
-                    uint16_t bestOccurrences = 0;
-                    for (const auto &[nextPosition, occurrences] : nextPositions)
+                    auto nextPositionEvaluation = evaluateNextPosition(nextPosition);
+                    if (nextPositionsEvaluation.explored)
                     {
-                        auto nextPositionEvaluation = evaluateNextPosition(nextPosition);
-                        if (nextPositionsEvaluation.explored)
-                        {
-                            delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
-                            occurrenceCount += occurrences;
-                        }
-                        if (occurrences > bestOccurrences)
-                        {
-                            bestOccurrences = occurrences;
-                            nextPositionsEvaluation = std::move(nextPositionEvaluation);
-                        }
+                        delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
+                        occurrenceCount += occurrences;
                     }
-                    if (occurrenceCount > 0) nextPositionsEvaluation.expectedDelay = (delayAccumulator / (double)occurrenceCount);
+                    if (occurrences > bestOccurrences)
+                    {
+                        bestOccurrences = occurrences;
+                        nextPositionsEvaluation = std::move(nextPositionEvaluation);
+                    }
                 }
+                if (occurrenceCount > 0) nextPositionsEvaluation.expectedDelay = (delayAccumulator / (double)occurrenceCount);
             }
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), here);
 
@@ -290,6 +311,7 @@ namespace WorkerMiningOptimization
             auto evaluationHere = evaluateSecondResendPositions(workerStatus,
                                                                 commandFrame,
                                                                 workerOrderProcessTimer,
+                                                                allPositionData,
                                                                 positionMetadata,
                                                                 positionMetadata.pos,
                                                                 0,
