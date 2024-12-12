@@ -15,14 +15,13 @@
  *   to the patch earlier than this without much effort, so the optimization becomes trying to make sure we are in a position that avoids collisions.
  *
  * - The worker is not allowed to have its order process timer reach 0 within 10 pixels of the patch while the other worker is still mining. This
- *   would cause the worker to try to switch patches, likely incurring a large delay. We need to consider order process timer resets in this logic.
+ *   would cause the worker to try to switch patches, likely incurring a large delay. We consider order process timer resets in this logic.
  *
- * - We still try to avoid collisions with the patch after mining completion, but these are penalized differently than in the single-worker case.
+ * - We still try to avoid collisions with the patch after mining completion, but these cannot be penalized the same as for single workers.
  *   In the single-worker case, every frame spent resolving the collision is a loss of efficiency. But in the two-worker case, collisions only
- *   matter when they prevent the worker from getting back to the patch in time to take over from the other worker. We therefore use a variable
- *   penalty based on a distance-based heuristic (workers that need to travel farther between depot and patch are assumed to be affected more
- *   severely by collisions). This is not perfect, as there are some variables we don't consider (such as the fact that even for close patches,
- *   there can be delays if both gather and return collide), but the potential loss is very small.
+ *   matter when they prevent the worker from getting back to the patch in time to take over from the other worker. We therefore cannot easily
+ *   know how much a collision should be penalized in our algorithm. Instead, we are only using collision rates to break ties - if we have two
+ *   paths that allow the worker to take over at the same delay, we will prefer the one with the lowest collision rate.
  */
 
 namespace WorkerMiningOptimization
@@ -60,31 +59,42 @@ namespace WorkerMiningOptimization
         struct PositionEvaluation
         {
             double expectedDelay = 100.0; // Relative to takeover frame
+            double expectedCollisionRate = 0.0;
             int potentialPatchSwitchFrame = INT_MAX;
             bool positionToTryOnExpectedPath = false;
+            bool hasUnexploredPositionOnExpectedPath = false;
             bool explored = false;
             std::deque<PositionAndVelocity> expectedPath;
             std::shared_ptr<PositionAndVelocity> resendPosition;
 
             static PositionEvaluation patchSwitch(int frame)
             {
-                return {0.0, frame};
+                return {0.0, 0.0, frame};
             }
 
             static PositionEvaluation exploring(const PositionAndVelocity &firstResend, const PositionAndVelocity &secondResend)
             {
-                return {0.0, INT_MAX, true, false, {secondResend}, std::make_shared<PositionAndVelocity>(firstResend)};
+                return {0.0, 0.0, INT_MAX, true, false, false, {secondResend}, std::make_shared<PositionAndVelocity>(firstResend)};
             }
 
-            static PositionEvaluation resends(double delay, const PositionAndVelocity &firstResend, const PositionAndVelocity &secondResend)
+            static PositionEvaluation resends(std::pair<double, double> delayAndCollisionRate,
+                                              const PositionAndVelocity &firstResend,
+                                              const PositionAndVelocity &secondResend,
+                                              bool unexploredPositionOnExpectedPath)
             {
-                return {delay, INT_MAX, false, true, {secondResend}, std::make_shared<PositionAndVelocity>(firstResend)};
+                return {delayAndCollisionRate.first,
+                        delayAndCollisionRate.second,
+                        INT_MAX,
+                        false,
+                        true,
+                        unexploredPositionOnExpectedPath,
+                        {secondResend},
+                        std::make_shared<PositionAndVelocity>(firstResend)};
             }
         };
 
-        std::optional<double> computeExpectedDelay()
+        std::optional<std::pair<double, double>> computeExpectedDelay()
         {
-            // No observations: return nullopt - actually handle earlier since we need to differentiate between unexplored and unusable
             // Order process timer reset after sending: don't use unless after takeover frame
             // Don't get to the patch on time: don't use unless after takeover frame
             // Get to the patch before takeover frame: depends on how long in advance, if 11+ before we can resend after arrival
@@ -217,15 +227,27 @@ namespace WorkerMiningOptimization
                 return PositionEvaluation::exploring(positionMetadata.pos, here);
             }
 
+            // If this position hasn't been explored, mark this and return the evaluation for the next positions
+            if (observations.empty())
+            {
+                nextPositionsEvaluation.hasUnexploredPositionOnExpectedPath = true;
+                return nextPositionsEvaluation;
+            }
+
             // Compute the expected delay for this position
             auto expectedDelay = computeExpectedDelay();
             if (!expectedDelay.has_value()) return nextPositionsEvaluation;
 
             // Use this position if the next ones have a potential patch switch or this one has a better delay
             if (nextPositionsEvaluation.potentialPatchSwitchFrame != INT_MAX
-                || expectedDelay.value() < (nextPositionsEvaluation.expectedDelay - EPSILON))
+                || expectedDelay.value().first < (nextPositionsEvaluation.expectedDelay - EPSILON)
+                || (expectedDelay.value().first < (nextPositionsEvaluation.expectedDelay + EPSILON)
+                    && expectedDelay.value().second < (nextPositionsEvaluation.expectedCollisionRate - EPSILON)))
             {
-                return PositionEvaluation::resends(expectedDelay.value(), positionMetadata.pos, here);
+                return PositionEvaluation::resends(expectedDelay.value(),
+                                                   positionMetadata.pos,
+                                                   here,
+                                                   nextPositionsEvaluation.hasUnexploredPositionOnExpectedPath);
             }
 
             return nextPositionsEvaluation;
