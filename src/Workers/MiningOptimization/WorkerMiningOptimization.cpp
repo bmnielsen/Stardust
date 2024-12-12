@@ -178,7 +178,7 @@ namespace WorkerMiningOptimization
         workerGatherStatuses.clear();
         workerReturnStatuses.clear();
 
-        if (mapHashOfCurrentData != BWAPI::Broodwar->mapHash())
+        if (!resourceToOptimalGatherPositions.empty() && mapHashOfCurrentData == BWAPI::Broodwar->mapHash())
         {
             Log::Get() << "Using already-loaded mining optimization data";
         }

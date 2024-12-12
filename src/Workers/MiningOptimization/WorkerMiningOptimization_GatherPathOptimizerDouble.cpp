@@ -84,11 +84,11 @@ namespace WorkerMiningOptimization
 
         std::optional<double> computeExpectedDelay()
         {
-            // No observations: return nullopt
-            // Order process timer reset after sending: don't use?
-            // Don't get to the patch on time: don't use?
+            // No observations: return nullopt - actually handle earlier since we need to differentiate between unexplored and unusable
+            // Order process timer reset after sending: don't use unless after takeover frame
+            // Don't get to the patch on time: don't use unless after takeover frame
             // Get to the patch before takeover frame: depends on how long in advance, if 11+ before we can resend after arrival
-            
+
             return std::nullopt;
         }
 

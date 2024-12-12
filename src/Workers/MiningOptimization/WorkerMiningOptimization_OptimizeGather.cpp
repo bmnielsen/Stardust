@@ -185,6 +185,7 @@ namespace WorkerMiningOptimization
                                 return true;
                             }
 
+#if ENABLE_PATH_BASED_TAKEOVER
                             planGatherResendsDouble(workerStatus, optimalPositions, currentPosition);
 
                             if (workerStatus.resendsPlanned)
@@ -192,6 +193,7 @@ namespace WorkerMiningOptimization
                                 workerStatus.takeoverState = 2;
                                 return true;
                             }
+#endif
                         }
 
                         // Compute the frame of the order timer reset prior to the take over frame
