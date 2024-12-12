@@ -41,8 +41,13 @@ namespace WorkerMiningOptimization
             return collisions != total && nonCollisions != total;
         }
 
-        int nextOrderProcessTimer(int currentFrame, int currentOrderProcessTimer)
+        int nextOrderProcessTimer(int currentFrame, int currentOrderProcessTimer, int firstResendFrame = -1)
         {
+            if (firstResendFrame != -1 && (currentFrame + 1) == (firstResendFrame + BWAPI::Broodwar->getLatencyFrames()))
+            {
+                // Really it sets to 0 for two frames while the worker recomputes its path, but for our logic we don't care
+                return 10;
+            }
             if (currentOrderProcessTimer == -1 || OrderProcessTimer::isResetFrame(currentFrame + 1))
             {
                 return -1;
@@ -88,7 +93,8 @@ namespace WorkerMiningOptimization
         }
 
         PositionEvaluation evaluateSecondResendPositions(const WorkerGatherStatus &workerStatus, // NOLINT(*-no-recursion)
-                                                         int commandFrame,
+                                                         int firstResendFrame,
+                                                         int currentFrame,
                                                          int workerOrderProcessTimer,
                                                          const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
                                                          const GatherPositionObservations &positionMetadata,
@@ -98,7 +104,7 @@ namespace WorkerMiningOptimization
                                                          const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions)
         {
             // Check if there could be a patch switch here
-            if (commandFrame < workerStatus.takeoverFrame)
+            if (currentFrame < workerStatus.takeoverFrame)
             {
                 auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
                                                     here.pos(),
@@ -106,12 +112,12 @@ namespace WorkerMiningOptimization
                                                     workerStatus.resource->center);
                 if (dist <= 10 && workerOrderProcessTimer <= 0)
                 {
-                    return PositionEvaluation::patchSwitch(commandFrame);
+                    return PositionEvaluation::patchSwitch(currentFrame);
                 }
             }
 
             // Compute the order process timer for the next frame
-            int nextWorkerOrderProcessTimer = nextOrderProcessTimer(commandFrame, workerOrderProcessTimer);
+            int nextWorkerOrderProcessTimer = nextOrderProcessTimer(currentFrame, workerOrderProcessTimer, firstResendFrame);
 
             // Get the data for doing a second resend at all of the next positions
             PositionEvaluation nextPositionsEvaluation;
@@ -130,7 +136,8 @@ namespace WorkerMiningOptimization
                     }
 
                     return evaluateSecondResendPositions(workerStatus,
-                                                         commandFrame + 1,
+                                                         firstResendFrame,
+                                                         currentFrame + 1,
                                                          nextWorkerOrderProcessTimer,
                                                          allPositionData,
                                                          positionMetadata,
@@ -150,7 +157,8 @@ namespace WorkerMiningOptimization
                 }
 
                 return evaluateSecondResendPositions(workerStatus,
-                                                     commandFrame + 1,
+                                                     firstResendFrame,
+                                                     currentFrame + 1,
                                                      nextWorkerOrderProcessTimer,
                                                      allPositionData,
                                                      nextPositionDataIt->second,
@@ -197,7 +205,7 @@ namespace WorkerMiningOptimization
             if (deltaToFirstResend == BWAPI::Broodwar->getLatencyFrames()) return nextPositionsEvaluation;
 
             // We can't send a command LF+1 frames before an order process timer reset
-            if (OrderProcessTimer::framesToNextReset(commandFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
+            if (OrderProcessTimer::framesToNextReset(currentFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
 
             // If the next positions' expected path has a position to try, return it
             if (nextPositionsEvaluation.positionToTryOnExpectedPath) return nextPositionsEvaluation;
@@ -224,13 +232,13 @@ namespace WorkerMiningOptimization
         }
 
         PositionEvaluation evaluatePosition(const WorkerGatherStatus &workerStatus, // NOLINT(*-no-recursion)
-                                            int commandFrame,
+                                            int currentFrame,
                                             int workerOrderProcessTimer,
                                             const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
                                             const GatherPositionObservations &positionMetadata)
         {
             // Check if there could be a patch switch here
-            if (commandFrame < workerStatus.takeoverFrame)
+            if (currentFrame < workerStatus.takeoverFrame)
             {
                 auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
                                                     positionMetadata.pos.pos(),
@@ -238,12 +246,12 @@ namespace WorkerMiningOptimization
                                                     workerStatus.resource->center);
                 if (dist <= 10 && workerOrderProcessTimer <= 0)
                 {
-                    return PositionEvaluation::patchSwitch(commandFrame);
+                    return PositionEvaluation::patchSwitch(currentFrame);
                 }
             }
 
             // Compute the order process timer for the next frame
-            int nextWorkerOrderProcessTimer = nextOrderProcessTimer(commandFrame, workerOrderProcessTimer);
+            int nextWorkerOrderProcessTimer = nextOrderProcessTimer(currentFrame, workerOrderProcessTimer);
 
             // Get data for all of the next positions
             PositionEvaluation nextPositionsEvaluation;
@@ -260,7 +268,7 @@ namespace WorkerMiningOptimization
                 }
 
                 return evaluatePosition(workerStatus,
-                                        commandFrame + 1,
+                                        currentFrame + 1,
                                         nextWorkerOrderProcessTimer,
                                         allPositionData,
                                         nextPositionDataIt->second);
@@ -305,11 +313,12 @@ namespace WorkerMiningOptimization
             // We can't send a command LF+1 frames before an order process timer reset
             // Note that this is actually ok in cases where there is a second resend later, but we can't always trust that this will happen
             // if we discover a new path branch
-            if (OrderProcessTimer::framesToNextReset(commandFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
+            if (OrderProcessTimer::framesToNextReset(currentFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
 
             // Now evaluate this position using the second resend metadata
             auto evaluationHere = evaluateSecondResendPositions(workerStatus,
-                                                                commandFrame,
+                                                                currentFrame,
+                                                                currentFrame,
                                                                 workerOrderProcessTimer,
                                                                 allPositionData,
                                                                 positionMetadata,
