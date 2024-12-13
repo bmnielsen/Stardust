@@ -1,4 +1,5 @@
 #include "MyUnit.h"
+#include "MyWorker.h"
 
 #include "DebugFlag_UnitOrders.h"
 
@@ -120,7 +121,7 @@ void MyUnitImpl::rightClick(BWAPI::Unit target)
 #endif
 }
 
-bool MyUnitImpl::gather(BWAPI::Unit target)
+bool MyWorkerImpl::gather(BWAPI::Unit target)
 {
     if (!target || !target->exists())
     {
@@ -145,7 +146,11 @@ bool MyUnitImpl::gather(BWAPI::Unit target)
     }
 
     auto result = bwapiUnit->gather(target);
-    issuedOrderThisFrame |= result;
+    if (result)
+    {
+        issuedOrderThisFrame = true;
+        gatherCommandFrames.insert(BWAPI::Broodwar->getFrameCount());
+    }
 
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(id) << "Order: Gather " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
@@ -154,7 +159,7 @@ bool MyUnitImpl::gather(BWAPI::Unit target)
     return result;
 }
 
-bool MyUnitImpl::returnCargo()
+bool MyWorkerImpl::returnCargo()
 {
     if (issuedOrderThisFrame)
     {

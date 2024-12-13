@@ -7,9 +7,9 @@
 
 #include "DebugFlag_UnitOrders.h"
 
-std::vector<std::pair<MyUnit, Unit>> WorkerDefenseSquad::selectTargets(std::set<Unit> &enemyUnits)
+std::vector<std::pair<MyWorker, Unit>> WorkerDefenseSquad::selectTargets(std::set<Unit> &enemyUnits)
 {
-    std::vector<std::pair<MyUnit, Unit>> result;
+    std::vector<std::pair<MyWorker, Unit>> result;
 
     bool hasCannonInMineralLine = false;
     auto &defenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
@@ -85,7 +85,7 @@ std::vector<std::pair<MyUnit, Unit>> WorkerDefenseSquad::selectTargets(std::set<
     return result;
 }
 
-void WorkerDefenseSquad::execute(std::vector<std::pair<MyUnit, Unit>> &workersAndTargets,
+void WorkerDefenseSquad::execute(std::vector<std::pair<MyWorker, Unit>> &workersAndTargets,
                                  std::vector<std::pair<MyUnit, Unit>> &combatUnitsAndTargets)
 {
     auto healthLimit = 10;

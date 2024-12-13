@@ -21,6 +21,10 @@ public:
 
     void update(BWAPI::Unit unit) override;
 
+    bool gather(BWAPI::Unit target);
+
+    bool returnCargo();
+
     static int8_t to8bSpeed(double value);
     static uint8_t to8bHeading(double value);
 
@@ -34,6 +38,8 @@ private:
     const BWEM::Area *mineralWalkingTargetArea;
     BWAPI::Position mineralWalkingStartPosition;
     int nextAttackPredictedAt;
+
+    std::set<int> gatherCommandFrames;
 
     void attackUnit(const Unit &target,
                     std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,

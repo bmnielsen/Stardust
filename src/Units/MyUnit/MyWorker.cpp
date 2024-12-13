@@ -101,6 +101,11 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
             orderProcessTimer = 8;
         }
     }
+    else if (gatherCommandFrames.contains(BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))
+    {
+        // Actually it stays at 0 for a couple of frames while the command gets worked out, but we don't care about that in practice
+        orderProcessTimer = 10;
+    }
 }
 
 int8_t MyWorkerImpl::to8bSpeed(double value)

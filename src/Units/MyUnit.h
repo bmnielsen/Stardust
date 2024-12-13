@@ -78,10 +78,6 @@ public:
 
     void rightClick(BWAPI::Unit target);
 
-    bool gather(BWAPI::Unit target);
-
-    bool returnCargo();
-
     bool build(BWAPI::UnitType type, BWAPI::TilePosition tile);
 
     bool train(BWAPI::UnitType type);

@@ -11,9 +11,9 @@ public:
     explicit WorkerDefenseSquad(Base *base) : base(base) {}
 
     // Selects a target for each worker in the base.
-    std::vector<std::pair<MyUnit, Unit>> selectTargets(std::set<Unit> &enemyUnits);
+    std::vector<std::pair<MyWorker, Unit>> selectTargets(std::set<Unit> &enemyUnits);
 
-    void execute(std::vector<std::pair<MyUnit, Unit>> &workersAndTargets, std::vector<std::pair<MyUnit, Unit>> &combatUnitsAndTargets);
+    void execute(std::vector<std::pair<MyWorker, Unit>> &workersAndTargets, std::vector<std::pair<MyUnit, Unit>> &combatUnitsAndTargets);
 
     void disband();
 
