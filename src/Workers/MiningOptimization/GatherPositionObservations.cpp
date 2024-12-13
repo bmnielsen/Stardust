@@ -25,56 +25,56 @@ namespace WorkerMiningOptimization
     {
         if (arrivalDelayAndOccurrences.empty()) return 100.0;
 
-        auto arrivalDelayToMiningDelay = [&](int arrivalDelay)
-        {
-            // Compute the delay between the gather command kicking in and mining starting
-            // If the worker arrives at the patch on time, the delay is 0
-            // If not, the delay will correspond to how long it takes the worker's order process timer to reach 0 again
-            int miningDelay;
-            if (arrivalDelay <= 0)
-            {
-                miningDelay = 0;
-            }
-            else
-            {
-                miningDelay = arrivalDelay;
-                if (miningDelay % 9 != 0) miningDelay += (9 - miningDelay % 9);
-            }
-
-            // Check for order process timer resets that will affect start of mining
-            int framesToNextReset = OrderProcessTimer::framesToNextReset(commandFrame + BWAPI::Broodwar->getLatencyFrames() + 1);
-            if (framesToNextReset < (11 + arrivalDelay))
-            {
-                // A reset will happen before the worker arrives at the patch
-                // On average we will need to wait 4 frames after arrival before mining
-                return arrivalDelay + 4.0;
-            }
-            if (framesToNextReset < (11 + miningDelay))
-            {
-                // A reset will happen after the worker arrives at the patch, but before it can start mining
-                // On average we will need to wait 3.5 frames after the reset
-                return framesToNextReset - 11 + 3.5;
-            }
-
-            // No reset, return the computed mining delay
-            return (double)miningDelay;
-        };
-
-        if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayToMiningDelay(arrivalDelayAndOccurrences.begin()->first);
+        if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayToMiningDelay(arrivalDelayAndOccurrences.begin()->first, commandFrame);
 
         // If the most common arrival delay is positive, return it
         auto mostCommon = mostCommonArrivalDelay();
-        if (mostCommon > 0) return arrivalDelayToMiningDelay(mostCommon);
+        if (mostCommon > 0) return arrivalDelayToMiningDelay(mostCommon, commandFrame);
 
         double totalMiningDelay = 0.0;
         uint32_t totalOccurrences = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
-            totalMiningDelay += (arrivalDelayToMiningDelay(arrivalDelay) * occurrences);
+            totalMiningDelay += (arrivalDelayToMiningDelay(arrivalDelay, commandFrame) * occurrences);
             totalOccurrences += occurrences;
         }
 
         return totalMiningDelay / (double)totalOccurrences;
+    }
+
+    double GatherResendArrivalObservations::arrivalDelayToMiningDelay(int arrivalDelay, int commandFrame)
+    {
+        // Compute the delay between the gather command kicking in and mining starting
+        // If the worker arrives at the patch on time, the delay is 0
+        // If not, the delay will correspond to how long it takes the worker's order process timer to reach 0 again
+        int miningDelay;
+        if (arrivalDelay <= 0)
+        {
+            miningDelay = 0;
+        }
+        else
+        {
+            miningDelay = arrivalDelay;
+            if (miningDelay % 9 != 0) miningDelay += (9 - miningDelay % 9);
+        }
+
+        // Check for order process timer resets that will affect start of mining
+        int framesToNextReset = OrderProcessTimer::framesToNextReset(commandFrame + BWAPI::Broodwar->getLatencyFrames() + 1);
+        if (framesToNextReset < (11 + arrivalDelay))
+        {
+            // A reset will happen before the worker arrives at the patch
+            // On average we will need to wait 4 frames after arrival before mining
+            return arrivalDelay + 4.0;
+        }
+        if (framesToNextReset < (11 + miningDelay))
+        {
+            // A reset will happen after the worker arrives at the patch, but before it can start mining
+            // On average we will need to wait 3.5 frames after the reset
+            return framesToNextReset - 11 + 3.5;
+        }
+
+        // No reset, return the computed mining delay
+        return (double)miningDelay;
     }
 
     double GatherPositionObservations::averageDeltaToBenchmark() const

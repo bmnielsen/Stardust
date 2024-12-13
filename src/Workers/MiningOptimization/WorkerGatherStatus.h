@@ -38,6 +38,9 @@ namespace WorkerMiningOptimization
         // The expected path the worker will follow
         std::deque<PositionAndVelocity> expectedPath;
 
+        // The expected frame the worker will arrive at the patch
+        int expectedArrivalFrame;
+
         // Positions at which the gather command was resent
         std::vector<std::shared_ptr<const PositionAndVelocity>> resentPositions;
 
@@ -66,6 +69,7 @@ namespace WorkerMiningOptimization
                 , lastProcessedFrame(-2)
                 , pathStartsAtDepot(false)
                 , resendsPlanned(false)
+                , expectedArrivalFrame(-1)
                 , resendCommandOnFrame(-2)
                 , takeoverState(0)
                 , takeoverFrame(-1)
@@ -79,6 +83,7 @@ namespace WorkerMiningOptimization
             positionHistory.clear();
             pathStartsAtDepot = false;
             resendsPlanned = false;
+            expectedArrivalFrame = -1;
             plannedResendPosition = nullptr;
             plannedSecondResendPosition = nullptr;
             expectedPath.clear();

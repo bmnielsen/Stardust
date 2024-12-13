@@ -12,6 +12,34 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
+        void sendPlannedResend(WorkerGatherStatus &workerStatus,
+                               BWAPI::Unit &resourceBwapiUnit,
+                               const std::shared_ptr<PositionAndVelocity> &currentPosition)
+        {
+            if (!workerStatus.resendsPlanned) return;
+
+            auto handlePlannedResend = [&](
+                    const std::shared_ptr<const PositionAndVelocity> &plannedPosition,
+                    int resend)
+            {
+                if (!plannedPosition) return; // nothing planned for this position
+                if (workerStatus.resentPositions.size() >= resend) return; // already resent
+                if ((*plannedPosition) != (*currentPosition)) return; // not at the position yet
+
+#if OPTIMALPOSITIONS_DEBUG || TAKEOVER_DEBUG
+                CherryVis::log(workerStatus.worker->id) << "Resending for " << *plannedPosition;
+#endif
+
+                workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
+            };
+
+            handlePlannedResend(workerStatus.plannedResendPosition, 1);
+            handlePlannedResend(workerStatus.plannedSecondResendPosition, 2);
+
+            // Remove this position from the expected path
+            if (!workerStatus.expectedPath.empty()) workerStatus.expectedPath.pop_front();
+        }
+
         bool handleTakeover(WorkerGatherStatus &workerStatus,
                             const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
                             const std::shared_ptr<PositionAndVelocity> &currentPosition,
@@ -104,6 +132,7 @@ namespace WorkerMiningOptimization
             // State 0: haven't detected a worker to take over from yet
             // State 1: have initialized takeover and may be resending commands up to the takeover frame
             // State 2: are following a path planned using our stored optimization data
+            // State 3: have followed a path planned using our stored optimization data and are now waiting at the patch
             // State 10: issued last command while the worker was at the patch
             // State 11: issued last command after 2 or more prior resends
             // State 12: issued last command after 1 prior resend
@@ -128,6 +157,7 @@ namespace WorkerMiningOptimization
                         // Intentionally fall through to next case
                     }
                     case 1:
+                    case 3:
                     {
                         // Make sure we aren't in a deadlock situation where both workers are waiting for the other
                         auto otherWorkerStatus = WorkerMiningOptimization::gatherStatusFor(otherWorker);
@@ -160,40 +190,42 @@ namespace WorkerMiningOptimization
                             return true;
                         }
 
-                        // Look up path data for this position
-                        auto positionMetadataIt = optimalPositions.find(*currentPosition);
-
-                        // If there is a recorded position, we might be able to plan our full approach
-                        if (positionMetadataIt != optimalPositions.end() && !positionMetadataIt->second.deltaToBenchmarkAndOccurrences.empty())
+                        // Plan a full approach if we have path information
+                        if (workerStatus.takeoverState == 1)
                         {
-                            // Handle case where we haven't reached our observation horizon yet
-                            if (positionMetadataIt->second.largestDeltaToBenchmark() < -GATHER_EXPLORE_BEFORE)
+                            auto positionMetadataIt = optimalPositions.find(*currentPosition);
+                            if (positionMetadataIt != optimalPositions.end() && !positionMetadataIt->second.deltaToBenchmarkAndOccurrences.empty())
                             {
-                                // If the other worker is finished mining, transition back to doing normal approach optimization
-                                if (otherWorker->carryingResource)
+                                // Handle case where we haven't reached our observation horizon yet
+                                if (positionMetadataIt->second.largestDeltaToBenchmark() < -GATHER_EXPLORE_BEFORE)
                                 {
+                                    // If the other worker is finished mining, transition back to doing normal approach optimization
+                                    if (otherWorker->carryingResource)
+                                    {
 #if TAKEOVER_DEBUG
-                                    CherryVis::log(worker->id) << "Reverting to single-worker case, as other worker has finished mining";
+                                        CherryVis::log(worker->id) << "Reverting to single-worker case, as other worker has finished mining";
 #endif
 
-                                    workerStatus.takeoverState = 0;
-                                    workerStatus.takeoverFrame = -1;
-                                    return false;
+                                        workerStatus.takeoverState = 0;
+                                        workerStatus.takeoverFrame = -1;
+                                        return false;
+                                    }
+
+                                    // Otherwise continue the approach waiting until we get closer
+                                    return true;
                                 }
 
-                                // Otherwise continue the approach waiting until we get closer
-                                return true;
-                            }
-
 #if ENABLE_PATH_BASED_TAKEOVER
-                            planGatherResendsDouble(workerStatus, optimalPositions, currentPosition);
+                                planGatherResendsDouble(workerStatus, optimalPositions, currentPosition);
 
-                            if (workerStatus.resendsPlanned)
-                            {
-                                workerStatus.takeoverState = 2;
-                                return true;
-                            }
+                                if (workerStatus.resendsPlanned)
+                                {
+                                    workerStatus.takeoverState = 2;
+                                    sendPlannedResend(workerStatus, resourceBwapiUnit, currentPosition);
+                                    return true;
+                                }
 #endif
+                            }
                         }
 
                         // Compute the frame of the order timer reset prior to the take over frame
@@ -250,32 +282,56 @@ namespace WorkerMiningOptimization
 
                             // Handle the initial send
                             // The important thing here is to resend as soon as possible but without blocking later resends with Unit_Busy
-                            if (workerStatus.resentPositions.empty())
+                            auto hasDoneInitialSend = [&]()
+                            {
+                                if (workerStatus.resentPositions.empty()) return false;
+                                if (workerStatus.takeoverState == 1) return true;
+
+                                int plannedResends = 0;
+                                if (workerStatus.plannedResendPosition) plannedResends++;
+                                if (workerStatus.plannedSecondResendPosition) plannedResends++;
+                                return workerStatus.resentPositions.size() > plannedResends;
+                            };
+                            if (!hasDoneInitialSend())
                             {
                                 // Compute the last frame we can resend on without potentially having the worker switch patches
-                                // By default this is given by when we detected the worker passing the appropriate position, but if we know the worker's
-                                // order process timer value we can be more specific
-                                int lastSafeResendFrame = workerStatus.passed10DistancePosition;
-                                int atRangeFrame = lastSafeResendFrame + BWAPI::Broodwar->getLatencyFrames();
-                                int additionalSafeFrames = std::min(
-                                        OrderProcessTimer::unitOrderProcessTimerAtDelta(worker->orderProcessTimer, atRangeFrame - currentFrame),
-                                        OrderProcessTimer::nextResetFrame(atRangeFrame));
-                                if (additionalSafeFrames != -1)
+                                auto computeLastSafeResendFrame = [&]()
                                 {
-                                    lastSafeResendFrame += additionalSafeFrames;
+                                    // If we've done a planned approach to the patch, aim to resend before the order timer hits 0 again
+                                    if (workerStatus.takeoverState == 3)
+                                    {
 #if TAKEOVER_DEBUG
-                                    CherryVis::log(worker->id) << "Last safe resend frame: " << lastSafeResendFrame
-                                                               << " (increased by " << additionalSafeFrames
-                                                               << " by known order process timer at arrival)"
-                                                               << " Predicted order process timer value here is " << worker->orderProcessTimer;
-                                }
-                                else
-                                {
-                                    CherryVis::log(worker->id) << "Last safe resend frame: " << lastSafeResendFrame;
+                                        CherryVis::log(worker->id) << "Last safe resend frame: " << (*workerStatus.resentFrames.rbegin() + 10);
 #endif
-                                }
+                                        return *workerStatus.resentFrames.rbegin() + 10;
+                                    }
 
-                                int framesToLastSafeResendFrame = lastSafeResendFrame - currentFrame;
+                                    // By default this is given by when we detected the worker passing the appropriate position, but if we know the
+                                    // worker's order process timer value we can be more specific
+                                    int lastSafeResendFrame = workerStatus.passed10DistancePosition;
+                                    int atRangeFrame = lastSafeResendFrame + BWAPI::Broodwar->getLatencyFrames();
+                                    int additionalSafeFrames = std::min(
+                                            OrderProcessTimer::unitOrderProcessTimerAtDelta(worker->orderProcessTimer, atRangeFrame - currentFrame),
+                                            OrderProcessTimer::nextResetFrame(atRangeFrame));
+                                    if (additionalSafeFrames != -1)
+                                    {
+                                        lastSafeResendFrame += additionalSafeFrames;
+#if TAKEOVER_DEBUG
+                                        CherryVis::log(worker->id) << "Last safe resend frame: " << lastSafeResendFrame
+                                                                   << " (increased by " << additionalSafeFrames
+                                                                   << " by known order process timer at arrival)"
+                                                                   << " Predicted order process timer value here is " << worker->orderProcessTimer;
+                                    }
+                                    else
+                                    {
+                                        CherryVis::log(worker->id) << "Last safe resend frame: " << lastSafeResendFrame;
+#endif
+                                    }
+
+                                    return lastSafeResendFrame;
+                                };
+
+                                int framesToLastSafeResendFrame = computeLastSafeResendFrame() - currentFrame;
 
                                 // Don't need to do anything if the next normal resend frame comes first
                                 if (framesToNextCommand <= framesToLastSafeResendFrame)
@@ -481,12 +537,26 @@ namespace WorkerMiningOptimization
                         validatePlannedGatherPathDouble(workerStatus, optimalPositions, currentPosition);
                         if (!workerStatus.resendsPlanned)
                         {
-                            workerStatus.takeoverState = 1;
-                            break; // execute state machine for state 1 immediately
+                            int newState = (workerStatus.resentPosition() ? 3 : 1);
+#if TAKEOVER_DEBUG
+                            CherryVis::log(worker->id) << "Switching to state " << newState << " as planned resends could not be executed";
+#endif
+
+                            workerStatus.takeoverState = newState;
+                            break; // execute state machine for state 1/3 immediately
                         }
 
-                        // Resend commands if required to maintain mineral locking
-                        // TODO
+                        sendPlannedResend(workerStatus, resourceBwapiUnit, currentPosition);
+
+                        // When we are finished following the planned path, switch states
+                        if (workerStatus.expectedArrivalFrame == (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+                        {
+#if TAKEOVER_DEBUG
+                            CherryVis::log(worker->id) << "Expected to arrive at patch in LF, switching to state 3 for mineral locking";
+#endif
+                            workerStatus.takeoverState = 3;
+                            break; // execute state machine for state 3 immediately
+                        }
 
                         return true;
                     }
@@ -578,29 +648,7 @@ namespace WorkerMiningOptimization
             planGatherResendsSingle(workerStatus, optimalPositions, currentPosition);
         }
 
-        // Send commands we have pre-planned
-        if (workerStatus.resendsPlanned)
-        {
-            auto handlePlannedResend = [&](
-                    const std::shared_ptr<const PositionAndVelocity> &plannedPosition,
-                    int resend)
-            {
-                if (!plannedPosition) return; // nothing planned for this position
-                if (workerStatus.resentPositions.size() >= resend) return; // already resent
-                if ((*plannedPosition) != (*currentPosition)) return; // not at the position yet
-
-#if OPTIMALPOSITIONS_DEBUG
-                CherryVis::log(worker->id) << "Resending for " << *plannedPosition;
-#endif
-
-                workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
-            };
-
-            handlePlannedResend(workerStatus.plannedResendPosition, 1);
-            handlePlannedResend(workerStatus.plannedSecondResendPosition, 2);
-
-            // Remove this position from the expected path
-            if (!workerStatus.expectedPath.empty()) workerStatus.expectedPath.pop_front();
-        }
+        // Send a command we have pre-planned
+        sendPlannedResend(workerStatus, resourceBwapiUnit, currentPosition);
     }
 }

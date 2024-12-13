@@ -43,6 +43,8 @@ namespace WorkerMiningOptimization
 
         [[nodiscard]] double expectedMiningDelay(int commandFrame) const;
 
+        static double arrivalDelayToMiningDelay(int arrivalDelay, int commandFrame);
+
         template <typename S>
         void serialize(S& s)
         {
