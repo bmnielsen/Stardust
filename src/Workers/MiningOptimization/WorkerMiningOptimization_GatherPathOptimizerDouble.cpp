@@ -126,8 +126,12 @@ namespace WorkerMiningOptimization
                 int arrivalFrame = miningStartFrame + arrivalDelay;
 
                 // If we arrive 11 or more frames ahead of takeover, we can always optimize perfectly since we can freely resend commands after
-                // arrival
-                if (arrivalFrame <= (workerStatus.takeoverFrame - 11)) return 0.0;
+                // arrival, but we have to make sure we arrive at the patch before our order timer reaches 0
+                if (arrivalFrame <= (workerStatus.takeoverFrame - 11))
+                {
+                    if (arrivalDelay > 0) return std::nullopt;
+                    return 0.0;
+                }
 
                 // If our mining start time is before the takeover frame, we can't use this position
                 if (miningStartFrame < workerStatus.takeoverFrame) return std::nullopt;
@@ -135,11 +139,11 @@ namespace WorkerMiningOptimization
                 // From here we can use the same logic as for single-worker takeover, as we know our mining starts at or after the takeover frame
                 // and there are no order process timer resets prior to takeover
 
-                // Get the delay with respect to the arrival frame
+                // Get the delay with respect to the mining start frame
                 double miningDelay = GatherResendArrivalObservations::arrivalDelayToMiningDelay(arrivalDelay, currentFrame);
 
                 // Adjust it to be relative to the takeover frame
-                return miningDelay + (arrivalFrame - workerStatus.takeoverFrame);
+                return miningDelay + (miningStartFrame - workerStatus.takeoverFrame);
             };
 
             if (observations.arrivalDelayAndOccurrences.size() == 1)
@@ -230,9 +234,9 @@ namespace WorkerMiningOptimization
                                                      currentFrame + 1,
                                                      nextWorkerOrderProcessTimer,
                                                      allPositionData,
-                                                     nextPositionDataIt->second,
+                                                     positionMetadata,
                                                      nextPosition,
-                                                     0,
+                                                     deltaToFirstResend + 1,
                                                      nextPositionDataIt->second.noSecondResendArrivalObservations,
                                                      nextPositionDataIt->second.nextPositionAndOccurrences);
             };
@@ -305,9 +309,15 @@ namespace WorkerMiningOptimization
                 || (expectedDelay.value() < (nextPositionsEvaluation.expectedDelay + EPSILON)
                     && expectedCollisionRate < (nextPositionsEvaluation.expectedCollisionRate - EPSILON)))
             {
+                CherryVis::log(workerStatus.worker->id) << "New best: "
+                    << "first resend @ " << firstResendFrame << ": " << positionMetadata.pos
+                    << "; second resend @ " << currentFrame << ": " << here
+                    << std::fixed << std::setprecision(1)
+                    << "; expectedDelay:" << expectedDelay.value()
+                    << "; expectedCollisionRate: " << expectedCollisionRate;
                 return PositionEvaluation::resends(expectedDelay.value(),
                                                    expectedCollisionRate,
-                                                   currentFrame + observations.mostCommonArrivalDelay(),
+                                                   currentFrame + 11 + BWAPI::Broodwar->getLatencyFrames() + observations.mostCommonArrivalDelay(),
                                                    positionMetadata.pos,
                                                    here,
                                                    nextPositionsEvaluation.hasUnexploredPositionOnExpectedPath);
@@ -440,14 +450,25 @@ namespace WorkerMiningOptimization
         if (metadataIt == optimalPositions.end()) return; // haven't reached an observed position yet
         auto &positionMetadata = metadataIt->second;
 
+        workerStatus.resendsPlanned = true;
+
         auto shouldResend = [&](const PositionEvaluation &evaluation)
         {
-            if (!evaluation.resendPosition) return false;
+            if (!evaluation.resendPosition)
+            {
+#if TAKEOVER_DEBUG
+                CherryVis::log(workerStatus.worker->id) << "No path could be found";
+#endif
+                return false;
+            }
             if (evaluation.positionToTryOnExpectedPath) return true;
 
             // If the evaluation has unexplored positions on it, only accept perfect solutions
             if (evaluation.hasUnexploredPositionOnExpectedPath && evaluation.expectedDelay > 0.5)
             {
+#if TAKEOVER_DEBUG
+                CherryVis::log(workerStatus.worker->id) << "Path has unexplored positions and is non-optimal";
+#endif
                 return false;
             }
 
@@ -501,15 +522,14 @@ namespace WorkerMiningOptimization
         }
     }
 
-    void validatePlannedGatherPathDouble(WorkerGatherStatus &workerStatus,
+    bool validatePlannedGatherPathDouble(WorkerGatherStatus &workerStatus,
                                          const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition)
     {
-        if (workerStatus.expectedPath.empty()) return; // have no further resends planned
-        if (workerStatus.expectedPath.front() == *currentPosition) return; // path matches expectations
+        if (workerStatus.expectedPath.empty()) return true; // have no further resends planned
+        if (workerStatus.expectedPath.front() == *currentPosition) return true; // path matches expectations
 
-        // By default we clear planned resends
-        workerStatus.resendsPlanned = false;
+        // By default we second resend and path expectations
         workerStatus.plannedSecondResendPosition = nullptr;
         workerStatus.expectedPath.clear();
         workerStatus.expectedArrivalFrame = -1;
@@ -524,9 +544,10 @@ namespace WorkerMiningOptimization
                                                     << "; replanning";
 #endif
 
+            workerStatus.resendsPlanned = false;
             workerStatus.plannedResendPosition = nullptr;
             planGatherResendsDouble(workerStatus, optimalPositions, currentPosition);
-            return;
+            return workerStatus.resendsPlanned;
         }
 
         // We have sent the first resend, but hit a different path before reaching the second resend position
@@ -537,7 +558,7 @@ namespace WorkerMiningOptimization
             Log::Get() << "ERROR: Didn't find resend position metadata: " << *resentPosition
                        << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif
-            return;
+            return false;
         }
 
         auto &resentPositionData = resentPositionDataIt->second;
@@ -546,7 +567,7 @@ namespace WorkerMiningOptimization
         auto secondGatherPositionIt = resentPositionData.secondResendObservations.find(*currentPosition);
         if (secondGatherPositionIt == resentPositionData.secondResendObservations.end())
         {
-            return;
+            return false;
         }
 
         // We have observed this path, so we can replan the second resend position
@@ -569,20 +590,22 @@ namespace WorkerMiningOptimization
             workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*evaluation.expectedPath.rbegin());
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
             workerStatus.expectedArrivalFrame = evaluation.expectedArrivalFrame;
-            return;
+            return true;
         }
 
         // If we don't know anything about the path, and aren't exploring, leave the worker alone
-        if (!evaluation.explored) return;
+        if (!evaluation.explored) return false;
 
         // If the evaluation has unexplored positions on it, only accept perfect solutions
         if (evaluation.hasUnexploredPositionOnExpectedPath && evaluation.expectedDelay > 0.5)
         {
-            return;
+            return false;
         }
 
         workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*evaluation.expectedPath.rbegin());
         workerStatus.expectedPath = std::move(evaluation.expectedPath);
         workerStatus.expectedArrivalFrame = evaluation.expectedArrivalFrame;
+
+        return true;
     }
 }

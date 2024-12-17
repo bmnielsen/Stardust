@@ -406,21 +406,33 @@ namespace WorkerMiningOptimization
                 continue;
             }
 
-            // Wait until the worker delivered a resource 8 frames ago
-            if (worker->carryingResource || worker->lastCarryingResourceChange != (currentFrame - 8))
+            // Wait until the worker delivered the resource
+            if (worker->carryingResource)
             {
                 it++;
                 continue;
             }
 
-            // Skip the worker if it has been ordered to do something else in the meantime or isn't moving to minerals
-            if (worker->bwapiUnit->getLastCommandFrame() >= (BWAPI::Broodwar->getFrameCount() - 8 - BWAPI::Broodwar->getLatencyFrames()) ||
-                worker->bwapiUnit->getOrder() != BWAPI::Orders::MoveToMinerals)
+            // Wait until the worker delivered the resource 8 frames ago
+            int framesSinceDelivery = (currentFrame - worker->lastCarryingResourceChange);
+            if (framesSinceDelivery < 8)
             {
+                // If the worker has been reassigned to something else before our observation frame, abandon tracking it
+                if (framesSinceDelivery < (8 - BWAPI::Broodwar->getLatencyFrames()) && (
+                        worker->bwapiUnit->getLastCommandFrame()
+                            >= (BWAPI::Broodwar->getFrameCount() - framesSinceDelivery - BWAPI::Broodwar->getLatencyFrames()) ||
+                        worker->bwapiUnit->getOrder() != BWAPI::Orders::MoveToMinerals
+                    ))
+                {
 #if OPTIMALRETURN_DEBUG
-                CherryVis::log(worker->id) << "Not tracking collision and speed observation, as the worker has apparently been reassigned";
+                    CherryVis::log(worker->id) << "Not tracking collision and speed observation, as the worker has apparently been reassigned";
 #endif
-                it = justReturnedWorkers.erase(it);
+                    it = justReturnedWorkers.erase(it);
+                }
+                else
+                {
+                    it++;
+                }
                 continue;
             }
 

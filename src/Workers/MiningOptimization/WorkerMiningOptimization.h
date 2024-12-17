@@ -43,7 +43,7 @@ namespace WorkerMiningOptimization
                                  const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
                                  const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
-    void validatePlannedGatherPathDouble(WorkerGatherStatus &workerStatus,
+    bool validatePlannedGatherPathDouble(WorkerGatherStatus &workerStatus,
                                          const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition);
 

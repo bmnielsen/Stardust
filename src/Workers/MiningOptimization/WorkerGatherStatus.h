@@ -110,5 +110,19 @@ namespace WorkerMiningOptimization
             if (resentPositions.empty()) return nullptr;
             return resentPositions.begin()->get();
         }
+
+        [[nodiscard]] int plannedResendCount() const
+        {
+            int result = 0;
+            if (plannedResendPosition) result++;
+            if (plannedSecondResendPosition) result++;
+            return result;
+        }
+
+        [[nodiscard]] int lastResendFrame() const
+        {
+            if (resentFrames.empty()) return -1;
+            return *resentFrames.rbegin();
+        }
     };
 }
