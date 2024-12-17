@@ -7,6 +7,7 @@
 #include "PositionAndVelocity.h"
 #include "GatherPositionObservations.h"
 #include "WorkerGatherStatus.h"
+#include "WorkerMiningInstrumentation.h"
 
 #include "Geo.h"
 
@@ -154,6 +155,7 @@ namespace WorkerMiningOptimization
         {
             // There is a collision if the worker isn't moving
             bool collision = (currentFrame - miningWorker.worker->frameLastMoved) > 2;
+            WorkerMiningInstrumentation::trackCollisionObservation(miningWorker.resource, collision);
 
 #if OPTIMALPOSITIONS_DEBUG
             if (collision)

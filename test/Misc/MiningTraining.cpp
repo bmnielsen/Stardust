@@ -21,11 +21,13 @@ namespace
     {
         double rotationTime = 0.0;
         double miningPercentage = 0.0;
+        double collisionRate = 0.0;
 
         TestResult& operator+= (const TestResult &other)
         {
             rotationTime += other.rotationTime;
             miningPercentage += other.miningPercentage;
+            collisionRate += other.collisionRate;
             return *this;
         }
 
@@ -33,6 +35,7 @@ namespace
         {
             rotationTime /= (double)val;
             miningPercentage /= (double)val;
+            collisionRate /= (double)val;
             return *this;
         }
 
@@ -42,6 +45,7 @@ namespace
             buffer << std::fixed << std::setprecision(2);
             buffer << "Rotation: " << obj.rotationTime;
             buffer << "; Percentage: " << obj.miningPercentage << "%";
+            buffer << "; Collision rate: " << obj.collisionRate;
             os << buffer.str();
             return os;
         }
@@ -367,9 +371,9 @@ namespace
             {
                 if (workersPerPatch == 1)
                 {
-                    return TestResult{e.singleWorkerRotationTime, e.singleWorkerMiningPercentage};
+                    return TestResult{e.singleWorkerRotationTime, e.singleWorkerMiningPercentage, e.collisionRate * 100.0};
                 }
-                return TestResult{e.doubleWorkerRotationTime, e.doubleWorkerMiningPercentage};
+                return TestResult{e.doubleWorkerRotationTime, e.doubleWorkerMiningPercentage, e.collisionRate * 100.0};
             };
 
             auto efficiency = WorkerMiningInstrumentation::getEfficiency();
@@ -397,7 +401,8 @@ namespace
                     str << "\n" << patch->tile.x
                         << ";" << patch->tile.y
                         << ";" << patchResult.rotationTime
-                        << ";" << patchResult.miningPercentage;
+                        << ";" << patchResult.miningPercentage
+                        << ";" << patchResult.collisionRate;
                 }
                 std::cout << str.str() << std::endl;
             }

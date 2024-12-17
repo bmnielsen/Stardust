@@ -34,6 +34,9 @@ namespace WorkerMiningInstrumentation
         // 13 = same as 12, but where worker returning cargo might not have had its orders processed first
         std::map<Resource, std::vector<std::tuple<int, int, int>>> resourceToMiningStatus;
 
+        // All collision observations for each patch
+        std::map<Resource, std::vector<std::pair<int, bool>>> resourceToCollisionObservations;
+
         // Map storing alerts for each patch, so we can show them for a while
         std::map<Resource, std::pair<int, std::string>> patchToAlert;
 
@@ -65,7 +68,7 @@ namespace WorkerMiningInstrumentation
             for (auto &[status, frame, _] : miningStatus)
             {
                 if (fromFrame != -1 && frame < fromFrame) continue;
-                if (toFrame != -1 && frame > toFrame) break;
+                if (toFrame != -1 && frame >= toFrame) break;
 
                 // If there is an interruption in the data, stop recording
                 if (frame != (lastFrame + 1))
@@ -111,7 +114,18 @@ namespace WorkerMiningInstrumentation
             }
         }
 
-        Efficiency computeEfficiency(const PatchData &sgl, const PatchData &dbl)
+        void addCollisionData(unsigned long &collisions, unsigned long &nonCollisions, const Resource &patch, int fromFrame, int toFrame)
+        {
+            for (const auto &[frame, collision] : resourceToCollisionObservations[patch])
+            {
+                if (fromFrame != -1 && frame < fromFrame) continue;
+                if (toFrame != -1 && frame >= toFrame) continue;
+
+                (collision ? collisions : nonCollisions)++;
+            }
+        }
+
+        Efficiency computeEfficiency(const PatchData &sgl, const PatchData &dbl, unsigned long collisions, unsigned long nonCollisions)
         {
             auto computeMiningPercentage = [](const PatchData &pd)
             {
@@ -120,11 +134,14 @@ namespace WorkerMiningInstrumentation
                 return 100.0 * (double)pd.framesMined / (double)(pd.framesMined + pd.framesNotMined);
             };
 
+            unsigned long collisionObservations = collisions + nonCollisions;
+
             return Efficiency{
                     (sgl.rotationCount == 0) ? 0.0 : ((double)sgl.totalRotationFrames / (double)sgl.rotationCount),
                     computeMiningPercentage(sgl),
                     (dbl.rotationCount == 0) ? 0.0 : ((double)dbl.totalRotationFrames / (double)dbl.rotationCount),
                     computeMiningPercentage(dbl),
+                    (collisionObservations == 0) ? +.0 : ((double)collisions / (double)collisionObservations),
             };
         }
     #endif
@@ -509,6 +526,11 @@ namespace WorkerMiningInstrumentation
 #endif
     }
 
+    void trackCollisionObservation(const Resource &patch, bool collision)
+    {
+        resourceToCollisionObservations[patch].emplace_back(currentFrame, collision);
+    }
+
     std::map<Resource, Efficiency> getEfficiencyByPatch(int fromFrame, int toFrame)
     {
         std::map<Resource, Efficiency> result;
@@ -517,10 +539,14 @@ namespace WorkerMiningInstrumentation
         for (auto &[patch, miningStatus] : resourceToMiningStatus)
         {
             PatchData sgl, dbl;
+            unsigned long collisions = 0;
+            unsigned long nonCollisions = 0;
+
             addPatchData(sgl, patch, miningStatus, 2, {0, 1, 3, 4, 5}, fromFrame, toFrame);
             addPatchData(dbl, patch, miningStatus, 10, {11, 12, 13}, fromFrame, toFrame);
+            addCollisionData(collisions, nonCollisions, patch, fromFrame, toFrame);
 
-            result[patch] = computeEfficiency(sgl, dbl);
+            result[patch] = computeEfficiency(sgl, dbl, collisions, nonCollisions);
         }
 #endif
 
@@ -531,14 +557,17 @@ namespace WorkerMiningInstrumentation
     {
 #if TRACK_MINING_EFFICIENCY
         PatchData sgl, dbl;
+        unsigned long collisions = 0;
+        unsigned long nonCollisions = 0;
 
         for (auto &[patch, miningStatus] : resourceToMiningStatus)
         {
             addPatchData(sgl, patch, miningStatus, 2, {0, 1, 3, 4, 5}, fromFrame, toFrame);
             addPatchData(dbl, patch, miningStatus, 10, {11, 12, 13}, fromFrame, toFrame);
+            addCollisionData(collisions, nonCollisions, patch, fromFrame, toFrame);
         }
 
-        return computeEfficiency(sgl, dbl);
+        return computeEfficiency(sgl, dbl, collisions, nonCollisions);
 #else
         return Efficiency{0.0,0.0,0.0,0.0};
 #endif
