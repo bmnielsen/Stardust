@@ -285,6 +285,12 @@ namespace WorkerMiningOptimization
                  || workerStatusIt->second.depot != depot
                  || workerStatusIt->second.resource != resource)
         {
+#if INSTRUMENTATION_ENABLED_VERBOSE
+            CherryVis::log(worker->id) << "Resetting gather status"
+                                       << "; lastProcessedFrame=" << workerStatusIt->second.lastProcessedFrame << " vs. currentFrame=" << currentFrame
+                                       << "; depot@" << workerStatusIt->second.depot->getTilePosition() << " vs. new@" << depot->getTilePosition()
+                                       << "; resource@" << workerStatusIt->second.resource->tile << " vs. new@" << resource->tile;
+#endif
             workerStatusIt->second.reset();
             workerStatusIt->second.depot = depot;
             workerStatusIt->second.resource = resource;

@@ -589,7 +589,21 @@ namespace WorkerMiningOptimization
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
         // Don't touch the worker if it is transitioning to mine
-        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals) return;
+        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
+        {
+            // Exception is if another worker is currently mining the patch - here we still want to run our takeover optimization
+            auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
+            if (otherWorker && otherWorker->exists() && otherWorker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
+            {
+#if TAKEOVER_DEBUG
+                CherryVis::log(worker->id) << "Running optimization while in WaitForMinerals as another worker is still mining the resource";
+#endif
+            }
+            else
+            {
+                return;
+            }
+        }
 
         auto &workerStatus = gatherStatusFor(worker, depot, resource);
 

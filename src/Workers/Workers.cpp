@@ -777,7 +777,7 @@ namespace Workers
                         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
                             worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnMinerals ||
                             (worker->bwapiUnit->getOrder() == BWAPI::Orders::ResetCollision &&
-                             (currentFrame - worker->lastCommandFrame) > BWAPI::Broodwar->getLatencyFrames()))
+                             (currentFrame - worker->lastCommandFrame - 1) > BWAPI::Broodwar->getLatencyFrames()))
                         {
                             continue;
                         }
@@ -793,7 +793,7 @@ namespace Workers
                         // If the unit hasn't been ordered to gather, order it to do so
                         if (worker->bwapiUnit->getOrder() != BWAPI::Orders::MoveToMinerals &&
                             worker->bwapiUnit->getOrder() != BWAPI::Orders::WaitForMinerals &&
-                            ((worker->lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+                            ((worker->lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames() - 1))
                              || worker->bwapiUnit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Gather))
                         {
                             CherryVis::log(worker->id) << "hasn't been ordered to gather; order is " << worker->bwapiUnit->getOrder();
