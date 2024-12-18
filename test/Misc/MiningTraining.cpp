@@ -856,6 +856,17 @@ TEST(MiningTraining, VermeerSingle)
               << "Single: " << sgl << std::endl;
 }
 
+TEST(MiningTraining, VermeerDouble)
+{
+    BWTest test;
+    test.map = Maps::GetOne("VermeerSE_2.1");
+    test.randomSeed = 42;
+    auto dbl = runEfficiencyTest(test, 2, 0, false);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Double: " << dbl << std::endl;
+}
+
 TEST(MiningTraining, VermeerSingleMeasure)
 {
     BWTest test;

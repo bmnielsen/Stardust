@@ -97,6 +97,11 @@ public:
         return hash;
     }
 
+    // Determines if the given position is a stable arrival position in a position history approaching a patch or depot
+    static bool isStableArrivalPosition(
+            const std::vector<std::shared_ptr<const PositionAndVelocity>> &positions,
+            std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator positionIt);
+
     static bool tryParse(const std::string &str, PositionAndVelocity &out);
 
     template <typename S>

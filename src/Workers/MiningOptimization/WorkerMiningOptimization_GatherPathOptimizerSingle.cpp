@@ -238,13 +238,8 @@ namespace WorkerMiningOptimization
         if (metadataIt == optimalPositions.end()) return; // haven't reached an observed position yet
         auto &positionMetadata = metadataIt->second;
 
-        // Skip this position if it comes before our exploration horizon
-        int delta = positionMetadata.largestDeltaToBenchmark();
-        if (delta < -GATHER_EXPLORE_BEFORE) return;
-
-        // Also skip this position if it is unstable and comes early in the path
-        if ((positionMetadata.deltaToBenchmarkAndOccurrences.size() > 1 || positionMetadata.nextPositionAndOccurrences.size() > 1)
-            && delta < -5)
+        // Skip this position if it is unusable
+        if (!positionMetadata.usableForPathPlanning())
         {
             return;
         }

@@ -7,6 +7,7 @@
 #include "Geo.h"
 
 #define EPSILON 0.001
+#define RECURSION_LIMIT 80
 
 /*
  * The algorithm implemented here is similar to the one for a single worker, but with the following differences:
@@ -40,20 +41,35 @@ namespace WorkerMiningOptimization
             return collisions != total && nonCollisions != total;
         }
 
-        int nextOrderProcessTimer(int currentFrame, int currentOrderProcessTimer, int firstResendFrame = -1)
+        // Attempts to predict what the worker's order process timer will be on the next frame
+        int nextOrderProcessTimer(int simulationFrame, int currentOrderProcessTimer, int firstResendFrame = -1)
         {
-            if (firstResendFrame != -1 && (currentFrame + 1) == (firstResendFrame + BWAPI::Broodwar->getLatencyFrames()))
+            if (firstResendFrame != -1 && (simulationFrame + 1) == (firstResendFrame + BWAPI::Broodwar->getLatencyFrames()))
             {
                 // Really it sets to 0 for two frames while the worker recomputes its path, but for our logic we don't care
                 return 10;
             }
-            if (currentOrderProcessTimer == -1 || OrderProcessTimer::isResetFrame(currentFrame + 1))
+            if (currentOrderProcessTimer == -1 || OrderProcessTimer::isResetFrame(simulationFrame + 1))
             {
                 return -1;
             }
             int result = currentOrderProcessTimer - 1;
             if (result < 0) result = 8;
             return result;
+        }
+
+        bool isPatchSwitchPossible(const WorkerGatherStatus &workerStatus,
+                                   int simulationFrame,
+                                   int orderProcessTimer,
+                                   const PositionAndVelocity &pos)
+        {
+            if (simulationFrame >= workerStatus.takeoverFrame) return false;
+
+            auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                pos.pos(),
+                                                BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                workerStatus.resource->center);
+            return dist <= 10 && orderProcessTimer <= 0;
         }
 
         double expectedPatchCollisionRate(uint16_t observedCollisions, uint16_t observedNonCollisions)
@@ -106,14 +122,14 @@ namespace WorkerMiningOptimization
         };
 
         std::optional<double> computeExpectedDelay(const WorkerGatherStatus &workerStatus,
-                                                   int currentFrame,
+                                                   int simulationFrame,
                                                    const GatherResendArrivalObservations &observations)
         {
             // If there is an order process timer reset before the takeover frame, we can't use this position
             // Exception is if the order process timer reset happens on the frame the command kicks in
             // TODO: It is presumably also ok if we reach the patch before the reset, but we would have to consider Unit_Busy timings
-            int nextResetFrame = OrderProcessTimer::nextResetFrame(currentFrame);
-            if (nextResetFrame < workerStatus.takeoverFrame && nextResetFrame != (currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+            int nextResetFrame = OrderProcessTimer::nextResetFrame(simulationFrame);
+            if (nextResetFrame < workerStatus.takeoverFrame && nextResetFrame != (simulationFrame + BWAPI::Broodwar->getLatencyFrames()))
             {
                 return std::nullopt;
             }
@@ -122,7 +138,7 @@ namespace WorkerMiningOptimization
             // Returns nullopt if this arrival delay is unusable
             auto arrivalDelayToMiningDelay = [&](int arrivalDelay)->std::optional<double>
             {
-                int miningStartFrame = currentFrame + BWAPI::Broodwar->getLatencyFrames() + 11;
+                int miningStartFrame = simulationFrame + BWAPI::Broodwar->getLatencyFrames() + 11;
                 int arrivalFrame = miningStartFrame + arrivalDelay;
 
                 // If we arrive 11 or more frames ahead of takeover, we can always optimize perfectly since we can freely resend commands after
@@ -140,7 +156,7 @@ namespace WorkerMiningOptimization
                 // and there are no order process timer resets prior to takeover
 
                 // Get the delay with respect to the mining start frame
-                double miningDelay = GatherResendArrivalObservations::arrivalDelayToMiningDelay(arrivalDelay, currentFrame);
+                double miningDelay = GatherResendArrivalObservations::arrivalDelayToMiningDelay(arrivalDelay, simulationFrame);
 
                 // Adjust it to be relative to the takeover frame
                 return miningDelay + (miningStartFrame - workerStatus.takeoverFrame);
@@ -167,35 +183,43 @@ namespace WorkerMiningOptimization
 
         PositionEvaluation evaluateSecondResendPositions(const WorkerGatherStatus &workerStatus, // NOLINT(*-no-recursion)
                                                          int firstResendFrame,
-                                                         int currentFrame,
+                                                         int simulationFrame,
                                                          int workerOrderProcessTimer,
                                                          const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
                                                          const GatherPositionObservations &positionMetadata,
                                                          const PositionAndVelocity &here,
                                                          uint8_t deltaToFirstResend,
                                                          const GatherResendArrivalObservations &observations,
-                                                         const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions)
+                                                         const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions,
+                                                         int depth = 0)
         {
-            // Check if there could be a patch switch here
-            if (currentFrame < workerStatus.takeoverFrame)
+            if (depth == RECURSION_LIMIT)
             {
-                auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                    here.pos(),
-                                                    BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                    workerStatus.resource->center);
-                if (dist <= 10 && workerOrderProcessTimer <= 0)
-                {
-                    return PositionEvaluation::patchSwitch(currentFrame);
-                }
+                Log::Get() << "ERROR: Reached recursion limit for two-worker path optimizer"
+                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+                return {};
+            }
+
+            // If we have no further next positions, we are at the end of our recorded path
+            // We return a patch switch to indicate that we don't want to resend commands close to the end
+            if (nextPositions.empty())
+            {
+                // TODO: Validate that this works both for explored and unexplored paths
+                return PositionEvaluation::patchSwitch(simulationFrame + 1);
             }
 
             // Compute the order process timer for the next frame
-            int nextWorkerOrderProcessTimer = nextOrderProcessTimer(currentFrame, workerOrderProcessTimer, firstResendFrame);
+            int nextWorkerOrderProcessTimer = nextOrderProcessTimer(simulationFrame, workerOrderProcessTimer, firstResendFrame);
 
             // Get the data for doing a second resend at all of the next positions
             PositionEvaluation nextPositionsEvaluation;
             auto evaluateNextPosition = [&](const PositionAndVelocity &nextPosition)->PositionEvaluation // NOLINT(*-no-recursion)
             {
+                if (isPatchSwitchPossible(workerStatus, simulationFrame, workerOrderProcessTimer, nextPosition))
+                {
+                    return PositionEvaluation::patchSwitch(simulationFrame + 1);
+                }
+
                 if (positionMetadata.resendChangesPath == ResendChangesPath::Yes)
                 {
                     auto nextPositionDataIt = positionMetadata.secondResendObservations.find(nextPosition);
@@ -210,14 +234,15 @@ namespace WorkerMiningOptimization
 
                     return evaluateSecondResendPositions(workerStatus,
                                                          firstResendFrame,
-                                                         currentFrame + 1,
+                                                         simulationFrame + 1,
                                                          nextWorkerOrderProcessTimer,
                                                          allPositionData,
                                                          positionMetadata,
                                                          nextPosition,
                                                          nextPositionDataIt->second.deltaToFirstResend,
                                                          nextPositionDataIt->second.arrivalObservations,
-                                                         nextPositionDataIt->second.nextPositionAndOccurrences);
+                                                         nextPositionDataIt->second.nextPositionAndOccurrences,
+                                                         depth + 1);
                 }
 
                 auto nextPositionDataIt = allPositionData.find(nextPosition);
@@ -231,14 +256,15 @@ namespace WorkerMiningOptimization
 
                 return evaluateSecondResendPositions(workerStatus,
                                                      firstResendFrame,
-                                                     currentFrame + 1,
+                                                     simulationFrame + 1,
                                                      nextWorkerOrderProcessTimer,
                                                      allPositionData,
                                                      positionMetadata,
                                                      nextPosition,
                                                      deltaToFirstResend + 1,
                                                      nextPositionDataIt->second.noSecondResendArrivalObservations,
-                                                     nextPositionDataIt->second.nextPositionAndOccurrences);
+                                                     nextPositionDataIt->second.nextPositionAndOccurrences,
+                                                     depth + 1);
             };
 
             if (nextPositions.size() == 1)
@@ -269,7 +295,7 @@ namespace WorkerMiningOptimization
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), here);
 
             // If there is a potential patch switch, back off until the last safe frame
-            if (nextPositionsEvaluation.potentialPatchSwitchFrame < (currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+            if (nextPositionsEvaluation.potentialPatchSwitchFrame < (simulationFrame + BWAPI::Broodwar->getLatencyFrames()))
             {
                 return nextPositionsEvaluation;
             }
@@ -278,7 +304,7 @@ namespace WorkerMiningOptimization
             if (deltaToFirstResend == BWAPI::Broodwar->getLatencyFrames()) return nextPositionsEvaluation;
 
             // We can't send a command LF+1 frames before an order process timer reset
-            if (OrderProcessTimer::framesToNextReset(currentFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
+            if (OrderProcessTimer::framesToNextReset(simulationFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
 
             // If the next positions' expected path has a position to try, return it
             if (nextPositionsEvaluation.positionToTryOnExpectedPath) return nextPositionsEvaluation;
@@ -298,7 +324,7 @@ namespace WorkerMiningOptimization
             }
 
             // Compute the expected delay for this position
-            auto expectedDelay = computeExpectedDelay(workerStatus, currentFrame, observations);
+            auto expectedDelay = computeExpectedDelay(workerStatus, simulationFrame, observations);
             if (!expectedDelay.has_value()) return nextPositionsEvaluation;
 
             auto expectedCollisionRate = expectedPatchCollisionRate(observations.collisions, observations.nonCollisions);
@@ -309,15 +335,9 @@ namespace WorkerMiningOptimization
                 || (expectedDelay.value() < (nextPositionsEvaluation.expectedDelay + EPSILON)
                     && expectedCollisionRate < (nextPositionsEvaluation.expectedCollisionRate - EPSILON)))
             {
-                CherryVis::log(workerStatus.worker->id) << "New best: "
-                    << "first resend @ " << firstResendFrame << ": " << positionMetadata.pos
-                    << "; second resend @ " << currentFrame << ": " << here
-                    << std::fixed << std::setprecision(1)
-                    << "; expectedDelay:" << expectedDelay.value()
-                    << "; expectedCollisionRate: " << expectedCollisionRate;
                 return PositionEvaluation::resends(expectedDelay.value(),
                                                    expectedCollisionRate,
-                                                   currentFrame + 11 + BWAPI::Broodwar->getLatencyFrames() + observations.mostCommonArrivalDelay(),
+                                                   simulationFrame + 11 + BWAPI::Broodwar->getLatencyFrames() + observations.mostCommonArrivalDelay(),
                                                    positionMetadata.pos,
                                                    here,
                                                    nextPositionsEvaluation.hasUnexploredPositionOnExpectedPath);
@@ -327,32 +347,32 @@ namespace WorkerMiningOptimization
         }
 
         PositionEvaluation evaluatePosition(const WorkerGatherStatus &workerStatus, // NOLINT(*-no-recursion)
-                                            int currentFrame,
+                                            int simulationFrame,
                                             int workerOrderProcessTimer,
                                             const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
-                                            const GatherPositionObservations &positionMetadata)
+                                            const GatherPositionObservations &positionMetadata,
+                                            int depth = 0)
         {
-            // Check if there could be a patch switch here
-            if (currentFrame < workerStatus.takeoverFrame)
+            if (depth == RECURSION_LIMIT)
             {
-                auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                    positionMetadata.pos.pos(),
-                                                    BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                    workerStatus.resource->center);
-                if (dist <= 10 && workerOrderProcessTimer <= 0)
-                {
-                    return PositionEvaluation::patchSwitch(currentFrame);
-                }
+                Log::Get() << "ERROR: Reached recursion limit for two-worker path optimizer"
+                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+                return {};
             }
 
             // Compute the order process timer for the next frame
-            int nextWorkerOrderProcessTimer = nextOrderProcessTimer(currentFrame, workerOrderProcessTimer);
+            int nextWorkerOrderProcessTimer = nextOrderProcessTimer(simulationFrame, workerOrderProcessTimer);
 
             // Get data for all of the next positions
             PositionEvaluation nextPositionsEvaluation;
 
             auto evaluateNextPosition = [&](const PositionAndVelocity &nextPosition)->PositionEvaluation // NOLINT(*-no-recursion)
             {
+                if (isPatchSwitchPossible(workerStatus, simulationFrame, workerOrderProcessTimer, nextPosition))
+                {
+                    return PositionEvaluation::patchSwitch(simulationFrame + 1);
+                }
+
                 auto nextPositionDataIt = allPositionData.find(nextPosition);
                 if (nextPositionDataIt == allPositionData.end())
                 {
@@ -363,10 +383,11 @@ namespace WorkerMiningOptimization
                 }
 
                 return evaluatePosition(workerStatus,
-                                        currentFrame + 1,
+                                        simulationFrame + 1,
                                         nextWorkerOrderProcessTimer,
                                         allPositionData,
-                                        nextPositionDataIt->second);
+                                        nextPositionDataIt->second,
+                                        depth + 1);
             };
 
             if (positionMetadata.nextPositionAndOccurrences.size() == 1)
@@ -397,7 +418,7 @@ namespace WorkerMiningOptimization
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), positionMetadata.pos);
 
             // If there is a potential patch switch, back off until the last safe frame
-            if (nextPositionsEvaluation.potentialPatchSwitchFrame < (currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+            if (nextPositionsEvaluation.potentialPatchSwitchFrame < (simulationFrame + BWAPI::Broodwar->getLatencyFrames()))
             {
                 return nextPositionsEvaluation;
             }
@@ -408,19 +429,20 @@ namespace WorkerMiningOptimization
             // We can't send a command LF+1 frames before an order process timer reset
             // Note that this is actually ok in cases where there is a second resend later, but we can't always trust that this will happen
             // if we discover a new path branch
-            if (OrderProcessTimer::framesToNextReset(currentFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
+            if (OrderProcessTimer::framesToNextReset(simulationFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
 
             // Now evaluate this position using the second resend metadata
             auto evaluationHere = evaluateSecondResendPositions(workerStatus,
-                                                                currentFrame,
-                                                                currentFrame,
+                                                                simulationFrame,
+                                                                simulationFrame,
                                                                 workerOrderProcessTimer,
                                                                 allPositionData,
                                                                 positionMetadata,
                                                                 positionMetadata.pos,
                                                                 0,
                                                                 positionMetadata.noSecondResendArrivalObservations,
-                                                                positionMetadata.nextPositionAndOccurrences);
+                                                                positionMetadata.nextPositionAndOccurrences,
+                                                                depth + 1);
 
             // If exploring, return now
             if (evaluationHere.positionToTryOnExpectedPath) return evaluationHere;
@@ -493,31 +515,61 @@ namespace WorkerMiningOptimization
             workerStatus.expectedArrivalFrame = evaluation.expectedArrivalFrame;
 
 #if TAKEOVER_DEBUG
-            std::ostringstream out;
-            out << std::fixed << std::setprecision(1) << "Planned gather command(s): ";
-            if (workerStatus.plannedResendPosition)
             {
-                out << *workerStatus.plannedResendPosition;
-            }
-            else
-            {
-                out << "none";
-            }
-            if (workerStatus.plannedSecondResendPosition)
-            {
-                out << " : " << *workerStatus.plannedSecondResendPosition;
-            }
-            if (evaluation.positionToTryOnExpectedPath)
-            {
-                out << " (exploring)";
-            }
-            else
-            {
-                out << " expected delay " << evaluation.expectedDelay
-                    << "; expected collision rate " << evaluation.expectedCollisionRate;
+                std::ostringstream out;
+                out << std::fixed << std::setprecision(1) << "Planned gather command(s): ";
+                if (workerStatus.plannedResendPosition)
+                {
+                    out << *workerStatus.plannedResendPosition;
+                }
+                else
+                {
+                    out << "none";
+                }
+                if (workerStatus.plannedSecondResendPosition)
+                {
+                    out << " : " << *workerStatus.plannedSecondResendPosition;
+                }
+                if (evaluation.positionToTryOnExpectedPath)
+                {
+                    out << " (exploring)";
+                }
+                else
+                {
+                    out << " expected delay " << evaluation.expectedDelay
+                        << "; expected collision rate " << evaluation.expectedCollisionRate
+                        << "; expected arrival frame " << evaluation.expectedArrivalFrame;
+                }
+
+                CherryVis::log(workerStatus.worker->id) << out.str();
             }
 
-            CherryVis::log(workerStatus.worker->id) << out.str();
+            // Validate path
+            {
+                std::ostringstream out;
+                out << "Expected path:";
+                int frame = currentFrame;
+                int orderProcessTimer = workerStatus.worker->orderProcessTimer;
+                for (const auto &pos : workerStatus.expectedPath)
+                {
+                    if (frame == currentFrame)
+                    {
+                        frame++;
+                        continue;
+                    }
+
+                    auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                        pos.pos(),
+                                                        BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                        workerStatus.resource->center);
+                    out << "\n" << frame << ": " << pos << "; " << dist << "; " << orderProcessTimer;
+
+                    frame++;
+                    orderProcessTimer = nextOrderProcessTimer(frame, orderProcessTimer);
+                }
+
+                CherryVis::log(workerStatus.worker->id) << out.str();
+            }
 #endif
         }
     }

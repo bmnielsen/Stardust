@@ -44,8 +44,6 @@ namespace WorkerMiningOptimization
             // Don't process histories over 75 positions, as this indicates either distance mining or some kind of weird pathing error
             if (workerStatus.positionHistory.size() > 75) return false;
 
-            int headingBeforeMiningStart = (*(workerStatus.positionHistory.rbegin() + 1))->heading;
-
             auto nextResendPositionIt = workerStatus.resentPositions.begin();
             auto firstPos = (*workerStatus.positionHistory.begin())->pos();
             for (auto it = workerStatus.positionHistory.begin(); it != workerStatus.positionHistory.end(); it++)
@@ -64,11 +62,11 @@ namespace WorkerMiningOptimization
                 // Arrival position is defined as the position where:
                 // - distance to the patch is 0
                 // - position is the same as the position at mining start
-                // - heading is the same as the heading immediately prior to mining start, unless this is the mining start position
+                // - heading is stable
                 if (positionsInHistory.arrivalPositionIt == workerStatus.positionHistory.end()
                     && dist == 0
                     && workerStatus.worker->lastPosition == (*it)->pos()
-                    && ((*it)->heading == headingBeforeMiningStart || (it + 1) == workerStatus.positionHistory.end()))
+                    && PositionAndVelocity::isStableArrivalPosition(workerStatus.positionHistory, it))
                 {
                     positionsInHistory.arrivalPositionIt = it;
                 }
@@ -460,7 +458,7 @@ namespace WorkerMiningOptimization
                 if (actualFramesToArrival != (BWAPI::Broodwar->getLatencyFrames() + 11 + arrivalDelay))
                 {
                     Log::Get() << "ERROR: Position " << resentPositionData << " has unexpected arrival delta"
-                               << "; expected=" << (BWAPI::Broodwar->getLatencyFrames() + 10 + arrivalDelay)
+                               << "; expected=" << (BWAPI::Broodwar->getLatencyFrames() + 11 + arrivalDelay)
                                << "; actual=" << actualFramesToArrival
                                << "; worker id " << worker->id << " @ " << worker->getTilePosition();
                 }

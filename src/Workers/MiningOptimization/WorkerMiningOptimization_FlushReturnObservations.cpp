@@ -25,12 +25,6 @@ namespace WorkerMiningOptimization
             positionsInHistory.resendPositionIt = workerStatus.positionHistory.end();
             positionsInHistory.arrivalPositionIt = workerStatus.positionHistory.end();
 
-            int headingBeforeDelivery = INT_MAX;
-            if (workerStatus.positionHistory.size() > 1)
-            {
-                headingBeforeDelivery = (*(workerStatus.positionHistory.rbegin() + 1))->heading;
-            }
-
             auto firstPos = (*workerStatus.positionHistory.begin())->pos();
             for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != workerStatus.positionHistory.end(); positionIt++)
             {
@@ -44,13 +38,13 @@ namespace WorkerMiningOptimization
                     // Arrival position is defined as the position where:
                     // - distance to the depot is 0
                     // - position is the same as the position at delivery
-                    // - heading is the same as the heading immediately prior to delivery, unless this is the delivery position
+                    // - heading is stable
                     auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
                                                         (*positionIt)->pos(),
                                                         workerStatus.depot->type,
                                                         workerStatus.depot->lastPosition);
                     if (dist == 0 && workerStatus.worker->lastPosition == (*positionIt)->pos()
-                        && ((*positionIt)->heading == headingBeforeDelivery || (positionIt + 1) == workerStatus.positionHistory.end()))
+                        && PositionAndVelocity::isStableArrivalPosition(workerStatus.positionHistory, positionIt))
                     {
                         positionsInHistory.arrivalPositionIt = positionIt;
                     }

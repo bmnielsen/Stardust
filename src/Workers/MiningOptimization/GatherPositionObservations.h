@@ -131,6 +131,8 @@ namespace WorkerMiningOptimization
 
         [[nodiscard]] int largestDeltaToBenchmark() const;
 
+        [[nodiscard]] bool usableForPathPlanning() const;
+
         bool addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int arrivalDelta);
 
         void addDeltaToBenchmark(int delta)

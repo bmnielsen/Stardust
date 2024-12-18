@@ -1,5 +1,31 @@
 #include "PositionAndVelocity.h"
 
+bool PositionAndVelocity::isStableArrivalPosition(
+        const std::vector<std::shared_ptr<const PositionAndVelocity>> &positions,
+        std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator positionIt)
+{
+    // Guard against invalid input
+    if (positionIt == positions.end()) return false;
+
+    // If mining or delivery started on the next frame, this is by definition an arrival position
+    if ((positionIt + 1) == positions.end()) return true;
+
+    // We now examine the headings to determine whether this is a stable arrival position
+    // There are two general patterns we see for stable arrivals:
+    // - Worker turns towards the target on arrival, then waits and performs its action at the same heading
+    // - Worker keeps its movement heading on arrival, then turns towards the target when it performs its action
+    // For unstable arrivals, the worker changes headings multiple times, then turns towards the target when it performs its action
+    // We can therefore determine when the arrival is stable by checking whether the heading changes more than once
+    auto lastHeading = (*positionIt)->heading;
+    int headingChanges = 0;
+    for (auto it = (positionIt + 1); it != positions.end(); it++)
+    {
+        if ((*it)->heading != lastHeading) headingChanges++;
+        lastHeading = (*it)->heading;
+    }
+    return headingChanges <= 1;
+}
+
 bool PositionAndVelocity::tryParse(const std::string &str, PositionAndVelocity &out)
 {
     std::stringstream stream(str);

@@ -1,5 +1,7 @@
 #include "GatherPositionObservations.h"
 
+#include "WorkerMiningOptimization.h"
+
 namespace WorkerMiningOptimization
 {
     int8_t GatherResendArrivalObservations::mostCommonArrivalDelay() const
@@ -129,6 +131,59 @@ namespace WorkerMiningOptimization
         }
 
         return best;
+    }
+
+    bool GatherPositionObservations::usableForPathPlanning() const
+    {
+        auto exceedsThreshold = [](
+                const std::unordered_map<int8_t, uint16_t> &map,
+                int stableLowerThreshold,
+                int stableUpperThreshold,
+                int unstableLowerThreshold,
+                int unstableUpperThreshold)
+        {
+            int lowerThreshold, upperThreshold;
+            if (map.size() == 1)
+            {
+                lowerThreshold = stableLowerThreshold;
+                upperThreshold = stableUpperThreshold;
+            }
+            else
+            {
+                lowerThreshold = unstableLowerThreshold;
+                upperThreshold = unstableUpperThreshold;
+            }
+
+            for (const auto &[val, _] : map)
+            {
+                if ((int)val < lowerThreshold) return true;
+                if ((int)val > upperThreshold) return true;
+            }
+
+            return false;
+        };
+
+        // If we haven't observed the "normal" path, try to use resend arrivals
+        if (deltaToBenchmarkAndOccurrences.empty())
+        {
+            // If there are no resend arrivals, we allow the position to be used
+            if (noSecondResendArrivalObservations.arrivalDelayAndOccurrences.empty())
+            {
+                return true;
+            }
+
+            return !exceedsThreshold(noSecondResendArrivalObservations.arrivalDelayAndOccurrences,
+                                     0,
+                                     BWAPI::Broodwar->getLatencyFrames() + 11 + GATHER_EXPLORE_BEFORE,
+                                     0,
+                                     BWAPI::Broodwar->getLatencyFrames() + 11 + 5);
+        }
+
+        return !exceedsThreshold(deltaToBenchmarkAndOccurrences,
+                                 -GATHER_EXPLORE_BEFORE,
+                                 INT_MAX,
+                                 -5,
+                                 INT_MAX);
     }
 
     bool GatherPositionObservations::addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int arrivalDelta)

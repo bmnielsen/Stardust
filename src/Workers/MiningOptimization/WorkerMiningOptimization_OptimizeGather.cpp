@@ -199,7 +199,7 @@ namespace WorkerMiningOptimization
                         if (workerStatus.takeoverState == 1 && !workerStatus.switchedPatches && !takeoverFrameUnknown)
                         {
                             auto positionMetadataIt = optimalPositions.find(*currentPosition);
-                            if (positionMetadataIt != optimalPositions.end() && !positionMetadataIt->second.deltaToBenchmarkAndOccurrences.empty())
+                            if (positionMetadataIt != optimalPositions.end())
                             {
                                 // Handle case where we haven't reached our observation horizon yet
                                 if (positionMetadataIt->second.largestDeltaToBenchmark() < -GATHER_EXPLORE_BEFORE)
@@ -216,7 +216,7 @@ namespace WorkerMiningOptimization
                                         return false;
                                     }
 
-                                    // Otherwise continue the approach waiting until we get closer
+                                    // Wait until the worker is closer to the patch
                                     return true;
                                 }
 
