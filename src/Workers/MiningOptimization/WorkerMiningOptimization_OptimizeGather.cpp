@@ -119,6 +119,13 @@ namespace WorkerMiningOptimization
                     workerStatus.takeoverFrame = std::max(otherWorker->lastStartedMining + 83, previousOrderTimerReset + 8) + addedFrame;
                 }
 
+                // If the order process timer will reset after the command frame for optimal takeover, adjust the takeover frame so the command takes
+                // effect on the reset frame instead
+                if (previousOrderTimerReset > (workerStatus.takeoverFrame - 11))
+                {
+                    workerStatus.takeoverFrame = previousOrderTimerReset + 11;
+                }
+
 #if TAKEOVER_DEBUG
                 CherryVis::log(worker->id)
                         << "Initializing takeover from " << otherWorker->id << ": "
@@ -241,14 +248,6 @@ namespace WorkerMiningOptimization
                         // Besides issuing a mining command for the takeover frame, we also want to issue a command if the order timer resets
                         int commandFrameForTakeOver = takeoverFrame - 11 - BWAPI::Broodwar->getLatencyFrames();
                         int commandFrameForReset = previousOrderTimerReset - BWAPI::Broodwar->getLatencyFrames();
-
-                        // If the takeover frame comes first, delay sending the order so it takes effect when the order timer resets instead
-                        // This is to avoid situations where the second worker's command takes effect too soon,
-                        // causing it to switch to a different patch
-                        if (commandFrameForReset > commandFrameForTakeOver)
-                        {
-                            commandFrameForTakeOver = commandFrameForReset;
-                        }
 
                         // If the takeover and reset command frames are LF apart, we can't send both of them
                         // Time it instead to send the reset command one frame late - this may cause the worker to switch patches for one frame,

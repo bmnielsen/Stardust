@@ -306,6 +306,20 @@ namespace WorkerMiningOptimization
             // We can't send a command LF+1 frames before an order process timer reset
             if (OrderProcessTimer::framesToNextReset(simulationFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
 
+            // Avoid frames that could block commands needed for takeover, either for reset frame or takeover frame
+            int orderTimerResetFrame = OrderProcessTimer::previousResetFrame(workerStatus.takeoverFrame);
+            if (orderTimerResetFrame == workerStatus.takeoverFrame) orderTimerResetFrame -= 150;
+
+            int commandFrameForTakeOver = workerStatus.takeoverFrame - 11 - BWAPI::Broodwar->getLatencyFrames();
+            int commandFrameForReset = orderTimerResetFrame - BWAPI::Broodwar->getLatencyFrames();
+            if ((commandFrameForTakeOver - commandFrameForReset) == BWAPI::Broodwar->getLatencyFrames()) commandFrameForReset++;
+
+            if (simulationFrame == (commandFrameForTakeOver - BWAPI::Broodwar->getLatencyFrames()) ||
+                simulationFrame == (commandFrameForReset - BWAPI::Broodwar->getLatencyFrames()))
+            {
+                return nextPositionsEvaluation;
+            }
+
             // If the next positions' expected path has a position to try, return it
             if (nextPositionsEvaluation.positionToTryOnExpectedPath) return nextPositionsEvaluation;
 
