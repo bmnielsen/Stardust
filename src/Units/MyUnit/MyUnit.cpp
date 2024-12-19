@@ -102,7 +102,7 @@ void MyUnitImpl::update(BWAPI::Unit unit)
 
     // Guard against buildings having a deep training queue
     // Disabled in tournament builds as it causes crashes in BWAPI because of https://github.com/bwapi/bwapi/issues/864
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
     if (BWAPI::Broodwar->self()->supplyUsed() < 380 &&
         unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Cancel_Train &&
         unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Cancel_Train_Slot &&

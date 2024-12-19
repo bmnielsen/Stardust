@@ -35,7 +35,7 @@ namespace WorkerMiningOptimization
             auto nextPositionDataIt = allPositionData.find(nextPosition);
             if (nextPositionDataIt == allPositionData.end())
             {
-#if OPTIMALRETURN_DEBUG
+#if LOGGING_ENABLED
                 Log::Get() << "ERROR: No return metadata found for next position " << nextPosition;
 #endif
                 return {};
@@ -207,7 +207,7 @@ namespace WorkerMiningOptimization
             auto positionMetadataIt = optimalPositions.find(*currentPosition);
             if (positionMetadataIt == optimalPositions.end()) // should never happen, since we've planned a resend here
             {
-#if OPTIMALRETURN_DEBUG
+#if LOGGING_ENABLED
                 Log::Get() << "ERROR: Metadata not found at planned resend position " << *currentPosition
                            << "; worker id " << worker->id << " @ " << worker->getTilePosition();
 #endif

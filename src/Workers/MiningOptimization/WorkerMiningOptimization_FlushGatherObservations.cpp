@@ -102,7 +102,7 @@ namespace WorkerMiningOptimization
 
             if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end())
             {
-#if OPTIMALPOSITIONS_DEBUG
+#if LOGGING_ENABLED
                 Log::Get() << "ERROR: Couldn't find first gather move position in history"
                            << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif
@@ -190,7 +190,7 @@ namespace WorkerMiningOptimization
             auto resendMetadataIt = optimalGatherPositions.find(*miningWorker.resentPositions[0]);
             if (resendMetadataIt == optimalGatherPositions.end()) // should never happen
             {
-#if OPTIMALPOSITIONS_DEBUG
+#if LOGGING_ENABLED
                 Log::Get() << "ERROR: Resend metadata not found for " << *miningWorker.resentPositions[0]
                            << "; worker id " << miningWorker.worker->id << " @ " << miningWorker.worker->getTilePosition();
 #endif
@@ -210,7 +210,7 @@ namespace WorkerMiningOptimization
                 auto secondResendObservationsIt = optimalGatherPositions.find(*miningWorker.resentPositions[1]);
                 if (secondResendObservationsIt == optimalGatherPositions.end()) // should never happen
                 {
-#if OPTIMALPOSITIONS_DEBUG
+#if LOGGING_ENABLED
                     Log::Get() << "ERROR: Resend metadata for second resend not found for " << *miningWorker.resentPositions[0]
                                << " : " << *miningWorker.resentPositions[1]
                                << "; worker id " << miningWorker.worker->id << " @ " << miningWorker.worker->getTilePosition();
@@ -225,7 +225,7 @@ namespace WorkerMiningOptimization
             auto secondResendObservations = resendMetadataIt->second.secondResendObservationsFor(miningWorker.resentPositions[1].get());
             if (!secondResendObservations) // should never happen
             {
-#if OPTIMALPOSITIONS_DEBUG
+#if LOGGING_ENABLED
                 Log::Get() << "ERROR: Second resend metadata not found for " << *miningWorker.resentPositions[0]
                            << " : " << *miningWorker.resentPositions[1]
                            << "; worker id " << miningWorker.worker->id << " @ " << miningWorker.worker->getTilePosition();
@@ -323,7 +323,7 @@ namespace WorkerMiningOptimization
 
         void updateApproachOptimization(WorkerGatherStatus &workerStatus, PositionsInHistory &positionsInHistory)
         {
-#if OPTIMALPOSITIONS_DEBUG
+#if LOGGING_ENABLED
             auto &worker = workerStatus.worker;
 #endif
 
@@ -346,7 +346,7 @@ namespace WorkerMiningOptimization
             // Iterator to the apparent optimal position in the position history
             auto optimalPositionIt = positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames() - 11;
 
-#if OPTIMALPOSITIONS_DEBUG
+#if LOGGING_ENABLED
             if (workerStatus.plannedResendPosition && workerStatus.resentPositions.empty())
             {
                 Log::Get() << "ERROR: Worker didn't resend at planned position " << *workerStatus.plannedResendPosition

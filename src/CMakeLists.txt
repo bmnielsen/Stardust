@@ -44,13 +44,13 @@ IF (MSVC)
 
 ELSE (MSVC)
     target_compile_definitions(Stardust PUBLIC IS_OPENBW=true)
+    target_compile_definitions(Stardust PUBLIC LOGGING_ENABLED=true)
 
     if (CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fsanitize-recover=address,undefined -g")
     endif(CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
 
     if (NOT CMAKE_BUILD_TYPE MATCHES Release)
-        target_compile_definitions(Stardust PUBLIC LOGGING_ENABLED=true)
         target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED=true)
         target_compile_definitions(Stardust PUBLIC INSTRUMENTATION_ENABLED_VERBOSE=true)
     endif(NOT CMAKE_BUILD_TYPE MATCHES Release)

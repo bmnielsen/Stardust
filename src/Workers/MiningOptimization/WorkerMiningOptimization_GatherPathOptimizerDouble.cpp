@@ -225,7 +225,7 @@ namespace WorkerMiningOptimization
                     auto nextPositionDataIt = positionMetadata.secondResendObservations.find(nextPosition);
                     if (nextPositionDataIt == positionMetadata.secondResendObservations.end())
                     {
-#if TAKEOVER_DEBUG
+#if LOGGING_ENABLED
                         Log::Get() << "ERROR: No second resend metadata found for next position " << nextPosition
                                    << " from " << positionMetadata.pos;
 #endif
@@ -248,7 +248,7 @@ namespace WorkerMiningOptimization
                 auto nextPositionDataIt = allPositionData.find(nextPosition);
                 if (nextPositionDataIt == allPositionData.end())
                 {
-#if TAKEOVER_DEBUG
+#if LOGGING_ENABLED
                     Log::Get() << "ERROR: No metadata found for next position " << nextPosition;
 #endif
                     return {};
@@ -390,7 +390,7 @@ namespace WorkerMiningOptimization
                 auto nextPositionDataIt = allPositionData.find(nextPosition);
                 if (nextPositionDataIt == allPositionData.end())
                 {
-#if TAKEOVER_DEBUG
+#if LOGGING_ENABLED
                     Log::Get() << "ERROR: No metadata found for next position " << nextPosition;
 #endif
                     return {};
@@ -620,7 +620,7 @@ namespace WorkerMiningOptimization
         auto resentPositionDataIt = optimalPositions.find(*resentPosition);
         if (resentPositionDataIt == optimalPositions.end())
         {
-#if TAKEOVER_DEBUG
+#if LOGGING_ENABLED
             Log::Get() << "ERROR: Didn't find resend position metadata: " << *resentPosition
                        << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif

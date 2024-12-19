@@ -32,7 +32,7 @@ namespace WorkerMiningOptimization
     {
         if (!worker->returnCargo())
         {
-#if OPTIMALRETURN_DEBUG
+#if LOGGING_ENABLED
             Log::Get() << "Failed to send return command for " << worker->id << " @ " << worker->getTilePosition() << ": "
                        << BWAPI::Broodwar->getLastError();
             CherryVis::log(worker->id) << "Failed to send return command; last error " << BWAPI::Broodwar->getLastError();

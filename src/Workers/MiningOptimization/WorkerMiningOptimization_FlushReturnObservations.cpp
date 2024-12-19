@@ -68,7 +68,7 @@ namespace WorkerMiningOptimization
             }
             if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end())
             {
-#if OPTIMALRETURN_DEBUG
+#if LOGGING_ENABLED
                 Log::Get() << "ERROR: Couldn't find first return move position in history"
                            << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif
@@ -76,7 +76,7 @@ namespace WorkerMiningOptimization
             }
             if (positionsInHistory.arrivalPositionIt == workerStatus.positionHistory.end())
             {
-#if OPTIMALRETURN_DEBUG
+#if LOGGING_ENABLED
                 Log::Get() << "ERROR: Couldn't find arrival at depot position in history"
                            << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif
@@ -84,7 +84,7 @@ namespace WorkerMiningOptimization
             }
             if (workerStatus.resentPosition && positionsInHistory.resendPositionIt == workerStatus.positionHistory.end())
             {
-#if OPTIMALRETURN_DEBUG
+#if LOGGING_ENABLED
                 Log::Get() << "ERROR: Couldn't find return resend position in history"
                            << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif
@@ -189,7 +189,7 @@ namespace WorkerMiningOptimization
             auto resendMetadataIt = optimalReturnPositions.find(*justReturnedWorker.resentPosition);
             if (resendMetadataIt == optimalReturnPositions.end()) // should never happen
             {
-#if OPTIMALRETURN_DEBUG
+#if LOGGING_ENABLED
                 Log::Get() << "ERROR: Return metadata not found for " << *justReturnedWorker.resentPosition
                            << "; worker id " << worker->id << " @ " << worker->getTilePosition();
 #endif
@@ -247,7 +247,7 @@ namespace WorkerMiningOptimization
 
         void updateReturnOptimization(WorkerReturnStatus &workerStatus, const PositionsInHistory &positionsInHistory)
         {
-#if OPTIMALRETURN_DEBUG
+#if LOGGING_ENABLED
             auto &worker = workerStatus.worker;
             if (workerStatus.plannedResendPosition && !workerStatus.resentPosition)
             {
@@ -298,7 +298,7 @@ namespace WorkerMiningOptimization
             auto resentPositionDataIt = optimalReturnPositions.find(*workerStatus.resentPosition);
             if (resentPositionDataIt == optimalReturnPositions.end()) // should never happen
             {
-#if OPTIMALRETURN_DEBUG
+#if LOGGING_ENABLED
                 Log::Get() << "ERROR: Observations not found for return resend position " << *workerStatus.resentPosition
                            << "; worker id " << worker->id << " @ " << worker->getTilePosition();
 #endif

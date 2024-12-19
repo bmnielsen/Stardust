@@ -143,7 +143,7 @@ void StardustAIModule::onEnd(bool isWinner)
 {
     if (testOnEnd) testOnEnd(isWinner);
 
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
     auto miningEfficiency = WorkerMiningInstrumentation::getEfficiency();
     Log::Get() << "Mining efficiency over entire game: " << miningEfficiency;
     CherryVis::log() << "Mining efficiency over entire game: " << miningEfficiency;
