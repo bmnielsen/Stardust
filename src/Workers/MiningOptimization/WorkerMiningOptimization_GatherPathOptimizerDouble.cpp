@@ -114,8 +114,8 @@ namespace WorkerMiningOptimization
                         expectedArrivalFrame,
                         INT_MAX,
                         false,
-                        true,
                         unexploredPositionOnExpectedPath,
+                        true,
                         {secondResend},
                         std::make_shared<PositionAndVelocity>(firstResend)};
             }
