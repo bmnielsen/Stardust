@@ -230,7 +230,7 @@ namespace WorkerMiningOptimization
 #if ENABLE_PATH_BASED_TAKEOVER
                                 planGatherResendsDouble(workerStatus, optimalPositions, currentPosition);
 
-                                if (workerStatus.resendsPlanned)
+                                if (workerStatus.resendsPlanned && workerStatus.plannedResendPosition)
                                 {
                                     workerStatus.takeoverState = 2;
                                     sendPlannedResend(workerStatus, resourceBwapiUnit, currentPosition);

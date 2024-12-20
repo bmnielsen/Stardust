@@ -397,9 +397,20 @@ namespace
                     << "Efficiency per patch:";
                 for (const auto &[patch, e] : patchEfficiency)
                 {
+                    int nearestDepotDist = INT_MAX;
+                    for (const auto &depot : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Nexus))
+                    {
+                        int dist = patch->getDistance(depot);
+                        if (dist < nearestDepotDist)
+                        {
+                            nearestDepotDist = dist;
+                        }
+                    }
+
                     auto patchResult = getTestResult(e);
                     str << "\n" << patch->tile.x
                         << ";" << patch->tile.y
+                        << ";" << nearestDepotDist
                         << ";" << patchResult.rotationTime
                         << ";" << patchResult.miningPercentage
                         << ";" << patchResult.collisionRate;
@@ -422,7 +433,7 @@ namespace
                                  bool patchResults = false)
     {
 #if !INSTRUMENTATION_ENABLED
-        return runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker, measureOnly);
+        return runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker, measureOnly, 1, patchResults);
 #else
         for (int i=0; i<10; i++)
         {
@@ -842,6 +853,22 @@ TEST(MiningTraining, VermeerTestSuiteDoubleContinuous)
         std::cout << std::fixed << std::showpoint << std::setprecision(4)
                   << "Overall efficiency: " << std::endl
                   << "Single: " << sgl << std::endl;
+    }
+}
+
+TEST(MiningTraining, VermeerTestSuiteSingleAndDoubleContinuous)
+{
+    while (true)
+    {
+        BWTest test;
+        test.map = Maps::GetOne("VermeerSE_2.1");
+        test.randomSeed = 42;
+        auto sgl = runTestSuite(test, 1, 0);
+        auto dbl = runTestSuite(test, 2, 0);
+        std::cout << std::fixed << std::showpoint << std::setprecision(4)
+                  << "Overall efficiency: " << std::endl
+                  << "Single: " << sgl << std::endl
+                  << "Double: " << dbl << std::endl;
     }
 }
 
