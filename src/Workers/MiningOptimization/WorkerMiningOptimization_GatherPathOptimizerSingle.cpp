@@ -43,6 +43,14 @@ namespace WorkerMiningOptimization
             int positionToTryDelta = 0;
         };
 
+        bool less(const PositionEvaluation &first, const PositionEvaluation &second)
+        {
+            if (first.expectedPath.empty() && second.expectedPath.empty()) return first.expectedDelta < second.expectedDelta;
+            if (first.expectedPath.empty()) return true;
+            if (second.expectedPath.empty()) return false;
+            return first.expectedPath.begin()->getHash() < second.expectedPath.begin()->getHash();
+        }
+
         std::optional<double> computeExpectedDelta(int commandFrame,
                                                    const GatherPositionObservations &positionMetadata,
                                                    int deltaToFirstResend,
@@ -103,7 +111,7 @@ namespace WorkerMiningOptimization
                         deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
                         occurrenceCount += occurrences;
                     }
-                    if (occurrences > bestOccurrences)
+                    if (occurrences > bestOccurrences || (occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
                     {
                         bestOccurrences = occurrences;
                         nextPositionsEvaluation = std::move(nextPositionEvaluation);
@@ -182,7 +190,7 @@ namespace WorkerMiningOptimization
                         deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
                         occurrenceCount += occurrences;
                     }
-                    if (occurrences > bestOccurrences)
+                    if (occurrences > bestOccurrences || (occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
                     {
                         bestOccurrences = occurrences;
                         nextPositionsEvaluation = std::move(nextPositionEvaluation);

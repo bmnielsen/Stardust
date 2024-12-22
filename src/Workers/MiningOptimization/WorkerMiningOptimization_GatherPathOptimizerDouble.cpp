@@ -121,6 +121,14 @@ namespace WorkerMiningOptimization
             }
         };
 
+        bool less(const PositionEvaluation &first, const PositionEvaluation &second)
+        {
+            if (first.expectedPath.empty() && second.expectedPath.empty()) return first.expectedDelay < second.expectedDelay;
+            if (first.expectedPath.empty()) return true;
+            if (second.expectedPath.empty()) return false;
+            return first.expectedPath.begin()->getHash() < second.expectedPath.begin()->getHash();
+        }
+
         std::optional<double> computeExpectedDelay(const WorkerGatherStatus &workerStatus,
                                                    int simulationFrame,
                                                    const GatherResendArrivalObservations &observations)
@@ -284,7 +292,7 @@ namespace WorkerMiningOptimization
                         delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
                         occurrenceCount += occurrences;
                     }
-                    if (occurrences > bestOccurrences)
+                    if (occurrences > bestOccurrences || (occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
                     {
                         bestOccurrences = occurrences;
                         nextPositionsEvaluation = std::move(nextPositionEvaluation);
@@ -421,7 +429,7 @@ namespace WorkerMiningOptimization
                         delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
                         occurrenceCount += occurrences;
                     }
-                    if (occurrences > bestOccurrences)
+                    if (occurrences > bestOccurrences || (occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
                     {
                         bestOccurrences = occurrences;
                         nextPositionsEvaluation = std::move(nextPositionEvaluation);

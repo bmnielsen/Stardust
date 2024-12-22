@@ -24,6 +24,14 @@ namespace WorkerMiningOptimization
             }
         };
 
+        bool less(const PositionEvaluation &first, const PositionEvaluation &second)
+        {
+            if (first.expectedPath.empty() && second.expectedPath.empty()) return first.expectedDelay < second.expectedDelay;
+            if (first.expectedPath.empty()) return true;
+            if (second.expectedPath.empty()) return false;
+            return first.expectedPath.begin()->getHash() < second.expectedPath.begin()->getHash();
+        }
+
         PositionEvaluation evaluatePosition(int commandFrame,
                                             const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
                                             const ReturnPositionObservations &positionMetadata);
@@ -84,7 +92,7 @@ namespace WorkerMiningOptimization
                         delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
                         occurrenceCount += occurrences;
                     }
-                    if (occurrences > bestOccurrences)
+                    if (occurrences > bestOccurrences || (occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
                     {
                         bestOccurrences = occurrences;
                         nextPositionsEvaluation = std::move(nextPositionEvaluation);
