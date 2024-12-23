@@ -199,9 +199,11 @@ namespace WorkerMiningOptimization
 
     void write()
     {
+#if WRITE_DATA_FILES
         writeDataFile("gather positions", optimalGatherPositionsFilename(true), OptimalGatherPositionsSerializer{});
         writeDataFile("ten-distance positions", tenDistancePositionsFilename(true), TenDistancePositionsSerializer{});
         writeDataFile("return positions", optimalReturnPositionsFilename(true), OptimalReturnPositionsSerializer{});
+#endif
 
 #if OUTPUT_METADATA_ANALYSIS
         {

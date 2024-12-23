@@ -13,6 +13,9 @@
 #include "Units.h"
 #include "Workers.h"
 
+#include <algorithm>
+#include <random>
+
 namespace
 {
     const std::string dataBasePath = "/Users/bmnielsen/BW/mining-timings/";
@@ -325,6 +328,10 @@ namespace
                 {
                     return a->lastPosition < b->lastPosition;
                 });
+
+                // After first iteration, shuffle using same seeds so we vary which workers are assigned to which patch
+                auto rng = std::default_random_engine(BWAPI::Broodwar->getFrameCount());
+                std::shuffle(std::begin(workers), std::end(workers), rng);
 
                 // Rewrite the order process index for all workers, as the way they are created for this test (where they all appear on the same
                 // frame) prevents our usual logic from working
@@ -872,6 +879,15 @@ TEST(MiningTraining, VermeerTestSuiteSingleAndDoubleContinuous)
     }
 }
 
+TEST(MiningTraining, VermeerStabilityTest)
+{
+    BWTest test;
+    test.map = Maps::GetOne("VermeerSE_2.1");
+    test.randomSeed = 42;
+    runEfficiencyTest(test, 1, 0, false);
+    runEfficiencyTest(test, 1, 0, false, true, true);
+}
+
 TEST(MiningTraining, VermeerSingle)
 {
     BWTest test;
@@ -945,6 +961,11 @@ TEST(MiningTraining, AllAIIDEDoubleOnlyNoCannons)
 TEST(MiningTraining, AllAIIDEMeasureSingleNoCannons)
 {
     testRunWithResults("aiide2024", 1, false, true);
+}
+
+TEST(MiningTraining, AllAIIDEMeasureDoubleNoCannons)
+{
+    testRunWithResults("aiide2024", 2, false, true);
 }
 
 TEST(MiningTraining, AllAIIDEMeasureSingleAllCannons)

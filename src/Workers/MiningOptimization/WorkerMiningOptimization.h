@@ -11,6 +11,7 @@
 #define ENABLE_GATHER_OPTIMIZATION true
 #define ENABLE_RETURN_OPTIMIZATION true
 #define ENABLE_PATH_BASED_TAKEOVER true
+#define WRITE_DATA_FILES true
 
 // In our data files we track the full paths between depot and patch, but we only explore positions within the bounds defined here
 #define GATHER_EXPLORE_BEFORE 12
