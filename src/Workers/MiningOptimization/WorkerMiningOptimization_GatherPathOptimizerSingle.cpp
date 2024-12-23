@@ -185,7 +185,7 @@ namespace WorkerMiningOptimization
                     }
 
                     auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second);
-                    if (nextPositionsEvaluation.explored)
+                    if (nextPositionEvaluation.explored)
                     {
                         deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
                         occurrenceCount += occurrences;

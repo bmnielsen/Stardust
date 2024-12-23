@@ -87,7 +87,7 @@ namespace WorkerMiningOptimization
                 for (const auto &[nextPosition, occurrences] : positionMetadata.nextPositionAndOccurrences)
                 {
                     auto nextPositionEvaluation = evaluateNextPosition(commandFrame, allPositionData, nextPosition);
-                    if (nextPositionsEvaluation.explored)
+                    if (nextPositionEvaluation.explored)
                     {
                         delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
                         occurrenceCount += occurrences;
