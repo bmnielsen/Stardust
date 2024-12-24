@@ -5,6 +5,7 @@
 #include "DebugFlag_WorkerMiningOptimization.h"
 
 #define EPSILON 0.001
+#define RECURSION_LIMIT 100
 
 namespace WorkerMiningOptimization
 {
@@ -79,8 +80,15 @@ namespace WorkerMiningOptimization
                                                          const PositionAndVelocity &here,
                                                          uint8_t deltaToFirstResend,
                                                          const GatherResendArrivalObservations &observations,
-                                                         const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions)
+                                                         const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions,
+                                                         int depth = 0)
         {
+            if (depth == RECURSION_LIMIT)
+            {
+                Log::Get() << "ERROR: Reached recursion limit for one-worker path optimizer";
+                return {};
+            }
+
             // Start by getting the data for doing a second resend at all of the next positions
             PositionEvaluation nextPositionsEvaluation;
             if (positionMetadata.resendChangesPath == ResendChangesPath::Yes)
@@ -105,7 +113,8 @@ namespace WorkerMiningOptimization
                                                                                 nextPosition,
                                                                                 nextPositionDataIt->second.deltaToFirstResend,
                                                                                 nextPositionDataIt->second.arrivalObservations,
-                                                                                nextPositionDataIt->second.nextPositionAndOccurrences);
+                                                                                nextPositionDataIt->second.nextPositionAndOccurrences,
+                                                                                depth + 1);
                     if (nextPositionsEvaluation.explored)
                     {
                         deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
@@ -158,8 +167,15 @@ namespace WorkerMiningOptimization
 
         PositionEvaluation evaluatePosition(int commandFrame, // NOLINT(*-no-recursion)
                                             const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
-                                            const GatherPositionObservations &positionMetadata)
+                                            const GatherPositionObservations &positionMetadata,
+                                            int depth = 0)
         {
+            if (depth == RECURSION_LIMIT)
+            {
+                Log::Get() << "ERROR: Reached recursion limit for one-worker path optimizer";
+                return {};
+            }
+
             // Jump out of the recursion when we've exceeded the exploration horizon
             if (positionMetadata.deltaToBenchmarkAndOccurrences.size() == 1 &&
                 positionMetadata.deltaToBenchmarkAndOccurrences.begin()->first > GATHER_EXPLORE_AFTER)
@@ -184,7 +200,7 @@ namespace WorkerMiningOptimization
                         continue;
                     }
 
-                    auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second);
+                    auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second, depth + 1);
                     if (nextPositionEvaluation.explored)
                     {
                         deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
@@ -211,7 +227,8 @@ namespace WorkerMiningOptimization
                                                                 positionMetadata.pos,
                                                                 0,
                                                                 positionMetadata.noSecondResendArrivalObservations,
-                                                                positionMetadata.nextPositionAndOccurrences);
+                                                                positionMetadata.nextPositionAndOccurrences,
+                                                                depth + 1);
 
             // If one of the branches wants to explore, return it
             if (evaluationHere.positionToTryOnExpectedPath &&

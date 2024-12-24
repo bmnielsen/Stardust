@@ -7,7 +7,7 @@
 #include "Geo.h"
 
 #define EPSILON 0.001
-#define RECURSION_LIMIT 80
+#define RECURSION_LIMIT 100
 
 /*
  * The algorithm implemented here is similar to the one for a single worker, but with the following differences:

@@ -5,6 +5,7 @@
 #include "DebugFlag_WorkerMiningOptimization.h"
 
 #define EPSILON 0.001
+#define RECURSION_LIMIT 100
 
 namespace WorkerMiningOptimization
 {
@@ -34,11 +35,13 @@ namespace WorkerMiningOptimization
 
         PositionEvaluation evaluatePosition(int commandFrame,
                                             const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
-                                            const ReturnPositionObservations &positionMetadata);
+                                            const ReturnPositionObservations &positionMetadata,
+                                            int depth = 0);
 
         PositionEvaluation evaluateNextPosition(int commandFrame, // NOLINT(*-no-recursion)
                                                 const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
-                                                const PositionAndVelocity &nextPosition)
+                                                const PositionAndVelocity &nextPosition,
+                                                int depth)
         {
             auto nextPositionDataIt = allPositionData.find(nextPosition);
             if (nextPositionDataIt == allPositionData.end())
@@ -49,13 +52,20 @@ namespace WorkerMiningOptimization
                 return {};
             }
 
-            return evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second);
+            return evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second, depth + 1);
         }
 
         PositionEvaluation evaluatePosition(int commandFrame, // NOLINT(*-no-recursion)
                                             const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
-                                            const ReturnPositionObservations &positionMetadata)
+                                            const ReturnPositionObservations &positionMetadata,
+                                            int depth)
         {
+            if (depth == RECURSION_LIMIT)
+            {
+                Log::Get() << "ERROR: Reached recursion limit for return path optimizer";
+                return {};
+            }
+
             auto here = std::make_shared<PositionAndVelocity>(positionMetadata.pos);
 
             // If no resend from this position can take effect before reaching the depot, bail out now
@@ -77,7 +87,8 @@ namespace WorkerMiningOptimization
                 nextPositionsEvaluation = evaluateNextPosition(
                         commandFrame,
                         allPositionData,
-                        positionMetadata.nextPositionAndOccurrences.begin()->first);
+                        positionMetadata.nextPositionAndOccurrences.begin()->first,
+                        depth + 1);
             }
             else if (positionMetadata.nextPositionAndOccurrences.size() > 1)
             {
@@ -86,7 +97,7 @@ namespace WorkerMiningOptimization
                 uint16_t bestOccurrences = 0;
                 for (const auto &[nextPosition, occurrences] : positionMetadata.nextPositionAndOccurrences)
                 {
-                    auto nextPositionEvaluation = evaluateNextPosition(commandFrame, allPositionData, nextPosition);
+                    auto nextPositionEvaluation = evaluateNextPosition(commandFrame, allPositionData, nextPosition, depth + 1);
                     if (nextPositionEvaluation.explored)
                     {
                         delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
