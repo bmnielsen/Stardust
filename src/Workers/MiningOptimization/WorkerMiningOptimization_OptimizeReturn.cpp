@@ -36,12 +36,12 @@ namespace WorkerMiningOptimization
         PositionEvaluation evaluatePosition(int commandFrame,
                                             const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
                                             const ReturnPositionObservations &positionMetadata,
-                                            int depth = 0);
+                                            std::unordered_set<PositionAndVelocity> &visited);
 
         PositionEvaluation evaluateNextPosition(int commandFrame, // NOLINT(*-no-recursion)
                                                 const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
                                                 const PositionAndVelocity &nextPosition,
-                                                int depth)
+                                                std::unordered_set<PositionAndVelocity> &visited)
         {
             auto nextPositionDataIt = allPositionData.find(nextPosition);
             if (nextPositionDataIt == allPositionData.end())
@@ -52,15 +52,20 @@ namespace WorkerMiningOptimization
                 return {};
             }
 
-            return evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second, depth + 1);
+            auto result = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second, visited);
+            visited.erase(nextPosition);
+            return result;
         }
 
         PositionEvaluation evaluatePosition(int commandFrame, // NOLINT(*-no-recursion)
                                             const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
                                             const ReturnPositionObservations &positionMetadata,
-                                            int depth)
+                                            std::unordered_set<PositionAndVelocity> &visited)
         {
-            if (depth == RECURSION_LIMIT)
+            // Ensure we don't process a looping path or recurse too deep
+            if (visited.contains(positionMetadata.pos)) return {};
+            visited.insert(positionMetadata.pos);
+            if (visited.size() == RECURSION_LIMIT)
             {
                 Log::Get() << "ERROR: Reached recursion limit for return path optimizer";
                 return {};
@@ -88,7 +93,7 @@ namespace WorkerMiningOptimization
                         commandFrame,
                         allPositionData,
                         positionMetadata.nextPositionAndOccurrences.begin()->first,
-                        depth + 1);
+                        visited);
             }
             else if (positionMetadata.nextPositionAndOccurrences.size() > 1)
             {
@@ -97,7 +102,7 @@ namespace WorkerMiningOptimization
                 uint16_t bestOccurrences = 0;
                 for (const auto &[nextPosition, occurrences] : positionMetadata.nextPositionAndOccurrences)
                 {
-                    auto nextPositionEvaluation = evaluateNextPosition(commandFrame, allPositionData, nextPosition, depth + 1);
+                    auto nextPositionEvaluation = evaluateNextPosition(commandFrame, allPositionData, nextPosition, visited);
                     if (nextPositionEvaluation.explored)
                     {
                         delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
@@ -163,7 +168,8 @@ namespace WorkerMiningOptimization
                 return evaluation.explored;
             };
 
-            auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata);
+            std::unordered_set<PositionAndVelocity> visited;
+            auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata, visited);
             if (shouldResend(evaluation))
             {
                 workerStatus.plannedResendPosition = evaluation.resendPosition;

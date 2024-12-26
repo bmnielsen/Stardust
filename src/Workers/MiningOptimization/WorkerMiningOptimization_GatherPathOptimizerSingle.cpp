@@ -81,12 +81,18 @@ namespace WorkerMiningOptimization
                                                          uint8_t deltaToFirstResend,
                                                          const GatherResendArrivalObservations &observations,
                                                          const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions,
-                                                         int depth = 0)
+                                                         std::unordered_set<PositionAndVelocity> &visited)
         {
-            if (depth == RECURSION_LIMIT)
+            // Ensure we don't process a looping path or recurse too deep
+            if (deltaToFirstResend > 0)
             {
-                Log::Get() << "ERROR: Reached recursion limit for one-worker path optimizer";
-                return {};
+                if (visited.contains(here)) return {};
+                visited.insert(here);
+                if (visited.size() == RECURSION_LIMIT)
+                {
+                    Log::Get() << "ERROR: Reached recursion limit for single-worker gather optimizer";
+                    return {};
+                }
             }
 
             // Start by getting the data for doing a second resend at all of the next positions
@@ -114,7 +120,8 @@ namespace WorkerMiningOptimization
                                                                                 nextPositionDataIt->second.deltaToFirstResend,
                                                                                 nextPositionDataIt->second.arrivalObservations,
                                                                                 nextPositionDataIt->second.nextPositionAndOccurrences,
-                                                                                depth + 1);
+                                                                                visited);
+                    visited.erase(nextPosition);
                     if (nextPositionEvaluation.explored)
                     {
                         deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
@@ -168,11 +175,14 @@ namespace WorkerMiningOptimization
         PositionEvaluation evaluatePosition(int commandFrame, // NOLINT(*-no-recursion)
                                             const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
                                             const GatherPositionObservations &positionMetadata,
-                                            int depth = 0)
+                                            std::unordered_set<PositionAndVelocity> &visited)
         {
-            if (depth == RECURSION_LIMIT)
+            // Ensure we don't process a looping path or recurse too deep
+            if (visited.contains(positionMetadata.pos)) return {};
+            visited.insert(positionMetadata.pos);
+            if (visited.size() == RECURSION_LIMIT)
             {
-                Log::Get() << "ERROR: Reached recursion limit for one-worker path optimizer";
+                Log::Get() << "ERROR: Reached recursion limit for single-worker gather optimizer";
                 return {};
             }
 
@@ -200,7 +210,8 @@ namespace WorkerMiningOptimization
                         continue;
                     }
 
-                    auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second, depth + 1);
+                    auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second, visited);
+                    visited.erase(nextPosition);
                     if (nextPositionEvaluation.explored)
                     {
                         deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
@@ -228,7 +239,7 @@ namespace WorkerMiningOptimization
                                                                 0,
                                                                 positionMetadata.noSecondResendArrivalObservations,
                                                                 positionMetadata.nextPositionAndOccurrences,
-                                                                depth + 1);
+                                                                visited);
 
             // If one of the branches wants to explore, return it
             if (evaluationHere.positionToTryOnExpectedPath &&
@@ -311,7 +322,8 @@ namespace WorkerMiningOptimization
             return true;
         };
 
-        auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata);
+        std::unordered_set<PositionAndVelocity> visited;
+        auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata, visited);
         if (shouldResend(evaluation))
         {
             workerStatus.plannedResendPosition = evaluation.resendPosition;
@@ -402,12 +414,14 @@ namespace WorkerMiningOptimization
         int firstResendCommandFrame = BWAPI::Broodwar->getFrameCount() - secondGatherPositionIt->second.deltaToFirstResend;
 
         // Evaluate second resends
+        std::unordered_set<PositionAndVelocity> visited;
         auto evaluation = evaluateSecondResendPositions(BWAPI::Broodwar->getFrameCount(),
                                                         resentPositionData,
                                                         *currentPosition,
                                                         secondGatherPositionIt->second.deltaToFirstResend,
                                                         secondGatherPositionIt->second.arrivalObservations,
-                                                        secondGatherPositionIt->second.nextPositionAndOccurrences);
+                                                        secondGatherPositionIt->second.nextPositionAndOccurrences,
+                                                        visited);
 
         // Use it if we want to explore
         if (evaluation.positionToTryOnExpectedPath)
