@@ -115,7 +115,7 @@ namespace WorkerMiningOptimization
                                                                                 nextPositionDataIt->second.arrivalObservations,
                                                                                 nextPositionDataIt->second.nextPositionAndOccurrences,
                                                                                 depth + 1);
-                    if (nextPositionsEvaluation.explored)
+                    if (nextPositionEvaluation.explored)
                     {
                         deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
                         occurrenceCount += occurrences;
