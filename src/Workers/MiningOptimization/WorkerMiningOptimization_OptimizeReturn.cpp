@@ -63,8 +63,8 @@ namespace WorkerMiningOptimization
                                             std::unordered_set<PositionAndVelocity> &visited)
         {
             // Ensure we don't process a looping path or recurse too deep
-            if (visited.contains(positionMetadata.pos)) return {};
-            visited.insert(positionMetadata.pos);
+            auto result = visited.insert(positionMetadata.pos);
+            if (!result.second) return {};
             if (visited.size() == RECURSION_LIMIT)
             {
                 Log::Get() << "ERROR: Reached recursion limit for return path optimizer";

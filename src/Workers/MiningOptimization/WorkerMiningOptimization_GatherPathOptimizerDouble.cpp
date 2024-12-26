@@ -204,8 +204,8 @@ namespace WorkerMiningOptimization
             // Ensure we don't process a looping path or recurse too deep
             if (deltaToFirstResend > 0)
             {
-                if (visited.contains(here)) return {};
-                visited.insert(here);
+                auto result = visited.insert(here);
+                if (!result.second) return {};
                 if (visited.size() == RECURSION_LIMIT)
                 {
                     Log::Get() << "ERROR: Reached recursion limit for double-worker gather optimizer"
@@ -386,8 +386,8 @@ namespace WorkerMiningOptimization
                                             std::unordered_set<PositionAndVelocity> &visited)
         {
             // Ensure we don't process a looping path or recurse too deep
-            if (visited.contains(positionMetadata.pos)) return {};
-            visited.insert(positionMetadata.pos);
+            auto result = visited.insert(positionMetadata.pos);
+            if (!result.second) return {};
             if (visited.size() == RECURSION_LIMIT)
             {
                 Log::Get() << "ERROR: Reached recursion limit for single-worker gather optimizer"
