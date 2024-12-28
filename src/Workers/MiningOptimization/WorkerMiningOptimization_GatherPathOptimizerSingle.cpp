@@ -42,6 +42,26 @@ namespace WorkerMiningOptimization
             std::shared_ptr<PositionAndVelocity> resendPosition;
             bool positionToTryOnExpectedPath = false;
             int positionToTryDelta = 0;
+
+            static PositionEvaluation exploring(const PositionAndVelocity &firstResend, const PositionAndVelocity &secondResend, int delta)
+            {
+                return {false,
+                        100,
+                        {secondResend},
+                        std::make_shared<PositionAndVelocity>(firstResend),
+                        true,
+                        delta};
+            }
+
+            static PositionEvaluation resends(double delta,
+                                              const PositionAndVelocity &firstResend,
+                                              const PositionAndVelocity &secondResend)
+            {
+                return {true,
+                        delta,
+                        {secondResend},
+                        std::make_shared<PositionAndVelocity>(firstResend)};
+            }
         };
 
         bool less(const PositionEvaluation &first, const PositionEvaluation &second)
@@ -147,7 +167,7 @@ namespace WorkerMiningOptimization
                 int positionToTryDelta = std::abs(probableDeltaToBenchmark + deltaToFirstResend);
                 if (!nextPositionsEvaluation.positionToTryOnExpectedPath || positionToTryDelta < nextPositionsEvaluation.positionToTryDelta)
                 {
-                    return {false, 100, {here}, std::make_shared<PositionAndVelocity>(positionMetadata.pos), true, positionToTryDelta};
+                    return PositionEvaluation::exploring(positionMetadata.pos, here, positionToTryDelta);
                 }
             }
 
@@ -160,7 +180,7 @@ namespace WorkerMiningOptimization
 
             if (expectedDelta.value() < (nextPositionsEvaluation.expectedDelta - EPSILON))
             {
-                return {true, expectedDelta.value(), {here}, std::make_shared<PositionAndVelocity>(positionMetadata.pos), false, 0};
+                return PositionEvaluation::resends(expectedDelta.value(), positionMetadata.pos, here);
             }
 
             return nextPositionsEvaluation;

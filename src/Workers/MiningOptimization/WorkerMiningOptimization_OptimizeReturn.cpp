@@ -23,6 +23,16 @@ namespace WorkerMiningOptimization
             {
                 return expectedDelay + (double)((int)expectedPath.size() - 1);
             }
+
+            static PositionEvaluation exploring(double delta, const PositionAndVelocity &pos)
+            {
+                return {false, delta, {pos}, std::make_shared<PositionAndVelocity>(pos), true};
+            }
+
+            static PositionEvaluation resend(double delta, const PositionAndVelocity &pos)
+            {
+                return {true, delta, {pos}, std::make_shared<PositionAndVelocity>(pos), false};
+            }
         };
 
         bool less(const PositionEvaluation &first, const PositionEvaluation &second)
@@ -119,7 +129,7 @@ namespace WorkerMiningOptimization
                         std::abs(8 + BWAPI::Broodwar->getLatencyFrames() - positionMetadata.noResendArrivalObservations.mostCommonArrivalDelay());
                 if (!nextPositionsEvaluation.positionToTry || deltaToBenchmark < nextPositionsEvaluation.expectedDelay)
                 {
-                    return {false, deltaToBenchmark, {*here}, here, true};
+                    return PositionEvaluation::exploring(deltaToBenchmark, *here);
                 }
             }
             if (nextPositionsEvaluation.positionToTry) return nextPositionsEvaluation;
@@ -133,7 +143,7 @@ namespace WorkerMiningOptimization
             double expectedDelay = positionMetadata.resendArrivalObservations.expectedDeliveryDelay(commandFrame);
             if (!nextPositionsEvaluation.explored || expectedDelay < (nextPositionsEvaluation.expectedDelayAtStartOfPath() - EPSILON))
             {
-                return {true, expectedDelay, {*here}, here, false};
+                return PositionEvaluation::resend(expectedDelay, *here);
             }
 
             return nextPositionsEvaluation;
