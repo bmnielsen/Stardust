@@ -312,51 +312,6 @@ namespace WorkerMiningOptimization
 #if OPTIMALRETURN_DEBUG_VERBOSE
             CherryVis::log(worker->id) << "Added observation of " << *workerStatus.resentPosition << " with arrival " << arrival;
 #endif
-
-#if OPTIMALRETURN_DEBUG
-            // Validate that the delivery frame matches what we would expect
-            auto actualFramesToDelivery = (int)std::distance(positionsInHistory.resendPositionIt, workerStatus.positionHistory.end()) - 1;
-            auto noResetExpectedFramesToDelivery = (BWAPI::Broodwar->getLatencyFrames() + 10);
-            while (arrival > noResetExpectedFramesToDelivery)
-            {
-                noResetExpectedFramesToDelivery += 9;
-            }
-
-            auto framesToReset =
-                    OrderProcessTimer::framesToNextReset(currentFrame - actualFramesToDelivery + BWAPI::Broodwar->getLatencyFrames() + 1);
-
-            framesToReset += BWAPI::Broodwar->getLatencyFrames();
-
-            int minExpectedFramesToDelivery, maxExpectedFramesToDelivery;
-            if (framesToReset < arrival)
-            {
-                // Reset prior to arrival
-                minExpectedFramesToDelivery = arrival;
-                maxExpectedFramesToDelivery = arrival + 9;
-            }
-            else if (framesToReset < noResetExpectedFramesToDelivery)
-            {
-                // Reset between arrival and delivery
-                minExpectedFramesToDelivery = framesToReset + 1;
-                maxExpectedFramesToDelivery = minExpectedFramesToDelivery + 8;
-            }
-            else
-            {
-                minExpectedFramesToDelivery = maxExpectedFramesToDelivery = noResetExpectedFramesToDelivery;
-            }
-            if (actualFramesToDelivery < minExpectedFramesToDelivery || actualFramesToDelivery > maxExpectedFramesToDelivery)
-            {
-                Log::Get() << "ERROR: Position " << *workerStatus.resentPosition << " has unexpected delivery delay"
-                           << "; expected=" << minExpectedFramesToDelivery << "-" << maxExpectedFramesToDelivery
-                           << "; actual=" << actualFramesToDelivery
-                           << "; framesToReset=" << framesToReset
-                           << "; framesToArrival=" << arrival
-                           << "; framesToNoResetMining=" << noResetExpectedFramesToDelivery
-                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
-            }
-#endif
-
-            // TODO: Validate effectiveness of resends (also wrt. collisions and kept speed)
         }
     }
 
