@@ -2,12 +2,12 @@
 // This file contains the logic to find the optimal path from a position for a worker mining a patch together with another worker
 
 #include "WorkerMiningOptimization.h"
+#include "PathTraversalLoopGuard.h"
 #include "DebugFlag_WorkerMiningOptimization.h"
 
 #include "Geo.h"
 
 #define EPSILON 0.001
-#define RECURSION_LIMIT 100
 
 /*
  * The algorithm implemented here is similar to the one for a single worker, but with the following differences:
@@ -199,19 +199,12 @@ namespace WorkerMiningOptimization
                                                          uint8_t deltaToFirstResend,
                                                          const GatherResendArrivalObservations &observations,
                                                          const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions,
-                                                         std::unordered_set<PositionAndVelocity> &visited)
+                                                         PathTraversalLoopGuard &loopGuard)
         {
             // Ensure we don't process a looping path or recurse too deep
             if (deltaToFirstResend > 0)
             {
-                auto result = visited.insert(here);
-                if (!result.second) return {};
-                if (visited.size() == RECURSION_LIMIT)
-                {
-                    Log::Get() << "ERROR: Reached recursion limit for double-worker gather optimizer"
-                               << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
-                    return {};
-                }
+                if (loopGuard.push(here)) return {};
             }
 
             // If we have no further next positions, we are at the end of our recorded path
@@ -256,8 +249,8 @@ namespace WorkerMiningOptimization
                                                                 nextPositionDataIt->second.deltaToFirstResend,
                                                                 nextPositionDataIt->second.arrivalObservations,
                                                                 nextPositionDataIt->second.nextPositionAndOccurrences,
-                                                                visited);
-                    visited.erase(nextPosition);
+                                                                loopGuard);
+                    loopGuard.pop(nextPosition);
                     return result;
                 }
 
@@ -280,8 +273,8 @@ namespace WorkerMiningOptimization
                                                             deltaToFirstResend + 1,
                                                             nextPositionDataIt->second.noSecondResendArrivalObservations,
                                                             nextPositionDataIt->second.nextPositionAndOccurrences,
-                                                            visited);
-                visited.erase(nextPosition);
+                                                            loopGuard);
+                loopGuard.pop(nextPosition);
                 return result;
             };
 
@@ -383,17 +376,10 @@ namespace WorkerMiningOptimization
                                             int workerOrderProcessTimer,
                                             const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
                                             const GatherPositionObservations &positionMetadata,
-                                            std::unordered_set<PositionAndVelocity> &visited)
+                                            PathTraversalLoopGuard &loopGuard)
         {
             // Ensure we don't process a looping path or recurse too deep
-            auto result = visited.insert(positionMetadata.pos);
-            if (!result.second) return {};
-            if (visited.size() == RECURSION_LIMIT)
-            {
-                Log::Get() << "ERROR: Reached recursion limit for single-worker gather optimizer"
-                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
-                return {};
-            }
+            if (loopGuard.push(positionMetadata.pos)) return {};
 
             // Compute the order process timer for the next frame
             int nextWorkerOrderProcessTimer = nextOrderProcessTimer(simulationFrame, workerOrderProcessTimer);
@@ -422,8 +408,8 @@ namespace WorkerMiningOptimization
                                                nextWorkerOrderProcessTimer,
                                                allPositionData,
                                                nextPositionDataIt->second,
-                                               visited);
-                visited.erase(nextPosition);
+                                               loopGuard);
+                loopGuard.pop(nextPosition);
                 return result;
             };
 
@@ -479,7 +465,7 @@ namespace WorkerMiningOptimization
                                                                 0,
                                                                 positionMetadata.noSecondResendArrivalObservations,
                                                                 positionMetadata.nextPositionAndOccurrences,
-                                                                visited);
+                                                                loopGuard);
 
             // If exploring, return now
             if (evaluationHere.positionToTryOnExpectedPath) return evaluationHere;
@@ -534,13 +520,13 @@ namespace WorkerMiningOptimization
             return true;
         };
 
-        std::unordered_set<PositionAndVelocity> visited;
+        PathTraversalLoopGuard loopGuard;
         auto evaluation = evaluatePosition(workerStatus,
                                            BWAPI::Broodwar->getFrameCount(),
                                            workerStatus.worker->orderProcessTimer,
                                            optimalPositions,
                                            positionMetadata,
-                                           visited);
+                                           loopGuard);
         if (shouldResend(evaluation))
         {
             workerStatus.plannedResendPosition = evaluation.resendPosition;
@@ -664,7 +650,7 @@ namespace WorkerMiningOptimization
         // We have observed this path, so we can replan the second resend position
 
         // Evaluate second resends
-        std::unordered_set<PositionAndVelocity> visited;
+        PathTraversalLoopGuard loopGuard;
         auto evaluation = evaluateSecondResendPositions(workerStatus,
                                                         currentFrame,
                                                         currentFrame,
@@ -675,7 +661,7 @@ namespace WorkerMiningOptimization
                                                         secondGatherPositionIt->second.deltaToFirstResend,
                                                         secondGatherPositionIt->second.arrivalObservations,
                                                         secondGatherPositionIt->second.nextPositionAndOccurrences,
-                                                        visited);
+                                                        loopGuard);
 
         // Use it if we want to explore
         if (evaluation.positionToTryOnExpectedPath)

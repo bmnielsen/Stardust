@@ -2,10 +2,10 @@
 // This file contains the logic that optimizes the return of minerals
 
 #include "WorkerMiningOptimization.h"
+#include "PathTraversalLoopGuard.h"
 #include "DebugFlag_WorkerMiningOptimization.h"
 
 #define EPSILON 0.001
-#define RECURSION_LIMIT 100
 
 namespace WorkerMiningOptimization
 {
@@ -36,12 +36,12 @@ namespace WorkerMiningOptimization
         PositionEvaluation evaluatePosition(int commandFrame,
                                             const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
                                             const ReturnPositionObservations &positionMetadata,
-                                            std::unordered_set<PositionAndVelocity> &visited);
+                                            PathTraversalLoopGuard &loopGuard);
 
         PositionEvaluation evaluateNextPosition(int commandFrame, // NOLINT(*-no-recursion)
                                                 const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
                                                 const PositionAndVelocity &nextPosition,
-                                                std::unordered_set<PositionAndVelocity> &visited)
+                                                PathTraversalLoopGuard &loopGuard)
         {
             auto nextPositionDataIt = allPositionData.find(nextPosition);
             if (nextPositionDataIt == allPositionData.end())
@@ -52,24 +52,18 @@ namespace WorkerMiningOptimization
                 return {};
             }
 
-            auto result = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second, visited);
-            visited.erase(nextPosition);
+            auto result = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second, loopGuard);
+            loopGuard.pop(nextPosition);
             return result;
         }
 
         PositionEvaluation evaluatePosition(int commandFrame, // NOLINT(*-no-recursion)
                                             const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
                                             const ReturnPositionObservations &positionMetadata,
-                                            std::unordered_set<PositionAndVelocity> &visited)
+                                            PathTraversalLoopGuard &loopGuard)
         {
             // Ensure we don't process a looping path or recurse too deep
-            auto result = visited.insert(positionMetadata.pos);
-            if (!result.second) return {};
-            if (visited.size() == RECURSION_LIMIT)
-            {
-                Log::Get() << "ERROR: Reached recursion limit for return path optimizer";
-                return {};
-            }
+            if (loopGuard.push(positionMetadata.pos)) return {};
 
             auto here = std::make_shared<PositionAndVelocity>(positionMetadata.pos);
 
@@ -93,7 +87,7 @@ namespace WorkerMiningOptimization
                         commandFrame,
                         allPositionData,
                         positionMetadata.nextPositionAndOccurrences.begin()->first,
-                        visited);
+                        loopGuard);
             }
             else if (positionMetadata.nextPositionAndOccurrences.size() > 1)
             {
@@ -102,7 +96,7 @@ namespace WorkerMiningOptimization
                 uint16_t bestOccurrences = 0;
                 for (const auto &[nextPosition, occurrences] : positionMetadata.nextPositionAndOccurrences)
                 {
-                    auto nextPositionEvaluation = evaluateNextPosition(commandFrame, allPositionData, nextPosition, visited);
+                    auto nextPositionEvaluation = evaluateNextPosition(commandFrame, allPositionData, nextPosition, loopGuard);
                     if (nextPositionEvaluation.explored)
                     {
                         delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
@@ -168,8 +162,8 @@ namespace WorkerMiningOptimization
                 return evaluation.explored;
             };
 
-            std::unordered_set<PositionAndVelocity> visited;
-            auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata, visited);
+            PathTraversalLoopGuard loopGuard;
+            auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata, loopGuard);
             if (shouldResend(evaluation))
             {
                 workerStatus.plannedResendPosition = evaluation.resendPosition;

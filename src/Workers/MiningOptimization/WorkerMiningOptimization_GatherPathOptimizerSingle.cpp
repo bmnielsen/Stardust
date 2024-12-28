@@ -2,10 +2,10 @@
 // This file contains the logic to find the optimal path from a position for a single worker mining a patch
 
 #include "WorkerMiningOptimization.h"
+#include "PathTraversalLoopGuard.h"
 #include "DebugFlag_WorkerMiningOptimization.h"
 
 #define EPSILON 0.001
-#define RECURSION_LIMIT 100
 
 namespace WorkerMiningOptimization
 {
@@ -81,18 +81,12 @@ namespace WorkerMiningOptimization
                                                          uint8_t deltaToFirstResend,
                                                          const GatherResendArrivalObservations &observations,
                                                          const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions,
-                                                         std::unordered_set<PositionAndVelocity> &visited)
+                                                         PathTraversalLoopGuard &loopGuard)
         {
             // Ensure we don't process a looping path or recurse too deep
             if (deltaToFirstResend > 0)
             {
-                auto result = visited.insert(here);
-                if (!result.second) return {};
-                if (visited.size() == RECURSION_LIMIT)
-                {
-                    Log::Get() << "ERROR: Reached recursion limit for single-worker gather optimizer";
-                    return {};
-                }
+                if (loopGuard.push(here)) return {};
             }
 
             // Start by getting the data for doing a second resend at all of the next positions
@@ -120,8 +114,8 @@ namespace WorkerMiningOptimization
                                                                                 nextPositionDataIt->second.deltaToFirstResend,
                                                                                 nextPositionDataIt->second.arrivalObservations,
                                                                                 nextPositionDataIt->second.nextPositionAndOccurrences,
-                                                                                visited);
-                    visited.erase(nextPosition);
+                                                                                loopGuard);
+                    loopGuard.pop(nextPosition);
                     if (nextPositionEvaluation.explored)
                     {
                         deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
@@ -175,16 +169,10 @@ namespace WorkerMiningOptimization
         PositionEvaluation evaluatePosition(int commandFrame, // NOLINT(*-no-recursion)
                                             const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
                                             const GatherPositionObservations &positionMetadata,
-                                            std::unordered_set<PositionAndVelocity> &visited)
+                                            PathTraversalLoopGuard &loopGuard)
         {
             // Ensure we don't process a looping path or recurse too deep
-            auto result = visited.insert(positionMetadata.pos);
-            if (!result.second) return {};
-            if (visited.size() == RECURSION_LIMIT)
-            {
-                Log::Get() << "ERROR: Reached recursion limit for single-worker gather optimizer";
-                return {};
-            }
+            if (loopGuard.push(positionMetadata.pos)) return {};
 
             // Jump out of the recursion when we've exceeded the exploration horizon
             if (positionMetadata.deltaToBenchmarkAndOccurrences.size() == 1 &&
@@ -210,8 +198,8 @@ namespace WorkerMiningOptimization
                         continue;
                     }
 
-                    auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second, visited);
-                    visited.erase(nextPosition);
+                    auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second, loopGuard);
+                    loopGuard.pop(nextPosition);
                     if (nextPositionEvaluation.explored)
                     {
                         deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
@@ -239,7 +227,7 @@ namespace WorkerMiningOptimization
                                                                 0,
                                                                 positionMetadata.noSecondResendArrivalObservations,
                                                                 positionMetadata.nextPositionAndOccurrences,
-                                                                visited);
+                                                                loopGuard);
 
             // If one of the branches wants to explore, return it
             if (evaluationHere.positionToTryOnExpectedPath &&
@@ -322,8 +310,8 @@ namespace WorkerMiningOptimization
             return true;
         };
 
-        std::unordered_set<PositionAndVelocity> visited;
-        auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata, visited);
+        PathTraversalLoopGuard loopGuard;
+        auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata, loopGuard);
         if (shouldResend(evaluation))
         {
             workerStatus.plannedResendPosition = evaluation.resendPosition;
@@ -414,14 +402,14 @@ namespace WorkerMiningOptimization
         int firstResendCommandFrame = BWAPI::Broodwar->getFrameCount() - secondGatherPositionIt->second.deltaToFirstResend;
 
         // Evaluate second resends
-        std::unordered_set<PositionAndVelocity> visited;
+        PathTraversalLoopGuard loopGuard;
         auto evaluation = evaluateSecondResendPositions(BWAPI::Broodwar->getFrameCount(),
                                                         resentPositionData,
                                                         *currentPosition,
                                                         secondGatherPositionIt->second.deltaToFirstResend,
                                                         secondGatherPositionIt->second.arrivalObservations,
                                                         secondGatherPositionIt->second.nextPositionAndOccurrences,
-                                                        visited);
+                                                        loopGuard);
 
         // Use it if we want to explore
         if (evaluation.positionToTryOnExpectedPath)
