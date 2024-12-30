@@ -645,8 +645,12 @@ namespace WorkerMiningOptimization
             handleGatherPatchSwitch(workerStatus);
 
             CherryVis::log(worker->id) << "targeting different patch; resending order";
-            Log::Get() << "ERROR: patch @ " << resource->tile << "; worker " << worker->id << " @ " << worker->getTilePosition() << " switched patch"
-                       << "; passed10DistancePosition: " << workerStatus.passed10DistancePosition;
+            if (workerStatus.passed10DistancePosition != -1 &&
+                workerStatus.passed10DistancePosition < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+            {
+                Log::Get() << "ERROR: patch @ " << resource->tile << "; worker " << worker->id << " @ " << worker->getTilePosition() << " switched patch"
+                           << "; passed10DistancePosition: " << workerStatus.passed10DistancePosition;
+            }
 
             workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
             if (workerStatus.passed10DistancePosition == -1)
