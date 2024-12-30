@@ -21,7 +21,7 @@ namespace WorkerMiningOptimization
             depth++;
             return depth == RECURSION_LIMIT;
 #else
-            auto result = visited.insert(here);
+            auto result = visited.insert(pos);
             return !result.second || visited.size() == RECURSION_LIMIT;
 #endif
         }
