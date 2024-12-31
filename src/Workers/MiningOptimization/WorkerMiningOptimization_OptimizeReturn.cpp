@@ -158,6 +158,8 @@ namespace WorkerMiningOptimization
             if (metadataIt == optimalPositions.end()) return; // haven't reached an observed position yet
             auto &positionMetadata = metadataIt->second;
 
+            workerStatus.hasPathData = true;
+
             // We are now sure that we will plan something, though we may choose not to perform a resend
             workerStatus.resendPlanned = true;
 

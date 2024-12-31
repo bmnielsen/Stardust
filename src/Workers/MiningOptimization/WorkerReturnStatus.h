@@ -44,6 +44,9 @@ namespace WorkerMiningOptimization
         // Position at which the return command was resent
         std::shared_ptr<const PositionAndVelocity> resentPosition;
 
+        // Whether the worker had path data it could use on this approach
+        bool hasPathData;
+
         WorkerReturnStatus(MyWorker worker, MyUnit depot, Resource resource)
                 : worker(std::move(worker))
                 , depot(std::move(depot))
@@ -53,6 +56,7 @@ namespace WorkerMiningOptimization
                 , resendPlanned(false)
                 , plannedResendIsForExploration(false)
                 , expectedDelayAfterResend(100.0)
+                , hasPathData(false)
         {}
 
         void reset()
@@ -66,6 +70,7 @@ namespace WorkerMiningOptimization
             plannedResendIsForExploration = false;
             expectedDelayAfterResend = 100.0;
             resentPosition = nullptr;
+            hasPathData = false;
         }
 
         [[nodiscard]] bool validForObservations() const
