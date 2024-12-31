@@ -62,6 +62,9 @@ namespace WorkerMiningOptimization
         // Whether the worker switched patches while trying to mine
         bool switchedPatches;
 
+        // Whether the worker had path data it could use on this approach
+        bool hasPathData;
+
         WorkerGatherStatus(MyWorker worker, MyUnit depot, Resource resource)
                 : worker(std::move(worker))
                 , depot(std::move(depot))
@@ -75,6 +78,7 @@ namespace WorkerMiningOptimization
                 , takeoverFrame(-1)
                 , passed10DistancePosition(-1)
                 , switchedPatches(false)
+                , hasPathData(false)
         {}
 
         void reset()
@@ -94,6 +98,7 @@ namespace WorkerMiningOptimization
             takeoverFrame = -1;
             passed10DistancePosition = -1;
             switchedPatches = false;
+            hasPathData = false;
         }
 
         [[nodiscard]] bool resentOnSchedule() const

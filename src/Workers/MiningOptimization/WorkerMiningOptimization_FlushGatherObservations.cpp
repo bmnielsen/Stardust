@@ -148,6 +148,10 @@ namespace WorkerMiningOptimization
         int collisions = 0;
         int noncollisions = 0;
 #endif
+#if LOGGING_ENABLED
+        unsigned int hadPathData = 0;
+        unsigned int didNotHavePathData = 0;
+#endif
 
         void handlePossiblePatchCollision(const MiningWorker &miningWorker)
         {
@@ -585,6 +589,23 @@ namespace WorkerMiningOptimization
             }
         }
 #endif
+#if LOGGING_ENABLED
+        if (currentFrame == 0)
+        {
+            hadPathData = 0;
+            didNotHavePathData = 0;
+        }
+        else if (currentFrame % 1000 == 0)
+        {
+            auto total = hadPathData + didNotHavePathData;
+            if (total > 0)
+            {
+                Log::Get() << std::fixed << std::setprecision(1)
+                           << "Gathers with path data: " << (100.0 * hadPathData) / (double)total
+                           << "% over " << total << " collections";
+            }
+        }
+#endif
 
         // Update collision state for workers that are finished mining
         for (auto it = miningWorkers.begin(); it != miningWorkers.end();)
@@ -635,6 +656,17 @@ namespace WorkerMiningOptimization
                 it++;
                 continue;
             }
+
+#if LOGGING_ENABLED
+            if (it->second.hasPathData)
+            {
+                hadPathData++;
+            }
+            else
+            {
+                didNotHavePathData++;
+            }
+#endif
 
             // Add the final position to the history
             it->second.appendCurrentPosition();

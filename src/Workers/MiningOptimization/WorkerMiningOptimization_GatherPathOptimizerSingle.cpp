@@ -290,6 +290,7 @@ namespace WorkerMiningOptimization
 
         // We are now sure that we will plan something, though we may choose not to perform a resend
         workerStatus.resendsPlanned = true;
+        workerStatus.hasPathData = true;
 
         // Check if we need to "explore" the no resend case
         if (positionMetadata.deltaToBenchmarkAndOccurrences.empty()) return;

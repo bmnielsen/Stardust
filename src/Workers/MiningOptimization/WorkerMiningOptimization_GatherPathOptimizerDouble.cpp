@@ -495,6 +495,7 @@ namespace WorkerMiningOptimization
         if (metadataIt == optimalPositions.end()) return; // haven't reached an observed position yet
         auto &positionMetadata = metadataIt->second;
 
+        workerStatus.hasPathData = true;
         workerStatus.resendsPlanned = true;
 
         auto shouldResend = [&](const PositionEvaluation &evaluation)
