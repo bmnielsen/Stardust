@@ -651,7 +651,7 @@ namespace WorkerMiningOptimization
                 continue;
             }
 
-            if (worker->bwapiUnit->getOrder() != BWAPI::Orders::WaitForMinerals)
+            if (worker->bwapiUnit->getOrder() != BWAPI::Orders::WaitForMinerals || it->second.lastProcessedFrame == currentFrame)
             {
                 it++;
                 continue;

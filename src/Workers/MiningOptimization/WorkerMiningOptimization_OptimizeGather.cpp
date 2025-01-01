@@ -203,7 +203,8 @@ namespace WorkerMiningOptimization
                         }
 
                         // Plan a full approach if we have path information
-                        if (workerStatus.takeoverState == 1 && !workerStatus.switchedPatches && !takeoverFrameUnknown)
+                        if (!workerStatus.resendsPlanned && workerStatus.takeoverState == 1 && !workerStatus.switchedPatches && !takeoverFrameUnknown
+                            && workerStatus.resentFrames.empty())
                         {
                             auto positionMetadataIt = optimalPositions.find(*currentPosition);
                             if (positionMetadataIt != optimalPositions.end())
@@ -558,6 +559,7 @@ namespace WorkerMiningOptimization
                             }
 
                             // If we are finished following the planned path, switch states for mineral locking
+                            // TODO: Bug here when exploring and don't have an expected arrival frame
                             if (workerStatus.expectedArrivalFrame <= (currentFrame + BWAPI::Broodwar->getLatencyFrames()))
                             {
 #if TAKEOVER_DEBUG
