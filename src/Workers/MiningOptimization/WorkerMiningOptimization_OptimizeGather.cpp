@@ -560,10 +560,19 @@ namespace WorkerMiningOptimization
 
                             // If we are finished following the planned path, switch states for mineral locking
                             // TODO: Bug here when exploring and don't have an expected arrival frame
-                            if (workerStatus.expectedArrivalFrame <= (currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                            if ((workerStatus.expectedArrivalFrame == -1 && workerStatus.lastResendFrame() <= (currentFrame - 11)) ||
+                                (workerStatus.expectedArrivalFrame != -1 &&
+                                    workerStatus.expectedArrivalFrame <= (currentFrame + BWAPI::Broodwar->getLatencyFrames())))
                             {
 #if TAKEOVER_DEBUG
-                                CherryVis::log(worker->id) << "Expected to arrive at patch in LF, switching to state 3 for mineral locking";
+                                if (workerStatus.expectedArrivalFrame == -1)
+                                {
+                                    CherryVis::log(worker->id) << "Last resend takes effect in LF, switching to state 3 for mineral locking";
+                                }
+                                else
+                                {
+                                    CherryVis::log(worker->id) << "Expected to arrive at patch in LF, switching to state 3 for mineral locking";
+                                }
 #endif
                                 workerStatus.takeoverState = 3;
 

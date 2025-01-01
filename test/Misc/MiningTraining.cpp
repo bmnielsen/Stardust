@@ -849,6 +849,17 @@ TEST(MiningTraining, VermeerTestSuiteDouble)
               << "Single: " << sgl << std::endl;
 }
 
+TEST(MiningTraining, EclipseDouble)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Eclipse");
+    test.randomSeed = 42;
+    auto dbl = runEfficiencyTestImpl(test, 2, 0, false, false, 3);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Double: " << dbl << std::endl;
+}
+
 TEST(MiningTraining, VermeerTestSuiteDoubleContinuous)
 {
     while (true)
@@ -877,6 +888,19 @@ TEST(MiningTraining, VermeerTestSuiteSingleAndDoubleContinuous)
                   << "Single: " << sgl << std::endl
                   << "Double: " << dbl << std::endl;
     }
+}
+
+TEST(MiningTraining, VermeerTestSuiteSingleAndDouble)
+{
+    BWTest test;
+    test.map = Maps::GetOne("VermeerSE_2.1");
+    test.randomSeed = 42;
+    auto sgl = runTestSuite(test, 1, 0);
+    auto dbl = runTestSuite(test, 2, 0);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << std::endl
+              << "Double: " << dbl << std::endl;
 }
 
 TEST(MiningTraining, VermeerStabilityTest)
