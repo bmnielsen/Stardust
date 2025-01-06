@@ -338,13 +338,6 @@ namespace WorkerMiningOptimization
                 return;
             }
 
-            // If a third resend took effect before arrival at the patch, we bail out here
-            // Third resends can happen when the worker is being takeover-optimized
-            if (positionsInHistory.resendsBeforeArrival.size() > 2)
-            {
-                return;
-            }
-
             auto &optimalGatherPositions = optimalGatherPositionsFor(workerStatus.resource);
 
             // Iterator to the apparent optimal position in the position history
@@ -362,6 +355,71 @@ namespace WorkerMiningOptimization
                            << "; worker id " << worker->id << " @ " << worker->getTilePosition();
             }
 #endif
+            auto resentPositionDataIt = optimalGatherPositions.end();
+            if (!positionsInHistory.resendsBeforeArrival.empty())
+            {
+                resentPositionDataIt = optimalGatherPositions.find(*positionsInHistory.resendsBeforeArrival[0]);
+            }
+
+            // Check if we want to make any provisional observations about resend positions where we know the worker doesn't arrive on time,
+            // but don't know the exact timing as we were forced to resend another command later
+            // We only do this if there are no earlier observations of the position, and we replace this observation later if we get a clean
+            // path
+            if (workerStatus.switchedPatches || positionsInHistory.resendsBeforeArrival.size() > std::min(2, workerStatus.plannedResendCount()))
+            {
+                auto provisionalObservation = [&](int resendIndex)
+                {
+                    // There must be a resend after this - otherwise we could just make a normal observation
+                    if (positionsInHistory.resendsBeforeArrival.size() < (resendIndex + 2)) return;
+
+                    // Must have first resend data
+                    if (resentPositionDataIt == optimalGatherPositions.end()) return;
+
+                    // There must have been a full order process cycle after this resend before the next one
+                    if (std::distance(positionsInHistory.resendPositionIts[resendIndex], positionsInHistory.resendPositionIts[resendIndex + 1]) < 11)
+                    {
+                        return;
+                    }
+
+                    // Reference the observations for this position
+                    GatherResendArrivalObservations* observations = nullptr;
+                    SecondResendGatherPositionObservations *secondResendData = nullptr;
+                    if (resendIndex == 0)
+                    {
+                        observations = &resentPositionDataIt->second.noSecondResendArrivalObservations;
+                    }
+                    else
+                    {
+                        secondResendData =
+                                resentPositionDataIt->second.secondResendObservationsFor(positionsInHistory.resendsBeforeArrival[1].get());
+                        if (!secondResendData) return;
+                        observations = &secondResendData->arrivalObservations;
+                    }
+
+                    // There must not have been any observations already
+                    if (!observations->empty()) return;
+
+                    // Make the observation
+                    resentPositionDataIt->second.addArrivalObservation(
+                            secondResendData,
+                            (int)std::distance(positionsInHistory.resendPositionIts[resendIndex], optimalPositionIt));
+
+#if OPTIMALPOSITIONS_DEBUG
+                    if (secondResendData)
+                    {
+                        CherryVis::log(worker->id) << "Added provisional observation of " << resentPositionDataIt->second
+                                                   << " : " << secondResendData->pos;
+                    }
+                    else
+                    {
+                        CherryVis::log(worker->id) << "Added provisional observation of " << resentPositionDataIt->second;
+                    }
+#endif
+                };
+                if (workerStatus.plannedResendPosition) provisionalObservation(0);
+                if (workerStatus.plannedSecondResendPosition) provisionalObservation(1);
+                if (workerStatus.switchedPatches || positionsInHistory.resendsBeforeArrival.size() > 2) return;
+            }
 
             // If we sent no command, record the path for exploration
             if (positionsInHistory.resendsBeforeArrival.empty())
@@ -401,7 +459,6 @@ namespace WorkerMiningOptimization
             }
 
             // Get the data for the resent position
-            auto resentPositionDataIt = optimalGatherPositions.find(*positionsInHistory.resendsBeforeArrival[0]);
             if (resentPositionDataIt == optimalGatherPositions.end())
             {
                 // This can happen if we are exploring takeover positions or if workers are competing to get to a patch first
@@ -671,10 +728,9 @@ namespace WorkerMiningOptimization
             // Add the final position to the history
             it->second.appendCurrentPosition();
 
-            // We skip processing this worker if it has switched patches (in which case we've already observed what we could) or if
-            // we for some reason haven't tracked its positions history correctly
+            // We skip processing this worker if it hasn't tracked its positions history correctly
             PositionsInHistory positionsInHistory;
-            if (it->second.switchedPatches || !extractPositionsInHistory(it->second, positionsInHistory)
+            if (!extractPositionsInHistory(it->second, positionsInHistory)
                 || positionsInHistory.arrivalPositionIt == it->second.positionHistory.end())
             {
                 it = workerGatherStatuses.erase(it);
@@ -682,6 +738,13 @@ namespace WorkerMiningOptimization
             }
 
             updateApproachOptimization(it->second, positionsInHistory);
+
+            // We don't need to do any more if the worker switched patches
+            if (it->second.switchedPatches)
+            {
+                it = workerGatherStatuses.erase(it);
+                continue;
+            }
 
             // Tracking of 10-distance positions for paths that don't start at the depot
             updateTenDistancePosition(it->second, positionsInHistory, false);

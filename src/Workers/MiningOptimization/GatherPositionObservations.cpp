@@ -196,6 +196,15 @@ namespace WorkerMiningOptimization
 
         auto &observations = secondResendPositionData ? secondResendPositionData->arrivalObservations : noSecondResendArrivalObservations;
         bool result = observations.empty();
+
+        // If there is only one observation before this one, replace it
+        // This is to handle the situation where we have made a provisional observation in two-worker mining where we know
+        // the worker didn't arrive on time, but not what its exact arrival would have been without resending a command
+        if (observations.arrivalDelayAndOccurrences.size() == 1 && observations.arrivalDelayAndOccurrences.begin()->second == 1)
+        {
+            observations.arrivalDelayAndOccurrences.clear();
+            observations.addArrival((int8_t)arrivalDelta);
+        }
         observations.addArrival((int8_t)arrivalDelta);
         return result;
     }
