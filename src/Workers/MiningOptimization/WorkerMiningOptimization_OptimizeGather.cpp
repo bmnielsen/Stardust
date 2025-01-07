@@ -64,6 +64,7 @@ namespace WorkerMiningOptimization
                 else if (distToPatch <= 10)
                 {
                     workerStatus.passed10DistancePosition = (currentFrame - BWAPI::Broodwar->getLatencyFrames() - 1);
+                    workerStatus.passedUnregistered10DistancePosition = true;
 
 #if TAKEOVER_DEBUG
                     CherryVis::log(worker->id) << "Worker passed unrecorded 10-distance position";
@@ -360,7 +361,7 @@ namespace WorkerMiningOptimization
                                     if (delta != 0)
                                     {
                                         CherryVis::log(worker->id) << "Adjusting initial mineral locking resend frame by " << delta
-                                                                   << "to avoid conflicts with future resends";
+                                                                   << " to avoid conflicts with future resends";
                                     }
 #endif
                                     return true;
@@ -656,8 +657,7 @@ namespace WorkerMiningOptimization
             handleGatherPatchSwitch(workerStatus);
 
             CherryVis::log(worker->id) << "targeting different patch; resending order";
-            if (workerStatus.passed10DistancePosition != -1 &&
-                workerStatus.passed10DistancePosition < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+            if (workerStatus.passed10DistancePosition != -1 && !workerStatus.passedUnregistered10DistancePosition)
             {
                 Log::Get() << "ERROR: patch @ " << resource->tile << "; worker " << worker->id << " @ " << worker->getTilePosition() << " switched patch"
                            << "; passed10DistancePosition: " << workerStatus.passed10DistancePosition;

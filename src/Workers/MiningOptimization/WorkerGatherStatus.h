@@ -59,6 +59,9 @@ namespace WorkerMiningOptimization
         // Tracks the frame when the worker passed a position LF+1 before reaching 10 distance from the patch
         int passed10DistancePosition;
 
+        // Whether the worker passed a previously-unregistered 10-distance position
+        bool passedUnregistered10DistancePosition;
+
         // Whether the worker switched patches while trying to mine
         bool switchedPatches;
 
@@ -77,6 +80,7 @@ namespace WorkerMiningOptimization
                 , takeoverState(0)
                 , takeoverFrame(-1)
                 , passed10DistancePosition(-1)
+                , passedUnregistered10DistancePosition(false)
                 , switchedPatches(false)
                 , hasPathData(false)
         {}
@@ -97,6 +101,7 @@ namespace WorkerMiningOptimization
             takeoverState = 0;
             takeoverFrame = -1;
             passed10DistancePosition = -1;
+            passedUnregistered10DistancePosition = false;
             switchedPatches = false;
             hasPathData = false;
         }
