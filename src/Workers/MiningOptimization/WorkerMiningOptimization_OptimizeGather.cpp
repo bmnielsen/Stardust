@@ -630,20 +630,6 @@ namespace WorkerMiningOptimization
         // Track the worker's visited positions
         auto currentPosition = workerStatus.appendCurrentPosition();
 
-        // Resend the gather command if it has been scheduled for this frame
-        if (workerStatus.resentOnSchedule())
-        {
-            if (workerStatus.resendCommandOnFrame == currentFrame)
-            {
-                workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
-
-#if OPTIMALPOSITIONS_DEBUG
-                CherryVis::log(worker->id) << "Resending gather command on schedule";
-#endif
-            }
-            return;
-        }
-
         // Our logic ensures mineral locking automatically except in some specific cases:
         // - worker has been released from combat, which can leave it with a gather order to a random patch used for kiting
         // - workers have been avoiding a no-go area and returning to mining as a group, so the timing gets messed up

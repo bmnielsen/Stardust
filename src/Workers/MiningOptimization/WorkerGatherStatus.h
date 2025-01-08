@@ -47,9 +47,6 @@ namespace WorkerMiningOptimization
         // Frames at which we have send gather commands
         std::set<int> resentFrames;
 
-        // Used to mark that the worker should have the gather command resent on this specific frame
-        int resendCommandOnFrame;
-
         // Mode to use for takeover, current allowed values: 0=use normal approach optimization, 1=use takeover optimization, 2=at patch
         int takeoverState;
 
@@ -76,7 +73,6 @@ namespace WorkerMiningOptimization
                 , pathStartsAtDepot(false)
                 , resendsPlanned(false)
                 , expectedArrivalFrame(-1)
-                , resendCommandOnFrame(-2)
                 , takeoverState(0)
                 , takeoverFrame(-1)
                 , passed10DistancePosition(-1)
@@ -97,18 +93,12 @@ namespace WorkerMiningOptimization
             expectedPath.clear();
             resentPositions.clear();
             resentFrames.clear();
-            resendCommandOnFrame = -2;
             takeoverState = 0;
             takeoverFrame = -1;
             passed10DistancePosition = -1;
             passedUnregistered10DistancePosition = false;
             switchedPatches = false;
             hasPathData = false;
-        }
-
-        [[nodiscard]] bool resentOnSchedule() const
-        {
-            return resendCommandOnFrame != -2;
         }
 
         std::shared_ptr<PositionAndVelocity> appendCurrentPosition();
