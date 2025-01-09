@@ -765,9 +765,6 @@ namespace WorkerMiningOptimization
 
     void handleGatherPatchSwitch(WorkerGatherStatus &workerStatus)
     {
-        // Remove the last position since it might have been affected by the patch switch
-        if (!workerStatus.positionHistory.empty()) workerStatus.positionHistory.pop_back();
-
         PositionsInHistory positionsInHistory;
         if (!extractPositionsInHistory(workerStatus, positionsInHistory)) return;
 

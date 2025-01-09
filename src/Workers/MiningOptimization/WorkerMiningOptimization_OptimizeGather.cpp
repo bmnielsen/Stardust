@@ -627,9 +627,6 @@ namespace WorkerMiningOptimization
             return;
         }
 
-        // Track the worker's visited positions
-        auto currentPosition = workerStatus.appendCurrentPosition();
-
         // Our logic ensures mineral locking automatically except in some specific cases:
         // - worker has been released from combat, which can leave it with a gather order to a random patch used for kiting
         // - workers have been avoiding a no-go area and returning to mining as a group, so the timing gets messed up
@@ -640,6 +637,7 @@ namespace WorkerMiningOptimization
             && worker->lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
         {
             // Hook to update our observations based on this potential failure of mineral locking
+            // This runs before we append the position we are at now, since it may be changed by the patch switch
             handleGatherPatchSwitch(workerStatus);
 
             CherryVis::log(worker->id) << "targeting different patch; resending order";
@@ -649,6 +647,7 @@ namespace WorkerMiningOptimization
                            << "; passed10DistancePosition: " << workerStatus.passed10DistancePosition;
             }
 
+            auto currentPosition = workerStatus.appendCurrentPosition();
             workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
             if (workerStatus.passed10DistancePosition == -1)
             {
@@ -657,6 +656,9 @@ namespace WorkerMiningOptimization
             workerStatus.switchedPatches = true;
             return;
         }
+
+        // Track the worker's visited positions
+        auto currentPosition = workerStatus.appendCurrentPosition();
 
 #if !ENABLE_GATHER_OPTIMIZATION
         return;
