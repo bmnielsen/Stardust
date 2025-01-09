@@ -30,6 +30,7 @@ namespace WorkerMiningOptimization
                 CherryVis::log(workerStatus.worker->id) << "Resending for " << *plannedPosition;
 #endif
 
+                // Ignoring return value here as it should only fail in edge conditions while exploring
                 workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
             };
 
@@ -445,8 +446,10 @@ namespace WorkerMiningOptimization
                             CherryVis::log(worker->id) << "Sending final command; worker is at patch";
 #endif
 
-                            workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
-                            workerStatus.takeoverState = 10;
+                            if (workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition))
+                            {
+                                workerStatus.takeoverState = 10;
+                            }
                             return true;
                         }
 
@@ -460,8 +463,10 @@ namespace WorkerMiningOptimization
                             CherryVis::log(worker->id) << "Sending final command; worker has already resent twice (or more)";
 #endif
 
-                            workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
-                            workerStatus.takeoverState = 11;
+                            if (workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition))
+                            {
+                                workerStatus.takeoverState = 11;
+                            }
                             return true;
                         }
 
@@ -527,8 +532,10 @@ namespace WorkerMiningOptimization
 
                         if (send)
                         {
-                            workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
-                            workerStatus.takeoverState = (resentPosition ? 12 : 13);
+                            if (workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition))
+                            {
+                                workerStatus.takeoverState = (resentPosition ? 12 : 13);
+                            }
                         }
 
                         return true;
@@ -648,11 +655,16 @@ namespace WorkerMiningOptimization
             }
 
             auto currentPosition = workerStatus.appendCurrentPosition();
+
+            // There could be a Unit_Busy failure here, but we will pick up next frame that the command hasn't been issued
             workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
+
+            // Set a fake 10 distance position frame if none is set
             if (workerStatus.passed10DistancePosition == -1)
             {
                 workerStatus.passed10DistancePosition = currentFrame - BWAPI::Broodwar->getLatencyFrames();
             }
+
             workerStatus.switchedPatches = true;
             return;
         }

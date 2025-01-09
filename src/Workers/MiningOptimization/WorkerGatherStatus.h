@@ -103,7 +103,7 @@ namespace WorkerMiningOptimization
 
         std::shared_ptr<PositionAndVelocity> appendCurrentPosition();
 
-        void sendGatherCommand(BWAPI::Unit resourceBwapiUnit, const std::shared_ptr<PositionAndVelocity> &currentPosition);
+        bool sendGatherCommand(BWAPI::Unit resourceBwapiUnit, const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
         [[nodiscard]] const PositionAndVelocity *resentPosition() const
         {

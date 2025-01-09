@@ -28,7 +28,7 @@ namespace WorkerMiningOptimization
         return currentPosition;
     }
 
-    void WorkerGatherStatus::sendGatherCommand(BWAPI::Unit resourceBwapiUnit, const std::shared_ptr<PositionAndVelocity> &currentPosition)
+    bool WorkerGatherStatus::sendGatherCommand(BWAPI::Unit resourceBwapiUnit, const std::shared_ptr<PositionAndVelocity> &currentPosition)
     {
         if (!worker->gather(resourceBwapiUnit))
         {
@@ -38,10 +38,11 @@ namespace WorkerMiningOptimization
             CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
             CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
 #endif
-            return;
+            return false;
         }
 
         resentPositions.push_back(currentPosition);
         resentFrames.insert(currentFrame);
+        return true;
     }
 }
