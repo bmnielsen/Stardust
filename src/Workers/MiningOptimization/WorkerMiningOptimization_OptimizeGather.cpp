@@ -645,7 +645,7 @@ namespace WorkerMiningOptimization
         {
             // Hook to update our observations based on this potential failure of mineral locking
             // This runs before we append the position we are at now, since it may be changed by the patch switch
-            handleGatherPatchSwitch(workerStatus);
+            if (!workerStatus.switchedPatches) handleGatherPatchSwitch(workerStatus);
 
             CherryVis::log(worker->id) << "targeting different patch; resending order";
             if (workerStatus.passed10DistancePosition != -1 && !workerStatus.passedUnregistered10DistancePosition)

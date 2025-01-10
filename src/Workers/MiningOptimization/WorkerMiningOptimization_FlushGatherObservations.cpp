@@ -708,7 +708,22 @@ namespace WorkerMiningOptimization
                 continue;
             }
 
-            if (worker->bwapiUnit->getOrder() != BWAPI::Orders::WaitForMinerals || it->second.lastProcessedFrame == currentFrame)
+            // Workers that have already been in the WaitForMinerals state while another was still mining are not run through the logic again
+            if (it->second.waitForMineralsWhileOtherStillMining)
+            {
+                // If the worker is now mining, clean up
+                if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
+                {
+                    it = workerGatherStatuses.erase(it);
+                }
+                else
+                {
+                    it++;
+                }
+                continue;
+            }
+
+            if (worker->bwapiUnit->getOrder() != BWAPI::Orders::WaitForMinerals)
             {
                 it++;
                 continue;
@@ -725,15 +740,31 @@ namespace WorkerMiningOptimization
             }
 #endif
 
+            // Mark workers that reached WaitForMinerals while another was waiting to mine
+            if (it->second.lastProcessedFrame == currentFrame)
+            {
+                it->second.waitForMineralsWhileOtherStillMining = true;
+            }
+
             // Add the final position to the history
-            it->second.appendCurrentPosition();
+            if (!it->second.waitForMineralsWhileOtherStillMining)
+            {
+                it->second.appendCurrentPosition();
+            }
 
             // We skip processing this worker if it hasn't tracked its positions history correctly
             PositionsInHistory positionsInHistory;
             if (!extractPositionsInHistory(it->second, positionsInHistory)
                 || positionsInHistory.arrivalPositionIt == it->second.positionHistory.end())
             {
-                it = workerGatherStatuses.erase(it);
+                if (it->second.waitForMineralsWhileOtherStillMining)
+                {
+                    it++;
+                }
+                else
+                {
+                    it = workerGatherStatuses.erase(it);
+                }
                 continue;
             }
 
@@ -742,7 +773,14 @@ namespace WorkerMiningOptimization
             // We don't need to do any more if the worker switched patches
             if (it->second.switchedPatches)
             {
-                it = workerGatherStatuses.erase(it);
+                if (it->second.waitForMineralsWhileOtherStillMining)
+                {
+                    it++;
+                }
+                else
+                {
+                    it = workerGatherStatuses.erase(it);
+                }
                 continue;
             }
 
@@ -750,6 +788,12 @@ namespace WorkerMiningOptimization
             updateTenDistancePosition(it->second, positionsInHistory, false);
 
             updateNextPositions(it->second, positionsInHistory);
+
+            if (it->second.waitForMineralsWhileOtherStillMining)
+            {
+                it++;
+                continue;
+            }
 
             // Move required fields into the MiningWorker struct that we use to track patch collisions
             miningWorkers.emplace_back(MiningWorker{
@@ -765,6 +809,8 @@ namespace WorkerMiningOptimization
 
     void handleGatherPatchSwitch(WorkerGatherStatus &workerStatus)
     {
+        if (workerStatus.waitForMineralsWhileOtherStillMining) return;
+
         PositionsInHistory positionsInHistory;
         if (!extractPositionsInHistory(workerStatus, positionsInHistory)) return;
 
