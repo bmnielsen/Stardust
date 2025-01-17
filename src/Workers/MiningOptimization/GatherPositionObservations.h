@@ -180,12 +180,15 @@ namespace WorkerMiningOptimization
             using elem = std::remove_reference_t<decltype((positionsData.begin()->second))>;
             std::vector<elem *> result;
             const GatherPositionObservations *current = this;
+            std::unordered_set<PositionAndVelocity> visited;
             while (!current->nextPositionAndOccurrences.empty())
             {
-                if (current->nextPositionAndOccurrences.size() > 1)
+                if (visited.contains(current->pos) || current->nextPositionAndOccurrences.size() > 1)
                 {
-                    std::vector<elem *>{};
+                    return std::vector<elem *>{};
                 }
+
+                visited.insert(current->pos);
 
                 auto nextIt = positionsData.find(current->nextPositionAndOccurrences.begin()->first);
                 if (nextIt == positionsData.end()) break;
