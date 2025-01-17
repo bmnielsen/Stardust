@@ -23,7 +23,7 @@ public:
 
     friend std::ostream &operator << (std::ostream &os, const TilePosition &pos)
     {
-        return os << '(' << pos.x << ',' << pos.y << ')';
+        return os << '(' << (int)pos.x << ',' << (int)pos.y << ')';
     };
 
     static TilePosition fromBWAPI(BWAPI::TilePosition tile)
