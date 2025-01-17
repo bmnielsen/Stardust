@@ -72,6 +72,11 @@ namespace WorkerMiningOptimization
 
         struct OptimalGatherPositionsSerializer
         {
+            void clear()
+            {
+                resourceToOptimalGatherPositions.clear();
+            }
+
             template <typename S>
             void serialize(S& ser)
             {
@@ -91,6 +96,11 @@ namespace WorkerMiningOptimization
 
         struct TenDistancePositionsSerializer
         {
+            void clear()
+            {
+                resourceTo10DistancePositions.clear();
+            }
+
             template <typename S>
             void serialize(S& ser)
             {
@@ -109,6 +119,11 @@ namespace WorkerMiningOptimization
 
         struct OptimalReturnPositionsSerializer
         {
+            void clear()
+            {
+                resourceToOptimalReturnPositions.clear();
+            }
+
             template <typename S>
             void serialize(S& ser)
             {
@@ -129,6 +144,8 @@ namespace WorkerMiningOptimization
         template <typename S>
         void readDataFile(const std::string &label, const std::string &filename, S serializer)
         {
+            serializer.clear();
+            
             if (filename.empty())
             {
                 Log::Get() << "No saved data available for " << label;
