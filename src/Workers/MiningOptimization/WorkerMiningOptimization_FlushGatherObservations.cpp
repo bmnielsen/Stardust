@@ -635,7 +635,7 @@ namespace WorkerMiningOptimization
             collisions = 0;
             noncollisions = 0;
         }
-        else if (currentFrame % 1000 == 0)
+        else if (currentFrame % 1000 == 0 && WorkerMiningOptimization::isExploring())
         {
             Log::Get() << "Explored " << exploredPatches.size() << " patch(es)";
             if ((collisions + noncollisions) > 0)
@@ -744,6 +744,19 @@ namespace WorkerMiningOptimization
             if (it->second.lastProcessedFrame == currentFrame)
             {
                 it->second.waitForMineralsWhileOtherStillMining = true;
+            }
+
+            if (!WorkerMiningOptimization::isExploring())
+            {
+                if (it->second.waitForMineralsWhileOtherStillMining)
+                {
+                    it++;
+                }
+                else
+                {
+                    it = workerGatherStatuses.erase(it);
+                }
+                continue;
             }
 
             // Add the final position to the history

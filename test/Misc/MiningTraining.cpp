@@ -88,6 +88,8 @@ namespace
         replayNameBuilder << workersPerPatch << "wpp_" << cannons << "cannons";
         test.replayName = replayNameBuilder.str();
 
+        WorkerMiningOptimization::setExploring(!measureOnly);
+
         test.onStartMine = []()
         {
             Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
@@ -133,8 +135,6 @@ namespace
 
                 if (BWAPI::Broodwar->getFrameCount() == 0)
                 {
-                    WorkerMiningOptimization::setExploring(!measureOnly);
-
                     for (auto base : Map::allBases())
                     {
                         for (const auto &blockingNeutral : base->blockingNeutrals)
@@ -988,6 +988,11 @@ TEST(MiningTraining, AllAIIDEContinuousNoCannons)
     {
         testRunWithResults("aiide2024", 0, false);
     }
+}
+
+TEST(MiningTraining, AllAIIDESingleOnlyNoCannons)
+{
+    testRunWithResults("aiide2024", 1, false);
 }
 
 TEST(MiningTraining, AllAIIDEDoubleOnlyNoCannons)

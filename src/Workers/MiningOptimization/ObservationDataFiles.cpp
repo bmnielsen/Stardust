@@ -1,0 +1,224 @@
+#include "ObservationDataFiles.h"
+
+#include <bitsery/adapter/stream.h>
+#include <bitsery/ext/std_set.h>
+#include <bitsery/ext/std_map.h>
+
+#include <zstdstream.h>
+
+#include "WorkerMiningOptimization.h"
+#include "FileTools.h"
+
+namespace WorkerMiningOptimization
+{
+    namespace
+    {
+        std::string overriddenMapHash;
+        int overriddenLatencyFrames = -1;
+        int gatherExploreBefore = GATHER_EXPLORE_BEFORE;
+        int gatherExploreAfter = GATHER_EXPLORE_AFTER;
+        int returnExploreBefore = RETURN_EXPLORE_BEFORE;
+        int returnExploreAfter = RETURN_EXPLORE_AFTER;
+
+        std::string filename(const std::string &label,
+                             bool preferFull,
+                             bool postfixWithGatherParameters,
+                             bool postfixWithReturnParameters,
+                             bool writing)
+        {
+            auto mapHash = (overriddenMapHash.empty() ? BWAPI::Broodwar->mapHash() : overriddenMapHash);
+            auto latencyFrames = (overriddenLatencyFrames == -1 ? BWAPI::Broodwar->getLatencyFrames() : overriddenLatencyFrames);
+
+            auto filename = std::ostringstream()
+                    << label << "_" << mapHash
+                    << "_lf" << latencyFrames;
+            if (postfixWithGatherParameters)
+            {
+                filename << "_" << gatherExploreBefore << "_" << gatherExploreAfter;
+            }
+            if (postfixWithReturnParameters)
+            {
+                filename << "_" << returnExploreBefore << "_" << returnExploreAfter;
+            }
+
+            if (writing)
+            {
+                if (preferFull) filename << ".full";
+                return FileTools::getFilePath(filename.str(), "bin.zstd", writing);
+            }
+
+            auto minimal = FileTools::getFilePath(filename.str(), "bin.zstd", writing);
+            filename << ".full";
+            auto full = FileTools::getFilePath(filename.str(), "bin.zstd", writing);
+
+            if (!full.empty() && (preferFull || minimal.empty())) return full;
+            return minimal;
+        }
+
+        std::string optimalGatherPositionsFilename(bool preferFull, bool writing = false)
+        {
+            return filename("gatherpositions", preferFull, true, false, writing);
+        }
+
+        std::string tenDistancePositionsFilename(bool writing = false)
+        {
+            return filename("10distance", false, false, false, writing);
+        }
+
+        std::string optimalReturnPositionsFilename(bool preferFull, bool writing = false)
+        {
+            return filename("returnpositions", preferFull, false, true, writing);
+        }
+
+        struct OptimalGatherPositionsSerializer
+        {
+            template <typename S>
+            void serialize(S& ser,
+                           std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &resourceToOptimalGatherPositions)
+            {
+                ser.ext(resourceToOptimalGatherPositions,
+                        bitsery::ext::StdMap{INT_MAX},
+                        [](auto &s, TilePosition &key, std::unordered_map<PositionAndVelocity, GatherPositionObservations> &value)
+                        {
+                            s.object(key);
+                            s.ext(value, bitsery::ext::StdMap{INT_MAX}, [](auto &s, PositionAndVelocity &key, GatherPositionObservations &value)
+                            {
+                                s.object(key);
+                                s.object(value);
+                            });
+                        });
+            }
+        };
+
+        struct TenDistancePositionsSerializer
+        {
+            template <typename S>
+            void serialize(S& ser,
+                           std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &resourceTo10DistancePositions)
+            {
+                ser.ext(resourceTo10DistancePositions,
+                        bitsery::ext::StdMap{INT_MAX},
+                        [](auto &s, TilePosition &key, std::unordered_set<PositionAndVelocity> &value)
+                        {
+                            s.object(key);
+                            s.ext(value, bitsery::ext::StdSet{INT_MAX}, [](auto &s, PositionAndVelocity &value)
+                            {
+                                s.object(value);
+                            });
+                        });
+            }
+        };
+
+        struct OptimalReturnPositionsSerializer
+        {
+            template <typename S>
+            void serialize(S& ser,
+                           std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &resourceToOptimalReturnPositions)
+            {
+                ser.ext(resourceToOptimalReturnPositions,
+                        bitsery::ext::StdMap{INT_MAX},
+                        [](auto &s, TilePosition &key, std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &value)
+                        {
+                            s.object(key);
+                            s.ext(value, bitsery::ext::StdMap{INT_MAX}, [](auto &s, PositionAndVelocity &key, ReturnPositionObservations &value)
+                            {
+                                s.object(key);
+                                s.object(value);
+                            });
+                        });
+            }
+        };
+
+        template <typename S, typename M>
+        void readDataFile(const std::string &label, const std::string &filename, S serializer, M &data)
+        {
+            data.clear();
+
+            if (filename.empty())
+            {
+                Log::Get() << "No saved data available for " << label;
+                return;
+            }
+
+            zstd::ifstream file(filename);
+            if (!file.good())
+            {
+                Log::Get() << "Could not open saved data file for " << label;
+                return;
+            }
+
+            bitsery::Deserializer<bitsery::InputStreamAdapter> ser{file};
+            serializer.serialize(ser, data);
+            file.close();
+
+            Log::Get() << "Read " << label << " data from " << filename;
+        }
+
+        template <typename S, typename M>
+        void writeDataFile(const std::string &label, const std::string &filename, S serializer, M &data)
+        {
+            zstd::ofstream file(filename, std::ofstream::trunc);
+            if (file.fail())
+            {
+                Log::Get() << "Could not open data file for " << label << " for writing";
+                return;
+            }
+
+            bitsery::Serializer<bitsery::OutputStreamAdapter> ser{file};
+            serializer.serialize(ser, data);
+            ser.adapter().flush();
+            file.close();
+
+            Log::Get() << "Wrote " << label << " data to " << filename;
+        }
+    }
+
+    void overrideGameParameters(const std::string &mapHash,
+                                int latencyFrames,
+                                int overriddenGatherExploreBefore,
+                                int overriddenGatherExploreAfter,
+                                int overriddenReturnExploreBefore,
+                                int overriddenReturnExploreAfter)
+    {
+        overriddenMapHash = mapHash;
+        overriddenLatencyFrames = latencyFrames;
+        gatherExploreBefore = overriddenGatherExploreBefore;
+        gatherExploreAfter = overriddenGatherExploreAfter;
+        returnExploreBefore = overriddenReturnExploreBefore;
+        returnExploreAfter = overriddenReturnExploreAfter;
+    }
+
+    void readGatherPositionObservations(bool preferFull,
+                                        std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
+    {
+        readDataFile("gather positions", optimalGatherPositionsFilename(preferFull), OptimalGatherPositionsSerializer{}, data);
+    }
+
+    void read10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data)
+    {
+        readDataFile("ten-distance positions", tenDistancePositionsFilename(), TenDistancePositionsSerializer{}, data);
+    }
+
+    void readReturnPositionObservations(bool preferFull,
+                                        std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data)
+    {
+        readDataFile("return positions", optimalReturnPositionsFilename(preferFull), OptimalReturnPositionsSerializer{}, data);
+    }
+
+    void writeGatherPositionObservations(bool minimized,
+                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
+    {
+        writeDataFile("gather positions", optimalGatherPositionsFilename(!minimized, true), OptimalGatherPositionsSerializer{}, data);
+    }
+
+    void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data)
+    {
+        writeDataFile("ten-distance positions", tenDistancePositionsFilename(true), TenDistancePositionsSerializer{}, data);
+    }
+
+    void writeReturnPositionObservations(bool minimized,
+                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data)
+    {
+        writeDataFile("return positions", optimalReturnPositionsFilename(!minimized, true), OptimalReturnPositionsSerializer{}, data);
+    }
+}

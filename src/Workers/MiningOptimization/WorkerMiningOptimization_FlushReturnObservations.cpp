@@ -329,7 +329,7 @@ namespace WorkerMiningOptimization
             deliveryAfterArrivalSpeedTotals = {0, 0, 0, 0};
             deliveryAtArrivalSpeedTotals = {0, 0, 0, 0};
         }
-        else if (currentFrame % 1000 == 0)
+        else if (currentFrame % 1000 == 0 && WorkerMiningOptimization::isExploring())
         {
             auto outputSpeedTotals = [](const ReturnSpeedOccurrences &speedTotals, const std::string &label)
             {
@@ -438,6 +438,12 @@ namespace WorkerMiningOptimization
                 didNotHavePathData++;
             }
 #endif
+
+            if (!WorkerMiningOptimization::isExploring())
+            {
+                it = workerReturnStatuses.erase(it);
+                continue;
+            }
 
             // Add the final position to the history
             it->second.appendCurrentPosition();

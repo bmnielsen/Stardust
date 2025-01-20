@@ -71,5 +71,5 @@ namespace WorkerMiningOptimization
 
     bool isExploring();
 
-    void setExploring(bool exploring);
+    void setExploring(bool newExploring);
 }

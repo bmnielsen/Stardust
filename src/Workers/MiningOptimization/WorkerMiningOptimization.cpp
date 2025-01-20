@@ -3,16 +3,10 @@
 
 #include "WorkerMiningOptimization.h"
 
-#include <bitsery/adapter/stream.h>
-#include <bitsery/ext/std_set.h>
-#include <bitsery/ext/std_map.h>
-
-#include <zstdstream.h>
+#include "ObservationDataFiles.h"
 
 #include "TilePosition.h"
 #include "PositionAndVelocity.h"
-#include "FileTools.h"
-#include "CsvTools.h"
 
 #if INSTRUMENTATION_ENABLED
 #define OUTPUT_METADATA_ANALYSIS false
@@ -23,9 +17,7 @@ namespace WorkerMiningOptimization
     namespace
     {
         // Whether we are exploring new positions
-        bool exploring;
-
-        std::string mapHashOfCurrentData;
+        bool exploring = false;
 
         // Metadata for positions used for optimizing approach to the patch
         std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> resourceToOptimalGatherPositions;
@@ -43,169 +35,16 @@ namespace WorkerMiningOptimization
 
         // Worker state for those returning resources
         std::map<MyWorker, WorkerReturnStatus> workerReturnStatuses;
-
-        std::string optimalGatherPositionsFilename(bool writing = false)
-        {
-            auto filename = std::ostringstream()
-                    << "gatherpositions_" << BWAPI::Broodwar->mapHash()
-                    << "_lf" << BWAPI::Broodwar->getLatencyFrames()
-                    << "_" << GATHER_EXPLORE_BEFORE << "_" << GATHER_EXPLORE_AFTER;
-            return FileTools::getFilePath(filename.str(), "bin.zstd", writing);
-        }
-
-        std::string optimalReturnPositionsFilename(bool writing = false)
-        {
-            auto filename = std::ostringstream()
-                    << "returnpositions_" << BWAPI::Broodwar->mapHash()
-                    << "_lf" << BWAPI::Broodwar->getLatencyFrames()
-                    << "_" << RETURN_EXPLORE_BEFORE << "_" << RETURN_EXPLORE_AFTER;
-            return FileTools::getFilePath(filename.str(), "bin.zstd", writing);
-        }
-
-        std::string tenDistancePositionsFilename(bool writing = false)
-        {
-            auto filename = std::ostringstream()
-                    << "10distance_" << BWAPI::Broodwar->mapHash()
-                    << "_lf" << BWAPI::Broodwar->getLatencyFrames();
-            return FileTools::getFilePath(filename.str(), "bin.zstd", writing);
-        }
-
-        struct OptimalGatherPositionsSerializer
-        {
-            void clear()
-            {
-                resourceToOptimalGatherPositions.clear();
-            }
-
-            template <typename S>
-            void serialize(S& ser)
-            {
-                ser.ext(resourceToOptimalGatherPositions,
-                        bitsery::ext::StdMap{INT_MAX},
-                        [](auto &s, TilePosition &key, std::unordered_map<PositionAndVelocity, GatherPositionObservations> &value)
-                        {
-                            s.object(key);
-                            s.ext(value, bitsery::ext::StdMap{INT_MAX}, [](auto &s, PositionAndVelocity &key, GatherPositionObservations &value)
-                            {
-                                s.object(key);
-                                s.object(value);
-                            });
-                        });
-            }
-        };
-
-        struct TenDistancePositionsSerializer
-        {
-            void clear()
-            {
-                resourceTo10DistancePositions.clear();
-            }
-
-            template <typename S>
-            void serialize(S& ser)
-            {
-                ser.ext(resourceTo10DistancePositions,
-                        bitsery::ext::StdMap{INT_MAX},
-                        [](auto &s, TilePosition &key, std::unordered_set<PositionAndVelocity> &value)
-                        {
-                            s.object(key);
-                            s.ext(value, bitsery::ext::StdSet{INT_MAX}, [](auto &s, PositionAndVelocity &value)
-                            {
-                                s.object(value);
-                            });
-                        });
-            }
-        };
-
-        struct OptimalReturnPositionsSerializer
-        {
-            void clear()
-            {
-                resourceToOptimalReturnPositions.clear();
-            }
-
-            template <typename S>
-            void serialize(S& ser)
-            {
-                ser.ext(resourceToOptimalReturnPositions,
-                        bitsery::ext::StdMap{INT_MAX},
-                        [](auto &s, TilePosition &key, std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &value)
-                        {
-                            s.object(key);
-                            s.ext(value, bitsery::ext::StdMap{INT_MAX}, [](auto &s, PositionAndVelocity &key, ReturnPositionObservations &value)
-                            {
-                                s.object(key);
-                                s.object(value);
-                            });
-                        });
-            }
-        };
-
-        template <typename S>
-        void readDataFile(const std::string &label, const std::string &filename, S serializer)
-        {
-            serializer.clear();
-            
-            if (filename.empty())
-            {
-                Log::Get() << "No saved data available for " << label;
-                return;
-            }
-
-            zstd::ifstream file(filename);
-            if (!file.good())
-            {
-                Log::Get() << "Could not open saved data file for " << label;
-                return;
-            }
-
-            bitsery::Deserializer<bitsery::InputStreamAdapter> ser{file};
-            serializer.serialize(ser);
-            file.close();
-
-            Log::Get() << "Read " << label << " data from " << filename;
-        }
-
-        template <typename S>
-        void writeDataFile(const std::string &label, const std::string &filename, S serializer)
-        {
-            zstd::ofstream file(filename, std::ofstream::trunc);
-            if (file.fail())
-            {
-                Log::Get() << "Could not open data file for " << label << " for writing";
-                return;
-            }
-
-            bitsery::Serializer<bitsery::OutputStreamAdapter> ser{file};
-            serializer.serialize(ser);
-            ser.adapter().flush();
-            file.close();
-
-            Log::Get() << "Wrote " << label << " data to " << filename;
-        }
     }
 
     void initialize()
     {
-#if INSTRUMENTATION_ENABLED
-        exploring = true;
-#else
-        exploring = false;
-#endif
         workerGatherStatuses.clear();
         workerReturnStatuses.clear();
 
-        if (!resourceToOptimalGatherPositions.empty() && mapHashOfCurrentData == BWAPI::Broodwar->mapHash())
-        {
-            Log::Get() << "Using already-loaded mining optimization data";
-        }
-        else
-        {
-            readDataFile("gather positions", optimalGatherPositionsFilename(), OptimalGatherPositionsSerializer{});
-            readDataFile("ten-distance positions", tenDistancePositionsFilename(), TenDistancePositionsSerializer{});
-            readDataFile("return positions", optimalReturnPositionsFilename(), OptimalReturnPositionsSerializer{});
-            mapHashOfCurrentData = BWAPI::Broodwar->mapHash();
-        }
+        readGatherPositionObservations(exploring, resourceToOptimalGatherPositions);
+        read10DistanceObservations(resourceTo10DistancePositions);
+        readReturnPositionObservations(exploring, resourceToOptimalReturnPositions);
     }
 
     void flushObservations()
@@ -217,9 +56,12 @@ namespace WorkerMiningOptimization
     void write()
     {
 #if WRITE_DATA_FILES
-        writeDataFile("gather positions", optimalGatherPositionsFilename(true), OptimalGatherPositionsSerializer{});
-        writeDataFile("ten-distance positions", tenDistancePositionsFilename(true), TenDistancePositionsSerializer{});
-        writeDataFile("return positions", optimalReturnPositionsFilename(true), OptimalReturnPositionsSerializer{});
+        if (exploring)
+        {
+            writeGatherPositionObservations(false, resourceToOptimalGatherPositions);
+            write10DistanceObservations(resourceTo10DistancePositions);
+            writeReturnPositionObservations(false, resourceToOptimalReturnPositions);
+        }
 #endif
 
 #if OUTPUT_METADATA_ANALYSIS
