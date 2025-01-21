@@ -35,4 +35,6 @@ namespace WorkerMiningOptimization
     void writeReturnPositionObservations(
             bool minimized,
             std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data);
+
+    void reduceGatherData(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data);
 }
