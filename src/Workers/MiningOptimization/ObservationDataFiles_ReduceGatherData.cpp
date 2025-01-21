@@ -2,6 +2,8 @@
 
 #include "PathTraversalLoopGuard.h"
 
+#define PRUNE_THRESHOLD 5
+
 namespace WorkerMiningOptimization
 {
     namespace
@@ -65,7 +67,7 @@ namespace WorkerMiningOptimization
             if (total == 0) return;
 
             bool prunedABranch = false;
-            uint16_t threshold = 1 + ((total - 1) / 20);
+            uint16_t threshold = 1 + ((total - 1) / PRUNE_THRESHOLD);
             for (auto nextPosIt = nextPositionData.begin(); nextPosIt != nextPositionData.end(); )
             {
                 if (nextPosIt->second < threshold)
@@ -251,7 +253,7 @@ namespace WorkerMiningOptimization
             if (!rootNodes.empty())
             {
                 double averageConnectionsFromRootNodes = ((double)totalConnectionsFromRootNodes / (double)rootNodes.size());
-                unsigned long threshold = std::ceil(0.05 * averageConnectionsFromRootNodes);
+                unsigned long threshold = std::ceil(averageConnectionsFromRootNodes / PRUNE_THRESHOLD);
                 for (const auto &[pos, connections] : rootNodes)
                 {
                     PathTraversalLoopGuard loopGuard;
