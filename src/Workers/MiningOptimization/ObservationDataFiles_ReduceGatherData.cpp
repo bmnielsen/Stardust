@@ -148,6 +148,45 @@ namespace WorkerMiningOptimization
                 }
             }
         }
+
+        bool checkResendChangesPath(GatherPositionObservations &metadata,
+                                    std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allMetadata)
+        {
+            // First map all of the second resend positions by their delta to the first resend
+            // Return if we detect any instability in the path
+            std::unordered_map<size_t, PositionAndVelocity> deltaToPos;
+            size_t maxDelta = 0;
+            for (const auto &[secondResendPos, secondResendData] : metadata.secondResendObservations)
+            {
+                if (secondResendData.nextPositionAndOccurrences.size() > 1) return false;
+
+                auto deltaHere = (size_t)secondResendData.deltaToFirstResend;
+                if (deltaToPos.contains(deltaHere)) return false;
+
+                maxDelta = std::max(maxDelta, deltaHere);
+                deltaToPos[deltaHere] = secondResendPos;
+            }
+            if (deltaToPos.size() != maxDelta) return false;
+
+            // Now compare the path to the normal non-resend path
+            auto noResendPath = metadata.followingPositionsIfStable(allMetadata);
+            if (noResendPath.empty()) return false;
+
+            bool pathsMatch = true;
+            for (size_t noResendPathIdx = 0; noResendPathIdx < std::min(maxDelta, noResendPath.size() - 1); noResendPathIdx++)
+            {
+                if (noResendPath[noResendPathIdx]->pos != deltaToPos[noResendPathIdx + 1])
+                {
+                    pathsMatch = false;
+                    break;
+                }
+            }
+            if (!pathsMatch) return false;
+
+            metadata.resendChangesPath = ResendChangesPath::No;
+            metadata.secondResendObservations.clear();
+            return true;
+        }
     }
 
     void reduceGatherData(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
@@ -161,6 +200,8 @@ namespace WorkerMiningOptimization
 
         size_t totalPositions = 0;
         size_t totalPruned = 0;
+        size_t totalResendChangesPath = 0;
+        size_t totalResendChangesPathReset = 0;
 
         for (auto &[_, optimalGatherPositions] : data)
         {
@@ -221,7 +262,16 @@ namespace WorkerMiningOptimization
             totalPruned += (initialCount - optimalGatherPositions.size());
 
             // Now look at second resend data
-            // First check if the
+            for (auto &[_, metadata] : optimalGatherPositions)
+            {
+                if (metadata.resendChangesPath != ResendChangesPath::Yes) continue;
+                totalResendChangesPath++;
+
+                if (checkResendChangesPath(metadata, optimalGatherPositions))
+                {
+                    totalResendChangesPathReset++;
+                }
+            }
 
             processed++;
             if (processed % 5 == 0)
@@ -230,7 +280,14 @@ namespace WorkerMiningOptimization
             }
         }
 
-        Log::Get() << "Pruned " << totalPruned << " of " << totalPositions << " total positions"
-                   << std::fixed << std::setprecision(2) << " (" << ((double)totalPruned * 100.0/(double)totalPositions) << "%)";
+        Log::Get() << std::fixed << std::setprecision(2)
+                   << "Pruned " << totalPruned << " of " << totalPositions << " total positions"
+                   << " (" << ((double)totalPruned * 100.0/(double)totalPositions) << "%)";
+        if (totalResendChangesPath > 0)
+        {
+            Log::Get() << std::fixed << std::setprecision(2)
+                       << "Reset resend changes path on " << totalResendChangesPathReset << " of " << totalResendChangesPath << " positions"
+                       << " (" << ((double)totalResendChangesPathReset * 100.0/(double)totalResendChangesPath) << "%)";
+        }
     }
 }
