@@ -12,6 +12,36 @@ namespace WorkerMiningOptimization
     {
         std::unordered_map<PositionAndVelocity, size_t> posToPreviousNodesCount;
 
+        template <typename T>
+        unsigned long pruneThresholdForCountMap(const T &map)
+        {
+            unsigned long total = 0;
+            for (const auto &[_, count] : map)
+            {
+                total += count;
+            }
+            if (total == 0) return 0;
+
+            return 1 + ((total - 1) / PRUNE_THRESHOLD);
+        }
+
+        template <typename T>
+        void pruneLowOccurrencesFromCountMap(T &map)
+        {
+            auto threshold = pruneThresholdForCountMap(map);
+            for (auto it = map.begin(); it != map.end(); )
+            {
+                if (it->second < threshold)
+                {
+                    it = map.erase(it);
+                }
+                else
+                {
+                    it++;
+                }
+            }
+        }
+
         // Recursively prunes a path
         // A path, or branch of a path, is pruned if it does not occur often compared to other paths
         // We also remove nodes that come before our exploration horizon
@@ -58,7 +88,9 @@ namespace WorkerMiningOptimization
 
             // Determine if this node should be pruned for being before the exploration horizon
             bool shouldPruneForExplorationHorizon =
-                    pruningPreviousNode && !hasMultiplePreviousNodes && positionDataIt->second.largestDeltaToBenchmark() < -EXPLORATION_HORIZON;
+                    pruningPreviousNode && !hasMultiplePreviousNodes && (
+                            positionDataIt->second.deltaToBenchmarkAndOccurrences.empty() ||
+                            positionDataIt->second.largestDeltaToBenchmark() < -EXPLORATION_HORIZON);
 
             auto pruneForExplorationHorizon = [&]()
             {
@@ -92,15 +124,10 @@ namespace WorkerMiningOptimization
                 return;
             }
 
-            uint16_t total = 0;
-            for (const auto &[_, count] : nextPositionData)
-            {
-                total += count;
-            }
-            if (total == 0) return;
+            auto threshold = pruneThresholdForCountMap(nextPositionData);
+            if (threshold == 0) return;
 
             bool prunedABranch = false;
-            uint16_t threshold = 1 + ((total - 1) / PRUNE_THRESHOLD);
             for (auto nextPosIt = nextPositionData.begin(); nextPosIt != nextPositionData.end(); )
             {
                 if (nextPosIt->second < threshold)
@@ -307,6 +334,17 @@ namespace WorkerMiningOptimization
                 if (checkResendChangesPath(metadata, optimalGatherPositions))
                 {
                     totalResendChangesPathReset++;
+                }
+            }
+
+            // Finally prune all low-occurrence values from various counter maps
+            for (auto &[_, metadata] : optimalGatherPositions)
+            {
+                pruneLowOccurrencesFromCountMap(metadata.deltaToBenchmarkAndOccurrences);
+                pruneLowOccurrencesFromCountMap(metadata.noSecondResendArrivalObservations.arrivalDelayAndOccurrences);
+                for (auto &[_, secondPosMetadata] : metadata.secondResendObservations)
+                {
+                    pruneLowOccurrencesFromCountMap(secondPosMetadata.arrivalObservations.arrivalDelayAndOccurrences);
                 }
             }
 
