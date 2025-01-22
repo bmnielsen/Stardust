@@ -3,6 +3,8 @@
 #include "PathTraversalLoopGuard.h"
 
 #define PRUNE_THRESHOLD 5
+// TODO: Take as input
+#define EXPLORATION_HORIZON 12
 
 namespace WorkerMiningOptimization
 {
@@ -11,10 +13,13 @@ namespace WorkerMiningOptimization
         std::unordered_map<PositionAndVelocity, size_t> posToPreviousNodesCount;
 
         // Recursively prunes a path
+        // A path, or branch of a path, is pruned if it does not occur often compared to other paths
+        // We also remove nodes that come before our exploration horizon
         void prune(const PositionAndVelocity &pos, // NOLINT(*-no-recursion)
                    std::unordered_map<PositionAndVelocity, GatherPositionObservations> &positionObservations,
                    PathTraversalLoopGuard &loopGuard,
-                   bool pruningThisBranch = false)
+                   bool pruningThisBranch = false,
+                   bool pruningPreviousNode = true)
         {
             // If we detect a loop, return early
             if (loopGuard.push(pos)) return;
@@ -41,7 +46,7 @@ namespace WorkerMiningOptimization
                 {
                     for (const auto &[nextPos, _] : nextPositionData)
                     {
-                        prune(nextPos, positionObservations, loopGuard, true);
+                        prune(nextPos, positionObservations, loopGuard, true, true);
                         loopGuard.pop(nextPos);
                     }
 
@@ -51,11 +56,39 @@ namespace WorkerMiningOptimization
                 }
             }
 
-            if (nextPositionData.empty()) return;
+            // Determine if this node should be pruned for being before the exploration horizon
+            bool shouldPruneForExplorationHorizon =
+                    pruningPreviousNode && !hasMultiplePreviousNodes && positionDataIt->second.largestDeltaToBenchmark() < -EXPLORATION_HORIZON;
+
+            auto pruneForExplorationHorizon = [&]()
+            {
+                if (!shouldPruneForExplorationHorizon) return false;
+
+                for (const auto &[nextPos, _] : nextPositionData)
+                {
+                    auto nextPosPreviousNodesIt = posToPreviousNodesCount.find(nextPos);
+                    if (nextPosPreviousNodesIt != posToPreviousNodesCount.end() && nextPosPreviousNodesIt->second > 0)
+                    {
+                        nextPosPreviousNodesIt->second--;
+                    }
+                }
+
+                positionObservations.erase(positionDataIt);
+
+                return true;
+            };
+
+            if (nextPositionData.empty())
+            {
+                pruneForExplorationHorizon();
+                return;
+            }
+
             if (nextPositionData.size() == 1)
             {
-                prune(nextPositionData.begin()->first, positionObservations, loopGuard);
+                prune(nextPositionData.begin()->first, positionObservations, loopGuard, false, shouldPruneForExplorationHorizon);
                 loopGuard.pop(nextPositionData.begin()->first);
+                pruneForExplorationHorizon();
                 return;
             }
 
@@ -72,18 +105,20 @@ namespace WorkerMiningOptimization
             {
                 if (nextPosIt->second < threshold)
                 {
-                    prune(nextPosIt->first, positionObservations, loopGuard, true);
+                    prune(nextPosIt->first, positionObservations, loopGuard, true, shouldPruneForExplorationHorizon);
                     loopGuard.pop(nextPosIt->first);
                     nextPosIt = nextPositionData.erase(nextPosIt);
                     prunedABranch = true;
                 }
                 else
                 {
-                    prune(nextPosIt->first, positionObservations, loopGuard);
+                    prune(nextPosIt->first, positionObservations, loopGuard, false, shouldPruneForExplorationHorizon);
                     loopGuard.pop(nextPosIt->first);
                     nextPosIt++;
                 }
             }
+
+            if (pruneForExplorationHorizon()) return;
 
             // If we pruned a branch, we need to also clean up the second resend positions
             if (prunedABranch)
