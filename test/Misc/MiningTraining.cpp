@@ -969,6 +969,14 @@ TEST(MiningTraining, VermeerDoubleMeasure)
               << "Single: " << sgl << std::endl;
 }
 
+TEST(MiningTraining, VermeerContinuousWithResults)
+{
+    while (true)
+    {
+        testRunWithResults("VermeerSE_2.1", 0, true);
+    }
+}
+
 TEST(MiningTraining, AllAIIDEMeasure)
 {
     testRunWithResults("aiide2024", 0, true, true);

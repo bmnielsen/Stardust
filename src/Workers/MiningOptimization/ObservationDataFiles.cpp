@@ -192,6 +192,14 @@ namespace WorkerMiningOptimization
                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
     {
         readDataFile("gather positions", optimalGatherPositionsFilename(preferFull), OptimalGatherPositionsSerializer{}, data);
+
+        for (auto &[_, patchData] : data)
+        {
+            for (auto &[pos, metadata] : patchData)
+            {
+                metadata.pos = pos;
+            }
+        }
     }
 
     void read10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data)
