@@ -155,9 +155,9 @@ namespace WorkerMiningOptimization
         }
 
         template <typename S, typename M>
-        void writeDataFile(const std::string &label, const std::string &filename, S serializer, M &data)
+        void writeDataFile(const std::string &label, const std::string &filename, S serializer, M &data, bool maxCompression)
         {
-            zstd::ofstream file(filename, std::ofstream::trunc);
+            zstd::ofstream file(filename, std::ofstream::trunc, maxCompression ? ZSTD_maxCLevel() : 5);
             if (file.fail())
             {
                 Log::Get() << "Could not open data file for " << label << " for writing";
@@ -214,19 +214,21 @@ namespace WorkerMiningOptimization
     }
 
     void writeGatherPositionObservations(bool minimized,
-                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
+                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data,
+                                         bool maxCompresion)
     {
-        writeDataFile("gather positions", optimalGatherPositionsFilename(!minimized, true), OptimalGatherPositionsSerializer{}, data);
+        writeDataFile("gather positions", optimalGatherPositionsFilename(!minimized, true), OptimalGatherPositionsSerializer{}, data, maxCompresion);
     }
 
-    void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data)
+    void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data, bool maxCompresion)
     {
-        writeDataFile("ten-distance positions", tenDistancePositionsFilename(true), TenDistancePositionsSerializer{}, data);
+        writeDataFile("ten-distance positions", tenDistancePositionsFilename(true), TenDistancePositionsSerializer{}, data, maxCompresion);
     }
 
     void writeReturnPositionObservations(bool minimized,
-                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data)
+                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data,
+                                         bool maxCompresion)
     {
-        writeDataFile("return positions", optimalReturnPositionsFilename(!minimized, true), OptimalReturnPositionsSerializer{}, data);
+        writeDataFile("return positions", optimalReturnPositionsFilename(!minimized, true), OptimalReturnPositionsSerializer{}, data, maxCompresion);
     }
 }

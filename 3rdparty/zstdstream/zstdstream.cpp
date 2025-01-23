@@ -208,9 +208,9 @@ ostream::~ostream() {
   }
 }
 
-ofstream::ofstream(const std::string& path, std::ios_base::openmode mode)
+ofstream::ofstream(const std::string& path, std::ios_base::openmode mode, int level)
     : fsholder<std::ofstream>(path, mode | std::ios_base::binary),
-      std::ostream(new ostreambuf(fs_.rdbuf())) {
+      std::ostream(new ostreambuf(fs_.rdbuf(), level)) {
   exceptions(std::ios_base::badbit);
 }
 

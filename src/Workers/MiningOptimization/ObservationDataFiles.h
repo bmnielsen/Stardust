@@ -28,13 +28,15 @@ namespace WorkerMiningOptimization
 
     void writeGatherPositionObservations(
             bool minimized,
-            std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data);
+            std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data,
+            bool maxCompression = false);
 
-    void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data);
+    void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data, bool maxCompression = false);
 
     void writeReturnPositionObservations(
             bool minimized,
-            std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data);
+            std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data,
+            bool maxCompression = false);
 
     void reduceGatherData(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data);
 }

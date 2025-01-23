@@ -166,7 +166,8 @@ class ofstream : private fsholder<std::ofstream>, public std::ostream {
  public:
   explicit ofstream(
       const std::string& path,
-      std::ios_base::openmode mode = std::ios_base::out);
+      std::ios_base::openmode mode = std::ios_base::out,
+      int level = cstream::defaultLevel);
   virtual ~ofstream();
 
   virtual operator bool() const;

@@ -17,5 +17,5 @@ TEST(MiningDataShrinker, VermeerGather)
 
     WorkerMiningOptimization::reduceGatherData(resourceToOptimalGatherPositions);
 
-    WorkerMiningOptimization::writeGatherPositionObservations(true, resourceToOptimalGatherPositions);
+    WorkerMiningOptimization::writeGatherPositionObservations(true, resourceToOptimalGatherPositions, true);
 }
