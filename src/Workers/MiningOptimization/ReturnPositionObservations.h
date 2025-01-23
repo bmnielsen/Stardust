@@ -178,7 +178,6 @@ namespace WorkerMiningOptimization
 
         template <typename S>
         void serialize(S& s) {
-            s.object(pos);
             s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint16_t& value) {
                 s.object(key);
                 s.value2b(value);

@@ -171,6 +171,19 @@ namespace WorkerMiningOptimization
 
             Log::Get() << "Wrote " << label << " data to " << filename;
         }
+
+        // We don't want to store the position both as part of the data object and the map, so we only store it in the map and copy it after loading
+        template <typename T>
+        void setPositions(std::map<TilePosition, std::unordered_map<PositionAndVelocity, T>> &map)
+        {
+            for (auto &[_, patchData] : map)
+            {
+                for (auto &[pos, metadata] : patchData)
+                {
+                    metadata.pos = pos;
+                }
+            }
+        }
     }
 
     void overrideGameParameters(const std::string &mapHash,
@@ -192,14 +205,7 @@ namespace WorkerMiningOptimization
                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
     {
         readDataFile("gather positions", optimalGatherPositionsFilename(preferFull), OptimalGatherPositionsSerializer{}, data);
-
-        for (auto &[_, patchData] : data)
-        {
-            for (auto &[pos, metadata] : patchData)
-            {
-                metadata.pos = pos;
-            }
-        }
+        setPositions(data);
     }
 
     void read10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data)
@@ -211,6 +217,7 @@ namespace WorkerMiningOptimization
                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data)
     {
         readDataFile("return positions", optimalReturnPositionsFilename(preferFull), OptimalReturnPositionsSerializer{}, data);
+        setPositions(data);
     }
 
     void writeGatherPositionObservations(bool minimized,
