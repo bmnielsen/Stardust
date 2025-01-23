@@ -13,12 +13,7 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
-        std::string overriddenMapHash;
-        int overriddenLatencyFrames = -1;
-        int gatherExploreBefore = GATHER_EXPLORE_BEFORE;
-        int gatherExploreAfter = GATHER_EXPLORE_AFTER;
-        int returnExploreBefore = RETURN_EXPLORE_BEFORE;
-        int returnExploreAfter = RETURN_EXPLORE_AFTER;
+        GameParameters overriddenGameParameters;
 
         std::string filename(const std::string &label,
                              bool preferFull,
@@ -26,19 +21,18 @@ namespace WorkerMiningOptimization
                              bool postfixWithReturnParameters,
                              bool writing)
         {
-            auto mapHash = (overriddenMapHash.empty() ? BWAPI::Broodwar->mapHash() : overriddenMapHash);
-            auto latencyFrames = (overriddenLatencyFrames == -1 ? BWAPI::Broodwar->getLatencyFrames() : overriddenLatencyFrames);
+            auto gameParameters = getGameParameters();
 
             auto filename = std::ostringstream()
-                    << label << "_" << mapHash
-                    << "_lf" << latencyFrames;
+                    << label << "_" << gameParameters.mapHash
+                    << "_lf" << gameParameters.latencyFrames;
             if (postfixWithGatherParameters)
             {
-                filename << "_" << gatherExploreBefore << "_" << gatherExploreAfter;
+                filename << "_" << gameParameters.gatherExploreBefore << "_" << gameParameters.gatherExploreAfter;
             }
             if (postfixWithReturnParameters)
             {
-                filename << "_" << returnExploreBefore << "_" << returnExploreAfter;
+                filename << "_" << gameParameters.returnExploreBefore << "_" << gameParameters.returnExploreAfter;
             }
 
             if (writing)
@@ -186,19 +180,23 @@ namespace WorkerMiningOptimization
         }
     }
 
-    void overrideGameParameters(const std::string &mapHash,
-                                int latencyFrames,
-                                int overriddenGatherExploreBefore,
-                                int overriddenGatherExploreAfter,
-                                int overriddenReturnExploreBefore,
-                                int overriddenReturnExploreAfter)
+    void overrideGameParameters(GameParameters gameParameters)
     {
-        overriddenMapHash = mapHash;
-        overriddenLatencyFrames = latencyFrames;
-        gatherExploreBefore = overriddenGatherExploreBefore;
-        gatherExploreAfter = overriddenGatherExploreAfter;
-        returnExploreBefore = overriddenReturnExploreBefore;
-        returnExploreAfter = overriddenReturnExploreAfter;
+        overriddenGameParameters = std::move(gameParameters);
+    }
+
+    GameParameters getGameParameters()
+    {
+        if (!overriddenGameParameters.mapHash.empty()) return overriddenGameParameters;
+
+        return GameParameters {
+            BWAPI::Broodwar->mapHash(),
+            BWAPI::Broodwar->getLatencyFrames(),
+            GATHER_EXPLORE_BEFORE,
+            GATHER_EXPLORE_AFTER,
+            RETURN_EXPLORE_BEFORE,
+            RETURN_EXPLORE_AFTER
+        };
     }
 
     void readGatherPositionObservations(bool preferFull,

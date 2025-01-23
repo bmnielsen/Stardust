@@ -1,16 +1,15 @@
 #include "WorkerMiningOptimization.h"
-
+#include "ObservationDataFiles.h"
 #include "PathTraversalLoopGuard.h"
 
 #define PRUNE_THRESHOLD 5
-// TODO: Take as input
-#define EXPLORATION_HORIZON 12
 
 namespace WorkerMiningOptimization
 {
     namespace
     {
         std::unordered_map<PositionAndVelocity, size_t> posToPreviousNodesCount;
+        GameParameters gameParameters;
 
         template <typename T>
         unsigned long pruneThresholdForCountMap(const T &map)
@@ -90,7 +89,7 @@ namespace WorkerMiningOptimization
             bool shouldPruneForExplorationHorizon =
                     pruningPreviousNode && !hasMultiplePreviousNodes && (
                             positionDataIt->second.deltaToBenchmarkAndOccurrences.empty() ||
-                            positionDataIt->second.largestDeltaToBenchmark() < -EXPLORATION_HORIZON);
+                            positionDataIt->second.largestDeltaToBenchmark() < -gameParameters.gatherExploreBefore);
 
             auto pruneForExplorationHorizon = [&]()
             {
@@ -255,6 +254,8 @@ namespace WorkerMiningOptimization
 
     void reduceGatherData(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
     {
+        gameParameters = getGameParameters();
+
         // Start by building a mapping of nodes to previous nodes with counts (they have their next nodes saved already)
         // Then starting with all nodes that have no previous nodes, prune branches that are encountered less than 5% of the time
         // Then scan and do the same for second resend positions, updating resend changes path as appropriate

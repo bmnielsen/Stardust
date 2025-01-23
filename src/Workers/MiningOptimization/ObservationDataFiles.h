@@ -9,12 +9,18 @@
 
 namespace WorkerMiningOptimization
 {
-    void overrideGameParameters(const std::string &mapHash,
-                                int latencyFrames,
-                                int gatherExploreBefore,
-                                int gatherExploreAfter,
-                                int returnExploreBefore,
-                                int returnExploreAfter);
+    struct GameParameters
+    {
+        std::string mapHash;
+        int latencyFrames;
+        int gatherExploreBefore;
+        int gatherExploreAfter;
+        int returnExploreBefore;
+        int returnExploreAfter;
+    };
+
+    void overrideGameParameters(GameParameters gameParameters);
+    GameParameters getGameParameters();
 
     void readGatherPositionObservations(
             bool preferFull,
@@ -39,4 +45,5 @@ namespace WorkerMiningOptimization
             bool maxCompression = false);
 
     void reduceGatherData(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data);
+    void reduceReturnData(std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data);
 }
