@@ -42,9 +42,9 @@ namespace WorkerMiningOptimization
         workerGatherStatuses.clear();
         workerReturnStatuses.clear();
 
-        readGatherPositionObservations(exploring, resourceToOptimalGatherPositions);
-        read10DistanceObservations(resourceTo10DistancePositions);
-        readReturnPositionObservations(exploring, resourceToOptimalReturnPositions);
+        ObservationDataFiles::readGatherPositionObservations(exploring, resourceToOptimalGatherPositions);
+        ObservationDataFiles::read10DistanceObservations(resourceTo10DistancePositions);
+        ObservationDataFiles::readReturnPositionObservations(exploring, resourceToOptimalReturnPositions);
     }
 
     void flushObservations()
@@ -58,9 +58,9 @@ namespace WorkerMiningOptimization
 #if WRITE_DATA_FILES
         if (exploring)
         {
-            writeGatherPositionObservations(false, resourceToOptimalGatherPositions);
-            write10DistanceObservations(resourceTo10DistancePositions);
-            writeReturnPositionObservations(false, resourceToOptimalReturnPositions);
+            ObservationDataFiles::writeGatherPositionObservations(false, resourceToOptimalGatherPositions);
+            ObservationDataFiles::write10DistanceObservations(resourceTo10DistancePositions);
+            ObservationDataFiles::writeReturnPositionObservations(false, resourceToOptimalReturnPositions);
         }
 #endif
 

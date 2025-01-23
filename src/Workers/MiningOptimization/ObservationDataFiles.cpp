@@ -9,7 +9,7 @@
 #include "WorkerMiningOptimization.h"
 #include "FileTools.h"
 
-namespace WorkerMiningOptimization
+namespace WorkerMiningOptimization::ObservationDataFiles
 {
     namespace
     {

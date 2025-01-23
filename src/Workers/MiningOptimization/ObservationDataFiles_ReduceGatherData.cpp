@@ -1,10 +1,9 @@
-#include "WorkerMiningOptimization.h"
 #include "ObservationDataFiles.h"
 #include "PathTraversalLoopGuard.h"
 
 #define PRUNE_THRESHOLD 5
 
-namespace WorkerMiningOptimization
+namespace WorkerMiningOptimization::ObservationDataFiles
 {
     namespace
     {

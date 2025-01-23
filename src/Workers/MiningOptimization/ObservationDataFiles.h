@@ -7,7 +7,7 @@
 #include "GatherPositionObservations.h"
 #include "ReturnPositionObservations.h"
 
-namespace WorkerMiningOptimization
+namespace WorkerMiningOptimization::ObservationDataFiles
 {
     struct GameParameters
     {
