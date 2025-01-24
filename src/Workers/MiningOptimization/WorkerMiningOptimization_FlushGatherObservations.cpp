@@ -407,7 +407,7 @@ namespace WorkerMiningOptimization
                     if (secondResendData)
                     {
                         CherryVis::log(worker->id) << "Added provisional observation of " << resentPositionDataIt->second
-                                                   << " : " << secondResendData->pos;
+                                                   << " : " << *positionsInHistory.resendsBeforeArrival[1];
                     }
                     else
                     {
@@ -496,7 +496,7 @@ namespace WorkerMiningOptimization
             if (secondResendData)
             {
                 CherryVis::log(worker->id) << "Added observation of " << resentPositionData
-                                           << " : " << secondResendData->pos;
+                                           << " : " << *positionsInHistory.resendsBeforeArrival[1];
             }
             else
             {
