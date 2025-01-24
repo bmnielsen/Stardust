@@ -44,7 +44,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         // A path, or branch of a path, is pruned if it does not occur often compared to other paths
         // We also remove nodes that come before our exploration horizon
         void prune(const PositionAndVelocity &pos, // NOLINT(*-no-recursion)
-                   std::unordered_map<PositionAndVelocity, GatherPositionObservations> &positionObservations,
+                   std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &positionObservations,
                    PathTraversalLoopGuard &loopGuard,
                    bool pruningThisBranch = false,
                    bool pruningPreviousNode = true)
@@ -87,12 +87,13 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             // Determine if this node should be pruned for being before the exploration horizon
             bool shouldPruneForExplorationHorizon =
                     pruningPreviousNode && !hasMultiplePreviousNodes && (
-                            positionDataIt->second.deltaToBenchmarkAndOccurrences.empty() ||
-                            positionDataIt->second.largestDeltaToBenchmark() < -gameParameters.gatherExploreBefore);
+                            positionDataIt->second.noResendArrivalObservations.empty() ||
+                            positionDataIt->second.noResendArrivalObservations.largestArrivalDelay() >
+                                (8 + gameParameters.latencyFrames + gameParameters.returnExploreBefore));
 
             auto pruneForExplorationHorizon = [&]()
             {
-                if (!shouldPruneForExplorationHorizon) return false;
+                if (!shouldPruneForExplorationHorizon) return;
 
                 for (const auto &[nextPos, _] : nextPositionData)
                 {
@@ -105,7 +106,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
                 positionObservations.erase(positionDataIt);
 
-                return true;
+                return;
             };
 
             if (nextPositionData.empty())
@@ -125,7 +126,6 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             auto threshold = pruneThresholdForCountMap(nextPositionData);
             if (threshold == 0) return;
 
-            bool prunedABranch = false;
             for (auto nextPosIt = nextPositionData.begin(); nextPosIt != nextPositionData.end(); )
             {
                 if (nextPosIt->second < threshold)
@@ -133,7 +133,6 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                     prune(nextPosIt->first, positionObservations, loopGuard, true, shouldPruneForExplorationHorizon);
                     loopGuard.pop(nextPosIt->first);
                     nextPosIt = nextPositionData.erase(nextPosIt);
-                    prunedABranch = true;
                 }
                 else
                 {
@@ -143,115 +142,11 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                 }
             }
 
-            if (pruneForExplorationHorizon()) return;
-
-            // If we pruned a branch, we need to also clean up the second resend positions
-            if (prunedABranch)
-            {
-                auto &secondResends = positionDataIt->second.secondResendObservations;
-
-                // Start by building the counts of previous nodes
-                std::unordered_map<PositionAndVelocity, size_t> secondResendPosToPreviousNodesCount;
-                for (const auto &[secondResendPos, secondResendData] : secondResends)
-                {
-                    for (const auto &[nextPos, count] : secondResendData.nextPositionAndOccurrences)
-                    {
-                        auto it = secondResendPosToPreviousNodesCount.find(nextPos);
-                        if (it == secondResendPosToPreviousNodesCount.end())
-                        {
-                            secondResendPosToPreviousNodesCount.emplace(nextPos, 1);
-                        }
-                        else
-                        {
-                            it->second++;
-                        }
-                    }
-                }
-
-                std::function<void(const PositionAndVelocity &)> removeSecondResendPath;
-                removeSecondResendPath = [&](const PositionAndVelocity &pos)
-                {
-                    // Decrement instead of removing if there are multiple previous nodes
-                    auto secondResendPreviousNodesIt = secondResendPosToPreviousNodesCount.find(pos);
-                    if (secondResendPreviousNodesIt != secondResendPosToPreviousNodesCount.end() && secondResendPreviousNodesIt->second > 1)
-                    {
-                        secondResendPreviousNodesIt->second--;
-                        return;
-                    }
-
-                    auto dataIt = secondResends.find(pos);
-                    if (dataIt == secondResends.end()) return; // Shouldn't happen
-
-                    // Recurse to the next positions
-                    for (const auto &[nextPos, _] : dataIt->second.nextPositionAndOccurrences)
-                    {
-                        removeSecondResendPath(nextPos);
-                    }
-
-                    // Remove this one
-                    secondResends.erase(dataIt);
-                };
-
-                // Now prune any starting nodes that no longer exist on the main path
-                // We restart the loop after each prune since it modifies the map
-                bool pruning = true;
-                while (pruning)
-                {
-                    pruning = false;
-                    for (const auto &[secondResendPos, secondResendPosData] : secondResends)
-                    {
-                        if (secondResendPosData.deltaToFirstResend == 1 && !nextPositionData.contains(secondResendPos))
-                        {
-                            pruning = true;
-                            removeSecondResendPath(secondResendPos);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        bool checkResendChangesPath(GatherPositionObservations &metadata,
-                                    std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allMetadata)
-        {
-            // First map all of the second resend positions by their delta to the first resend
-            // Return if we detect any instability in the path
-            std::unordered_map<size_t, PositionAndVelocity> deltaToPos;
-            size_t maxDelta = 0;
-            for (const auto &[secondResendPos, secondResendData] : metadata.secondResendObservations)
-            {
-                if (secondResendData.nextPositionAndOccurrences.size() > 1) return false;
-
-                auto deltaHere = (size_t)secondResendData.deltaToFirstResend;
-                if (deltaToPos.contains(deltaHere)) return false;
-
-                maxDelta = std::max(maxDelta, deltaHere);
-                deltaToPos[deltaHere] = secondResendPos;
-            }
-            if (deltaToPos.size() != maxDelta) return false;
-
-            // Now compare the path to the normal non-resend path
-            auto noResendPath = metadata.followingPositionsIfStable(allMetadata);
-            if (noResendPath.empty()) return false;
-
-            bool pathsMatch = true;
-            for (size_t noResendPathIdx = 0; noResendPathIdx < std::min(maxDelta, noResendPath.size() - 1); noResendPathIdx++)
-            {
-                if (noResendPath[noResendPathIdx]->pos != deltaToPos[noResendPathIdx + 1])
-                {
-                    pathsMatch = false;
-                    break;
-                }
-            }
-            if (!pathsMatch) return false;
-
-            metadata.resendChangesPath = ResendChangesPath::No;
-            metadata.secondResendObservations.clear();
-            return true;
+            pruneForExplorationHorizon();
         }
     }
 
-    void reduceGatherData(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
+    void reduceReturnData(std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data)
     {
         gameParameters = getGameParameters();
 
@@ -264,19 +159,17 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
         size_t totalPositions = 0;
         size_t totalPruned = 0;
-        size_t totalResendChangesPath = 0;
-        size_t totalResendChangesPathReset = 0;
 
-        for (auto &[_, optimalGatherPositions] : data)
+        for (auto &[_, optimalReturnPositions] : data)
         {
-            auto initialCount = optimalGatherPositions.size();
+            auto initialCount = optimalReturnPositions.size();
             totalPositions += initialCount;
 
             // Build the count of previous nodes for each node
             posToPreviousNodesCount.clear();
-            for (const auto &[pos, gatherPositionObservations] : optimalGatherPositions)
+            for (const auto &[pos, returnPositionObservations] : optimalReturnPositions)
             {
-                for (const auto &[nextPos, count] : gatherPositionObservations.nextPositionAndOccurrences)
+                for (const auto &[nextPos, count] : returnPositionObservations.nextPositionAndOccurrences)
                 {
                     auto it = posToPreviousNodesCount.find(nextPos);
                     if (it == posToPreviousNodesCount.end())
@@ -294,7 +187,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             std::vector<std::pair<PositionAndVelocity, uint16_t>> rootNodes;
             unsigned long totalConnectionsFromRootNodes = 0;
 
-            for (const auto &[pos, metadata] : optimalGatherPositions)
+            for (const auto &[pos, metadata] : optimalReturnPositions)
             {
                 if (!posToPreviousNodesCount.contains(pos))
                 {
@@ -319,33 +212,17 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                 for (const auto &[pos, connections] : rootNodes)
                 {
                     PathTraversalLoopGuard loopGuard;
-                    prune(pos, optimalGatherPositions, loopGuard, connections < threshold);
+                    prune(pos, optimalReturnPositions, loopGuard, connections < threshold);
                 }
             }
 
-            totalPruned += (initialCount - optimalGatherPositions.size());
+            totalPruned += (initialCount - optimalReturnPositions.size());
 
-            // Now look at second resend data
-            for (auto &[_, metadata] : optimalGatherPositions)
+            // Now prune all low-occurrence values from various counter maps
+            for (auto &[_, metadata] : optimalReturnPositions)
             {
-                if (metadata.resendChangesPath != ResendChangesPath::Yes) continue;
-                totalResendChangesPath++;
-
-                if (checkResendChangesPath(metadata, optimalGatherPositions))
-                {
-                    totalResendChangesPathReset++;
-                }
-            }
-
-            // Finally prune all low-occurrence values from various counter maps
-            for (auto &[_, metadata] : optimalGatherPositions)
-            {
-                pruneLowOccurrencesFromCountMap(metadata.deltaToBenchmarkAndOccurrences);
-                pruneLowOccurrencesFromCountMap(metadata.noSecondResendArrivalObservations.arrivalDelayAndOccurrences);
-                for (auto &[_, secondPosMetadata] : metadata.secondResendObservations)
-                {
-                    pruneLowOccurrencesFromCountMap(secondPosMetadata.arrivalObservations.arrivalDelayAndOccurrences);
-                }
+                pruneLowOccurrencesFromCountMap(metadata.resendArrivalObservations.arrivalDelayAndOccurrences);
+                pruneLowOccurrencesFromCountMap(metadata.noResendArrivalObservations.arrivalDelayAndOccurrences);
             }
 
             processed++;
@@ -358,11 +235,5 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         Log::Get() << std::fixed << std::setprecision(2)
                    << "Pruned " << totalPruned << " of " << totalPositions << " total positions"
                    << " (" << ((double)totalPruned * 100.0/(double)totalPositions) << "%)";
-        if (totalResendChangesPath > 0)
-        {
-            Log::Get() << std::fixed << std::setprecision(2)
-                       << "Reset resend changes path on " << totalResendChangesPathReset << " of " << totalResendChangesPath << " positions"
-                       << " (" << ((double)totalResendChangesPathReset * 100.0/(double)totalResendChangesPath) << "%)";
-        }
     }
 }

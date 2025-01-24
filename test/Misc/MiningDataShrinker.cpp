@@ -9,7 +9,7 @@ TEST(MiningDataShrinker, VermeerGather)
     Log::SetOutputToConsole(true);
 
     WorkerMiningOptimization::ObservationDataFiles::overrideGameParameters(
-            WorkerMiningOptimization::ObservationDataFiles::GameParameters{"0a306408d42d64cdef654b36286903b411246714", 3, 12, 5, 0, 0}
+            WorkerMiningOptimization::ObservationDataFiles::GameParameters{"0a306408d42d64cdef654b36286903b411246714", 3, 12, 5, 15, 5}
     );
 
     std::map<TilePosition, std::unordered_map<PositionAndVelocity, WorkerMiningOptimization::GatherPositionObservations>>
@@ -20,4 +20,23 @@ TEST(MiningDataShrinker, VermeerGather)
     WorkerMiningOptimization::ObservationDataFiles::reduceGatherData(resourceToOptimalGatherPositions);
 
     WorkerMiningOptimization::ObservationDataFiles::writeGatherPositionObservations(true, resourceToOptimalGatherPositions, true);
+}
+
+TEST(MiningDataShrinker, VermeerReturn)
+{
+    Log::initialize();
+    Log::SetOutputToConsole(true);
+
+    WorkerMiningOptimization::ObservationDataFiles::overrideGameParameters(
+            WorkerMiningOptimization::ObservationDataFiles::GameParameters{"0a306408d42d64cdef654b36286903b411246714", 3, 12, 5, 15, 5}
+    );
+
+    std::map<TilePosition, std::unordered_map<PositionAndVelocity, WorkerMiningOptimization::ReturnPositionObservations>>
+        resourceToOptimalReturnPositions;
+
+    WorkerMiningOptimization::ObservationDataFiles::readReturnPositionObservations(true, resourceToOptimalReturnPositions);
+
+    WorkerMiningOptimization::ObservationDataFiles::reduceReturnData(resourceToOptimalReturnPositions);
+
+    WorkerMiningOptimization::ObservationDataFiles::writeReturnPositionObservations(true, resourceToOptimalReturnPositions, true);
 }
