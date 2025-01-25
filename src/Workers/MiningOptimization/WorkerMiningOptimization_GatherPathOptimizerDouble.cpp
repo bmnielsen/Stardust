@@ -133,15 +133,6 @@ namespace WorkerMiningOptimization
                                                    int simulationFrame,
                                                    const GatherResendArrivalObservations &observations)
         {
-            // If there is an order process timer reset before the takeover frame, we can't use this position
-            // Exception is if the order process timer reset happens on the frame the command kicks in
-            // TODO: It is presumably also ok if we reach the patch before the reset, but we would have to consider Unit_Busy timings
-            int nextResetFrame = OrderProcessTimer::nextResetFrame(simulationFrame);
-            if (nextResetFrame < workerStatus.takeoverFrame && nextResetFrame != (simulationFrame + BWAPI::Broodwar->getLatencyFrames()))
-            {
-                return std::nullopt;
-            }
-
             // Given an arrival delay, figures out how long after the takeover frame mining will start
             // Returns nullopt if this arrival delay is unusable
             auto arrivalDelayToMiningDelay = [&](int arrivalDelay)->std::optional<double>
@@ -333,6 +324,15 @@ namespace WorkerMiningOptimization
 
             // If the next positions' expected path has a position to try, return it
             if (nextPositionsEvaluation.positionToTryOnExpectedPath) return nextPositionsEvaluation;
+
+            // If there is an order process timer reset before the takeover frame, we can't use this position
+            // Exception is if the order process timer reset happens on the frame the command kicks in
+            // TODO: It is presumably also ok if we reach the patch before the reset, but we would have to consider Unit_Busy timings
+            int nextResetFrame = OrderProcessTimer::nextResetFrame(simulationFrame);
+            if (nextResetFrame < workerStatus.takeoverFrame && nextResetFrame != (simulationFrame + BWAPI::Broodwar->getLatencyFrames()))
+            {
+                return nextPositionsEvaluation;
+            }
 
             // Check if this position should be tried
             if (WorkerMiningOptimization::isExploring() &&
