@@ -202,7 +202,6 @@ namespace WorkerMiningOptimization
             // We return a patch switch to indicate that we don't want to resend commands close to the end
             if (nextPositions.empty())
             {
-                // TODO: Validate that this works both for explored and unexplored paths
                 return PositionEvaluation::patchSwitch(simulationFrame + 1);
             }
 
