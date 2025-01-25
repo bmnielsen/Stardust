@@ -9,6 +9,11 @@
 #include "WorkerMiningOptimization.h"
 #include "FileTools.h"
 
+// Provides the best speed for the use case where we are running explorations (continually saving and reloading)
+// Lower levels are not much faster to compress and slower to decompress (because of increased time to read the larger files)
+// Higher levels do not compress the files sufficiently better to make up for the increased compression time
+#define DEFAULT_COMPRESSION 4
+
 namespace WorkerMiningOptimization::ObservationDataFiles
 {
     namespace
@@ -151,7 +156,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         template <typename S, typename M>
         void writeDataFile(const std::string &label, const std::string &filename, S serializer, M &data, bool maxCompression)
         {
-            zstd::ofstream file(filename, std::ofstream::trunc, maxCompression ? ZSTD_maxCLevel() : 5);
+            zstd::ofstream file(filename, std::ofstream::trunc, maxCompression ? ZSTD_maxCLevel() : DEFAULT_COMPRESSION);
             if (file.fail())
             {
                 Log::Get() << "Could not open data file for " << label << " for writing";
