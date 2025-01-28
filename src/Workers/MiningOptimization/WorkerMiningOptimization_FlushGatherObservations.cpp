@@ -170,6 +170,7 @@ namespace WorkerMiningOptimization
                 noncollisions++;
             }
 #endif
+            if (!WorkerMiningOptimization::isExploring()) return;
 
             // If there have been more than two resends, we can't trust the data
             if (miningWorker.resentPositions.size() > 2) return;
@@ -751,6 +752,11 @@ namespace WorkerMiningOptimization
                 }
                 else
                 {
+                    miningWorkers.emplace_back(MiningWorker{
+                            std::move(it->second.worker),
+                            std::move(it->second.resource),
+                            std::move(it->second.positionHistory)});
+
                     it = workerGatherStatuses.erase(it);
                 }
                 continue;
