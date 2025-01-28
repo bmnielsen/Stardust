@@ -4,6 +4,7 @@
 #include "WorkerMiningOptimization.h"
 #include "PathTraversalLoopGuard.h"
 #include "DebugFlag_WorkerMiningOptimization.h"
+#include "Geo.h"
 
 #define EPSILON 0.001
 
@@ -98,15 +99,34 @@ namespace WorkerMiningOptimization
         PositionEvaluation evaluateSecondResendPositions(int commandFrame, // NOLINT(*-no-recursion)
                                                          const GatherPositionObservations &positionMetadata,
                                                          const PositionAndVelocity &here,
+                                                         uint16_t occurrencesHere,
                                                          uint8_t deltaToFirstResend,
                                                          const GatherResendArrivalObservations &observations,
                                                          const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions,
+                                                         const Resource &resource,
                                                          PathTraversalLoopGuard &loopGuard)
         {
             // Ensure we don't process a looping path or recurse too deep
             if (deltaToFirstResend > 0)
             {
                 if (loopGuard.push(here)) return {};
+            }
+
+            // Do not resend from positions that are at the patch, unless this is a stable path moving parallel with the patch
+            if (Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                        here.pos(),
+                                        BWAPI::UnitTypes::Resource_Mineral_Field,
+                                        resource->center) == 0)
+            {
+                // Check total next occurrences
+                uint16_t nextOccurrencesTotal = 0;
+                for (const auto &[nextPos, occurrences] : nextPositions)
+                {
+                    if (nextPos.pos() == here.pos()) return {};
+
+                    nextOccurrencesTotal += occurrences;
+                }
+                if ((nextOccurrencesTotal * 3) < (occurrencesHere * 2)) return {};
             }
 
             // Start by getting the data for doing a second resend at all of the next positions
@@ -131,9 +151,11 @@ namespace WorkerMiningOptimization
                     auto nextPositionEvaluation = evaluateSecondResendPositions(commandFrame + 1,
                                                                                 positionMetadata,
                                                                                 nextPosition,
+                                                                                occurrences,
                                                                                 nextPositionDataIt->second.deltaToFirstResend,
                                                                                 nextPositionDataIt->second.arrivalObservations,
                                                                                 nextPositionDataIt->second.nextPositionAndOccurrences,
+                                                                                resource,
                                                                                 loopGuard);
                     loopGuard.pop(nextPosition);
                     if (nextPositionEvaluation.explored)
@@ -189,7 +211,9 @@ namespace WorkerMiningOptimization
         PositionEvaluation evaluatePosition(int commandFrame, // NOLINT(*-no-recursion)
                                             const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
                                             const GatherPositionObservations &positionMetadata,
-                                            PathTraversalLoopGuard &loopGuard)
+                                            const Resource &resource,
+                                            PathTraversalLoopGuard &loopGuard,
+                                            uint16_t occurrencesHere = 0)
         {
             // Ensure we don't process a looping path or recurse too deep
             if (loopGuard.push(positionMetadata.pos)) return {};
@@ -218,7 +242,12 @@ namespace WorkerMiningOptimization
                         continue;
                     }
 
-                    auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second, loopGuard);
+                    auto nextPositionEvaluation = evaluatePosition(commandFrame + 1,
+                                                                   allPositionData,
+                                                                   nextPositionDataIt->second,
+                                                                   resource,
+                                                                   loopGuard,
+                                                                   occurrences);
                     loopGuard.pop(nextPosition);
                     if (nextPositionEvaluation.explored)
                     {
@@ -244,9 +273,11 @@ namespace WorkerMiningOptimization
             auto evaluationHere = evaluateSecondResendPositions(commandFrame,
                                                                 positionMetadata,
                                                                 positionMetadata.pos,
+                                                                occurrencesHere,
                                                                 0,
                                                                 positionMetadata.noSecondResendArrivalObservations,
                                                                 positionMetadata.nextPositionAndOccurrences,
+                                                                resource,
                                                                 loopGuard);
 
             // If one of the branches wants to explore, return it
@@ -332,7 +363,7 @@ namespace WorkerMiningOptimization
         };
 
         PathTraversalLoopGuard loopGuard;
-        auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata, loopGuard);
+        auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata, workerStatus.resource, loopGuard);
         if (shouldResend(evaluation))
         {
             workerStatus.plannedResendPosition = evaluation.resendPosition;
@@ -345,30 +376,56 @@ namespace WorkerMiningOptimization
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
 
 #if OPTIMALPOSITIONS_DEBUG
-            std::ostringstream out;
-            out << std::fixed << std::setprecision(1) << "Planned gather command(s): ";
-            if (workerStatus.plannedResendPosition)
             {
-                out << *workerStatus.plannedResendPosition;
-            }
-            else
-            {
-                out << "none";
-            }
-            if (workerStatus.plannedSecondResendPosition)
-            {
-                out << " : " << *workerStatus.plannedSecondResendPosition;
-            }
-            if (evaluation.positionToTryOnExpectedPath)
-            {
-                out << " (exploring)";
-            }
-            else
-            {
-                out << " expected delta " << evaluation.expectedDelta;
+                std::ostringstream out;
+                out << std::fixed << std::setprecision(1) << "Planned gather command(s): ";
+                if (workerStatus.plannedResendPosition)
+                {
+                    out << *workerStatus.plannedResendPosition;
+                }
+                else
+                {
+                    out << "none";
+                }
+                if (workerStatus.plannedSecondResendPosition)
+                {
+                    out << " : " << *workerStatus.plannedSecondResendPosition;
+                }
+                if (evaluation.positionToTryOnExpectedPath)
+                {
+                    out << " (exploring)";
+                }
+                else
+                {
+                    out << " expected delta " << evaluation.expectedDelta;
+                }
+
+                CherryVis::log(workerStatus.worker->id) << out.str();
             }
 
-            CherryVis::log(workerStatus.worker->id) << out.str();
+            {
+                std::ostringstream out;
+                out << "Expected path:";
+                int frame = currentFrame;
+                for (const auto &pos : workerStatus.expectedPath)
+                {
+                    if (frame == currentFrame)
+                    {
+                        frame++;
+                        continue;
+                    }
+
+                    auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                        pos.pos(),
+                                                        BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                        workerStatus.resource->center);
+                    out << "\n" << frame << ": " << pos << "; " << dist;
+
+                    frame++;
+                }
+
+                CherryVis::log(workerStatus.worker->id) << out.str();
+            }
 #endif
         }
     }
@@ -427,9 +484,11 @@ namespace WorkerMiningOptimization
         auto evaluation = evaluateSecondResendPositions(BWAPI::Broodwar->getFrameCount(),
                                                         resentPositionData,
                                                         *currentPosition,
+                                                        0,
                                                         secondGatherPositionIt->second.deltaToFirstResend,
                                                         secondGatherPositionIt->second.arrivalObservations,
                                                         secondGatherPositionIt->second.nextPositionAndOccurrences,
+                                                        workerStatus.resource,
                                                         loopGuard);
 
         // Use it if we want to explore

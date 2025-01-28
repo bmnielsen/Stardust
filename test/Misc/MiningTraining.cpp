@@ -62,6 +62,14 @@ namespace
                                      unsigned int iterations = 1,
                                      bool patchResults = false)
     {
+        std::cout << "Starting mining training with following parameters"
+            << ": workersPerPatch=" << workersPerPatch
+            << "; cannons=" << cannons
+            << "; onlyOneWorker=" << onlyOneWorker
+            << "; measureOnly=" << measureOnly
+            << "; iterations=" << iterations
+            << "; patchResults=" << patchResults
+            << std::endl;
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
         {

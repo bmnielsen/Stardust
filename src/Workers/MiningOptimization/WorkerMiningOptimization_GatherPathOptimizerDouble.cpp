@@ -187,6 +187,7 @@ namespace WorkerMiningOptimization
                                                          const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
                                                          const GatherPositionObservations &positionMetadata,
                                                          const PositionAndVelocity &here,
+                                                         uint16_t occurrencesHere,
                                                          uint8_t deltaToFirstResend,
                                                          const GatherResendArrivalObservations &observations,
                                                          const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions,
@@ -205,12 +206,30 @@ namespace WorkerMiningOptimization
                 return PositionEvaluation::patchSwitch(simulationFrame + 1);
             }
 
+            // Do not resend from positions that are at the patch, unless this is a stable path moving parallel with the patch
+            if (Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                        here.pos(),
+                                        BWAPI::UnitTypes::Resource_Mineral_Field,
+                                        workerStatus.resource->center) == 0)
+            {
+                // Check total next occurrences
+                uint16_t nextOccurrencesTotal = 0;
+                for (const auto &[nextPos, occurrences] : nextPositions)
+                {
+                    if (nextPos.pos() == here.pos()) return {};
+
+                    nextOccurrencesTotal += occurrences;
+                }
+                if ((nextOccurrencesTotal * 3) < (occurrencesHere * 2)) return {};
+            }
+
             // Compute the order process timer for the next frame
             int nextWorkerOrderProcessTimer = nextOrderProcessTimer(simulationFrame, workerOrderProcessTimer, firstResendFrame);
 
             // Get the data for doing a second resend at all of the next positions
             PositionEvaluation nextPositionsEvaluation;
-            auto evaluateNextPosition = [&](const PositionAndVelocity &nextPosition)->PositionEvaluation // NOLINT(*-no-recursion)
+            auto evaluateNextPosition = [&](const PositionAndVelocity &nextPosition, // NOLINT(*-no-recursion)
+                                            uint16_t occurrences)->PositionEvaluation
             {
                 if (isPatchSwitchPossible(workerStatus, simulationFrame, workerOrderProcessTimer, nextPosition))
                 {
@@ -236,6 +255,7 @@ namespace WorkerMiningOptimization
                                                                 allPositionData,
                                                                 positionMetadata,
                                                                 nextPosition,
+                                                                occurrences,
                                                                 nextPositionDataIt->second.deltaToFirstResend,
                                                                 nextPositionDataIt->second.arrivalObservations,
                                                                 nextPositionDataIt->second.nextPositionAndOccurrences,
@@ -260,6 +280,7 @@ namespace WorkerMiningOptimization
                                                             allPositionData,
                                                             positionMetadata,
                                                             nextPosition,
+                                                            occurrences,
                                                             deltaToFirstResend + 1,
                                                             nextPositionDataIt->second.noSecondResendArrivalObservations,
                                                             nextPositionDataIt->second.nextPositionAndOccurrences,
@@ -270,7 +291,8 @@ namespace WorkerMiningOptimization
 
             if (nextPositions.size() == 1)
             {
-                nextPositionsEvaluation = evaluateNextPosition(nextPositions.begin()->first);
+                auto nextIt = nextPositions.begin();
+                nextPositionsEvaluation = evaluateNextPosition(nextIt->first, nextIt->second);
             }
             else
             {
@@ -279,7 +301,7 @@ namespace WorkerMiningOptimization
                 uint16_t bestOccurrences = 0;
                 for (const auto &[nextPosition, occurrences] : nextPositions)
                 {
-                    auto nextPositionEvaluation = evaluateNextPosition(nextPosition);
+                    auto nextPositionEvaluation = evaluateNextPosition(nextPosition, occurrences);
                     if (nextPositionEvaluation.explored)
                     {
                         delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
@@ -375,7 +397,8 @@ namespace WorkerMiningOptimization
                                             int workerOrderProcessTimer,
                                             const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
                                             const GatherPositionObservations &positionMetadata,
-                                            PathTraversalLoopGuard &loopGuard)
+                                            PathTraversalLoopGuard &loopGuard,
+                                            uint16_t occurrencesHere = 0)
         {
             // Ensure we don't process a looping path or recurse too deep
             if (loopGuard.push(positionMetadata.pos)) return {};
@@ -386,7 +409,8 @@ namespace WorkerMiningOptimization
             // Get data for all of the next positions
             PositionEvaluation nextPositionsEvaluation;
 
-            auto evaluateNextPosition = [&](const PositionAndVelocity &nextPosition)->PositionEvaluation // NOLINT(*-no-recursion)
+            auto evaluateNextPosition = [&](const PositionAndVelocity &nextPosition, // NOLINT(*-no-recursion)
+                                            uint16_t occurrences)->PositionEvaluation
             {
                 if (isPatchSwitchPossible(workerStatus, simulationFrame, workerOrderProcessTimer, nextPosition))
                 {
@@ -407,14 +431,16 @@ namespace WorkerMiningOptimization
                                                nextWorkerOrderProcessTimer,
                                                allPositionData,
                                                nextPositionDataIt->second,
-                                               loopGuard);
+                                               loopGuard,
+                                               occurrences);
                 loopGuard.pop(nextPosition);
                 return result;
             };
 
             if (positionMetadata.nextPositionAndOccurrences.size() == 1)
             {
-                nextPositionsEvaluation = evaluateNextPosition(positionMetadata.nextPositionAndOccurrences.begin()->first);
+                auto nextIt = positionMetadata.nextPositionAndOccurrences.begin();
+                nextPositionsEvaluation = evaluateNextPosition(nextIt->first, nextIt->second);
             }
             else
             {
@@ -423,7 +449,7 @@ namespace WorkerMiningOptimization
                 uint16_t bestOccurrences = 0;
                 for (const auto &[nextPosition, occurrences] : positionMetadata.nextPositionAndOccurrences)
                 {
-                    auto nextPositionEvaluation = evaluateNextPosition(nextPosition);
+                    auto nextPositionEvaluation = evaluateNextPosition(nextPosition, occurrences);
                     if (nextPositionEvaluation.explored)
                     {
                         delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
@@ -461,6 +487,7 @@ namespace WorkerMiningOptimization
                                                                 allPositionData,
                                                                 positionMetadata,
                                                                 positionMetadata.pos,
+                                                                occurrencesHere,
                                                                 0,
                                                                 positionMetadata.noSecondResendArrivalObservations,
                                                                 positionMetadata.nextPositionAndOccurrences,
@@ -569,7 +596,6 @@ namespace WorkerMiningOptimization
                 CherryVis::log(workerStatus.worker->id) << out.str();
             }
 
-            // Validate path
             {
                 std::ostringstream out;
                 out << "Expected path:";
@@ -658,6 +684,7 @@ namespace WorkerMiningOptimization
                                                         optimalPositions,
                                                         resentPositionData,
                                                         *currentPosition,
+                                                        0,
                                                         secondGatherPositionIt->second.deltaToFirstResend,
                                                         secondGatherPositionIt->second.arrivalObservations,
                                                         secondGatherPositionIt->second.nextPositionAndOccurrences,
