@@ -503,7 +503,10 @@ namespace WorkerMiningOptimization
             }
 
             // Return the best branch
-            if (!nextPositionsEvaluation.explored || evaluationHere.expectedDelay < (nextPositionsEvaluation.expectedDelay - EPSILON))
+            if (!nextPositionsEvaluation.explored
+                || evaluationHere.expectedDelay < (nextPositionsEvaluation.expectedDelay - EPSILON)
+                || (evaluationHere.expectedDelay < (nextPositionsEvaluation.expectedDelay + EPSILON)
+                    && evaluationHere.expectedCollisionRate < (nextPositionsEvaluation.expectedCollisionRate - EPSILON)))
             {
                 return evaluationHere;
             }
