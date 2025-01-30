@@ -439,7 +439,7 @@ namespace WorkerMiningOptimization
             }
 #endif
 
-            if (!WorkerMiningOptimization::isExploring())
+            if (!WorkerMiningOptimization::isExploring() || !it->second.resource)
             {
                 it = workerReturnStatuses.erase(it);
                 continue;

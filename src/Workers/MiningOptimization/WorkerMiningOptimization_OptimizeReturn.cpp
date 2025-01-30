@@ -267,6 +267,8 @@ namespace WorkerMiningOptimization
 
     void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
+        if (!resource) return;
+
         auto &workerStatus = returnStatusFor(worker, depot, resource);
 
         // Track the worker's visited positions

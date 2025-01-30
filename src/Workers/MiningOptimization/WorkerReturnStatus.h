@@ -15,6 +15,7 @@ namespace WorkerMiningOptimization
         MyUnit depot;
 
         // The resource being gathered from
+        // May be null if the worker returns resources later after being reassigned
         Resource resource;
 
         // The last frame this worker was optimized

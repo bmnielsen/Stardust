@@ -3,9 +3,11 @@
 #include "BuildingPlacement.h"
 #include "Strategist.h"
 #include "StrategyEngines/PvZ.h"
+#include "MiningOptimization/WorkerMiningOptimization.h"
 
 TEST(Steamhammer, RunThirty)
 {
+//    WorkerMiningOptimization::setExploring(true);
     int count = 0;
     int lost = 0;
     while (count < 30)
@@ -14,7 +16,7 @@ TEST(Steamhammer, RunThirty)
         test.opponentName = "Steamhammer";
         test.opponentRace = BWAPI::Races::Random;
 //        test.maps = Maps::Get("cog2022");
-        test.map = Maps::GetOne("Fighting");
+        test.map = Maps::GetOne("Vermeer");
         test.randomSeed = 73549;
         test.opponentModule = []()
         {
@@ -77,7 +79,7 @@ TEST(Steamhammer, RunOne)
     test.opponentRace = BWAPI::Races::Zerg;
 //    test.map = Maps::GetOne("Destination");
 //    test.randomSeed = 53123;
-    test.maps = Maps::Get("sscait");
+    test.maps = Maps::Get("Vermeer");
     test.opponentModule = []()
     {
         auto module = new UAlbertaBot::UAlbertaBotModule();
