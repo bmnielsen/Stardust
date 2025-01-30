@@ -155,8 +155,9 @@ namespace WorkerMiningOptimization
 
         void handlePossiblePatchCollision(const MiningWorker &miningWorker)
         {
-            // There is a collision if the worker isn't moving
-            bool collision = (currentFrame - miningWorker.worker->frameLastMoved) > 2;
+            // There is a collision if the worker is at the patch and isn't moving
+            bool collision = (miningWorker.resource->getDistance(miningWorker.worker) == 0
+                    && (currentFrame - miningWorker.worker->frameLastMoved) > 2);
             WorkerMiningInstrumentation::trackCollisionObservation(miningWorker.resource, collision);
 
 #if OPTIMALPOSITIONS_DEBUG
@@ -679,9 +680,8 @@ namespace WorkerMiningOptimization
                 continue;
             }
 
-            // Skip the worker if it has been ordered to do something else in the meantime or isn't moving to return
-            if (worker->bwapiUnit->getLastCommandFrame() >= (BWAPI::Broodwar->getFrameCount() - 8 - BWAPI::Broodwar->getLatencyFrames()) ||
-                worker->bwapiUnit->getOrder() != BWAPI::Orders::ReturnMinerals)
+            // Skip the worker if it has been ordered to do something else in the meantime
+            if (worker->bwapiUnit->getOrder() != BWAPI::Orders::ReturnMinerals)
             {
 #if OPTIMALPOSITIONS_DEBUG
                 CherryVis::log(worker->id) << "Not tracking collision and speed observation, as the worker has apparently been re-ordered";

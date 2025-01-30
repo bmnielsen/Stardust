@@ -98,6 +98,7 @@ namespace WorkerMiningOptimization
         struct JustReturnedWorker
         {
             MyWorker worker;
+            MyUnit depot;
             Resource resource;
             bool deliveredOnArrivalFrame;
             std::vector<std::shared_ptr<const PositionAndVelocity>> positionHistory;
@@ -121,8 +122,8 @@ namespace WorkerMiningOptimization
 
             ReturnSpeedOccurrences::ReturnSpeedObservation observation;
 
-            // There is a collision if the worker isn't moving
-            bool collision = (currentFrame - worker->frameLastMoved) > 2;
+            // There is a collision if the worker is at the depot and isn't moving
+            bool collision = (justReturnedWorker.depot->getDistance(worker) == 0 && (currentFrame - worker->frameLastMoved) > 2);
             if (collision)
             {
                 observation = ReturnSpeedOccurrences::ReturnSpeedObservation::Collision;
@@ -388,11 +389,7 @@ namespace WorkerMiningOptimization
             if (framesSinceDelivery < 8)
             {
                 // If the worker has been reassigned to something else before our observation frame, abandon tracking it
-                if (framesSinceDelivery < (8 - BWAPI::Broodwar->getLatencyFrames()) && (
-                        worker->bwapiUnit->getLastCommandFrame()
-                            >= (BWAPI::Broodwar->getFrameCount() - framesSinceDelivery - BWAPI::Broodwar->getLatencyFrames()) ||
-                        worker->bwapiUnit->getOrder() != BWAPI::Orders::MoveToMinerals
-                    ))
+                if (framesSinceDelivery < (8 - BWAPI::Broodwar->getLatencyFrames()) && worker->bwapiUnit->getOrder() != BWAPI::Orders::MoveToMinerals)
                 {
 #if OPTIMALRETURN_DEBUG
                     CherryVis::log(worker->id) << "Not tracking collision and speed observation, as the worker has apparently been reassigned";
@@ -468,6 +465,7 @@ namespace WorkerMiningOptimization
             // Move required fields into the MiningWorker struct that we use to track patch collisions
             justReturnedWorkers.emplace_back(JustReturnedWorker{
                     std::move(it->second.worker),
+                    std::move(it->second.depot),
                     std::move(it->second.resource),
                     positionsInHistory.arrivalPositionIt == (it->second.positionHistory.end() - 1),
                     std::move(it->second.positionHistory),
