@@ -53,6 +53,9 @@ namespace BuildingPlacement
 {
     namespace
     {
+        // Used in e.g. mining tests to force us to use start blocks for all starting locations
+        bool useStartBlocksForAllStartingLocations = false;
+
         std::vector<Neighbourhood> ALL_NEIGHBOURHOODS = {Neighbourhood::MainBase, Neighbourhood::AllMyBases, Neighbourhood::HiddenBase};
 
         // Stores a bitmask for each tile
@@ -310,7 +313,7 @@ namespace BuildingPlacement
             baseStaticDefenses.emplace(base, BaseStaticDefenseLocations{powerPylon, std::move(workerDefenseCannons), startBlockCannon});
         }
 
-        void findStartBlock()
+        void findStartBlock(BWAPI::TilePosition startLocation)
         {
             std::vector<std::shared_ptr<Block>> startBlocks = {
                     std::make_shared<StartNormalLeft>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
@@ -327,10 +330,10 @@ namespace BuildingPlacement
 
             for (const auto &blockType : startBlocks)
             {
-                auto block = blockType->tryCreate(BWAPI::Broodwar->self()->getStartLocation(), tileAvailability);
+                auto block = blockType->tryCreate(startLocation, tileAvailability);
                 if (block)
                 {
-                    startBlock = block;
+                    if (startLocation == BWAPI::Broodwar->self()->getStartLocation()) startBlock = block;
                     blocks.push_back(block);
 
                     // Check if this start block has a location for a defensive cannon
@@ -347,7 +350,7 @@ namespace BuildingPlacement
                 }
             }
 
-            Log::Get() << "WARNING: No start block available";
+            Log::Get() << "WARNING: No start block available for " << startLocation;
         }
 
         void findBaseStaticDefenses()
@@ -1114,7 +1117,17 @@ namespace BuildingPlacement
 
         initializeTileAvailability();
         updateNeighbourhoods();
-        findStartBlock();
+        if (useStartBlocksForAllStartingLocations)
+        {
+            for (const auto &startLocation : BWAPI::Broodwar->getStartLocations())
+            {
+                findStartBlock(startLocation);
+            }
+        }
+        else
+        {
+            findStartBlock(BWAPI::Broodwar->self()->getStartLocation());
+        }
         findBaseStaticDefenses();
         findBlocks();
         findMainChokeCannonPlacement();
@@ -1394,5 +1407,10 @@ namespace BuildingPlacement
     ForgeGatewayWall &getForgeGatewayWall()
     {
         return getOrCreateForgeGatewayWall();
+    }
+
+    void setUseStartBlocksForAllStartingLocations(bool value)
+    {
+        useStartBlocksForAllStartingLocations = value;
     }
 }

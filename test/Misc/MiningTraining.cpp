@@ -12,6 +12,7 @@
 #include "MiningOptimization/WorkerMiningOptimization.h"
 #include "Units.h"
 #include "Workers.h"
+#include "BuildingPlacement.h"
 
 #include <algorithm>
 #include <random>
@@ -62,6 +63,8 @@ namespace
                                      unsigned int iterations = 1,
                                      bool patchResults = false)
     {
+        BuildingPlacement::setUseStartBlocksForAllStartingLocations(true);
+
         std::cout << "Starting mining training with following parameters"
             << ": workersPerPatch=" << workersPerPatch
             << "; cannons=" << cannons

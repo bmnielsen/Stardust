@@ -106,4 +106,6 @@ namespace BuildingPlacement
     bool hasForgeGatewayWall();
 
     ForgeGatewayWall &getForgeGatewayWall();
+
+    void setUseStartBlocksForAllStartingLocations(bool value);
 }
