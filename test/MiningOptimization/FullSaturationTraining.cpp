@@ -17,6 +17,10 @@
 #include <algorithm>
 #include <random>
 
+// This file is used to perform training where we spawn a depot at each base, either one or two workers for each patch,
+// and between 0 and 2 defensive cannons, then let the workers gather.
+// Two main modes are supported: training, where the workers explore paths, and measure, where the workers use the best paths learned so far
+
 namespace
 {
     const std::string dataBasePath = "/Users/bmnielsen/BW/mining-timings/";
@@ -553,7 +557,7 @@ namespace
     }
 }
 
-TEST(MiningTraining, ChupungRyeong)
+TEST(FullSaturationTraining, ChupungRyeong)
 {
     BWTest test;
     test.map = Maps::GetOne("Chupung");
@@ -566,7 +570,7 @@ TEST(MiningTraining, ChupungRyeong)
         << "Double: " << dbl << std::endl;
 }
 
-TEST(MiningTraining, DebugMiningCommands)
+TEST(FullSaturationTraining, DebugMiningCommands)
 {
     BWTest test;
     test.map = Maps::GetOne("Chupung");
@@ -578,7 +582,7 @@ TEST(MiningTraining, DebugMiningCommands)
         << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, ChupungRyeongSingle)
+TEST(FullSaturationTraining, ChupungRyeongSingle)
 {
     BWTest test;
     test.map = Maps::GetOne("Chupung");
@@ -589,7 +593,7 @@ TEST(MiningTraining, ChupungRyeongSingle)
         << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, ChupungRyeongSingleTwoIterations)
+TEST(FullSaturationTraining, ChupungRyeongSingleTwoIterations)
 {
     BWTest test;
     test.map = Maps::GetOne("Chupung");
@@ -600,7 +604,7 @@ TEST(MiningTraining, ChupungRyeongSingleTwoIterations)
         << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, ChupungRyeongSingleCannons)
+TEST(FullSaturationTraining, ChupungRyeongSingleCannons)
 {
     BWTest test;
     test.map = Maps::GetOne("Chupung");
@@ -613,7 +617,7 @@ TEST(MiningTraining, ChupungRyeongSingleCannons)
         << "Two cannons: " << c2 << std::endl;
 }
 
-TEST(MiningTraining, ChupungRyeongSingle10)
+TEST(FullSaturationTraining, ChupungRyeongSingle10)
 {
     BWTest test;
     test.map = Maps::GetOne("Chupung");
@@ -627,7 +631,7 @@ TEST(MiningTraining, ChupungRyeongSingle10)
     }
 }
 
-TEST(MiningTraining, ChupungRyeongDouble)
+TEST(FullSaturationTraining, ChupungRyeongDouble)
 {
     BWTest test;
     test.map = Maps::GetOne("Chupung");
@@ -639,7 +643,7 @@ TEST(MiningTraining, ChupungRyeongDouble)
         << "Double: " << dbl << std::endl;
 }
 
-TEST(MiningTraining, EddySingle)
+TEST(FullSaturationTraining, EddySingle)
 {
     BWTest test;
     test.map = Maps::GetOne("Eddy");
@@ -650,7 +654,7 @@ TEST(MiningTraining, EddySingle)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, RoadkillSingle)
+TEST(FullSaturationTraining, RoadkillSingle)
 {
     BWTest test;
     test.map = Maps::GetOne("Roadkill");
@@ -661,7 +665,7 @@ TEST(MiningTraining, RoadkillSingle)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, NeoMoonGlaiveSingle)
+TEST(FullSaturationTraining, NeoMoonGlaiveSingle)
 {
     BWTest test;
     test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
@@ -672,7 +676,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingle)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, NeoMoonGlaiveSingleOneCannon)
+TEST(FullSaturationTraining, NeoMoonGlaiveSingleOneCannon)
 {
     BWTest test;
     test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
@@ -683,7 +687,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingleOneCannon)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, NeoMoonGlaiveTestSuite)
+TEST(FullSaturationTraining, NeoMoonGlaiveTestSuite)
 {
     BWTest test;
     test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
@@ -694,7 +698,7 @@ TEST(MiningTraining, NeoMoonGlaiveTestSuite)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, NeoMoonGlaiveTestSuiteContinuous)
+TEST(FullSaturationTraining, NeoMoonGlaiveTestSuiteContinuous)
 {
     while (true)
     {
@@ -708,7 +712,7 @@ TEST(MiningTraining, NeoMoonGlaiveTestSuiteContinuous)
     }
 }
 
-TEST(MiningTraining, NeoMoonGlaiveSingleMeasure)
+TEST(FullSaturationTraining, NeoMoonGlaiveSingleMeasure)
 {
     BWTest test;
     test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
@@ -719,7 +723,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingleMeasure)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, PowerBondSingleTwoCannonsMeasure)
+TEST(FullSaturationTraining, PowerBondSingleTwoCannonsMeasure)
 {
     BWTest test;
     test.map = Maps::GetOne("PowerBond");
@@ -730,7 +734,7 @@ TEST(MiningTraining, PowerBondSingleTwoCannonsMeasure)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, NeoMoonGlaiveSingleMeasureShort)
+TEST(FullSaturationTraining, NeoMoonGlaiveSingleMeasureShort)
 {
     BWTest test;
     test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
@@ -742,7 +746,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingleMeasureShort)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, NeoMoonGlaiveSingleContinuous)
+TEST(FullSaturationTraining, NeoMoonGlaiveSingleContinuous)
 {
     while (true)
     {
@@ -756,7 +760,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingleContinuous)
     }
 }
 
-TEST(MiningTraining, NeoMoonGlaiveSingleOneWorker)
+TEST(FullSaturationTraining, NeoMoonGlaiveSingleOneWorker)
 {
     BWTest test;
     test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
@@ -768,7 +772,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingleOneWorker)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, NeoMoonGlaiveSingleOneWorkerMeasure)
+TEST(FullSaturationTraining, NeoMoonGlaiveSingleOneWorkerMeasure)
 {
     BWTest test;
     test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
@@ -780,7 +784,7 @@ TEST(MiningTraining, NeoMoonGlaiveSingleOneWorkerMeasure)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, NeoMoonGlaiveDouble)
+TEST(FullSaturationTraining, NeoMoonGlaiveDouble)
 {
     BWTest test;
     test.map = Maps::GetOne("NeoMoonGlaive_2.1_KeSPA");
@@ -792,7 +796,7 @@ TEST(MiningTraining, NeoMoonGlaiveDouble)
         << "Double: " << dbl << std::endl;
 }
 
-TEST(MiningTraining, NeoMoonGlaiveDoubleContinuous)
+TEST(FullSaturationTraining, NeoMoonGlaiveDoubleContinuous)
 {
     while (true)
     {
@@ -807,7 +811,7 @@ TEST(MiningTraining, NeoMoonGlaiveDoubleContinuous)
     }
 }
 
-TEST(MiningTraining, VermeerTestSuite)
+TEST(FullSaturationTraining, VermeerTestSuite)
 {
     BWTest test;
     test.map = Maps::GetOne("VermeerSE_2.1");
@@ -818,7 +822,7 @@ TEST(MiningTraining, VermeerTestSuite)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, VermeerTestSuiteContinuous)
+TEST(FullSaturationTraining, VermeerTestSuiteContinuous)
 {
     while (true)
     {
@@ -832,7 +836,7 @@ TEST(MiningTraining, VermeerTestSuiteContinuous)
     }
 }
 
-TEST(MiningTraining, VermeerTestSuiteSingleAllCannonsContinuous)
+TEST(FullSaturationTraining, VermeerTestSuiteSingleAllCannonsContinuous)
 {
     while (true)
     {
@@ -849,7 +853,7 @@ TEST(MiningTraining, VermeerTestSuiteSingleAllCannonsContinuous)
     }
 }
 
-TEST(MiningTraining, VermeerTestSuiteDouble)
+TEST(FullSaturationTraining, VermeerTestSuiteDouble)
 {
     BWTest test;
     test.map = Maps::GetOne("VermeerSE_2.1");
@@ -860,7 +864,7 @@ TEST(MiningTraining, VermeerTestSuiteDouble)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, EclipseDouble)
+TEST(FullSaturationTraining, EclipseDouble)
 {
     BWTest test;
     test.map = Maps::GetOne("Eclipse");
@@ -871,7 +875,7 @@ TEST(MiningTraining, EclipseDouble)
               << "Double: " << dbl << std::endl;
 }
 
-TEST(MiningTraining, VermeerTestSuiteDoubleContinuous)
+TEST(FullSaturationTraining, VermeerTestSuiteDoubleContinuous)
 {
     while (true)
     {
@@ -885,7 +889,7 @@ TEST(MiningTraining, VermeerTestSuiteDoubleContinuous)
     }
 }
 
-TEST(MiningTraining, VermeerTestSuiteSingleAndDoubleContinuous)
+TEST(FullSaturationTraining, VermeerTestSuiteSingleAndDoubleContinuous)
 {
     while (true)
     {
@@ -901,7 +905,7 @@ TEST(MiningTraining, VermeerTestSuiteSingleAndDoubleContinuous)
     }
 }
 
-TEST(MiningTraining, VermeerTestSuiteSingleAndDouble)
+TEST(FullSaturationTraining, VermeerTestSuiteSingleAndDouble)
 {
     BWTest test;
     test.map = Maps::GetOne("VermeerSE_2.1");
@@ -914,7 +918,7 @@ TEST(MiningTraining, VermeerTestSuiteSingleAndDouble)
               << "Double: " << dbl << std::endl;
 }
 
-TEST(MiningTraining, VermeerSingleAndDoubleMeasure)
+TEST(FullSaturationTraining, VermeerSingleAndDoubleMeasure)
 {
     BWTest test;
     test.map = Maps::GetOne("VermeerSE_2.1");
@@ -927,7 +931,7 @@ TEST(MiningTraining, VermeerSingleAndDoubleMeasure)
               << "Double: " << dbl << std::endl;
 }
 
-TEST(MiningTraining, VermeerStabilityTest)
+TEST(FullSaturationTraining, VermeerStabilityTest)
 {
     BWTest test;
     test.map = Maps::GetOne("VermeerSE_2.1");
@@ -936,7 +940,7 @@ TEST(MiningTraining, VermeerStabilityTest)
     runEfficiencyTest(test, 1, 0, false, true, true);
 }
 
-TEST(MiningTraining, VermeerSingle)
+TEST(FullSaturationTraining, VermeerSingle)
 {
     BWTest test;
     test.map = Maps::GetOne("VermeerSE_2.1");
@@ -947,7 +951,7 @@ TEST(MiningTraining, VermeerSingle)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, VermeerDouble)
+TEST(FullSaturationTraining, VermeerDouble)
 {
     BWTest test;
     test.map = Maps::GetOne("VermeerSE_2.1");
@@ -958,7 +962,7 @@ TEST(MiningTraining, VermeerDouble)
               << "Double: " << dbl << std::endl;
 }
 
-TEST(MiningTraining, VermeerSingleMeasure)
+TEST(FullSaturationTraining, VermeerSingleMeasure)
 {
     BWTest test;
     test.map = Maps::GetOne("VermeerSE_2.1");
@@ -969,7 +973,7 @@ TEST(MiningTraining, VermeerSingleMeasure)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, VermeerDoubleMeasure)
+TEST(FullSaturationTraining, VermeerDoubleMeasure)
 {
     BWTest test;
     test.map = Maps::GetOne("VermeerSE_2.1");
@@ -980,7 +984,7 @@ TEST(MiningTraining, VermeerDoubleMeasure)
               << "Single: " << sgl << std::endl;
 }
 
-TEST(MiningTraining, VermeerContinuousWithResults)
+TEST(FullSaturationTraining, VermeerContinuousWithResults)
 {
     while (true)
     {
@@ -988,12 +992,12 @@ TEST(MiningTraining, VermeerContinuousWithResults)
     }
 }
 
-TEST(MiningTraining, AllAIIDEMeasure)
+TEST(FullSaturationTraining, AllAIIDEMeasure)
 {
     testRunWithResults("aiide2024", 0, true, true);
 }
 
-TEST(MiningTraining, AllAIIDEContinuous)
+TEST(FullSaturationTraining, AllAIIDEContinuous)
 {
     while (true)
     {
@@ -1001,7 +1005,7 @@ TEST(MiningTraining, AllAIIDEContinuous)
     }
 }
 
-TEST(MiningTraining, AllAIIDEContinuousNoCannons)
+TEST(FullSaturationTraining, AllAIIDEContinuousNoCannons)
 {
     while (true)
     {
@@ -1009,27 +1013,27 @@ TEST(MiningTraining, AllAIIDEContinuousNoCannons)
     }
 }
 
-TEST(MiningTraining, AllAIIDESingleOnlyNoCannons)
+TEST(FullSaturationTraining, AllAIIDESingleOnlyNoCannons)
 {
     testRunWithResults("aiide2024", 1, false);
 }
 
-TEST(MiningTraining, AllAIIDEDoubleOnlyNoCannons)
+TEST(FullSaturationTraining, AllAIIDEDoubleOnlyNoCannons)
 {
     testRunWithResults("aiide2024", 2, false);
 }
 
-TEST(MiningTraining, AllAIIDEMeasureSingleNoCannons)
+TEST(FullSaturationTraining, AllAIIDEMeasureSingleNoCannons)
 {
     testRunWithResults("aiide2024", 1, false, true);
 }
 
-TEST(MiningTraining, AllAIIDEMeasureDoubleNoCannons)
+TEST(FullSaturationTraining, AllAIIDEMeasureDoubleNoCannons)
 {
     testRunWithResults("aiide2024", 2, false, true);
 }
 
-TEST(MiningTraining, AllAIIDEMeasureSingleAllCannons)
+TEST(FullSaturationTraining, AllAIIDEMeasureSingleAllCannons)
 {
     testRunWithResults("aiide2024", 1, true, true);
 }
